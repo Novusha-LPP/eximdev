@@ -3,43 +3,84 @@ import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 
+// Helper to build search conditions
+const buildSearchQuery = (search) => {
+  return {
+    $or: [
+      { status: { $regex: search, $options: "i" } },
+      { be_no: { $regex: search, $options: "i" } },
+      { bill_date: { $regex: search, $options: "i" } },
+    ],
+  };
+};
+
 router.get("/api/get-jobs-overview/:year", async (req, res) => {
   try {
     const { year } = req.params;
+    const status = req.query.status;
+    const search = req.query.search;
 
-    // Optional: Validate the year format (e.g., four-digit year)
-    if (!/^\d{4}$/.test(year)) {
-      return res.status(400).json({ error: "Invalid year format" });
+    const statusLower = status ? status.toLowerCase() : null;
+
+    // Start building the match query
+    const matchQuery = { $and: [{ year: year }] };
+
+    // Conditions based on status
+    if (statusLower === "pending") {
+      matchQuery.$and.push(
+        { status: { $regex: "^pending$", $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        {
+          $or: [
+            { bill_date: { $in: [null, ""] } },
+            { status: { $regex: "^pending$", $options: "i" } },
+          ],
+        }
+      );
+    } else if (statusLower === "completed") {
+      matchQuery.$and.push(
+        { status: { $regex: "^completed$", $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        {
+          $or: [
+            { bill_date: { $nin: [null, ""] } },
+            { status: { $regex: "^completed$", $options: "i" } },
+          ],
+        }
+      );
+    } else if (statusLower === "cancelled") {
+      matchQuery.$and.push({
+        $or: [
+          { status: { $regex: "^cancelled$", $options: "i" } },
+          { be_no: { $regex: "^cancelled$", $options: "i" } },
+        ],
+      });
     }
 
-    // Convert year to number if necessary
-    // const numericYear = parseInt(year, 10);
+    // Add search conditions if provided
+    if (search) {
+      matchQuery.$and.push(buildSearchQuery(search));
+    }
 
-    // Use Mongoose aggregation to count jobs with different statuses
     const jobCounts = await JobModel.aggregate([
-      {
-        $match: { year: year }, // Or { year: numericYear } if year is a number
-      },
+      { $match: matchQuery },
       {
         $group: {
-          _id: null, // Group all documents together
+          _id: null,
           pendingJobs: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "Pending"] }, 1, 0],
-            },
-          },
-          completedJobs: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "Completed"] }, 1, 0],
-            },
-          },
-          cancelledJobs: {
             $sum: {
               $cond: [
                 {
-                  $or: [
-                    // { $eq: ["$status", "Cancelled"] },
-                    { $eq: ["$be_no", "CANCELLED"] },
+                  $and: [
+                    { $eq: [{ $toLower: "$status" }, "pending"] },
+                    { $ne: [{ $toLower: "$be_no" }, "cancelled"] },
+                    {
+                      $or: [
+                        { $eq: ["$bill_date", null] },
+                        { $eq: ["$bill_date", ""] },
+                        { $eq: [{ $toLower: "$status" }, "pending"] },
+                      ],
+                    },
                   ],
                 },
                 1,
@@ -47,7 +88,43 @@ router.get("/api/get-jobs-overview/:year", async (req, res) => {
               ],
             },
           },
-          totalJobs: { $sum: 1 }, // Count total jobs
+          completedJobs: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: [{ $toLower: "$status" }, "completed"] },
+                    { $ne: [{ $toLower: "$be_no" }, "cancelled"] },
+                    {
+                      $or: [
+                        // completed means either bill_date is not null/empty OR status is completed
+                        { $ne: ["$bill_date", null] },
+                        { $ne: ["$bill_date", ""] },
+                        { $eq: [{ $toLower: "$status" }, "completed"] },
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          cancelledJobs: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: [{ $toLower: "$status" }, "cancelled"] },
+                    { $eq: [{ $toLower: "$be_no" }, "cancelled"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalJobs: { $sum: 1 },
         },
       },
       {
@@ -61,7 +138,6 @@ router.get("/api/get-jobs-overview/:year", async (req, res) => {
       },
     ]);
 
-    // Extract the result from the aggregation and send it as JSON response
     const responseObj = jobCounts[0] || {
       pendingJobs: 0,
       completedJobs: 0,

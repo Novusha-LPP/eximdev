@@ -13,7 +13,7 @@ const Screen1 = () => {
     const fetchJobData = async () => {
       try {
         const response = await axios.get(
-          "http://43.205.59.159:9000/api/get-jobs-overview/24-25"
+          `${process.env.REACT_APP_API_STRING}/get-jobs-overview/24-25`
         );
         setJobData(response.data);
       } catch (err) {

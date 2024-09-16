@@ -1,0 +1,31 @@
+export const formMasterList = [
+  "Add a vendor",
+  "Add a vehicle",
+  "Tyre types",
+  "Tyre sizes",
+  "Tyre brands",
+  "Tyre models",
+  "Repair types",
+  "Ply ratings",
+  "Driver details",
+  "Type of vehicle",
+  "Container type",
+  "Location master",
+  "Organisation master",
+];
+
+export const viewMasterList = [
+  "Vendors",
+  "Vehicles",
+  "Tyre types",
+  "Tyre sizes",
+  "Tyre brands",
+  "Tyre models",
+  "Repair types",
+  "Ply ratings",
+  "Driver details",
+  "Type of vehicle",
+  "Container type",
+  "Locations",
+  "Organisations",
+];

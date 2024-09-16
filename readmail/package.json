@@ -1,0 +1,23 @@
+{
+  "name": "readmail",
+  "version": "1.0.0",
+  "main": "app.mjs",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@sentry/node": "^8.26.0",
+    "@sentry/profiling-node": "^8.26.0",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "imap-simple": "^5.1.0",
+    "winston": "^3.14.2",
+    "winston-mongodb": "^5.1.1",
+    "xlsx": "^0.18.5"
+  }
+}

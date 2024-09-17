@@ -20,6 +20,17 @@
   box-shadow: 0 0 20px 1px rgba(0, 0, 0, 0.3);
   margin-top: 10px;
 }
+.btn-danger {
+  background-color: #f70303 !important;
+  color: #fff !important;
+  padding: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 20px 1px rgba(255, 0, 0, 0.3);
+  margin-top: 10px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+}
 
 .link {
   color: blue;

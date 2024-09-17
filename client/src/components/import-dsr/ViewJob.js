@@ -22,6 +22,14 @@ import { TabValueContext } from "../../contexts/TabValueContext";
 import { handleNetWeightChange } from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
+import {
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
+} from "@mui/material";
 
 function JobDetails() {
   const params = useParams();
@@ -39,6 +47,11 @@ function JobDetails() {
   const gatePassCopyRef = useRef();
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
+
+  // delete modal
+  const [openDialog, setOpenDialog] = useState(false);
+  const [containerToDelete, setContainerToDelete] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const {
     data,
@@ -177,6 +190,18 @@ function JobDetails() {
         transporter: "",
       },
     ]);
+  };
+  const handleDeleteContainer = () => {
+    if (deleteConfirmText === "Delete") {
+      formik.setFieldValue(
+        "container_nos",
+        formik.values.container_nos.filter((_, i) => i !== containerToDelete)
+      );
+      setOpenDialog(false);
+      setDeleteConfirmText("");
+    } else {
+      alert("Please type 'Delete' to confirm.");
+    }
   };
 
   return (
@@ -1491,14 +1516,29 @@ function JobDetails() {
                       </div>
                     </Row>
                   </div>
-                  <hr />
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={handleAddContainer}
+
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
                   >
-                    Add Container
-                  </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={handleAddContainer}
+                    >
+                      Add Container
+                    </button>
+                    <button
+                      className="btn-danger"
+                      type="button"
+                      onClick={() => {
+                        setOpenDialog(true);
+                        setContainerToDelete(index);
+                      }}
+                    >
+                      Delete Container
+                    </button>
+                  </div>
+                  <hr />
                 </div>
               );
             })}
@@ -1518,6 +1558,7 @@ function JobDetails() {
         </form>
       )}
 
+      {/* Snackbar */}
       <Snackbar
         open={snackbar || fileSnackbar}
         message={
@@ -1525,6 +1566,34 @@ function JobDetails() {
         }
         sx={{ left: "auto !important", right: "24px !important" }}
       />
+      {/* Confirm Deletion */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>Confirm Deletion</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Please type <strong>Delete</strong> in the box below to confirm you
+            want to delete this container.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="delete-confirm"
+            label="Type 'Delete' to confirm"
+            fullWidth
+            variant="outlined"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteContainer} color="error">
+            Confirm Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

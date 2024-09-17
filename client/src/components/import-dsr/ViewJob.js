@@ -1134,113 +1134,80 @@ function JobDetails() {
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Container Details" />
-            {formik.values.status !== "" &&
+            {/* {formik.values.status !== "" && 
               formik.values.container_nos?.map((container, index) => {
-                return (
-                  <div key={index}>
-                    <div
-                      style={{
-                        padding: "30px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <h6 style={{ marginBottom: 0 }}>
-                          <strong>
-                            {index + 1}. Container Number:&nbsp;
-                            <span ref={container_number_ref[index]}>
-                              <TextField
-                                size="small"
-                                value={container.container_number}
-                                key={index}
-                                variant="outlined"
-                                id={`container_number_${index}`}
-                                name={`container_nos[${index}].container_number`}
-                                onChange={formik.handleChange}
-                              />
-                            </span>
-                            <IconButton
-                              onClick={() =>
-                                handleCopyContainerNumber(
-                                  container.container_number,
-                                  setSnackbar
-                                )
-                              }
-                              aria-label="copy-btn"
-                            >
-                              <ContentCopyIcon />
-                            </IconButton>
-                          </strong>
-                        </h6>
-
-                        <strong style={{ marginLeft: "20px" }}>
-                          Size:&nbsp;
-                        </strong>
-                        <TextField
-                          select
-                          size="small"
-                          margin="normal"
-                          variant="outlined"
-                          id={`size_${index}`}
-                          name={`container_nos[${index}].size`}
-                          value={container.size}
-                          onChange={formik.handleChange}
-                        >
-                          <MenuItem value="20">20</MenuItem>
-                          <MenuItem value="40">40</MenuItem>
-                        </TextField>
-                      </div>
-                      <br />
-                      <Row>
-                        {!checked && (
-                          <Col xs={12} lg={3}>
-                            <div className="job-detail-input-container">
-                              <strong>Arrival Date:&nbsp;</strong>
-                              <TextField
-                                fullWidth
-                                key={index}
-                                size="small"
-                                margin="normal"
-                                variant="outlined"
-                                type="date"
-                                id={`arrival_date_${index}`}
-                                name={`container_nos[${index}].arrival_date`}
-                                value={container.arrival_date}
-                                onChange={formik.handleChange}
-                              />
-                            </div>
-                          </Col>
-                        )}
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <strong>Free Time:&nbsp;</strong>
+                return ( */}
+            {(formik.values.status !== "" &&
+            formik.values.container_nos?.length > 0
+              ? formik.values.container_nos
+              : [
+                  {
+                    container_number: "",
+                    size: "",
+                    arrival_date: "",
+                    do_revalidation: [],
+                  },
+                ]
+            )?.map((container, index) => {
+              return (
+                <div key={index}>
+                  <div
+                    style={{
+                      padding: "30px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <h6 style={{ marginBottom: 0 }}>
+                        <strong>
+                          {index + 1}. Container Number:&nbsp;
+                          <span ref={container_number_ref[index]}>
                             <TextField
-                              fullWidth
-                              select
                               size="small"
-                              margin="normal"
+                              value={container.container_number}
+                              key={index}
                               variant="outlined"
-                              id="free_time"
-                              name="free_time"
-                              value={formik.values.free_time}
+                              id={`container_number_${index}`}
+                              name={`container_nos[${index}].container_number`}
                               onChange={formik.handleChange}
-                            >
-                              {options?.map((option, id) => (
-                                <MenuItem key={id} value={option}>
-                                  {option}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          </div>
-                        </Col>
+                            />
+                          </span>
+                          <IconButton
+                            onClick={() =>
+                              handleCopyContainerNumber(
+                                container.container_number,
+                                setSnackbar
+                              )
+                            }
+                            aria-label="copy-btn"
+                          >
+                            <ContentCopyIcon />
+                          </IconButton>
+                        </strong>
+                      </h6>
 
-                        <Col xs={12} lg={3} className="flex-div">
-                          <strong>Detention From:&nbsp;</strong>
-                          {detentionFrom[index]}
-                        </Col>
-
+                      <strong style={{ marginLeft: "20px" }}>
+                        Size:&nbsp;
+                      </strong>
+                      <TextField
+                        select
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        id={`size_${index}`}
+                        name={`container_nos[${index}].size`}
+                        value={container.size}
+                        onChange={formik.handleChange}
+                      >
+                        <MenuItem value="20">20</MenuItem>
+                        <MenuItem value="40">40</MenuItem>
+                      </TextField>
+                    </div>
+                    <br />
+                    <Row>
+                      {!checked && (
                         <Col xs={12} lg={3}>
                           <div className="job-detail-input-container">
-                            <strong>DO Validity Upto:&nbsp;</strong>
+                            <strong>Arrival Date:&nbsp;</strong>
                             <TextField
                               fullWidth
                               key={index}
@@ -1248,247 +1215,293 @@ function JobDetails() {
                               margin="normal"
                               variant="outlined"
                               type="date"
-                              id={`do_validity_upto_container_level_${index}`}
-                              name={`container_nos[${index}].do_validity_upto_container_level`}
-                              value={container.do_validity_upto_container_level}
+                              id={`arrival_date_${index}`}
+                              name={`container_nos[${index}].arrival_date`}
+                              value={container.arrival_date}
                               onChange={formik.handleChange}
                             />
                           </div>
                         </Col>
-                      </Row>
+                      )}
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Free Time:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            select
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id="free_time"
+                            name="free_time"
+                            value={formik.values.free_time}
+                            onChange={formik.handleChange}
+                          >
+                            {options?.map((option, id) => (
+                              <MenuItem key={id} value={option}>
+                                {option}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </div>
+                      </Col>
 
-                      {container.do_revalidation?.map((item, id) => {
-                        return (
-                          <Row key={id}>
-                            <Col xs={12} lg={3}>
-                              <div className="job-detail-input-container">
-                                <strong>DO Revalidation Upto:&nbsp;</strong>
-                                <TextField
-                                  fullWidth
-                                  size="small"
-                                  margin="normal"
-                                  variant="outlined"
-                                  type="date"
-                                  id={`do_revalidation_date_${index}_${id}`}
-                                  name={`container_nos[${index}].do_revalidation[${id}].do_revalidation_upto`}
-                                  value={item.do_revalidation_upto}
-                                  onChange={formik.handleChange}
-                                />
-                              </div>
-                            </Col>
-                            <Col xs={12} lg={9}>
-                              <div className="job-detail-input-container">
-                                <strong>Remarks:&nbsp;</strong>
-                                <TextField
-                                  fullWidth
-                                  size="small"
-                                  margin="normal"
-                                  variant="outlined"
-                                  id={`remarks_${index}_${id}`}
-                                  name={`container_nos[${index}].do_revalidation[${id}].remarks`}
-                                  value={item.remarks}
-                                  onChange={formik.handleChange}
-                                />
-                              </div>
-                            </Col>
-                          </Row>
+                      <Col xs={12} lg={3} className="flex-div">
+                        <strong>Detention From:&nbsp;</strong>
+                        {detentionFrom[index]}
+                      </Col>
+
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>DO Validity Upto:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="date"
+                            id={`do_validity_upto_container_level_${index}`}
+                            name={`container_nos[${index}].do_validity_upto_container_level`}
+                            value={container.do_validity_upto_container_level}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
+                    </Row>
+
+                    {container.do_revalidation?.map((item, id) => {
+                      return (
+                        <Row key={id}>
+                          <Col xs={12} lg={3}>
+                            <div className="job-detail-input-container">
+                              <strong>DO Revalidation Upto:&nbsp;</strong>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                margin="normal"
+                                variant="outlined"
+                                type="date"
+                                id={`do_revalidation_date_${index}_${id}`}
+                                name={`container_nos[${index}].do_revalidation[${id}].do_revalidation_upto`}
+                                value={item.do_revalidation_upto}
+                                onChange={formik.handleChange}
+                              />
+                            </div>
+                          </Col>
+                          <Col xs={12} lg={9}>
+                            <div className="job-detail-input-container">
+                              <strong>Remarks:&nbsp;</strong>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                margin="normal"
+                                variant="outlined"
+                                id={`remarks_${index}_${id}`}
+                                name={`container_nos[${index}].do_revalidation[${id}].remarks`}
+                                value={item.remarks}
+                                onChange={formik.handleChange}
+                              />
+                            </div>
+                          </Col>
+                        </Row>
+                      );
+                    })}
+
+                    {/* Add DO Revalidation Button */}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        const newRevalidation = {
+                          do_revalidation_upto: "",
+                          remarks: "",
+                        };
+                        formik.setFieldValue(
+                          `container_nos[${index}].do_revalidation`,
+                          [...container.do_revalidation, newRevalidation]
                         );
-                      })}
+                      }}
+                    >
+                      Add DO Revalidation
+                    </button>
 
-                      {/* Add DO Revalidation Button */}
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() => {
-                          const newRevalidation = {
-                            do_revalidation_upto: "",
-                            remarks: "",
-                          };
-                          formik.setFieldValue(
-                            `container_nos[${index}].do_revalidation`,
-                            [...container.do_revalidation, newRevalidation]
-                          );
-                        }}
-                      >
-                        Add DO Revalidation
-                      </button>
+                    <Row className="job-detail-row">
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Physical Weight:&nbsp;</strong>
+                          {container.physical_weight}
+                        </div>
+                      </Col>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Tare Weight:&nbsp;</strong>
+                          {container.tare_weight}
+                        </div>
+                      </Col>
 
-                      <Row className="job-detail-row">
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <strong>Physical Weight:&nbsp;</strong>
-                            {container.physical_weight}
-                          </div>
-                        </Col>
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <strong>Tare Weight:&nbsp;</strong>
-                            {container.tare_weight}
-                          </div>
-                        </Col>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Weight as per Document:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id={`net_weight_${index}`}
+                            name={`container_nos[${index}].net_weight`}
+                            value={container.net_weight}
+                            onChange={(e) =>
+                              handleNetWeightChange(e, index, formik)
+                            }
+                          />
+                        </div>
+                      </Col>
 
-                        <Col xs={12} lg={3}>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Actual Weight:&nbsp;</strong>
+                          {container.actual_weight}
+                        </div>
+                      </Col>
+                    </Row>
+
+                    <Row>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Weight Excess/Shortage:&nbsp;</strong>
+                          {container.weight_shortage}
+                        </div>
+                      </Col>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <FormGroup>
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={container.transporter === "SRCC"}
+                                  disabled={!formik.values.out_of_charge}
+                                />
+                              }
+                              label="Transporter: SRCC"
+                              onChange={(e) =>
+                                handleTransporterChange(e, index)
+                              }
+                            />
+                          </FormGroup>
+                        </div>
+                      </Col>
+                      <Col>
+                        {container.transporter !== "SRCC" && (
                           <div className="job-detail-input-container">
-                            <strong>Weight as per Document:&nbsp;</strong>
+                            <strong>Transporter:&nbsp;</strong>
                             <TextField
                               fullWidth
                               key={index}
                               size="small"
                               margin="normal"
                               variant="outlined"
-                              id={`net_weight_${index}`}
-                              name={`container_nos[${index}].net_weight`}
-                              value={container.net_weight}
-                              onChange={(e) =>
-                                handleNetWeightChange(e, index, formik)
-                              }
+                              id={`transporter_${index}`}
+                              name={`container_nos[${index}].transporter`}
+                              value={container.transporter}
+                              onChange={formik.handleChange}
                             />
                           </div>
-                        </Col>
+                        )}
+                      </Col>
+                    </Row>
 
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <strong>Actual Weight:&nbsp;</strong>
-                            {container.actual_weight}
-                          </div>
-                        </Col>
-                      </Row>
+                    <Row>
+                      <Col>
+                        <br />
+                        <label
+                          htmlFor={`weighmentSlip${index}`}
+                          className="btn"
+                        >
+                          Upload Weighment Slip
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          id={`weighmentSlip${index}`}
+                          onChange={(e) => {
+                            handleWeighmentSlip(
+                              e,
+                              container.container_number,
+                              "weighment_slip_images"
+                            );
+                          }}
+                          className="input-hidden"
+                          ref={weighmentSlipRef}
+                        />
+                        <br />
+                        <br />
+                        {container.weighment_slip_images?.map((image, id) => {
+                          // eslint-disable-next-line
+                          return <a href={image.url} key={id} />;
+                        })}
+                      </Col>
+                    </Row>
+                    <Row>
+                      <div>
+                        <strong>Weighment Slip Images:&nbsp;</strong>
+                        {container.weighment_slip_images?.map((image, id) => {
+                          return (
+                            <a href={image.url} key={id}>
+                              {image.url}
+                            </a>
+                          );
+                        })}
+                      </div>
 
-                      <Row>
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <strong>Weight Excess/Shortage:&nbsp;</strong>
-                            {container.weight_shortage}
-                          </div>
-                        </Col>
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <FormGroup>
-                              <FormControlLabel
-                                control={
-                                  <Checkbox
-                                    checked={container.transporter === "SRCC"}
-                                    disabled={!formik.values.out_of_charge}
-                                  />
-                                }
-                                label="Transporter: SRCC"
-                                onChange={(e) =>
-                                  handleTransporterChange(e, index)
-                                }
-                              />
-                            </FormGroup>
-                          </div>
-                        </Col>
-                        <Col>
-                          {container.transporter !== "SRCC" && (
-                            <div className="job-detail-input-container">
-                              <strong>Transporter:&nbsp;</strong>
-                              <TextField
-                                fullWidth
-                                key={index}
-                                size="small"
-                                margin="normal"
-                                variant="outlined"
-                                id={`transporter_${index}`}
-                                name={`container_nos[${index}].transporter`}
-                                value={container.transporter}
-                                onChange={formik.handleChange}
-                              />
-                            </div>
-                          )}
-                        </Col>
-                      </Row>
-
-                      <Row>
-                        <Col>
-                          <br />
-                          <label
-                            htmlFor={`weighmentSlip${index}`}
-                            className="btn"
-                          >
-                            Upload Weighment Slip
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`weighmentSlip${index}`}
-                            onChange={(e) => {
-                              handleWeighmentSlip(
-                                e,
-                                container.container_number,
-                                "weighment_slip_images"
-                              );
-                            }}
-                            className="input-hidden"
-                            ref={weighmentSlipRef}
-                          />
-                          <br />
-                          <br />
-                          {container.weighment_slip_images?.map((image, id) => {
-                            // eslint-disable-next-line
-                            return <a href={image.url} key={id} />;
-                          })}
-                        </Col>
-                      </Row>
-                      <Row>
-                        <div>
-                          <strong>Weighment Slip Images:&nbsp;</strong>
-                          {container.weighment_slip_images?.map((image, id) => {
+                      <div>
+                        <strong>Container Pre Damage Images:&nbsp;</strong>
+                        {container.container_pre_damage_images?.map(
+                          (image, id) => {
                             return (
                               <a href={image.url} key={id}>
                                 {image.url}
                               </a>
                             );
-                          })}
-                        </div>
+                          }
+                        )}
+                      </div>
 
-                        <div>
-                          <strong>Container Pre Damage Images:&nbsp;</strong>
-                          {container.container_pre_damage_images?.map(
-                            (image, id) => {
-                              return (
-                                <a href={image.url} key={id}>
-                                  {image.url}
-                                </a>
-                              );
-                            }
-                          )}
-                        </div>
+                      <div>
+                        <strong>Container Images:&nbsp;</strong>
+                        {container.container_images?.map((image, id) => {
+                          return (
+                            <a href={image.url} key={id}>
+                              {image.url}
+                            </a>
+                          );
+                        })}
+                      </div>
 
-                        <div>
-                          <strong>Container Images:&nbsp;</strong>
-                          {container.container_images?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                {image.url}
-                              </a>
-                            );
-                          })}
-                        </div>
-
-                        <div>
-                          <strong>Loose Material Images:&nbsp;</strong>
-                          {container.loose_material_photo?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                {image.url}
-                              </a>
-                            );
-                          })}
-                        </div>
-                      </Row>
-                    </div>
-                    <hr />
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={handleAddContainer}
-                    >
-                      Add Container
-                    </button>
+                      <div>
+                        <strong>Loose Material Images:&nbsp;</strong>
+                        {container.loose_material_photo?.map((image, id) => {
+                          return (
+                            <a href={image.url} key={id}>
+                              {image.url}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </Row>
                   </div>
-                );
-              })}
+                  <hr />
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={handleAddContainer}
+                  >
+                    Add Container
+                  </button>
+                </div>
+              );
+            })}
           </div>
           <Row>
             <Col>

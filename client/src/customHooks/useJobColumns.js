@@ -2,6 +2,8 @@ import React from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faShip, faTrainSubway } from "@fortawesome/free-solid-svg-icons";
 function useJobColumns() {
   const navigate = useNavigate();
   // const handleCopy = (event, text) => {
@@ -91,17 +93,63 @@ function useJobColumns() {
       },
       Cell: ({ cell }) => {
         return (
-          <React.Fragment>
-            {cell?.getValue()?.toString()}
+          // <React.Fragment>
+          //   {cell?.getValue()?.toString()}
+          //   <IconButton
+          //     size="small"
+          //     onClick={(event) => {
+          //       handleCopy(event, cell?.getValue()?.toString());
+          //     }}
+          //   >
+          //     <ContentCopyIcon fontSize="inherit" />
+          //   </IconButton>
+          //   <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+          //   <FontAwesomeIcon icon={faTrainSubway} size="1x" color="red" />{" "}
+          //   {/* Corrected the icon */}
+          //   <br />
+          // </React.Fragment>
 
-            <IconButton
-              size="small"
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
-            >
-              <ContentCopyIcon fontSize="inherit" />
-            </IconButton>
+          <React.Fragment>
+            {cell?.getValue() ? cell.getValue().toString() : ""}
+
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => {
+                  handleCopy(event, cell?.getValue()?.toString());
+                }}
+              >
+                <abbr title="Copy BL Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+
+              {/* Container for icons in a horizontal line */}
+
+              {/* Ship icon opens the Sea IGM entry URL */}
+              <abbr title="Sea IGM Entry">
+                <a
+                  href="https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+                </a>
+              </abbr>
+
+              {/* Train icon with abbreviation */}
+              <abbr title="BL Status ICES">
+                <a
+                  href="https://enquiry.icegate.gov.in/enquiryatices/blStatusIces"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FontAwesomeIcon icon={faTrainSubway} size="1x" color="red" />
+                </a>
+              </abbr>
+            </div>
+
             <br />
           </React.Fragment>
         );

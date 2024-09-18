@@ -183,7 +183,7 @@ function useJobColumns() {
               </abbr>
 
               {/* Train icon, dynamic BL number */}
-              <abbr title="BL Status ICES">
+              {/* <abbr title="BL Status ICES">
                 <a
                   href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
                   target="_blank"
@@ -191,7 +191,7 @@ function useJobColumns() {
                 >
                   <FontAwesomeIcon icon={faTrainSubway} size="1x" color="red" />
                 </a>
-              </abbr>
+              </abbr> */}
             </div>
 
             <br />

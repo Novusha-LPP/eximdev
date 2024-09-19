@@ -258,5 +258,41 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
     res.status(500).send("Server error");
   }
 });
+// PATCH route for updating only vessel_berthing and container arrival_date
+router.patch("/api/update-job/fields/:year/:jobNo", async (req, res) => {
+  const { year, jobNo } = req.params;
+  const { vessel_berthing, arrival_date, container_index } = req.body;
+
+  try {
+    // Find the matching job document
+    const matchingJob = await JobModel.findOne({ year, job_no: jobNo });
+
+    if (!matchingJob) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Update vessel_berthing if provided in the request body
+    if (vessel_berthing) {
+      matchingJob.vessel_berthing = vessel_berthing;
+    }
+
+    // Update container arrival_date if provided along with a valid container_index
+    if (arrival_date && typeof container_index === "number") {
+      if (matchingJob.container_nos[container_index]) {
+        matchingJob.container_nos[container_index].arrival_date = arrival_date;
+      } else {
+        return res.status(400).json({ error: "Invalid container index" });
+      }
+    }
+
+    // Save the updated document
+    await matchingJob.save();
+
+    res.status(200).json(matchingJob);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Server error");
+  }
+});
 
 export default router;

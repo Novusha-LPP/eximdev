@@ -1,11 +1,16 @@
-import React from "react";
-import { IconButton } from "@mui/material";
+import React, { useState } from "react";
+import { IconButton, TextField } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faTrainSubway } from "@fortawesome/free-solid-svg-icons";
+import axios from "axios";
+import EditIcon from "@mui/icons-material/Edit";
 function useJobColumns() {
   const navigate = useNavigate();
+  // State to track editable fields
+  const [editETA, setEditETA] = useState(null);
+  const [editArrivalDate, setEditArrivalDate] = useState(null);
   const handleCopy = (event, text) => {
     event.stopPropagation();
 
@@ -39,6 +44,38 @@ function useJobColumns() {
       document.body.removeChild(textArea);
     }
   };
+  // Handle API patch request
+  // Handle API patch request for updating fields
+  const handlePatchRequest = async (
+    jobId,
+    updatedData,
+    containerIndex = null
+  ) => {
+    try {
+      // Construct the PATCH request URL with year and job ID
+      // const url = `/api/update-job/fields/${updatedData.year}/${jobId}`;
+
+      // Build the patch data dynamically, only including the field to be updated
+      const patchData = {};
+      if (updatedData.vessel_berthing) {
+        patchData.vessel_berthing = updatedData.vessel_berthing;
+      }
+      if (updatedData.arrival_date && typeof containerIndex === "number") {
+        patchData.arrival_date = updatedData.arrival_date;
+        patchData.container_index = containerIndex; // Include container index for arrival_date updates
+      }
+
+      // Send the PATCH request to the backend API
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-job/fields/${updatedData.year}/${jobId}`,
+        patchData
+      );
+      console.log("Patch request successful", patchData);
+    } catch (error) {
+      console.error("Error with patch request", error);
+    }
+  };
+
   const columns = [
     {
       accessorKey: "job_no",
@@ -72,65 +109,7 @@ function useJobColumns() {
       header: "Custom House",
       size: 150,
     },
-    // {
-    //   accessorKey: "awb_bl_no",
-    //   header: "BL Number",
-    //   size: 200,
-    //   Cell: ({ cell }) => {
-    //     const blNumber = cell?.getValue()?.toString();
 
-    //     return (
-    //       <React.Fragment>
-    //         <a
-    //           href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
-    //           target="_blank"
-    //           rel="noopener noreferrer"
-    //         >
-    //           {" "}
-    //           {blNumber ? blNumber : ""}
-    //         </a>
-
-    //         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-    //           <IconButton
-    //             size="small"
-    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-    //             onClick={(event) => {
-    //               handleCopy(event, blNumber);
-    //             }}
-    //           >
-    //             <abbr title="Copy BL Number">
-    //               <ContentCopyIcon fontSize="inherit" />
-    //             </abbr>
-    //           </IconButton>
-
-    //           {/* Ship icon */}
-    //           <abbr title="Sea IGM Entry">
-    //             <a
-    //               href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry`}
-    //               target="_blank"
-    //               rel="noopener noreferrer"
-    //             >
-    //               <FontAwesomeIcon icon={faShip} size="1.5x" color="blue" />
-    //             </a>
-    //           </abbr>
-
-    //           {/* Train icon, dynamic BL number */}
-    //           {/* <abbr title="BL Status ICES">
-    //             <a
-    //               href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
-    //               target="_blank"
-    //               rel="noopener noreferrer"
-    //             >
-    //               <FontAwesomeIcon icon={faTrainSubway} size="1x" color="red" />
-    //             </a>
-    //           </abbr> */}
-    //         </div>
-
-    //         <br />
-    //       </React.Fragment>
-    //     );
-    //   },
-    // },
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
@@ -194,6 +173,84 @@ function useJobColumns() {
         );
       },
     },
+    {
+      accessorKey: "vessel_berthing",
+      header: "ETA",
+      size: 150,
+      Cell: ({ cell }) => {
+        const eta = cell.getValue();
+        const jobId = cell.row.original.job_no;
+        const year = cell.row.original.year; // Fetch the year from the original row data
+
+        return editETA === jobId ? (
+          <TextField
+            type="date"
+            defaultValue={eta}
+            onBlur={(e) => {
+              setEditETA(null);
+              handlePatchRequest(jobId, {
+                year,
+                vessel_berthing: e.target.value,
+              });
+            }}
+          />
+        ) : (
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {eta}
+            <IconButton
+              size="small"
+              onClick={() => setEditETA(jobId)}
+              style={{ marginLeft: "8px" }}
+            >
+              <EditIcon fontSize="inherit" />
+            </IconButton>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "arrival_date",
+      header: "Arrival Date",
+      size: 150,
+      Cell: ({ cell }) => {
+        const containers = cell.row.original.container_nos;
+        const jobId = cell.row.original.job_no;
+        const year = cell.row.original.year; // Fetch the year from the original row data
+
+        return containers?.map((container, index) => {
+          const arrivalDate = container.arrival_date;
+
+          return editArrivalDate === `${jobId}-${index}` ? (
+            <div key={index}>
+              <TextField
+                type="date"
+                defaultValue={arrivalDate}
+                onBlur={(e) => {
+                  setEditArrivalDate(null);
+                  handlePatchRequest(
+                    jobId,
+                    { year, arrival_date: e.target.value },
+                    index // Pass the container index to update the correct container
+                  );
+                }}
+              />
+            </div>
+          ) : (
+            <div key={index} style={{ display: "flex", alignItems: "center" }}>
+              {arrivalDate}
+              <IconButton
+                size="small"
+                onClick={() => setEditArrivalDate(`${jobId}-${index}`)}
+                style={{ marginLeft: "8px" }}
+              >
+                <EditIcon fontSize="inherit" />
+              </IconButton>
+            </div>
+          );
+        });
+      },
+    },
+
     {
       accessorKey: "be_no",
       header: "BE Number",
@@ -301,23 +358,7 @@ function useJobColumns() {
           ?.map((container) => container.container_number)
           .join(", "),
     },
-    {
-      accessorKey: "vessel_berthing",
-      header: "ETA",
-      size: 150,
-    },
-    {
-      accessorKey: "arrival_date",
-      header: "Arrival Date",
-      size: 150,
-      Cell: ({ cell }) =>
-        cell.row.original.container_nos?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.arrival_date}
-            <br />
-          </React.Fragment>
-        )),
-    },
+
     {
       accessorKey: "detention_from",
       header: "Detention From",

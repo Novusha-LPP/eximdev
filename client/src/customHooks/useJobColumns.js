@@ -5,12 +5,16 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faTrainSubway } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
-import EditIcon from "@mui/icons-material/Edit";
+
 function useJobColumns() {
   const navigate = useNavigate();
   // State to track editable fields
   const [editETA, setEditETA] = useState(null);
   const [editArrivalDate, setEditArrivalDate] = useState(null);
+  const [jobs, setJobs] = useState([]);
+
+  console.log(jobs, `jobs`);
+
   const handleCopy = (event, text) => {
     event.stopPropagation();
 
@@ -44,32 +48,45 @@ function useJobColumns() {
       document.body.removeChild(textArea);
     }
   };
-  // Handle API patch request
-  // Handle API patch request for updating fields
+  
   const handlePatchRequest = async (
     jobId,
     updatedData,
     containerIndex = null
   ) => {
     try {
-      // Construct the PATCH request URL with year and job ID
-      // const url = `/api/update-job/fields/${updatedData.year}/${jobId}`;
+      const url = `${process.env.REACT_APP_API_STRING}/update-job/fields/${updatedData.year}/${jobId}`;
 
-      // Build the patch data dynamically, only including the field to be updated
       const patchData = {};
       if (updatedData.vessel_berthing) {
         patchData.vessel_berthing = updatedData.vessel_berthing;
       }
       if (updatedData.arrival_date && typeof containerIndex === "number") {
         patchData.arrival_date = updatedData.arrival_date;
-        patchData.container_index = containerIndex; // Include container index for arrival_date updates
+        patchData.container_index = containerIndex;
       }
 
-      // Send the PATCH request to the backend API
-      await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-job/fields/${updatedData.year}/${jobId}`,
-        patchData
+      await axios.patch(url, patchData);
+
+      // Update the local state for the specific field only
+      setJobs((prevJobs) =>
+        prevJobs.map((job) => {
+          if (job.job_no === jobId) {
+            if (updatedData.vessel_berthing) {
+              job.vessel_berthing = updatedData.vessel_berthing;
+            }
+            if (
+              updatedData.arrival_date &&
+              typeof containerIndex === "number"
+            ) {
+              job.container_nos[containerIndex].arrival_date =
+                updatedData.arrival_date;
+            }
+          }
+          return { ...job }; // Ensure immutability
+        })
       );
+
       console.log("Patch request successful", patchData);
     } catch (error) {
       console.error("Error with patch request", error);
@@ -180,31 +197,20 @@ function useJobColumns() {
       Cell: ({ cell }) => {
         const eta = cell.getValue();
         const jobId = cell.row.original.job_no;
-        const year = cell.row.original.year; // Fetch the year from the original row data
+        const year = cell.row.original.year;
 
-        return editETA === jobId ? (
+        return (
           <TextField
             type="date"
             defaultValue={eta}
             onBlur={(e) => {
-              setEditETA(null);
+              setEditETA(null); // Close the edit state
               handlePatchRequest(jobId, {
                 year,
                 vessel_berthing: e.target.value,
               });
             }}
           />
-        ) : (
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {eta}
-            <IconButton
-              size="small"
-              onClick={() => setEditETA(jobId)}
-              style={{ marginLeft: "8px" }}
-            >
-              <EditIcon fontSize="inherit" />
-            </IconButton>
-          </div>
         );
       },
     },
@@ -215,42 +221,30 @@ function useJobColumns() {
       Cell: ({ cell }) => {
         const containers = cell.row.original.container_nos;
         const jobId = cell.row.original.job_no;
-        const year = cell.row.original.year; // Fetch the year from the original row data
+        const year = cell.row.original.year;
 
         return containers?.map((container, index) => {
           const arrivalDate = container.arrival_date;
 
-          return editArrivalDate === `${jobId}-${index}` ? (
+          return (
             <div key={index}>
               <TextField
                 type="date"
                 defaultValue={arrivalDate}
                 onBlur={(e) => {
-                  setEditArrivalDate(null);
+                  setEditArrivalDate(null); // Close the edit state
                   handlePatchRequest(
                     jobId,
                     { year, arrival_date: e.target.value },
-                    index // Pass the container index to update the correct container
+                    index // Pass the index of the container
                   );
                 }}
               />
-            </div>
-          ) : (
-            <div key={index} style={{ display: "flex", alignItems: "center" }}>
-              {arrivalDate}
-              <IconButton
-                size="small"
-                onClick={() => setEditArrivalDate(`${jobId}-${index}`)}
-                style={{ marginLeft: "8px" }}
-              >
-                <EditIcon fontSize="inherit" />
-              </IconButton>
             </div>
           );
         });
       },
     },
-
     {
       accessorKey: "be_no",
       header: "BE Number",

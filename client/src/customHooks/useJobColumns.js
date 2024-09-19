@@ -6,16 +6,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faTrainSubway } from "@fortawesome/free-solid-svg-icons";
 function useJobColumns() {
   const navigate = useNavigate();
-  // const handleCopy = (event, text) => {
-  //   event.stopPropagation();
-  //   navigator.clipboard
-  //     .writeText(text)
-  //     .then(() => {})
-  //     .catch((err) => {
-  //       console.error("Failed to copy:", err);
-  //     });
-  // };
-
   const handleCopy = (event, text) => {
     event.stopPropagation();
 
@@ -49,7 +39,6 @@ function useJobColumns() {
       document.body.removeChild(textArea);
     }
   };
-
   const columns = [
     {
       accessorKey: "job_no",
@@ -73,7 +62,6 @@ function useJobColumns() {
         );
       },
     },
-
     {
       accessorKey: "importer",
       header: "Importer",
@@ -89,20 +77,25 @@ function useJobColumns() {
     //   header: "BL Number",
     //   size: 200,
     //   Cell: ({ cell }) => {
-    //     return cell?.getValue()?.toString();
-    //   },
-    //   Cell: ({ cell }) => {
-    //     return (
+    //     const blNumber = cell?.getValue()?.toString();
 
+    //     return (
     //       <React.Fragment>
-    //         {cell?.getValue() ? cell.getValue().toString() : ""}
+    //         <a
+    //           href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
+    //           target="_blank"
+    //           rel="noopener noreferrer"
+    //         >
+    //           {" "}
+    //           {blNumber ? blNumber : ""}
+    //         </a>
 
     //         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
     //           <IconButton
     //             size="small"
     //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
     //             onClick={(event) => {
-    //               handleCopy(event, cell?.getValue()?.toString());
+    //               handleCopy(event, blNumber);
     //             }}
     //           >
     //             <abbr title="Copy BL Number">
@@ -110,29 +103,27 @@ function useJobColumns() {
     //             </abbr>
     //           </IconButton>
 
-    //           {/* Container for icons in a horizontal line */}
-
-    //           {/* Ship icon opens the Sea IGM entry URL */}
+    //           {/* Ship icon */}
     //           <abbr title="Sea IGM Entry">
     //             <a
-    //               href="https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry"
+    //               href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry`}
     //               target="_blank"
     //               rel="noopener noreferrer"
     //             >
-    //               <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+    //               <FontAwesomeIcon icon={faShip} size="1.5x" color="blue" />
     //             </a>
     //           </abbr>
 
-    //           {/* Train icon with abbreviation */}
-    //           <abbr title="BL Status ICES">
+    //           {/* Train icon, dynamic BL number */}
+    //           {/* <abbr title="BL Status ICES">
     //             <a
-    //               href="https://enquiry.icegate.gov.in/enquiryatices/blStatusIces"
+    //               href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
     //               target="_blank"
     //               rel="noopener noreferrer"
     //             >
     //               <FontAwesomeIcon icon={faTrainSubway} size="1x" color="red" />
     //             </a>
-    //           </abbr>
+    //           </abbr> */}
     //         </div>
 
     //         <br />
@@ -144,8 +135,24 @@ function useJobColumns() {
       accessorKey: "awb_bl_no",
       header: "BL Number",
       size: 200,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
         const blNumber = cell?.getValue()?.toString();
+        const portOfReporting = row?.original?.port_of_reporting; // Assuming this data comes in the network response
+
+        // Map of port_of_reporting to full port name
+
+        const location =
+          portOfReporting === "(INMUN1) Mundra Sea"
+            ? "MUNDRA SEA (INMUN1)"
+            : portOfReporting === "(INNSA1) Nhava Sheva Sea"
+            ? "NHAVA SHEVA SEA (INNSA1)"
+            : portOfReporting === "(INPAV1) Pipavav"
+            ? "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)"
+            : portOfReporting === "(INPAV6) Pipavav (Victor) Port"
+            ? "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)"
+            : portOfReporting === "(INHZA1) Hazira"
+            ? "HAZIRA PORT SURAT (INHZA1)"
+            : portOfReporting;
 
         return (
           <React.Fragment>
@@ -154,7 +161,6 @@ function useJobColumns() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              {" "}
               {blNumber ? blNumber : ""}
             </a>
 
@@ -171,27 +177,16 @@ function useJobColumns() {
                 </abbr>
               </IconButton>
 
-              {/* Ship icon */}
-              <abbr title="Sea IGM Entry">
+              {/* Ship icon with dynamic IGM location */}
+              <abbr title={`Sea IGM Entry`}>
                 <a
-                  href="https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry"
+                  href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${blNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+                  <FontAwesomeIcon icon={faShip} size="1.5x" color="blue" />
                 </a>
               </abbr>
-
-              {/* Train icon, dynamic BL number */}
-              {/* <abbr title="BL Status ICES">
-                <a
-                  href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <FontAwesomeIcon icon={faTrainSubway} size="1x" color="red" />
-                </a>
-              </abbr> */}
             </div>
 
             <br />
@@ -199,31 +194,6 @@ function useJobColumns() {
         );
       },
     },
-    // {
-    //   accessorKey: "be_no",
-    //   header: "BE Number",
-    //   size: 150,
-    // },
-    // {
-    //   accessorKey: "be_no",
-    //   header: "BE Number",
-    //   size: 150,
-    //   Cell: ({ cell }) => {
-    //     const beNumber = cell?.getValue()?.toString();
-
-    //     return (
-    //       <React.Fragment>
-    //         <a
-    //           href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}`}
-    //           target="_blank"
-    //           rel="noopener noreferrer"
-    //         >
-    //           {beNumber}
-    //         </a>
-    //       </React.Fragment>
-    //     );
-    //   },
-    // },
     {
       accessorKey: "be_no",
       header: "BE Number",
@@ -264,6 +234,19 @@ function useJobColumns() {
             >
               {beNumber}
             </a>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => {
+                  handleCopy(event, beNumber);
+                }}
+              >
+                <abbr title="Copy BE Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
           </React.Fragment>
         );
       },
@@ -283,32 +266,6 @@ function useJobColumns() {
       header: "Port of Discharge",
       size: 150,
     },
-    // {
-    //   accessorKey: "container_numbers",
-    //   header: "Container Numbers",
-    //   size: 160,
-    //   Cell: ({ cell }) =>
-    //     cell.row.original.container_nos?.map((container, id) => (
-    //       <React.Fragment key={id}>
-    //         <span style={{ display: "block", marginBottom: "4px" }}>
-    //           {container.container_number}
-    //           <IconButton
-    //             size="small"
-    //             onClick={(event) => {
-    //               handleCopy(event, container.container_number);
-    //             }}
-    //           >
-    //             <ContentCopyIcon fontSize="inherit" />
-    //           </IconButton>
-    //         </span>
-    //       </React.Fragment>
-    //     )),
-    //   filterFn: "includes",
-    //   accessorFn: (row) =>
-    //     row.container_nos
-    //       ?.map((container) => container.container_number)
-    //       .join(", "),
-    // },
     {
       accessorKey: "container_numbers",
       header: "Container Numbers",
@@ -326,11 +283,14 @@ function useJobColumns() {
               </a>
               <IconButton
                 size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
                 onClick={(event) => {
                   handleCopy(event, container.container_number);
                 }}
               >
-                <ContentCopyIcon fontSize="inherit" />
+                <abbr title="Copy Container Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
               </IconButton>
             </span>
           </React.Fragment>
@@ -358,7 +318,6 @@ function useJobColumns() {
           </React.Fragment>
         )),
     },
-
     {
       accessorKey: "detention_from",
       header: "Detention From",

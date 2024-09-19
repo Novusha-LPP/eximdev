@@ -17,6 +17,40 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   return (
     <div className="job-details-container">
       <Row>
@@ -102,7 +136,12 @@ function JobDetailsStaticData(props) {
             {props.data.awb_bl_no?.toString()}
           </span>
           <IconButton
+            size="small"
+            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
             onClick={() => handleCopyText(props.bl_no_ref, props.setSnackbar)}
+            // onClick={(event) => {
+            //   handleCopy(event, props.bl_no_ref);
+            // }}
             aria-label="copy-btn"
           >
             <ContentCopyIcon />

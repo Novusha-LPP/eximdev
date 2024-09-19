@@ -14,12 +14,36 @@ function List() {
   const navigate = useNavigate();
   const handleCopy = (event, text) => {
     event.stopPropagation();
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {})
-      .catch((err) => {
-        console.error("Failed to copy:", err);
-      });
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   useEffect(() => {
@@ -51,11 +75,14 @@ function List() {
 
             <IconButton
               size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
                 handleCopy(event, cell?.getValue()?.toString());
               }}
             >
-              <ContentCopyIcon fontSize="inherit" />
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
             </IconButton>
             <br />
           </React.Fragment>
@@ -74,11 +101,14 @@ function List() {
 
             <IconButton
               size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
                 handleCopy(event, cell?.getValue()?.toString());
               }}
             >
-              <ContentCopyIcon fontSize="inherit" />
+              <abbr title="Copy Party Address">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
             </IconButton>
             <br />
           </React.Fragment>
@@ -97,11 +127,14 @@ function List() {
 
             <IconButton
               size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
                 handleCopy(event, cell?.getValue()?.toString());
               }}
             >
-              <ContentCopyIcon fontSize="inherit" />
+              <abbr title="Copy BL Number">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
             </IconButton>
             <br />
           </React.Fragment>
@@ -138,11 +171,14 @@ function List() {
 
             <IconButton
               size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
                 handleCopy(event, cell?.getValue()?.toString());
               }}
             >
-              <ContentCopyIcon fontSize="inherit" />
+              <abbr title="Copy Vessel">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
             </IconButton>
             <br />
           </React.Fragment>
@@ -161,11 +197,14 @@ function List() {
 
             <IconButton
               size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
                 handleCopy(event, cell?.getValue()?.toString());
               }}
             >
-              <ContentCopyIcon fontSize="inherit" />
+              <abbr title="Copy Voyage Number">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
             </IconButton>
             <br />
           </React.Fragment>

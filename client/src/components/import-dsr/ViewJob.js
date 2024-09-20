@@ -1364,7 +1364,12 @@ function JobDetails() {
                           {container.tare_weight}
                         </div>
                       </Col>
-
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Actual Weight:&nbsp;</strong>
+                          {container.actual_weight}
+                        </div>
+                      </Col>
                       <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>Weight as per Document:&nbsp;</strong>
@@ -1381,13 +1386,6 @@ function JobDetails() {
                               handleNetWeightChange(e, index, formik)
                             }
                           />
-                        </div>
-                      </Col>
-
-                      <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Actual Weight:&nbsp;</strong>
-                          {container.actual_weight}
                         </div>
                       </Col>
                     </Row>

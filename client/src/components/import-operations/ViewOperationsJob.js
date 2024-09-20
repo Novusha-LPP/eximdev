@@ -9,10 +9,15 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { handleFileUpload } from "../../utils/awsFileUpload";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
 import AWS from "aws-sdk";
-import { handleActualWeightChange } from "../../utils/handleActualWeightChange";
+// import { handleActualWeightChange } from "../../utils/handleActualWeightChange";
 import { handleNetWeightChange } from "../../utils/handleNetWeightChange";
-import { handleTareWeightChange } from "../../utils/handleTareWeightChange";
-import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
+import {
+  handlePhysicalWeightChange,
+  handleTareWeightChange,
+  handleWeightAsPerDocumentChange,
+  handleActualWeightChange,
+} from "../../utils/handleTareWeightChange";
+// import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 
 function ViewOperationsJob() {
@@ -88,6 +93,19 @@ function ViewOperationsJob() {
     } catch (err) {
       console.error("Error uploading files:", err);
     }
+  };
+
+  const calculateWeightExcessShortage = (index, formik, actualWeight) => {
+    const weightAsPerDocument =
+      parseFloat(formik.values.container_nos[index].net_weight) || 0;
+    const difference = actualWeight - weightAsPerDocument;
+    const formattedDifference =
+      difference > 0 ? `+${difference.toFixed(2)}` : difference.toFixed(2);
+
+    formik.setFieldValue(
+      `container_nos[${index}].weight_shortage`,
+      formattedDifference
+    );
   };
 
   return (
@@ -240,8 +258,98 @@ function ViewOperationsJob() {
                           </IconButton>
                         </strong>
                       </h6>
-
                       <Row className="job-detail-row">
+                        <Col xs={12} md={3}>
+                          <div className="job-detail-input-container">
+                            <strong>Physical Weight:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              id={`physical_weight_${index}`}
+                              name={`container_nos[${index}].physical_weight`}
+                              value={container.physical_weight}
+                              onChange={(e) =>
+                                handlePhysicalWeightChange(e, index, formik)
+                              }
+                            />
+                          </div>
+                        </Col>
+                        <Col xs={12} md={3}>
+                          <div className="job-detail-input-container">
+                            <strong>Tare Weight:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              id={`tare_weight_${index}`}
+                              name={`container_nos[${index}].tare_weight`}
+                              value={container.tare_weight}
+                              onChange={(e) =>
+                                handleTareWeightChange(e, index, formik)
+                              }
+                            />
+                          </div>
+                        </Col>
+                        <Col xs={12} md={3}>
+                          <div className="job-detail-input-container">
+                            <strong>Actual Weight:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              id={`actual_weight_${index}`}
+                              name={`container_nos[${index}].actual_weight`}
+                              value={container.actual_weight}
+                              onChange={(e) =>
+                                handleActualWeightChange(e, index, formik)
+                              }
+                              InputProps={{
+                                readOnly: true,
+                              }}
+                            />
+                          </div>
+                        </Col>
+                        <Col xs={12} md={3}>
+                          <div className="job-detail-input-container">
+                            <strong>Weight as per Document:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              id={`net_weight_${index}`}
+                              name={`container_nos[${index}].net_weight`}
+                              value={container.net_weight}
+                              onChange={(e) =>
+                                handleWeightAsPerDocumentChange(
+                                  e,
+                                  index,
+                                  formik
+                                )
+                              }
+                              InputProps={{
+                                readOnly: true,
+                              }}
+                            />
+                          </div>
+                        </Col>
+
+                        <Col
+                          xs={12}
+                          md={3}
+                          style={{ display: "flex", alignItems: "center" }}
+                        >
+                          <div className="job-detail-input-container">
+                            <strong>Weight Excess/Shortage:&nbsp;</strong>
+                            {container.weight_shortage}
+                          </div>
+                        </Col>
+                      </Row>
+                      {/* <Row className="job-detail-row">
                         <Col xs={12} md={3}>
                           <div className="job-detail-input-container">
                             <strong>Physical Weight:&nbsp;</strong>
@@ -280,7 +388,16 @@ function ViewOperationsJob() {
                             />
                           </div>
                         </Col>
-
+                        <Col
+                          xs={12}
+                          md={3}
+                          style={{ display: "flex", alignItems: "center" }}
+                        >
+                          <div className="job-detail-input-container">
+                            <strong>Actual Weight:&nbsp;</strong>
+                            {container.actual_weight}
+                          </div>
+                        </Col>
                         <Col xs={12} md={3}>
                           <div className="job-detail-input-container">
                             <strong>Weight as per Document:&nbsp;</strong>
@@ -294,22 +411,11 @@ function ViewOperationsJob() {
                           style={{ display: "flex", alignItems: "center" }}
                         >
                           <div className="job-detail-input-container">
-                            <strong>Actual Weight:&nbsp;</strong>
-                            {container.actual_weight}
-                          </div>
-                        </Col>
-
-                        <Col
-                          xs={12}
-                          md={3}
-                          style={{ display: "flex", alignItems: "center" }}
-                        >
-                          <div className="job-detail-input-container">
                             <strong>Weight Excess/Shortage:&nbsp;</strong>
                             {container.weight_shortage}
                           </div>
                         </Col>
-                      </Row>
+                      </Row> */}
 
                       <Row className="job-detail-row">
                         {data.custom_house !== "ICD SACHANA" &&

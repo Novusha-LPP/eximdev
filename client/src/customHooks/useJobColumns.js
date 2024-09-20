@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faTrainSubway } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
-
+import EditIcon from "@mui/icons-material/Edit";
 function useJobColumns() {
   const navigate = useNavigate();
   // State to track editable fields
@@ -48,7 +48,8 @@ function useJobColumns() {
       document.body.removeChild(textArea);
     }
   };
-  
+  // Handle API patch request
+  // Handle API patch request for updating fields
   const handlePatchRequest = async (
     jobId,
     updatedData,
@@ -88,6 +89,9 @@ function useJobColumns() {
       );
 
       console.log("Patch request successful", patchData);
+
+      // Hard reload the page after successful update
+      // window.location.reload();
     } catch (error) {
       console.error("Error with patch request", error);
     }
@@ -199,7 +203,7 @@ function useJobColumns() {
         const jobId = cell.row.original.job_no;
         const year = cell.row.original.year;
 
-        return (
+        return editETA === jobId ? (
           <TextField
             type="date"
             defaultValue={eta}
@@ -211,6 +215,20 @@ function useJobColumns() {
               });
             }}
           />
+        ) : (
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {eta}
+            <IconButton
+              size="small"
+              onClick={() => {
+                setEditETA(jobId); // Set the current ETA to edit
+                setEditArrivalDate(null); // Close any Arrival Date edit state
+              }}
+              style={{ marginLeft: "8px" }}
+            >
+              <EditIcon fontSize="inherit" />
+            </IconButton>
+          </div>
         );
       },
     },
@@ -226,7 +244,7 @@ function useJobColumns() {
         return containers?.map((container, index) => {
           const arrivalDate = container.arrival_date;
 
-          return (
+          return editArrivalDate === `${jobId}-${index}` ? (
             <div key={index}>
               <TextField
                 type="date"
@@ -240,6 +258,20 @@ function useJobColumns() {
                   );
                 }}
               />
+            </div>
+          ) : (
+            <div key={index} style={{ display: "flex", alignItems: "center" }}>
+              {arrivalDate}
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setEditArrivalDate(`${jobId}-${index}`); // Open the edit state for specific container
+                  setEditETA(null); // Close any ETA edit state
+                }}
+                style={{ marginLeft: "8px" }}
+              >
+                <EditIcon fontSize="inherit" />
+              </IconButton>
             </div>
           );
         });

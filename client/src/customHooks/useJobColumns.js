@@ -3,7 +3,8 @@ import { IconButton, TextField } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShip, faTrainSubway } from "@fortawesome/free-solid-svg-icons";
+import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+
 import axios from "axios";
 import EditIcon from "@mui/icons-material/Edit";
 function useJobColumns() {
@@ -129,16 +130,92 @@ function useJobColumns() {
       size: 150,
     },
 
+    // {
+    //   accessorKey: "awb_bl_no",
+    //   header: "BL Number",
+    //   size: 200,
+    //   Cell: ({ cell, row }) => {
+    //     const blNumber = cell?.getValue()?.toString();
+    //     const portOfReporting = row?.original?.port_of_reporting; // Assuming this data comes in the network response
+
+    //     // Map of port_of_reporting to full port name
+
+    //     const location =
+    //       portOfReporting === "(INMUN1) Mundra Sea"
+    //         ? "MUNDRA SEA (INMUN1)"
+    //         : portOfReporting === "(INNSA1) Nhava Sheva Sea"
+    //         ? "NHAVA SHEVA SEA (INNSA1)"
+    //         : portOfReporting === "(INPAV1) Pipavav"
+    //         ? "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)"
+    //         : portOfReporting === "(INPAV6) Pipavav (Victor) Port"
+    //         ? "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)"
+    //         : portOfReporting === "(INHZA1) Hazira"
+    //         ? "HAZIRA PORT SURAT (INHZA1)"
+    //         : portOfReporting;
+
+    //     return (
+    //       <React.Fragment>
+    //         <a
+    //           href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
+    //           target="_blank"
+    //           rel="noopener noreferrer"
+    //         >
+    //           {blNumber ? blNumber : ""}
+    //         </a>
+
+    //         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+    //           <IconButton
+    //             size="small"
+    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+    //             onClick={(event) => {
+    //               handleCopy(event, blNumber);
+    //             }}
+    //           >
+    //             <abbr title="Copy BL Number">
+    //               <ContentCopyIcon fontSize="inherit" />
+    //             </abbr>
+    //           </IconButton>
+    //           <abbr title={`Sea IGM Entry`}>
+    //             <a
+    //               href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${blNumber}`}
+    //               target="_blank"
+    //               rel="noopener noreferrer"
+    //             >
+    //               <FontAwesomeIcon icon={faShip} size="1.5x" color="blue" />
+    //             </a>
+    //           </abbr>
+    //           {/* Ship icon with dynamic IGM location */}
+    //           <abbr title={`Sea IGM Entry`}>
+    //             <a
+    //               href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${blNumber}`}
+    //               target="_blank"
+    //               rel="noopener noreferrer"
+    //             >
+    //               <FontAwesomeIcon
+    //                 icon={faAnchor}
+    //                 size="1.5x"
+    //                 color="blue"
+    //                 style={{ marginLeft: "8px" }}
+    //               />
+    //             </a>
+    //           </abbr>
+    //         </div>
+
+    //         <br />
+    //       </React.Fragment>
+    //     );
+    //   },
+    // },
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
       size: 200,
       Cell: ({ cell, row }) => {
         const blNumber = cell?.getValue()?.toString();
-        const portOfReporting = row?.original?.port_of_reporting; // Assuming this data comes in the network response
+        const portOfReporting = row?.original?.port_of_reporting;
+        const shippingLine = row?.original?.shipping_line_airline;
 
         // Map of port_of_reporting to full port name
-
         const location =
           portOfReporting === "(INMUN1) Mundra Sea"
             ? "MUNDRA SEA (INMUN1)"
@@ -151,6 +228,20 @@ function useJobColumns() {
             : portOfReporting === "(INHZA1) Hazira"
             ? "HAZIRA PORT SURAT (INHZA1)"
             : portOfReporting;
+
+        // Map of shipping lines to tracking URLs
+        const shippingLineUrls = {
+          MSC: `https://www.msc.com/en/track-a-shipment`,
+          "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
+          "CMA CGM AGENCIES INDIA PVT. LTD":
+            "https://www.cma-cgm.com/ebusiness/tracking/search",
+          "Hapag-Lloyd":
+            "https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html",
+          "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/BLTracking.aspx?&blno=${blNumber}`,
+        };
+
+        // Determine the URL for the shipping line
+        const shippingLineUrl = shippingLineUrls[shippingLine] || "#";
 
         return (
           <React.Fragment>
@@ -175,6 +266,19 @@ function useJobColumns() {
                 </abbr>
               </IconButton>
 
+              {/* Shipping Line Link */}
+              {shippingLine && (
+                <abbr title={`Track Shipment at ${shippingLine}`}>
+                  <a
+                    href={shippingLineUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <FontAwesomeIcon icon={faShip} size="1.5x" color="blue" />
+                  </a>
+                </abbr>
+              )}
+
               {/* Ship icon with dynamic IGM location */}
               <abbr title={`Sea IGM Entry`}>
                 <a
@@ -182,12 +286,15 @@ function useJobColumns() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FontAwesomeIcon icon={faShip} size="1.5x" color="blue" />
+                  <FontAwesomeIcon
+                    icon={faAnchor}
+                    size="1.5x"
+                    color="blue"
+                    // style={{ marginLeft: "8px" }}
+                  />
                 </a>
               </abbr>
             </div>
-
-            <br />
           </React.Fragment>
         );
       },

@@ -13,8 +13,6 @@ function useJobColumns() {
   const [editArrivalDate, setEditArrivalDate] = useState(null);
   const [jobs, setJobs] = useState([]);
 
-  console.log(jobs, `jobs`);
-
   const handleCopy = (event, text) => {
     event.stopPropagation();
 
@@ -50,52 +48,52 @@ function useJobColumns() {
   };
   // Handle API patch request
   // Handle API patch request for updating fields
-  const handlePatchRequest = async (
-    jobId,
-    updatedData,
-    containerIndex = null
-  ) => {
-    try {
-      const url = `${process.env.REACT_APP_API_STRING}/update-job/fields/${updatedData.year}/${jobId}`;
+  // const handlePatchRequest = async (
+  //   jobId,
+  //   updatedData,
+  //   containerIndex = null
+  // ) => {
+  //   try {
+  //     const url = `${process.env.REACT_APP_API_STRING}/update-job/fields/${updatedData.year}/${jobId}`;
 
-      const patchData = {};
-      if (updatedData.vessel_berthing) {
-        patchData.vessel_berthing = updatedData.vessel_berthing;
-      }
-      if (updatedData.arrival_date && typeof containerIndex === "number") {
-        patchData.arrival_date = updatedData.arrival_date;
-        patchData.container_index = containerIndex;
-      }
+  //     const patchData = {};
+  //     if (updatedData.vessel_berthing) {
+  //       patchData.vessel_berthing = updatedData.vessel_berthing;
+  //     }
+  //     if (updatedData.arrival_date && typeof containerIndex === "number") {
+  //       patchData.arrival_date = updatedData.arrival_date;
+  //       patchData.container_index = containerIndex;
+  //     }
 
-      await axios.patch(url, patchData);
+  //     await axios.patch(url, patchData);
 
-      // Update the local state for the specific field only
-      setJobs((prevJobs) =>
-        prevJobs.map((job) => {
-          if (job.job_no === jobId) {
-            if (updatedData.vessel_berthing) {
-              job.vessel_berthing = updatedData.vessel_berthing;
-            }
-            if (
-              updatedData.arrival_date &&
-              typeof containerIndex === "number"
-            ) {
-              job.container_nos[containerIndex].arrival_date =
-                updatedData.arrival_date;
-            }
-          }
-          return { ...job }; // Ensure immutability
-        })
-      );
+  //     // Update the local state for the specific field only
+  //     setJobs((prevJobs) =>
+  //       prevJobs.map((job) => {
+  //         if (job.job_no === jobId) {
+  //           if (updatedData.vessel_berthing) {
+  //             job.vessel_berthing = updatedData.vessel_berthing;
+  //           }
+  //           if (
+  //             updatedData.arrival_date &&
+  //             typeof containerIndex === "number"
+  //           ) {
+  //             job.container_nos[containerIndex].arrival_date =
+  //               updatedData.arrival_date;
+  //           }
+  //         }
+  //         return { ...job }; // Ensure immutability
+  //       })
+  //     );
 
-      console.log("Patch request successful", patchData);
+  //     console.log("Patch request successful", patchData);
 
-      // Hard reload the page after successful update
-      // window.location.reload();
-    } catch (error) {
-      console.error("Error with patch request", error);
-    }
-  };
+  //     // Hard reload the page after successful update
+  //     // window.location.reload();
+  //   } catch (error) {
+  //     console.error("Error with patch request", error);
+  //   }
+  // };
 
   const columns = [
     {
@@ -194,88 +192,111 @@ function useJobColumns() {
         );
       },
     },
+    // {
+    //   accessorKey: "vessel_berthing",
+    //   header: "ETA",
+    //   size: 150,
+    //   Cell: ({ cell }) => {
+    //     const eta = cell.getValue();
+    //     const jobId = cell.row.original.job_no;
+    //     const year = cell.row.original.year;
+
+    //     return editETA === jobId ? (
+    //       <TextField
+    //         type="date"
+    //         defaultValue={eta}
+    //         onBlur={(e) => {
+    //           setEditETA(null); // Close the edit state
+    //           handlePatchRequest(jobId, {
+    //             year,
+    //             vessel_berthing: e.target.value,
+    //           });
+    //         }}
+    //       />
+    //     ) : (
+    //       <div style={{ display: "flex", alignItems: "center" }}>
+    //         {eta}
+    //         <IconButton
+    //           size="small"
+    //           onClick={() => {
+    //             setEditETA(jobId); // Set the current ETA to edit
+    //             setEditArrivalDate(null); // Close any Arrival Date edit state
+    //           }}
+    //           style={{ marginLeft: "8px" }}
+    //         >
+    //           <EditIcon fontSize="inherit" />
+    //         </IconButton>
+    //       </div>
+    //     );
+    //   },
+    // },
+    // {
+    //   accessorKey: "arrival_date",
+    //   header: "Arrival Date",
+    //   size: 150,
+    //   Cell: ({ cell }) => {
+    //     const containers = cell.row.original.container_nos;
+    //     const jobId = cell.row.original.job_no;
+    //     const year = cell.row.original.year;
+
+    //     return containers?.map((container, index) => {
+    //       const arrivalDate = container.arrival_date;
+
+    //       return editArrivalDate === `${jobId}-${index}` ? (
+    //         <div key={index}>
+    //           <TextField
+    //             type="date"
+    //             defaultValue={arrivalDate}
+    //             onBlur={(e) => {
+    //               setEditArrivalDate(null); // Close the edit state
+    //               handlePatchRequest(
+    //                 jobId,
+    //                 { year, arrival_date: e.target.value },
+    //                 index // Pass the index of the container
+    //               );
+    //             }}
+    //           />
+    //         </div>
+    //       ) : (
+    //         <div key={index} style={{ display: "flex", alignItems: "center" }}>
+    //           {arrivalDate}
+    //           <IconButton
+    //             size="small"
+    //             onClick={() => {
+    //               setEditArrivalDate(`${jobId}-${index}`); // Open the edit state for specific container
+    //               setEditETA(null); // Close any ETA edit state
+    //             }}
+    //             style={{ marginLeft: "8px" }}
+    //           >
+    //             <EditIcon fontSize="inherit" />
+    //           </IconButton>
+    //         </div>
+    //       );
+    //     });
+    //   },
+    // },
     {
       accessorKey: "vessel_berthing",
       header: "ETA",
       size: 150,
-      Cell: ({ cell }) => {
-        const eta = cell.getValue();
-        const jobId = cell.row.original.job_no;
-        const year = cell.row.original.year;
-
-        return editETA === jobId ? (
-          <TextField
-            type="date"
-            defaultValue={eta}
-            onBlur={(e) => {
-              setEditETA(null); // Close the edit state
-              handlePatchRequest(jobId, {
-                year,
-                vessel_berthing: e.target.value,
-              });
-            }}
-          />
-        ) : (
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {eta}
-            <IconButton
-              size="small"
-              onClick={() => {
-                setEditETA(jobId); // Set the current ETA to edit
-                setEditArrivalDate(null); // Close any Arrival Date edit state
-              }}
-              style={{ marginLeft: "8px" }}
-            >
-              <EditIcon fontSize="inherit" />
-            </IconButton>
-          </div>
-        );
-      },
     },
+    {
+      accessorKey: "discharge_date",
+      header: "Discharge Date",
+      size: 150,
+    },
+
     {
       accessorKey: "arrival_date",
       header: "Arrival Date",
       size: 150,
-      Cell: ({ cell }) => {
-        const containers = cell.row.original.container_nos;
-        const jobId = cell.row.original.job_no;
-        const year = cell.row.original.year;
-
-        return containers?.map((container, index) => {
-          const arrivalDate = container.arrival_date;
-
-          return editArrivalDate === `${jobId}-${index}` ? (
-            <div key={index}>
-              <TextField
-                type="date"
-                defaultValue={arrivalDate}
-                onBlur={(e) => {
-                  setEditArrivalDate(null); // Close the edit state
-                  handlePatchRequest(
-                    jobId,
-                    { year, arrival_date: e.target.value },
-                    index // Pass the index of the container
-                  );
-                }}
-              />
-            </div>
-          ) : (
-            <div key={index} style={{ display: "flex", alignItems: "center" }}>
-              {arrivalDate}
-              <IconButton
-                size="small"
-                onClick={() => {
-                  setEditArrivalDate(`${jobId}-${index}`); // Open the edit state for specific container
-                  setEditETA(null); // Close any ETA edit state
-                }}
-                style={{ marginLeft: "8px" }}
-              >
-                <EditIcon fontSize="inherit" />
-              </IconButton>
-            </div>
-          );
-        });
-      },
+      Cell: ({ cell }) =>
+        cell.row.original.container_nos?.map((container, id) => (
+          <React.Fragment key={id}>
+            {container.arrival_date}
+            <br />
+          </React.Fragment>
+        )),
     },
     {
       accessorKey: "be_no",

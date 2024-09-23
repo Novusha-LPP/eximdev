@@ -98,18 +98,35 @@ function useJobColumns() {
           const portOfReporting = row?.original?.port_of_reporting;
           const shippingLine = row?.original?.shipping_line_airline;
 
+          // Extract the first container number, if available
+          const containerFirst =
+            row?.original?.container_nos?.[0]?.container_number;
+
+          // Memoize the location for sea IGM entry
           const location = getPortLocation(portOfReporting);
 
+          // Define the shipping line URLs, incorporating the first container number (if available)
           const shippingLineUrls = {
             MSC: `https://www.msc.com/en/track-a-shipment`,
+            "M S C": `https://www.msc.com/en/track-a-shipment`,
             "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
             "CMA CGM AGENCIES INDIA PVT. LTD":
               "https://www.cma-cgm.com/ebusiness/tracking/search",
-            "Hapag-Lloyd":
-              "https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html",
-            "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/BLTracking.aspx?&blno=${blNumber}`,
+            "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${blNumber}`,
+            // Pass both blNumber and containerFirst
+            "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
+            "ONE LINE":
+              "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+            UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber}`, // Specific example ID
+            HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+            HYUNDI:
+              "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+            "Cosco Container Lines":
+              "https://elines.coscoshipping.com/ebusiness/cargotracking",
+            COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
           };
 
+          // Determine the URL for the specific shipping line
           const shippingLineUrl = shippingLineUrls[shippingLine] || "#";
 
           return (
@@ -131,6 +148,7 @@ function useJobColumns() {
                       gap: "10px",
                     }}
                   >
+                    {/* Copy BL Number */}
                     <IconButton
                       size="small"
                       onClick={(event) => handleCopy(event, blNumber)}
@@ -140,6 +158,7 @@ function useJobColumns() {
                       </abbr>
                     </IconButton>
 
+                    {/* Shipping Line Tracking Link */}
                     {shippingLine && (
                       <abbr title={`Track Shipment at ${shippingLine}`}>
                         <a
@@ -156,6 +175,7 @@ function useJobColumns() {
                       </abbr>
                     )}
 
+                    {/* Sea IGM Entry Link */}
                     <abbr title={`Sea IGM Entry`}>
                       <a
                         href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${blNumber}`}

@@ -15,13 +15,48 @@ function useJobColumns() {
   const [jobs, setJobs] = useState([]);
 
   // Optimized handleCopy function using useCallback to avoid re-creation on each render
-  const handleCopy = useCallback((event, text) => {
+  // const handleCopy = useCallback((event, text) => {
+  //   event.stopPropagation();
+  //   navigator.clipboard?.writeText(text).catch((err) => {
+  //     console.error("Failed to copy:", err);
+  //     alert("Failed to copy text to clipboard.");
+  //   });
+  // }, []);
+  const handleCopy = (event, text) => {
+    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+
     event.stopPropagation();
-    navigator.clipboard?.writeText(text).catch((err) => {
-      console.error("Failed to copy:", err);
-      alert("Failed to copy text to clipboard.");
-    });
-  }, []);
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   // Memoized utility functions to avoid unnecessary re-calculations
   const getPortLocation = useMemo(
@@ -109,6 +144,7 @@ function useJobColumns() {
           const shippingLineUrls = {
             MSC: `https://www.msc.com/en/track-a-shipment`,
             "M S C": `https://www.msc.com/en/track-a-shipment`,
+            "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
             "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
             "CMA CGM AGENCIES INDIA PVT. LTD":
               "https://www.cma-cgm.com/ebusiness/tracking/search",

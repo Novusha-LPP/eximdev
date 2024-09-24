@@ -196,7 +196,7 @@ function useJobColumns() {
 
                     {/* Shipping Line Tracking Link */}
 
-                    {/*{shippingLine && (
+                    {shippingLine && (
                       <abbr title={`Track Shipment at ${shippingLine}`}>
                         <a
                           href={shippingLineUrl}
@@ -210,7 +210,7 @@ function useJobColumns() {
                           />
                         </a>
                       </abbr>
-                    )}*/}
+                    )}
 
                     {/* Sea IGM Entry Link */}
                     <abbr title={`Sea IGM Entry`}>

@@ -11,25 +11,42 @@ import { Row, Col } from "react-bootstrap";
 function EditDoList() {
   const { _id } = useParams();
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
+  const [jobDetails, setJobDetails] = React.useState({
+    job_no: "",
+    importer: "",
+    awb_bl_no: "",
+  });
   const kycDocsRef = React.useRef();
 
   React.useEffect(() => {
     async function getData() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${_id}`
-      );
-      const {
-        shipping_line_kyc_completed,
-        shipping_line_bond_completed,
-        shipping_line_invoice_received,
-      } = res.data;
-      formik.setValues({
-        ...formik.values,
-        shipping_line_kyc_completed: shipping_line_kyc_completed === "Yes",
-        shipping_line_bond_completed: shipping_line_bond_completed === "Yes",
-        shipping_line_invoice_received:
-          shipping_line_invoice_received === "Yes",
-      });
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${_id}`
+        );
+        const {
+          shipping_line_kyc_completed,
+          shipping_line_bond_completed,
+          shipping_line_invoice_received,
+          job_no,
+          importer,
+          awb_bl_no,
+        } = res.data;
+
+        // Set formik values based on the API response
+        formik.setValues({
+          ...formik.values,
+          shipping_line_kyc_completed: shipping_line_kyc_completed === "Yes",
+          shipping_line_bond_completed: shipping_line_bond_completed === "Yes",
+          shipping_line_invoice_received:
+            shipping_line_invoice_received === "Yes",
+        });
+
+        // Set job details for display
+        setJobDetails({ job_no, importer, awb_bl_no });
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
     }
 
     getData();
@@ -74,6 +91,20 @@ function EditDoList() {
 
   return (
     <div>
+      <h3>
+        <abbr title="Job Number" style={{ textDecoration: "none" }}>
+          {jobDetails.job_no}
+        </abbr>{" "}
+        |
+        <abbr title="Airway Bill/BL Number" style={{ textDecoration: "none" }}>
+          {jobDetails.awb_bl_no}
+        </abbr>{" "}
+        |
+        <abbr title="Importer" style={{ textDecoration: "none" }}>
+          {jobDetails.importer}
+        </abbr>
+      </h3>
+
       <form onSubmit={formik.handleSubmit}>
         <FormControlLabel
           control={

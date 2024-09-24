@@ -18,10 +18,13 @@ import { useNavigate } from "react-router-dom";
 function JobList(props) {
   const [years, setYears] = React.useState([]);
   const { selectedYear, setSelectedYear } = useContext(SelectedYearContext);
+
+  // Set default detailed status to 'all'
   const [detailedStatus, setDetailedStatus] = useState("all");
+
   const columns = useJobColumns(detailedStatus);
   const { rows } = useFetchJobList(detailedStatus, selectedYear, props.status);
-
+  
   // Select importer modal
   const [open, setOpen] = React.useState(false);
   const handleOpen = () => setOpen(true);

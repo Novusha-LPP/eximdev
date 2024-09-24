@@ -4,24 +4,11 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
-import axios from "axios";
-import EditIcon from "@mui/icons-material/Edit";
 
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
-  const [editETA, setEditETA] = useState(null);
-  const [editArrivalDate, setEditArrivalDate] = useState(null);
-  const [jobs, setJobs] = useState([]);
 
-  // Optimized handleCopy function using useCallback to avoid re-creation on each render
-  // const handleCopy = useCallback((event, text) => {
-  //   event.stopPropagation();
-  //   navigator.clipboard?.writeText(text).catch((err) => {
-  //     console.error("Failed to copy:", err);
-  //     alert("Failed to copy text to clipboard.");
-  //   });
-  // }, []);
   const handleCopy = (event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
 

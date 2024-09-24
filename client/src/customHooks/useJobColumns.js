@@ -192,7 +192,7 @@ function useJobColumns() {
                         >
                           <FontAwesomeIcon
                             icon={faShip}
-                            size="1.5x"
+                            size="1x"
                             color="blue"
                           />
                         </a>
@@ -208,7 +208,7 @@ function useJobColumns() {
                       >
                         <FontAwesomeIcon
                           icon={faAnchor}
-                          size="1.5x"
+                          size="1x"
                           color="blue"
                         />
                       </a>

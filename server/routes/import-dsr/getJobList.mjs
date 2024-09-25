@@ -48,35 +48,35 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
 
     if (detailedStatus === "all") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type consignment_type shipping_line_airline"
+        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type consignment_type shipping_line_airline"
       );
     } else if (detailedStatus === "estimated_time_of_arrival") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
+        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
       );
     } else if (detailedStatus === "discharged") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
+        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
       );
     } else if (detailedStatus === "gateway_igm_filed") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
+        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
       );
     } else if (detailedStatus === "be_noted_arrival_pending") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house be_no be_date container_nos vessel_berthing discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
+        "job_no year importer custom_house be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
       );
     } else if (detailedStatus === "be_noted_clearance_pending") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house be_no be_date container_nos vessel_berthing discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
+        "job_no year importer custom_house be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
       );
     } else if (detailedStatus === "custom_clearance_completed") {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house be_no be_date container_nos vessel_berthing discharge_date out_of_charge detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
+        "job_no year importer custom_house be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date out_of_charge detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
       );
     } else {
       jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing discharge_date detailed_status be_no be_date shipping_line_airline"
+        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date shipping_line_airline"
       );
     }
 

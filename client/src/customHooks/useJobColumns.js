@@ -225,6 +225,11 @@ function useJobColumns() {
         size: 150,
       },
       {
+        accessorKey: "gateway_igm_date",
+        header: "Gateway IGM Date",
+        size: 150,
+      },
+      {
         accessorKey: "discharge_date",
         header: "Discharge Date",
         size: 150,

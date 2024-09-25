@@ -32,10 +32,30 @@ function useFetchJobList(detailedStatus, selectedYear, status) {
 
           let jobList = res.data.data;
 
+          // Function to extract the earliest detention_from from the container_nos array
+          const getEarliestDetentionFrom = (containerNos) => {
+            const detentionDates = containerNos
+              .map((container) => container.detention_from)
+              .filter(Boolean) // Exclude null or empty detention_from
+              .map((date) => new Date(date));
+            return detentionDates.length > 0
+              ? new Date(Math.min(...detentionDates))
+              : new Date("9999-12-31"); // Fallback to a future date if no valid dates
+          };
+
           // Function to sort jobs by a specific field (dates)
           const customSort = (a, b, field) => {
-            const dateA = new Date(a[field]);
-            const dateB = new Date(b[field]);
+            let dateA, dateB;
+
+            if (field === "detention_from") {
+              // Special handling for detention_from to get the earliest date from container_nos
+              dateA = getEarliestDetentionFrom(a.container_nos);
+              dateB = getEarliestDetentionFrom(b.container_nos);
+            } else {
+              dateA = new Date(a[field]);
+              dateB = new Date(b[field]);
+            }
+
             return dateA - dateB;
           };
 

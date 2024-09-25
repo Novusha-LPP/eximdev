@@ -140,7 +140,7 @@ function useJobColumns() {
             "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
             "ONE LINE":
               "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-            UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber}`, // Specific example ID
+            UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber}`,
             HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
             HYUNDI:
               "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
@@ -182,8 +182,7 @@ function useJobColumns() {
                     </IconButton>
 
                     {/* Shipping Line Tracking Link */}
-
-                    {shippingLine && (
+                    {shippingLine && shippingLineUrl !== "#" && (
                       <abbr title={`Track Shipment at ${shippingLine}`}>
                         <a
                           href={shippingLineUrl}

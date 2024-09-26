@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from "react";
+import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
 import { IconButton, TextField, Autocomplete } from "@mui/material";
@@ -71,6 +71,70 @@ function JobDetails() {
     setTabValue,
     setFileSnackbar
   );
+
+  // Helper function to update the `detailed_status` based on form values
+  const updateDetailedStatus = () => {
+    const {
+      vessel_berthing: eta,
+      gateway_igm_date: gatewayIGMDate,
+      discharge_date: dischargeDate,
+      bill_of_entry_no: billOfEntryNo,
+      arrival_date: arrivalDate,
+      out_of_charge: outOfChargeDate,
+      pcv_date: pcvDate,
+    } = formik.values;
+
+    // Automatically update detailed status based on the given conditions
+    if (eta) {
+      formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
+    }
+
+    if (eta && gatewayIGMDate) {
+      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+    }
+
+    if (eta && gatewayIGMDate && dischargeDate) {
+      formik.setFieldValue("detailed_status", "Discharged");
+    }
+
+    if (eta && gatewayIGMDate && dischargeDate && billOfEntryNo) {
+      formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+    }
+
+    if (
+      eta &&
+      gatewayIGMDate &&
+      dischargeDate &&
+      billOfEntryNo &&
+      arrivalDate
+    ) {
+      formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+    }
+
+    if (
+      eta &&
+      gatewayIGMDate &&
+      dischargeDate &&
+      billOfEntryNo &&
+      arrivalDate &&
+      (outOfChargeDate || pcvDate)
+    ) {
+      formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+    }
+  };
+
+  // Trigger the `updateDetailedStatus` function when form values change
+  useEffect(() => {
+    updateDetailedStatus();
+  }, [
+    formik.values.vessel_berthing,
+    formik.values.gateway_igm_date,
+    formik.values.discharge_date,
+    formik.values.bill_of_entry_no,
+    formik.values.arrival_date,
+    formik.values.out_of_charge,
+    formik.values.pcv_date,
+  ]);
 
   const handleRadioChange = (event) => {
     const selectedValue = event.target.value;

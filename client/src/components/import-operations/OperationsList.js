@@ -31,7 +31,15 @@ function OperationsList() {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`
       );
-      setRows(res.data);
+
+      // Filter jobs
+      const filteredJobs = res.data
+        .filter(
+          (job) => job.be_no.toLowerCase() !== "cancel" && !job.out_of_charge
+        )
+        .sort((a, b) => new Date(a.be_date) - new Date(b.be_date)); // Sort by BE Date in ascending order
+
+      setRows(filteredJobs); // Set filtered and sorted jobs
     }
     getRows();
   }, [selectedYear, user]);
@@ -62,26 +70,8 @@ function OperationsList() {
       ),
     },
     {
-      accessorKey: "examination_planning_date",
-      header: "Examination Planning Date",
-      enableSorting: false,
-      size: 240,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "pcv_date",
-      header: "PCV Date",
-      enableSorting: false,
-      size: 120,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "out_of_charge",
-      header: "Out Of Charge",
+      accessorKey: "importer",
+      header: "Importer Name", // Add importer column
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => (

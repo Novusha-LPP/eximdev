@@ -23,6 +23,11 @@ export const detailedStatusOptions = [
   },
   {
     id: 7,
+    name: "PCV Done, Duty Payment Pending",
+    value:"PCV Done, Duty Payment Pending",
+  },
+  {
+    id: 8,
     name: "Custom Clearance Completed",
     value: "Custom Clearance Completed",
   },

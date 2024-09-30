@@ -59,6 +59,7 @@ function useFileUpload(inputRef, alt, setAlt) {
               "gateway_igm_date",
               "out_of_charge",
               "awb_bl_date",
+              "vessel_berthing",
             ].includes(modifiedKey)
           ) {
             let value = item[key];
@@ -82,6 +83,27 @@ function useFileUpload(inputRef, alt, setAlt) {
                 const month = String(dateParts[1]).padStart(2, "0");
                 const year = String(dateParts[2]);
                 modifiedItem[modifiedKey] = `${year}-${month}-${day}`;
+              } else if (/^\d{1,2}-[A-Za-z]{3}-\d{4}$/.test(value)) {
+                // Handle the format "14-Aug-2024"
+                const [day, month, year] = value.split("-");
+                const monthMapping = {
+                  Jan: "01",
+                  Feb: "02",
+                  Mar: "03",
+                  Apr: "04",
+                  May: "05",
+                  Jun: "06",
+                  Jul: "07",
+                  Aug: "08",
+                  Sep: "09",
+                  Oct: "10",
+                  Nov: "11",
+                  Dec: "12",
+                };
+                const formattedMonth = monthMapping[month];
+                modifiedItem[
+                  modifiedKey
+                ] = `${year}-${formattedMonth}-${day.padStart(2, "0")}`;
               } else {
                 // Fallback if the date cannot be parsed
                 modifiedItem[modifiedKey] = value;
@@ -127,9 +149,6 @@ function useFileUpload(inputRef, alt, setAlt) {
           } else if (modifiedKey === "ex_rate") {
             // Rename key from "ex_rate" to "exrate"
             modifiedItem.exrate = item[key];
-          } else if (modifiedKey === "bill_no") {
-            // Remove duplicate bill no
-            modifiedItem.bill_no = item[key].split(",")[0];
           } else if (modifiedKey === "bill_no") {
             // Remove duplicate bill no
             modifiedItem.bill_no = item[key].split(",")[0];

@@ -78,13 +78,14 @@ function JobDetails() {
       vessel_berthing: eta,
       gateway_igm_date: gatewayIGMDate,
       discharge_date: dischargeDate,
-      bill_of_entry_no: billOfEntryNo,
+      be_no: billOfEntryNo,
       arrival_date: arrivalDate,
       out_of_charge: outOfChargeDate,
       pcv_date: pcvDate,
     } = formik.values;
 
     // Automatically update detailed status based on the given conditions
+
     if (eta) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
     }

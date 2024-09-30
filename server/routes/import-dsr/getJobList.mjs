@@ -38,6 +38,8 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
         query.detailed_status = "BE Noted, Arrival Pending";
       } else if (detailedStatus === "be_noted_clearance_pending") {
         query.detailed_status = "BE Noted, Clearance Pending";
+      } else if (detailedStatus === "pcv_done_duty_payment_pending") {
+        query.detailed_status = "PCV Done, Duty Payment Pending";
       } else if (detailedStatus === "custom_clearance_completed") {
         query.detailed_status = "Custom Clearance Completed";
       }

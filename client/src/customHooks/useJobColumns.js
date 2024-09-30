@@ -89,12 +89,45 @@ function useJobColumns() {
         header: "Job No",
         size: 100,
         Cell: ({ cell }) => {
-          const { job_no, year, type_of_b_e, consignment_type } =
-            cell.row.original;
+          const {
+            job_no,
+            year,
+            type_of_b_e,
+            consignment_type,
+            vessel_berthing,
+          } = cell.row.original;
+
+          // Parse the vessel_berthing date
+          const berthingDate = new Date(vessel_berthing);
+          const currentDate = new Date();
+
+          // Calculate the difference in days between the current date and the vessel_berthing date
+          const timeDifference = berthingDate.getTime() - currentDate.getTime();
+          const daysDifference = Math.ceil(timeDifference / (1000 * 3600 * 24));
+
+          // Determine the background color based on the comparison
+          let bgColor = "";
+          let textColor = "blue"; // Default text color
+
+          if (daysDifference === 0) {
+            bgColor = "darkred"; // Current date is the vessel berthing date
+            textColor = "white"; // White text on dark background
+          } else if (daysDifference <= 2) {
+            bgColor = "red"; // Vessel berthing date is within the last 2 days
+            textColor = "white"; // White text on red background
+          } else if (daysDifference <= 5) {
+            bgColor = "lightcoral"; // Vessel berthing date is within the last 5 days
+            textColor = "black"; // Dark text on light background
+          }
+
           return (
             <div
               onClick={() => navigate(`/job/${job_no}/${year}`)}
-              style={{ cursor: "pointer", color: "blue" }}
+              style={{
+                cursor: "pointer",
+                color: textColor,
+                backgroundColor: bgColor,
+              }}
             >
               {job_no} <br /> {type_of_b_e} <br /> {consignment_type}
             </div>

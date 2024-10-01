@@ -95,29 +95,40 @@ function useJobColumns() {
             type_of_b_e,
             consignment_type,
             vessel_berthing,
+            detailed_status,
           } = cell.row.original;
 
-          // Parse the vessel_berthing date
-          const berthingDate = new Date(vessel_berthing);
-          const currentDate = new Date();
-
-          // Calculate the difference in days between the current date and the vessel_berthing date
-          const timeDifference = berthingDate.getTime() - currentDate.getTime();
-          const daysDifference = Math.ceil(timeDifference / (1000 * 3600 * 24));
-
-          // Determine the background color based on the comparison
+          // Default background and text colors
           let bgColor = "";
           let textColor = "blue"; // Default text color
 
-          if (daysDifference === 0) {
-            bgColor = "darkred"; // Current date is the vessel berthing date
-            textColor = "white"; // White text on dark background
-          } else if (daysDifference <= 2) {
-            bgColor = "red"; // Vessel berthing date is within the last 2 days
-            textColor = "white"; // White text on red background
-          } else if (daysDifference <= 5) {
-            bgColor = "lightcoral"; // Vessel berthing date is within the last 5 days
-            textColor = "black"; // Dark text on light background
+          // Check if the detailed status is "Estimated Time of Arrival"
+          if (detailed_status === "Estimated Time of Arrival") {
+            // Parse the vessel_berthing date
+            const berthingDate = new Date(vessel_berthing);
+            const currentDate = new Date();
+
+            // Calculate the difference in days between the current date and the vessel_berthing date
+            const timeDifference =
+              berthingDate.getTime() - currentDate.getTime();
+            const daysDifference = Math.ceil(
+              timeDifference / (1000 * 3600 * 24)
+            );
+
+            // Only apply the background color if the berthing date is today or in the future
+            if (daysDifference >= 0) {
+              // Determine the background color based on the days difference
+              if (daysDifference === 0) {
+                bgColor = "darkred"; // Current date is the vessel berthing date
+                textColor = "white"; // White text on dark background
+              } else if (daysDifference <= 2) {
+                bgColor = "red"; // Vessel berthing date is within the next 2 days
+                textColor = "white"; // White text on red background
+              } else if (daysDifference <= 5) {
+                bgColor = "lightcoral"; // Vessel berthing date is within the next 5 days
+                textColor = "black"; // Dark text on light background
+              }
+            }
           }
 
           return (

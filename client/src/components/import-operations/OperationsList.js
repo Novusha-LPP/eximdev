@@ -35,7 +35,7 @@ function OperationsList() {
       // Filter jobs
       const filteredJobs = res.data
         .filter(
-          (job) => job.be_no.toLowerCase() !== "cancel" && !job.out_of_charge
+          (job) => job.be_no.toLowerCase() !== "cancelled" && !job.out_of_charge
         )
         .sort((a, b) => new Date(a.be_date) - new Date(b.be_date)); // Sort by BE Date in ascending order
 

@@ -72,7 +72,7 @@ function JobDetails() {
     setFileSnackbar
   );
 
-  // Helper function to update the `detailed_status` based on form values
+  // // Helper function to update the `detailed_status` based on form values
   // const updateDetailedStatus = () => {
   //   const {
   //     vessel_berthing: eta,
@@ -86,45 +86,24 @@ function JobDetails() {
 
   //   // Automatically update detailed status based on the given conditions
 
-  //   if (eta) {
-  //     formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
-  //   }
-
-  //   if (eta && gatewayIGMDate) {
-  //     formik.setFieldValue("detailed_status", "Gateway IGM Filed");
-  //   }
-
-  //   if (eta && gatewayIGMDate && dischargeDate) {
-  //     formik.setFieldValue("detailed_status", "Discharged");
-  //   }
-
-  //   if (eta && gatewayIGMDate && dischargeDate && billOfEntryNo) {
-  //     formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-  //   }
-
-  //   if (
-  //     eta &&
-  //     gatewayIGMDate &&
-  //     dischargeDate &&
-  //     billOfEntryNo &&
-  //     arrivalDate
-  //   ) {
-  //     formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
-  //   }
-
-  //   if (
-  //     eta &&
-  //     gatewayIGMDate &&
-  //     dischargeDate &&
-  //     billOfEntryNo &&
-  //     arrivalDate &&
-  //     (outOfChargeDate || pcvDate)
-  //   ) {
+  //   if (billOfEntryNo && arrivalDate && outOfChargeDate) {
   //     formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+  //   } else if (billOfEntryNo && arrivalDate && pcvDate) {
+  //     formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+  //   } else if (billOfEntryNo && arrivalDate) {
+  //     formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+  //   } else if (billOfEntryNo) {
+  //     formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+  //   } else if (dischargeDate) {
+  //     formik.setFieldValue("detailed_status", "Discharged");
+  //   } else if (gatewayIGMDate) {
+  //     formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+  //   } else if (eta) {
+  //     formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
   //   }
   // };
 
-  // // Trigger the `updateDetailedStatus` function when form values change
+  // // // Trigger the `updateDetailedStatus` function when form values change
   // useEffect(() => {
   //   updateDetailedStatus();
   // }, [
@@ -135,6 +114,7 @@ function JobDetails() {
   //   formik.values.arrival_date,
   //   formik.values.out_of_charge,
   //   formik.values.pcv_date,
+    
   // ]);
 
   const handleRadioChange = (event) => {

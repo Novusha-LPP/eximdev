@@ -71,51 +71,75 @@ function JobDetails() {
     setTabValue,
     setFileSnackbar
   );
+  console.log(data, "data");
+  // Helper function to update the `detailed_status` based on form values
+  const updateDetailedStatus = () => {
+    const {
+      vessel_berthing: eta,
+      gateway_igm_date: gatewayIGMDate,
+      discharge_date: dischargeDate,
+      out_of_charge: outOfChargeDate,
+      pcv_date: pcvDate,
+      container_nos,
+    } = formik.values;
 
-  // // Helper function to update the `detailed_status` based on form values
-  // const updateDetailedStatus = () => {
-  //   const {
-  //     vessel_berthing: eta,
-  //     gateway_igm_date: gatewayIGMDate,
-  //     discharge_date: dischargeDate,
-  //     be_no: billOfEntryNo,
-  //     arrival_date: arrivalDate,
-  //     out_of_charge: outOfChargeDate,
-  //     pcv_date: pcvDate,
-  //   } = formik.values;
+    // First, fallback to data.be_no if formik.values.be_no is not available
+    const billOfEntryNo = formik.values.be_no || data?.be_no;
 
-  //   // Automatically update detailed status based on the given conditions
+    // Find if any container has an arrival date
+    const anyContainerArrivalDate = container_nos?.some(
+      (container) => container.arrival_date
+    );
 
-  //   if (billOfEntryNo && arrivalDate && outOfChargeDate) {
-  //     formik.setFieldValue("detailed_status", "Custom Clearance Completed");
-  //   } else if (billOfEntryNo && arrivalDate && pcvDate) {
-  //     formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
-  //   } else if (billOfEntryNo && arrivalDate) {
-  //     formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
-  //   } else if (billOfEntryNo) {
-  //     formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-  //   } else if (dischargeDate) {
-  //     formik.setFieldValue("detailed_status", "Discharged");
-  //   } else if (gatewayIGMDate) {
-  //     formik.setFieldValue("detailed_status", "Gateway IGM Filed");
-  //   } else if (eta) {
-  //     formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
-  //   }
-  // };
+    // Log the values for debugging purposes
+    console.log("vessel_berthing (ETA):", eta);
+    console.log("gateway_igm_date:", gatewayIGMDate);
+    console.log("discharge_date:", dischargeDate);
+    console.log("bill_of_entry_no:", billOfEntryNo);
+    console.log("arrival_date (from containers):", anyContainerArrivalDate);
+    console.log("out_of_charge:", outOfChargeDate);
+    console.log("pcv_date:", pcvDate);
 
-  // // // Trigger the `updateDetailedStatus` function when form values change
-  // useEffect(() => {
-  //   updateDetailedStatus();
-  // }, [
-  //   formik.values.vessel_berthing,
-  //   formik.values.gateway_igm_date,
-  //   formik.values.discharge_date,
-  //   formik.values.bill_of_entry_no,
-  //   formik.values.arrival_date,
-  //   formik.values.out_of_charge,
-  //   formik.values.pcv_date,
-    
-  // ]);
+    // Automatically update detailed status based on the given conditions
+    if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
+      console.log("Condition met: Custom Clearance Completed");
+      formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+    } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
+      console.log("Condition met: PCV Done, Duty Payment Pending");
+      formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+    } else if (billOfEntryNo && anyContainerArrivalDate) {
+      console.log("Condition met: BE Noted, Clearance Pending");
+      formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+    } else if (billOfEntryNo) {
+      console.log("Condition met: BE Noted, Arrival Pending");
+      formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+    } else if (dischargeDate) {
+      console.log("Condition met: Discharged");
+      formik.setFieldValue("detailed_status", "Discharged");
+    } else if (gatewayIGMDate) {
+      console.log("Condition met: Gateway IGM Filed");
+      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+    } else if (eta) {
+      console.log("Condition met: Estimated Time of Arrival");
+      formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
+    } else {
+      console.log("No conditions met");
+    }
+  };
+
+  // // Trigger the `updateDetailedStatus` function when form values change
+  useEffect(() => {
+    updateDetailedStatus();
+  }, [
+    formik.values.vessel_berthing,
+    formik.values.gateway_igm_date,
+    formik.values.discharge_date,
+    formik.values.arrival_date, // Ensure this is included
+    formik.values.out_of_charge,
+    formik.values.pcv_date,
+    formik.values.be_no,
+    formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
+  ]);
 
   const handleRadioChange = (event) => {
     const selectedValue = event.target.value;
@@ -259,6 +283,7 @@ function JobDetails() {
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
             container_nos={formik.values.container_nos}
+            // Passing be_no from formik
           />
 
           <div className="job-details-container">

@@ -302,7 +302,7 @@ function useFetchJobDetails(
       navigate("/import-dsr");
     },
   });
-  console.log(formik.values.do_validity_upto_job_level);
+  
   const serializedContainerNos = useMemo(
     () =>
       JSON.stringify(

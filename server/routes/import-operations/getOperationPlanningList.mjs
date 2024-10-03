@@ -39,34 +39,11 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
   }
 
   try {
-    // Current date in yyyy-mm-dd format
-    const currentDate = new Date().toISOString().split("T")[0];
-
-    // Fetch jobs with server-side filtering
+    // Fetch jobs with server-side filtering based on customHouseCondition and detailed_status
     const jobs = await JobModel.find(
       {
-        status: "Pending", // Only fetch jobs with status "Pending"
-
-        // Exclude jobs with containers that have an `arrival_date` and where `out_of_charge` is true
-        $and: [
-          customHouseCondition, // Apply the custom house condition
-          {
-            "container_nos.arrival_date": {
-              $exists: false, // Exclude jobs where `arrival_date` exists
-            },
-          },
-          {
-            out_of_charge: { $ne: true }, // Exclude jobs where out_of_charge is true
-          },
-        ],
-
-        // Ensure `be_no` exists, is not an empty string, and doesn't contain "cancelled" in any case
-        be_no: {
-          $exists: true,
-          $ne: null,
-          $ne: "",
-          $not: { $regex: "cancelled", $options: "i" }, // case-insensitive check for "cancelled"
-        },
+        detailed_status: "BE Noted, Arrival Pending", // Only fetch jobs with this detailed_status
+        ...customHouseCondition, // Apply the custom house condition
       },
       "job_no detailed_status importer status be_no be_date container_nos examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
     )

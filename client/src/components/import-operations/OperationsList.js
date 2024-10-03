@@ -37,19 +37,19 @@ function OperationsList() {
         const filteredJobs = res.data
           .filter((job) => {
             // 1. Job should have a `be_no`
-            // if (!job.be_no) return false;
+            if (!job.be_no) return false;
 
-            // // 2. `be_no` should not be "cancelled" (case-insensitive)
-            // if (job.be_no.toLowerCase() === "cancelled") return false;
+            // 2. `be_no` should not be "cancelled" (case-insensitive)
+            if (job.be_no.toLowerCase() === "cancelled") return false;
 
-            // // 3. Exclude jobs where any container has an `arrival_date`
-            // const anyContainerArrivalDate = job.container_nos?.some(
-            //   (container) => container.arrival_date
-            // );
-            // if (anyContainerArrivalDate) return false;
+            // 3. Exclude jobs where any container has an `arrival_date`
+            const anyContainerArrivalDate = job.container_nos?.some(
+              (container) => container.arrival_date
+            );
+            if (anyContainerArrivalDate) return false;
 
-            // // // 4. Exclude jobs that have `out_of_charge` truthy
-            // // if (job.out_of_charge) return false;
+            // 4. Exclude jobs that have `out_of_charge` truthy
+            if (job.out_of_charge) return false;
 
             return true; // Keep the job if none of the above conditions apply
           })

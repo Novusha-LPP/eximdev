@@ -39,10 +39,11 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
   }
 
   try {
-    // Fetch jobs with server-side filtering based on customHouseCondition and detailed_status
+    // Fetch jobs with server-side filtering based on status, customHouseCondition, and detailed_status
     const jobs = await JobModel.find(
       {
-        detailed_status: "BE Noted, Arrival Pending", // Only fetch jobs with this detailed_status
+        status: "Pending", // First check status "Pending"
+        detailed_status: "BE Noted, Arrival Pending", // Then check for detailed_status
         ...customHouseCondition, // Apply the custom house condition
       },
       "job_no detailed_status importer status be_no be_date container_nos examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"

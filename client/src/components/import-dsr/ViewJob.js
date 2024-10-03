@@ -71,7 +71,7 @@ function JobDetails() {
     setTabValue,
     setFileSnackbar
   );
-  console.log(data, "data");
+
   // Helper function to update the `detailed_status` based on form values
   const updateDetailedStatus = () => {
     const {
@@ -92,35 +92,21 @@ function JobDetails() {
     );
 
     // Log the values for debugging purposes
-    console.log("vessel_berthing (ETA):", eta);
-    console.log("gateway_igm_date:", gatewayIGMDate);
-    console.log("discharge_date:", dischargeDate);
-    console.log("bill_of_entry_no:", billOfEntryNo);
-    console.log("arrival_date (from containers):", anyContainerArrivalDate);
-    console.log("out_of_charge:", outOfChargeDate);
-    console.log("pcv_date:", pcvDate);
 
     // Automatically update detailed status based on the given conditions
     if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
-      console.log("Condition met: Custom Clearance Completed");
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
     } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
-      console.log("Condition met: PCV Done, Duty Payment Pending");
       formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate) {
-      console.log("Condition met: BE Noted, Clearance Pending");
       formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
     } else if (billOfEntryNo) {
-      console.log("Condition met: BE Noted, Arrival Pending");
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
     } else if (dischargeDate) {
-      console.log("Condition met: Discharged");
       formik.setFieldValue("detailed_status", "Discharged");
     } else if (gatewayIGMDate) {
-      console.log("Condition met: Gateway IGM Filed");
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
     } else if (eta) {
-      console.log("Condition met: Estimated Time of Arrival");
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
     } else {
       console.log("No conditions met");

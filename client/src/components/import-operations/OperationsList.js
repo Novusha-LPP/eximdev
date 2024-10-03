@@ -28,22 +28,43 @@ function OperationsList() {
 
   React.useEffect(() => {
     async function getRows() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`
-      );
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`
+        );
 
-      // Filter jobs
-      const filteredJobs = res.data
-        .filter(
-          (job) => job.be_no.toLowerCase() !== "cancelled" && !job.out_of_charge
-        )
-        .sort((a, b) => new Date(a.be_date) - new Date(b.be_date)); // Sort by BE Date in ascending order
+        // Filter jobs
+        const filteredJobs = res.data
+          .filter((job) => {
+            // 1. Job should have a `be_no`
+            // if (!job.be_no) return false;
 
-      setRows(filteredJobs); // Set filtered and sorted jobs
+            // // 2. `be_no` should not be "cancelled" (case-insensitive)
+            // if (job.be_no.toLowerCase() === "cancelled") return false;
+
+            // // 3. Exclude jobs where any container has an `arrival_date`
+            // const anyContainerArrivalDate = job.container_nos?.some(
+            //   (container) => container.arrival_date
+            // );
+            // if (anyContainerArrivalDate) return false;
+
+            // // // 4. Exclude jobs that have `out_of_charge` truthy
+            // // if (job.out_of_charge) return false;
+
+            return true; // Keep the job if none of the above conditions apply
+          })
+          .sort((a, b) => new Date(a.be_date) - new Date(b.be_date)); // Sort by BE Date in ascending order
+
+        setRows(filteredJobs); // Set the filtered and sorted jobs
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      }
     }
+
     getRows();
   }, [selectedYear, user]);
-
+  console.log(rows.length);
+  console.log(rows);
   const columns = [
     {
       accessorKey: "job_no",

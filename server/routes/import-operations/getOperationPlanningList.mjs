@@ -4,14 +4,15 @@ import User from "../../model/userModel.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
+router.get("/api/get-operations-planning-list/:username", async (req, res) => {
   const { username } = req.params;
   const user = await User.findOne({ username });
 
   if (!user) {
-    return res.status(200).send({ message: "User not found" });
+    return res.status(404).send({ message: "User not found" });
   }
 
+  // Define customHouseCondition based on username
   let customHouseCondition = {};
   switch (username) {
     case "majhar_khan":
@@ -37,21 +38,45 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       break;
   }
 
-  const currentDate = new Date().toISOString().split("T")[0]; // Get the current date in yyyy-mm-dd format
+  try {
+    // Current date in yyyy-mm-dd format
+    const currentDate = new Date().toISOString().split("T")[0];
 
-  const jobs = await JobModel.find(
-    {
-      vessel_berthing: { $exists: true, $gt: currentDate },
-    },
-    "job_no be_no be_date container_nos examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
-  ).sort({ examination_planning_date: 1 });
+    // Fetch jobs with server-side filtering
+    const jobs = await JobModel.find(
+      {
+        status: "Pending", // Only fetch jobs with status "Pending"
 
-  // Eliminate duplicates based on a unique field (e.g., _id or job_no)
-  const uniqueJobs = Array.from(
-    new Set(jobs.map((job) => job._id.toString()))
-  ).map((id) => jobs.find((job) => job._id.toString() === id));
+        // Exclude jobs with containers that have an `arrival_date` and where `out_of_charge` is true
+        $and: [
+          customHouseCondition, // Apply the custom house condition
+          {
+            "container_nos.arrival_date": {
+              $exists: false, // Exclude jobs where `arrival_date` exists
+            },
+          },
+          {
+            out_of_charge: { $ne: true }, // Exclude jobs where out_of_charge is true
+          },
+        ],
 
-  res.status(200).send(uniqueJobs);
+        // Ensure `be_no` exists, is not an empty string, and doesn't contain "cancelled" in any case
+        be_no: {
+          $exists: true,
+          $ne: null,
+          $ne: "",
+          $not: { $regex: "cancelled", $options: "i" }, // case-insensitive check for "cancelled"
+        },
+      },
+      "job_no detailed_status importer status be_no be_date container_nos examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
+    )
+      .lean() // Use lean() for improved performance
+      .sort({ examination_planning_date: 1 });
+
+    res.status(200).send(jobs); // Send filtered jobs
+  } catch (error) {
+    res.status(500).send({ message: "Server error", error });
+  }
 });
 
 export default router;

@@ -4,7 +4,7 @@ import User from "../../model/userModel.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-operations-planning-list/:username", async (req, res) => {
+router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
   const { username } = req.params;
   const user = await User.findOne({ username });
 

@@ -98,6 +98,15 @@ function ImportOperations() {
       ),
     },
     {
+      accessorKey: "importer",
+      header: "Importer Name", // Add importer column
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => (
+        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
+      ),
+    },
+    {
       accessorKey: "examination_planning_date",
       header: "Examination Planning Date",
       enableSorting: false,

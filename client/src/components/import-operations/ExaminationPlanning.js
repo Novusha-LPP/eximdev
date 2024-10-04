@@ -7,16 +7,18 @@ import {
   useMaterialReactTable,
 } from "material-react-table";
 import { UserContext } from "../../contexts/UserContext";
-import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
 function ImportOperations() {
   const [years, setYears] = React.useState([]);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [rows, setRows] = React.useState([]);
+  const [filteredRows, setFilteredRows] = React.useState([]); // Holds filtered data based on ICD Code
+  const [selectedICD, setSelectedICD] = React.useState(""); // Holds the selected ICD code
   const { user } = React.useContext(UserContext);
   const navigate = useNavigate();
 
+  // Fetch available years for filtering
   React.useEffect(() => {
     async function getYears() {
       const res = await axios.get(
@@ -29,15 +31,46 @@ function ImportOperations() {
     getYears();
   }, []);
 
+  // Fetch rows for the user based on the selected year
   React.useEffect(() => {
     async function getRows() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`
-      );
-      setRows(res.data);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`
+        );
+
+        // Filter the rows based on custom_house and out_of_charge conditions
+        const filteredRows = res.data.filter((row) => {
+          const { custom_house, out_of_charge } = row;
+
+          // Check if custom_house is 'ICD SANAND' or 'ICD SACHANA'
+          if (custom_house === "ICD SANAND" || custom_house === "ICD SACHANA") {
+            // If out_of_charge is NOT empty or undefined, exclude the job
+            return !(out_of_charge !== "" && out_of_charge !== undefined);
+          }
+
+          // If the custom_house doesn't match, keep the job in the result
+          return true;
+        });
+
+        // Set the filtered rows
+        setRows(filteredRows);
+      } catch (error) {
+        console.error("Error fetching rows:", error);
+      }
     }
     getRows();
   }, [selectedYear, user]);
+
+  // Filter rows based on the selected ICD Code
+  React.useEffect(() => {
+    if (selectedICD) {
+      const filtered = rows.filter((row) => row.custom_house === selectedICD);
+      setFilteredRows(filtered); // Set filtered rows
+    } else {
+      setFilteredRows(rows); // If no ICD Code selected, show all rows
+    }
+  }, [selectedICD, rows]);
 
   const columns = [
     {
@@ -120,7 +153,7 @@ function ImportOperations() {
 
   const table = useMaterialReactTable({
     columns,
-    data: rows,
+    data: filteredRows, // Pass filtered rows to the table
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enableDensityToggle: false, // Disable density toggle
@@ -155,19 +188,25 @@ function ImportOperations() {
         zIndex: 1,
       },
     },
-    // renderTopToolbarCustomActions: () => (
-    //   <TextField
-    //     select
-    //     size="small"
-    //     margin="normal"
-    //     variant="outlined"
-    //     label="ICD Code"
-    //     value={}
-    //     onChange={(e) => (e.target.value)}
-    //     sx={{ width: "200px" }}
-    //   ></TextField>
-    // ),
+    renderTopToolbarCustomActions: () => (
+      <TextField
+        select
+        size="small"
+        margin="normal"
+        variant="outlined"
+        label="ICD Code"
+        value={selectedICD}
+        onChange={(e) => setSelectedICD(e.target.value)} // Update selected ICD Code
+        sx={{ width: "200px" }}
+      >
+        <MenuItem value="">All ICDs</MenuItem> {/* Option for no filtering */}
+        <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+        <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+        <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+      </TextField>
+    ),
   });
+
   const getTableRowsClassname = (params) => {
     const {
       pcv_date,
@@ -182,35 +221,36 @@ function ImportOperations() {
       (container) => container.arrival_date
     );
 
-    // Condition for pcv_date
-    if (pcv_date !== "" && pcv_date !== undefined) {
-      return "custom-clearance-completed";
+    // 1. Condition for out_of_charge - give green background and exit
+    if (out_of_charge !== "" && out_of_charge !== undefined) {
+      return "bg-green"; // Green background for out_of_charge
     }
 
-    // Condition for be_no and anyContainerArrivalDate
-    // if (be_no && anyContainerArrivalDate) {
-    //   return "bg-yellow";
-    // }
+    // 2. Condition for examination_planning_date - give orange background
+    if (
+      examination_planning_date !== "" &&
+      examination_planning_date !== undefined
+    ) {
+      return "bg-orange"; // Orange background for examination_planning_date
+    }
 
-    // Condition for examination_planning_date
-    // if (
-    //   examination_planning_date !== "" &&
-    //   examination_planning_date !== undefined
-    // ) {
-    //   return "bg-orange";
-    // }
+    // 3. Condition for be_no and anyContainerArrivalDate - give yellow background
+    if (be_no && anyContainerArrivalDate) {
+      return "bg-yellow"; // Yellow background for be_no and container's arrival_date
+    }
 
-    // Condition for out_of_charge
-    // if (out_of_charge !== "" && out_of_charge !== undefined) {
-    //   return "bg-green";
-    // }
+    // 4. Condition for pcv_date - give custom clearance completed background
+    if (pcv_date !== "" && pcv_date !== undefined) {
+      return "custom-clearance-completed"; // Background for pcv_date
+    }
 
-    // Default return for no conditions met
+    // Default return if no conditions met
     return "";
   };
 
   return (
     <>
+      {/* Select Year Dropdown */}
       <TextField
         select
         size="small"
@@ -221,15 +261,14 @@ function ImportOperations() {
         onChange={(e) => setSelectedYear(e.target.value)}
         sx={{ width: "200px" }}
       >
-        {years?.map((year) => {
-          return (
-            <MenuItem key={year} value={year}>
-              {year}
-            </MenuItem>
-          );
-        })}
+        {years?.map((year) => (
+          <MenuItem key={year} value={year}>
+            {year}
+          </MenuItem>
+        ))}
       </TextField>
 
+      {/* MaterialReactTable */}
       <MaterialReactTable table={table} />
     </>
   );

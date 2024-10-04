@@ -64,7 +64,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
           },
         ],
       },
-      "job_no be_no be_date container_nos importer examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
+      "job_no status detailed_status be_no be_date container_nos importer examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
     ).sort({ examination_planning_date: 1 });
 
     // Eliminate duplicates based on a unique field (e.g., _id or job_no)

@@ -80,6 +80,14 @@ function useJobColumns() {
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}/${month}/${day}`;
   }, []);
+  // Custom filter function to search within the container numbers
+  const containerNumberFilterFn = (row, columnId, filterValue) => {
+    const containerNos =
+      row.original?.container_nos?.map((c) => c.container_number) || [];
+    return containerNos.some((containerNo) =>
+      containerNo.includes(filterValue)
+    );
+  };
 
   // Optimized columns array
   const columns = useMemo(
@@ -355,15 +363,13 @@ function useJobColumns() {
         accessorKey: "container_numbers",
         header: "Container Numbers",
         size: 160,
+        filterFn: containerNumberFilterFn, // Custom filter function for container numbers
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
-
-          // If container_nos is available, map over it
-          if (containerNos) {
-            return containerNos.map((container, id) => (
-              <React.Fragment key={id}>
-                <span style={{ display: "block", marginBottom: "4px" }}>
-                  {/* Show the container number if it exists */}
+          return (
+            <React.Fragment>
+              {containerNos?.map((container, id) => (
+                <div key={id} style={{ marginBottom: "4px" }}>
                   <a
                     href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
                     target="_blank"
@@ -371,29 +377,23 @@ function useJobColumns() {
                   >
                     {container.container_number}
                   </a>
-
-                  {/* Show copy icon only if container number exists */}
-                  {container.container_number && (
-                    <IconButton
-                      size="small"
-                      onClick={(event) =>
-                        handleCopy(event, container.container_number)
-                      }
-                    >
-                      <abbr title="Copy Container Number">
-                        <ContentCopyIcon fontSize="inherit" />
-                      </abbr>
-                    </IconButton>
-                  )}
-                </span>
-              </React.Fragment>
-            ));
-          }
-
-          // Return null if container_nos does not exist
-          return null;
+                  <IconButton
+                    size="small"
+                    onClick={(event) =>
+                      handleCopy(event, container.container_number)
+                    }
+                  >
+                    <abbr title="Copy Container Number">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
+                </div>
+              ))}
+            </React.Fragment>
+          );
         },
       },
+
       {
         accessorKey: "detention_from",
         header: "Detention From",

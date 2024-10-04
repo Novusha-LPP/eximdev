@@ -64,7 +64,6 @@ function ImportOperations() {
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
     },
-
     {
       accessorKey: "examination_planning_date",
       header: "Examination Planning Date",
@@ -125,10 +124,15 @@ function ImportOperations() {
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enableDensityToggle: false, // Disable density toggle
-    initialState: { density: "compact" }, // Set initial table density to compact
+    initialState: {
+      density: "compact", // Set initial table density to compact
+      showColumnFilters: true, // Ensure that the search/filter is shown by default
+      showGlobalFilter: true,
+    },
     enableGrouping: true, // Enable row grouping
-    enableColumnFilters: false, // Disable column filters
+    enableColumnFilters: true, // Enable column filters (search functionality)
     enableColumnActions: false,
+    enableGlobalFilter: true,
     enableStickyHeader: true, // Enable sticky header
     enablePinning: true, // Enable pinning for sticky columns
     enablePagination: false,
@@ -142,7 +146,7 @@ function ImportOperations() {
         navigate(
           `/import-operations/view-job/${row.original.job_no}/${row.original.year}`
         ), // Navigate on row click
-      style: { cursor: "pointer" }, // Change cursor to pointer on hover
+      style: { cursor: "pointer" }, // Apply inline styles dynamically
     }),
     muiTableHeadCellProps: {
       sx: {
@@ -151,15 +155,58 @@ function ImportOperations() {
         zIndex: 1,
       },
     },
+    // renderTopToolbarCustomActions: () => (
+    //   <TextField
+    //     select
+    //     size="small"
+    //     margin="normal"
+    //     variant="outlined"
+    //     label="ICD Code"
+    //     value={}
+    //     onChange={(e) => (e.target.value)}
+    //     sx={{ width: "200px" }}
+    //   ></TextField>
+    // ),
   });
-
   const getTableRowsClassname = (params) => {
-    const pcv_date = params.original.pcv_date;
+    const {
+      pcv_date,
+      be_no,
+      container_nos,
+      examination_planning_date,
+      out_of_charge,
+    } = params.original;
+
+    // Check if any container has an arrival_date
+    const anyContainerArrivalDate = container_nos?.some(
+      (container) => container.arrival_date
+    );
+
+    // Condition for pcv_date
     if (pcv_date !== "" && pcv_date !== undefined) {
       return "custom-clearance-completed";
-    } else {
-      return "";
     }
+
+    // Condition for be_no and anyContainerArrivalDate
+    // if (be_no && anyContainerArrivalDate) {
+    //   return "bg-yellow";
+    // }
+
+    // Condition for examination_planning_date
+    // if (
+    //   examination_planning_date !== "" &&
+    //   examination_planning_date !== undefined
+    // ) {
+    //   return "bg-orange";
+    // }
+
+    // Condition for out_of_charge
+    // if (out_of_charge !== "" && out_of_charge !== undefined) {
+    //   return "bg-green";
+    // }
+
+    // Default return for no conditions met
+    return "";
   };
 
   return (

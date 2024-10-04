@@ -37,19 +37,32 @@ function OperationsList() {
         const filteredJobs = res.data
           .filter((job) => {
             // 1. Job should have a `be_no`
-            if (!job.be_no) return false;
+            if (!job.be_no) {
+              return false;
+            }
 
             // 2. `be_no` should not be "cancelled" (case-insensitive)
-            if (job.be_no.toLowerCase() === "cancelled") return false;
+            if (job.be_no.toLowerCase() === "cancelled") {
+              // console.log(`Job ${job.job_no} is cancelled`);
+              return false;
+            }
 
             // 3. Exclude jobs where any container has an `arrival_date`
             const anyContainerArrivalDate = job.container_nos?.some(
               (container) => container.arrival_date
             );
-            if (anyContainerArrivalDate) return false;
+            if (anyContainerArrivalDate) {
+              // console.log(
+              //   `Job ${job.job_no} has container(s) with arrival_date`
+              // );
+              return false;
+            }
 
             // 4. Exclude jobs that have `out_of_charge` truthy
-            if (job.out_of_charge) return false;
+            if (job.out_of_charge) {
+              // console.log(`Job ${job.job_no} has out_of_charge as truthy`);
+              return false;
+            }
 
             return true; // Keep the job if none of the above conditions apply
           })
@@ -63,8 +76,7 @@ function OperationsList() {
 
     getRows();
   }, [selectedYear, user]);
-  console.log(rows.length);
-  console.log(rows);
+
   const columns = [
     {
       accessorKey: "job_no",
@@ -132,7 +144,8 @@ function OperationsList() {
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enableDensityToggle: false, // Disable density toggle
-    initialState: { density: "compact" }, // Set initial table density to compact
+    initialState: { density: "compact", showGlobalFilter: true }, // Set initial table density to compact
+    enableGlobalFilter: true,
     enableGrouping: true, // Enable row grouping
     enableColumnFilters: false, // Disable column filters
     enableColumnActions: false,

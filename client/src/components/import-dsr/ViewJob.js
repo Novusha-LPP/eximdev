@@ -546,6 +546,9 @@ function JobDetails() {
                     <MenuItem value="BE Noted, Clearance Pending">
                       BE Noted, Clearance Pending
                     </MenuItem>
+                    <MenuItem value="PCV Done, Duty Payment Pending">
+                      PCV Done, Duty Payment Pending
+                    </MenuItem>
                     <MenuItem value="Custom Clearance Completed">
                       Custom Clearance Completed
                     </MenuItem>

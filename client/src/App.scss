@@ -152,3 +152,15 @@
 .MuiTableCell-root {
   white-space: normal !important;
 }
+
+// genral css
+
+.MuiTableRow-root.bg-yellow {
+  background-color: yellow !important; /* Example styling for bg-yellow */
+}
+.MuiTableRow-root.bg-orange {
+  background-color: orange !important; /* Example styling for bg-orange */
+}
+.MuiTableRow-root.bg-green {
+  background-color: green !important; /* Example styling for bg-green */
+}

@@ -80,14 +80,6 @@ function useJobColumns() {
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}/${month}/${day}`;
   }, []);
-  // Custom filter function to search within the container numbers
-  const containerNumberFilterFn = (row, columnId, filterValue) => {
-    const containerNos =
-      row.original?.container_nos?.map((c) => c.container_number) || [];
-    return containerNos.some((containerNo) =>
-      containerNo.includes(filterValue)
-    );
-  };
 
   // Optimized columns array
   const columns = useMemo(
@@ -363,7 +355,6 @@ function useJobColumns() {
         accessorKey: "container_numbers",
         header: "Container Numbers",
         size: 160,
-        filterFn: containerNumberFilterFn, // Custom filter function for container numbers
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
           return (

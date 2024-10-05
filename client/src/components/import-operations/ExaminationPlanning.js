@@ -53,14 +53,50 @@ function ImportOperations() {
           return true;
         });
 
-        // Set the filtered rows
-        setRows(filteredRows);
+        // Group jobs in the desired order
+        const sortedRows = sortRowsByConditions(filteredRows);
+
+        // Set the filtered and sorted rows
+        setRows(sortedRows);
       } catch (error) {
         console.error("Error fetching rows:", error);
       }
     }
     getRows();
   }, [selectedYear, user]);
+  // Function to sort rows based on background color conditions
+  const sortRowsByConditions = (rows) => {
+    const greenJobs = [];
+    const orangeJobs = [];
+    const yellowJobs = [];
+    const otherJobs = [];
+
+    rows.forEach((row) => {
+      const { out_of_charge, examination_planning_date, be_no, container_nos } =
+        row;
+
+      const anyContainerArrivalDate = container_nos?.some(
+        (container) => container.arrival_date
+      );
+
+      // Group into different arrays based on the conditions
+      if (out_of_charge !== "" && out_of_charge !== undefined) {
+        greenJobs.push(row); // Group all green background jobs first
+      } else if (
+        examination_planning_date !== "" &&
+        examination_planning_date !== undefined
+      ) {
+        orangeJobs.push(row); // Group all orange background jobs second
+      } else if (be_no && anyContainerArrivalDate) {
+        yellowJobs.push(row); // Group all yellow background jobs third
+      } else {
+        otherJobs.push(row); // Other jobs that do not meet the conditions
+      }
+    });
+
+    // Concatenate the arrays in the desired order
+    return [...greenJobs, ...orangeJobs, ...yellowJobs, ...otherJobs];
+  };
 
   // Filter rows based on the selected ICD Code
   React.useEffect(() => {

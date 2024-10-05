@@ -27,6 +27,8 @@ function useFetchOperationTeamJob(params) {
       container_images: "",
       weighment_slip_images: "",
       pcv_date: "",
+      concor_gate_pass_date: "",
+      concor_gate_pass_validate_up_to: "",    
       out_of_charge: "",
       custodian_gate_pass: [],
     },
@@ -38,6 +40,8 @@ function useFetchOperationTeamJob(params) {
           container_nos: values.container_nos,
           examination_date: values.examination_date,
           pcv_date: values.pcv_date,
+          concor_gate_pass_date: values.concor_gate_pass_date,
+          concor_gate_pass_validate_up_to: values.concor_gate_pass_validate_up_to,
           out_of_charge: values.out_of_charge,
           custodian_gate_pass: values.custodian_gate_pass,
         }
@@ -99,6 +103,8 @@ function useFetchOperationTeamJob(params) {
         examination_date:
           data.examination_date === undefined ? "" : data.examination_date,
         pcv_date: data.pcv_date === undefined ? "" : data.pcv_date,
+        concor_gate_pass_date: data.concor_gate_pass_date === undefined ? "" : data.concor_gate_pass_date,
+        concor_gate_pass_validate_up_to: data.concor_gate_pass_validate_up_to === undefined ? "" : data.concor_gate_pass_validate_up_to,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         custodian_gate_pass: data === undefined ? [] : data.custodian_gate_pass,

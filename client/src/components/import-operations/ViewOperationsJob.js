@@ -189,6 +189,62 @@ function ViewOperationsJob() {
                   />
                 </div>
               </Col>
+              {/************ Add Concor Gate Pass Date and Validate Up To Date only for ICD KHODIYAR ************/}
+              {data.custom_house === "ICD KHODIYAR" && (
+                <>
+                  <Col xs={12} md={4}>
+                    <div className="job-detail-input-container">
+                      <strong>Concor Gate Pass Date:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="date"
+                        id="concor_gate_pass_date"
+                        name="concor_gate_pass_date"
+                        value={formik.values.concor_gate_pass_date}
+                        onChange={formik.handleChange}
+                        error={
+                          formik.touched.concor_gate_pass_date &&
+                          Boolean(formik.errors.concor_gate_pass_date)
+                        }
+                        helperText={
+                          formik.touched.concor_gate_pass_date &&
+                          formik.errors.concor_gate_pass_date
+                        }
+                      />
+                    </div>
+                  </Col>
+
+                  <Col xs={12} md={4}>
+                    <div className="job-detail-input-container">
+                      <strong>
+                        Concor Gate Pass Validate Up To Date:&nbsp;
+                      </strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="date"
+                        id="concor_gate_pass_validate_up_to"
+                        name="concor_gate_pass_validate_up_to"
+                        value={formik.values.concor_gate_pass_validate_up_to}
+                        onChange={formik.handleChange}
+                        error={
+                          formik.touched.concor_gate_pass_validate_up_to &&
+                          Boolean(formik.errors.concor_gate_pass_validate_up_to)
+                        }
+                        helperText={
+                          formik.touched.concor_gate_pass_validate_up_to &&
+                          formik.errors.concor_gate_pass_validate_up_to
+                        }
+                      />
+                    </div>
+                  </Col>
+                </>
+              )}
             </Row>
 
             {/*************************** Row 13 ****************************/}

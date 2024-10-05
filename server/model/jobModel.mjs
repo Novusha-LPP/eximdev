@@ -220,8 +220,10 @@ const jobSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  concor_gate_pass_date: { type: String, trim: true },
+  concor_gate_pass_validate_up_to: { type: String, trim: true },
   custodian_gate_pass: [{ type: String, trim: true }],
-
+  
   ////////////////////////////////////////////////// LR
   pr_no: { type: String, trim: true },
   pr_date: { type: String, trim: true },

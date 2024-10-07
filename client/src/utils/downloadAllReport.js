@@ -203,6 +203,8 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
         bgColor = "ffffff99"; // Light Yellow
       } else if (detailedStatus === "Custom Clearance Completed") {
         bgColor = "ffccffff"; // Light Blue
+      } else if (detailedStatus === "PCV Done, Duty Payment Pending") {
+        bgColor = "ffffdbff"; // Light Blue
       } else if (detailedStatus === "Discharged") {
         bgColor = "ffffcc99"; // Light Orange
       } else if (detailedStatus === "BE Noted, Arrival Pending") {
@@ -305,6 +307,12 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: "ffccffff" },
+      };
+    } else if (detailedStatus === "PCV Done, Duty Payment Pending") {
+      dataRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "ffffdbff" },
       };
     } else if (detailedStatus === "Discharged") {
       dataRow.fill = {

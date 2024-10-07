@@ -4,11 +4,12 @@ import axios from "axios";
 // Status ranks and their respective sorting fields
 const statusRank = {
   "Custom Clearance Completed": { rank: 1, field: "detention_from" },
-  "BE Noted, Clearance Pending": { rank: 2, field: "detention_from" },
-  "BE Noted, Arrival Pending": { rank: 3, field: "be_date" },
-  "Gateway IGM Filed": { rank: 4, field: "gateway_igm_date" },
-  Discharged: { rank: 5, field: "discharge_date" },
-  "Estimated Time of Arrival": { rank: 6, field: "vessel_berthing" },
+  "PCV Done, Duty Payment Pending": { rank: 2, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 3, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 4, field: "be_date" },
+  "Gateway IGM Filed": { rank: 5, field: "gateway_igm_date" },
+  Discharged: { rank: 6, field: "discharge_date" },
+  "Estimated Time of Arrival": { rank: 7, field: "vessel_berthing" },
 };
 
 function useFetchJobList(detailedStatus, selectedYear, status) {

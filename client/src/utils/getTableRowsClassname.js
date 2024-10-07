@@ -3,6 +3,8 @@ export const getTableRowsClassname = (params) => {
 
   if (status === "Custom Clearance Completed") {
     return "custom-clearance-completed";
+  } else if (status === "PCV Done, Duty Payment Pending") {
+    return "duty-payment-pending";
   } else if (status === "BE Noted, Clearance Pending") {
     return "clearance-pending";
   } else if (status === "BE Noted, Arrival Pending") {

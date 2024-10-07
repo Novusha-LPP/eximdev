@@ -119,13 +119,13 @@ function useJobColumns() {
             // Only apply the background color if the berthing date is today or in the future
             if (daysDifference >= 0) {
               if (daysDifference === 0) {
-                bgColor = "darkred";
+                bgColor = "#ff1111";
                 textColor = "white";
               } else if (daysDifference <= 2) {
-                bgColor = "red";
-                textColor = "white";
+                bgColor = "#f85a5a";
+                textColor = "black";
               } else if (daysDifference <= 5) {
-                bgColor = "lightcoral";
+                bgColor = "#fd8e8e";
                 textColor = "black";
               }
             }

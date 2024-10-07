@@ -95,6 +95,7 @@ function useJobColumns() {
             type_of_b_e,
             consignment_type,
             vessel_berthing,
+            container_nos, // Assume this field holds an array of container objects
             detailed_status,
           } = cell.row.original;
 
@@ -102,33 +103,59 @@ function useJobColumns() {
           let bgColor = "";
           let textColor = "blue"; // Default text color
 
+          const currentDate = new Date();
+
+          // Function to calculate the days difference
+          const calculateDaysDifference = (targetDate) => {
+            const date = new Date(targetDate);
+            const timeDifference = date.getTime() - currentDate.getTime();
+            return Math.ceil(timeDifference / (1000 * 3600 * 24));
+          };
+
           // Check if the detailed status is "Estimated Time of Arrival"
           if (detailed_status === "Estimated Time of Arrival") {
-            // Parse the vessel_berthing date
-            const berthingDate = new Date(vessel_berthing);
-            const currentDate = new Date();
-
-            // Calculate the difference in days between the current date and the vessel_berthing date
-            const timeDifference =
-              berthingDate.getTime() - currentDate.getTime();
-            const daysDifference = Math.ceil(
-              timeDifference / (1000 * 3600 * 24)
-            );
+            const daysDifference = calculateDaysDifference(vessel_berthing);
 
             // Only apply the background color if the berthing date is today or in the future
             if (daysDifference >= 0) {
-              // Determine the background color based on the days difference
               if (daysDifference === 0) {
-                bgColor = "darkred"; // Current date is the vessel berthing date
-                textColor = "white"; // White text on dark background
+                bgColor = "darkred";
+                textColor = "white";
               } else if (daysDifference <= 2) {
-                bgColor = "red"; // Vessel berthing date is within the next 2 days
-                textColor = "white"; // White text on red background
+                bgColor = "red";
+                textColor = "white";
               } else if (daysDifference <= 5) {
-                bgColor = "lightcoral"; // Vessel berthing date is within the next 5 days
-                textColor = "black"; // Dark text on light background
+                bgColor = "lightcoral";
+                textColor = "black";
               }
             }
+          }
+
+          // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
+          if (
+            (detailed_status === "Custom Clearance Completed" &&
+              container_nos) ||
+            detailed_status === "BE Noted, Clearance Pending"
+          ) {
+            container_nos.forEach((container) => {
+              const daysDifference = calculateDaysDifference(
+                container.detention_from
+              );
+
+              // Apply background color based on the days difference before the current date
+              if (daysDifference >= 0) {
+                if (daysDifference <= 1) {
+                  bgColor = "red"; // 1 day before current date
+                  textColor = "white"; // White text on dark background
+                } else if (daysDifference <= 2) {
+                  bgColor = "orange"; // 2 days before current date
+                  textColor = "black"; // Dark text on red background
+                } else if (daysDifference <= 3) {
+                  bgColor = "yellow"; // 3 days before current date
+                  textColor = "black"; // Dark text on light background
+                }
+              }
+            });
           }
 
           return (
@@ -141,6 +168,7 @@ function useJobColumns() {
               }}
             >
               {job_no} <br /> {type_of_b_e} <br /> {consignment_type}
+              <br />
             </div>
           );
         },

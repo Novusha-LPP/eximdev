@@ -143,17 +143,22 @@ function useJobColumns() {
               );
 
               // Apply background color based on the days difference before the current date
-              if (daysDifference >= 0) {
-                if (daysDifference <= 1) {
-                  bgColor = "red"; // 1 day before current date
-                  textColor = "white"; // White text on dark background
-                } else if (daysDifference <= 2) {
-                  bgColor = "orange"; // 2 days before current date
-                  textColor = "black"; // Dark text on red background
-                } else if (daysDifference <= 3) {
-                  bgColor = "yellow"; // 3 days before current date
-                  textColor = "black"; // Dark text on light background
-                }
+              if (daysDifference <= 0) {
+                // Dark Red Background for current date or older detention dates
+                bgColor = "darkred";
+                textColor = "white"; // White text on dark red background
+              } else if (daysDifference === 1) {
+                // Red Background for 1 day before current date
+                bgColor = "red";
+                textColor = "white"; // White text on red background
+              } else if (daysDifference === 2) {
+                // Orange Background for 2 days before current date
+                bgColor = "orange";
+                textColor = "black"; // Black text on orange background
+              } else if (daysDifference === 3) {
+                // Yellow Background for 3 days before current date
+                bgColor = "yellow";
+                textColor = "black"; // Black text on yellow background
               }
             });
           }

@@ -70,15 +70,14 @@ function ImportOperations() {
     const orangeJobs = [];
     const yellowJobs = [];
     const otherJobs = [];
-
+  
     rows.forEach((row) => {
-      const { out_of_charge, examination_planning_date, be_no, container_nos } =
-        row;
-
+      const { out_of_charge, examination_planning_date, be_no, container_nos } = row;
+  
       const anyContainerArrivalDate = container_nos?.some(
         (container) => container.arrival_date
       );
-
+  
       // Group into different arrays based on the conditions
       if (out_of_charge !== "" && out_of_charge !== undefined) {
         greenJobs.push(row); // Group all green background jobs first
@@ -93,10 +92,24 @@ function ImportOperations() {
         otherJobs.push(row); // Other jobs that do not meet the conditions
       }
     });
-
+  
+    // Sort each group by detention_from in ascending order
+    const sortByDetentionFrom = (a, b) => {
+      const dateA = a.container_nos?.[0]?.detention_from || "";
+      const dateB = b.container_nos?.[0]?.detention_from || "";
+  
+      return new Date(dateA) - new Date(dateB);
+    };
+  
+    greenJobs.sort(sortByDetentionFrom);
+    orangeJobs.sort(sortByDetentionFrom);
+    yellowJobs.sort(sortByDetentionFrom);
+    otherJobs.sort(sortByDetentionFrom);
+  
     // Concatenate the arrays in the desired order
     return [...greenJobs, ...orangeJobs, ...yellowJobs, ...otherJobs];
   };
+  
 
   // Filter rows based on the selected ICD Code
   React.useEffect(() => {
@@ -177,6 +190,19 @@ function ImportOperations() {
       Cell: ({ cell }) => (
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
+    },
+    {
+      accessorKey: "detention_from",
+      header: "Detention From",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) =>
+        cell.row.original.container_nos?.map((container, id) => (
+          <React.Fragment key={id}>
+            {container.detention_from}
+            <br />
+          </React.Fragment>
+        )),
     },
     {
       accessorKey: "container_number",

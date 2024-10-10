@@ -52,15 +52,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
               $ne: "",
               $not: { $regex: "cancelled", $options: "i" },
             }, // Ensure `be_no` exists and is not empty or cancelled
-          },
-          {
-            "container_nos.arrival_date": { $exists: true, $ne: null }, // Ensure at least one container has a valid `arrival_date`
-          },
-          {
-            $or: [
-              { examinationPlanning: true }, // Include jobs with `examinationPlanning: true`
-              { "container_nos.arrival_date": { $gte: currentDate } }, // Include jobs with `arrival_date` on or after the current date
-            ],
+            "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" }, // Ensure at least one container has a valid `arrival_date`
           },
         ],
       },

@@ -1,11 +1,12 @@
-import * as React from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import "../../styles/import-dsr.scss";
-import { MenuItem, TextField } from "@mui/material";
+import { IconButton, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 
@@ -121,6 +122,60 @@ function ImportOperations() {
     }
   }, [selectedICD, rows]);
 
+  const handleCopy = (event, text) => {
+    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+
+    event.stopPropagation();
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+  const getCustomHouseLocation = useMemo(
+    () => (customHouse) => {
+      const houseMap = {
+        "ICD SACHANA": "SACHANA ICD (INJKA6)",
+        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
+        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
+      };
+      return houseMap[customHouse] || customHouse;
+    },
+    []
+  );
+  const formatDate = useCallback((dateStr) => {
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
+  }, []);
+
   const columns = [
     {
       accessorKey: "job_no",
@@ -146,16 +201,50 @@ function ImportOperations() {
     },
     {
       accessorKey: "be_no",
-      header: "BE Number & Date",
-      enableSorting: false,
-      size: 180,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>
-          {cell.getValue()}
-          <br />
-          <small>{cell.row.original.be_date}</small> {/* BE Date */}
-        </div>
-      ),
+      header: "BE Number",
+      size: 150,
+      Cell: ({ cell }) => {
+        const beNumber = cell?.getValue()?.toString();
+        const rawBeDate = cell.row.original.be_date;
+        const customHouse = cell.row.original.custom_house;
+
+        const beDate = formatDate(rawBeDate); // Function to format BE Date
+        const location = getCustomHouseLocation(customHouse); // Function to get custom house location
+
+        return (
+          <React.Fragment>
+            {beNumber && (
+              <React.Fragment>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  {/* BE Number as a link */}
+                  <a
+                    href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {beNumber}
+                  </a>
+
+                  {/* Copy icon beside BE Number */}
+                  <IconButton
+                    size="small"
+                    onClick={(event) => handleCopy(event, beNumber)}
+                  >
+                    <abbr title="Copy BE Number">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
+                </div>
+
+                {/* BE Date below BE Number and copy icon */}
+                <small>{beDate}</small>
+              </React.Fragment>
+            )}
+          </React.Fragment>
+        );
+      },
     },
     {
       accessorKey: "container_number",

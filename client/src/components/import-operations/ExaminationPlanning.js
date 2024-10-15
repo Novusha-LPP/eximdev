@@ -70,14 +70,15 @@ function ImportOperations() {
     const orangeJobs = [];
     const yellowJobs = [];
     const otherJobs = [];
-  
+
     rows.forEach((row) => {
-      const { out_of_charge, examination_planning_date, be_no, container_nos } = row;
-  
+      const { out_of_charge, examination_planning_date, be_no, container_nos } =
+        row;
+
       const anyContainerArrivalDate = container_nos?.some(
         (container) => container.arrival_date
       );
-  
+
       // Group into different arrays based on the conditions
       if (out_of_charge !== "" && out_of_charge !== undefined) {
         greenJobs.push(row); // Group all green background jobs first
@@ -92,24 +93,23 @@ function ImportOperations() {
         otherJobs.push(row); // Other jobs that do not meet the conditions
       }
     });
-  
+
     // Sort each group by detention_from in ascending order
     const sortByDetentionFrom = (a, b) => {
       const dateA = a.container_nos?.[0]?.detention_from || "";
       const dateB = b.container_nos?.[0]?.detention_from || "";
-  
+
       return new Date(dateA) - new Date(dateB);
     };
-  
+
     greenJobs.sort(sortByDetentionFrom);
     orangeJobs.sort(sortByDetentionFrom);
     yellowJobs.sort(sortByDetentionFrom);
     otherJobs.sort(sortByDetentionFrom);
-  
+
     // Concatenate the arrays in the desired order
     return [...greenJobs, ...orangeJobs, ...yellowJobs, ...otherJobs];
   };
-  
 
   // Filter rows based on the selected ICD Code
   React.useEffect(() => {
@@ -124,36 +124,67 @@ function ImportOperations() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No & ICD Code",
       enableSorting: false,
-      size: 100,
-    },
-    {
-      accessorKey: "be_no",
-      header: "BE Number",
-      enableSorting: false,
-      size: 140,
+      size: 150,
       Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "be_date",
-      header: "BE Date",
-      enableSorting: false,
-      size: 120,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
+        <div style={{ textAlign: "center" }}>
+          {cell.getValue()}
+          <br />
+          <small>{cell.row.original.custom_house}</small> {/* ICD Code */}
+        </div>
       ),
     },
     {
       accessorKey: "importer",
-      header: "Importer Name", // Add importer column
+      header: "Importer Name",
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => (
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
+    },
+    {
+      accessorKey: "be_no",
+      header: "BE Number & Date",
+      enableSorting: false,
+      size: 180,
+      Cell: ({ cell }) => (
+        <div style={{ textAlign: "center" }}>
+          {cell.getValue()}
+          <br />
+          <small>{cell.row.original.be_date}</small> {/* BE Date */}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "container_number",
+      header: "Container Numbers",
+      enableSorting: false,
+      size: 180,
+      Cell: ({ cell }) => (
+        <div style={{ textAlign: "center" }}>
+          {cell.row.original.container_nos?.map((container, id) => (
+            <React.Fragment key={id}>
+              {container.container_number}
+              <br />
+            </React.Fragment>
+          ))}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "arrival_date",
+      header: "Arrival Date",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) =>
+        cell.row.original.container_nos?.map((container, id) => (
+          <React.Fragment key={id}>
+            {container.arrival_date}
+            <br />
+          </React.Fragment>
+        )),
     },
     {
       accessorKey: "examination_planning_date",
@@ -175,49 +206,11 @@ function ImportOperations() {
     },
     {
       accessorKey: "out_of_charge",
-      header: "Out Of Charge",
+      header: "Out Of Charge Date",
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => (
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "custom_house",
-      header: "ICD Code",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "detention_from",
-      header: "Detention From",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) =>
-        cell.row.original.container_nos?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.detention_from}
-            <br />
-          </React.Fragment>
-        )),
-    },
-    {
-      accessorKey: "container_number",
-      header: "Container Numbers",
-      enableSorting: false,
-      size: 180,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>
-          {cell.row.original.container_nos?.map((container, id) => (
-            <React.Fragment key={id}>
-              {container.container_number}
-              <br />
-            </React.Fragment>
-          ))}
-        </div>
       ),
     },
   ];

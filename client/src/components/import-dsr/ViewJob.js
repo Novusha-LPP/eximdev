@@ -1090,7 +1090,9 @@ function JobDetails() {
                   }}
                 >
                   <strong>Completed Operation Date:&nbsp;</strong>
-                  {data.completed_operation_date ? data.completed_operation_date : ""}
+                  {data.completed_operation_date
+                    ? data.completed_operation_date
+                    : ""}
                 </div>
               </Col>
             </Row>
@@ -1465,11 +1467,26 @@ function JobDetails() {
 
                     <Row>
                       <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
+                        <div
+                          className="job-detail-input-container"
+                          style={{
+                            backgroundColor:
+                              container.weight_shortage < 0
+                                ? "red"
+                                : "transparent",
+                            padding: "5px",
+                            borderRadius: "4px",
+                            color:
+                              container.weight_shortage < 0
+                                ? "white"
+                                : "inherit",
+                          }}
+                        >
                           <strong>Weight Excess/Shortage:&nbsp;</strong>
                           {container.weight_shortage}
                         </div>
                       </Col>
+
                       <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <FormGroup>

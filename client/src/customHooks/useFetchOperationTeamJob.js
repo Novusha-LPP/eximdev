@@ -33,6 +33,7 @@ function useFetchOperationTeamJob(params) {
       pcv_date: "",
       concor_gate_pass_date: "",
       concor_gate_pass_validate_up_to: "",
+      completed_operation_date: "",
       out_of_charge: "",
       custodian_gate_pass: [],
     },
@@ -80,6 +81,7 @@ function useFetchOperationTeamJob(params) {
         concor_gate_pass_date: data.concor_gate_pass_date || "",
         concor_gate_pass_validate_up_to:
           data.concor_gate_pass_validate_up_to || "",
+        completed_operation_date: data.completed_operation_date || "",
         out_of_charge: data.out_of_charge || "",
         custodian_gate_pass: data.custodian_gate_pass || [],
       });

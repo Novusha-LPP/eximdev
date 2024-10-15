@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useContext } from "react";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
@@ -17,11 +17,14 @@ import {
   handleWeightAsPerDocumentChange,
   handleActualWeightChange,
 } from "../../utils/handleTareWeightChange";
+import Checkbox from "@mui/material/Checkbox";
+import { UserContext } from "../../contexts/UserContext";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
+  const { user } = useContext(UserContext);
   const containerImagesRef = useRef();
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
@@ -189,6 +192,69 @@ function ViewOperationsJob() {
                   />
                 </div>
               </Col>
+            </Row>
+            <br />
+            <Row>
+              <Col xs={12} lg={3}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Completed Operation:&nbsp;</strong>
+
+                  <Checkbox
+                    value={formik.values.completedOperation}
+                    checked={formik.values.completedOperation}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+
+                      // If checked, set the date to current date, otherwise clear the date
+                      if (newValue) {
+                        const currentDate = new Date()
+                          .toISOString()
+                          .split("T")[0]; // Get current date in 'YYYY-MM-DD' format
+                        formik.setFieldValue(
+                          "completed_operation_date",
+                          currentDate
+                        );
+                      } else {
+                        formik.setFieldValue("completed_operation_date", ""); // Clear date if unchecked
+                      }
+
+                      formik.setFieldValue("completedOperation", newValue); // Update checkbox value
+                    }}
+                  />
+                  {formik.values.completed_operation_date}
+                </div>
+              </Col>
+
+              {(user.username === "atul_dev" ||
+                user.username === "manu_pillai") && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>Completed Operation Date:&nbsp;</strong>
+
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="date"
+                      id="completed_operation_date"
+                      name="completed_operation_date"
+                      value={formik.values.completed_operation_date}
+                      onChange={formik.handleChange}
+                    />
+                  </div>
+                </Col>
+              )}
+            </Row>
+
+            <br />
+            <Row>
               {/************ Add Concor Gate Pass Date and Validate Up To Date only for ICD KHODIYAR ************/}
               {data.custom_house === "ICD KHODIYAR" && (
                 <>

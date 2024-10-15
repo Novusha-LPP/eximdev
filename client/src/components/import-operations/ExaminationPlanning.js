@@ -9,6 +9,7 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
+import { blue } from "@mui/material/colors";
 
 function ImportOperations() {
   const [years, setYears] = React.useState([]);
@@ -182,14 +183,27 @@ function ImportOperations() {
       header: "Job No & ICD Code",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>
-          {cell.getValue()}
-          <br />
-          <small>{cell.row.original.custom_house}</small> {/* ICD Code */}
-        </div>
-      ),
+      Cell: ({ cell, row }) => {
+        const jobNo = cell.getValue();
+        const icdCode = cell.row.original.custom_house;
+        const year = cell.row.original.year;
+        const navigate = useNavigate(); // Assuming useNavigate is available in the scope
+
+        return (
+          <div
+            style={{ textAlign: "center", cursor: "pointer", color: "blue" }} // Style for pointer
+            onClick={() =>
+              navigate(`/import-operations/view-job/${jobNo}/${year}`)
+            } // Navigate to the view-job route
+          >
+            {jobNo}
+            <br />
+            <small>{icdCode}</small> {/* ICD Code */}
+          </div>
+        );
+      },
     },
+
     {
       accessorKey: "importer",
       header: "Importer Name",
@@ -328,11 +342,11 @@ function ImportOperations() {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
-      onClick: () =>
-        navigate(
-          `/import-operations/view-job/${row.original.job_no}/${row.original.year}`
-        ), // Navigate on row click
-      style: { cursor: "pointer" }, // Apply inline styles dynamically
+      // onClick: () =>
+      //   navigate(
+      //     `/import-operations/view-job/${row.original.job_no}/${row.original.year}`
+      //   ),
+      // style: { cursor: "pointer" }, // Apply inline styles dynamically
     }),
     muiTableHeadCellProps: {
       sx: {

@@ -123,6 +123,7 @@ function JobDetails() {
     formik.values.arrival_date, // Ensure this is included
     formik.values.out_of_charge,
     formik.values.pcv_date,
+    formik.values.completed_operation_date,
     formik.values.be_no,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
@@ -1025,8 +1026,8 @@ function JobDetails() {
               </Col>
             </Row>
 
-            <Row>
-              <Col xs={12} lg={4}>
+            <Row className="my-3">
+              <Col xs={12} lg={4} className="mb-3">
                 <div className="job-detail-input-container">
                   <strong>Delivery Date:&nbsp;</strong>
                   <TextField
@@ -1042,7 +1043,8 @@ function JobDetails() {
                   />
                 </div>
               </Col>
-              <Col xs={12} lg={4}>
+
+              <Col xs={12} lg={4} className="mb-3">
                 <div className="job-detail-input-container">
                   <Checkbox
                     checked={formik.values.checked}
@@ -1056,11 +1058,9 @@ function JobDetails() {
                       }
                     }}
                   />
-
                   {!formik.values.checked && (
                     <strong>All containers arrived at same date</strong>
                   )}
-
                   {formik.values.checked && (
                     <>
                       <strong>Arrival Date:&nbsp;</strong>
@@ -1077,6 +1077,20 @@ function JobDetails() {
                       />
                     </>
                   )}
+                </div>
+              </Col>
+
+              <Col xs={12} lg={4} className="mb-3">
+                <div
+                  className="job-detail-input-container"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
+                >
+                  <strong>Completed Operation Date:&nbsp;</strong>
+                  {data.completed_operation_date ? data.completed_operation_date : ""}
                 </div>
               </Col>
             </Row>

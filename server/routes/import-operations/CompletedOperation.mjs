@@ -4,7 +4,7 @@ import User from "../../model/userModel.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
+router.get("/api/get-completed-operations/:username", async (req, res) => {
   const { username } = req.params;
   const user = await User.findOne({ username });
 
@@ -37,28 +37,22 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       break;
   }
 
-  const currentDate = new Date().toISOString().split("T")[0]; // Get the current date in yyyy-mm-dd format
-
   try {
     const jobs = await JobModel.find(
       {
         $and: [
           customHouseCondition, // Apply custom house condition based on username
           {
-            status: "Pending", // Check status is "Pending"
-            be_no: {
+            completed_operation_date: {
               $exists: true,
               $ne: null,
-              $ne: "",
-              $not: { $regex: "cancelled", $options: "i" },
-            }, // Ensure `be_no` exists and is not empty or cancelled
-            "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" }, // Ensure at least one container has a valid `arrival_date`
-            completed_operation_date: { $exists: false }, // Exclude jobs with `completed_operation_date`
+              $ne: "", // Ensure `completed_operation_date` exists, is not null, and is not empty
+            },
           },
         ],
       },
-      "job_no status detailed_status be_no be_date container_nos importer examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
-    ).sort({ examination_planning_date: 1 });
+      "job_no status completed_operation_date be_no be_date container_nos importer examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
+    ).sort({ completed_operation_date: -1 }); // Sort by completed_operation_date in descending order
 
     // Eliminate duplicates based on a unique field (e.g., _id or job_no)
     const uniqueJobs = Array.from(
@@ -67,13 +61,15 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
 
     // If no jobs found, send a message
     if (uniqueJobs.length === 0) {
-      return res.status(200).send({ message: "No jobs found for this user" });
+      return res
+        .status(200)
+        .send({ message: "No completed operations found for this user" });
     }
 
     res.status(200).send(uniqueJobs);
   } catch (error) {
     console.error(error);
-    res.status(500).send({ message: "Error fetching jobs" });
+    res.status(500).send({ message: "Error fetching completed operations" });
   }
 });
 

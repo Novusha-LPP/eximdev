@@ -22,6 +22,7 @@ import { TabValueContext } from "../../contexts/TabValueContext";
 import { handleNetWeightChange } from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ImagePreview from "../../components/gallery/ImagePreview.js";
 import {
   Dialog,
   DialogActions,
@@ -1556,52 +1557,59 @@ function JobDetails() {
                         })}
                       </Col>
                     </Row>
+
                     <Row>
-                      <div>
-                        <strong>Weighment Slip Images:&nbsp;</strong>
-                        {container.weighment_slip_images?.map((image, id) => {
-                          return (
-                            <a href={image.url} key={id}>
-                              {image.url}
-                            </a>
-                          );
-                        })}
-                      </div>
+                      <Col xs={12} md={6}>
+                        {/* Weighment Slip Images */}
 
-                      <div>
-                        <strong>Container Pre Damage Images:&nbsp;</strong>
-                        {container.container_pre_damage_images?.map(
-                          (image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                {image.url}
-                              </a>
-                            );
-                          }
-                        )}
-                      </div>
+                        <div className="mb-3">
+                          <strong>Weighment Slip Images:&nbsp;</strong>
+                          <ImagePreview
+                            images={container?.weighment_slip_images || []}
+                            readOnly
+                          />
+                        </div>
 
-                      <div>
-                        <strong>Container Images:&nbsp;</strong>
-                        {container.container_images?.map((image, id) => {
-                          return (
-                            <a href={image.url} key={id}>
-                              {image.url}
-                            </a>
-                          );
-                        })}
-                      </div>
+                        {/* Container Pre-Damage Images */}
+                        <div className="mb-3">
+                          <strong>Container Pre-Damage Images:&nbsp;</strong>
+                          <ImagePreview
+                            images={
+                              container?.container_pre_damage_images || []
+                            }
+                            readOnly
+                          />
+                        </div>
 
-                      <div>
-                        <strong>Loose Material Images:&nbsp;</strong>
-                        {container.loose_material_photo?.map((image, id) => {
-                          return (
-                            <a href={image.url} key={id}>
-                              {image.url}
-                            </a>
-                          );
-                        })}
-                      </div>
+                        {/* Loose Material Images */}
+                        <div className="mb-3">
+                          <strong>Loose Material Images:&nbsp;</strong>
+                          <ImagePreview
+                            images={container?.loose_material || []}
+                            readOnly
+                          />
+                        </div>
+                      </Col>
+
+                      <Col xs={12} md={6}>
+                        {/* Container Images */}
+                        <div className="mb-3">
+                          <strong>Container Images:&nbsp;</strong>
+                          <ImagePreview
+                            images={container?.container_images || []}
+                            readOnly
+                          />
+                        </div>
+                        <div className="mb-3">
+                          <strong>Examination Videos:&nbsp;</strong>
+                          <ImagePreview
+                            images={container?.examination_videos || []}
+                            readOnly
+                          />
+                        </div>
+
+                        {/* Examination Videos */}
+                      </Col>
                     </Row>
                   </div>
 

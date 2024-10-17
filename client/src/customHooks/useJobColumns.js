@@ -368,7 +368,7 @@ function useJobColumns() {
       },
       {
         accessorKey: "container_numbers",
-        header: "Container Numbers",
+        header: "Container Numbers and Size",
         size: 200,
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;

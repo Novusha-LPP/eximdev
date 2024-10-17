@@ -1,9 +1,17 @@
 import React, { useState } from "react";
-import { Box, IconButton, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import {
+  Box,
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
-const ImagePreview = ({ images, onDeleteImage }) => {
+const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
 
@@ -24,36 +32,48 @@ const ImagePreview = ({ images, onDeleteImage }) => {
           <TableHead>
             <TableRow>
               <TableCell>Image Link</TableCell>
-              <TableCell>Action</TableCell>
+              {!readOnly && <TableCell>Action</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
             {images.map((link, index) => (
               <TableRow key={index}>
                 <TableCell>
-                  <a href={link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", color: "blue" }}>
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none", color: "blue" }}
+                  >
                     {link}
                   </a>
                 </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleDeleteClick(index)} color="error">
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
+                {!readOnly && (
+                  <TableCell>
+                    <IconButton
+                      onClick={() => handleDeleteClick(index)}
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       ) : (
-        <p>No images uploaded yet.</p>
+        <p>No asset uploaded yet.</p>
       )}
       {/* Confirm Dialog */}
-      <ConfirmDialog
-        open={openDeleteDialog}
-        handleClose={() => setOpenDeleteDialog(false)}
-        handleConfirm={confirmDelete}
-        message="Are you sure you want to delete this image?"
-      />
+      {!readOnly && (
+        <ConfirmDialog
+          open={openDeleteDialog}
+          handleClose={() => setOpenDeleteDialog(false)}
+          handleConfirm={confirmDelete}
+          message="Are you sure you want to delete this image?"
+        />
+      )}
     </Box>
   );
 };

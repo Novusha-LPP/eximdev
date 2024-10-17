@@ -395,7 +395,42 @@ function ViewOperationsJob() {
                   </>
                 )}
               </Col>
-              <Col xs={6}></Col>
+              <Col xs={6}>
+                {data.custom_house === "ICD KHODIYAR" && (
+                  <>
+                    <FileUpload
+                      label="Upload Concor Invoice and Receipt Copy "
+                      bucketPath="concor_invoice_and_receipt_copy"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.concor_invoice_and_receipt_copy || [];
+                        const updatedFiles = [...existingFiles, ...newFiles]; // Append new files
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                      multiple={true}
+                    />
+
+                    <ImagePreview
+                      images={
+                        formik.values.concor_invoice_and_receipt_copy || []
+                      } // Display all uploaded files
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.concor_invoice_and_receipt_copy,
+                        ];
+                        updatedFiles.splice(index, 1); // Remove the selected file
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                    />
+                  </>
+                )}
+              </Col>
             </Row>
           </div>
           {/*************************** Row 14 ****************************/}

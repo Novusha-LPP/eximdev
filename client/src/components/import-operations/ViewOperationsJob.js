@@ -681,36 +681,6 @@ function ViewOperationsJob() {
                       </Row>
 
                       <Row>
-                        {/* <Col xs={6}>
-                          <label
-                            htmlFor={`weighmentSlipImages_${index}`}
-                            className="btn"
-                          >
-                            Upload Weighment Slip
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`weighmentSlipImages_${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
-                                container.container_number,
-                                "weighment_slip_images"
-                              )
-                            }
-                            style={{ display: "none" }}
-                            ref={weighmentSlipRef}
-                          />
-                          <br />
-                          {container.weighment_slip_images?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                View
-                              </a>
-                            );
-                          })}
-                        </Col> */}
                         <Col xs={6}>
                           <FileUpload
                             label="Upload Weighment Slip"

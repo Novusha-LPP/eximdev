@@ -297,20 +297,22 @@ function useJobColumns() {
         },
       },
       {
-        accessorKey: "vessel_berthing",
-        header: "ETA",
-        size: 150,
+        accessorKey: "dates",
+        header: "Dates",
+        size: 200,
+        Cell: ({ cell }) => {
+          const { vessel_berthing, gateway_igm_date, discharge_date } =
+            cell.row.original;
+          return (
+            <div>
+              <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
+              <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
+              <strong>Discharge :</strong> {discharge_date || "N/A"}
+            </div>
+          );
+        },
       },
-      {
-        accessorKey: "gateway_igm_date",
-        header: "Gateway IGM Date",
-        size: 150,
-      },
-      {
-        accessorKey: "discharge_date",
-        header: "Discharge Date",
-        size: 150,
-      },
+
       {
         accessorKey: "arrival_date",
         header: "Arrival Date",

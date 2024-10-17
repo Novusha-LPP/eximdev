@@ -29,13 +29,14 @@ function useFetchOperationTeamJob(params) {
       container_nos: [],
       examination_date: "",
       container_images: "",
-      weighment_slip_images: "",
+      weighment_slip_images: [],
       pcv_date: "",
       concor_gate_pass_date: "",
       concor_gate_pass_validate_up_to: "",
       completed_operation_date: "",
       out_of_charge: "",
       custodian_gate_pass: [],
+      concor_invoice_and_receipt_copy: [],
     },
 
     onSubmit: async (values) => {
@@ -84,6 +85,8 @@ function useFetchOperationTeamJob(params) {
         completed_operation_date: data.completed_operation_date || "",
         out_of_charge: data.out_of_charge || "",
         custodian_gate_pass: data.custodian_gate_pass || [],
+        concor_invoice_and_receipt_copy:
+          data.concor_invoice_and_receipt_copy || [],
       });
     }
   }, [data]); // When data changes, formik values are updated

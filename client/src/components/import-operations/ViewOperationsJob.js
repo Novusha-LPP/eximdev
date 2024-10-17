@@ -446,7 +446,13 @@ function ViewOperationsJob() {
                         <strong>
                           {index + 1}. Container Number:&nbsp;
                           <span ref={container_number_ref[index]}>
-                            {container.container_number}
+                            <a
+                              href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {container.container_number}
+                            </a>
                           </span>
                           <IconButton
                             onClick={() =>
@@ -458,6 +464,7 @@ function ViewOperationsJob() {
                           >
                             <ContentCopyIcon />
                           </IconButton>
+                          Size: {container.size}
                         </strong>
                       </h6>
                       <Row className="job-detail-row">

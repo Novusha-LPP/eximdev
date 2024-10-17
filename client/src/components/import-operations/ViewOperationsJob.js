@@ -446,7 +446,13 @@ function ViewOperationsJob() {
                         <strong>
                           {index + 1}. Container Number:&nbsp;
                           <span ref={container_number_ref[index]}>
-                            {container.container_number}
+                            <a
+                              href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {container.container_number}
+                            </a>
                           </span>
                           <IconButton
                             onClick={() =>
@@ -458,6 +464,7 @@ function ViewOperationsJob() {
                           >
                             <ContentCopyIcon />
                           </IconButton>
+                          Size: {container.size}
                         </strong>
                       </h6>
                       <Row className="job-detail-row">
@@ -674,36 +681,6 @@ function ViewOperationsJob() {
                       </Row>
 
                       <Row>
-                        {/* <Col xs={6}>
-                          <label
-                            htmlFor={`weighmentSlipImages_${index}`}
-                            className="btn"
-                          >
-                            Upload Weighment Slip
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`weighmentSlipImages_${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
-                                container.container_number,
-                                "weighment_slip_images"
-                              )
-                            }
-                            style={{ display: "none" }}
-                            ref={weighmentSlipRef}
-                          />
-                          <br />
-                          {container.weighment_slip_images?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                View
-                              </a>
-                            );
-                          })}
-                        </Col> */}
                         <Col xs={6}>
                           <FileUpload
                             label="Upload Weighment Slip"

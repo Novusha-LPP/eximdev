@@ -302,7 +302,7 @@ function useFetchJobDetails(
       navigate("/import-dsr");
     },
   });
-  
+
   const serializedContainerNos = useMemo(
     () =>
       JSON.stringify(
@@ -350,6 +350,14 @@ function useFetchJobDetails(
           container.loose_material_photo === undefined
             ? []
             : container.loose_material_photo,
+        loose_material:
+          container.loose_material === undefined
+            ? []
+            : container.loose_material,
+        examination_videos:
+          container.examination_videos === undefined
+            ? []
+            : container.examination_videos,
 
         container_pre_damage_images:
           container.container_pre_damage_images === undefined

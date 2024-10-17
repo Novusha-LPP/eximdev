@@ -1580,15 +1580,6 @@ function JobDetails() {
                             readOnly
                           />
                         </div>
-
-                        {/* Loose Material Images */}
-                        <div className="mb-3">
-                          <strong>Loose Material Images:&nbsp;</strong>
-                          <ImagePreview
-                            images={container?.loose_material || []}
-                            readOnly
-                          />
-                        </div>
                       </Col>
 
                       <Col xs={12} md={6}>
@@ -1600,6 +1591,18 @@ function JobDetails() {
                             readOnly
                           />
                         </div>
+                        {/* Loose Material Images */}
+                        <div className="mb-3">
+                          <strong>Loose Material Images:&nbsp;</strong>
+                          <ImagePreview
+                            images={container?.loose_material || []}
+                            readOnly
+                          />
+                        </div>
+
+                        {/* Examination Videos */}
+                      </Col>
+                      <Col xs={12} md={6}>
                         <div className="mb-3">
                           <strong>Examination Videos:&nbsp;</strong>
                           <ImagePreview
@@ -1607,8 +1610,6 @@ function JobDetails() {
                             readOnly
                           />
                         </div>
-
-                        {/* Examination Videos */}
                       </Col>
                     </Row>
                   </div>

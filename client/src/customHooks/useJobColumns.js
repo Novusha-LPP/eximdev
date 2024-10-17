@@ -369,7 +369,7 @@ function useJobColumns() {
       {
         accessorKey: "container_numbers",
         header: "Container Numbers",
-        size: 160,
+        size: 200,
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
           return (
@@ -383,6 +383,7 @@ function useJobColumns() {
                   >
                     {container.container_number}
                   </a>
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>

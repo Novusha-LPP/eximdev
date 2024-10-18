@@ -314,18 +314,6 @@ function useJobColumns() {
       },
 
       {
-        accessorKey: "arrival_date",
-        header: "Arrival Date",
-        size: 150,
-        Cell: ({ cell }) =>
-          cell.row.original.container_nos?.map((container, id) => (
-            <React.Fragment key={id}>
-              {container.arrival_date}
-              <br />
-            </React.Fragment>
-          )),
-      },
-      {
         accessorKey: "be_no",
         header: "BE Number and Date",
         size: 150, // Adjusted size to fit both BE Number and Date
@@ -400,7 +388,18 @@ function useJobColumns() {
           );
         },
       },
-
+      {
+        accessorKey: "arrival_date",
+        header: "Arrival Date",
+        size: 150,
+        Cell: ({ cell }) =>
+          cell.row.original.container_nos?.map((container, id) => (
+            <React.Fragment key={id}>
+              {container.arrival_date}
+              <br />
+            </React.Fragment>
+          )),
+      },
       {
         accessorKey: "detention_from",
         header: "Detention From",

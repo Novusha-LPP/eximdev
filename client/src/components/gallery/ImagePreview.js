@@ -15,6 +15,17 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
 
+  // Function to extract the file name from the URL
+  const extractFileName = (url) => {
+    try {
+      const parts = url.split("/");
+      return decodeURIComponent(parts[parts.length - 1]);
+    } catch (error) {
+      console.error("Failed to extract file name:", error);
+      return url; // Fallback to original URL if extraction fails
+    }
+  };
+
   const handleDeleteClick = (index) => {
     setDeleteIndex(index);
     setOpenDeleteDialog(true);
@@ -31,7 +42,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>Image Link</TableCell>
+              <TableCell>Image Name</TableCell>
               {!readOnly && <TableCell>Action</TableCell>}
             </TableRow>
           </TableHead>
@@ -45,7 +56,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
                     rel="noopener noreferrer"
                     style={{ textDecoration: "none", color: "blue" }}
                   >
-                    {link}
+                    {extractFileName(link)}
                   </a>
                 </TableCell>
                 {!readOnly && (

@@ -180,7 +180,7 @@ function JobDetailsStaticData(props) {
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
-          <strong>Bill of Entry No and Date:&nbsp;</strong>
+          <strong>Bill of Entry Number:&nbsp;</strong>
           <span className="non-editable-text">
             {props.data.be_no && (
               <a

@@ -268,10 +268,30 @@ function ImportOperations() {
       Cell: ({ cell }) => (
         <div style={{ textAlign: "center" }}>
           {cell.row.original.container_nos?.map((container, id) => (
-            <React.Fragment key={id}>
+            <div
+              key={id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "5px",
+              }}
+            >
+              {/* Container Number */}
               {container.container_number}
-              <br />
-            </React.Fragment>
+
+              {/* Copy Icon */}
+              <IconButton
+                size="small"
+                onClick={(event) =>
+                  handleCopy(event, container.container_number)
+                }
+              >
+                <abbr title="Copy Container Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
           ))}
         </div>
       ),

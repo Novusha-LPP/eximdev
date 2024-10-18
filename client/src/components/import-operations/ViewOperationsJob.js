@@ -6,7 +6,10 @@ import { Row, Col } from "react-bootstrap";
 import { IconButton, TextField } from "@mui/material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { handleFileUpload } from "../../utils/awsFileUpload";
+import FileUpload from "../../components/gallery/FileUpload.js"; // Reusable FileUpload component
+import ImagePreview from "../../components/gallery/ImagePreview.js"; // Reusable ImagePreview component
+import ConfirmDialog from "../../components/gallery/ConfirmDialog"; // Reusable ConfirmDialog component
+// import { handleFileUpload } from "../../utils/awsFileUpload";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
 import AWS from "aws-sdk";
 // import { handleActualWeightChange } from "../../utils/handleActualWeightChange";
@@ -96,6 +99,48 @@ function ViewOperationsJob() {
     } catch (err) {
       console.error("Error uploading files:", err);
     }
+  };
+  const handleGatePassUpload = (uploadedFiles) => {
+    formik.setFieldValue("custodian_gate_pass", uploadedFiles);
+    setFileSnackbar(true);
+
+    setTimeout(() => {
+      setFileSnackbar(false);
+    }, 3000);
+  };
+  const handleFileUpload = (uploadedFiles, container_number, fileType) => {
+    const updatedContainers = formik.values.container_nos.map((container) => {
+      if (container.container_number === container_number) {
+        return {
+          ...container,
+          [fileType]: [...(container[fileType] || []), ...uploadedFiles],
+        };
+      }
+      return container;
+    });
+
+    formik.setFieldValue("container_nos", updatedContainers);
+    setFileSnackbar(true);
+
+    setTimeout(() => {
+      setFileSnackbar(false);
+    }, 3000);
+  };
+
+  const handleDeleteImage = (index, container_number, fileType) => {
+    const updatedContainers = formik.values.container_nos.map((container) => {
+      if (container.container_number === container_number) {
+        const updatedImages = [...(container[fileType] || [])];
+        updatedImages.splice(index, 1);
+        return {
+          ...container,
+          [fileType]: updatedImages,
+        };
+      }
+      return container;
+    });
+
+    formik.setFieldValue("container_nos", updatedContainers);
   };
 
   const calculateWeightExcessShortage = (index, formik, actualWeight) => {
@@ -319,38 +364,73 @@ function ViewOperationsJob() {
               <Col xs={6}>
                 {data.custom_house === "ICD KHODIYAR" && (
                   <>
-                    <label htmlFor="custodian_gate_pass" className="btn">
-                      Upload Custodian Gate Pass Copy
-                    </label>
-                    <input
-                      type="file"
-                      multiple
-                      id="custodian_gate_pass"
-                      onChange={(e) =>
-                        handleFileUpload(
-                          e,
+                    <FileUpload
+                      label="Upload Custodian Gate Pass Copy"
+                      bucketPath="custodian_gate_pass"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.custodian_gate_pass || [];
+                        const updatedFiles = [...existingFiles, ...newFiles]; // Append new files
+                        formik.setFieldValue(
                           "custodian_gate_pass",
-                          "custodian_gate_pass",
-                          formik,
-                          setFileSnackbar
-                        )
-                      }
-                      className="input-hidden"
-                      ref={gatePassCopyRef}
+                          updatedFiles
+                        );
+                      }}
+                      multiple={true}
                     />
 
-                    {formik.values.custodian_gate_pass?.map((file, index) => {
-                      return (
-                        <div key={index}>
-                          <br />
-                          <a href={file}>View</a>
-                        </div>
-                      );
-                    })}
+                    <ImagePreview
+                      images={formik.values.custodian_gate_pass || []} // Display all uploaded files
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.custodian_gate_pass,
+                        ];
+                        updatedFiles.splice(index, 1); // Remove the selected file
+                        formik.setFieldValue(
+                          "custodian_gate_pass",
+                          updatedFiles
+                        );
+                      }}
+                    />
                   </>
                 )}
               </Col>
-              <Col xs={6}></Col>
+              <Col xs={6}>
+                {data.custom_house === "ICD KHODIYAR" && (
+                  <>
+                    <FileUpload
+                      label="Upload Concor Invoice and Receipt Copy "
+                      bucketPath="concor_invoice_and_receipt_copy"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.concor_invoice_and_receipt_copy || [];
+                        const updatedFiles = [...existingFiles, ...newFiles]; // Append new files
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                      multiple={true}
+                    />
+
+                    <ImagePreview
+                      images={
+                        formik.values.concor_invoice_and_receipt_copy || []
+                      } // Display all uploaded files
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.concor_invoice_and_receipt_copy,
+                        ];
+                        updatedFiles.splice(index, 1); // Remove the selected file
+                        formik.setFieldValue(
+                          "concor_invoice_and_receipt_copy",
+                          updatedFiles
+                        );
+                      }}
+                    />
+                  </>
+                )}
+              </Col>
             </Row>
           </div>
           {/*************************** Row 14 ****************************/}
@@ -366,7 +446,13 @@ function ViewOperationsJob() {
                         <strong>
                           {index + 1}. Container Number:&nbsp;
                           <span ref={container_number_ref[index]}>
-                            {container.container_number}
+                            <a
+                              href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {container.container_number}
+                            </a>
                           </span>
                           <IconButton
                             onClick={() =>
@@ -378,6 +464,7 @@ function ViewOperationsJob() {
                           >
                             <ContentCopyIcon />
                           </IconButton>
+                          Size: {container.size}
                         </strong>
                       </h6>
                       <Row className="job-detail-row">
@@ -595,167 +682,131 @@ function ViewOperationsJob() {
 
                       <Row>
                         <Col xs={6}>
-                          <label
-                            htmlFor={`weighmentSlipImages_${index}`}
-                            className="btn"
-                          >
-                            Upload Weighment Slip
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`weighmentSlipImages_${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
+                          <FileUpload
+                            label="Upload Weighment Slip"
+                            bucketPath="weighment_slip_images"
+                            onFilesUploaded={(uploadedFiles) =>
+                              handleFileUpload(
+                                uploadedFiles,
                                 container.container_number,
                                 "weighment_slip_images"
                               )
                             }
-                            style={{ display: "none" }}
-                            ref={weighmentSlipRef}
                           />
-                          <br />
-                          {container.weighment_slip_images?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                View
-                              </a>
-                            );
-                          })}
+                          <ImagePreview
+                            images={container.weighment_slip_images || []}
+                            onDeleteImage={(index) =>
+                              handleDeleteImage(
+                                index,
+                                container.container_number,
+                                "weighment_slip_images"
+                              )
+                            }
+                          />
                         </Col>
-                        <Col>
-                          <label
-                            htmlFor={`containerPreDamage_${index}`}
-                            className="btn"
-                          >
-                            <>Container Pre Damage Images</>
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`containerPreDamage_${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
+
+                        <Col xs={6}>
+                          <FileUpload
+                            label="Upload Container Pre-Damage Images"
+                            bucketPath="container_pre_damage_images"
+                            onFilesUploaded={(uploadedFiles) =>
+                              handleFileUpload(
+                                uploadedFiles,
                                 container.container_number,
                                 "container_pre_damage_images"
                               )
                             }
-                            style={{ display: "none" }}
-                            ref={container_pre_damage_images_ref}
                           />
-                          <br />
-                          {container.container_pre_damage_images?.map(
-                            (image, id) => {
-                              return (
-                                <a href={image.url} key={id}>
-                                  View
-                                </a>
-                              );
+                          <ImagePreview
+                            images={container.container_pre_damage_images || []}
+                            onDeleteImage={(index) =>
+                              handleDeleteImage(
+                                index,
+                                container.container_number,
+                                "container_pre_damage_images"
+                              )
                             }
-                          )}
+                          />
                         </Col>
                       </Row>
 
                       <Row>
+                        {/* Container Images */}
                         <Col xs={6}>
-                          <label
-                            htmlFor={`containerImages_${index}`}
-                            className="btn"
-                          >
-                            Container Images
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`containerImages_${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
+                          <FileUpload
+                            label="Upload Container Images"
+                            bucketPath="container_images"
+                            onFilesUploaded={(uploadedFiles) =>
+                              handleFileUpload(
+                                uploadedFiles,
                                 container.container_number,
                                 "container_images"
                               )
                             }
-                            style={{ display: "none" }}
-                            ref={containerImagesRef}
                           />
-                          <br />
-                          {container.container_images?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                View
-                              </a>
-                            );
-                          })}
+                          <ImagePreview
+                            images={container.container_images || []}
+                            onDeleteImage={(index) =>
+                              handleDeleteImage(
+                                index,
+                                container.container_number,
+                                "container_images"
+                              )
+                            }
+                          />
                         </Col>
 
-                        <Col>
-                          <label
-                            htmlFor={`looseMaterial${index}`}
-                            className="btn"
-                          >
-                            <>Loose Material Images</>
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            id={`looseMaterial${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
+                        {/* Loose Material Images */}
+                        <Col xs={6}>
+                          <FileUpload
+                            label="Upload Loose Material Images"
+                            bucketPath="loose_material"
+                            onFilesUploaded={(uploadedFiles) =>
+                              handleFileUpload(
+                                uploadedFiles,
                                 container.container_number,
                                 "loose_material"
                               )
                             }
-                            style={{ display: "none" }}
-                            ref={loose_material_ref}
                           />
-                          <br />
-                          {container.loose_material?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                View
-                              </a>
-                            );
-                          })}
+                          <ImagePreview
+                            images={container.loose_material || []}
+                            onDeleteImage={(index) =>
+                              handleDeleteImage(
+                                index,
+                                container.container_number,
+                                "loose_material"
+                              )
+                            }
+                          />
                         </Col>
                       </Row>
 
                       <Row>
+                        {/* Examination Videos */}
                         <Col xs={6}>
-                          <label
-                            htmlFor={`examinationVideos_${index}`}
-                            className="btn"
-                          >
-                            Examination Videos
-                          </label>
-                          <input
-                            type="file"
-                            multiple
-                            accept="video/*"
-                            id={`examinationVideos_${index}`}
-                            onChange={(e) =>
-                              handleContainerFileUpload(
-                                e,
+                          <FileUpload
+                            label="Upload Examination Videos"
+                            bucketPath="examination_videos"
+                            onFilesUploaded={(uploadedFiles) =>
+                              handleFileUpload(
+                                uploadedFiles,
                                 container.container_number,
                                 "examination_videos"
                               )
                             }
-                            style={{ display: "none" }}
-                            ref={examinationVideosRef}
                           />
-                          <br />
-                          {container.examination_videos?.map((image, id) => {
-                            return (
-                              <a href={image.url} key={id}>
-                                View
-                              </a>
-                            );
-                          })}
+                          <ImagePreview
+                            images={container.examination_videos || []}
+                            onDeleteImage={(index) =>
+                              handleDeleteImage(
+                                index,
+                                container.container_number,
+                                "examination_videos"
+                              )
+                            }
+                          />
                         </Col>
-
-                        <Col></Col>
                       </Row>
                     </div>
                     <hr />

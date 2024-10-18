@@ -4,6 +4,7 @@ import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import OperationsList from "./OperationsList";
 import ExaminationPlanning from "./ExaminationPlanning";
+import CompletedOperation from "./CompletedOperation";
 import useTabs from "../../customHooks/useTabs";
 
 function ImportOperations() {
@@ -24,7 +25,8 @@ function ImportOperations() {
         >
           [
           <Tab label="List" {...a11yProps(0)} key={0} />,
-          <Tab label="Examination Planning" {...a11yProps(1)} key={1} />, ]
+          <Tab label="Examination Planning" {...a11yProps(1)} key={1} />,
+          <Tab label="Completed Operation" {...a11yProps(2)} key={2} />, ]
         </Tabs>
       </Box>
 
@@ -33,6 +35,9 @@ function ImportOperations() {
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
         <ExaminationPlanning />
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={2}>
+        <CompletedOperation />
       </CustomTabPanel>
     </Box>
   );

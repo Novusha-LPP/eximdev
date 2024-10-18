@@ -297,20 +297,22 @@ function useJobColumns() {
         },
       },
       {
-        accessorKey: "vessel_berthing",
-        header: "ETA",
-        size: 150,
+        accessorKey: "dates",
+        header: "Dates",
+        size: 200,
+        Cell: ({ cell }) => {
+          const { vessel_berthing, gateway_igm_date, discharge_date } =
+            cell.row.original;
+          return (
+            <div>
+              <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
+              <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
+              <strong>Discharge :</strong> {discharge_date || "N/A"}
+            </div>
+          );
+        },
       },
-      {
-        accessorKey: "gateway_igm_date",
-        header: "Gateway IGM Date",
-        size: 150,
-      },
-      {
-        accessorKey: "discharge_date",
-        header: "Discharge Date",
-        size: 150,
-      },
+
       {
         accessorKey: "arrival_date",
         header: "Arrival Date",
@@ -325,8 +327,8 @@ function useJobColumns() {
       },
       {
         accessorKey: "be_no",
-        header: "BE Number",
-        size: 150,
+        header: "BE Number and Date",
+        size: 150, // Adjusted size to fit both BE Number and Date
         Cell: ({ cell }) => {
           const beNumber = cell?.getValue()?.toString();
           const rawBeDate = cell.row.original.be_date;
@@ -339,7 +341,6 @@ function useJobColumns() {
             <React.Fragment>
               {beNumber && (
                 <React.Fragment>
-                  {" "}
                   <a
                     href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
                     target="_blank"
@@ -347,32 +348,13 @@ function useJobColumns() {
                   >
                     {beNumber}
                   </a>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={(event) => handleCopy(event, beNumber)}
-                    >
-                      <abbr title="Copy BE Number">
-                        <ContentCopyIcon fontSize="inherit" />
-                      </abbr>
-                    </IconButton>
-                  </div>
+
+                  {beDate}
                 </React.Fragment>
               )}
             </React.Fragment>
           );
         },
-      },
-      {
-        accessorKey: "be_date",
-        header: "BE Date",
-        size: 150,
       },
       {
         accessorKey: "loading_port",
@@ -386,8 +368,8 @@ function useJobColumns() {
       },
       {
         accessorKey: "container_numbers",
-        header: "Container Numbers",
-        size: 160,
+        header: "Container Numbers and Size",
+        size: 200,
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
           return (
@@ -401,6 +383,7 @@ function useJobColumns() {
                   >
                     {container.container_number}
                   </a>
+                  | "{container.size}"
                   <IconButton
                     size="small"
                     onClick={(event) =>

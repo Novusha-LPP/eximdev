@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { Row, Col } from "react-bootstrap";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { handleCopyText } from "../../utils/handleCopyText";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 
 function JobDetailsStaticData(props) {
   if (props.data) {
@@ -50,6 +52,63 @@ function JobDetailsStaticData(props) {
       document.body.removeChild(textArea);
     }
   };
+  const getShippingLineUrl = (shippingLine, blNumber, containerFirst) => {
+    const shippingLineUrls = {
+      MSC: `https://www.msc.com/en/track-a-shipment`,
+      "M S C": `https://www.msc.com/en/track-a-shipment`,
+      "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
+      "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
+      "CMA CGM AGENCIES INDIA PVT. LTD":
+        "https://www.cma-cgm.com/ebusiness/tracking/search",
+      "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${blNumber}`,
+      "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
+      "ONE LINE":
+        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+      UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber}`,
+      HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+      HYUNDI:
+        "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+      "Cosco Container Lines":
+        "https://elines.coscoshipping.com/ebusiness/cargotracking",
+      COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
+    };
+    return shippingLineUrls[shippingLine] || "#";
+  };
+  // Memoized utility functions to avoid unnecessary re-calculations
+  const getPortLocation = useMemo(
+    () => (portOfReporting) => {
+      const portMap = {
+        "(INMUN1) Mundra Sea": "MUNDRA SEA (INMUN1)",
+        "(INNSA1) Nhava Sheva Sea": "NHAVA SHEVA SEA (INNSA1)",
+        "(INPAV1) Pipavav": "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
+        "(INPAV6) Pipavav (Victor) Port":
+          "PIPAVAV - VICTOR PORT GUJARAT SEA (INPAV1)",
+        "(INHZA1) Hazira": "HAZIRA PORT SURAT (INHZA1)",
+      };
+      return portMap[portOfReporting] || "";
+    },
+    []
+  );
+
+  const getCustomHouseLocation = useMemo(
+    () => (customHouse) => {
+      const houseMap = {
+        "ICD SACHANA": "SACHANA ICD (INJKA6)",
+        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
+        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
+      };
+      return houseMap[customHouse] || customHouse;
+    },
+    []
+  );
+
+  const formatDate = useCallback((dateStr) => {
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
+  }, []);
 
   return (
     <div className="job-details-container">
@@ -121,9 +180,26 @@ function JobDetailsStaticData(props) {
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
-          <strong>Bill of Entry No:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.be_no}</span>
+          <strong>Bill of Entry No and Date:&nbsp;</strong>
+          <span className="non-editable-text">
+            {props.data.be_no && (
+              <a
+                href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${
+                  props.data.be_no
+                }&BE_DT=${formatDate(
+                  props.data.be_date
+                )}&beTrack_location=${getCustomHouseLocation(
+                  props.data.custom_house
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {props.data.be_no}
+              </a>
+            )}
+          </span>
         </Col>
+
         <Col xs={12} lg={5}>
           <strong>Bill of Entry Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.be_date}</span>
@@ -131,27 +207,87 @@ function JobDetailsStaticData(props) {
       </Row>
       <Row>
         <Col xs={12} lg={5}>
-          <strong>Bill of Lading Number:&nbsp;</strong>
-          <span ref={props.bl_no_ref} className="non-editable-text">
-            {props.data.awb_bl_no?.toString()}
-          </span>
-          <IconButton
-            size="small"
-            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-            onClick={() => handleCopyText(props.bl_no_ref, props.setSnackbar)}
-            // onClick={(event) => {
-            //   handleCopy(event, props.bl_no_ref);
-            // }}
-            aria-label="copy-btn"
-          >
-            <ContentCopyIcon />
-          </IconButton>
+          {/* Outer Flex Container */}
+          <div style={{ display: "flex", flexDirection: "row" }}>
+            {/* Inner Flex Row 1: Label and Value */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <strong>Bill of Lading Number:&nbsp;</strong>
+            </div>
+
+            <div style={{ marginTop: "5px" }}>
+              <div className="non-editable-text">
+                <a
+                  href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {props.data.awb_bl_no}
+                </a>
+              </div>
+              {/* Inner Flex Row 2: Icon Row */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: "15px",
+                }}
+              >
+                {/* Copy Button */}
+                {/* <IconButton
+                  size="medium"
+                  onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                  onClick={() =>
+                    handleCopyText(props.bl_no_ref, props.setSnackbar)
+                  }
+                  aria-label="copy-btn"
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton> */}
+
+                {/* Shipping Line Tracking Link */}
+                {props.data.shipping_line_airline && (
+                  <abbr
+                    title={`Track Shipment at ${props.data.shipping_line_airline}`}
+                  >
+                    <a
+                      href={
+                        getShippingLineUrl(
+                          props.data.shipping_line_airline,
+                          props.data.awb_bl_no,
+                          props.data.container_nos?.[0]?.container_number
+                        ) || "#"
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+                    </a>
+                  </abbr>
+                )}
+
+                {/* Sea IGM Entry Link */}
+                <abbr title="Sea IGM Entry">
+                  <a
+                    href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${getPortLocation(
+                      props.data.port_of_reporting
+                    )}&MAWB_NO=${props.data.awb_bl_no}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
+                  </a>
+                </abbr>
+              </div>
+            </div>
+          </div>
         </Col>
+
         <Col xs={12} lg={5}>
           <strong>Bill of Lading Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.awb_bl_date}</span>
         </Col>
       </Row>
+
       {/*************************** Row 6 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>

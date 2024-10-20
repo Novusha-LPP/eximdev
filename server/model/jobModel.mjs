@@ -68,6 +68,7 @@ const jobSchema = new mongoose.Schema({
       weight_excess: { type: String, trim: true },
       weighment_slip_images: [{ type: String, trim: true }],
       container_pre_damage_images: [{ type: String, trim: true }],
+      container_custodian_gate_pass: [{ type: String, trim: true }],
       container_images: [{ type: String, trim: true }],
       loose_material: [{ type: String, trim: true }],
       examination_videos: [{ type: String, trim: true }],
@@ -228,7 +229,7 @@ const jobSchema = new mongoose.Schema({
   concor_gate_pass_validate_up_to: { type: String, trim: true },
   completed_operation_date: { type: String, trim: true },
   custodian_gate_pass: [{ type: String, trim: true }],
-  concor_invoice_and_receipt_copy : [{ type: String, trim: true }],
+  concor_invoice_and_receipt_copy: [{ type: String, trim: true }],
 
   ////////////////////////////////////////////////// LR
   pr_no: { type: String, trim: true },

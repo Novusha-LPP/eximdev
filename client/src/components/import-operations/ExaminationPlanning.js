@@ -261,40 +261,38 @@ function ImportOperations() {
       },
     },
     {
-      accessorKey: "container_number",
-      header: "Container Numbers",
-      enableSorting: false,
-      size: 180,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>
-          {cell.row.original.container_nos?.map((container, id) => (
-            <div
-              key={id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "5px",
-              }}
-            >
-              {/* Container Number */}
-              {container.container_number}
-
-              {/* Copy Icon */}
-              <IconButton
-                size="small"
-                onClick={(event) =>
-                  handleCopy(event, container.container_number)
-                }
-              >
-                <abbr title="Copy Container Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
-          ))}
-        </div>
-      ),
+      accessorKey: "container_numbers",
+      header: "Container Numbers and Size",
+      size: 200,
+      Cell: ({ cell }) => {
+        const containerNos = cell.row.original.container_nos;
+        return (
+          <React.Fragment>
+            {containerNos?.map((container, id) => (
+              <div key={id} style={{ marginBottom: "4px" }}>
+                <a
+                  href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {container.container_number}
+                </a>
+                | "{container.size}"
+                <IconButton
+                  size="small"
+                  onClick={(event) =>
+                    handleCopy(event, container.container_number)
+                  }
+                >
+                  <abbr title="Copy Container Number">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      },
     },
     {
       accessorKey: "arrival_date",

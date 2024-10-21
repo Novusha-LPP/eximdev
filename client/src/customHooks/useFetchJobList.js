@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-function useFetchJobList(detailedStatus, selectedYear, status) {
-  const [rows, setRows] = useState([]); // Stores job list data
-  const [total, setTotal] = useState(0); // Total number of jobs
-  const [currentPage, setCurrentPage] = useState(1); // Current page number
-  const [totalPages, setTotalPages] = useState(1); // Total number of pages
-  const [loading, setLoading] = useState(false); // Loading state
+function useFetchJobList(detailedStatus, selectedYear, status, searchQuery) {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const fetchJobs = async (page) => {
-    setLoading(true); // Show loading indicator while fetching
+    setLoading(true);
     try {
       const response = await axios.get(
         `${
@@ -17,18 +17,17 @@ function useFetchJobList(detailedStatus, selectedYear, status) {
         }/${selectedYear}/jobs/${status}/${detailedStatus
           .toLowerCase()
           .replace(/ /g, "_")
-          .replace(/,/g, "")}?page=${page}&limit=100`
+          .replace(/,/g, "")}?page=${page}&limit=100&search=${searchQuery}`
       );
-
-      // Set the job list and pagination data
-      setRows(response.data.data);
-      setTotal(response.data.total);
-      setTotalPages(response.data.totalPages);
-      setCurrentPage(response.data.currentPage);
+      const { data, total, totalPages, currentPage } = response.data;
+      setRows(data);
+      setTotal(total);
+      setTotalPages(totalPages);
+      setCurrentPage(currentPage);
     } catch (error) {
       console.error("Error fetching job list:", error);
     } finally {
-      setLoading(false); // Hide loading indicator
+      setLoading(false);
     }
   };
 
@@ -36,14 +35,19 @@ function useFetchJobList(detailedStatus, selectedYear, status) {
     if (selectedYear) {
       fetchJobs(currentPage);
     }
-  }, [detailedStatus, selectedYear, status, currentPage]);
+  }, [detailedStatus, selectedYear, status, currentPage, searchQuery]);
 
-  // Handle page change
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
+  const handlePageChange = (newPage) => setCurrentPage(newPage);
+
+  return {
+    rows,
+    total,
+    totalPages,
+    currentPage,
+    loading,
+    handlePageChange,
+    fetchJobs,
   };
-
-  return { rows, total, totalPages, currentPage, loading, handlePageChange };
 }
 
 export default useFetchJobList;

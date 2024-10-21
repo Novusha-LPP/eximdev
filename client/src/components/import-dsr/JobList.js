@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useCallback } from "react";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -11,7 +11,9 @@ import {
   IconButton,
   Typography,
   Pagination,
+  InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -24,12 +26,26 @@ import { useNavigate } from "react-router-dom";
 function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYear, setSelectedYear } = useContext(SelectedYearContext);
+  const [detailedStatus, setDetailedStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState(""); // State for search query
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query state
 
-  const [detailedStatus, setDetailedStatus] = useState("all"); // Default status
   const columns = useJobColumns(detailedStatus);
 
-  const { rows, total, totalPages, currentPage, loading, handlePageChange } =
-    useFetchJobList(detailedStatus, selectedYear, props.status);
+  const {
+    rows,
+    total,
+    totalPages,
+    currentPage,
+    loading,
+    handlePageChange,
+    fetchJobs,
+  } = useFetchJobList(
+    detailedStatus,
+    selectedYear,
+    props.status,
+    debouncedSearchQuery // Use the debounced search query
+  );
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
@@ -48,20 +64,30 @@ function JobList(props) {
     getYears();
   }, [setSelectedYear]);
 
+  // Debounce the search query with useEffect
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery); // Update the debounced search query after delay
+    }, 500); // 500ms delay
+
+    return () => {
+      clearTimeout(handler); // Clear timeout if the component unmounts or query changes
+    };
+  }, [searchQuery]); // Run when searchQuery changes
+
   const table = useMaterialReactTable({
     columns,
     data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
-    enablePagination: false, // Disable built-in pagination
+    enablePagination: false,
     enableBottomToolbar: false,
     enableDensityToggle: false,
     initialState: {
       density: "compact",
       columnPinning: { left: ["job_no"] },
-      showGlobalFilter: true,
     },
-    enableGlobalFilter: true,
+    enableGlobalFilter: false,
     enableGrouping: true,
     enableColumnFilters: false,
     enableColumnActions: false,
@@ -82,38 +108,28 @@ function JobList(props) {
     },
     renderTopToolbarCustomActions: () => (
       <div
-        gap={1}
-        width="100%"
         style={{
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
           alignItems: "center",
-          flex: 1,
+          width: "100%",
         }}
       >
         <Typography
           variant="body1"
-          sx={{
-            display: "inline-block",
-            marginRight: "20px",
-            fontWeight: "bold",
-            fontStyle: "italic",
-            fontSize: "1.5rem",
-          }}
+          sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
         >
-          {props.status} jobs: {total}
+          {props.status} Jobs: {total}
         </Typography>
 
         <TextField
           select
           size="small"
-          margin="normal"
-          variant="outlined"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
-          sx={{ width: "200px", margin: 0, marginRight: "20px" }}
+          sx={{ width: "200px", marginRight: "20px" }}
         >
-          {years?.map((year) => (
+          {years.map((year) => (
             <MenuItem key={year} value={year}>
               {year}
             </MenuItem>
@@ -123,17 +139,34 @@ function JobList(props) {
         <TextField
           select
           size="small"
-          sx={{ width: "300px" }}
           value={detailedStatus}
           onChange={(e) => setDetailedStatus(e.target.value)}
+          sx={{ width: "300px" }}
         >
-          {detailedStatusOptions?.map((option) => (
+          {detailedStatusOptions.map((option) => (
             <MenuItem key={option.id} value={option.value}>
               {option.name}
             </MenuItem>
           ))}
         </TextField>
 
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton onClick={() => fetchJobs(1)}>
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{ width: "300px", marginRight: "20px" }}
+        />
         <IconButton onClick={handleOpen}>
           <DownloadIcon />
         </IconButton>
@@ -145,7 +178,6 @@ function JobList(props) {
     <div className="table-container">
       <MaterialReactTable table={table} />
 
-      {/* Pagination Component */}
       <Pagination
         count={totalPages}
         page={currentPage}

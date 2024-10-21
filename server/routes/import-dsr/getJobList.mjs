@@ -14,32 +14,67 @@ const statusRank = {
   "Estimated Time of Arrival": { rank: 7, field: "vessel_berthing" },
 };
 
-// Helper function to parse dates safely
+// Helper to safely parse dates
 const parseDate = (dateStr) => {
   const date = new Date(dateStr);
   return isNaN(date.getTime()) ? null : date;
 };
 
-// API to fetch jobs with rank-based sorting and pagination
+// Field selection logic
+const defaultFields = `
+  job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
+  gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
+  port_of_reporting type_of_b_e consignment_type shipping_line_airline 
+`;
+
+const additionalFieldsByStatus = {
+  be_noted_clearance_pending: "",
+  pcv_done_duty_payment_pending: "out_of_charge pcv_date",
+  custom_clearance_completed: "out_of_charge",
+};
+
+const getSelectedFields = (status) =>
+  `${defaultFields} ${additionalFieldsByStatus[status] || ""}`.trim();
+
+// Generate search query
+const buildSearchQuery = (search) => ({
+  $or: [
+    { job_no: { $regex: search, $options: "i" } },
+    { type_of_b_e: { $regex: search, $options: "i" } },
+    { consignment_type: { $regex: search, $options: "i" } },
+    { importer: { $regex: search, $options: "i" } },
+    { custom_house: { $regex: search, $options: "i" } },
+    { awb_bl_no: { $regex: search, $options: "i" } },
+    { vessel_berthing: { $regex: search, $options: "i" } },
+    { gateway_igm_date: { $regex: search, $options: "i" } },
+    { discharge_date: { $regex: search, $options: "i" } },
+    { be_no: { $regex: search, $options: "i" } },
+    { be_date: { $regex: search, $options: "i" } },
+    { loading_port: { $regex: search, $options: "i" } },
+    { port_of_reporting: { $regex: search, $options: "i" } },
+    { "container_nos.container_number": { $regex: search, $options: "i" } },
+    { "container_nos.arrival_date": { $regex: search, $options: "i" } },
+    { "container_nos.detention_from": { $regex: search, $options: "i" } },
+  ],
+});
+
+// API to fetch jobs with pagination, sorting, and search
 router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
   try {
     const { year, status, detailedStatus } = req.params;
-    const { page = 1, limit = 100 } = req.query;
+    const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build query object
-    const query = { year };
-
+    // Build base query
+    const query = { year, be_no: { $ne: "CANCELLED" } };
     if (status === "Cancelled") {
       query.$or = [
         { status: "Cancelled" },
         { status: "Pending", be_no: "CANCELLED" },
         { status: "Completed", be_no: "CANCELLED" },
-        { be_no: "CANCELLED" },
       ];
     } else {
       query.status = status;
-      query.be_no = { $ne: "CANCELLED" };
     }
 
     if (detailedStatus !== "all") {
@@ -55,58 +90,36 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
     }
 
-    // Define field selection logic
-    const defaultFields = `
-      job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
-      gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
-      port_of_reporting type_of_b_e consignment_type shipping_line_airline 
-    `;
-    const additionalFieldsByStatus = {
-      be_noted_clearance_pending: "",
-      pcv_done_duty_payment_pending: "out_of_charge pcv_date",
-      custom_clearance_completed: "out_of_charge",
-    };
-    const getSelectedFields = (status) =>
-      `${defaultFields} ${additionalFieldsByStatus[status] || ""}`.trim();
+    if (search) query.$and = [buildSearchQuery(search)];
 
-    // Fetch matching jobs from the database
-    let jobs = await JobModel.find(query).select(
-      detailedStatus === "all"
-        ? getSelectedFields("all")
-        : getSelectedFields(detailedStatus)
+    // Fetch jobs from the database
+    const jobs = await JobModel.find(query).select(
+      getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus)
     );
 
-    // Group and sort jobs by status rank
-    const rankedJobs = [];
-    const unrankedJobs = [];
+    // Group jobs into ranked and unranked
+    const rankedJobs = jobs.filter((job) => statusRank[job.detailed_status]);
+    const unrankedJobs = jobs.filter((job) => !statusRank[job.detailed_status]);
 
-    jobs.forEach((job) => {
-      if (statusRank[job.detailed_status]) {
-        rankedJobs.push(job);
-      } else {
-        unrankedJobs.push(job); // Collect jobs with no matching status rank
-      }
-    });
-
-    // Sort the ranked jobs by their defined field and rank
+    // Sort ranked jobs by status rank and date field
     const sortedRankedJobs = Object.entries(statusRank).reduce(
-      (acc, [status, { field }]) => {
-        const filteredJobs = rankedJobs
+      (acc, [status, { field }]) => [
+        ...acc,
+        ...rankedJobs
           .filter((job) => job.detailed_status === status)
-          .sort((a, b) => {
-            const dateA = parseDate(a.container_nos?.[0]?.[field] || a[field]);
-            const dateB = parseDate(b.container_nos?.[0]?.[field] || b[field]);
-            return dateA - dateB;
-          });
-        return [...acc, ...filteredJobs];
-      },
+          .sort(
+            (a, b) =>
+              parseDate(a.container_nos?.[0]?.[field] || a[field]) -
+              parseDate(b.container_nos?.[0]?.[field] || b[field])
+          ),
+      ],
       []
     );
 
-    // Combine ranked jobs followed by unranked jobs
+    // Combine ranked and unranked jobs
     const allJobs = [...sortedRankedJobs, ...unrankedJobs];
 
-    // Apply pagination
+    // Paginate results
     const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
 
     res.json({

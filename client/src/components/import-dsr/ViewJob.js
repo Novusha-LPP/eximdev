@@ -466,35 +466,25 @@ function JobDetails() {
                 />
               </div>
               <div>
-                <label htmlFor="checlist" className="btn">
-                  Upload Checklist
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  name="checlist"
-                  id="checlist"
-                  onChange={(e) =>
-                    handleFileUpload(
-                      e,
-                      "checklist",
-                      "checklist",
-                      formik,
-                      setFileSnackbar
-                    )
-                  }
-                  ref={checklistRef}
-                  className="input-hidden"
+                <FileUpload
+                  label="Upload Checklist"
+                  bucketPath="checklist"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.checklist || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("checklist", updatedFiles);
+                  }}
+                  multiple={true}
                 />
 
-                {formik.values.checklist?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <br />
-                      <a href={file}>{file}</a>
-                    </div>
-                  );
-                })}
+                <ImagePreview
+                  images={formik.values.checklist || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.checklist];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("checklist", updatedFiles);
+                  }}
+                />
               </div>
             </Row>
           </div>

@@ -135,7 +135,8 @@ function useJobColumns() {
           if (
             (detailed_status === "Custom Clearance Completed" &&
               container_nos) ||
-            detailed_status === "BE Noted, Clearance Pending"
+            detailed_status === "BE Noted, Clearance Pending" ||
+            detailed_status === "PCV Done, Duty Payment Pending"
           ) {
             container_nos.forEach((container) => {
               const daysDifference = calculateDaysDifference(

@@ -70,6 +70,8 @@ function useFetchOperationTeamJob(params) {
         weighment_slip_images: container.weighment_slip_images || [],
         container_pre_damage_images:
           container.container_pre_damage_images || [],
+        container_custodian_gate_pass:
+          container.container_custodian_gate_pass || [],
         container_images: container.container_images || [],
         loose_material: container.loose_material || [],
         examination_videos: container.examination_videos || [],

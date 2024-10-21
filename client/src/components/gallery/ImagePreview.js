@@ -15,6 +15,9 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
 
+  // Ensure images is always treated as an array
+  const normalizedImages = Array.isArray(images) ? images : [images];
+
   // Function to extract the file name from the URL
   const extractFileName = (url) => {
     try {
@@ -38,7 +41,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
-      {images.length > 0 ? (
+      {normalizedImages.length > 0 ? (
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
@@ -47,7 +50,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {images.map((link, index) => (
+            {normalizedImages.map((link, index) => (
               <TableRow key={index}>
                 <TableCell>
                   <a

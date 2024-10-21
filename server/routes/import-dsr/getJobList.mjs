@@ -3,17 +3,34 @@ import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 
+// Status Rank Configuration
+const statusRank = {
+  "Custom Clearance Completed": { rank: 1, field: "detention_from" },
+  "PCV Done, Duty Payment Pending": { rank: 2, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 3, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 4, field: "be_date" },
+  "Gateway IGM Filed": { rank: 5, field: "gateway_igm_date" },
+  Discharged: { rank: 6, field: "discharge_date" },
+  "Estimated Time of Arrival": { rank: 7, field: "vessel_berthing" },
+};
+
+// Helper function to parse dates safely
+const parseDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+// API to fetch jobs with rank-based sorting and pagination
 router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
   try {
     const { year, status, detailedStatus } = req.params;
+    const { page = 1, limit = 100 } = req.query;
+    const skip = (page - 1) * limit;
 
-    // Create a query object with year
-    const query = {
-      year,
-    };
+    // Build query object
+    const query = { year };
 
     if (status === "Cancelled") {
-      // Include jobs where be_no is "CANCELLED" if the status is "cancelled"
       query.$or = [
         { status: "Cancelled" },
         { status: "Pending", be_no: "CANCELLED" },
@@ -21,147 +38,85 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
         { be_no: "CANCELLED" },
       ];
     } else {
-      // Exclude jobs where be_no is "CANCELLED" for other statuses
-      query.be_no = { $ne: "CANCELLED" };
       query.status = status;
+      query.be_no = { $ne: "CANCELLED" };
     }
 
-    // Match the detailed status stored in db
     if (detailedStatus !== "all") {
-      if (detailedStatus === "estimated_time_of_arrival") {
-        query.detailed_status = "Estimated Time of Arrival";
-      } else if (detailedStatus === "discharged") {
-        query.detailed_status = "Discharged";
-      } else if (detailedStatus === "gateway_igm_filed") {
-        query.detailed_status = "Gateway IGM Filed";
-      } else if (detailedStatus === "be_noted_arrival_pending") {
-        query.detailed_status = "BE Noted, Arrival Pending";
-      } else if (detailedStatus === "be_noted_clearance_pending") {
-        query.detailed_status = "BE Noted, Clearance Pending";
-      } else if (detailedStatus === "pcv_done_duty_payment_pending") {
-        query.detailed_status = "PCV Done, Duty Payment Pending";
-      } else if (detailedStatus === "custom_clearance_completed") {
-        query.detailed_status = "Custom Clearance Completed";
-      }
-    }
-
-    // Query the database and select relevant fields for sorting
-    let jobs;
-
-    if (detailedStatus === "all") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type consignment_type shipping_line_airline pcv_date out_of_charge"
-      );
-    } else if (detailedStatus === "estimated_time_of_arrival") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
-      );
-    } else if (detailedStatus === "discharged") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
-      );
-    } else if (detailedStatus === "gateway_igm_filed") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
-      );
-    } else if (detailedStatus === "be_noted_arrival_pending") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
-      );
-    } else if (detailedStatus === "be_noted_clearance_pending") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
-      );
-    } else if (detailedStatus === "pcv_done_duty_payment_pending") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date out_of_charge detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline pcv_date"
-      );
-    } else if (detailedStatus === "custom_clearance_completed") {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no be_no be_date container_nos vessel_berthing gateway_igm_date discharge_date out_of_charge detailed_status be_no be_date loading_port port_of_reporting type_of_b_e consignment_type shipping_line_airline"
-      );
-    } else {
-      jobs = await JobModel.find(query).select(
-        "job_no year importer custom_house awb_bl_no container_nos vessel_berthing gateway_igm_date discharge_date detailed_status be_no be_date shipping_line_airline"
-      );
-    }
-
-    // Apply the provided sorting logic to the jobs array
-    jobs.sort((a, b) => {
-      // 1st priority: 'Custom Clearance Completed'
-      if (a.detailed_status === "Custom Clearance Completed") return -1;
-      if (b.detailed_status === "Custom Clearance Completed") return 1;
-
-      // Check if be_no is missing or empty
-      const aHasBeNo = a.be_no && a.be_no.trim() !== "";
-      const bHasBeNo = b.be_no && b.be_no.trim() !== "";
-
-      // Function to parse and validate dates
-      const parseDate = (dateStr) => {
-        const date = new Date(dateStr);
-        return isNaN(date.getTime()) ? null : date;
+      const statusMapping = {
+        estimated_time_of_arrival: "Estimated Time of Arrival",
+        discharged: "Discharged",
+        gateway_igm_filed: "Gateway IGM Filed",
+        be_noted_arrival_pending: "BE Noted, Arrival Pending",
+        be_noted_clearance_pending: "BE Noted, Clearance Pending",
+        pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
+        custom_clearance_completed: "Custom Clearance Completed",
       };
+      query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
+    }
 
-      // Convert vessel_berthing to valid Date objects or null if invalid
-      const dateA = parseDate(a.vessel_berthing);
-      const dateB = parseDate(b.vessel_berthing);
+    // Define field selection logic
+    const defaultFields = `
+      job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
+      gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
+      port_of_reporting type_of_b_e consignment_type shipping_line_airline 
+    `;
+    const additionalFieldsByStatus = {
+      be_noted_clearance_pending: "",
+      pcv_done_duty_payment_pending: "out_of_charge pcv_date",
+      custom_clearance_completed: "out_of_charge",
+    };
+    const getSelectedFields = (status) =>
+      `${defaultFields} ${additionalFieldsByStatus[status] || ""}`.trim();
 
-      // 2nd priority: if be_no is not available, sort by valid vessel_berthing date
-      if (!aHasBeNo && !bHasBeNo) {
-        if (dateA && dateB) {
-          return dateA - dateB; // Sort in ascending order
-        }
+    // Fetch matching jobs from the database
+    let jobs = await JobModel.find(query).select(
+      detailedStatus === "all"
+        ? getSelectedFields("all")
+        : getSelectedFields(detailedStatus)
+    );
 
-        // If only one has a valid vessel_berthing date, prioritize the one with the valid date
-        if (dateA) return -1;
-        if (dateB) return 1;
+    // Group and sort jobs by status rank
+    const rankedJobs = [];
+    const unrankedJobs = [];
 
-        // If neither has a valid vessel_berthing date, consider them equal
-        return 0;
+    jobs.forEach((job) => {
+      if (statusRank[job.detailed_status]) {
+        rankedJobs.push(job);
+      } else {
+        unrankedJobs.push(job); // Collect jobs with no matching status rank
       }
-
-      // 3rd priority: if be_no is present, sort based on earliest detention_from date among all containers
-      if (aHasBeNo && bHasBeNo) {
-        const earliestDetentionA = a.container_nos.reduce(
-          (earliest, container) => {
-            const detentionDate = parseDate(container.detention_from);
-            return !earliest || (detentionDate && detentionDate < earliest)
-              ? detentionDate
-              : earliest;
-          },
-          null
-        );
-
-        const earliestDetentionB = b.container_nos.reduce(
-          (earliest, container) => {
-            const detentionDate = parseDate(container.detention_from);
-            return !earliest || (detentionDate && detentionDate < earliest)
-              ? detentionDate
-              : earliest;
-          },
-          null
-        );
-
-        if (!earliestDetentionA && !earliestDetentionB) return 0;
-        if (!earliestDetentionA) return 1;
-        if (!earliestDetentionB) return -1;
-
-        return earliestDetentionA - earliestDetentionB;
-      }
-
-      // If one has be_no and the other doesn't, prioritize the one with be_no
-      if (aHasBeNo && !bHasBeNo) return 1;
-      if (!aHasBeNo && bHasBeNo) return -1;
-
-      return 0;
     });
 
-    // Calculate the total count of matching documents
-    const total = jobs.length;
+    // Sort the ranked jobs by their defined field and rank
+    const sortedRankedJobs = Object.entries(statusRank).reduce(
+      (acc, [status, { field }]) => {
+        const filteredJobs = rankedJobs
+          .filter((job) => job.detailed_status === status)
+          .sort((a, b) => {
+            const dateA = parseDate(a.container_nos?.[0]?.[field] || a[field]);
+            const dateB = parseDate(b.container_nos?.[0]?.[field] || b[field]);
+            return dateA - dateB;
+          });
+        return [...acc, ...filteredJobs];
+      },
+      []
+    );
 
-    res.json({ data: jobs, total });
+    // Combine ranked jobs followed by unranked jobs
+    const allJobs = [...sortedRankedJobs, ...unrankedJobs];
+
+    // Apply pagination
+    const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
+
+    res.json({
+      data: paginatedJobs,
+      total: allJobs.length,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(allJobs.length / limit),
+    });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error fetching jobs:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

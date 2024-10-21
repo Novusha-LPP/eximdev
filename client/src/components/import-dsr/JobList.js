@@ -5,7 +5,13 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
-import { MenuItem, TextField, IconButton, Typography } from "@mui/material";
+import {
+  MenuItem,
+  TextField,
+  IconButton,
+  Typography,
+  Pagination,
+} from "@mui/material";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -19,16 +25,12 @@ function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYear, setSelectedYear } = useContext(SelectedYearContext);
 
-  // Set default detailed status to 'all'
-  const [detailedStatus, setDetailedStatus] = useState("all");
-
+  const [detailedStatus, setDetailedStatus] = useState("all"); // Default status
   const columns = useJobColumns(detailedStatus);
-  const { rows } = useFetchJobList(detailedStatus, selectedYear, props.status);
 
-  // Get the total number of rows based on the filtered detailedStatus
-  const totalRowCount = rows.length;
+  const { rows, total, totalPages, currentPage, loading, handlePageChange } =
+    useFetchJobList(detailedStatus, selectedYear, props.status);
 
-  // Select importer modal
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -51,28 +53,25 @@ function JobList(props) {
     data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
-    enablePagination: false,
+    enablePagination: false, // Disable built-in pagination
     enableBottomToolbar: false,
-    enableDensityToggle: false, // Disable density toggle
+    enableDensityToggle: false,
     initialState: {
       density: "compact",
       columnPinning: { left: ["job_no"] },
       showGlobalFilter: true,
-    }, // Set initial table density to compact
-    
-    enableGlobalFilter: true, // Enable global filter (includes container number search)
-    enableGrouping: true, // Enable row grouping
-    enableColumnFilters: false, // Disable column filters
+    },
+    enableGlobalFilter: true,
+    enableGrouping: true,
+    enableColumnFilters: false,
     enableColumnActions: false,
-    enableStickyHeader: true, // Enable sticky header
-    enablePinning: true, // Enable pinning for sticky columns
+    enableStickyHeader: true,
+    enablePinning: true,
     muiTableContainerProps: {
       sx: { maxHeight: "590px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
-      // onClick: () => navigate(`/job/${row.original.job_no}/${row.original.year}`), // Navigate on row click
-      // style: { cursor: "pointer" }, // Change cursor to pointer on hover
     }),
     muiTableHeadCellProps: {
       sx: {
@@ -81,7 +80,6 @@ function JobList(props) {
         zIndex: 1,
       },
     },
-
     renderTopToolbarCustomActions: () => (
       <div
         gap={1}
@@ -93,18 +91,17 @@ function JobList(props) {
           flex: 1,
         }}
       >
-        {/* Display total row count before Selected Year */}
         <Typography
           variant="body1"
           sx={{
-            display: "inline-block", // Ensure the margin applies correctly
-            marginRight: "20px", // Ensure space between "Total Jobs" and SelectedYear
-            fontWeight: "bold", // Apply bold
-            fontStyle: "italic", // Apply italic
-            fontSize: "1.5rem", // Increase font size
+            display: "inline-block",
+            marginRight: "20px",
+            fontWeight: "bold",
+            fontStyle: "italic",
+            fontSize: "1.5rem",
           }}
         >
-          Total Jobs: {totalRowCount}
+          {props.status} jobs: {total}
         </Typography>
 
         <TextField
@@ -114,12 +111,7 @@ function JobList(props) {
           variant="outlined"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
-          sx={{
-            width: "200px",
-            margin: 0,
-            marginRight: "20px",
-            marginLeft: "20px",
-          }}
+          sx={{ width: "200px", margin: 0, marginRight: "20px" }}
         >
           {years?.map((year) => (
             <MenuItem key={year} value={year}>
@@ -133,9 +125,7 @@ function JobList(props) {
           size="small"
           sx={{ width: "300px" }}
           value={detailedStatus}
-          onChange={(e) => {
-            setDetailedStatus(e.target.value);
-          }}
+          onChange={(e) => setDetailedStatus(e.target.value)}
         >
           {detailedStatusOptions?.map((option) => (
             <MenuItem key={option.id} value={option.value}>
@@ -154,6 +144,16 @@ function JobList(props) {
   return (
     <div className="table-container">
       <MaterialReactTable table={table} />
+
+      {/* Pagination Component */}
+      <Pagination
+        count={totalPages}
+        page={currentPage}
+        onChange={(event, page) => handlePageChange(page)}
+        color="primary"
+        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+      />
+
       <SelectImporterModal
         open={open}
         handleOpen={handleOpen}

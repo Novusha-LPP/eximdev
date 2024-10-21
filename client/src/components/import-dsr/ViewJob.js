@@ -1610,19 +1610,6 @@ function JobDetails() {
                             readOnly
                           />
                         </div>
-                        {data.custom_house === "ICD KHODIYAR" && (
-                          <>
-                            <div className="mb-3">
-                              <strong>Custodian Gate Pass Copy:&nbsp;</strong>
-                              <ImagePreview
-                                images={
-                                  container?.container_custodian_gate_pass || []
-                                }
-                                readOnly
-                              />
-                            </div>
-                          </>
-                        )}
                       </Col>
                     </Row>
                   </div>

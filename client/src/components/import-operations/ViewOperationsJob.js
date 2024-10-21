@@ -361,7 +361,7 @@ function ViewOperationsJob() {
             {/*************************** Row 13 ****************************/}
             <br />
             <Row>
-              {/* <Col xs={6}>
+              <Col xs={6}>
                 {data.custom_house === "ICD KHODIYAR" && (
                   <>
                     <FileUpload
@@ -394,7 +394,7 @@ function ViewOperationsJob() {
                     />
                   </>
                 )}
-              </Col> */}
+              </Col>
               <Col xs={6}>
                 {data.custom_house === "ICD KHODIYAR" && (
                   <>
@@ -783,35 +783,6 @@ function ViewOperationsJob() {
                       </Row>
 
                       <Row>
-                        {data.custom_house === "ICD KHODIYAR" && (
-                          <>
-                            <Col xs={6}>
-                              <FileUpload
-                                label="Upload Custodian Gate Pass Copy"
-                                bucketPath="container_custodian_gate_pass"
-                                onFilesUploaded={(uploadedFiles) =>
-                                  handleFileUpload(
-                                    uploadedFiles,
-                                    container.container_number,
-                                    "container_custodian_gate_pass"
-                                  )
-                                }
-                              />
-                              <ImagePreview
-                                images={
-                                  container.container_custodian_gate_pass || []
-                                }
-                                onDeleteImage={(index) =>
-                                  handleDeleteImage(
-                                    index,
-                                    container.container_number,
-                                    "container_custodian_gate_pass"
-                                  )
-                                }
-                              />
-                            </Col>
-                          </>
-                        )}
                         {/* Examination Videos */}
                         <Col xs={6}>
                           <FileUpload

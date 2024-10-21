@@ -363,10 +363,6 @@ function useFetchJobDetails(
           container.container_pre_damage_images === undefined
             ? []
             : container.container_pre_damage_images,
-        container_custodian_gate_pass:
-          container.container_custodian_gate_pass === undefined
-            ? []
-            : container.container_custodian_gate_pass,
 
         physical_weight:
           container.physical_weight === undefined

@@ -31,6 +31,7 @@ import {
   DialogTitle,
   Button,
 } from "@mui/material";
+import FileUpload from "../../components/gallery/FileUpload.js";
 
 function JobDetails() {
   const params = useParams();
@@ -1101,111 +1102,86 @@ function JobDetails() {
             <br />
             <Row>
               <Col xs={6}>
-                <strong>DO Copies:&nbsp;</strong>
-
-                <br />
-                {formik.values.do_copies?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <br />
-                      <a href={file}>View</a>
-                    </div>
-                  );
-                })}
+                <div className="mb-3">
+                  <strong>DO Copies:&nbsp;</strong>
+                  <ImagePreview
+                    images={formik.values.do_copies || []} // Corrected optional chaining syntax
+                    readOnly
+                  />
+                </div>
               </Col>
               <Col xs={6}>
-                <label htmlFor="processed_be_attachment" className="btn">
-                  Upload Processed BE Attachment
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  id="processed_be_attachment"
-                  onChange={(e) =>
-                    handleFileUpload(
-                      e,
+                <FileUpload
+                  label="Upload Processed BE Attachment"
+                  bucketPath="processed_be_attachment"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles =
+                      formik.values.processed_be_attachment || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue(
                       "processed_be_attachment",
-                      "processed_be_attachment",
-                      formik,
-                      setFileSnackbar
-                    )
-                  }
-                  className="input-hidden"
-                  ref={processedBeAttachmentRef}
+                      updatedFiles
+                    );
+                  }}
+                  multiple={true}
                 />
-
-                {formik.values.processed_be_attachment?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <br />
-                      <a href={file}>View</a>
-                    </div>
-                  );
-                })}
+                <ImagePreview
+                  images={formik.values.processed_be_attachment || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [
+                      ...formik.values.processed_be_attachment,
+                    ];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue(
+                      "processed_be_attachment",
+                      updatedFiles
+                    );
+                  }}
+                />
               </Col>
             </Row>
 
             <Row>
               <Col xs={6}>
-                <label htmlFor="ooc_copies" className="btn">
-                  Upload OOC Copy
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  name="ooc_copies"
-                  id="ooc_copies"
-                  onChange={(e) =>
-                    handleFileUpload(
-                      e,
-                      "ooc_copies",
-                      "ooc_copies",
-                      formik,
-                      setFileSnackbar
-                    )
-                  }
-                  ref={oocCopyRef}
-                  className="input-hidden"
+                <FileUpload
+                  label="Upload OOC Copy"
+                  bucketPath="ooc_copies"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.ooc_copies || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("ooc_copies", updatedFiles);
+                  }}
+                  multiple={true}
                 />
-                <br />
-                {formik.values.ooc_copies?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <br />
-                      <a href={file}>View</a>
-                    </div>
-                  );
-                })}
+                <ImagePreview
+                  images={formik.values.ooc_copies || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.ooc_copies];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("ooc_copies", updatedFiles);
+                  }}
+                />
               </Col>
-              <Col xs={6}>
-                <label htmlFor="gate_pass_copies" className="btn">
-                  Upload e-Gate Pass Copy
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  id="gate_pass_copies"
-                  onChange={(e) =>
-                    handleFileUpload(
-                      e,
-                      "gate_pass_copies",
-                      "gate_pass_copies",
-                      formik,
-                      setFileSnackbar
-                    )
-                  }
-                  className="input-hidden"
-                  ref={gatePassCopyRef}
-                />
 
-                {formik.values.gate_pass_copies?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <br />
-                      <a href={file}>View</a>
-                    </div>
-                  );
-                })}
+              <Col xs={6}>
+                <FileUpload
+                  label="Upload e-Gate Pass Copy"
+                  bucketPath="gate_pass_copies"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.gate_pass_copies || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("gate_pass_copies", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+                <ImagePreview
+                  images={formik.values.gate_pass_copies || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.gate_pass_copies];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("gate_pass_copies", updatedFiles);
+                  }}
+                />
               </Col>
             </Row>
           </div>

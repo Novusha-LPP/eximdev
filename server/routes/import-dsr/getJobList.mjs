@@ -68,14 +68,16 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
     // Base query to filter by year
     const query = { year };
 
-    // Check if status is "Cancelled" (case-insensitive)
     if (status.toLowerCase() === "cancelled") {
+      // Show jobs where either status or be_no is 'CANCELLED' (case-insensitive)
       query.$or = [
         { status: { $regex: "^cancelled$", $options: "i" } },
         { be_no: { $regex: "^cancelled$", $options: "i" } },
       ];
     } else {
-      query.status = { $regex: `^${status}$`, $options: "i" }; // Case-insensitive status matching
+      // Filter for other statuses and exclude jobs with be_no: 'CANCELLED'
+      query.status = { $regex: `^${status}$`, $options: "i" };
+      query.be_no = { $not: { $regex: "^cancelled$", $options: "i" } };
     }
 
     // Handle detailedStatus filtering

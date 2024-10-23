@@ -65,18 +65,20 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build base query
-    const query = { year, be_no: { $ne: "CANCELLED" } };
-    if (status === "Cancelled") {
+    // Base query to filter by year
+    const query = { year };
+
+    // Check if status is "Cancelled" (case-insensitive)
+    if (status.toLowerCase() === "cancelled") {
       query.$or = [
-        { status: "Cancelled" },
-        { status: "Pending", be_no: "CANCELLED" },
-        { status: "Completed", be_no: "CANCELLED" },
+        { status: { $regex: "^cancelled$", $options: "i" } },
+        { be_no: { $regex: "^cancelled$", $options: "i" } },
       ];
     } else {
-      query.status = status;
+      query.status = { $regex: `^${status}$`, $options: "i" }; // Case-insensitive status matching
     }
 
+    // Handle detailedStatus filtering
     if (detailedStatus !== "all") {
       const statusMapping = {
         estimated_time_of_arrival: "Estimated Time of Arrival",
@@ -90,6 +92,7 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
     }
 
+    // Add search filter if provided
     if (search) query.$and = [buildSearchQuery(search)];
 
     // Fetch jobs from the database

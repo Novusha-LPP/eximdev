@@ -24,7 +24,7 @@ const parseDate = (dateStr) => {
 const defaultFields = `
   job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
   gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
-  port_of_reporting type_of_b_e consignment_type shipping_line_airline 
+  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date
 `;
 
 const additionalFieldsByStatus = {
@@ -65,18 +65,53 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build base query
-    const query = { year, be_no: { $ne: "CANCELLED" } };
-    if (status === "Cancelled") {
-      query.$or = [
-        { status: "Cancelled" },
-        { status: "Pending", be_no: "CANCELLED" },
-        { status: "Completed", be_no: "CANCELLED" },
+    // Base query to filter by year
+    const query = { year };
+
+    // Handle case-insensitive status filtering and bill_date conditions
+    const statusLower = status.toLowerCase();
+
+    if (statusLower === "pending") {
+      query.$and = [
+        { status: { $regex: "^pending$", $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        {
+          $or: [
+            { bill_date: { $in: [null, ""] } },
+            { status: { $regex: "^pending$", $options: "i" } },
+          ],
+        },
       ];
+    } else if (statusLower === "completed") {
+      query.$and = [
+        { status: { $regex: "^completed$", $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        {
+          $or: [
+            { bill_date: { $nin: [null, ""] } },
+            { status: { $regex: "^completed$", $options: "i" } },
+          ],
+        },
+      ];
+    } else if (statusLower === "cancelled") {
+      query.$and = [
+        {
+          $or: [
+            { status: { $regex: "^cancelled$", $options: "i" } },
+            { be_no: { $regex: "^cancelled$", $options: "i" } },
+          ],
+        },
+      ];
+      // Include search query in cancelled case as well
+      if (search) query.$and.push(buildSearchQuery(search));
     } else {
-      query.status = status;
+      query.$and = [
+        { status: { $regex: `^${status}$`, $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+      ];
     }
 
+    // Handle detailedStatus filtering
     if (detailedStatus !== "all") {
       const statusMapping = {
         estimated_time_of_arrival: "Estimated Time of Arrival",
@@ -90,7 +125,10 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
     }
 
-    if (search) query.$and = [buildSearchQuery(search)];
+    // Add search filter if provided (for non-cancelled cases)
+    if (search && statusLower !== "cancelled") {
+      query.$and.push(buildSearchQuery(search));
+    }
 
     // Fetch jobs from the database
     const jobs = await JobModel.find(query).select(

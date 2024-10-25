@@ -216,6 +216,8 @@ function useFetchJobDetails(
       do_validity: "",
       do_validity_upto_job_level: "",
       do_revalidation_upto_job_level: "",
+      required_do_validity_upto: "",
+
       checklist: [],
       remarks: "",
       description: "",
@@ -309,6 +311,7 @@ function useFetchJobDetails(
         formik.values.container_nos.map((container) => ({
           arrival_date: container.arrival_date,
           free_time: container.free_time,
+          required_do_validity_upto: container.required_do_validity_upto,
         }))
       ),
     [formik.values.container_nos]
@@ -331,6 +334,11 @@ function useFetchJobDetails(
           container.do_revalidation === undefined
             ? []
             : container.do_revalidation,
+        required_do_validity_upto:
+          container.required_do_validity_upto === undefined
+            ? []
+            : container.required_do_validity_upto,
+
         arrival_date:
           container.arrival_date === undefined
             ? ""
@@ -412,7 +420,7 @@ function useFetchJobDetails(
                 .split("/")
                 .reverse()
                 .join("-"),
-        free_time: data.free_time === undefined ? 14 : data.free_time,
+        free_time: data.free_time === undefined ? 4 : data.free_time,
         status: data.status,
         detailed_status:
           data.detailed_status === undefined

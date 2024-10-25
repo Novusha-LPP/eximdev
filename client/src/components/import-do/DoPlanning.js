@@ -160,6 +160,46 @@ function DoPlanning() {
       size: 100,
     },
     {
+      accessorKey: "do_validity_upto_job_level",
+      header: "DO Validity",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell, row }) => {
+        const jobLevelDate = cell.getValue(); // "do_validity_upto_job_level"
+        const containerLevelDate =
+          row.original.container_nos?.[0]?.required_do_validity_upto || "";
+
+        // Parse dates into JavaScript Date objects
+        const jobDate = new Date(jobLevelDate);
+        const containerDate = new Date(containerLevelDate);
+
+        // Determine the date to display: the later one
+        const isContainerDateHigher = containerDate > jobDate;
+        const displayDate = isContainerDateHigher
+          ? containerLevelDate
+          : jobLevelDate;
+
+        // Calculate the difference in days if container date is higher
+        const dayDifference = isContainerDateHigher
+          ? Math.ceil((containerDate - jobDate) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        return (
+          <div
+            style={{
+              backgroundColor: isContainerDateHigher ? "#d1e7dd" : "inherit", // Green if container date is higher
+              padding: "8px",
+              borderRadius: "4px",
+            }}
+          >
+            {displayDate}{" "}
+            {isContainerDateHigher && <span>(+{dayDifference} days)</span>}
+          </div>
+        );
+      },
+    },
+
+    {
       accessorKey: "vessel_flight",
       header: "Vessel",
       enableSorting: false,

@@ -73,6 +73,7 @@ const jobSchema = new mongoose.Schema({
       examination_videos: [{ type: String, trim: true }],
       do_revalidation_date: { type: String, trim: true },
       do_validity_upto_container_level: { type: String, trim: true },
+      required_do_validity_upto: { type: String, trim: true },
       do_revalidation: [
         { do_revalidation_upto: { type: String }, remarks: { type: String } },
       ],
@@ -228,7 +229,7 @@ const jobSchema = new mongoose.Schema({
   concor_gate_pass_validate_up_to: { type: String, trim: true },
   completed_operation_date: { type: String, trim: true },
   custodian_gate_pass: [{ type: String, trim: true }],
-  concor_invoice_and_receipt_copy : [{ type: String, trim: true }],
+  concor_invoice_and_receipt_copy: [{ type: String, trim: true }],
 
   ////////////////////////////////////////////////// LR
   pr_no: { type: String, trim: true },

@@ -17,7 +17,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
           },
         ],
       },
-      "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight"
+      "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos"
     );
 
     res.status(200).send(jobs);

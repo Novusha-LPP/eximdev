@@ -262,6 +262,15 @@ function JobDetails() {
     }
   };
 
+  const handleDateChange = (newDate) => {
+    const updatedContainers = formik.values.container_nos.map((container) => ({
+      ...container,
+      required_do_validity_upto: newDate,
+    }));
+
+    formik.setFieldValue("container_nos", updatedContainers);
+  };
+
   return (
     <>
       {data !== null && (
@@ -681,9 +690,7 @@ function JobDetails() {
               )}
               <Col xs={12} lg={5}>
                 <div className="job-detail-input-container">
-                  <strong style={{ width: "50%" }}>
-                    DO Validity Upto:&nbsp;
-                  </strong>
+                  <strong style={{ width: "50%" }}>DO Validity :&nbsp;</strong>
                   {formik.values.do_revalidation ? (
                     formik.values.do_validity_upto_job_level
                   ) : (
@@ -702,6 +709,35 @@ function JobDetails() {
                 </div>
               </Col>
             </Row>
+            <Row>
+              <Col xs={12} lg={3}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <Col xs={12} lg={12}>
+                    <div className="job-detail-input-container">
+                      <strong>Required DO Validity Upto:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="date"
+                        id={`required_do_validity_upto_0`}
+                        name={`container_nos[0].required_do_validity_upto`}
+                        value={
+                          formik.values.container_nos[0]
+                            ?.required_do_validity_upto || ""
+                        }
+                        onChange={(e) => handleDateChange(e.target.value)}
+                      />
+                    </div>
+                  </Col>
+                </div>
+              </Col>
+            </Row>
+
             <Row>
               <Col xs={12} lg={3}>
                 <div
@@ -1320,7 +1356,7 @@ function JobDetails() {
 
                       <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
-                          <strong>DO Validity Upto:&nbsp;</strong>
+                          <strong>DO Validity :&nbsp;</strong>
                           <TextField
                             fullWidth
                             key={index}
@@ -1332,6 +1368,40 @@ function JobDetails() {
                             name={`container_nos[${index}].do_validity_upto_container_level`}
                             value={container.do_validity_upto_container_level}
                             onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
+                      {/* <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Required DO Validity Upto:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="date"
+                            id={`required_do_validity_upto_${index}`}
+                            name={`container_nos[${index}].required_do_validity_upto`}
+                            value={container.required_do_validity_upto}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col> */}
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Required DO Validity Upto:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="date"
+                            id={`required_do_validity_upto_${index}`}
+                            name={`container_nos[${index}].required_do_validity_upto`}
+                            value={container.required_do_validity_upto}
+                            onChange={(e) => handleDateChange(e.target.value)}
                           />
                         </div>
                       </Col>

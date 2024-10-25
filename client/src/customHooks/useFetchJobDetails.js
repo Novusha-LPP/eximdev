@@ -216,6 +216,7 @@ function useFetchJobDetails(
       do_validity: "",
       do_validity_upto_job_level: "",
       do_revalidation_upto_job_level: "",
+      required_do_validity_upto: "",
       checklist: [],
       remarks: "",
       description: "",
@@ -291,10 +292,15 @@ function useFetchJobDetails(
           gate_pass_copies: values.gate_pass_copies,
           do_revalidation: values.do_revalidation,
           do_revalidation_date: values.do_revalidation_date,
+
           out_of_charge: values.out_of_charge,
           checked: values.checked,
           obl_telex_bl: values.obl_telex_bl,
           document_received_date: values.document_received_date,
+          container_nos: values.container_nos.map((container) => ({
+            ...container,
+            required_do_validity_upto: container.required_do_validity_upto, // Include the new field
+          })),
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -309,6 +315,7 @@ function useFetchJobDetails(
         formik.values.container_nos.map((container) => ({
           arrival_date: container.arrival_date,
           free_time: container.free_time,
+          required_do_validity_upto: container.required_do_validity_upto,
         }))
       ),
     [formik.values.container_nos]
@@ -331,6 +338,10 @@ function useFetchJobDetails(
           container.do_revalidation === undefined
             ? []
             : container.do_revalidation,
+        required_do_validity_upto:
+          container.required_do_validity_upto === undefined
+            ? []
+            : container.required_do_validity_upto,
         arrival_date:
           container.arrival_date === undefined
             ? ""
@@ -380,6 +391,7 @@ function useFetchJobDetails(
           container.do_revalidation_upto_container_level === undefined
             ? ""
             : container.do_revalidation_upto_container_level,
+
         tare_weight:
           container.tare_weight === undefined ? "" : container.tare_weight,
         actual_weight:
@@ -412,7 +424,7 @@ function useFetchJobDetails(
                 .split("/")
                 .reverse()
                 .join("-"),
-        free_time: data.free_time === undefined ? 14 : data.free_time,
+        free_time: data.free_time === undefined ? 4 : data.free_time,
         status: data.status,
         detailed_status:
           data.detailed_status === undefined

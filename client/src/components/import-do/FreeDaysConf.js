@@ -4,6 +4,7 @@ import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
 import BLNumberCell from "../../utils/BLNumberCell";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import {
   IconButton,
   TextField,
@@ -59,16 +60,39 @@ const FreeDaysConf = () => {
     setPage(newPage); // Update the page number
   };
   const handleCopy = (event, text) => {
+    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+
     event.stopPropagation();
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        alert(`${text} copied to clipboard!`);
-      })
-      .catch((err) => {
-        console.error("Copy failed:", err);
-        alert("Failed to copy text.");
-      });
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   const columns = [
@@ -111,6 +135,12 @@ const FreeDaysConf = () => {
           containerNos={row.original.container_nos}
         />
       ),
+    },
+    {
+      accessorKey: "free_time",
+      header: "Free Time",
+      enableSorting: false,
+      size: 100,
     },
     {
       accessorKey: "container_numbers",
@@ -215,7 +245,9 @@ const FreeDaysConf = () => {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({}),
+    muiTableBodyRowProps: ({ row }) => ({
+      className: getTableRowsClassname(row),
+    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -224,23 +256,32 @@ const FreeDaysConf = () => {
       },
     },
     renderTopToolbarCustomActions: () => (
-      <TextField
-        placeholder="Search by Job No, Importer, or AWB/BL Number"
-        size="small"
-        variant="outlined"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <IconButton onClick={() => fetchJobs(1)}>
-                <SearchIcon />
-              </IconButton>
-            </InputAdornment>
-          ),
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "end",
+          alignItems: "center",
+          width: "100%",
         }}
-        sx={{ width: "300px", marginRight: "20px" }}
-      />
+      >
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton onClick={() => fetchJobs(1)}>
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{ width: "300px", marginRight: "20px" }}
+        />
+      </div>
     ),
   };
 

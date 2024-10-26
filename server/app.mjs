@@ -94,6 +94,7 @@ import changePassword from "./routes/home/changePassword.mjs";
 // Import DO
 import doTeamListOfjobs from "./routes/import-do/doTeamListOfjobs.mjs";
 import getDoBilling from "./routes/import-do/getDoBilling.mjs";
+import freeDaysConf from "./routes/import-do/freeDaysConf.mjs";
 import getDoModuleJobs from "./routes/import-do/getDoModuleJobs.mjs";
 import updateDoBilling from "./routes/import-do/updateDoBilling.mjs";
 import updateDoList from "./routes/import-do/updateDoList.mjs";
@@ -330,6 +331,7 @@ if (cluster.isPrimary) {
       // Import DO
       app.use(doTeamListOfjobs);
       app.use(getDoBilling);
+      app.use(freeDaysConf);
       app.use(getDoModuleJobs);
       app.use(updateDoBilling);
       app.use(updateDoList);

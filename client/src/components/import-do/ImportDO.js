@@ -8,6 +8,7 @@ import DoPlanning from "./DoPlanning";
 import BillingSheet from "./BillingSheet";
 import useTabs from "../../customHooks/useTabs";
 import KycDetails from "./KycDetails";
+import FreeDaysConf from "./FreeDaysConf";
 
 function ImportDO() {
   const [value, setValue] = React.useState(0);
@@ -26,23 +27,27 @@ function ImportDO() {
           aria-label="basic tabs example"
         >
           [
-          <Tab label="List" {...a11yProps(0)} key={0} />,
-          <Tab label="DO Planning" {...a11yProps(1)} key={1} />,
-          <Tab label="Billing Sheet" {...a11yProps(2)} key={2} />,
-          <Tab label="KYC Details" {...a11yProps(2)} key={3} />, ]
+          <Tab label="Free Days Conf." {...a11yProps(0)} key={0} />,
+          <Tab label="List" {...a11yProps(1)} key={1} />,
+          <Tab label="DO Planning" {...a11yProps(2)} key={2} />,
+          <Tab label="Billing Sheet" {...a11yProps(3)} key={3} />,
+          <Tab label="KYC Details" {...a11yProps(4)} key={4} />, ]
         </Tabs>
       </Box>
 
       <CustomTabPanel value={value} index={0}>
-        <List />
+        <FreeDaysConf />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
-        <DoPlanning />
+        <List />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={2}>
-        <BillingSheet />
+        <DoPlanning />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={3}>
+        <BillingSheet />
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={4}>
         <KycDetails />
       </CustomTabPanel>
     </Box>

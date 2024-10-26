@@ -4,60 +4,71 @@ import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
 import BLNumberCell from "../../utils/BLNumberCell";
-import { IconButton, TextField } from "@mui/material";
+import {
+  IconButton,
+  TextField,
+  InputAdornment,
+  Pagination,
+} from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import SearchIcon from "@mui/icons-material/Search";
 const FreeDaysConf = () => {
   const [rows, setRows] = useState([]);
-  const navigate = useNavigate(); // Initialize the useNavigate hook
-
+  const [page, setPage] = useState(1); // Current page number
+  const [totalPages, setTotalPages] = useState(1); // Total pages
+  const [loading, setLoading] = useState(false); // Loading state
+  const [searchQuery, setSearchQuery] = useState(""); // Search query
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
+  const limit = 100; // Items per page
   // Fetch data from the backend
-  useEffect(() => {
-    const getData = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-free-days`
-        );
-        setRows(res.data);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-    getData();
-  }, []);
-  const handleCopy = (event, text) => {
-    // Optimized handleCopy function using useCallback to avoid re-creation on each render
 
-    event.stopPropagation();
-
-    if (
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          console.log("Text copied to clipboard:", text);
-        })
-        .catch((err) => {
-          alert("Failed to copy text to clipboard.");
-          console.error("Failed to copy:", err);
-        });
-    } else {
-      // Fallback approach for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
-      } catch (err) {
-        alert("Failed to copy text to clipboard.");
-        console.error("Fallback copy failed:", err);
-      }
-      document.body.removeChild(textArea);
+  // Fetch jobs with pagination
+  const fetchJobs = async (page = 1, searchQuery = "") => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-free-days`,
+        {
+          params: { page, limit, search: searchQuery }, // Pass page, limit, and search query
+        }
+      );
+      setRows(res.data.jobs); // Set fetched jobs
+      setTotalPages(res.data.totalPages); // Set total pages
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Fetch jobs when page or debounced search query changes
+  useEffect(() => {
+    fetchJobs(page, debouncedSearchQuery);
+  }, [page, debouncedSearchQuery]);
+
+  // Debounce search input to avoid excessive API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(handler); // Cleanup on component unmount
+  }, [searchQuery]);
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage); // Update the page number
+  };
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        alert(`${text} copied to clipboard!`);
+      })
+      .catch((err) => {
+        console.error("Copy failed:", err);
+        alert("Failed to copy text.");
+      });
   };
 
   const columns = [
@@ -212,11 +223,37 @@ const FreeDaysConf = () => {
         zIndex: 1,
       },
     },
+    renderTopToolbarCustomActions: () => (
+      <TextField
+        placeholder="Search by Job No, Importer, or AWB/BL Number"
+        size="small"
+        variant="outlined"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton onClick={() => fetchJobs(1)}>
+                <SearchIcon />
+              </IconButton>
+            </InputAdornment>
+          ),
+        }}
+        sx={{ width: "300px", marginRight: "20px" }}
+      />
+    ),
   };
 
   return (
     <div style={{ height: "80%" }}>
       <MaterialReactTable {...tableConfig} />
+      <Pagination
+        count={totalPages}
+        page={page}
+        onChange={handlePageChange}
+        color="primary"
+        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+      />
     </div>
   );
 };

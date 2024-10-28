@@ -27,6 +27,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         exrate,
         cif_amount,
         unit_price,
+        vessel_berthing, // New value from Excel
         container_nos, // Assume container data is part of the incoming job data
       } = data;
 
@@ -35,6 +36,16 @@ router.post("/api/jobs/add-job", async (req, res) => {
 
       // Check if the job already exists in the database
       const existingJob = await JobModel.findOne(filter);
+      let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+
+      // Only update vessel_berthing if it's empty in the database
+      if (
+        vessel_berthing && // Excel has a valid vessel_berthing date
+        (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
+      ) {
+        vesselBerthingToUpdate = vessel_berthing;
+      }
+
       if (existingJob) {
         // Logic to merge or update container sizes
         const updatedContainers = existingJob.container_nos.map(
@@ -53,6 +64,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         const update = {
           $set: {
             ...data,
+            vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
             status:
               existingJob.status === "Completed"
@@ -89,6 +101,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         const update = {
           $set: {
             ...data,
+            vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
             status: computeStatus(bill_date),
           },
         };
@@ -131,6 +144,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
   }
 });
 
+// Helper function to compute status based on bill date
 function computeStatus(billDate) {
   if (!billDate || billDate.trim() === "" || billDate === "--") {
     return "Pending";

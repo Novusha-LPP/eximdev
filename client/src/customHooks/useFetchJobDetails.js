@@ -293,6 +293,7 @@ function useFetchJobDetails(
           gate_pass_copies: values.gate_pass_copies,
           do_revalidation: values.do_revalidation,
           do_revalidation_date: values.do_revalidation_date,
+          required_do_validity_upto: values.required_do_validity_upto,
           out_of_charge: values.out_of_charge,
           checked: values.checked,
           obl_telex_bl: values.obl_telex_bl,
@@ -311,7 +312,7 @@ function useFetchJobDetails(
         formik.values.container_nos.map((container) => ({
           arrival_date: container.arrival_date,
           free_time: container.free_time,
-          required_do_validity_upto: container.required_do_validity_upto,
+          required_do_validity_upto: container.required_do_validity_upto || "",
         }))
       ),
     [formik.values.container_nos]
@@ -336,7 +337,7 @@ function useFetchJobDetails(
             : container.do_revalidation,
         required_do_validity_upto:
           container.required_do_validity_upto === undefined
-            ? []
+            ? ""
             : container.required_do_validity_upto,
 
         arrival_date:

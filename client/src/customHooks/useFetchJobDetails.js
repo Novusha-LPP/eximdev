@@ -421,7 +421,7 @@ function useFetchJobDetails(
                 .split("/")
                 .reverse()
                 .join("-"),
-        free_time: data.free_time === undefined ? 4 : data.free_time,
+        free_time: data.free_time === undefined ? 0 : data.free_time,
         status: data.status,
         detailed_status:
           data.detailed_status === undefined

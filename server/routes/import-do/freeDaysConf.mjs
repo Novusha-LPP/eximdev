@@ -77,5 +77,38 @@ router.get("/api/get-free-days", async (req, res) => {
     res.status(500).send({ error: "Internal Server Error" });
   }
 });
+// PATCH API that updates only the free_time
+router.patch("/api/update-free-time/:id", async (req, res) => {
+  try {
+    const { id } = req.params; // Extract job ID from route parameters
+    const { free_time } = req.body; // Extract free_time from request body
+
+    // Ensure free_time is provided
+    if (free_time === undefined) {
+      return res.status(400).json({ error: "free_time is required" });
+    }
+
+    // Find the job by ID and update the free_time field only
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      id,
+      { free_time }, // Update only the free_time field
+      { new: true, runValidators: true } // Return the updated document
+    );
+
+    // If no job is found, return a 404 response
+    if (!updatedJob) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Return the updated job with a success message
+    res.status(200).json({
+      message: "Free time updated successfully",
+      job: updatedJob,
+    });
+  } catch (error) {
+    console.error("Error updating free_time:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 export default router;

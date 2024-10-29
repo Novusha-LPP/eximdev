@@ -28,7 +28,7 @@ const FreeDaysConf = () => {
 
   const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
   const [freeTimeValue, setFreeTimeValue] = useState(""); // Track the value being edited
-
+  const [currentPageBeforeEdit, setCurrentPageBeforeEdit] = useState(1);
   // Fetch jobs with pagination
   const fetchJobs = async (page = 1, searchQuery = "") => {
     setLoading(true);
@@ -104,6 +104,7 @@ const FreeDaysConf = () => {
   const handleEditClick = (row) => {
     setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
     setFreeTimeValue(row.free_time); // Set the current value for editing
+    setCurrentPageBeforeEdit(page); // Remember the current page before editing
   };
 
   const handleSave = async (id) => {
@@ -116,12 +117,15 @@ const FreeDaysConf = () => {
         }
       );
 
-      // Update the state to reflect the new value
-      setRows((prevRows) =>
-        prevRows.map((row) =>
-          row._id === id ? { ...row, free_time: freeTimeValue } : row
-        )
-      );
+      // // Update the state to reflect the new value
+      // setRows((prevRows) =>
+      //   prevRows.map((row) =>
+      //     row._id === id ? { ...row, free_time: freeTimeValue } : row
+      //   )
+      // );
+      // Fetch the latest jobs with the original page preserved
+      await fetchJobs(currentPageBeforeEdit, debouncedSearchQuery);
+      console.log("Free time updated successfully.");
     } catch (error) {
       console.error("Error saving data:", error);
     } finally {
@@ -190,7 +194,7 @@ const FreeDaysConf = () => {
               style={{ marginRight: "8px" }}
             />
             <IconButton onClick={() => handleSave(row.original._id)}>
-              {" "}
+            
               <CheckIcon />
             </IconButton>
             <IconButton onClick={handleCancel}>

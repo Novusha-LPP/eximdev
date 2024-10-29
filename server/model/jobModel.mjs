@@ -171,6 +171,7 @@ const jobSchema = new mongoose.Schema({
   remarks: { type: String, trim: true },
   // *******
   free_time: { type: Number, trim: true },
+  is_free_time_updated: { type: Boolean, default: false },
   factory_weighment_slip: { type: String, trim: true },
 
   ////////////////////////////////////////////////// DO

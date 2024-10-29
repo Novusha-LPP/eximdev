@@ -13,6 +13,10 @@ import {
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
+import EditIcon from "@mui/icons-material/Edit";
+
 const FreeDaysConf = () => {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -21,8 +25,10 @@ const FreeDaysConf = () => {
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const limit = 100; // Items per page
-  // Fetch data from the backend
 
+  const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
+  const [freeTimeValue, setFreeTimeValue] = useState(""); // Track the value being edited
+  const [currentPageBeforeEdit, setCurrentPageBeforeEdit] = useState(1);
   // Fetch jobs with pagination
   const fetchJobs = async (page = 1, searchQuery = "") => {
     setLoading(true);
@@ -95,6 +101,42 @@ const FreeDaysConf = () => {
     }
   };
 
+  const handleEditClick = (row) => {
+    setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
+    setFreeTimeValue(row.free_time); // Set the current value for editing
+    setCurrentPageBeforeEdit(page); // Remember the current page before editing
+  };
+
+  const handleSave = async (id) => {
+    try {
+      // API call to save the new value using PATCH
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-free-time/${id}`,
+        {
+          free_time: freeTimeValue,
+        }
+      );
+
+      // // Update the state to reflect the new value
+      // setRows((prevRows) =>
+      //   prevRows.map((row) =>
+      //     row._id === id ? { ...row, free_time: freeTimeValue } : row
+      //   )
+      // );
+      // Fetch the latest jobs with the original page preserved
+      await fetchJobs(currentPageBeforeEdit, debouncedSearchQuery);
+      console.log("Free time updated successfully.");
+    } catch (error) {
+      console.error("Error saving data:", error);
+    } finally {
+      setEditingRowId(null); // Exit edit mode
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingRowId(null); // Cancel edit mode
+  };
+
   const columns = [
     {
       accessorKey: "job_no",
@@ -140,7 +182,36 @@ const FreeDaysConf = () => {
       accessorKey: "free_time",
       header: "Free Time",
       enableSorting: false,
-      size: 100,
+      size: 200,
+      Cell: ({ row }) =>
+        editingRowId === row.original._id ? ( // Compare using _id
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <TextField
+              value={freeTimeValue}
+              onChange={(e) => setFreeTimeValue(e.target.value)}
+              size="small"
+              variant="outlined"
+              style={{ marginRight: "8px" }}
+            />
+            <IconButton onClick={() => handleSave(row.original._id)}>
+            
+              <CheckIcon />
+            </IconButton>
+            <IconButton onClick={handleCancel}>
+              <CloseIcon />
+            </IconButton>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {row.original.free_time}
+            <IconButton
+              onClick={() => handleEditClick(row.original)}
+              style={{ marginLeft: "8px" }}
+            >
+              <EditIcon />
+            </IconButton>
+          </div>
+        ),
     },
     {
       accessorKey: "container_numbers",

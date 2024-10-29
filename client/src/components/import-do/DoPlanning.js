@@ -8,7 +8,7 @@ import DoPlanningContainerTable from "./DoPlanningContainerTable";
 import { useNavigate } from "react-router-dom";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-
+import BLNumberCell from "../../utils/BLNumberCell";
 function DoPlanning() {
   const [rows, setRows] = useState([]);
   const navigate = useNavigate();
@@ -59,13 +59,23 @@ function DoPlanning() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job Number",
-      enableSorting: false,
+      header: "Job No & ICD Code",
       size: 150,
+      Cell: ({ cell }) => {
+        const jobNo = cell.row.original.job_no;
+        const icdCode = cell.row.original.custom_house;
+        return (
+          <div style={{ textAlign: "center" }}>
+            {jobNo}
+            <br />
+            <small>{icdCode}</small>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "importer",
-      header: "Party",
+      header: "Importer",
       enableSorting: false,
       size: 250,
       Cell: ({ cell }) => {
@@ -115,32 +125,7 @@ function DoPlanning() {
         );
       },
     },
-    {
-      accessorKey: "awb_bl_no",
-      header: "BL Number",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell }) => {
-        return (
-          <React.Fragment>
-            {cell?.getValue()?.toString()}
 
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
-            >
-              <abbr title="Copy BL Number">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-          </React.Fragment>
-        );
-      },
-    },
     {
       accessorKey: "shipping_line_airline",
       header: "Shipping Line",
@@ -148,20 +133,56 @@ function DoPlanning() {
       size: 200,
     },
     {
-      accessorKey: "custom_house",
-      header: "Custom House",
-      enableSorting: false,
-      size: 150,
+      accessorKey: "awb_bl_no",
+      header: "BL Number",
+      size: 200,
+      Cell: ({ row }) => (
+        <BLNumberCell
+          blNumber={row.original.awb_bl_no}
+          portOfReporting={row.original.port_of_reporting}
+          shippingLine={row.original.shipping_line_airline}
+          containerNos={row.original.container_nos}
+        />
+      ),
     },
     {
-      accessorKey: "obl_telex_bl",
-      header: "OBL Telex BL",
-      enableSorting: false,
-      size: 100,
+      accessorKey: "container_numbers",
+      header: "Container Numbers and Size",
+      size: 200,
+      Cell: ({ cell }) => {
+        const containerNos = cell.row.original.container_nos;
+        return (
+          <React.Fragment>
+            {containerNos?.map((container, id) => (
+              <div key={id} style={{ marginBottom: "4px" }}>
+                <a
+                  href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {container.container_number}
+                </a>
+                | "{container.size}"
+                <IconButton
+                  size="small"
+                  onClick={(event) =>
+                    handleCopy(event, container.container_number)
+                  }
+                >
+                  <abbr title="Copy Container Number">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      },
     },
+
     {
       accessorKey: "do_validity_upto_job_level",
-      header: "DO Validity",
+      header: "Required Do Validity Upto",
       enableSorting: false,
       size: 150,
       Cell: ({ cell, row }) => {
@@ -187,7 +208,7 @@ function DoPlanning() {
         return (
           <div
             style={{
-              backgroundColor: isContainerDateHigher ? "#d1e7dd" : "inherit", // Green if container date is higher
+              backgroundColor: isContainerDateHigher ? "#FFCCCC" : "#CCFFCC", // Green if container date is higher
               padding: "8px",
               borderRadius: "4px",
             }}
@@ -198,55 +219,48 @@ function DoPlanning() {
         );
       },
     },
-
     {
-      accessorKey: "vessel_flight",
-      header: "Vessel",
+      accessorKey: "vessel_and_voyage",
+      header: "Vessel & Voyage No",
       enableSorting: false,
-      size: 100,
-      Cell: ({ cell }) => {
+      size: 200,
+      Cell: ({ row }) => {
+        const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
+        const voyageNo = row.original.voyage_no?.toString() || "N/A";
+
+        const handleCopy = (event, text) => {
+          event.stopPropagation();
+          navigator.clipboard.writeText(text);
+          alert(`${text} copied to clipboard!`);
+        };
+
         return (
           <React.Fragment>
-            {cell?.getValue()?.toString()}
+            <div>
+              {vesselFlight}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, vesselFlight)}
+              >
+                <abbr title="Copy Vessel">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
-            >
-              <abbr title="Copy Vessel">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-          </React.Fragment>
-        );
-      },
-    },
-    {
-      accessorKey: "voyage_no",
-      header: "Voyage No",
-      enableSorting: false,
-      size: 100,
-      Cell: ({ cell }) => {
-        return (
-          <React.Fragment>
-            {cell?.getValue()?.toString()}
-
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
-            >
-              <abbr title="Copy Voyage Number">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
+            <div>
+              {voyageNo}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, voyageNo)}
+              >
+                <abbr title="Copy Voyage Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
           </React.Fragment>
         );
       },

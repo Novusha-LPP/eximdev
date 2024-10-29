@@ -21,20 +21,18 @@ const router = express.Router();
 
 router.get("/api/get-free-days", async (req, res) => {
   try {
-    // Extract pagination and search parameters from query
-    const page = parseInt(req.query.page) || 1; // Default to page 1
-    const limit = parseInt(req.query.limit) || 100; // Default to 100 jobs per page
-    const search = req.query.search || ""; // Search query string
-    const skip = (page - 1) * limit; // Calculate the skip value
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100;
+    const search = req.query.search || "";
+    const skip = (page - 1) * limit;
 
-    // Build the search query
     const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Fetch jobs based on status, detailed_status, and search query
+    // Fetch jobs with the updated query logic
     const jobs = await JobModel.find(
       {
         $and: [
-          { status: { $regex: /^pending$/i } }, // Match 'Pending' status
+          { status: { $regex: /^pending$/i } },
           {
             detailed_status: {
               $in: [
@@ -44,28 +42,30 @@ router.get("/api/get-free-days", async (req, res) => {
               ],
             },
           },
-          searchQuery, // Apply the search query
+          {
+            $or: [
+              { is_free_time_updated: { $exists: false } }, // Field doesn't exist
+              { is_free_time_updated: false }, // Field exists and is false
+            ],
+          },
+          searchQuery,
         ],
       },
       "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time"
     );
 
-    // Define the desired ranking order
     const rankOrder = [
       "Discharged",
       "Gateway IGM Filed",
       "Estimated Time of Arrival",
     ];
 
-    // Group and sort jobs based on the rank order
     const groupedJobs = rankOrder.flatMap((status) =>
       jobs.filter((job) => job.detailed_status === status)
     );
 
-    // Apply pagination to the grouped jobs
     const paginatedJobs = groupedJobs.slice(skip, skip + limit);
 
-    // Send the paginated response along with meta information
     res.status(200).send({
       totalJobs: groupedJobs.length,
       totalPages: Math.ceil(groupedJobs.length / limit),
@@ -77,6 +77,9 @@ router.get("/api/get-free-days", async (req, res) => {
     res.status(500).send({ error: "Internal Server Error" });
   }
 });
+
+
+
 // PATCH API that updates only the free_time
 router.patch("/api/update-free-time/:id", async (req, res) => {
   try {
@@ -91,7 +94,7 @@ router.patch("/api/update-free-time/:id", async (req, res) => {
     // Find the job by ID and update the free_time field only
     const updatedJob = await JobModel.findByIdAndUpdate(
       id,
-      { free_time }, // Update only the free_time field
+      { free_time, is_free_time_updated: true }, // Update only the free_time field
       { new: true, runValidators: true } // Return the updated document
     );
 

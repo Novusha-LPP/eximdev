@@ -1339,6 +1339,7 @@ function JobDetails() {
                             name="free_time"
                             value={formik.values.free_time}
                             onChange={formik.handleChange}
+                            disabled={user.role !== "Admin"} // Disable if the user is not Admin
                           >
                             {options?.map((option, id) => (
                               <MenuItem key={id} value={option}>

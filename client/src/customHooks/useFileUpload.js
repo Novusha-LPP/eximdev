@@ -222,17 +222,48 @@ function useFileUpload(inputRef, alt, setAlt) {
 
     async function uploadExcelData() {
       setLoading(true);
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-        modifiedData
-      );
-      console.log(`modifiedData: ${JSON.stringify(modifiedData)}`);
-      if (res.status === 200) {
-        setSnackbar(true);
-      } else {
-        alert("Something went wrong");
+
+      try {
+        // Fetch the existing LastJobsDate data to check the current vessel_berthing value
+        const lastJobsDateRes = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-last-jobs-date`
+        );
+
+        const existingVesselBerthing =
+          lastJobsDateRes.data?.vessel_berthing || "";
+
+        // Modify the data before sending it to the backend
+        const finalData = modifiedData.map((item) => {
+          if (
+            item.vessel_berthing && // If Excel sheet has a vessel_berthing date
+            (!existingVesselBerthing || existingVesselBerthing.trim() === "") // And the existing value is empty or null
+          ) {
+            return item; // Use the Excel sheet's vessel_berthing date
+          } else {
+            // Remove vessel_berthing to prevent overriding with Excel data
+            const { vessel_berthing, ...rest } = item;
+            return rest;
+          }
+        });
+
+        // Now upload the final data to the backend
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
+          finalData
+        );
+
+        console.log(`finalData: ${JSON.stringify(finalData)}`);
+        if (res.status === 200) {
+          setSnackbar(true);
+        } else {
+          alert("Something went wrong");
+        }
+      } catch (error) {
+        console.error("Error uploading data:", error);
+        alert("An error occurred while uploading the data.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     uploadExcelData().then(() => setAlt(!alt));

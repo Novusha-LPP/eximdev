@@ -8,12 +8,38 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     const jobs = await JobModel.find(
       {
         $and: [
+          // Status must be "pending" (case-insensitive)
+          { status: { $regex: /^pending$/i } },
           {
-            $or: [{ do_documents: { $exists: false } }, { do_documents: [] }],
-          },
-          { $or: [{ doPlanning: true }, { doPlanning: "true" }] },
-          {
-            $or: [{ do_completed: "No" }, { do_completed: { $exists: false } }],
+            $or: [
+              // Case 1: doPlanning is true and do_completed is "No"
+              {
+                $and: [
+                  { $or: [{ doPlanning: true }, { doPlanning: "true" }] },
+                  {
+                    // Exclude jobs with do_completed: "Yes" or true
+                    $nor: [
+                      { do_completed: { $regex: /^yes$/i } },
+                      { do_completed: true },
+                    ],
+                  },
+                ],
+              },
+              // Case 2: doPlanning is true, do_revalidation_date exists, and do_completed is not "Yes"/true
+              {
+                $and: [
+                  { $or: [{ doPlanning: true }, { doPlanning: "true" }] },
+                  { do_revalidation_date: { $exists: true, $ne: null } },
+                  {
+                    // Exclude jobs with do_completed: "Yes" or true
+                    $and: [
+                      { do_completed: { $regex: /^yes$/i } },
+                      { do_completed: true },
+                    ],
+                  },
+                ],
+              },
+            ],
           },
         ],
       },

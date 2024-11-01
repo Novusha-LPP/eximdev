@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useFormik } from "formik";
 import axios from "axios";
 // import { handleFileUpload } from "../../utils/awsFileUpload";
@@ -6,6 +6,10 @@ import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import { useParams } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import DeleteIcon from "@mui/icons-material/Delete";
+import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import FileUpload from "../../components/gallery/FileUpload.js";
+import ImagePreview from "../../components/gallery/ImagePreview.js";
 // import { Checkbox, FormControlLabel, TextField } from "@mui/material";
 import {
   Checkbox,
@@ -25,10 +29,12 @@ import {
   TableRow,
   DialogContentText,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import { Row, Col } from "react-bootstrap";
 
 function EditDoPlanning() {
   const [data, setData] = React.useState();
+  const [loading, setLoading] = React.useState(true); // Loading state
   const [kycData, setKycData] = React.useState("");
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
   const { _id } = useParams();
@@ -36,20 +42,41 @@ function EditDoPlanning() {
   const [deleteIndex, setDeleteIndex] = useState(null);
   const [currentField, setCurrentField] = useState(null);
   const [openImageDeleteModal, setOpenImageDeleteModal] = useState(false);
-
+  const container_number_ref = useRef([]);
+  const navigate = useNavigate();
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = `0${date.getMonth() + 1}`.slice(-2);
+    const day = `0${date.getDate()}`.slice(-2);
+    return `${year}-${month}-${day}`;
+  };
+  // Fetch data on component mount
   React.useEffect(() => {
     async function getData() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
-      );
-      setData({
-        ...res.data,
-        shipping_line_invoice: res.data.shipping_line_invoice === "Yes",
-        payment_made: res.data.payment_made === "Yes",
-        do_processed: res.data.do_processed === "Yes",
-        other_invoices: res.data.other_invoices === "Yes",
-        security_deposit: res.data.security_deposit === "Yes",
-      });
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
+        );
+        console.log("API Response:", res.data); // Debugging log
+
+        // Ensure correct access to the job object
+        const jobData = res.data.job;
+        // Update data and set appropriate flags for boolean values
+        setData({
+          ...jobData,
+          shipping_line_invoice: jobData.shipping_line_invoice === "Yes",
+          payment_made: jobData.payment_made === "Yes",
+          do_processed: jobData.do_processed === "Yes",
+          other_invoices: jobData.other_invoices === "Yes",
+          security_deposit: jobData.security_deposit === "Yes",
+        });
+
+        setLoading(false); // Data loaded
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setLoading(false); // Stop loading even if error occurs
+      }
     }
 
     getData();
@@ -71,13 +98,17 @@ function EditDoPlanning() {
       shipping_line_invoice_imgs: [],
       do_queries: [{ query: "", reply: "" }],
       do_completed: false,
+      do_Revalidation_Completed: false,
     },
 
     onSubmit: async (values, { resetForm }) => {
+      // Initialize navigate
+
       // Convert booleans back to "Yes" or "No"
       const data = {
         ...values,
         _id,
+        do_Revalidation_Completed: values.do_Revalidation_Completed,
         shipping_line_invoice: values.shipping_line_invoice ? "Yes" : "No",
         payment_made: values.payment_made ? "Yes" : "No",
         do_processed: values.do_processed ? "Yes" : "No",
@@ -86,12 +117,16 @@ function EditDoPlanning() {
         security_deposit: values.security_deposit ? "Yes" : "No",
       };
 
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/update-do-planning`,
-        data
-      );
-      alert(res.data.message);
-      resetForm();
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/update-do-planning`,
+          data
+        );
+        resetForm(); // Reset the form
+        navigate("/import-do"); // Redirect to /import-do
+      } catch (error) {
+        console.error("Error submitting form:", error);
+      }
     },
   });
 
@@ -99,11 +134,26 @@ function EditDoPlanning() {
     if (data) {
       const updatedData = {
         ...data,
+        shipping_line_invoice:
+          data.shipping_line_invoice === "Yes" ||
+          data.shipping_line_invoice === true,
+        shipping_line_invoice_date: formatDate(data.shipping_line_invoice_date),
+        payment_made: data.payment_made === "Yes" || data.payment_made === true, // Handle similar cases for payment_made
+        do_processed: data.do_processed === "Yes" || data.do_processed === true, // Handle similar cases for do_processed
+        other_invoices:
+          data.other_invoices === "Yes" || data.other_invoices === true, // Handle similar cases for other_invoices
+        security_deposit:
+          data.security_deposit === "Yes" || data.security_deposit === true, // Handle similar cases for security_deposit
+        do_completed: data.do_completed === "Yes" || data.do_completed === true, // Handle similar cases for do_completed
+        do_Revalidation_Completed: data.do_Revalidation_Completed,
         do_queries: data.do_queries || [{ query: "", reply: "" }],
       };
 
       formik.setValues(updatedData);
-
+      console.log(
+        "Update d shipping_line_invoice_date:",
+        updatedData.shipping_line_invoice_date
+      ); // Check if value is set
       async function getKycDocs() {
         const importer = data.importer;
         const shipping_line_airline = data.shipping_line_airline;
@@ -116,116 +166,10 @@ function EditDoPlanning() {
 
       getKycDocs();
     }
-
-    // eslint-disable-next-line
   }, [data]);
 
   //
-  const handleFileUpload = async (event, fieldName) => {
-    const files = event.target.files;
-    const uploadedFiles = [...(formik.values[fieldName] || [])];
-    for (const file of files) {
-      try {
-        const result = await uploadFileToS3(file, fieldName);
-        uploadedFiles.push(result.Location);
-      } catch (error) {
-        // toast.error(`Failed to upload ${file.name}. Please try again.`);
-      }
-    }
-    formik.setFieldValue(fieldName, uploadedFiles);
-  };
 
-  const handleDeleteImage = (fieldName, index) => {
-    const currentFieldValue = formik.values[fieldName] || [];
-    const newImages = [...currentFieldValue];
-    newImages.splice(index, 1);
-    formik.setFieldValue(fieldName, newImages);
-    // toast.success("Image deleted successfully.");
-  };
-
-  const ConfirmDialog = ({ open, handleClose, handleConfirm, message }) => (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      aria-labelledby="alert-dialog-title"
-      aria-describedby="alert-dialog-description"
-    >
-      <DialogTitle id="alert-dialog-title">{"Are you sure?"}</DialogTitle>
-      <DialogContent>
-        <DialogContentText id="alert-dialog-description">
-          {message}
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} color="primary">
-          Cancel
-        </Button>
-        <Button onClick={handleConfirm} color="primary" autoFocus>
-          Confirm
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-  const renderImagePreview = (fieldName) => {
-    const links = (formik.values[fieldName] || []).filter(
-      (link) => link.trim() !== ""
-    );
-    if (links.length === 0) return null;
-    const handleClickOpen = (index, fieldName) => {
-      setDeleteIndex(index);
-      setCurrentField(fieldName);
-      setOpenImageDeleteModal(true);
-    };
-    const handleClose = () => {
-      setOpenImageDeleteModal(false);
-    };
-    const handleConfirm = () => {
-      handleDeleteImage(currentField, deleteIndex);
-      setOpenImageDeleteModal(false);
-    };
-    return (
-      <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>Link</TableCell>
-              <TableCell>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {links.map((link, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <a
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", color: "blue" }}
-                  >
-                    {link}
-                  </a>
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    onClick={() => handleClickOpen(index, fieldName)}
-                    color="error"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <ConfirmDialog
-          open={openImageDeleteModal}
-          handleClose={handleClose}
-          handleConfirm={handleConfirm}
-          message={`Are you sure you want to delete this image from the server as well?`}
-        />
-      </Box>
-    );
-  };
   //
   const handleAddField = () => {
     formik.setValues({
@@ -240,258 +184,377 @@ function EditDoPlanning() {
     });
   };
 
-  return (
-    <div>
-      <form onSubmit={formik.handleSubmit}>
-        <h5>Job Number: {data?.job_no}</h5>
-        <h5>Importer: {data?.importer}</h5>
-        <strong>KYC Documents:&nbsp;</strong>
-        <br />
-        {kycData.kyc_documents?.map((doc, id) => (
-          <div key={id}>
-            <a href={doc}>View</a>
-            <br />
-          </div>
-        ))}
-        <strong>KYC Valid Upto:&nbsp;</strong>
-        {kycData.kyc_valid_upto}
-        <br />
-        <strong>BL Status:&nbsp;</strong>
-        {data?.obl_telex_bl}
-        <br />
+  // const containers = data.container_nos || [];
+  // Render container details only if data is available
+  const renderContainerDetails = () => {
+    if (!data || !data.container_nos || data.container_nos.length === 0) {
+      return <p>No containers available.</p>;
+    }
 
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formik.values.shipping_line_invoice}
-              onChange={(e) =>
-                formik.setFieldValue("shipping_line_invoice", e.target.checked)
-              }
-              name="shipping_line_invoice"
-              color="primary"
-            />
-          }
-          label="Shipping line invoice"
-        />
+    return data.container_nos.map((container, index) => (
+      <div key={index} style={{ padding: "30px" }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <h6 style={{ marginBottom: 0 }}>
+            <strong>
+              {index + 1}. Container Number:&nbsp;
+              <span ref={(el) => (container_number_ref.current[index] = el)}>
+                {container.container_number || "N/A"} | "{container.size}"
+              </span>
+            </strong>
+          </h6>
+        </div>
 
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formik.values.payment_made}
-              onChange={(e) =>
-                formik.setFieldValue("payment_made", e.target.checked)
-              }
-              name="payment_made"
-              color="primary"
-            />
-          }
-          label="Payment Made"
-        />
-
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formik.values.do_processed}
-              onChange={(e) =>
-                formik.setFieldValue("do_processed", e.target.checked)
-              }
-              name="do_processed"
-              color="primary"
-            />
-          }
-          label="DO processed"
-        />
-
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formik.values.other_invoices}
-              onChange={(e) =>
-                formik.setFieldValue("other_invoices", e.target.checked)
-              }
-              name="other_invoices"
-              color="primary"
-            />
-          }
-          label="Other invoices"
-        />
-
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formik.values.security_deposit}
-              onChange={(e) =>
-                formik.setFieldValue("security_deposit", e.target.checked)
-              }
-              name="security_deposit"
-              color="primary"
-            />
-          }
-          label="Security Deposit"
-        />
-
-        <TextField
-          date
-          fullWidth
-          size="small"
-          margin="normal"
-          variant="outlined"
-          type="date"
-          id="shipping_line_invoice_date"
-          name="shipping_line_invoice_date"
-          label="Shipping line invoice date"
-          value={formik.values.shipping_line_invoice_date}
-          onChange={formik.handleChange}
-          InputLabelProps={{ shrink: true }}
-        />
-
-        <Row>
-          <Col>
-            {/* Upload Shipping Line Invoices */}
-            <label htmlFor="shipping_line_invoice_imgs" className="btn">
-              Upload Shipping Line Invoices
-            </label>
-            <input
-              type="file"
-              multiple
-              name="shipping_line_invoice_imgs"
-              id="shipping_line_invoice_imgs"
-              onChange={(e) =>
-                handleFileUpload(e, "shipping_line_invoice_imgs")
-              }
-              style={{ display: "none" }}
-            />
-            <br />
-            <br />
-            {renderImagePreview("shipping_line_invoice_imgs")}
-          </Col>
-          <Col>
-            {/* Upload DO Processed Attachment */}
-            <label htmlFor="do_documents" className="btn">
-              DO Documents
-            </label>
-            <input
-              type="file"
-              multiple
-              name="do_documents"
-              id="do_documents"
-              onChange={(e) => handleFileUpload(e, "do_documents")}
-              style={{ display: "none" }}
-            />
-            <br />
-            <br />
-
-            {renderImagePreview("do_documents")}
-          </Col>
-          <Col></Col>
-        </Row>
-
-        <br />
-        {formik.values.security_deposit === "Yes" && (
-          <TextField
-            fullWidth
-            size="small"
-            margin="normal"
-            variant="outlined"
-            id="security_amount"
-            name="security_amount"
-            label="Security amount"
-            value={formik.values.security_amount}
-            onChange={formik.handleChange}
-          />
-        )}
-        <strong>UTR:&nbsp;</strong>
-        {formik.values.utr?.map((file, index) => {
-          return (
-            <div key={index}>
-              <a href={file}>{file}</a>
-              <br />
-            </div>
-          );
-        })}
-        <br />
-        <br />
-
-        <TextField
-          type="date"
-          fullWidth
-          size="small"
-          margin="normal"
-          variant="outlined"
-          id="do_validity"
-          name="do_validity"
-          label="DO Validity"
-          value={formik.values.do_validity}
-          onChange={formik.handleChange}
-          InputLabelProps={{ shrink: true }}
-        />
-        {/* Upload DO Copies */}
-        <label htmlFor="do_copies" className="btn">
-          Upload DO Copies
-        </label>
-        <input
-          type="file"
-          multiple
-          name="do_copies"
-          id="do_copies"
-          onChange={(e) => handleFileUpload(e, "do_copies")}
-          style={{ display: "none" }}
-        />
-        <br />
-        <br />
-
-        {renderImagePreview("do_copies")}
-
-        <h5>DO Queries</h5>
-        {formik.values.do_queries.map((item, id) => {
-          return (
-            <div key={id}>
-              <TextField
-                fullWidth
-                size="small"
-                margin="normal"
-                variant="outlined"
-                id={`do_queries[${id}].query`}
-                name={`do_queries[${id}].query`}
-                label="Query"
-                value={item.query}
-                onChange={formik.handleChange}
+        {/* Render DO Revalidation Details */}
+        {container.do_revalidation?.map((item, id) => (
+          <Row key={id}>
+            <Col xs={12} lg={4}>
+              <div className="job-detail-input-container">
+                <strong>DO Revalidation Upto:&nbsp;</strong>
+                {item.do_revalidation_upto || ""}
+              </div>
+            </Col>
+            <Col xs={12} lg={4}>
+              <div className="job-detail-input-container">
+                <strong>Remarks:&nbsp;</strong>
+                {item.remarks || ""}
+              </div>
+            </Col>
+            <Col xs={12} lg={4}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={
+                      formik.values.container_nos?.[index]?.do_revalidation?.[
+                        id
+                      ]?.do_Revalidation_Completed || false
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        `container_nos[${index}].do_revalidation[${id}].do_Revalidation_Completed`,
+                        e.target.checked
+                      )
+                    }
+                    name={`container_nos[${index}].do_revalidation[${id}].do_Revalidation_Completed`}
+                    color="primary"
+                  />
+                }
+                label="DO Revalidation Completed"
               />
-              {item.reply}
-            </div>
-          );
-        })}
-        <br />
-        <button type="button" className="btn" onClick={handleAddField}>
-          Add Query
-        </button>
-        <br />
-        <br />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formik.values.do_completed}
-              onChange={(e) =>
-                formik.setFieldValue("do_completed", e.target.checked)
-              }
-              name="do_completed"
-              color="primary"
-            />
-          }
-          label="DO Completed"
-        />
-        <br />
-        <button type="submit" className="btn">
-          Submit
-        </button>
-      </form>
+            </Col>
+          </Row>
+        ))}
+      </div>
+    ));
+  };
 
-      <Snackbar
-        open={fileSnackbar}
-        message={"File uploaded successfully!"}
-        sx={{ left: "auto !important", right: "24px !important" }}
-      />
-    </div>
+  if (loading) return <p>Loading...</p>; // Show loading state
+
+  if (!data) return <p>Failed to load job details.</p>; // Handle missing data
+  console.log("shipping_line_invoice:", formik.values.shipping_line_invoice);
+
+  return (
+    <>
+      <div style={{ margin: "20px 0" }}>
+        {data && (
+          <div>
+            <div className="job-details-container">
+              <Row>
+                <h4>
+                  Job Number:&nbsp;{data.job_no}&nbsp;|&nbsp;
+                  {data && `Custom House: ${data.custom_house}`}
+                </h4>
+              </Row>
+
+              <Row className="job-detail-row">
+                <Col xs={12} lg={5}>
+                  <strong>Importer:&nbsp;</strong>
+                  <span className="non-editable-text">{data.importer}</span>
+                </Col>
+              </Row>
+            </div>
+            <form onSubmit={formik.handleSubmit}>
+              <div className="job-details-container">
+                <strong>KYC Documents:&nbsp;</strong>
+                <br />
+                {kycData.kyc_documents && (
+                  <ImagePreview
+                    images={kycData.kyc_documents} // Pass the array of KYC document URLs
+                    readOnly // Makes it view-only
+                  />
+                )}
+
+                <strong>KYC Valid Upto:&nbsp;</strong>
+                {kycData.kyc_valid_upto}
+                <br />
+                <strong>BL Status:&nbsp;</strong>
+                {data.obl_telex_bl || "N/A"}
+                <br />
+              </div>
+
+              <div className="job-details-container">
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formik.values.shipping_line_invoice}
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "shipping_line_invoice",
+                          e.target.checked
+                        )
+                      }
+                      name="shipping_line_invoice"
+                      color="primary"
+                    />
+                  }
+                  label="Shipping line invoice"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formik.values.payment_made}
+                      onChange={(e) =>
+                        formik.setFieldValue("payment_made", e.target.checked)
+                      }
+                      name="payment_made"
+                      color="primary"
+                    />
+                  }
+                  label="Payment Made"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formik.values.do_processed}
+                      onChange={(e) =>
+                        formik.setFieldValue("do_processed", e.target.checked)
+                      }
+                      name="do_processed"
+                      color="primary"
+                    />
+                  }
+                  label="DO processed"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formik.values.other_invoices}
+                      onChange={(e) =>
+                        formik.setFieldValue("other_invoices", e.target.checked)
+                      }
+                      name="other_invoices"
+                      color="primary"
+                    />
+                  }
+                  label="Other invoices"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formik.values.security_deposit}
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "security_deposit",
+                          e.target.checked
+                        )
+                      }
+                      name="security_deposit"
+                      color="primary"
+                    />
+                  }
+                  label="Security Deposit"
+                />
+                <TextField
+                  date
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  type="date"
+                  id="shipping_line_invoice_date"
+                  name="shipping_line_invoice_date"
+                  label="Shipping line invoice date"
+                  value={formik.values.shipping_line_invoice_date}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <Row>
+                  <Col>
+                    <FileUpload
+                      label="Upload Shipping Line Invoices"
+                      bucketPath="shipping_line_invoice_imgs"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.shipping_line_invoice_imgs || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue(
+                          "shipping_line_invoice_imgs",
+                          updatedFiles
+                        );
+                      }}
+                      multiple={true}
+                    />
+
+                    <ImagePreview
+                      images={formik.values.shipping_line_invoice_imgs || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.shipping_line_invoice_imgs,
+                        ];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue(
+                          "shipping_line_invoice_imgs",
+                          updatedFiles
+                        );
+                      }}
+                    />
+                  </Col>
+
+                  <Col>
+                    <FileUpload
+                      label="DO Documents"
+                      bucketPath="do_documents"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles = formik.values.do_documents || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue("do_documents", updatedFiles);
+                      }}
+                      multiple={true}
+                    />
+
+                    <ImagePreview
+                      images={formik.values.do_documents || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [...formik.values.do_documents];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue("do_documents", updatedFiles);
+                      }}
+                    />
+                  </Col>
+
+                  <Col></Col>
+                </Row>
+                <br />
+                {formik.values.security_deposit === "Yes" && (
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="security_amount"
+                    name="security_amount"
+                    label="Security amount"
+                    value={formik.values.security_amount}
+                    onChange={formik.handleChange}
+                  />
+                )}
+                <strong>UTR:&nbsp;</strong>
+                {formik.values.utr?.map((file, index) => {
+                  return (
+                    <div key={index}>
+                      <a href={file}>{file}</a>
+                      <br />
+                    </div>
+                  );
+                })}
+                <br />
+                <br />
+                <TextField
+                  type="date"
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="do_validity"
+                  name="do_validity"
+                  label="DO Validity"
+                  value={formik.values.do_validity}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <Col>
+                  <FileUpload
+                    label="Upload DO Copies"
+                    bucketPath="do_copies"
+                    onFilesUploaded={(newFiles) => {
+                      const existingFiles = formik.values.do_copies || [];
+                      const updatedFiles = [...existingFiles, ...newFiles];
+                      formik.setFieldValue("do_copies", updatedFiles);
+                    }}
+                    multiple={true}
+                  />
+
+                  <ImagePreview
+                    images={formik.values.do_copies || []}
+                    onDeleteImage={(index) => {
+                      const updatedFiles = [...formik.values.do_copies];
+                      updatedFiles.splice(index, 1);
+                      formik.setFieldValue("do_copies", updatedFiles);
+                    }}
+                  />
+                </Col>
+              </div>
+
+              <div className="job-details-container">
+                <h5>DO Queries</h5>
+                {formik.values.do_queries.map((item, id) => {
+                  return (
+                    <div key={id}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        id={`do_queries[${id}].query`}
+                        name={`do_queries[${id}].query`}
+                        label="Query"
+                        value={item.query}
+                        onChange={formik.handleChange}
+                      />
+                      {item.reply}
+                    </div>
+                  );
+                })}
+                <br />
+                <button type="button" className="btn" onClick={handleAddField}>
+                  Add Query
+                </button>
+                <br />
+                <br />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formik.values.do_completed}
+                      onChange={(e) =>
+                        formik.setFieldValue("do_completed", e.target.checked)
+                      }
+                      name="do_completed"
+                      color="primary"
+                    />
+                  }
+                  label="DO Completed"
+                />
+              </div>
+
+              <br />
+              <div className="job-details-container">
+                <JobDetailsRowHeading heading="Container Details" />
+
+                {renderContainerDetails()}
+              </div>
+              <button type="submit" className="btn">
+                Submit
+              </button>
+            </form>
+
+            <Snackbar
+              open={fileSnackbar}
+              message={"File uploaded successfully!"}
+              sx={{ left: "auto !important", right: "24px !important" }}
+            />
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

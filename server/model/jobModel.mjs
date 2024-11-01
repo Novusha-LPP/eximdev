@@ -75,7 +75,11 @@ const jobSchema = new mongoose.Schema({
       do_validity_upto_container_level: { type: String, trim: true },
       required_do_validity_upto: { type: String, trim: true },
       do_revalidation: [
-        { do_revalidation_upto: { type: String }, remarks: { type: String } },
+        {
+          do_revalidation_upto: { type: String },
+          remarks: { type: String },
+          do_Revalidation_Completed: { type: Boolean, default: false },
+        },
       ],
     },
   ],

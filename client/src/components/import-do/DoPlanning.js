@@ -64,8 +64,13 @@ function DoPlanning() {
       Cell: ({ cell }) => {
         const jobNo = cell.row.original.job_no;
         const icdCode = cell.row.original.custom_house;
+        const rowId = cell.row.original._id;
+
         return (
-          <div style={{ textAlign: "center" }}>
+          <div
+            style={{ textAlign: "center", cursor: "pointer" }}
+            onClick={() => navigate(`/edit-do-planning/${rowId}`)}
+          >
             {jobNo}
             <br />
             <small>{icdCode}</small>
@@ -287,8 +292,8 @@ function DoPlanning() {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
-      onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
-      style: { cursor: "pointer" }, // Change cursor to pointer on hover
+      // onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
+      // style: { cursor: "pointer" }, // Change cursor to pointer on hover
     }),
     renderDetailPanel: ({ row }) => {
       return (

@@ -29,14 +29,14 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
               {
                 $and: [
                   { $or: [{ doPlanning: true }, { doPlanning: "true" }] },
-                  { do_revalidation_date: { $exists: true, $ne: null } },
                   {
                     // Exclude jobs with do_completed: "Yes" or true
-                    $and: [
+                    $or: [
                       { do_completed: { $regex: /^yes$/i } },
                       { do_completed: true },
                     ],
                   },
+                  { do_revalidation_date: { $exists: true, $ne: null } },
                 ],
               },
             ],

@@ -286,7 +286,7 @@ function DoPlanning() {
     enableColumnActions: false,
     enablePagination: false,
     enableBottomToolbar: false,
-    enableExpandAll: false,
+    // enableExpandAll: false,
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
@@ -295,16 +295,16 @@ function DoPlanning() {
       // onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
       // style: { cursor: "pointer" }, // Change cursor to pointer on hover
     }),
-    renderDetailPanel: ({ row }) => {
-      return (
-        <div style={{ padding: "0 !important" }}>
-          <DoPlanningContainerTable
-            job_no={row.original.job_no}
-            year={row.original.year}
-          />
-        </div>
-      );
-    },
+    // renderDetailPanel: ({ row }) => {
+    //   return (
+    //     <div style={{ padding: "0 !important" }}>
+    //       <DoPlanningContainerTable
+    //         job_no={row.original.job_no}
+    //         year={row.original.year}
+    //       />
+    //     </div>
+    //   );
+    // },
   });
 
   const getTableRowsClassname = (params) => {

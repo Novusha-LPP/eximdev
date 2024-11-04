@@ -64,8 +64,17 @@ function DoPlanning() {
       Cell: ({ cell }) => {
         const jobNo = cell.row.original.job_no;
         const icdCode = cell.row.original.custom_house;
+        const rowId = cell.row.original._id;
+
         return (
-          <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              textAlign: "center",
+              cursor: "pointer",
+              color: "blue",
+            }}
+            onClick={() => navigate(`/edit-do-planning/${rowId}`)}
+          >
             {jobNo}
             <br />
             <small>{icdCode}</small>
@@ -99,32 +108,32 @@ function DoPlanning() {
         );
       },
     },
-    {
-      accessorKey: "importer_address",
-      header: "Address",
-      enableSorting: false,
-      size: 250,
-      Cell: ({ cell }) => {
-        return (
-          <React.Fragment>
-            {cell?.getValue()?.toString()}
+    // {
+    //   accessorKey: "importer_address",
+    //   header: "Address",
+    //   enableSorting: false,
+    //   size: 250,
+    //   Cell: ({ cell }) => {
+    //     return (
+    //       <React.Fragment>
+    //         {cell?.getValue()?.toString()}
 
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
-            >
-              <abbr title="Copy Party Address">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-          </React.Fragment>
-        );
-      },
-    },
+    //         <IconButton
+    //           size="small"
+    //           onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+    //           onClick={(event) => {
+    //             handleCopy(event, cell?.getValue()?.toString());
+    //           }}
+    //         >
+    //           <abbr title="Copy Party Address">
+    //             <ContentCopyIcon fontSize="inherit" />
+    //           </abbr>
+    //         </IconButton>
+    //         <br />
+    //       </React.Fragment>
+    //     );
+    //   },
+    // },
 
     {
       accessorKey: "shipping_line_airline",
@@ -281,25 +290,25 @@ function DoPlanning() {
     enableColumnActions: false,
     enablePagination: false,
     enableBottomToolbar: false,
-    enableExpandAll: false,
+    // enableExpandAll: false,
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
-      onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
-      style: { cursor: "pointer" }, // Change cursor to pointer on hover
+      // onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
+      // style: { cursor: "pointer" }, // Change cursor to pointer on hover
     }),
-    renderDetailPanel: ({ row }) => {
-      return (
-        <div style={{ padding: "0 !important" }}>
-          <DoPlanningContainerTable
-            job_no={row.original.job_no}
-            year={row.original.year}
-          />
-        </div>
-      );
-    },
+    // renderDetailPanel: ({ row }) => {
+    //   return (
+    //     <div style={{ padding: "0 !important" }}>
+    //       <DoPlanningContainerTable
+    //         job_no={row.original.job_no}
+    //         year={row.original.year}
+    //       />
+    //     </div>
+    //   );
+    // },
   });
 
   const getTableRowsClassname = (params) => {

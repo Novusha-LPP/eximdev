@@ -68,7 +68,11 @@ function DoPlanning() {
 
         return (
           <div
-            style={{ textAlign: "center", cursor: "pointer" }}
+            style={{
+              textAlign: "center",
+              cursor: "pointer",
+              color: "blue",
+            }}
             onClick={() => navigate(`/edit-do-planning/${rowId}`)}
           >
             {jobNo}
@@ -104,32 +108,32 @@ function DoPlanning() {
         );
       },
     },
-    {
-      accessorKey: "importer_address",
-      header: "Address",
-      enableSorting: false,
-      size: 250,
-      Cell: ({ cell }) => {
-        return (
-          <React.Fragment>
-            {cell?.getValue()?.toString()}
+    // {
+    //   accessorKey: "importer_address",
+    //   header: "Address",
+    //   enableSorting: false,
+    //   size: 250,
+    //   Cell: ({ cell }) => {
+    //     return (
+    //       <React.Fragment>
+    //         {cell?.getValue()?.toString()}
 
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
-            >
-              <abbr title="Copy Party Address">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-          </React.Fragment>
-        );
-      },
-    },
+    //         <IconButton
+    //           size="small"
+    //           onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+    //           onClick={(event) => {
+    //             handleCopy(event, cell?.getValue()?.toString());
+    //           }}
+    //         >
+    //           <abbr title="Copy Party Address">
+    //             <ContentCopyIcon fontSize="inherit" />
+    //           </abbr>
+    //         </IconButton>
+    //         <br />
+    //       </React.Fragment>
+    //     );
+    //   },
+    // },
 
     {
       accessorKey: "shipping_line_airline",

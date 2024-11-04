@@ -271,6 +271,14 @@ function EditDoPlanning() {
                   <span className="non-editable-text">{data.importer}</span>
                 </Col>
               </Row>
+              <Row className="job-detail-row">
+                <Col xs={12} lg={5}>
+                  <strong>Importer Address:&nbsp;</strong>
+                  <span className="non-editable-text">
+                    {data.importer_address}
+                  </span>
+                </Col>
+              </Row>
             </div>
             <form onSubmit={formik.handleSubmit}>
               <div className="job-details-container">

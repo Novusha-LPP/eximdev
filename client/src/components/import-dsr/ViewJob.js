@@ -261,6 +261,14 @@ function JobDetails() {
       alert("Please type 'Delete' to confirm.");
     }
   };
+  const handleDeleteRevalidation = (containerIndex, revalidationIndex) => {
+    formik.setFieldValue(
+      `container_nos[${containerIndex}].do_revalidation`,
+      formik.values.container_nos[containerIndex].do_revalidation.filter(
+        (_, index) => index !== revalidationIndex
+      )
+    );
+  };
 
   const handleDateChange = (newDate) => {
     const updatedContainers = formik.values.container_nos.map((container) => ({
@@ -1427,7 +1435,7 @@ function JobDetails() {
                               />
                             </div>
                           </Col>
-                          <Col xs={12} lg={9}>
+                          <Col xs={10} lg={8}>
                             <div className="job-detail-input-container">
                               <strong>Remarks:&nbsp;</strong>
                               <TextField
@@ -1441,6 +1449,21 @@ function JobDetails() {
                                 onChange={formik.handleChange}
                               />
                             </div>
+                          </Col>
+                          <Col
+                            xs={2}
+                            lg={1}
+                            className="d-flex align-items-center"
+                          >
+                            <IconButton
+                              aria-label="delete-revalidation"
+                              onClick={() =>
+                                handleDeleteRevalidation(index, id)
+                              }
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
                           </Col>
                         </Row>
                       );

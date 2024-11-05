@@ -6,30 +6,36 @@ import {
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
 import { useNavigate } from "react-router-dom";
-import { IconButton } from "@mui/material";
+import {
+  IconButton,
+  TextField,
+  InputAdornment,
+  Pagination,
+} from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
 function DoPlanning() {
   const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(1); // Current page
+  const [totalPages, setTotalPages] = useState(1); // Total pages from API
+  const [loading, setLoading] = useState(false); // Loading state
+  const [searchQuery, setSearchQuery] = useState(""); // Search query
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const navigate = useNavigate();
+  const limit = 100; // Number of items per page
+
   const handleCopy = (event, text) => {
     event.stopPropagation();
-
     if (
       navigator.clipboard &&
       typeof navigator.clipboard.writeText === "function"
     ) {
       navigator.clipboard
         .writeText(text)
-        .then(() => {
-          console.log("Text copied to clipboard:", text);
-        })
-        .catch((err) => {
-          alert("Failed to copy text to clipboard.");
-          console.error("Failed to copy:", err);
-        });
+        .then(() => console.log("Text copied to clipboard:", text))
+        .catch((err) => console.error("Failed to copy:", err));
     } else {
-      // Fallback approach for older browsers
       const textArea = document.createElement("textarea");
       textArea.value = text;
       document.body.appendChild(textArea);
@@ -39,22 +45,47 @@ function DoPlanning() {
         document.execCommand("copy");
         console.log("Text copied to clipboard using fallback method:", text);
       } catch (err) {
-        alert("Failed to copy text to clipboard.");
         console.error("Fallback copy failed:", err);
       }
       document.body.removeChild(textArea);
     }
   };
 
-  useEffect(() => {
-    async function getData() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`
+  // Fetch jobs with pagination and search
+  const fetchJobs = async (page = 1, searchQuery = "") => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
+        {
+          params: { page, limit, search: searchQuery },
+        }
       );
-      setRows(res.data);
+      setRows(res.data.jobs); // Set jobs data
+      setTotalPages(res.data.totalPages); // Set total pages from response
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
     }
-    getData();
-  }, []);
+  };
+
+  // Fetch jobs whenever page or debounced search query changes
+  useEffect(() => {
+    fetchJobs(page, debouncedSearchQuery);
+  }, [page, debouncedSearchQuery]);
+
+  // Debounce search query to reduce excessive API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler); // Cleanup on unmount
+  }, [searchQuery]);
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage); // Update current page
+  };
 
   const columns = [
     {
@@ -284,11 +315,15 @@ function DoPlanning() {
     enableDensityToggle: false, // Disable density toggle
     initialState: {
       density: "compact",
+      columnPinning: { left: ["job_no"] },
     }, // Set initial table density to compact
     enableGrouping: true, // Enable row grouping
+    enableGlobalFilter: false,
     enableColumnFilters: false, // Disable column filters
     enableColumnActions: false,
     enablePagination: false,
+    enableStickyHeader: true,
+    enablePinning: true,
     enableBottomToolbar: false,
     // enableExpandAll: false,
     muiTableContainerProps: {
@@ -309,6 +344,41 @@ function DoPlanning() {
     //     </div>
     //   );
     // },
+    muiTableHeadCellProps: {
+      sx: {
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
+      },
+    },
+    renderTopToolbarCustomActions: () => (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "end",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton onClick={() => fetchJobs(1)}>
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{ width: "300px", marginRight: "20px" }}
+        />
+      </div>
+    ),
   });
 
   const getTableRowsClassname = (params) => {
@@ -321,11 +391,21 @@ function DoPlanning() {
   };
 
   return (
-    <>
-      <div style={{ height: "80%" }}>
-        <MaterialReactTable table={table} />
-      </div>
-    </>
+    <div style={{ height: "80%" }}>
+      {/* Search Input */}
+
+      {/* Table */}
+      <MaterialReactTable table={table} />
+
+      {/* Pagination */}
+      <Pagination
+        count={totalPages}
+        page={page}
+        onChange={handlePageChange}
+        color="primary"
+        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+      />
+    </div>
   );
 }
 

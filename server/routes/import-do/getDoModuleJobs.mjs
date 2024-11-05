@@ -82,13 +82,38 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     // Combine results and eliminate duplicates
     const allJobs = [...new Set([...initialJobs, ...filteredJobs])];
 
+    // Add displayDate and dayDifference to each job
+    const jobsWithCalculatedFields = allJobs.map((job) => {
+      const jobLevelDate = new Date(job.do_validity_upto_job_level);
+      const containerLevelDate = job.container_nos?.[0]
+        ?.required_do_validity_upto
+        ? new Date(job.container_nos[0].required_do_validity_upto)
+        : null;
+
+      // Determine displayDate and calculate dayDifference if container date is later
+      const isContainerDateHigher =
+        containerLevelDate && containerLevelDate > jobLevelDate;
+      const displayDate = isContainerDateHigher
+        ? containerLevelDate.toISOString().split("T")[0] // Format as 'YYYY-MM-DD'
+        : jobLevelDate.toISOString().split("T")[0];
+      const dayDifference = isContainerDateHigher
+        ? Math.ceil((containerLevelDate - jobLevelDate) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      return {
+        ...job.toObject(), // Keep all original job fields
+        displayDate, // Add calculated displayDate
+        dayDifference, // Add calculated dayDifference
+      };
+    });
+
     // Apply pagination
-    const paginatedJobs = allJobs.slice(skip, skip + limit);
+    const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limit);
 
     // Send paginated response
     res.status(200).send({
-      totalJobs: allJobs.length,
-      totalPages: Math.ceil(allJobs.length / limit),
+      totalJobs: jobsWithCalculatedFields.length,
+      totalPages: Math.ceil(jobsWithCalculatedFields.length / limit),
       currentPage: page,
       jobs: paginatedJobs,
     });

@@ -221,40 +221,24 @@ function DoPlanning() {
     },
 
     {
-      accessorKey: "do_validity_upto_job_level",
+      accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
       header: "Required Do Validity Upto",
       enableSorting: false,
       size: 150,
       Cell: ({ cell, row }) => {
-        const jobLevelDate = cell.getValue(); // "do_validity_upto_job_level"
-        const containerLevelDate =
-          row.original.container_nos?.[0]?.required_do_validity_upto || "";
-
-        // Parse dates into JavaScript Date objects
-        const jobDate = new Date(jobLevelDate);
-        const containerDate = new Date(containerLevelDate);
-
-        // Determine the date to display: the later one
-        const isContainerDateHigher = containerDate > jobDate;
-        const displayDate = isContainerDateHigher
-          ? containerLevelDate
-          : jobLevelDate;
-
-        // Calculate the difference in days if container date is higher
-        const dayDifference = isContainerDateHigher
-          ? Math.ceil((containerDate - jobDate) / (1000 * 60 * 60 * 24))
-          : 0;
+        const displayDate = cell.getValue(); // "displayDate" from backend
+        const dayDifference = row.original.dayDifference; // "dayDifference" from backend
 
         return (
           <div
             style={{
-              backgroundColor: isContainerDateHigher ? "#FFCCCC" : "#CCFFCC", // Green if container date is higher
+              backgroundColor: dayDifference > 0 ? "#FFCCCC" : "#CCFFCC", // Red if dayDifference is positive
               padding: "8px",
               borderRadius: "4px",
             }}
           >
             {displayDate}{" "}
-            {isContainerDateHigher && <span>(+{dayDifference} days)</span>}
+            {dayDifference > 0 && <span>(+{dayDifference} days)</span>}
           </div>
         );
       },

@@ -220,13 +220,8 @@ function determineDetailedStatus(job) {
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
 
-  // Add more debug logs for date validation
-  console.log("BE No:", be_no);
-  console.log("Valid Container Arrival Date:", anyContainerArrivalDate);
-  console.log("Valid Out of Charge Date:", validOutOfChargeDate);
-
   if (be_no && anyContainerArrivalDate && validOutOfChargeDate) {
-  // if (eta) {
+    // if (eta) {
     return "Custom Clearance Completed";
   } else if (be_no && anyContainerArrivalDate && validPcvDate) {
     return "PCV Done, Duty Payment Pending";

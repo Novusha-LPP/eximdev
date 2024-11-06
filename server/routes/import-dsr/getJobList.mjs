@@ -102,7 +102,6 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
           ],
         },
       ];
-      // Include search query in cancelled case as well
       if (search) query.$and.push(buildSearchQuery(search));
     } else {
       query.$and = [
@@ -111,17 +110,18 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       ];
     }
 
-    // Handle detailedStatus filtering
+    // Handle detailedStatus filtering using a mapping object
+    const statusMapping = {
+      estimated_time_of_arrival: "Estimated Time of Arrival",
+      discharged: "Discharged",
+      gateway_igm_filed: "Gateway IGM Filed",
+      be_noted_arrival_pending: "BE Noted, Arrival Pending",
+      be_noted_clearance_pending: "BE Noted, Clearance Pending",
+      pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
+      custom_clearance_completed: "Custom Clearance Completed",
+    };
+
     if (detailedStatus !== "all") {
-      const statusMapping = {
-        estimated_time_of_arrival: "Estimated Time of Arrival",
-        discharged: "Discharged",
-        gateway_igm_filed: "Gateway IGM Filed",
-        be_noted_arrival_pending: "BE Noted, Arrival Pending",
-        be_noted_clearance_pending: "BE Noted, Clearance Pending",
-        pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
-        custom_clearance_completed: "Custom Clearance Completed",
-      };
       query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
     }
 

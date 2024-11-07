@@ -432,7 +432,7 @@ function useJobColumns() {
       },
       {
         accessorKey: "delivery_date",
-        header: "delivery completed date",
+        header: "Delivery Completed Date",
         size: 150,
       },
     ],

@@ -87,7 +87,7 @@ function useJobColumns() {
       {
         accessorKey: "job_no",
         header: "Job No",
-        size: 100,
+        size: 150,
         Cell: ({ cell }) => {
           const {
             job_no,
@@ -97,6 +97,7 @@ function useJobColumns() {
             vessel_berthing,
             container_nos, // Assume this field holds an array of container objects
             detailed_status,
+            custom_house,
           } = cell.row.original;
 
           // Default background and text colors
@@ -173,7 +174,8 @@ function useJobColumns() {
                 backgroundColor: bgColor,
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
               <br />
             </div>
           );
@@ -184,11 +186,7 @@ function useJobColumns() {
         header: "Importer",
         size: 200,
       },
-      {
-        accessorKey: "custom_house",
-        header: "Custom House",
-        size: 150,
-      },
+
       {
         accessorKey: "awb_bl_no",
         header: "BL Number",
@@ -346,15 +344,29 @@ function useJobColumns() {
         },
       },
       {
-        accessorKey: "loading_port",
-        header: "Loading Port",
+        accessorKey: "Port",
+        header: "Port",
         size: 150,
+        Cell: ({ cell }) => {
+          const { loading_port, port_of_reporting } = cell.row.original;
+
+          // Remove the codes from the port names if they are in the format "(CODE) PortName"
+          const cleanLoadingPort = loading_port
+            ? loading_port.replace(/\(.*?\)\s*/, "")
+            : "N/A";
+          const cleanPortOfReporting = port_of_reporting
+            ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+            : "N/A";
+
+          return (
+            <div>
+              <strong>LO :</strong> {cleanLoadingPort} <br />
+              <strong>POD :</strong> {cleanPortOfReporting} <br />
+            </div>
+          );
+        },
       },
-      {
-        accessorKey: "port_of_reporting",
-        header: "Port of Discharge",
-        size: 150,
-      },
+
       {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
@@ -412,6 +424,16 @@ function useJobColumns() {
               <br />
             </React.Fragment>
           )),
+      },
+      {
+        accessorKey: "out_of_charge",
+        header: "Out of Charge",
+        size: 150,
+      },
+      {
+        accessorKey: "delivery_date",
+        header: "delivery completed date",
+        size: 150,
       },
     ],
     [formatDate, getPortLocation, getCustomHouseLocation, handleCopy]

@@ -1,11 +1,11 @@
 {
   "apps": [
     {
-      "name": "readmail",
+      "name": "server",
       "script": "app.mjs",
       "watch": true,
       "env": {
-        "NODE_ENV": "development"
+        "NODE_ENV": "server"
       }
     }
   ]

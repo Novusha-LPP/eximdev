@@ -81,35 +81,54 @@ function JobDetails() {
       gateway_igm_date: gatewayIGMDate,
       discharge_date: dischargeDate,
       out_of_charge: outOfChargeDate,
+      delivery_date: deliveryDate,
       pcv_date: pcvDate,
       container_nos,
     } = formik.values;
 
-    // First, fallback to data.be_no if formik.values.be_no is not available
     const billOfEntryNo = formik.values.be_no || data?.be_no;
-
-    // Find if any container has an arrival date
     const anyContainerArrivalDate = container_nos?.some(
       (container) => container.arrival_date
     );
 
-    // Log the values for debugging purposes
 
-    // Automatically update detailed status based on the given conditions
-    if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
+    if (
+      billOfEntryNo &&
+      anyContainerArrivalDate &&
+      outOfChargeDate &&
+      deliveryDate
+    ) {
+      formik.setFieldValue("detailed_status", "Billing Pending");
+      console.log("Set to Billing Pending");
+    } else if (
+      billOfEntryNo &&
+      anyContainerArrivalDate &&
+      outOfChargeDate &&
+      !deliveryDate
+    ) {
+      formik.setFieldValue("detailed_status", "Delivery Pending");
+      console.log("Set to Delivery Pending");
+    } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+      console.log("Set to Custom Clearance Completed");
     } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
       formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+      console.log("Set to PCV Done, Duty Payment Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate) {
       formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+      console.log("Set to BE Noted, Clearance Pending");
     } else if (billOfEntryNo) {
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+      console.log("Set to BE Noted, Arrival Pending");
     } else if (dischargeDate) {
       formik.setFieldValue("detailed_status", "Discharged");
+      console.log("Set to Discharged");
     } else if (gatewayIGMDate) {
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+      console.log("Set to Gateway IGM Filed");
     } else if (eta) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
+      console.log("Set to Estimated Time of Arrival");
     } else {
       console.log("No conditions met");
     }
@@ -127,6 +146,7 @@ function JobDetails() {
     formik.values.pcv_date,
     formik.values.completed_operation_date,
     formik.values.be_no,
+    formik.values.delivery_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
@@ -325,7 +345,7 @@ function JobDetails() {
                     getOptionLabel={(doc) =>
                       `${doc.document_name} (${doc.document_code})`
                     }
-                    value={selectedDocument || null} // Pass the whole selectedDocument object
+                    value={selectedDocument || null} // Pass the whole selectedDocument object or null
                     onChange={(event, newValue) => {
                       handleDocumentChange(index, newValue);
                     }}
@@ -346,17 +366,23 @@ function JobDetails() {
                     onChange={(e) =>
                       handleFileChange(
                         e,
-                        selectedDocument.document_name,
+                        selectedDocument?.document_name || "",
                         index,
                         false
                       )
                     }
-                    disabled={!selectedDocument.document_code}
+                    disabled={!selectedDocument?.document_code}
                   />
                   <br />
                   <br />
-                  {selectedDocument.url && (
-                    <a href={selectedDocument.url}>View</a>
+                  {selectedDocument?.url && (
+                    <a
+                      href={selectedDocument.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View
+                    </a>
                   )}
                 </Col>
 
@@ -562,6 +588,10 @@ function JobDetails() {
                     <MenuItem value="Custom Clearance Completed">
                       Custom Clearance Completed
                     </MenuItem>
+                    <MenuItem value="Delivery Pending">
+                      Delivery Pending
+                    </MenuItem>
+                    <MenuItem value="Billing Pending">Billing Pending</MenuItem>
                   </TextField>
                 </div>
               </Col>

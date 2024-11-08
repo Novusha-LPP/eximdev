@@ -328,6 +328,16 @@ function EditDoPlanning() {
                   <span className="non-editable-text">
                     {data.importer_address}
                   </span>
+                  <IconButton
+                    size="small"
+                    onClick={(event) =>
+                      handleCopy(event, data.importer_address)
+                    }
+                  >
+                    <abbr title="Copy Importer Address">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
                 </Col>
               </Row>
             </div>

@@ -108,13 +108,13 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     });
 
     // Sort jobs:
-    // 1. Positive dayDifference jobs first, ascending by dayDifference.
-    // 2. Non-positive dayDifference jobs next, ascending by displayDate.
+    //  1. Positive dayDifference jobs first, descending by dayDifference.
+// 2. Non-positive dayDifference jobs next, ascending by displayDate.
     jobsWithCalculatedFields.sort((a, b) => {
       if (a.dayDifference > 0 && b.dayDifference <= 0) return -1;
       if (a.dayDifference <= 0 && b.dayDifference > 0) return 1;
       if (a.dayDifference > 0 && b.dayDifference > 0) {
-        return a.dayDifference - b.dayDifference; // Ascending by dayDifference for positive values
+        return b.dayDifference - a.dayDifference; // Ascending by dayDifference for positive values
       }
       return new Date(a.displayDate) - new Date(b.displayDate); // Ascending by displayDate for non-positive values
     });

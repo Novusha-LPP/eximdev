@@ -252,12 +252,6 @@ function DoPlanning() {
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
 
-        const handleCopy = (event, text) => {
-          event.stopPropagation();
-          navigator.clipboard.writeText(text);
-          alert(`${text} copied to clipboard!`);
-        };
-
         return (
           <React.Fragment>
             <div>

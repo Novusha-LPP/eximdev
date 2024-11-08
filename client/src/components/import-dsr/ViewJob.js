@@ -91,7 +91,6 @@ function JobDetails() {
       (container) => container.arrival_date
     );
 
-
     if (
       billOfEntryNo &&
       anyContainerArrivalDate &&
@@ -99,7 +98,6 @@ function JobDetails() {
       deliveryDate
     ) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-      console.log("Set to Billing Pending");
     } else if (
       billOfEntryNo &&
       anyContainerArrivalDate &&
@@ -107,28 +105,20 @@ function JobDetails() {
       !deliveryDate
     ) {
       formik.setFieldValue("detailed_status", "Delivery Pending");
-      console.log("Set to Delivery Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
-      console.log("Set to Custom Clearance Completed");
     } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
       formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
-      console.log("Set to PCV Done, Duty Payment Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate) {
       formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
-      console.log("Set to BE Noted, Clearance Pending");
     } else if (billOfEntryNo) {
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-      console.log("Set to BE Noted, Arrival Pending");
     } else if (dischargeDate) {
       formik.setFieldValue("detailed_status", "Discharged");
-      console.log("Set to Discharged");
     } else if (gatewayIGMDate) {
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
-      console.log("Set to Gateway IGM Filed");
     } else if (eta) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
-      console.log("Set to Estimated Time of Arrival");
     } else {
       console.log("No conditions met");
     }

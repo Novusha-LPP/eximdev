@@ -74,6 +74,9 @@
 }
 
 /* Job List Row Colors */
+.MuiTableRow-root.delivery-pending {
+  background-color: #ccffff !important;
+}
 .MuiTableRow-root.custom-clearance-completed {
   background-color: #ccffff !important;
 }
@@ -105,6 +108,9 @@
   background-color: #ffff99 !important;
 }
 
+.MuiTableRow-root.delivery-pending:hover {
+  background-color: #ccffff !important;
+}
 .MuiTableRow-root.custom-clearance-completed:hover {
   background-color: #ccffff !important;
 }

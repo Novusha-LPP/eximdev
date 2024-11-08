@@ -38,7 +38,7 @@ export const detailedStatusOptions = [
   },
   {
     id: 10,
-    name: "Billing  Pending",
-    value: "Billing  Pending",
+    name: "Billing Pending",
+    value: "Billing Pending",
   },
 ];

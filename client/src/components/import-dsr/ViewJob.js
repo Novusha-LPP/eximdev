@@ -569,7 +569,7 @@ function JobDetails() {
                       PCV Done, Duty Payment Pending
                     </MenuItem>
                     <MenuItem value="Custom Clearance Completed">
-                      Custom Clearance Completed
+                      Cus.Clearance Completed, delivery pending
                     </MenuItem>
 
                     <MenuItem value="Billing Pending">Billing Pending</MenuItem>

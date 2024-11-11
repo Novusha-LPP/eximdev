@@ -29,7 +29,7 @@ export const detailedStatusOptions = [
   {
     id: 8,
     name: "Cus.Clearance Completed, delivery pending",
-    value: "Cus.Clearance Completed, delivery pending",
+    value: "Custom Clearance Completed",
   },
 
   {

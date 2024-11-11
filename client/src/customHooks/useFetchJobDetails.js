@@ -425,7 +425,7 @@ function useFetchJobDetails(
         status: data.status,
         detailed_status:
           data.detailed_status === undefined
-            ? "Estimated Time of Arrival"
+            ? "ETA Date Pending"
             : data.detailed_status,
         do_validity: data.do_validity === undefined ? "" : data.do_validity,
         doPlanning: data.doPlanning === undefined ? false : data.doPlanning,

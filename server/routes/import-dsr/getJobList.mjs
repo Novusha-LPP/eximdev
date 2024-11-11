@@ -4,16 +4,16 @@ import JobModel from "../../model/jobModel.mjs";
 const router = express.Router();
 
 // Status Rank Configuration
+
 const statusRank = {
   "Billing Pending": { rank: 1, field: "delivery_date" },
-  "Delivery Pending": { rank: 2, field: "out_of_charge" },
-  "Custom Clearance Completed": { rank: 3, field: "detention_from" },
-  "PCV Done, Duty Payment Pending": { rank: 4, field: "detention_from" },
-  "BE Noted, Clearance Pending": { rank: 5, field: "detention_from" },
-  "BE Noted, Arrival Pending": { rank: 6, field: "be_date" },
-  "Gateway IGM Filed": { rank: 7, field: "gateway_igm_date" },
-  Discharged: { rank: 8, field: "discharge_date" },
-  "Estimated Time of Arrival": { rank: 9, field: "vessel_berthing" },
+  "Custom Clearance Completed": { rank: 2, field: "detention_from" },
+  "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
+  "Gateway IGM Filed": { rank: 6, field: "gateway_igm_date" },
+  Discharged: { rank: 7, field: "discharge_date" },
+  "Estimated Time of Arrival": { rank: 8, field: "vessel_berthing" },
 };
 
 // Helper to safely parse dates
@@ -115,7 +115,7 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
     // Handle detailedStatus filtering using a mapping object
     const statusMapping = {
       billing_pending: "Billing Pending",
-      delivery_pending: "Delivery Pending",
+      eta_date_pending: "ETA Date Pending",
       estimated_time_of_arrival: "Estimated Time of Arrival",
       discharged: "Discharged",
       gateway_igm_filed: "Gateway IGM Filed",

@@ -133,21 +133,20 @@ function useJobColumns() {
             }
           }
           // Check if the detailed status is "Billing Pending"
-          // Check if the detailed status is "Billing Pending"
           if (detailed_status === "Billing Pending") {
             const daysDifference = calculateDaysDifference(delivery_date);
 
-            // Apply colors based on days difference
-            if (daysDifference === 0 || daysDifference === 1) {
-              // Today or next day, keep default colors
-              bgColor = "";
+            // Apply colors based on past and current dates only
+            if (daysDifference <= 0 && daysDifference >= -5) {
+              // delivery_date up to the next 5 days - White background for current and past dates
+              bgColor = "white";
               textColor = "blue";
-            } else if (daysDifference >= 2 && daysDifference <= 6) {
-              // 10/11/2024 to 14/11/2024 - Set orange background
+            } else if (daysDifference <= -6 && daysDifference >= -10) {
+              // 5 days following the white period - Orange background for past dates
               bgColor = "orange";
               textColor = "black";
-            } else if (daysDifference > 6) {
-              // Beyond 14/11/2024 - Set red background
+            } else if (daysDifference < -10) {
+              // Any date beyond the orange period - Red background for past dates
               bgColor = "red";
               textColor = "white";
             }

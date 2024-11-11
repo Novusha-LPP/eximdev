@@ -115,7 +115,7 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
     // Handle detailedStatus filtering using a mapping object
     const statusMapping = {
       billing_pending: "Billing Pending",
-
+      eta_date_pending: "ETA Date Pending",
       estimated_time_of_arrival: "Estimated Time of Arrival",
       discharged: "Discharged",
       gateway_igm_filed: "Gateway IGM Filed",

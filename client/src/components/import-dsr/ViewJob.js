@@ -552,6 +552,9 @@ function JobDetails() {
                     value={formik.values.detailed_status}
                     onChange={formik.handleChange}
                   >
+                    <MenuItem value="ETA Date Pending">
+                      ETA Date Pending
+                    </MenuItem>
                     <MenuItem value="Estimated Time of Arrival">
                       Estimated Time of Arrival
                     </MenuItem>

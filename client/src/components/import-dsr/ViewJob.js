@@ -98,13 +98,6 @@ function JobDetails() {
       deliveryDate
     ) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (
-      billOfEntryNo &&
-      anyContainerArrivalDate &&
-      outOfChargeDate &&
-      !deliveryDate
-    ) {
-      formik.setFieldValue("detailed_status", "Delivery Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
     } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
@@ -578,9 +571,7 @@ function JobDetails() {
                     <MenuItem value="Custom Clearance Completed">
                       Custom Clearance Completed
                     </MenuItem>
-                    <MenuItem value="Delivery Pending">
-                      Delivery Pending
-                    </MenuItem>
+
                     <MenuItem value="Billing Pending">Billing Pending</MenuItem>
                   </TextField>
                 </div>

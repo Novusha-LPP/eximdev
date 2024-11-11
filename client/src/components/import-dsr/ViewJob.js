@@ -98,13 +98,6 @@ function JobDetails() {
       deliveryDate
     ) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (
-      billOfEntryNo &&
-      anyContainerArrivalDate &&
-      outOfChargeDate &&
-      !deliveryDate
-    ) {
-      formik.setFieldValue("detailed_status", "Delivery Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
     } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
@@ -117,7 +110,10 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "Discharged");
     } else if (gatewayIGMDate) {
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+    } else if (eta === "" || eta === "Invalid Date") {
+      formik.setFieldValue("detailed_status", "ETA Date Pending");
     } else if (eta) {
+      console.log(eta);
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
     } else {
       console.log("No conditions met");
@@ -559,6 +555,9 @@ function JobDetails() {
                     value={formik.values.detailed_status}
                     onChange={formik.handleChange}
                   >
+                    <MenuItem value="ETA Date Pending">
+                      ETA Date Pending
+                    </MenuItem>
                     <MenuItem value="Estimated Time of Arrival">
                       Estimated Time of Arrival
                     </MenuItem>
@@ -576,11 +575,9 @@ function JobDetails() {
                       PCV Done, Duty Payment Pending
                     </MenuItem>
                     <MenuItem value="Custom Clearance Completed">
-                      Custom Clearance Completed
+                      Cus.Clearance Completed, delivery pending
                     </MenuItem>
-                    <MenuItem value="Delivery Pending">
-                      Delivery Pending
-                    </MenuItem>
+
                     <MenuItem value="Billing Pending">Billing Pending</MenuItem>
                   </TextField>
                 </div>

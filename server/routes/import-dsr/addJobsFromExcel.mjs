@@ -236,7 +236,7 @@ function determineDetailedStatus(job) {
   } else if (validVesselBerthing) {
     return "Estimated Time of Arrival";
   } else {
-    return ""; // Fallback if no conditions are met
+    return "ETA Date Pending"; // Fallback if no conditions are met
   }
 }
 

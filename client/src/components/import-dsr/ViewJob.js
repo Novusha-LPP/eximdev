@@ -110,7 +110,10 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "Discharged");
     } else if (gatewayIGMDate) {
       formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+    } else if (eta === "" || eta === "Invalid Date") {
+      formik.setFieldValue("detailed_status", "ETA Date Pending");
     } else if (eta) {
+      console.log(eta);
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
     } else {
       console.log("No conditions met");

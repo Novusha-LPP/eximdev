@@ -62,6 +62,7 @@ export const convertToExcel = async (
 
     "BE NUMBER AND DATE",
     "REMARKS",
+    "DETAILED STATUS",
   ];
 
   // Row headers
@@ -148,6 +149,7 @@ export const convertToExcel = async (
 
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
+      "DETAILED STATUS": item.detailed_status,
     };
 
     // eslint-disable-next-line

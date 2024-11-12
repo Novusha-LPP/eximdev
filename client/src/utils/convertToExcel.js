@@ -51,15 +51,12 @@ export const convertToExcel = async (
     "COMMODITY",
     "NUMBER OF PACKAGES",
     "NET WEIGHT",
-
     "PORT",
     "ARRIVAL DATE",
     "FREE TIME",
     "DETENTION FROM",
     "SHIPPING LINE",
-    "CONTAINER NUMBER",
-    "SIZE",
-
+    "CONTAINER NUM & SIZE",
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
@@ -108,8 +105,8 @@ export const convertToExcel = async (
       "detention_from"
     );
 
-    const containerNumbers = item.container_nos
-      .map((container) => container.container_number)
+    const containerNumbersWithSizes = item.container_nos
+      .map((container) => `${container.container_number} - ${container.size}`)
       .join(",\n");
 
     const size = item.container_nos
@@ -144,8 +141,7 @@ export const convertToExcel = async (
       "FREE TIME": item.free_time,
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
-      "CONTAINER NUMBER": containerNumbers,
-      SIZE: size,
+      "CONTAINER NUM & SIZE": containerNumbersWithSizes,
 
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
@@ -156,8 +152,8 @@ export const convertToExcel = async (
     const values = headers.map((val) => {
       if (valueMap[val]) {
         return valueMap[val];
-      } else if (val === "CONTAINER NUMBER") {
-        return containerNumbers;
+      } else if (val === "CONTAINER NUM & SIZE") {
+        return containerNumbersWithSizes;
       } else if (val === "ARRIVAL DATE") {
         return arrivalDates;
       } else if (val === "DETENTION FROM") {
@@ -370,7 +366,7 @@ export const convertToExcel = async (
         right: { style: "thin" },
       };
 
-      // Add line breaks after commas in the containerNumbers cell
+      // Add line breaks after commas in the containerNumbersWithSizes  cell
       if (cell.value && cell.value.toString().includes(",\n")) {
         cell.value = cell.value.replace(/,\n/g, String.fromCharCode(10)); // Replace ",\n" with line break character
       }
@@ -437,7 +433,7 @@ export const convertToExcel = async (
       };
     });
 
-    if (headers[id] !== "CONTAINER NUMBER") {
+    if (headers[id] !== "CONTAINER NUM & SIZE") {
       column.width = maxLength < 25 ? 25 : maxLength;
     }
     if (headers[id] === "JOB NO") {
@@ -455,7 +451,7 @@ export const convertToExcel = async (
     if (headers[id] === "UNIT") {
       column.width = 12;
     }
-    if (headers[id] === "CONTAINER NUMBER") {
+    if (headers[id] === "CONTAINER NUM & SIZE") {
       column.width = 30;
     }
     if (headers[id] === "INVOICE VALUE AND UNIT PRICE") {

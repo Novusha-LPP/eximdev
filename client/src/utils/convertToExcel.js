@@ -57,6 +57,7 @@ export const convertToExcel = async (
     "DETENTION FROM",
     "SHIPPING LINE",
     "CONTAINER NUM & SIZE",
+    "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
@@ -142,6 +143,7 @@ export const convertToExcel = async (
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
+      "NUMBER OF CONTAINERS" : item.no_of_container,
 
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,

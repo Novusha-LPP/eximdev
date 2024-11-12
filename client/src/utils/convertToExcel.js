@@ -143,7 +143,7 @@ export const convertToExcel = async (
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
-      "NUMBER OF CONTAINERS" : item.no_of_container,
+      "NUMBER OF CONTAINERS": item.no_of_container,
 
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
@@ -396,7 +396,7 @@ export const convertToExcel = async (
       };
 
       // Set a minimum height for the row
-      let cellHeight = 50;
+      let cellHeight = 100;
 
       // Calculate the required height for the cell based on the number of lines
       if (lineCount > 1) {

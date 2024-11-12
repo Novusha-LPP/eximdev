@@ -51,17 +51,17 @@ export const convertToExcel = async (
     "COMMODITY",
     "NUMBER OF PACKAGES",
     "NET WEIGHT",
-    "LOADING PORT",
+
+    "PORT",
     "ARRIVAL DATE",
     "FREE TIME",
     "DETENTION FROM",
     "SHIPPING LINE",
     "CONTAINER NUMBER",
     "SIZE",
-    "DO VALIDITY",
+
     "BE NUMBER AND DATE",
     "REMARKS",
-    "DETAILED STATUS",
   ];
 
   // Row headers
@@ -94,7 +94,9 @@ export const convertToExcel = async (
       item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
     }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${
       item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
-    }`;
+    }${
+      item.detailed_status ? ` | DETAILED STATUS: ${item.detailed_status}` : ""
+    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
 
     const arrivalDates = formatContainerDates(
       item.container_nos,
@@ -120,6 +122,13 @@ export const convertToExcel = async (
       return sum + (isNaN(weight) ? 0 : weight);
     }, 0);
 
+    const cleanLoadingPort = item.loading_port
+      ? item.loading_port.replace(/\(.*?\)\s*/, "")
+      : "N/A";
+    const cleanPortOfReporting = item.port_of_reporting
+      ? item.port_of_reporting.replace(/\(.*?\)\s*/, "")
+      : "N/A";
+
     const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
       "SUPPLIER/ EXPORTER": item.supplier_exporter,
@@ -129,17 +138,16 @@ export const convertToExcel = async (
       COMMODITY: item.description,
       "NUMBER OF PACKAGES": item.no_of_pkgs,
       "NET WEIGHT": net_weight,
-      "LOADING PORT": item.loading_port,
+      PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
       "FREE TIME": item.free_time,
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUMBER": containerNumbers,
       SIZE: size,
-      "DO VALIDITY": item.do_validity,
+
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
-      "DETAILED STATUS": item.detailed_status,
     };
 
     // eslint-disable-next-line

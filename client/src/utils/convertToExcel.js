@@ -49,7 +49,7 @@ export const convertToExcel = async (
     "INVOICE VALUE AND UNIT PRICE",
     "BL NUMBER AND DATE",
     "COMMODITY",
-    "NUMBER OF PACKAGES",
+
     "NET WEIGHT",
     "PORT",
     "ARRIVAL DATE",
@@ -135,7 +135,7 @@ export const convertToExcel = async (
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
       "BL NUMBER AND DATE": blNoAndDate,
       COMMODITY: item.description,
-      "NUMBER OF PACKAGES": item.no_of_pkgs,
+
       "NET WEIGHT": net_weight,
       PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
@@ -178,7 +178,10 @@ export const convertToExcel = async (
 
   const referenceRow = ["REFERENCE", ...uniqueDetailedStatuses];
   worksheet.insertRow(1, referenceRow); // Insert at the top
-
+  // Freeze the first four rows
+  worksheet.views = [
+    { state: "frozen", ySplit: 4 }, // Freeze the first 4 rows
+  ];
   // Apply formatting to the reference row
   const referenceRowExcel = worksheet.getRow(1);
   referenceRowExcel.font = { size: 12, bold: true };

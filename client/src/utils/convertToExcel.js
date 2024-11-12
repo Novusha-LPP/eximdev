@@ -49,16 +49,15 @@ export const convertToExcel = async (
     "INVOICE VALUE AND UNIT PRICE",
     "BL NUMBER AND DATE",
     "COMMODITY",
-    "NUMBER OF PACKAGES",
+
     "NET WEIGHT",
-    "LOADING PORT",
+    "PORT",
     "ARRIVAL DATE",
     "FREE TIME",
     "DETENTION FROM",
     "SHIPPING LINE",
-    "CONTAINER NUMBER",
-    "SIZE",
-    "DO VALIDITY",
+    "CONTAINER NUM & SIZE",
+    "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
@@ -94,7 +93,9 @@ export const convertToExcel = async (
       item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
     }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${
       item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
-    }`;
+    }${
+      item.detailed_status ? ` | DETAILED STATUS: ${item.detailed_status}` : ""
+    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
 
     const arrivalDates = formatContainerDates(
       item.container_nos,
@@ -105,8 +106,8 @@ export const convertToExcel = async (
       "detention_from"
     );
 
-    const containerNumbers = item.container_nos
-      .map((container) => container.container_number)
+    const containerNumbersWithSizes = item.container_nos
+      .map((container) => `${container.container_number} - ${container.size}`)
       .join(",\n");
 
     const size = item.container_nos
@@ -120,6 +121,13 @@ export const convertToExcel = async (
       return sum + (isNaN(weight) ? 0 : weight);
     }, 0);
 
+    const cleanLoadingPort = item.loading_port
+      ? item.loading_port.replace(/\(.*?\)\s*/, "")
+      : "N/A";
+    const cleanPortOfReporting = item.port_of_reporting
+      ? item.port_of_reporting.replace(/\(.*?\)\s*/, "")
+      : "N/A";
+
     const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
       "SUPPLIER/ EXPORTER": item.supplier_exporter,
@@ -127,16 +135,16 @@ export const convertToExcel = async (
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
       "BL NUMBER AND DATE": blNoAndDate,
       COMMODITY: item.description,
-      "NUMBER OF PACKAGES": item.no_of_pkgs,
+
       "NET WEIGHT": net_weight,
-      "LOADING PORT": item.loading_port,
+      PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
       "FREE TIME": item.free_time,
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
-      "CONTAINER NUMBER": containerNumbers,
-      SIZE: size,
-      "DO VALIDITY": item.do_validity,
+      "CONTAINER NUM & SIZE": containerNumbersWithSizes,
+      "NUMBER OF CONTAINERS": item.no_of_container,
+
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,
@@ -146,8 +154,8 @@ export const convertToExcel = async (
     const values = headers.map((val) => {
       if (valueMap[val]) {
         return valueMap[val];
-      } else if (val === "CONTAINER NUMBER") {
-        return containerNumbers;
+      } else if (val === "CONTAINER NUM & SIZE") {
+        return containerNumbersWithSizes;
       } else if (val === "ARRIVAL DATE") {
         return arrivalDates;
       } else if (val === "DETENTION FROM") {
@@ -170,7 +178,10 @@ export const convertToExcel = async (
 
   const referenceRow = ["REFERENCE", ...uniqueDetailedStatuses];
   worksheet.insertRow(1, referenceRow); // Insert at the top
-
+  // Freeze the first four rows
+  worksheet.views = [
+    { state: "frozen", ySplit: 4 }, // Freeze the first 4 rows
+  ];
   // Apply formatting to the reference row
   const referenceRowExcel = worksheet.getRow(1);
   referenceRowExcel.font = { size: 12, bold: true };
@@ -360,7 +371,7 @@ export const convertToExcel = async (
         right: { style: "thin" },
       };
 
-      // Add line breaks after commas in the containerNumbers cell
+      // Add line breaks after commas in the containerNumbersWithSizes  cell
       if (cell.value && cell.value.toString().includes(",\n")) {
         cell.value = cell.value.replace(/,\n/g, String.fromCharCode(10)); // Replace ",\n" with line break character
       }
@@ -388,7 +399,7 @@ export const convertToExcel = async (
       };
 
       // Set a minimum height for the row
-      let cellHeight = 50;
+      let cellHeight = 100;
 
       // Calculate the required height for the cell based on the number of lines
       if (lineCount > 1) {
@@ -427,7 +438,7 @@ export const convertToExcel = async (
       };
     });
 
-    if (headers[id] !== "CONTAINER NUMBER") {
+    if (headers[id] !== "CONTAINER NUM & SIZE") {
       column.width = maxLength < 25 ? 25 : maxLength;
     }
     if (headers[id] === "JOB NO") {
@@ -445,7 +456,7 @@ export const convertToExcel = async (
     if (headers[id] === "UNIT") {
       column.width = 12;
     }
-    if (headers[id] === "CONTAINER NUMBER") {
+    if (headers[id] === "CONTAINER NUM & SIZE") {
       column.width = 30;
     }
     if (headers[id] === "INVOICE VALUE AND UNIT PRICE") {

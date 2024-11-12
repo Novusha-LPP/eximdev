@@ -2,6 +2,24 @@ import express from "express";
 const router = express.Router();
 import JobModel from "../../model/jobModel.mjs";
 
+// Status Rank Configuration
+const statusRank = {
+  "Custom Clearance Completed": { rank: 1, field: "detention_from" },
+  "PCV Done, Duty Payment Pending": { rank: 2, field: "detention_from" },
+  "BE Noted, Clearance Pending": { rank: 3, field: "detention_from" },
+  "BE Noted, Arrival Pending": { rank: 4, field: "be_date" },
+  "Gateway IGM Filed": { rank: 5, field: "gateway_igm_date" },
+  Discharged: { rank: 6, field: "discharge_date" },
+  "Estimated Time of Arrival": { rank: 7, field: "vessel_berthing" },
+  "ETA Date Pending": { rank: 8 },
+};
+
+// Helper function to parse dates safely
+const parseDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? null : date;
+};
+
 router.get(
   "/api/download-report/:year/:importerURL/:status",
   async (req, res) => {
@@ -18,72 +36,40 @@ router.get(
 
       // Query the database based on the criteria in the query object
       const jobs = await JobModel.find(query);
-      // Sort jobs based on detailed_status priority or move empty detailed_status to the end
-      jobs.sort((a, b) => {
-        // 1st priority: 'Custom Clearance Completed'
-        if (a.detailed_status === "Custom Clearance Completed") return -1;
-        if (b.detailed_status === "Custom Clearance Completed") return 1;
 
-        // Check if be_no is missing or empty
+      // Sort jobs based on `detailed_status` rank and additional conditions
+      jobs.sort((a, b) => {
+        // First, sort by `detailed_status` rank
+        const rankA = statusRank[a.detailed_status]?.rank || Infinity;
+        const rankB = statusRank[b.detailed_status]?.rank || Infinity;
+
+        if (rankA !== rankB) return rankA - rankB;
+
+        // Secondary sorting within the same `detailed_status` group
+        const field = statusRank[a.detailed_status]?.field;
+        if (field) {
+          const dateA = parseDate(a[field] || a.container_nos?.[0]?.[field]);
+          const dateB = parseDate(b[field] || b.container_nos?.[0]?.[field]);
+          if (dateA && dateB) return dateA - dateB;
+          if (dateA) return -1;
+          if (dateB) return 1;
+        }
+
+        // Tertiary sorting by `be_no` availability
         const aHasBeNo = a.be_no && a.be_no.trim() !== "";
         const bHasBeNo = b.be_no && b.be_no.trim() !== "";
 
-        // Function to parse and validate dates
-        const parseDate = (dateStr) => {
-          const date = new Date(dateStr);
-          return isNaN(date.getTime()) ? null : date;
-        };
-
-        // Convert vessel_berthing to valid Date objects or null if invalid
-        const dateA = parseDate(a.vessel_berthing);
-        const dateB = parseDate(b.vessel_berthing);
-
-        // 2nd priority: if be_no is not available, sort by valid vessel_berthing date
         if (!aHasBeNo && !bHasBeNo) {
-          if (dateA && dateB) {
-            return dateA - dateB; // Sort in ascending order
-          }
-
-          // If only one has a valid vessel_berthing date, prioritize the one with the valid date
-          if (dateA) return -1;
-          if (dateB) return 1;
-
-          // If neither has a valid vessel_berthing date, consider them equal
-          return 0;
+          const vesselDateA = parseDate(a.vessel_berthing);
+          const vesselDateB = parseDate(b.vessel_berthing);
+          if (vesselDateA && vesselDateB) return vesselDateA - vesselDateB;
+          if (vesselDateA) return -1;
+          if (vesselDateB) return 1;
         }
 
-        // 3rd priority: if be_no is present, sort based on earliest detention_from date among all containers
-        if (aHasBeNo && bHasBeNo) {
-          const earliestDetentionA = a.container_nos.reduce(
-            (earliest, container) => {
-              const detentionDate = parseDate(container.detention_from);
-              return !earliest || (detentionDate && detentionDate < earliest)
-                ? detentionDate
-                : earliest;
-            },
-            null
-          );
-
-          const earliestDetentionB = b.container_nos.reduce(
-            (earliest, container) => {
-              const detentionDate = parseDate(container.detention_from);
-              return !earliest || (detentionDate && detentionDate < earliest)
-                ? detentionDate
-                : earliest;
-            },
-            null
-          );
-
-          if (!earliestDetentionA && !earliestDetentionB) return 0;
-          if (!earliestDetentionA) return 1;
-          if (!earliestDetentionB) return -1;
-
-          return earliestDetentionA - earliestDetentionB;
-        }
-
-        // If one has be_no and the other doesn't, prioritize the one with be_no
-        if (aHasBeNo && !bHasBeNo) return 1;
-        if (!aHasBeNo && bHasBeNo) return -1;
+        // If one has `be_no` and the other doesn't, prioritize the one with `be_no`
+        if (aHasBeNo && !bHasBeNo) return -1;
+        if (!aHasBeNo && bHasBeNo) return 1;
 
         return 0;
       });

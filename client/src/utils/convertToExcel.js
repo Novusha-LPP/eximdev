@@ -41,7 +41,15 @@ export const convertToExcel = async (
     ),
   ];
 
-  const dateOfReport = new Date().toLocaleDateString();
+  const dateOfReport = new Date().toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
   const headers = [
     "JOB NO AND DATE",
     "SUPPLIER/ EXPORTER",
@@ -141,7 +149,7 @@ export const convertToExcel = async (
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
-      "NUMBER OF CONTAINERS": item.no_of_container,
+      "NUMBER OF CONTAINERS": item.no_of_container.slice(0, -2),
 
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
@@ -248,9 +256,7 @@ export const convertToExcel = async (
 
   // Set the title for title row
   const titleRow = worksheet.getRow(3);
-  titleRow.getCell(1).value = `${importer}: Status as of ${formatDate(
-    dateOfReport
-  )}`;
+  titleRow.getCell(1).value = `${importer}: Status as of ${dateOfReport}`;
 
   // Apply formatting to the title row
   titleRow.font = { size: 12, color: { argb: "FFFFFFFF" } };

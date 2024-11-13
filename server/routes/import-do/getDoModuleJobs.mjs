@@ -66,7 +66,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
 
     const initialJobs = await JobModel.find(
       { $and: primaryConditions },
-      "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning do_completed"
+      "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning do_completed type_of_Do"
     );
 
     // Step 2: Filter out jobs where all `do_Revalidation_Completed` are true in `container_nos.do_revalidation`
@@ -109,7 +109,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
 
     // Sort jobs:
     //  1. Positive dayDifference jobs first, descending by dayDifference.
-// 2. Non-positive dayDifference jobs next, ascending by displayDate.
+    // 2. Non-positive dayDifference jobs next, ascending by displayDate.
     jobsWithCalculatedFields.sort((a, b) => {
       if (a.dayDifference > 0 && b.dayDifference <= 0) return -1;
       if (a.dayDifference <= 0 && b.dayDifference > 0) return 1;

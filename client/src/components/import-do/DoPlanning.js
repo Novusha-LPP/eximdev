@@ -283,6 +283,12 @@ function DoPlanning() {
         );
       },
     },
+    {
+      accessorKey: "type_of_Do",
+      header: "Type of Do",
+      enableSorting: false,
+      size: 200,
+    },
   ];
 
   const table = useMaterialReactTable({

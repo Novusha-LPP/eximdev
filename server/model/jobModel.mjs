@@ -118,6 +118,7 @@ const jobSchema = new mongoose.Schema({
   document_received_date: { type: String, trim: true },
   doPlanning: { type: Boolean },
   do_planning_date: { type: String, trim: true },
+  type_of_Do: { type: String },
   do_validity_upto_job_level: { type: String, trim: true },
   do_revalidation_upto_job_level: { type: String, trim: true },
   do_revalidation: { type: Boolean },

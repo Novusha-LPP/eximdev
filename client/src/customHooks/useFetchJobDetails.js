@@ -249,6 +249,7 @@ function useFetchJobDetails(
       do_revalidation_date: "",
       out_of_charge: "",
       checked: false,
+      type_of_Do: "",
     },
     onSubmit: async (values) => {
       await axios.put(
@@ -298,6 +299,7 @@ function useFetchJobDetails(
           checked: values.checked,
           obl_telex_bl: values.obl_telex_bl,
           document_received_date: values.document_received_date,
+          type_of_Do: values.type_of_Do,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -500,6 +502,7 @@ function useFetchJobDetails(
           data.containers_arrived_on_same_date === undefined
             ? false
             : data.containers_arrived_on_same_date,
+        type_of_Do: data.type_of_Do || "",
       });
     }
     // eslint-disable-next-line

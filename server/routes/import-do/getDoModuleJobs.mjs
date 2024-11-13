@@ -69,13 +69,19 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
       "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning do_completed type_of_Do"
     );
 
+    // const initialJobs = await JobModel.find({ status: "pending" }).limit(10);
+
     // Step 2: Filter out jobs where all `do_Revalidation_Completed` are true in `container_nos.do_revalidation`
     const filteredJobs = initialJobs.filter(
       (job) =>
-        !job.container_nos?.every((container) =>
-          container.do_revalidation?.every(
-            (revalidation) => revalidation.do_Revalidation_Completed === true
-          )
+        job.container_nos &&
+        Array.isArray(job.container_nos) &&
+        !job.container_nos.every(
+          (container) =>
+            Array.isArray(container.do_revalidation) &&
+            container.do_revalidation.every(
+              (revalidation) => revalidation.do_Revalidation_Completed === true
+            )
         )
     );
 
@@ -84,18 +90,32 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
 
     // Add displayDate and dayDifference to each job
     const jobsWithCalculatedFields = allJobs.map((job) => {
-      const jobLevelDate = new Date(job.do_validity_upto_job_level);
+      // Check if do_validity_upto_job_level exists and is a valid date
+      const jobLevelDate = job.do_validity_upto_job_level
+        ? new Date(job.do_validity_upto_job_level)
+        : null;
+
       const containerLevelDate = job.container_nos?.[0]
         ?.required_do_validity_upto
         ? new Date(job.container_nos[0].required_do_validity_upto)
         : null;
 
-      // Determine displayDate and calculate dayDifference if container date is later
+      // Determine if the dates are valid
+      const isJobLevelDateValid =
+        jobLevelDate instanceof Date && !isNaN(jobLevelDate);
+      const isContainerLevelDateValid =
+        containerLevelDate instanceof Date && !isNaN(containerLevelDate);
+
+      // Determine displayDate and calculate dayDifference only if dates are valid
       const isContainerDateHigher =
-        containerLevelDate && containerLevelDate > jobLevelDate;
+        isContainerLevelDateValid && containerLevelDate > jobLevelDate;
+
       const displayDate = isContainerDateHigher
-        ? containerLevelDate.toISOString().split("T")[0] // Format as 'YYYY-MM-DD'
-        : jobLevelDate.toISOString().split("T")[0];
+        ? containerLevelDate.toISOString().split("T")[0]
+        : isJobLevelDateValid
+        ? jobLevelDate.toISOString().split("T")[0]
+        : ""; // Fallback to empty string if invalid
+
       const dayDifference = isContainerDateHigher
         ? Math.ceil((containerLevelDate - jobLevelDate) / (1000 * 60 * 60 * 24))
         : 0;
@@ -130,8 +150,12 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
       jobs: paginatedJobs,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).send({ error: "Internal Server Error" });
+    console.error("Error in /api/get-do-module-jobs:", error.stack || error);
+    res.status(500).send({
+      error: "Internal Server Error",
+      message: error.message,
+      stack: error.stack, // Add stack trace for more context
+    });
   }
 });
 

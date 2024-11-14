@@ -672,13 +672,14 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
+
             <Row>
-              <Col xs={12} lg={3}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
-                  <strong>DO Planning:&nbsp;</strong>
+                  <strong>DO Planning & Type:&nbsp;</strong>
 
                   <Checkbox
                     value={formik.values.doPlanning}
@@ -689,6 +690,47 @@ function JobDetails() {
                     }}
                   />
                   {formik.values.do_planning_date}
+
+                  {/* Radio buttons that show only if DO Planning is true */}
+                  {formik.values.doPlanning && (
+                    <RadioGroup
+                      row
+                      aria-label="do-planning-location"
+                      name="type_of_Do"
+                      value={formik.values.type_of_Do}
+                      onChange={(e) => {
+                        formik.setFieldValue("type_of_Do", e.target.value);
+                      }}
+                      style={{ marginLeft: "10px" }}
+                    >
+                      <FormControlLabel
+                        value="ICD"
+                        control={
+                          <Radio
+                            style={{
+                              color: formik.values.doPlanning
+                                ? "green"
+                                : "inherit",
+                            }}
+                          />
+                        }
+                        label="ICD"
+                      />
+                      <FormControlLabel
+                        value="Factory"
+                        control={
+                          <Radio
+                            style={{
+                              color: formik.values.doPlanning
+                                ? "green"
+                                : "inherit",
+                            }}
+                          />
+                        }
+                        label="Factory"
+                      />
+                    </RadioGroup>
+                  )}
                 </div>
               </Col>
               {user.username === "manu_pillai" && (
@@ -713,7 +755,7 @@ function JobDetails() {
                   </div>
                 </Col>
               )}
-              <Col xs={12} lg={5}>
+              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
                   {formik.values.do_revalidation ? (

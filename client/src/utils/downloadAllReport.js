@@ -144,7 +144,10 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
-      "NUMBER OF CONTAINERS": item.no_of_container.slice(0, -2),
+      "NUMBER OF CONTAINERS": item.no_of_container
+        ? item.no_of_container.slice(0, -2)
+        : "",
+
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,
@@ -213,7 +216,9 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       let bgColor = "FFFF99"; // Default color
 
       // Apply the specific color based on the detailed status
-      if (detailedStatus === "Estimated Time of Arrival") {
+      if (detailedStatus === "ETA Date Pending") {
+        bgColor = "ffffffff"; // white
+      } else if (detailedStatus === "Estimated Time of Arrival") {
         bgColor = "ffffff99"; // Light Yellow
       } else if (detailedStatus === "Custom Clearance Completed") {
         bgColor = "ffccffff"; // Light Blue

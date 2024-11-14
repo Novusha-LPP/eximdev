@@ -7,7 +7,10 @@ router.get("/api/get-do-billing", async (req, res) => {
   try {
     const jobs = await JobModel.find(
       {
-        do_completed: "Yes",
+        $and: [
+          { status: { $regex: /^pending$/i } },
+          { delivery_date: { $exists: true, $ne: "" } },
+        ],
       },
       "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts"
     );

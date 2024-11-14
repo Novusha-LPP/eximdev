@@ -6,16 +6,33 @@ import { Link } from "react-router-dom";
 
 function BillingSheet() {
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function getData() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-do-billing`
-      );
-      setRows(res.data);
+      try {
+        const apiString = process.env.REACT_APP_API_STRING;
+        if (!apiString) {
+          throw new Error("API string not found in environment variables");
+        }
+        const res = await axios(`${apiString}/get-do-billing`);
+        setRows(res.data);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError("Failed to load data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
     }
     getData();
   }, []);
+
+  const renderLinkCell = (cell, path) => (
+    <Link to={`/${path}/${cell.row.original._id}`}>
+      {cell.row.original[cell.column.id]}
+    </Link>
+  );
 
   const columns = [
     {
@@ -23,13 +40,7 @@ function BillingSheet() {
       header: "Job No",
       enableSorting: false,
       size: 100,
-      Cell: ({ cell }) => {
-        return (
-          <Link to={`/edit-billing-sheet/${cell.row.original._id}`}>
-            {cell.row.original.job_no}
-          </Link>
-        );
-      },
+      Cell: ({ cell }) => renderLinkCell(cell, "edit-billing-sheet"),
     },
     {
       accessorKey: "importer",
@@ -37,7 +48,6 @@ function BillingSheet() {
       enableSorting: false,
       size: 250,
     },
-
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
@@ -71,6 +81,9 @@ function BillingSheet() {
   ];
 
   const table = useTableConfig(rows, columns, "edit-billing-sheet");
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
 
   return (
     <div style={{ height: "80%" }}>

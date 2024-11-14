@@ -219,7 +219,9 @@ export const convertToExcel = async (
       let bgColor = "FFFF99"; // Default color
 
       // Apply the specific color based on the detailed status
-      if (detailedStatus === "Estimated Time of Arrival") {
+      if (detailedStatus === "ETA Date Pending") {
+        bgColor = "ffffffff"; // white
+      } else if (detailedStatus === "Estimated Time of Arrival") {
         bgColor = "ffffff99"; // Light Yellow
       } else if (detailedStatus === "Custom Clearance Completed") {
         bgColor = "ffccffff"; // Light Blue

@@ -30,10 +30,11 @@ router.get("/api/download-report/:year/:status", async (req, res) => {
       year,
       status,
     };
-
+    
     // Query the database based on the criteria in the query object
-    const jobs = await JobModel.find(query);
-
+    let jobs = await JobModel.find(query);
+    // Filter out jobs with `detailed_status` as "Billing Pending"
+    jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
     // Sort jobs based on `detailed_status` rank and additional conditions
     jobs.sort((a, b) => {
       // Primary sorting by `detailed_status` rank

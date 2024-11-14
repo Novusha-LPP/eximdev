@@ -35,8 +35,9 @@ router.get(
       };
 
       // Query the database based on the criteria in the query object
-      const jobs = await JobModel.find(query);
-
+      let jobs = await JobModel.find(query);
+      // Filter out jobs with `detailed_status` as "Billing Pending"
+      jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
       // Sort jobs based on `detailed_status` rank and additional conditions
       jobs.sort((a, b) => {
         // First, sort by `detailed_status` rank

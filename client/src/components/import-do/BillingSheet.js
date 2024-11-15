@@ -7,15 +7,24 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
-import { IconButton, TextField, InputAdornment } from "@mui/material";
+import {
+  IconButton,
+  TextField,
+  InputAdornment,
+  Pagination,
+} from "@mui/material";
 
 function BillingSheet() {
   const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const limit = 100;
   const navigate = useNavigate();
+
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -35,16 +44,22 @@ function BillingSheet() {
       }
 
       const res = await axios.get(`${apiString}/get-do-billing`, {
-        params: { search: debouncedSearchQuery },
+        params: {
+          search: debouncedSearchQuery,
+          page,
+          limit,
+        },
       });
+
       setRows(res.data.jobs || []);
+      setTotalPages(res.data.totalPages || 1); // Set total pages based on response
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to load data. Please try again later.");
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchQuery]);
+  }, [debouncedSearchQuery, page]);
 
   useEffect(() => {
     fetchJobs();
@@ -82,7 +97,6 @@ function BillingSheet() {
         );
       },
     },
-
     {
       accessorKey: "importer",
       header: "Party",
@@ -101,7 +115,6 @@ function BillingSheet() {
       enableSorting: false,
       size: 200,
     },
-
     {
       accessorKey: "obl_telex_bl",
       header: "OBL Telex BL",
@@ -182,9 +195,21 @@ function BillingSheet() {
     return status !== "No" && status !== undefined ? "payment_made" : "";
   };
 
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
   return (
     <div style={{ height: "80%" }}>
       <MaterialReactTable table={table} />
+      {/* Pagination */}
+      <Pagination
+        count={totalPages}
+        page={page}
+        onChange={handlePageChange}
+        color="primary"
+        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+      />
     </div>
   );
 }

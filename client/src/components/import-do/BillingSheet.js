@@ -29,7 +29,7 @@ function BillingSheet() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 500); // Adjust debounce delay as needed
+    }, 500);
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
@@ -37,12 +37,10 @@ function BillingSheet() {
   // Fetch jobs based on search query and pagination
   const fetchJobs = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const apiString = process.env.REACT_APP_API_STRING;
-      if (!apiString) {
-        throw new Error("API string not found in environment variables");
-      }
-
+      const apiString =
+        process.env.REACT_APP_API_STRING || "http://localhost:5000"; // Fallback for dev
       const res = await axios.get(`${apiString}/get-do-billing`, {
         params: {
           search: debouncedSearchQuery,
@@ -52,7 +50,7 @@ function BillingSheet() {
       });
 
       setRows(res.data.jobs || []);
-      setTotalPages(res.data.totalPages || 1); // Set total pages based on response
+      setTotalPages(res.data.totalPages || 1);
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to load data. Please try again later.");
@@ -65,34 +63,21 @@ function BillingSheet() {
     fetchJobs();
   }, [fetchJobs]);
 
-  const renderLinkCell = (cell, path) => (
-    <Link to={`/${path}/${cell.row.original._id}`}>
-      {cell.row.original[cell.column.id]}
-    </Link>
-  );
-
   const columns = [
     {
       accessorKey: "job_no",
       header: "Job No & ICD Code",
       size: 150,
       Cell: ({ cell }) => {
-        const jobNo = cell.row.original.job_no;
-        const icdCode = cell.row.original.custom_house;
-        const rowId = cell.row.original._id;
-
+        const { job_no, custom_house, _id } = cell.row.original;
         return (
           <div
-            style={{
-              textAlign: "center",
-              cursor: "pointer",
-              color: "blue",
-            }}
-            onClick={() => navigate(`/edit-billing-sheet/${rowId}`)}
+            style={{ textAlign: "center", cursor: "pointer", color: "blue" }}
+            onClick={() => navigate(`/edit-billing-sheet/${_id}`)}
           >
-            {jobNo}
+            {job_no}
             <br />
-            <small>{icdCode}</small>
+            <small>{custom_house}</small>
           </div>
         );
       },
@@ -139,27 +124,15 @@ function BillingSheet() {
       density: "compact",
       columnPinning: { left: ["job_no"] },
     },
-    enableGrouping: true,
     enableGlobalFilter: false,
     enableColumnFilters: false,
     enableColumnActions: false,
     enablePagination: false,
-    enableStickyHeader: true,
-    enablePinning: true,
-    enableBottomToolbar: false,
-    muiTableContainerProps: {
-      sx: { maxHeight: "650px", overflowY: "auto" },
-    },
+    muiTableContainerProps: { sx: { maxHeight: "650px", overflowY: "auto" } },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
     }),
-    muiTableHeadCellProps: {
-      sx: {
-        position: "sticky",
-        top: 0,
-        zIndex: 1,
-      },
-    },
+    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 1 } },
     renderTopToolbarCustomActions: () => (
       <div
         style={{
@@ -174,11 +147,14 @@ function BillingSheet() {
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setPage(1); // Reset page on new search
+          }}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs()}>
+                <IconButton onClick={fetchJobs}>
                   <SearchIcon />
                 </IconButton>
               </InputAdornment>
@@ -192,24 +168,31 @@ function BillingSheet() {
 
   const getTableRowsClassname = (row) => {
     const status = row.original.payment_made;
-    return status !== "No" && status !== undefined ? "payment_made" : "";
+    return status === "Yes" ? "payment_made" : "";
   };
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
+  const handlePageChange = (event, newPage) => setPage(newPage);
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable table={table} />
-      {/* Pagination */}
-      <Pagination
-        count={totalPages}
-        page={page}
-        onChange={handlePageChange}
-        color="primary"
-        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
-      />
+      {error ? (
+        <div>{error}</div>
+      ) : (
+        <>
+          <MaterialReactTable table={table} />
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+            sx={{
+              marginTop: "20px",
+              display: "flex",
+              justifyContent: "center",
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

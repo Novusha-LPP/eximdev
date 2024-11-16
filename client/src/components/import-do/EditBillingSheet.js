@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { useFormik } from "formik";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   TextField,
   MenuItem,
@@ -26,6 +27,7 @@ function EditBillingSheet() {
   });
   const { _id } = useParams();
   const { user } = useContext(UserContext);
+  const navigate = useNavigate();
 
   const formik = useFormik({
     initialValues: {
@@ -53,6 +55,7 @@ function EditBillingSheet() {
           open: true,
           message: "Billing details updated successfully!",
         });
+        navigate("/import-do");
       } catch (error) {
         console.error("Error updating billing details:", error);
         setFileSnackbar({

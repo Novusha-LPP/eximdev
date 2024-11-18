@@ -610,7 +610,12 @@ function EditDoPlanning() {
 
                 {renderContainerDetails()}
               </div>
-              <button type="submit" className="btn">
+              <button
+                className="btn"
+                type="submit"
+                style={{ float: "right", margin: "10px" }}
+                aria-label="submit-btn"
+              >
                 Submit
               </button>
             </form>

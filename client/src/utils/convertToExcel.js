@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
+const Big = require("big.js");
 
 const formatDate = (dateStr) => {
   return dateStr ? new Date(dateStr).toLocaleDateString("en-GB") : "";
@@ -119,8 +120,10 @@ export const convertToExcel = async (
     const size = item.container_nos
       .map((container) => container.size)
       .join(",\n");
+    const cif_amount = new Big(item.cif_amount);
+    const exrate = new Big(item.exrate);
+    const inv_value = cif_amount.div(exrate).toFixed(2);
 
-    const inv_value = (item.cif_amount / parseInt(item.exrate)).toFixed(2);
     const invoice_value_and_unit_price = `${item.inv_currency} ${inv_value} | ${item.unit_price}`;
     const net_weight = item.container_nos?.reduce((sum, container) => {
       const weight = parseFloat(container.net_weight);

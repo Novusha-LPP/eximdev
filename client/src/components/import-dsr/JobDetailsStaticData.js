@@ -176,7 +176,16 @@ function JobDetailsStaticData(props) {
           <strong>CTH No:&nbsp;</strong>
           <span className="non-editable-text">{props.data.cth_no}</span>
         </Col>
+        <Col xs={12} lg={3}>
+          <strong>Exchange Rate:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.exrate}</span>
+        </Col>
+        <Col xs={12} lg={4}>
+          <strong>CIF Amount:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.cif_amount}</span>
+        </Col>
       </Row>
+
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>

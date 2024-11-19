@@ -29,6 +29,12 @@ router.get("/api/get-do-billing", async (req, res) => {
     const primaryConditions = [
       { status: { $regex: /^pending$/i } },
       { delivery_date: { $exists: true, $ne: "" } },
+      {
+        $or: [
+          { bill_document_sent_to_accounts: { $exists: false } },
+          { bill_document_sent_to_accounts: "" },
+        ],
+      }, // Exclude jobs with bill_document_sent_to_accounts set
     ];
 
     // Add search conditions if search term is provided
@@ -39,7 +45,7 @@ router.get("/api/get-do-billing", async (req, res) => {
     // Query to find jobs matching the combined conditions
     const jobs = await JobModel.find(
       { $and: primaryConditions },
-      "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status"
+      "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date"
     )
       .skip(skip)
       .limit(limit);

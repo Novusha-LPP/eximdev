@@ -199,7 +199,7 @@ function determineDetailedStatus(job) {
     discharge_date,
     gateway_igm_date,
     vessel_berthing,
-    eta,
+    delivery_date,
   } = job;
 
   // Validate date using a stricter check
@@ -219,9 +219,16 @@ function determineDetailedStatus(job) {
   const validDischargeDate = isValidDate(discharge_date);
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
+  const validDeliveryDate = isValidDate(delivery_date);
 
-  if (be_no && anyContainerArrivalDate && validOutOfChargeDate) {
-    // if (eta) {
+  if (
+    be_no &&
+    anyContainerArrivalDate &&
+    validOutOfChargeDate &&
+    validDeliveryDate
+  ) {
+    return "Billing Pending";
+  } else if (be_no && anyContainerArrivalDate && validOutOfChargeDate) {
     return "Custom Clearance Completed";
   } else if (be_no && anyContainerArrivalDate && validPcvDate) {
     return "PCV Done, Duty Payment Pending";

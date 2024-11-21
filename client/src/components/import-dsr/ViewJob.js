@@ -301,6 +301,22 @@ function JobDetails() {
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Documents" />
             <br />
+            <Row style={{ marginBottom: "20px" }}>
+              <Col xs={12} lg={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="cth_no"
+                  name="cth_no"
+                  label="CTH No."
+                  value={formik.values.cth_no}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+            </Row>
             {cthDocuments?.map((doc, index) => (
               <Row key={index} className="document-upload">
                 <Col xs={5}>

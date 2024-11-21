@@ -217,6 +217,7 @@ function useFetchJobDetails(
       do_validity_upto_job_level: "",
       do_revalidation_upto_job_level: "",
       required_do_validity_upto: "",
+      cth_no: "",
 
       checklist: [],
       remarks: "",
@@ -259,6 +260,7 @@ function useFetchJobDetails(
           documents: selectedDocuments,
           checkedDocs: values.checkedDocs,
           vessel_berthing: values.vessel_berthing,
+          cth_no: values.cth_no,
           free_time: values.free_time,
           status: values.status,
           detailed_status: values.detailed_status,
@@ -430,6 +432,7 @@ function useFetchJobDetails(
             ? "ETA Date Pending"
             : data.detailed_status,
         do_validity: data.do_validity === undefined ? "" : data.do_validity,
+        cth_no: data.cth_no === undefined ? "" : data.cth_no,
         doPlanning: data.doPlanning === undefined ? false : data.doPlanning,
         do_planning_date:
           data.do_planning_date === undefined ? "" : data.do_planning_date,

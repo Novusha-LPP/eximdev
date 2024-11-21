@@ -72,6 +72,9 @@ function useFetchJobDetails(
       document_code: "91WH13",
     },
   ]);
+  const [newDocumentName, setNewDocumentName] = useState("");
+  const [newDocumentCode, setNewDocumentCode] = useState("");
+
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
 
@@ -123,10 +126,15 @@ function useFetchJobDetails(
   // Fetch documents
   useEffect(() => {
     async function getDocuments() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-docs`
-      );
-      setDocuments(res.data);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-docs`
+        );
+        setDocuments(Array.isArray(res.data) ? res.data : []); // Ensure data is an array
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        setDocuments([]); // Fallback to an empty array
+      }
     }
 
     getDocuments();
@@ -742,6 +750,9 @@ function useFetchJobDetails(
   };
 
   const filterDocuments = (selectedDocuments, currentIndex) => {
+    // Ensure documents is an array
+    const validDocuments = Array.isArray(documents) ? documents : [];
+
     const restrictedDocs = new Set();
 
     selectedDocuments.forEach((doc, index) => {
@@ -758,7 +769,9 @@ function useFetchJobDetails(
       }
     });
 
-    return documents.filter((doc) => !restrictedDocs.has(doc.document_code));
+    return validDocuments.filter(
+      (doc) => !restrictedDocs.has(doc.document_code)
+    );
   };
 
   return {
@@ -768,6 +781,10 @@ function useFetchJobDetails(
     cthDocuments,
     setCthDocuments,
     documents,
+    setNewDocumentName,
+    newDocumentName,
+    newDocumentCode,
+    setNewDocumentCode,
     handleFileChange,
     selectedDocuments,
     setSelectedDocuments,

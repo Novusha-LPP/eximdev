@@ -67,6 +67,10 @@ function JobDetails() {
     handleDocumentChange,
     handleAddDocument,
     handleRemoveDocument,
+    newDocumentName,
+    setNewDocumentName,
+    setNewDocumentCode,
+    newDocumentCode,
 
     filterDocuments,
   } = useFetchJobDetails(
@@ -361,6 +365,120 @@ function JobDetails() {
               ))}
             </Row>
 
+            {/* Add Document Section */}
+            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
+              <Col xs={12} lg={4}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  label="New Document Name"
+                  value={newDocumentName}
+                  onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
+                />
+              </Col>
+              <Col xs={12} lg={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  label="New Document Code"
+                  value={newDocumentCode}
+                  onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
+                />
+              </Col>
+              <Col
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ marginTop: "8px", height: "fit-content" }}
+                  onClick={() => {
+                    if (newDocumentName.trim() && newDocumentCode.trim()) {
+                      setCthDocuments([
+                        ...cthDocuments,
+                        {
+                          document_name: newDocumentName,
+                          document_code: newDocumentCode, // Use provided document code
+                          url: [], // Initialize with an empty URL array
+                        },
+                      ]);
+                      setNewDocumentName(""); // Clear name input after adding
+                      setNewDocumentCode(""); // Clear code input after adding
+                    }
+                  }}
+                >
+                  Add Document
+                </button>
+              </Col>
+            </Row>
+          </div>
+
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documents" />
+            <br />
+            <Row style={{ marginBottom: "20px" }}>
+              <Col xs={12} lg={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="cth_no"
+                  name="cth_no"
+                  label="CTH No."
+                  value={formik.values.cth_no}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+            </Row>
+
+            {/* CTH Documents Section */}
+            <Row>
+              {cthDocuments?.map((doc, index) => (
+                <Col
+                  xs={12}
+                  lg={4}
+                  key={`cth-${index}`}
+                  style={{ marginBottom: "20px" }}
+                >
+                  <FileUpload
+                    label={`${doc.document_name} (${doc.document_code})`}
+                    bucketPath={`cth-documents/${doc.document_name}`}
+                    onFilesUploaded={(urls) => {
+                      const updatedDocuments = [...cthDocuments];
+                      if (!Array.isArray(updatedDocuments[index].url)) {
+                        updatedDocuments[index].url = []; // Ensure `url` is an array
+                      }
+                      updatedDocuments[index].url = [
+                        ...updatedDocuments[index].url,
+                        ...urls,
+                      ]; // Append new URLs
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    multiple={true} // Allow multiple uploads
+                  />
+                  <ImagePreview
+                    images={doc.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    readOnly={false}
+                  />
+                </Col>
+              ))}
+            </Row>
+
             {/* Selected Documents Section */}
             <Row>
               {selectedDocuments.map((selectedDocument, index) => (
@@ -371,7 +489,7 @@ function JobDetails() {
                   style={{ marginTop: "20px", marginBottom: "20px" }}
                 >
                   <Autocomplete
-                    options={filterDocuments(selectedDocuments, index)}
+                    options={filterDocuments(selectedDocuments, index)} // Filters documents dynamically
                     getOptionLabel={(doc) =>
                       `${doc.document_name} (${doc.document_code})`
                     }
@@ -388,6 +506,7 @@ function JobDetails() {
                       />
                     )}
                   />
+
                   <FileUpload
                     label="Upload Files"
                     bucketPath={`selected-documents/${

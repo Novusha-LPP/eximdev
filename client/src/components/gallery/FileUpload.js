@@ -7,6 +7,7 @@ const FileUpload = ({
   onFilesUploaded,
   bucketPath,
   multiple = true,
+  acceptedFileTypes = ["image/*", "video/*", ".zip"], // Default file types
 }) => {
   const [uploading, setUploading] = useState(false);
 
@@ -39,6 +40,7 @@ const FileUpload = ({
           type="file"
           hidden
           multiple={multiple}
+          accept={acceptedFileTypes.join(",")} // Combine accepted types
           onChange={handleFileUpload}
           disabled={uploading}
         />

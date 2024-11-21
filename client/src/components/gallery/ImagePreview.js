@@ -11,9 +11,12 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
-const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
+const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
+
+  // Ensure `images` is always an array for backward compatibility
+  const imageArray = Array.isArray(images) ? images : images ? [images] : [];
 
   // Function to extract the file name from the URL
   const extractFileName = (url) => {
@@ -38,7 +41,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
-      {images.length > 0 ? (
+      {imageArray.length > 0 ? (
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
@@ -47,7 +50,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {images.map((link, index) => (
+            {imageArray.map((link, index) => (
               <TableRow key={index}>
                 <TableCell>
                   <a
@@ -76,7 +79,6 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
       ) : (
         <p>No asset uploaded yet.</p>
       )}
-      {/* Confirm Dialog */}
       {!readOnly && (
         <ConfirmDialog
           open={openDeleteDialog}
@@ -89,4 +91,4 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   );
 };
 
-export default ImagePreview;
+export default ImagePreview ;

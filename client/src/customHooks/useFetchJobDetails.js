@@ -72,6 +72,9 @@ function useFetchJobDetails(
       document_code: "91WH13",
     },
   ]);
+  const [newDocumentName, setNewDocumentName] = useState("");
+  const [newDocumentCode, setNewDocumentCode] = useState("");
+
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
 
@@ -123,10 +126,15 @@ function useFetchJobDetails(
   // Fetch documents
   useEffect(() => {
     async function getDocuments() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-docs`
-      );
-      setDocuments(res.data);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-docs`
+        );
+        setDocuments(Array.isArray(res.data) ? res.data : []); // Ensure data is an array
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        setDocuments([]); // Fallback to an empty array
+      }
     }
 
     getDocuments();
@@ -217,6 +225,7 @@ function useFetchJobDetails(
       do_validity_upto_job_level: "",
       do_revalidation_upto_job_level: "",
       required_do_validity_upto: "",
+      cth_no: "",
 
       checklist: [],
       remarks: "",
@@ -245,6 +254,7 @@ function useFetchJobDetails(
       processed_be_attachment: [],
       ooc_copies: [],
       gate_pass_copies: [],
+      all_documents: [],
       do_revalidation: false,
       do_revalidation_date: "",
       out_of_charge: "",
@@ -259,6 +269,7 @@ function useFetchJobDetails(
           documents: selectedDocuments,
           checkedDocs: values.checkedDocs,
           vessel_berthing: values.vessel_berthing,
+          cth_no: values.cth_no,
           free_time: values.free_time,
           status: values.status,
           detailed_status: values.detailed_status,
@@ -292,6 +303,7 @@ function useFetchJobDetails(
           processed_be_attachment: values.processed_be_attachment,
           ooc_copies: values.ooc_copies,
           gate_pass_copies: values.gate_pass_copies,
+          all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
           do_revalidation_date: values.do_revalidation_date,
           required_do_validity_upto: values.required_do_validity_upto,
@@ -430,6 +442,7 @@ function useFetchJobDetails(
             ? "ETA Date Pending"
             : data.detailed_status,
         do_validity: data.do_validity === undefined ? "" : data.do_validity,
+        cth_no: data.cth_no === undefined ? "" : data.cth_no,
         doPlanning: data.doPlanning === undefined ? false : data.doPlanning,
         do_planning_date:
           data.do_planning_date === undefined ? "" : data.do_planning_date,
@@ -490,6 +503,8 @@ function useFetchJobDetails(
         ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
         gate_pass_copies:
           data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
+          all_documents:
+          data.all_documents === undefined ? [] : data.all_documents,
         do_revalidation:
           data.do_revalidation === undefined ? false : data.do_revalidation,
         do_revalidation_date:
@@ -739,6 +754,9 @@ function useFetchJobDetails(
   };
 
   const filterDocuments = (selectedDocuments, currentIndex) => {
+    // Ensure documents is an array
+    const validDocuments = Array.isArray(documents) ? documents : [];
+
     const restrictedDocs = new Set();
 
     selectedDocuments.forEach((doc, index) => {
@@ -755,7 +773,9 @@ function useFetchJobDetails(
       }
     });
 
-    return documents.filter((doc) => !restrictedDocs.has(doc.document_code));
+    return validDocuments.filter(
+      (doc) => !restrictedDocs.has(doc.document_code)
+    );
   };
 
   return {
@@ -763,9 +783,15 @@ function useFetchJobDetails(
     detentionFrom,
     formik,
     cthDocuments,
+    setCthDocuments,
     documents,
+    setNewDocumentName,
+    newDocumentName,
+    newDocumentCode,
+    setNewDocumentCode,
     handleFileChange,
     selectedDocuments,
+    setSelectedDocuments,
     handleDocumentChange,
     handleAddDocument,
     handleRemoveDocument,

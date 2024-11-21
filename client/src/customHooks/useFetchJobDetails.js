@@ -254,6 +254,7 @@ function useFetchJobDetails(
       processed_be_attachment: [],
       ooc_copies: [],
       gate_pass_copies: [],
+      all_documents: [],
       do_revalidation: false,
       do_revalidation_date: "",
       out_of_charge: "",
@@ -302,6 +303,7 @@ function useFetchJobDetails(
           processed_be_attachment: values.processed_be_attachment,
           ooc_copies: values.ooc_copies,
           gate_pass_copies: values.gate_pass_copies,
+          all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
           do_revalidation_date: values.do_revalidation_date,
           required_do_validity_upto: values.required_do_validity_upto,
@@ -501,6 +503,8 @@ function useFetchJobDetails(
         ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
         gate_pass_copies:
           data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
+          all_documents:
+          data.all_documents === undefined ? [] : data.all_documents,
         do_revalidation:
           data.do_revalidation === undefined ? false : data.do_revalidation,
         do_revalidation_date:

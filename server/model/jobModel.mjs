@@ -256,6 +256,7 @@ const jobSchema = new mongoose.Schema({
 
   ////////////////////////////////////////////////////// Documents
   documents: [documentSchema],
+  all_documents: [{ type: String, trim: true }],
 
   ////////////////////////////////////////////////////// Documentation
   document_entry_completed: { type: Boolean },

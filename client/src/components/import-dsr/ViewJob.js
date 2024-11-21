@@ -418,137 +418,29 @@ function JobDetails() {
               </Col>
             </Row>
           </div>
-
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Documents" />
+            <JobDetailsRowHeading heading="All Documents" />
             <br />
-            <Row style={{ marginBottom: "20px" }}>
-              <Col xs={12} lg={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="cth_no"
-                  name="cth_no"
-                  label="CTH No."
-                  value={formik.values.cth_no}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Col>
-            </Row>
-
-            {/* CTH Documents Section */}
-            <Row>
-              {cthDocuments?.map((doc, index) => (
-                <Col
-                  xs={12}
-                  lg={4}
-                  key={`cth-${index}`}
-                  style={{ marginBottom: "20px" }}
-                >
-                  <FileUpload
-                    label={`${doc.document_name} (${doc.document_code})`}
-                    bucketPath={`cth-documents/${doc.document_name}`}
-                    onFilesUploaded={(urls) => {
-                      const updatedDocuments = [...cthDocuments];
-                      if (!Array.isArray(updatedDocuments[index].url)) {
-                        updatedDocuments[index].url = []; // Ensure `url` is an array
-                      }
-                      updatedDocuments[index].url = [
-                        ...updatedDocuments[index].url,
-                        ...urls,
-                      ]; // Append new URLs
-                      setCthDocuments(updatedDocuments);
-                    }}
-                    multiple={true} // Allow multiple uploads
-                  />
-                  <ImagePreview
-                    images={doc.url || []} // Pass all uploaded URLs
-                    onDeleteImage={(deleteIndex) => {
-                      const updatedDocuments = [...cthDocuments];
-                      updatedDocuments[index].url = updatedDocuments[
-                        index
-                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
-                      setCthDocuments(updatedDocuments);
-                    }}
-                    readOnly={false}
-                  />
-                </Col>
-              ))}
-            </Row>
-
-            {/* Selected Documents Section */}
-            <Row>
-              {selectedDocuments.map((selectedDocument, index) => (
-                <Col
-                  xs={12}
-                  lg={4}
-                  key={`selected-${index}`}
-                  style={{ marginTop: "20px", marginBottom: "20px" }}
-                >
-                  <Autocomplete
-                    options={filterDocuments(selectedDocuments, index)} // Filters documents dynamically
-                    getOptionLabel={(doc) =>
-                      `${doc.document_name} (${doc.document_code})`
-                    }
-                    value={selectedDocument || null}
-                    onChange={(event, newValue) => {
-                      handleDocumentChange(index, newValue);
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Select Document"
-                        size="small"
-                        sx={{ width: 500 }}
-                      />
-                    )}
-                  />
-
-                  <FileUpload
-                    label="Upload Files"
-                    bucketPath={`selected-documents/${
-                      selectedDocument?.document_name || "new"
-                    }`}
-                    onFilesUploaded={(urls) => {
-                      const updatedDocuments = [...selectedDocuments];
-                      if (!Array.isArray(updatedDocuments[index].url)) {
-                        updatedDocuments[index].url = []; // Ensure `url` is an array
-                      }
-                      updatedDocuments[index].url = [
-                        ...updatedDocuments[index].url,
-                        ...urls,
-                      ]; // Append new URLs
-                      setSelectedDocuments(updatedDocuments);
-                    }}
-                    multiple={true} // Allow multiple uploads
-                  />
-                  <ImagePreview
-                    images={selectedDocument?.url || []} // Pass all uploaded URLs
-                    onDeleteImage={(deleteIndex) => {
-                      const updatedDocuments = [...selectedDocuments];
-                      updatedDocuments[index].url = updatedDocuments[
-                        index
-                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
-                      setSelectedDocuments(updatedDocuments);
-                    }}
-                    readOnly={!selectedDocument?.document_code}
-                  />
-                  <IconButton
-                    onClick={() => handleRemoveDocument(index)}
-                    sx={{ color: "#BE3838" }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Col>
-              ))}
-            </Row>
-
-            <button type="button" className="btn" onClick={handleAddDocument}>
-              Add Document
-            </button>
+            <Col xs={6}>
+              <FileUpload
+                label="All Documents"
+                bucketPath="all_documents"
+                onFilesUploaded={(newFiles) => {
+                  const existingFiles = formik.values.all_documents || [];
+                  const updatedFiles = [...existingFiles, ...newFiles];
+                  formik.setFieldValue("all_documents", updatedFiles);
+                }}
+                multiple={true}
+              />
+              <ImagePreview
+                images={formik.values.all_documents || []}
+                onDeleteImage={(index) => {
+                  const updatedFiles = [...formik.values.all_documents];
+                  updatedFiles.splice(index, 1);
+                  formik.setFieldValue("all_documents", updatedFiles);
+                }}
+              />
+            </Col>
           </div>
 
           <div className="job-details-container">

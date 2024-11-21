@@ -8,14 +8,14 @@ const cthDocumentSchema = new mongoose.Schema({
   cth: { type: Number, trim: true },
   document_name: { type: String, trim: true },
   document_code: { type: String, trim: true },
-  url: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
   irn: { type: String, trim: true },
 });
 
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   document_code: { type: String, trim: true },
-  url: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
   irn: { type: String, trim: true },
 });
 

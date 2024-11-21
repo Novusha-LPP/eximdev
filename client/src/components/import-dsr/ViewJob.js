@@ -60,11 +60,14 @@ function JobDetails() {
     detentionFrom,
     formik,
     cthDocuments,
+    setCthDocuments,
     handleFileChange,
     selectedDocuments,
+    setSelectedDocuments,
     handleDocumentChange,
     handleAddDocument,
     handleRemoveDocument,
+
     filterDocuments,
   } = useFetchJobDetails(
     params,
@@ -317,37 +320,64 @@ function JobDetails() {
                 />
               </Col>
             </Row>
+
+            {/* CTH Documents Section */}
             {cthDocuments?.map((doc, index) => (
-              <Row key={index} className="document-upload">
+              <Row
+                key={index}
+                className="document-upload"
+                style={{ marginBottom: "20px" }}
+              >
                 <Col xs={5}>
                   <strong>
                     {doc.document_name} ({doc.document_code})&nbsp;
                   </strong>
                 </Col>
                 <Col xs={3}>
-                  <br />
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(e) =>
-                      handleFileChange(e, doc.document_name, index, true)
-                    }
+                  <FileUpload
+                    label="Upload Files"
+                    bucketPath={`cth-documents/${doc.document_name}`}
+                    onFilesUploaded={(urls) => {
+                      const updatedDocuments = [...cthDocuments];
+                      if (!Array.isArray(updatedDocuments[index].url)) {
+                        updatedDocuments[index].url = []; // Ensure `url` is an array
+                      }
+                      updatedDocuments[index].url = [
+                        ...updatedDocuments[index].url,
+                        ...urls,
+                      ]; // Append new URLs
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    multiple={true} // Allow multiple uploads
                   />
-
-                  {doc.url && <a href={doc.url}>View</a>}
+                  <ImagePreview
+                    images={doc.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    readOnly={false}
+                  />
                 </Col>
               </Row>
             ))}
 
+            {/* Selected Documents Section */}
             {selectedDocuments.map((selectedDocument, index) => (
-              <Row key={index} style={{ marginTop: "20px" }}>
+              <Row
+                key={index}
+                style={{ marginTop: "20px", marginBottom: "20px" }}
+              >
                 <Col xs={5}>
                   <Autocomplete
                     options={filterDocuments(selectedDocuments, index)}
                     getOptionLabel={(doc) =>
                       `${doc.document_name} (${doc.document_code})`
                     }
-                    value={selectedDocument || null} // Pass the whole selectedDocument object or null
+                    value={selectedDocument || null}
                     onChange={(event, newValue) => {
                       handleDocumentChange(index, newValue);
                     }}
@@ -362,32 +392,36 @@ function JobDetails() {
                   />
                 </Col>
                 <Col xs={3}>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(e) =>
-                      handleFileChange(
-                        e,
-                        selectedDocument?.document_name || "",
-                        index,
-                        false
-                      )
-                    }
-                    disabled={!selectedDocument?.document_code}
+                  <FileUpload
+                    label="Upload Files"
+                    bucketPath={`selected-documents/${
+                      selectedDocument?.document_name || "new"
+                    }`}
+                    onFilesUploaded={(urls) => {
+                      const updatedDocuments = [...selectedDocuments];
+                      if (!Array.isArray(updatedDocuments[index].url)) {
+                        updatedDocuments[index].url = []; // Ensure `url` is an array
+                      }
+                      updatedDocuments[index].url = [
+                        ...updatedDocuments[index].url,
+                        ...urls,
+                      ]; // Append new URLs
+                      setSelectedDocuments(updatedDocuments);
+                    }}
+                    multiple={true} // Allow multiple uploads
                   />
-                  <br />
-                  <br />
-                  {selectedDocument?.url && (
-                    <a
-                      href={selectedDocument.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View
-                    </a>
-                  )}
+                  <ImagePreview
+                    images={selectedDocument?.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...selectedDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setSelectedDocuments(updatedDocuments);
+                    }}
+                    readOnly={!selectedDocument?.document_code}
+                  />
                 </Col>
-
                 <Col>
                   <IconButton
                     onClick={() => handleRemoveDocument(index)}
@@ -398,6 +432,136 @@ function JobDetails() {
                 </Col>
               </Row>
             ))}
+
+            <button type="button" className="btn" onClick={handleAddDocument}>
+              Add Document
+            </button>
+          </div>
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documents" />
+            <br />
+            <Row style={{ marginBottom: "20px" }}>
+              <Col xs={12} lg={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="cth_no"
+                  name="cth_no"
+                  label="CTH No."
+                  value={formik.values.cth_no}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+            </Row>
+
+            {/* CTH Documents Section */}
+            <Row>
+              {cthDocuments?.map((doc, index) => (
+                <Col
+                  xs={12}
+                  lg={4}
+                  key={`cth-${index}`}
+                  style={{ marginBottom: "20px" }}
+                >
+                  <FileUpload
+                    label={`${doc.document_name} (${doc.document_code})`}
+                    bucketPath={`cth-documents/${doc.document_name}`}
+                    onFilesUploaded={(urls) => {
+                      const updatedDocuments = [...cthDocuments];
+                      if (!Array.isArray(updatedDocuments[index].url)) {
+                        updatedDocuments[index].url = []; // Ensure `url` is an array
+                      }
+                      updatedDocuments[index].url = [
+                        ...updatedDocuments[index].url,
+                        ...urls,
+                      ]; // Append new URLs
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    multiple={true} // Allow multiple uploads
+                  />
+                  <ImagePreview
+                    images={doc.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    readOnly={false}
+                  />
+                </Col>
+              ))}
+            </Row>
+
+            {/* Selected Documents Section */}
+            <Row>
+              {selectedDocuments.map((selectedDocument, index) => (
+                <Col
+                  xs={12}
+                  lg={4}
+                  key={`selected-${index}`}
+                  style={{ marginTop: "20px", marginBottom: "20px" }}
+                >
+                  <Autocomplete
+                    options={filterDocuments(selectedDocuments, index)}
+                    getOptionLabel={(doc) =>
+                      `${doc.document_name} (${doc.document_code})`
+                    }
+                    value={selectedDocument || null}
+                    onChange={(event, newValue) => {
+                      handleDocumentChange(index, newValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Select Document"
+                        size="small"
+                        sx={{ width: 500 }}
+                      />
+                    )}
+                  />
+                  <FileUpload
+                    label="Upload Files"
+                    bucketPath={`selected-documents/${
+                      selectedDocument?.document_name || "new"
+                    }`}
+                    onFilesUploaded={(urls) => {
+                      const updatedDocuments = [...selectedDocuments];
+                      if (!Array.isArray(updatedDocuments[index].url)) {
+                        updatedDocuments[index].url = []; // Ensure `url` is an array
+                      }
+                      updatedDocuments[index].url = [
+                        ...updatedDocuments[index].url,
+                        ...urls,
+                      ]; // Append new URLs
+                      setSelectedDocuments(updatedDocuments);
+                    }}
+                    multiple={true} // Allow multiple uploads
+                  />
+                  <ImagePreview
+                    images={selectedDocument?.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...selectedDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setSelectedDocuments(updatedDocuments);
+                    }}
+                    readOnly={!selectedDocument?.document_code}
+                  />
+                  <IconButton
+                    onClick={() => handleRemoveDocument(index)}
+                    sx={{ color: "#BE3838" }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Col>
+              ))}
+            </Row>
 
             <button type="button" className="btn" onClick={handleAddDocument}>
               Add Document

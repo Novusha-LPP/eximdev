@@ -67,6 +67,7 @@ import viewRevisionList from "./routes/customer-kyc/viewRevisionList.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
+import getDocumentationjobs from "./routes/documentation/getDocumentationjobs.mjs";
 
 // Employee KYC
 import completeKyc from "./routes/employee-kyc/completeKyc.mjs";
@@ -304,6 +305,7 @@ if (cluster.isPrimary) {
 
       // Documentation
       app.use(updateDocumentationJob);
+      app.use(getDocumentationjobs);
 
       // Employee KYC
       app.use(completeKyc);

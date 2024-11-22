@@ -8,7 +8,7 @@ import { IconButton, Checkbox, Modal, TextField, Box } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-
+import { useNavigate } from "react-router-dom";
 function Documentation() {
   const [rows, setRows] = React.useState([]);
   const [openModal, setOpenModal] = React.useState(false);
@@ -16,11 +16,11 @@ function Documentation() {
   const [currentRowIndex, setCurrentRowIndex] = React.useState(null);
   const [documentationQueries, setDocumentationQueries] = React.useState([]);
   const [currentDocumentRow, setCurrentDocumentRow] = React.useState(null);
-
+  const navigate = useNavigate();
   React.useEffect(() => {
     async function getData() {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`
+        `${process.env.REACT_APP_API_STRING}/get-documentation-jobs`
       );
       setRows(res.data);
     }
@@ -96,7 +96,36 @@ function Documentation() {
       accessorKey: "job_no",
       header: "Job No",
       enableSorting: false,
-      size: 100,
+      size: 150,
+
+      Cell: ({ cell }) => {
+        const {
+          job_no,
+          year,
+          type_of_b_e,
+          consignment_type,
+          vessel_berthing,
+          container_nos, // Assume this field holds an array of container objects
+          detailed_status,
+          custom_house,
+          delivery_date,
+        } = cell.row.original;
+
+        return (
+          <div
+            onClick={() =>
+              navigate(`/documentationJob/view-job/${job_no}/${year}`)
+            }
+            style={{
+              cursor: "pointer",
+            }}
+          >
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
+            <br />
+          </div>
+        );
+      },
     },
     {
       accessorKey: "importer",
@@ -104,75 +133,75 @@ function Documentation() {
       enableSorting: false,
       size: 150,
     },
-    {
-      accessorKey: "custom_house",
-      header: "Custom House",
-      enableSorting: false,
-      size: 150,
-    },
+    // {
+    //   accessorKey: "custom_house",
+    //   header: "Custom House",
+    //   enableSorting: false,
+    //   size: 150,
+    // },
 
-    {
-      accessorKey: "gateway_igm_date",
-      header: "Gateway IGM Date",
-      enableSorting: false,
-      size: 130,
-    },
-    {
-      accessorKey: "discharge_date",
-      header: "Discharge Date/ IGM Date",
-      enableSorting: false,
-      size: 130,
-    },
-    {
-      accessorKey: "document_entry_completed",
-      header: "Document Entry Completed",
-      enableSorting: false,
-      size: 130,
-      Cell: ({ row }) => (
-        <Box sx={{ display: "flex", justifyContent: "center" }}>
-          <Checkbox
-            checked={row.original.document_entry_completed === true}
-            onChange={(event) =>
-              handleCheckboxChange(event, row.index, "document_entry_completed")
-            }
-          />
-        </Box>
-      ),
-    },
-    {
-      accessorKey: "queries",
-      header: "Queries",
-      enableSorting: false,
-      size: 100,
-      Cell: ({ row }) => (
-        <IconButton onClick={() => handleEditClick(row.index)}>
-          <EditIcon />
-        </IconButton>
-      ),
-    },
-    {
-      accessorKey: "documents",
-      header: "Documents",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ row }) => (
-        <IconButton onClick={() => handleDocumentClick(row.original)}>
-          <InsertDriveFileIcon />
-        </IconButton>
-      ),
-    },
+    // {
+    //   accessorKey: "gateway_igm_date",
+    //   header: "Gateway IGM Date",
+    //   enableSorting: false,
+    //   size: 130,
+    // },
+    // {
+    //   accessorKey: "discharge_date",
+    //   header: "Discharge Date/ IGM Date",
+    //   enableSorting: false,
+    //   size: 130,
+    // },
+    // {
+    //   accessorKey: "document_entry_completed",
+    //   header: "Document Entry Completed",
+    //   enableSorting: false,
+    //   size: 130,
+    //   Cell: ({ row }) => (
+    //     <Box sx={{ display: "flex", justifyContent: "center" }}>
+    //       <Checkbox
+    //         checked={row.original.document_entry_completed === true}
+    //         onChange={(event) =>
+    //           handleCheckboxChange(event, row.index, "document_entry_completed")
+    //         }
+    //       />
+    //     </Box>
+    //   ),
+    // },
+    // {
+    //   accessorKey: "queries",
+    //   header: "Queries",
+    //   enableSorting: false,
+    //   size: 100,
+    //   Cell: ({ row }) => (
+    //     <IconButton onClick={() => handleEditClick(row.index)}>
+    //       <EditIcon />
+    //     </IconButton>
+    //   ),
+    // },
+    // {
+    //   accessorKey: "documents",
+    //   header: "Documents",
+    //   enableSorting: false,
+    //   size: 150,
+    //   Cell: ({ row }) => (
+    //     <IconButton onClick={() => handleDocumentClick(row.original)}>
+    //       <InsertDriveFileIcon />
+    //     </IconButton>
+    //   ),
+    // },
 
-    {
-      accessorKey: "save",
-      header: "Save",
-      enableSorting: false,
-      size: 80,
-      Cell: ({ row }) => (
-        <IconButton onClick={() => handleSave(row.original)}>
-          <SaveIcon sx={{ color: "#015C4B" }} />
-        </IconButton>
-      ),
-    },
+    // {
+    //   accessorKey: "save",
+    //   header: "Save",
+    //   enableSorting: false,
+    //   size: 80,
+    //   Cell: ({ row }) => (
+    //     <IconButton onClick={() => handleSave(row.original)}>
+    //       <SaveIcon sx={{ color: "#015C4B" }} />
+    //     </IconButton>
+    //   ),
+    // },
   ];
 
   const table = useMaterialReactTable({

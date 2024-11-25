@@ -109,6 +109,7 @@ function Documentation() {
           detailed_status,
           custom_house,
           delivery_date,
+     
         } = cell.row.original;
 
         return (
@@ -122,7 +123,7 @@ function Documentation() {
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
+            {custom_house} 
             <br />
           </div>
         );
@@ -136,10 +137,19 @@ function Documentation() {
     },
     {
       accessorKey: "awb_bl_no",
-      header: "BL Number",
+      header: "BL Num & Date",
       enableSorting: false,
       size: 150,
+      Cell: ({ cell }) => {
+        const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+        return (
+          <div>
+            {awb_bl_no} <br /> {awb_bl_date}
+          </div>
+        );
+      },
     },
+
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",

@@ -129,7 +129,10 @@ export const convertToExcel = async (
     const cif_amount = new Big(item.cif_amount);
     const exrate = new Big(item.exrate);
     const inv_value = cif_amount.div(exrate).toFixed(2);
-    const exact_inv_value = item.total_inv_value.split(" ")[0];
+    const exact_inv_value = item.total_inv_value
+  ? item.total_inv_value.split(" ")[0]
+  : "";
+
 
     const invoice_value_and_unit_price = `${item.inv_currency} |${exact_inv_value} | ${item.unit_price}`;
     const net_weight = item.container_nos?.reduce((sum, container) => {

@@ -51,8 +51,14 @@ export const convertToExcel = async (
     second: "2-digit",
     hour12: true,
   });
+  const additionalHeaders =
+    importer === "BHAVYA MACHINE TOOLS LLP" ||
+    importer === "BHAVYA MACHINE TOOLS"
+      ? ["HSS NAME"]
+      : [];
   const headers = [
     "JOB NO AND DATE",
+    ...additionalHeaders,
     "SUPPLIER/ EXPORTER",
     "INVOICE NUMBER AND DATE",
     "INVOICE VALUE AND UNIT PRICE",
@@ -139,6 +145,7 @@ export const convertToExcel = async (
 
     const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
+      "HSS NAME": item.hss_name,
       "SUPPLIER/ EXPORTER": item.supplier_exporter,
       "INVOICE NUMBER AND DATE": invoiceNoAndDate,
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,

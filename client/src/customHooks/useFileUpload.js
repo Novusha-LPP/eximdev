@@ -138,6 +138,10 @@ function useFileUpload(inputRef, alt, setAlt) {
             modifiedItem.bill_no = item[key].split(",")[0];
           } else if (modifiedKey === "consignment_type") {
             modifiedItem.consignment_type = item[key].split(",")[0];
+          } else if (modifiedKey === "hss_name") {
+            modifiedItem.hss_name = item[key];
+          } else if (modifiedKey === "total_inv_value") {
+            modifiedItem.total_inv_value = item[key];
           } else if (
             modifiedKey !== "noofconts" &&
             modifiedKey !== "noofcontsbytype"
@@ -266,7 +270,9 @@ function useFileUpload(inputRef, alt, setAlt) {
         const checkStatusResponse = await axios.get(
           `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
         );
-console.log(`${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`)
+        console.log(
+          `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
+        );
         console.log("Status check response:", checkStatusResponse); // Log response
 
         if (checkStatusResponse.status !== 200) {

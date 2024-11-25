@@ -6,9 +6,10 @@ const router = express.Router();
 // Endpoint to fetch documentation jobs with specific filters
 router.get("/api/get-documentation-jobs", async (req, res) => {
   try {
-    // Query to filter jobs with status 'Pending' and specific detailed_status values
+    // Query to filter jobs with status 'Pending' (case insensitive), specific detailed_status values,
+    // and where documentation_completed_date_time does not exist or is empty
     const data = await JobModel.find({
-      status: "Pending",
+      status: { $regex: /^pending$/i }, // Case-insensitive regex for 'Pending'
       detailed_status: {
         $in: [
           "ETA Date Pending",
@@ -17,9 +18,13 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
           "Discharged",
         ],
       },
+      $or: [
+        { documentation_completed_date_time: { $exists: false } }, // Field does not exist
+        { documentation_completed_date_time: "" }, // Field exists but is empty
+      ],
     })
       .select(
-        "job_no year importer type_of_b_e custom_house consignment_type custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents awb_bl_no container_nos detailed_status status"
+        "job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents awb_bl_no container_nos detailed_status status"
       )
       .lean(); // Use lean() for better performance with read-only data
 
@@ -70,7 +75,7 @@ router.patch("/api/update-documentation-job/:id", async (req, res) => {
       {
         $set: {
           documentation_completed_date_time:
-            documentation_completed_date_time || new Date().toISOString(), // Use provided date or current date-time
+            documentation_completed_date_time || "", // Use provided date or current date-time
         },
       },
       { new: true, lean: true } // Return the updated document

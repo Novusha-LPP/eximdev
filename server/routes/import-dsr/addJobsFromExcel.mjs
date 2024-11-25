@@ -29,6 +29,8 @@ router.post("/api/jobs/add-job", async (req, res) => {
         unit_price,
         vessel_berthing, // New value from Excel
         container_nos, // Assume container data is part of the incoming job data
+        hss_name,
+        total_inv_value,
       } = data;
 
       // Define the filter to find existing jobs
@@ -64,6 +66,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         const update = {
           $set: {
             ...data,
+
             vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
             status:

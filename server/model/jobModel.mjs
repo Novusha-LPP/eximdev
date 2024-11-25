@@ -105,6 +105,8 @@ const jobSchema = new mongoose.Schema({
   vessel_flight: { type: String },
   voyage_no: { type: String },
   job_owner: { type: String },
+  hss_name: { type: String },
+  total_inv_value: { type: String },
 
   ////////////////////////////////////////////////// DSR
   importerURL: { type: String, trim: true },

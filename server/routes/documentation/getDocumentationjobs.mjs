@@ -19,7 +19,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       },
     })
       .select(
-        "job_no year importer type_of_b_e custom_house consignment_type custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents detailed_status status"
+        "job_no year importer type_of_b_e custom_house consignment_type custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents awb_bl_no container_nos detailed_status status"
       )
       .lean(); // Use lean() for better performance with read-only data
 
@@ -46,6 +46,54 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     res
       .status(500)
       .json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+router.patch("/api/update-documentation-job/:id", async (req, res) => {
+  try {
+    const { id } = req.params; // Get the job ID from the URL
+    const { documentation_completed_date_time } = req.body; // Take the custom date from the request body
+
+    // Validate the provided date (if any)
+    if (
+      documentation_completed_date_time &&
+      isNaN(Date.parse(documentation_completed_date_time))
+    ) {
+      return res.status(400).json({
+        message: "Invalid date format. Please provide a valid ISO date string.",
+      });
+    }
+
+    // Find the job by ID and update the documentation_completed_date_time field
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          documentation_completed_date_time:
+            documentation_completed_date_time || new Date().toISOString(), // Use provided date or current date-time
+        },
+      },
+      { new: true, lean: true } // Return the updated document
+    );
+
+    if (!updatedJob) {
+      return res
+        .status(404)
+        .json({ message: "Job not found with the specified ID" });
+    }
+
+    res.status(200).json({
+      message: "Job updated successfully",
+      updatedJob,
+    });
+  } catch (err) {
+    console.error("Error updating job:", err);
+
+    // Return a detailed error message
+    res.status(500).json({
+      message: "Internal Server Error. Unable to update the job.",
+      error: err.message,
+    });
   }
 });
 

@@ -118,6 +118,7 @@ function Documentation() {
             }
             style={{
               cursor: "pointer",
+              color: "blue",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
@@ -132,6 +133,29 @@ function Documentation() {
       header: "Importer",
       enableSorting: false,
       size: 150,
+    },
+    {
+      accessorKey: "awb_bl_no",
+      header: "BL Number",
+      enableSorting: false,
+      size: 150,
+    },
+    {
+      accessorKey: "container_numbers",
+      header: "Container Numbers and Size",
+      size: 200,
+      Cell: ({ cell }) => {
+        const containerNos = cell.row.original.container_nos;
+        return (
+          <React.Fragment>
+            {containerNos?.map((container, id) => (
+              <div key={id} style={{ marginBottom: "4px" }}>
+                {container.container_number}| "{container.size}"
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      },
     },
     // {
     //   accessorKey: "custom_house",

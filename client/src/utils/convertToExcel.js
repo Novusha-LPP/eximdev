@@ -51,8 +51,14 @@ export const convertToExcel = async (
     second: "2-digit",
     hour12: true,
   });
+  const additionalHeaders =
+    importer === "BHAVYA MACHINE TOOLS LLP" ||
+    importer === "BHAVYA MACHINE TOOLS"
+      ? ["HSS NAME"]
+      : [];
   const headers = [
     "JOB NO AND DATE",
+    ...additionalHeaders,
     "SUPPLIER/ EXPORTER",
     "INVOICE NUMBER AND DATE",
     "INVOICE VALUE AND UNIT PRICE",
@@ -123,8 +129,9 @@ export const convertToExcel = async (
     const cif_amount = new Big(item.cif_amount);
     const exrate = new Big(item.exrate);
     const inv_value = cif_amount.div(exrate).toFixed(2);
+    const exact_inv_value = item.total_inv_value.split(" ")[0];
 
-    const invoice_value_and_unit_price = `${item.inv_currency} ${inv_value} | ${item.unit_price}`;
+    const invoice_value_and_unit_price = `${item.inv_currency} |${exact_inv_value} | ${item.unit_price}`;
     const net_weight = item.container_nos?.reduce((sum, container) => {
       const weight = parseFloat(container.net_weight);
       return sum + (isNaN(weight) ? 0 : weight);
@@ -139,6 +146,7 @@ export const convertToExcel = async (
 
     const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
+      "HSS NAME": item.hss_name,
       "SUPPLIER/ EXPORTER": item.supplier_exporter,
       "INVOICE NUMBER AND DATE": invoiceNoAndDate,
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,

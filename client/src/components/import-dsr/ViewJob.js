@@ -445,10 +445,188 @@ function JobDetails() {
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Completion Status" />
-            <strong>
-              Documention Status:{" "}
-              {formik.values.documentation_completed_date_time}
-            </strong>
+
+            <Row>
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Documention Status:{" "}
+                    {formik.values.documentation_completed_date_time && (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.documentation_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="documentation_completed_date_time"
+                    name="documentation_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={
+                      formik.values.documentation_completed_date_time || ""
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "documentation_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    E-Sanchit Status:{" "}
+                    {/* {formik.values.documentation_completed_date_time && (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.documentation_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    )} */}
+                  </strong>
+                </div>
+              </Col>
+
+              {/* {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="documentation_completed_date_time"
+                    name="documentation_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={
+                      formik.values.documentation_completed_date_time || ""
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "documentation_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )} */}
+            </Row>
+            <Row>
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Submission Status:{" "}
+                    {/* {formik.values.documentation_completed_date_time && (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.documentation_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    )} */}
+                  </strong>
+                </div>
+              </Col>
+
+              {/* {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="documentation_completed_date_time"
+                    name="documentation_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={
+                      formik.values.documentation_completed_date_time || ""
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "documentation_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )} */}
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    DO Billing Status:{" "}
+                    {/* {formik.values.documentation_completed_date_time && (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.documentation_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    )} */}
+                  </strong>
+                </div>
+              </Col>
+
+              {/* {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="documentation_completed_date_time"
+                    name="documentation_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={
+                      formik.values.documentation_completed_date_time || ""
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "documentation_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )} */}
+            </Row>
+
             <JobDetailsRowHeading heading="Queries" />
             <br />
             {formik.values.do_queries.length > 0 &&

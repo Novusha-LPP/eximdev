@@ -450,8 +450,8 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
-                    Documention Status:{" "}
-                    {formik.values.documentation_completed_date_time && (
+                    Documentation Status:{" "}
+                    {formik.values.documentation_completed_date_time ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
                           formik.values.documentation_completed_date_time
@@ -460,6 +460,8 @@ function JobDetails() {
                           hour12: true,
                         })}
                       </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px" }}>Pending</span>
                     )}
                   </strong>
                 </div>
@@ -584,8 +586,8 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
-                    DO Billing Status:{" "}
-                    {formik.values.bill_document_sent_to_accounts && (
+                    Documentation Status:{" "}
+                    {formik.values.bill_document_sent_to_accounts ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
                           formik.values.bill_document_sent_to_accounts
@@ -593,6 +595,10 @@ function JobDetails() {
                           timeZone: "Asia/Kolkata",
                           hour12: true,
                         })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
                       </span>
                     )}
                   </strong>

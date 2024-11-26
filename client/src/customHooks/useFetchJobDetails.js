@@ -261,6 +261,7 @@ function useFetchJobDetails(
       checked: false,
       type_of_Do: "",
       documentation_completed_date_time: "",
+      bill_document_sent_to_accounts: "",
     },
     onSubmit: async (values) => {
       await axios.put(
@@ -315,6 +316,7 @@ function useFetchJobDetails(
           type_of_Do: values.type_of_Do,
           documentation_completed_date_time:
             values.documentation_completed_date_time,
+          bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -402,6 +404,10 @@ function useFetchJobDetails(
           container.documentation_completed_date_time === undefined
             ? ""
             : container.documentation_completed_date_time,
+        bill_document_sent_to_accounts:
+          container.bill_document_sent_to_accounts === undefined
+            ? ""
+            : container.bill_document_sent_to_accounts,
         do_validity_upto_container_level:
           container.do_validity_upto_container_level === undefined
             ? ""
@@ -522,6 +528,10 @@ function useFetchJobDetails(
           data.documentation_completed_date_time === undefined
             ? ""
             : data.documentation_completed_date_time,
+        bill_document_sent_to_accounts:
+          data.bill_document_sent_to_accounts === undefined
+            ? ""
+            : data.bill_document_sent_to_accounts,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked:

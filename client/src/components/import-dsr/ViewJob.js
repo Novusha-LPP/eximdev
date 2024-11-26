@@ -585,21 +585,21 @@ function JobDetails() {
                 <div className="job-detail-input-container">
                   <strong>
                     DO Billing Status:{" "}
-                    {/* {formik.values.documentation_completed_date_time && (
+                    {formik.values.bill_document_sent_to_accounts && (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
-                          formik.values.documentation_completed_date_time
+                          formik.values.bill_document_sent_to_accounts
                         ).toLocaleString("en-US", {
                           timeZone: "Asia/Kolkata",
                           hour12: true,
                         })}
                       </span>
-                    )} */}
+                    )}
                   </strong>
                 </div>
               </Col>
 
-              {/* {user?.role === "Admin" && (
+              {user?.role === "Admin" && (
                 <Col xs={12} md={3}>
                   <TextField
                     type="datetime-local"
@@ -607,15 +607,13 @@ function JobDetails() {
                     size="small"
                     margin="normal"
                     variant="outlined"
-                    id="documentation_completed_date_time"
-                    name="documentation_completed_date_time"
+                    id="bill_document_sent_to_accounts"
+                    name="bill_document_sent_to_accounts"
                     label="Set Date (Admin Only)"
-                    value={
-                      formik.values.documentation_completed_date_time || ""
-                    }
+                    value={formik.values.bill_document_sent_to_accounts || ""}
                     onChange={(e) =>
                       formik.setFieldValue(
-                        "documentation_completed_date_time",
+                        "bill_document_sent_to_accounts",
                         e.target.value
                       )
                     } // Update formik value
@@ -624,7 +622,7 @@ function JobDetails() {
                     }}
                   />
                 </Col>
-              )} */}
+              )}
             </Row>
 
             <JobDetailsRowHeading heading="Queries" />

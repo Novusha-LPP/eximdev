@@ -260,6 +260,8 @@ function useFetchJobDetails(
       out_of_charge: "",
       checked: false,
       type_of_Do: "",
+      documentation_completed_date_time: "",
+      bill_document_sent_to_accounts: "",
     },
     onSubmit: async (values) => {
       await axios.put(
@@ -312,6 +314,9 @@ function useFetchJobDetails(
           obl_telex_bl: values.obl_telex_bl,
           document_received_date: values.document_received_date,
           type_of_Do: values.type_of_Do,
+          documentation_completed_date_time:
+            values.documentation_completed_date_time,
+          bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -395,6 +400,14 @@ function useFetchJobDetails(
           container.do_revalidation_date === undefined
             ? ""
             : container.do_revalidation_date,
+        documentation_completed_date_time:
+          container.documentation_completed_date_time === undefined
+            ? ""
+            : container.documentation_completed_date_time,
+        bill_document_sent_to_accounts:
+          container.bill_document_sent_to_accounts === undefined
+            ? ""
+            : container.bill_document_sent_to_accounts,
         do_validity_upto_container_level:
           container.do_validity_upto_container_level === undefined
             ? ""
@@ -503,7 +516,7 @@ function useFetchJobDetails(
         ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
         gate_pass_copies:
           data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
-          all_documents:
+        all_documents:
           data.all_documents === undefined ? [] : data.all_documents,
         do_revalidation:
           data.do_revalidation === undefined ? false : data.do_revalidation,
@@ -511,6 +524,14 @@ function useFetchJobDetails(
           data.do_revalidation_date === undefined
             ? ""
             : data.do_revalidation_date,
+        documentation_completed_date_time:
+          data.documentation_completed_date_time === undefined
+            ? ""
+            : data.documentation_completed_date_time,
+        bill_document_sent_to_accounts:
+          data.bill_document_sent_to_accounts === undefined
+            ? ""
+            : data.bill_document_sent_to_accounts,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked:

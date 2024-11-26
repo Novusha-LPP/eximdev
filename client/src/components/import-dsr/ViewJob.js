@@ -444,6 +444,11 @@ function JobDetails() {
           </div>
 
           <div className="job-details-container">
+            <JobDetailsRowHeading heading="Completion Status" />
+            <strong>
+              Documention Status:{" "}
+              {formik.values.documentation_completed_date_time}
+            </strong>
             <JobDetailsRowHeading heading="Queries" />
             <br />
             {formik.values.do_queries.length > 0 &&

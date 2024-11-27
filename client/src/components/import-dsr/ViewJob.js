@@ -870,6 +870,7 @@ function JobDetails() {
                 </FormControl>
               </Col>
             </Row>
+
             <Row>
               <Col xs={12} lg={4}>
                 <div
@@ -882,7 +883,16 @@ function JobDetails() {
                       : "Document Received Date:"}
                   </strong>
                   &nbsp;
-                  {formik.values.document_received_date}
+                  {formik.values.document_received_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.document_received_date
+                      ).toLocaleString("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
                 </div>
               </Col>
 
@@ -903,23 +913,87 @@ function JobDetails() {
                       size="small"
                       margin="normal"
                       variant="outlined"
-                      type="date"
+                      type="datetime-local"
                       id="document_received_date"
                       name="document_received_date"
-                      value={formik.values.document_received_date}
-                      onChange={formik.handleChange}
+                      value={
+                        formik.values.document_received_date
+                          ? formik.values.document_received_date
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue(
+                            "document_received_date",
+                            newValue
+                          );
+                        } else {
+                          formik.setFieldValue("document_received_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
                     />
                   </div>
                 </Col>
               )}
             </Row>
+
             <Row>
-              <Col xs={12} lg={6}>
+              {/* Checkbox for DO Planning */}
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
-                  <strong>DO Planning & Type:&nbsp;</strong>
+                  <strong>DO Planning:&nbsp;</strong>
+                  <Checkbox
+                    value={formik.values.do_planning}
+                    checked={formik.values.do_planning}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      if (isChecked) {
+                        // Set current date-time when checked
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16); // Format to "yyyy-MM-ddTHH:mm"
+                        formik.setFieldValue("do_planning", true);
+                        formik.setFieldValue(
+                          "do_planning_date",
+                          currentDateTime
+                        );
+                      } else {
+                        // Clear values when unchecked
+                        formik.setFieldValue("do_planning", false);
+                        formik.setFieldValue("do_planning_date", "");
+                      }
+                    }}
+                  />
+                  {formik.values.do_planning_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(formik.values.do_planning_date).toLocaleString(
+                        "en-US",
+                        {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        }
+                      )}
+                    </span>
+                  )}
+                </div>
+              </Col>
+
+              {/* Radio Button for DO Planning Type */}
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>DO Planning Type:&nbsp;</strong>
                   <RadioGroup
                     row
                     aria-label="do-planning-type"
@@ -927,19 +1001,12 @@ function JobDetails() {
                     value={formik.values.type_of_Do}
                     onChange={(e) => {
                       const selectedValue = e.target.value;
-
                       if (selectedValue === "Clear") {
-                        // Reset values when "Clear" is selected
+                        // Retain the current date but reset only the type
                         formik.setFieldValue("type_of_Do", "");
-                        formik.setFieldValue("do_planning_date", "");
                       } else {
-                        // Set the selected type and current date-time
-                        const currentDateTime = new Date().toISOString();
+                        // Set the selected type without changing the date
                         formik.setFieldValue("type_of_Do", selectedValue);
-                        formik.setFieldValue(
-                          "do_planning_date",
-                          currentDateTime
-                        );
                       }
                     }}
                     style={{ marginLeft: "10px" }}
@@ -987,26 +1054,17 @@ function JobDetails() {
                       label="Clear"
                     />
                   </RadioGroup>
-
-                  {/* Show the current date and time */}
-                  {formik.values.do_planning_date &&
-                    new Date(formik.values.do_planning_date).toLocaleString(
-                      "en-US",
-                      {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      }
-                    )}
                 </div>
               </Col>
 
+              {/* Admin TextField for DO Planning Date */}
               {user.role === "Admin" && (
-                <Col xs={12} lg={6}>
+                <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
                   >
-                    <strong>DO Planning Date:&nbsp;</strong>
+                    <strong>DO Planning Date (Admin Only):&nbsp;</strong>
                     <TextField
                       fullWidth
                       size="small"
@@ -1015,22 +1073,11 @@ function JobDetails() {
                       type="datetime-local"
                       id="do_planning_date"
                       name="do_planning_date"
-                      value={
-                        formik.values.do_planning_date
-                          ? new Date(formik.values.do_planning_date)
-                              .toISOString()
-                              .slice(0, 16) // Format for datetime-local input
-                          : ""
-                      }
+                      value={formik.values.do_planning_date || ""}
                       onChange={(e) => {
                         const newValue = e.target.value;
                         if (newValue) {
-                          formik.setFieldValue(
-                            "do_planning_date",
-                            new Date(newValue).toISOString()
-                          );
-                        } else {
-                          formik.setFieldValue("do_planning_date", "");
+                          formik.setFieldValue("do_planning_date", newValue);
                         }
                       }}
                       InputLabelProps={{
@@ -1041,6 +1088,7 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
+
             <Row>
               <Col xs={12} lg={2}>
                 <div className="job-detail-input-container">
@@ -1102,8 +1150,12 @@ function JobDetails() {
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       if (isChecked) {
-                        // Set current date-time when checked
-                        const currentDateTime = new Date().toISOString();
+                        // Set current date-time adjusted to local timezone
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
                         formik.setFieldValue("do_revalidation", true);
                         formik.setFieldValue(
                           "do_revalidation_date",
@@ -1116,14 +1168,16 @@ function JobDetails() {
                       }
                     }}
                   />
-                  {formik.values.do_revalidation_date &&
-                    new Date(formik.values.do_revalidation_date).toLocaleString(
-                      "en-US",
-                      {
+                  {formik.values.do_revalidation_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.do_revalidation_date
+                      ).toLocaleString("en-US", {
                         timeZone: "Asia/Kolkata",
                         hour12: true,
-                      }
-                    )}
+                      })}
+                    </span>
+                  )}
                 </div>
               </Col>
 
@@ -1144,9 +1198,7 @@ function JobDetails() {
                       name="do_revalidation_date"
                       value={
                         formik.values.do_revalidation_date
-                          ? new Date(formik.values.do_revalidation_date)
-                              .toISOString()
-                              .slice(0, 16) // Format for datetime-local input
+                          ? formik.values.do_revalidation_date
                           : ""
                       }
                       onChange={(e) => {
@@ -1155,7 +1207,7 @@ function JobDetails() {
                           formik.setFieldValue("do_revalidation", true);
                           formik.setFieldValue(
                             "do_revalidation_date",
-                            new Date(newValue).toISOString()
+                            newValue
                           );
                         } else {
                           formik.setFieldValue("do_revalidation", false);
@@ -1170,6 +1222,7 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
+
             <Row>
               <Col xs={12} lg={3}>
                 <div
@@ -1183,8 +1236,12 @@ function JobDetails() {
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       if (isChecked) {
-                        // Set current date-time when checked
-                        const currentDateTime = new Date().toISOString();
+                        // Set current date-time when checked, adjusted to local timezone
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
                         formik.setFieldValue("examinationPlanning", true);
                         formik.setFieldValue(
                           "examination_planning_date",
@@ -1197,13 +1254,16 @@ function JobDetails() {
                       }
                     }}
                   />
-                  {formik.values.examination_planning_date &&
-                    new Date(
-                      formik.values.examination_planning_date
-                    ).toLocaleString("en-US", {
-                      timeZone: "Asia/Kolkata",
-                      hour12: true,
-                    })}
+                  {formik.values.examination_planning_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.examination_planning_date
+                      ).toLocaleString("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
                 </div>
               </Col>
               {user.role === "Admin" && (
@@ -1223,9 +1283,7 @@ function JobDetails() {
                       name="examination_planning_date"
                       value={
                         formik.values.examination_planning_date
-                          ? new Date(formik.values.examination_planning_date)
-                              .toISOString()
-                              .slice(0, 16) // Format for datetime-local input
+                          ? formik.values.examination_planning_date
                           : ""
                       }
                       onChange={(e) => {
@@ -1234,7 +1292,7 @@ function JobDetails() {
                           formik.setFieldValue("examinationPlanning", true);
                           formik.setFieldValue(
                             "examination_planning_date",
-                            new Date(newValue).toISOString()
+                            newValue
                           );
                         } else {
                           formik.setFieldValue("examinationPlanning", false);

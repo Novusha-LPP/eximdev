@@ -69,7 +69,7 @@ function CompletedKyc() {
           ""
         ),
     },
-    ...(user.username === "manu_pillai"
+    ...(user.role === "Admin"
       ? [
           {
             accessorKey: "edit",

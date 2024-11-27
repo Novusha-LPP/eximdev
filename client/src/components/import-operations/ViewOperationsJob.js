@@ -238,65 +238,6 @@ function ViewOperationsJob() {
                 </div>
               </Col>
             </Row>
-            <br />
-            <Row>
-              <Col xs={12} lg={3}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Completed Operation:&nbsp;</strong>
-
-                  <Checkbox
-                    value={formik.values.completedOperation}
-                    checked={formik.values.completedOperation}
-                    onChange={(e) => {
-                      const newValue = e.target.checked;
-
-                      // If checked, set the date to current date, otherwise clear the date
-                      if (newValue) {
-                        const currentDate = new Date()
-                          .toISOString()
-                          .split("T")[0]; // Get current date in 'YYYY-MM-DD' format
-                        formik.setFieldValue(
-                          "completed_operation_date",
-                          currentDate
-                        );
-                      } else {
-                        formik.setFieldValue("completed_operation_date", ""); // Clear date if unchecked
-                      }
-
-                      formik.setFieldValue("completedOperation", newValue); // Update checkbox value
-                    }}
-                  />
-                  {formik.values.completed_operation_date}
-                </div>
-              </Col>
-
-              {(user.username === "atul_dev" ||
-                user.username === "manu_pillai") && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Completed Operation Date:&nbsp;</strong>
-
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="date"
-                      id="completed_operation_date"
-                      name="completed_operation_date"
-                      value={formik.values.completed_operation_date}
-                      onChange={formik.handleChange}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
 
             <br />
             <Row>
@@ -814,11 +755,99 @@ function ViewOperationsJob() {
                 );
               })}
           </div>
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Confirmation of completion" />
+            <Row>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Completed Operation:&nbsp;</strong>
+                  <Checkbox
+                    value={formik.values.completedOperation}
+                    checked={formik.values.completedOperation}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+
+                      // If checked, set the current date and time adjusted to the local timezone
+                      if (isChecked) {
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16); // Format for 'YYYY-MM-DDTHH:mm'
+                        formik.setFieldValue("completedOperation", true);
+                        formik.setFieldValue(
+                          "completed_operation_date",
+                          currentDateTime
+                        );
+                      } else {
+                        formik.setFieldValue("completedOperation", false);
+                        formik.setFieldValue("completed_operation_date", ""); // Clear date if unchecked
+                      }
+                    }}
+                  />
+                  {formik.values.completed_operation_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.completed_operation_date
+                      ).toLocaleString("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </Col>
+
+              {(user.username === "atul_dev" || user.role === "Admin") && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>Completed Operation Date:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="datetime-local"
+                      id="completed_operation_date"
+                      name="completed_operation_date"
+                      value={
+                        formik.values.completed_operation_date
+                          ? formik.values.completed_operation_date
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue("completedOperation", true);
+                          formik.setFieldValue(
+                            "completed_operation_date",
+                            newValue
+                          );
+                        } else {
+                          formik.setFieldValue("completedOperation", false);
+                          formik.setFieldValue("completed_operation_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </Col>
+              )}
+            </Row>
+          </div>
           <Row style={{ margin: "20px 0" }}>
             <Col>
               <button
                 type="submit"
-                className="btn"
+                className="btn sticky-btn"
                 style={{ float: "right", margin: "0px 20px" }}
                 aria-label="submit-btn"
               >

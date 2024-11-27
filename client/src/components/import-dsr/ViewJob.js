@@ -832,7 +832,7 @@ function JobDetails() {
                     name="radio-buttons-group"
                     value={formik.values.obl_telex_bl}
                     onChange={handleBlStatusChange}
-                    style={{ justifyContent: "center", alignItems: "center", display: "flex" }}
+                    style={{ marginTop: "10px" }}
                   >
                     <FormControlLabel
                       value="OBL"
@@ -1042,7 +1042,7 @@ function JobDetails() {
               )}
             </Row>
             <Row>
-              <Col xs={12} lg={4}>
+              <Col xs={12} lg={2}>
                 <div className="job-detail-input-container">
                   <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
                   {formik.values.do_revalidation ? (
@@ -1249,7 +1249,6 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
-            
           </div>
           {/*************************** Row 10 ****************************/}
           <div className="job-details-container">

@@ -2180,7 +2180,7 @@ function JobDetails() {
           <Row>
             <Col>
               <button
-                className="btn"
+                 className="btn sticky-btn"
                 type="submit"
                 style={{ float: "right", margin: "10px" }}
                 aria-label="submit-btn"

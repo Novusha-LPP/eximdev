@@ -260,6 +260,8 @@ function useFetchJobDetails(
       out_of_charge: "",
       checked: false,
       type_of_Do: "",
+      documentation_completed_date_time: "",
+      bill_document_sent_to_accounts: "",
     },
     onSubmit: async (values) => {
       await axios.put(
@@ -312,6 +314,9 @@ function useFetchJobDetails(
           obl_telex_bl: values.obl_telex_bl,
           document_received_date: values.document_received_date,
           type_of_Do: values.type_of_Do,
+          documentation_completed_date_time:
+            values.documentation_completed_date_time,
+          bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -395,6 +400,14 @@ function useFetchJobDetails(
           container.do_revalidation_date === undefined
             ? ""
             : container.do_revalidation_date,
+        documentation_completed_date_time:
+          container.documentation_completed_date_time === undefined
+            ? ""
+            : container.documentation_completed_date_time,
+        bill_document_sent_to_accounts:
+          container.bill_document_sent_to_accounts === undefined
+            ? ""
+            : container.bill_document_sent_to_accounts,
         do_validity_upto_container_level:
           container.do_validity_upto_container_level === undefined
             ? ""
@@ -503,7 +516,7 @@ function useFetchJobDetails(
         ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
         gate_pass_copies:
           data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
-          all_documents:
+        all_documents:
           data.all_documents === undefined ? [] : data.all_documents,
         do_revalidation:
           data.do_revalidation === undefined ? false : data.do_revalidation,
@@ -511,6 +524,14 @@ function useFetchJobDetails(
           data.do_revalidation_date === undefined
             ? ""
             : data.do_revalidation_date,
+        documentation_completed_date_time:
+          data.documentation_completed_date_time === undefined
+            ? ""
+            : data.documentation_completed_date_time,
+        bill_document_sent_to_accounts:
+          data.bill_document_sent_to_accounts === undefined
+            ? ""
+            : data.bill_document_sent_to_accounts,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked:
@@ -573,43 +594,43 @@ function useFetchJobDetails(
     // eslint-disable-next-line
   }, [formik.values.arrival_date, formik.values.free_time, data, checked]);
 
-  const currentDate = new Date().toISOString().split("T")[0];
+  // const currentDate = new Date().toISOString().split("T")[0];
 
-  // Set document_received_date to today if obl_telex_bl is not empty
-  useEffect(() => {
-    if (formik.values.obl_telex_bl !== "") {
-      formik.setFieldValue("document_received_date", currentDate);
-    } else {
-      formik.setFieldValue("document_received_date", "");
-    }
-  }, [formik.values.obl_telex_bl]);
+  // // Set document_received_date to today if obl_telex_bl is not empty
+  // useEffect(() => {
+  //   if (formik.values.obl_telex_bl !== "") {
+  //     formik.setFieldValue("document_received_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("document_received_date", "");
+  //   }
+  // }, [formik.values.obl_telex_bl]);
 
-  // Set do_planning_date to today if doPlanning is true
-  useEffect(() => {
-    if (formik.values.doPlanning === true) {
-      formik.setFieldValue("do_planning_date", currentDate);
-    } else {
-      formik.setFieldValue("do_planning_date", "");
-    }
-  }, [formik.values.doPlanning]);
+  // // Set do_planning_date to today if doPlanning is true
+  // useEffect(() => {
+  //   if (formik.values.doPlanning === true) {
+  //     formik.setFieldValue("do_planning_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("do_planning_date", "");
+  //   }
+  // }, [formik.values.doPlanning]);
 
-  // Set do_revalidation_date to today if do_revalidation is true
-  useEffect(() => {
-    if (formik.values.do_revalidation === true) {
-      formik.setFieldValue("do_revalidation_date", currentDate);
-    } else {
-      formik.setFieldValue("do_revalidation_date", "");
-    }
-  }, [formik.values.do_revalidation]);
+  // // Set do_revalidation_date to today if do_revalidation is true
+  // useEffect(() => {
+  //   if (formik.values.do_revalidation === true) {
+  //     formik.setFieldValue("do_revalidation_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("do_revalidation_date", "");
+  //   }
+  // }, [formik.values.do_revalidation]);
 
-  // Set examination_planning_date to today if examinationPlanning is true
-  useEffect(() => {
-    if (formik.values.examinationPlanning === true) {
-      formik.setFieldValue("examination_planning_date", currentDate);
-    } else {
-      formik.setFieldValue("examination_planning_date", "");
-    }
-  }, [formik.values.examinationPlanning]);
+  // // Set examination_planning_date to today if examinationPlanning is true
+  // useEffect(() => {
+  //   if (formik.values.examinationPlanning === true) {
+  //     formik.setFieldValue("examination_planning_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("examination_planning_date", "");
+  //   }
+  // }, [formik.values.examinationPlanning]);
 
   // Update detention from dates and set do_validity_upto_job_level
   useEffect(() => {

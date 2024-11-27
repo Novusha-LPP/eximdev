@@ -64,13 +64,25 @@ function JobDetailsStaticData(props) {
       "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
       "ONE LINE":
         "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-      UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber}`,
+
       HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
       HYUNDI:
         "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
       "Cosco Container Lines":
         "https://elines.coscoshipping.com/ebusiness/cargotracking",
       COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
+      "Unifeeder Agencies India Pvt Ltd": `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
+        0,
+        3
+      )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(6, 8)}%2F${blNumber.slice(
+        8
+      )}`,
+      UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
+        0,
+        3
+      )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(6, 8)}%2F${blNumber.slice(
+        8
+      )}`,
     };
     return shippingLineUrls[shippingLine] || "#";
   };

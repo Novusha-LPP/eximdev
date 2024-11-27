@@ -847,7 +847,7 @@ function ViewOperationsJob() {
             <Col>
               <button
                 type="submit"
-                className="btn"
+                className="btn sticky-btn"
                 style={{ float: "right", margin: "0px 20px" }}
                 aria-label="submit-btn"
               >

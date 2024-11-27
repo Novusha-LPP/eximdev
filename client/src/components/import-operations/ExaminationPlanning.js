@@ -45,11 +45,11 @@ function ImportOperations() {
         const filteredRows = res.data.filter((row) => {
           const { custom_house, out_of_charge } = row;
 
-          // Check if custom_house is 'ICD SANAND' or 'ICD SACHANA'
-          if (custom_house === "ICD SANAND" || custom_house === "ICD SACHANA") {
-            // If out_of_charge is NOT empty or undefined, exclude the job
-            return !(out_of_charge !== "" && out_of_charge !== undefined);
-          }
+          // // Check if custom_house is 'ICD SANAND' or 'ICD SACHANA'
+          // if (custom_house === "ICD SANAND" || custom_house === "ICD SACHANA") {
+          //   // If out_of_charge is NOT empty or undefined, exclude the job
+          //   return !(out_of_charge !== "" && out_of_charge !== undefined);
+          // }
 
           // If the custom_house doesn't match, keep the job in the result
           return true;

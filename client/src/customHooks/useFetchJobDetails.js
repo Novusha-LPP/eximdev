@@ -594,43 +594,43 @@ function useFetchJobDetails(
     // eslint-disable-next-line
   }, [formik.values.arrival_date, formik.values.free_time, data, checked]);
 
-  const currentDate = new Date().toISOString().split("T")[0];
+  // const currentDate = new Date().toISOString().split("T")[0];
 
-  // Set document_received_date to today if obl_telex_bl is not empty
-  useEffect(() => {
-    if (formik.values.obl_telex_bl !== "") {
-      formik.setFieldValue("document_received_date", currentDate);
-    } else {
-      formik.setFieldValue("document_received_date", "");
-    }
-  }, [formik.values.obl_telex_bl]);
+  // // Set document_received_date to today if obl_telex_bl is not empty
+  // useEffect(() => {
+  //   if (formik.values.obl_telex_bl !== "") {
+  //     formik.setFieldValue("document_received_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("document_received_date", "");
+  //   }
+  // }, [formik.values.obl_telex_bl]);
 
-  // Set do_planning_date to today if doPlanning is true
-  useEffect(() => {
-    if (formik.values.doPlanning === true) {
-      formik.setFieldValue("do_planning_date", currentDate);
-    } else {
-      formik.setFieldValue("do_planning_date", "");
-    }
-  }, [formik.values.doPlanning]);
+  // // Set do_planning_date to today if doPlanning is true
+  // useEffect(() => {
+  //   if (formik.values.doPlanning === true) {
+  //     formik.setFieldValue("do_planning_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("do_planning_date", "");
+  //   }
+  // }, [formik.values.doPlanning]);
 
-  // Set do_revalidation_date to today if do_revalidation is true
-  useEffect(() => {
-    if (formik.values.do_revalidation === true) {
-      formik.setFieldValue("do_revalidation_date", currentDate);
-    } else {
-      formik.setFieldValue("do_revalidation_date", "");
-    }
-  }, [formik.values.do_revalidation]);
+  // // Set do_revalidation_date to today if do_revalidation is true
+  // useEffect(() => {
+  //   if (formik.values.do_revalidation === true) {
+  //     formik.setFieldValue("do_revalidation_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("do_revalidation_date", "");
+  //   }
+  // }, [formik.values.do_revalidation]);
 
-  // Set examination_planning_date to today if examinationPlanning is true
-  useEffect(() => {
-    if (formik.values.examinationPlanning === true) {
-      formik.setFieldValue("examination_planning_date", currentDate);
-    } else {
-      formik.setFieldValue("examination_planning_date", "");
-    }
-  }, [formik.values.examinationPlanning]);
+  // // Set examination_planning_date to today if examinationPlanning is true
+  // useEffect(() => {
+  //   if (formik.values.examinationPlanning === true) {
+  //     formik.setFieldValue("examination_planning_date", currentDate);
+  //   } else {
+  //     formik.setFieldValue("examination_planning_date", "");
+  //   }
+  // }, [formik.values.examinationPlanning]);
 
   // Update detention from dates and set do_validity_upto_job_level
   useEffect(() => {

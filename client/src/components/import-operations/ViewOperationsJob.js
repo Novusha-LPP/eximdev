@@ -273,8 +273,7 @@ function ViewOperationsJob() {
                 </div>
               </Col>
 
-              {(user.username === "atul_dev" ||
-                user.username === "manu_pillai") && (
+              {(user.username === "atul_dev" || user.role === "Admin") && (
                 <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"

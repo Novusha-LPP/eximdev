@@ -824,9 +824,7 @@ function JobDetails() {
                   </TextField>
                 </div>
               </Col>
-            </Row>
-            <Row>
-              <Col>
+              <Col xs={12} lg={5}>
                 <FormControl>
                   <RadioGroup
                     row
@@ -834,6 +832,7 @@ function JobDetails() {
                     name="radio-buttons-group"
                     value={formik.values.obl_telex_bl}
                     onChange={handleBlStatusChange}
+                    style={{ justifyContent: "center", alignItems: "center", display: "flex" }}
                   >
                     <FormControlLabel
                       value="OBL"
@@ -887,7 +886,7 @@ function JobDetails() {
                 </div>
               </Col>
 
-              {user.username === "manu_pillai" && (
+              {user.role === "Admin" && (
                 <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
@@ -914,89 +913,135 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
-
             <Row>
-              <Col xs={12} lg={4}>
+              <Col xs={12} lg={6}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
                   <strong>DO Planning & Type:&nbsp;</strong>
-
-                  <Checkbox
-                    value={formik.values.doPlanning}
-                    checked={formik.values.doPlanning}
+                  <RadioGroup
+                    row
+                    aria-label="do-planning-type"
+                    name="type_of_Do"
+                    value={formik.values.type_of_Do}
                     onChange={(e) => {
-                      const newValue = e.target.checked;
-                      formik.setFieldValue("doPlanning", newValue);
-                    }}
-                  />
-                  {formik.values.do_planning_date}
+                      const selectedValue = e.target.value;
 
-                  {/* Radio buttons that show only if DO Planning is true */}
-                  {formik.values.doPlanning && (
-                    <RadioGroup
-                      row
-                      aria-label="do-planning-location"
-                      name="type_of_Do"
-                      value={formik.values.type_of_Do}
-                      onChange={(e) => {
-                        formik.setFieldValue("type_of_Do", e.target.value);
-                      }}
-                      style={{ marginLeft: "10px" }}
-                    >
-                      <FormControlLabel
-                        value="ICD"
-                        control={
-                          <Radio
-                            style={{
-                              color: formik.values.doPlanning
+                      if (selectedValue === "Clear") {
+                        // Reset values when "Clear" is selected
+                        formik.setFieldValue("type_of_Do", "");
+                        formik.setFieldValue("do_planning_date", "");
+                      } else {
+                        // Set the selected type and current date-time
+                        const currentDateTime = new Date().toISOString();
+                        formik.setFieldValue("type_of_Do", selectedValue);
+                        formik.setFieldValue(
+                          "do_planning_date",
+                          currentDateTime
+                        );
+                      }
+                    }}
+                    style={{ marginLeft: "10px" }}
+                  >
+                    <FormControlLabel
+                      value="ICD"
+                      control={
+                        <Radio
+                          style={{
+                            color:
+                              formik.values.type_of_Do === "ICD"
                                 ? "green"
                                 : "inherit",
-                            }}
-                          />
-                        }
-                        label="ICD"
-                      />
-                      <FormControlLabel
-                        value="Factory"
-                        control={
-                          <Radio
-                            style={{
-                              color: formik.values.doPlanning
+                          }}
+                        />
+                      }
+                      label="ICD"
+                    />
+                    <FormControlLabel
+                      value="Factory"
+                      control={
+                        <Radio
+                          style={{
+                            color:
+                              formik.values.type_of_Do === "Factory"
                                 ? "green"
                                 : "inherit",
-                            }}
-                          />
-                        }
-                        label="Factory"
-                      />
-                    </RadioGroup>
-                  )}
+                          }}
+                        />
+                      }
+                      label="Factory"
+                    />
+                    <FormControlLabel
+                      value="Clear"
+                      control={
+                        <Radio
+                          style={{
+                            color:
+                              formik.values.type_of_Do === "Clear"
+                                ? "red"
+                                : "inherit",
+                          }}
+                        />
+                      }
+                      label="Clear"
+                    />
+                  </RadioGroup>
+
+                  {/* Show the current date and time */}
+                  {formik.values.do_planning_date &&
+                    new Date(formik.values.do_planning_date).toLocaleString(
+                      "en-US",
+                      {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      }
+                    )}
                 </div>
               </Col>
-              {user.username === "manu_pillai" && (
-                <Col xs={12} lg={4}>
+
+              {user.role === "Admin" && (
+                <Col xs={12} lg={6}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
                   >
                     <strong>DO Planning Date:&nbsp;</strong>
-
                     <TextField
                       fullWidth
                       size="small"
                       margin="normal"
                       variant="outlined"
-                      type="date"
+                      type="datetime-local"
                       id="do_planning_date"
                       name="do_planning_date"
-                      value={formik.values.do_planning_date}
-                      onChange={formik.handleChange}
+                      value={
+                        formik.values.do_planning_date
+                          ? new Date(formik.values.do_planning_date)
+                              .toISOString()
+                              .slice(0, 16) // Format for datetime-local input
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue(
+                            "do_planning_date",
+                            new Date(newValue).toISOString()
+                          );
+                        } else {
+                          formik.setFieldValue("do_planning_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
                     />
                   </div>
                 </Col>
               )}
+            </Row>
+            <Row>
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
@@ -1017,8 +1062,6 @@ function JobDetails() {
                   )}
                 </div>
               </Col>
-            </Row>
-            <Row>
               <Col xs={12} lg={3}>
                 <div
                   className="job-detail-input-container"
@@ -1046,7 +1089,6 @@ function JobDetails() {
                 </div>
               </Col>
             </Row>
-
             <Row>
               <Col xs={12} lg={3}>
                 <div
@@ -1058,32 +1100,71 @@ function JobDetails() {
                     value={formik.values.do_revalidation}
                     checked={formik.values.do_revalidation}
                     onChange={(e) => {
-                      const newValue = e.target.checked;
-                      formik.setFieldValue("do_revalidation", newValue);
+                      const isChecked = e.target.checked;
+                      if (isChecked) {
+                        // Set current date-time when checked
+                        const currentDateTime = new Date().toISOString();
+                        formik.setFieldValue("do_revalidation", true);
+                        formik.setFieldValue(
+                          "do_revalidation_date",
+                          currentDateTime
+                        );
+                      } else {
+                        // Clear values when unchecked
+                        formik.setFieldValue("do_revalidation", false);
+                        formik.setFieldValue("do_revalidation_date", "");
+                      }
                     }}
                   />
-                  {formik.values.do_revalidation_date}
+                  {formik.values.do_revalidation_date &&
+                    new Date(formik.values.do_revalidation_date).toLocaleString(
+                      "en-US",
+                      {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      }
+                    )}
                 </div>
               </Col>
 
-              {user.username === "manu_pillai" && (
+              {user.role === "Admin" && (
                 <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
                   >
                     <strong>DO Revalidation Date:&nbsp;</strong>
-
                     <TextField
                       fullWidth
                       size="small"
                       margin="normal"
                       variant="outlined"
-                      type="date"
+                      type="datetime-local"
                       id="do_revalidation_date"
                       name="do_revalidation_date"
-                      value={formik.values.do_revalidation_date}
-                      onChange={formik.handleChange}
+                      value={
+                        formik.values.do_revalidation_date
+                          ? new Date(formik.values.do_revalidation_date)
+                              .toISOString()
+                              .slice(0, 16) // Format for datetime-local input
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue("do_revalidation", true);
+                          formik.setFieldValue(
+                            "do_revalidation_date",
+                            new Date(newValue).toISOString()
+                          );
+                        } else {
+                          formik.setFieldValue("do_revalidation", false);
+                          formik.setFieldValue("do_revalidation_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
                     />
                   </div>
                 </Col>
@@ -1096,41 +1177,79 @@ function JobDetails() {
                   style={{ justifyContent: "flex-start" }}
                 >
                   <strong>Examination Planning:&nbsp;</strong>
-
                   <Checkbox
                     value={formik.values.examinationPlanning}
                     checked={formik.values.examinationPlanning}
                     onChange={(e) => {
-                      const newValue = e.target.checked;
-                      formik.setFieldValue("examinationPlanning", newValue);
+                      const isChecked = e.target.checked;
+                      if (isChecked) {
+                        // Set current date-time when checked
+                        const currentDateTime = new Date().toISOString();
+                        formik.setFieldValue("examinationPlanning", true);
+                        formik.setFieldValue(
+                          "examination_planning_date",
+                          currentDateTime
+                        );
+                      } else {
+                        // Clear values when unchecked
+                        formik.setFieldValue("examinationPlanning", false);
+                        formik.setFieldValue("examination_planning_date", "");
+                      }
                     }}
                   />
-                  {formik.values.examination_planning_date}
+                  {formik.values.examination_planning_date &&
+                    new Date(
+                      formik.values.examination_planning_date
+                    ).toLocaleString("en-US", {
+                      timeZone: "Asia/Kolkata",
+                      hour12: true,
+                    })}
                 </div>
               </Col>
-              {user.username === "manu_pillai" && (
+              {user.role === "Admin" && (
                 <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
                   >
                     <strong>Examination Planning Date:&nbsp;</strong>
-
                     <TextField
                       fullWidth
                       size="small"
                       margin="normal"
                       variant="outlined"
-                      type="date"
+                      type="datetime-local"
                       id="examination_planning_date"
                       name="examination_planning_date"
-                      value={formik.values.examination_planning_date}
-                      onChange={formik.handleChange}
+                      value={
+                        formik.values.examination_planning_date
+                          ? new Date(formik.values.examination_planning_date)
+                              .toISOString()
+                              .slice(0, 16) // Format for datetime-local input
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue("examinationPlanning", true);
+                          formik.setFieldValue(
+                            "examination_planning_date",
+                            new Date(newValue).toISOString()
+                          );
+                        } else {
+                          formik.setFieldValue("examinationPlanning", false);
+                          formik.setFieldValue("examination_planning_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
                     />
                   </div>
                 </Col>
               )}
             </Row>
+            
           </div>
           {/*************************** Row 10 ****************************/}
           <div className="job-details-container">

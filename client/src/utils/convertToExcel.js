@@ -130,9 +130,8 @@ export const convertToExcel = async (
     const exrate = new Big(item.exrate);
     const inv_value = cif_amount.div(exrate).toFixed(2);
     const exact_inv_value = item.total_inv_value
-  ? item.total_inv_value.split(" ")[0]
-  : "";
-
+      ? item.total_inv_value.split(" ")[0]
+      : "";
 
     const invoice_value_and_unit_price = `${item.inv_currency} |${exact_inv_value} | ${item.unit_price}`;
     const net_weight = item.container_nos?.reduce((sum, container) => {
@@ -163,8 +162,7 @@ export const convertToExcel = async (
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
-      "NUMBER OF CONTAINERS": item.no_of_container.slice(0, -2),
-
+      "NUMBER OF CONTAINERS": item.no_of_container?.slice(0, -2) ?? "",
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,

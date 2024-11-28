@@ -212,13 +212,13 @@ function useJobColumns() {
         header: "BL Number",
         size: 200,
         Cell: ({ cell, row }) => {
-          const blNumber = cell?.getValue()?.toString();
-          const portOfReporting = row?.original?.port_of_reporting;
-          const shippingLine = row?.original?.shipping_line_airline;
+          // Safely retrieve the BL Number, defaulting to an empty string if undefined
+          const blNumber = cell?.getValue()?.toString() || "";
 
-          // Extract the first container number, if available
+          const portOfReporting = row?.original?.port_of_reporting || "";
+          const shippingLine = row?.original?.shipping_line_airline || "";
           const containerFirst =
-            row?.original?.container_nos?.[0]?.container_number;
+            row?.original?.container_nos?.[0]?.container_number || "";
 
           // Memoize the location for sea IGM entry
           const location = getPortLocation(portOfReporting);
@@ -232,7 +232,6 @@ function useJobColumns() {
             "CMA CGM AGENCIES INDIA PVT. LTD":
               "https://www.cma-cgm.com/ebusiness/tracking/search",
             "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${blNumber}`,
-            // Pass both blNumber and containerFirst
             "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
             "ONE LINE":
               "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
@@ -243,22 +242,29 @@ function useJobColumns() {
             "Cosco Container Lines":
               "https://elines.coscoshipping.com/ebusiness/cargotracking",
             COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
-            "Unifeeder Agencies India Pvt Ltd": `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
-              0,
-              3
-            )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(
-              6,
-              8
-            )}%2F${blNumber.slice(8)}`,
-            UNIFEEDER: `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
-              0,
-              3
-            )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(
-              6,
-              8
-            )}%2F${blNumber.slice(8)}`,
+            "Unifeeder Agencies India Pvt Ltd": blNumber
+              ? `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
+                  0,
+                  3
+                )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(
+                  6,
+                  8
+                )}%2F${blNumber.slice(8)}`
+              : "#",
+            UNIFEEDER: blNumber
+              ? `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
+                  0,
+                  3
+                )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(
+                  6,
+                  8
+                )}%2F${blNumber.slice(8)}`
+              : "#",
           };
+
+          // Log the shipping line URL for debugging
           console.log(shippingLineUrls.UNIFEEDER);
+
           // Determine the URL for the specific shipping line
           const shippingLineUrl = shippingLineUrls[shippingLine] || "#";
 
@@ -266,6 +272,7 @@ function useJobColumns() {
             <React.Fragment>
               {blNumber && (
                 <React.Fragment>
+                  {/* BL Number as a clickable link */}
                   <a
                     href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
                     target="_blank"

@@ -950,8 +950,8 @@ function JobDetails() {
                 >
                   <strong>DO Planning:&nbsp;</strong>
                   <Checkbox
-                    value={formik.values.do_planning}
-                    checked={formik.values.do_planning}
+                    value={formik.values.doPlanning}
+                    checked={formik.values.doPlanning}
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       if (isChecked) {
@@ -961,14 +961,14 @@ function JobDetails() {
                         )
                           .toISOString()
                           .slice(0, 16); // Format to "yyyy-MM-ddTHH:mm"
-                        formik.setFieldValue("do_planning", true);
+                        formik.setFieldValue("doPlanning", true);
                         formik.setFieldValue(
                           "do_planning_date",
                           currentDateTime
                         );
                       } else {
                         // Clear values when unchecked
-                        formik.setFieldValue("do_planning", false);
+                        formik.setFieldValue("doPlanning", false);
                         formik.setFieldValue("do_planning_date", "");
                       }
                     }}

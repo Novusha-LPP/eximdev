@@ -5,9 +5,11 @@ import {
   useMaterialReactTable,
 } from "material-react-table";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 function ESanchit() {
   const [rows, setRows] = React.useState([]);
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     async function getData() {
@@ -25,14 +27,37 @@ function ESanchit() {
       accessorKey: "job_no",
       header: "Job No",
       enableSorting: false,
-      size: 100,
-      Cell: ({ cell }) => (
-        <Link
-          to={`/esanchit-job/${cell.row.original.job_no}/${cell.row.original.year}`}
-        >
-          {cell.row.original.job_no}
-        </Link>
-      ),
+      size: 150,
+
+      Cell: ({ cell }) => {
+        const {
+          job_no,
+          year,
+          type_of_b_e,
+          consignment_type,
+          vessel_berthing,
+          container_nos, // Assume this field holds an array of container objects
+          detailed_status,
+          custom_house,
+          delivery_date,
+        } = cell.row.original;
+
+        return (
+          <div
+            onClick={() =>
+              navigate(`/esanchit-job/${job_no}/${year}`)
+            }
+            style={{
+              cursor: "pointer",
+              color: "blue",
+            }}
+          >
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
+            <br />
+          </div>
+        );
+      },
     },
     {
       accessorKey: "importer",

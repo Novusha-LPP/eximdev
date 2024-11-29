@@ -754,7 +754,8 @@ function useFetchJobDetails(
       updatedDocuments[index] = {
         document_name: newValue?.document_name || "",
         document_code: newValue?.document_code || "",
-        url: newValue?.url || "", // or `newValue.url` if you get `url` in the `newValue`
+        url: newValue?.url || [], // or `newValue.url` if you get `url` in the `newValue`
+        document_check_date: newValue?.document_check_date || "",
       };
 
       return updatedDocuments;
@@ -764,7 +765,12 @@ function useFetchJobDetails(
   const handleAddDocument = () => {
     setSelectedDocuments([
       ...selectedDocuments,
-      { document_name: "", document_code: "", url: "" },
+      {
+        document_name: "",
+        document_code: "",
+        url: [],
+        document_check_date: "",
+      },
     ]);
   };
 

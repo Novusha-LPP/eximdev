@@ -406,6 +406,7 @@ function JobDetails() {
                           document_name: newDocumentName,
                           document_code: newDocumentCode, // Use provided document code
                           url: [], // Initialize with an empty URL array
+                          document_check_date: "",
                         },
                       ]);
                       setNewDocumentName(""); // Clear name input after adding
@@ -2180,7 +2181,7 @@ function JobDetails() {
           <Row>
             <Col>
               <button
-                 className="btn sticky-btn"
+                className="btn sticky-btn"
                 type="submit"
                 style={{ float: "right", margin: "10px" }}
                 aria-label="submit-btn"

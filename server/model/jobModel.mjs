@@ -10,6 +10,7 @@ const cthDocumentSchema = new mongoose.Schema({
   document_code: { type: String, trim: true },
   url: [{ type: String, trim: true }],
   irn: { type: String, trim: true },
+  document_check_date: { type: String, trim: true },
 });
 
 const documentSchema = new mongoose.Schema({
@@ -17,6 +18,7 @@ const documentSchema = new mongoose.Schema({
   document_code: { type: String, trim: true },
   url: [{ type: String, trim: true }],
   irn: { type: String, trim: true },
+  document_check_date: { type: String, trim: true },
 });
 
 const jobSchema = new mongoose.Schema({
@@ -180,6 +182,9 @@ const jobSchema = new mongoose.Schema({
   free_time: { type: Number, trim: true },
   is_free_time_updated: { type: Boolean, default: false },
   factory_weighment_slip: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// E-sanchit
+  esanchit_completed_date_time: { type: String, trim: true },
 
   ////////////////////////////////////////////////// DO
   shipping_line_bond_completed: { type: String, trim: true },

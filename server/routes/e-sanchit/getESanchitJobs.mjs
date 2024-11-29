@@ -24,5 +24,41 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
     console.log(err);
   }
 });
+// PATCH endpoint for updating E-Sanchit jobs
+router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
+  const { job_no, year } = req.params;
+  const { cth_documents, queries, esanchit_completed_date_time } = req.body;
+
+  try {
+    // Find the job by job_no and year
+    const job = await JobModel.findOne({ job_no, year });
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Update fields only if provided
+    if (cth_documents) {
+      job.cth_documents = cth_documents;
+    }
+
+    if (queries) {
+      job.eSachitQueries = queries;
+    }
+
+    // Update esanchit_completed_date_time only if it exists in the request
+    if (esanchit_completed_date_time !== undefined) {
+      job.esanchit_completed_date_time = esanchit_completed_date_time || null; // Set to null if cleared
+    }
+
+    // Save the updated job
+    await job.save();
+
+    res.status(200).json({ message: "Job updated successfully", job });
+  } catch (err) {
+    console.error("Error updating job:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 export default router;

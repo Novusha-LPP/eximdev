@@ -44,9 +44,7 @@ function ESanchit() {
 
         return (
           <div
-            onClick={() =>
-              navigate(`/esanchit-job/${job_no}/${year}`)
-            }
+            onClick={() => navigate(`/esanchit-job/${job_no}/${year}`)}
             style={{
               cursor: "pointer",
               color: "blue",
@@ -63,26 +61,39 @@ function ESanchit() {
       accessorKey: "importer",
       header: "Importer",
       enableSorting: false,
-      size: 250,
+      size: 150,
     },
     {
-      accessorKey: "custom_house",
-      header: "Custom House",
+      accessorKey: "awb_bl_no",
+      header: "BL Num & Date",
       enableSorting: false,
       size: 150,
+      Cell: ({ cell }) => {
+        const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+        return (
+          <div>
+            {awb_bl_no} <br /> {awb_bl_date}
+          </div>
+        );
+      },
     },
 
     {
-      accessorKey: "gateway_igm_date",
-      header: "Gateway IGM Date",
-      enableSorting: false,
-      size: 150,
-    },
-    {
-      accessorKey: "discharge_date",
-      header: "Discharge Date/ IGM Date",
-      enableSorting: false,
-      size: 150,
+      accessorKey: "container_numbers",
+      header: "Container Numbers and Size",
+      size: 200,
+      Cell: ({ cell }) => {
+        const containerNos = cell.row.original.container_nos;
+        return (
+          <React.Fragment>
+            {containerNos?.map((container, id) => (
+              <div key={id} style={{ marginBottom: "4px" }}>
+                {container.container_number}| "{container.size}"
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      },
     },
   ];
 

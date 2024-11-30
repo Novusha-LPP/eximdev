@@ -10,31 +10,30 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
         { status: { $regex: /^pending$/i } },
         { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
         { job_no: { $ne: null } },
+        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
         {
           $or: [
-            { esanchit_completed_date_time: { $exists: false } }, // Field does not exist
-            { esanchit_completed_date_time: "" }, // Field is an empty string
-            {
-              "cth_documents.document_check_date": "", // Any document_check_date is an empty string
-            },
+            { esanchit_completed_date_time: { $exists: false } },
+            { esanchit_completed_date_time: "" },
+            { "cth_documents.document_check_date": "" },
           ],
         },
       ],
     }).select(
-      "job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos"
+      "job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
     );
 
     if (!data || data.length === 0) {
-      // Check if data is empty
       return res.status(404).json({ message: "Data not found" });
     }
 
     res.status(200).json(data);
   } catch (err) {
-    console.error("Error fetching data:", err); // Improved logging
+    console.error("Error fetching data:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 // PATCH endpoint for updating E-Sanchit jobs
 router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
   const { job_no, year } = req.params;

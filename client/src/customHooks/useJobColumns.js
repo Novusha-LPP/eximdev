@@ -262,8 +262,7 @@ function useJobColumns() {
               : "#",
           };
 
-          // Log the shipping line URL for debugging
-          console.log(shippingLineUrls.UNIFEEDER);
+        
 
           // Determine the URL for the specific shipping line
           const shippingLineUrl = shippingLineUrls[shippingLine] || "#";

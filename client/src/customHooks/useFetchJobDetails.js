@@ -261,6 +261,8 @@ function useFetchJobDetails(
       checked: false,
       type_of_Do: "",
       documentation_completed_date_time: "",
+      completed_operation_date: "",
+      esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
     },
     onSubmit: async (values) => {
@@ -316,6 +318,8 @@ function useFetchJobDetails(
           type_of_Do: values.type_of_Do,
           documentation_completed_date_time:
             values.documentation_completed_date_time,
+          completed_operation_date: values.completed_operation_date,
+          esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
         }
       );
@@ -404,6 +408,14 @@ function useFetchJobDetails(
           container.documentation_completed_date_time === undefined
             ? ""
             : container.documentation_completed_date_time,
+        completed_operation_date:
+          container.completed_operation_date === undefined
+            ? ""
+            : container.completed_operation_date,
+        esanchit_completed_date_time:
+          container.esanchit_completed_date_time === undefined
+            ? ""
+            : container.esanchit_completed_date_time,
         bill_document_sent_to_accounts:
           container.bill_document_sent_to_accounts === undefined
             ? ""
@@ -422,6 +434,10 @@ function useFetchJobDetails(
           container.actual_weight === undefined ? "" : container.actual_weight,
         net_weight:
           container.net_weight === undefined ? "" : container.net_weight,
+        container_gross_weight:
+          container.container_gross_weight === undefined
+            ? ""
+            : container.container_gross_weight,
         weight_shortage:
           container.weight_shortage === undefined
             ? ""
@@ -528,6 +544,14 @@ function useFetchJobDetails(
           data.documentation_completed_date_time === undefined
             ? ""
             : data.documentation_completed_date_time,
+        completed_operation_date:
+          data.completed_operation_date === undefined
+            ? ""
+            : data.completed_operation_date,
+        esanchit_completed_date_time:
+          data.esanchit_completed_date_time === undefined
+            ? ""
+            : data.esanchit_completed_date_time,
         bill_document_sent_to_accounts:
           data.bill_document_sent_to_accounts === undefined
             ? ""

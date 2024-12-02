@@ -60,16 +60,35 @@ export const handleTareWeightChange = (e, index, formik) => {
 };
 
 export const handleWeightAsPerDocumentChange = (e, index, formik) => {
-  console.log("Weight as per document change triggered");
-  const newWeightAsPerDocument = parseFloat(e.target.value) || 0;
-  console.log(`newWeightAsPerDocument (parsed):`, newWeightAsPerDocument);
+  // console.log("Weight as per document change triggered");
+  // const newWeightAsPerDocument = parseFloat(e.target.value) || 0;
+  // console.log(`newWeightAsPerDocument (parsed):`, newWeightAsPerDocument);
+  // formik.setFieldValue(
+  //   `container_nos[${index}].net_weight`,
+  //   newWeightAsPerDocument
+  // );
+  // console.log(
+  //   `Set formik value: container_nos[${index}].net_weight = ${newWeightAsPerDocument}`
+  // );
+  // // Use current actual weight from formik as there's no new value calculation here
+  // const currentActualWeight =
+  //   parseFloat(formik.values.container_nos[index].actual_weight) || 0;
+  // calculateWeightExcessShortage(index, formik, currentActualWeight);
+};
+export const handleGrossWeightAsPerDocumentChange = (e, index, formik) => {
+  console.log("Gross Weight as per document change triggered");
+  const newGrossWeightAsPerDocument = parseFloat(e.target.value) || 0;
+  console.log(
+    `newGrossWeightAsPerDocument (parsed):`,
+    newGrossWeightAsPerDocument
+  );
 
   formik.setFieldValue(
-    `container_nos[${index}].net_weight`,
-    newWeightAsPerDocument
+    `container_nos[${index}].container_gross_weight`,
+    newGrossWeightAsPerDocument
   );
   console.log(
-    `Set formik value: container_nos[${index}].net_weight = ${newWeightAsPerDocument}`
+    `Set formik value: container_nos[${index}].container_gross_weight = ${newGrossWeightAsPerDocument}`
   );
 
   // Use current actual weight from formik as there's no new value calculation here
@@ -106,9 +125,14 @@ const calculateWeightExcessShortage = (index, formik, newActualWeight) => {
 
   const weightAsPerDocument =
     parseFloat(formik.values.container_nos[index].net_weight) || 0;
-  console.log(`weightAsPerDocument (from formik):`, weightAsPerDocument);
+  const grossWeightAsPerDocument =
+    parseFloat(formik.values.container_nos[index].container_gross_weight) || 0;
+  console.log(
+    `grossWeightAsPerDocument (from formik):`,
+    grossWeightAsPerDocument
+  );
 
-  let difference = newActualWeight - weightAsPerDocument;
+  let difference = newActualWeight - grossWeightAsPerDocument;
   console.log(`difference (calculated):`, difference);
 
   const formattedDifference = difference.toFixed(2);

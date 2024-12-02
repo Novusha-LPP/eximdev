@@ -18,6 +18,7 @@ import {
   handlePhysicalWeightChange,
   handleTareWeightChange,
   handleWeightAsPerDocumentChange,
+  handleGrossWeightAsPerDocumentChange,
   handleActualWeightChange,
 } from "../../utils/handleTareWeightChange";
 import Checkbox from "@mui/material/Checkbox";
@@ -409,7 +410,7 @@ function ViewOperationsJob() {
                         </strong>
                       </h6>
                       <Row className="job-detail-row">
-                        <Col xs={12} md={3}>
+                        <Col xs={12} md={2}>
                           <div className="job-detail-input-container">
                             <strong>Physical Weight:&nbsp;</strong>
                             <TextField
@@ -426,7 +427,7 @@ function ViewOperationsJob() {
                             />
                           </div>
                         </Col>
-                        <Col xs={12} md={3}>
+                        <Col xs={12} md={2}>
                           <div className="job-detail-input-container">
                             <strong>Tare Weight:&nbsp;</strong>
                             <TextField
@@ -443,7 +444,7 @@ function ViewOperationsJob() {
                             />
                           </div>
                         </Col>
-                        <Col xs={12} md={3}>
+                        <Col xs={12} md={2}>
                           <div className="job-detail-input-container">
                             <strong>Actual Weight:&nbsp;</strong>
                             <TextField
@@ -456,6 +457,30 @@ function ViewOperationsJob() {
                               value={container.actual_weight}
                               onChange={(e) =>
                                 handleActualWeightChange(e, index, formik)
+                              }
+                              InputProps={{
+                                readOnly: true,
+                              }}
+                            />
+                          </div>
+                        </Col>
+                        <Col xs={12} md={3}>
+                          <div className="job-detail-input-container">
+                            <strong>Gross Weight as per Document:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              id={`container_gross_weight_${index}`}
+                              name={`container_nos[${index}].container_gross_weight`}
+                              value={container.container_gross_weight}
+                              onChange={(e) =>
+                                handleGrossWeightAsPerDocumentChange(
+                                  e,
+                                  index,
+                                  formik
+                                )
                               }
                               InputProps={{
                                 readOnly: true,

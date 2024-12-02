@@ -58,6 +58,7 @@ const jobSchema = new mongoose.Schema({
       physical_weight: { type: String, trim: true },
       tare_weight: { type: String, trim: true },
       net_weight: { type: String, trim: true },
+      container_gross_weight: { type: String, trim: true },
       actual_weight: { type: String, trim: true },
       transporter: { type: String, trim: true },
       vehicle_no: { type: String, trim: true },

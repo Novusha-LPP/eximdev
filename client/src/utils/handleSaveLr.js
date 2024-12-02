@@ -39,6 +39,9 @@ export const handleSaveLr = async (row, props) => {
   if (row.net_weight && (isNaN(row.net_weight) || row.net_weight <= 0)) {
     errors.push("Net weight must be a positive number.");
   }
+  if (row.container_gross_weight && (isNaN(row.container_gross_weight) || row.container_gross_weight <= 0)) {
+    errors.push("Gross weight must be a positive number.");
+  }
   // Validate driver phone number
   const indianMobileRegex = /^[6-9]\d{9}$/;
   if (row.driver_phone && !indianMobileRegex.test(row.driver_phone)) {

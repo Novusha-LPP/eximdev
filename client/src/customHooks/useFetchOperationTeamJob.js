@@ -61,6 +61,7 @@ function useFetchOperationTeamJob(params) {
         detention_from: container.detention_from || "",
         size: container.size || "",
         net_weight: container.net_weight || "",
+        container_gross_weight: container.container_gross_weight || "",
         pre_weighment: container.pre_weighment || "",
         post_weighment: container.post_weighment || "",
         physical_weight: container.physical_weight || "",

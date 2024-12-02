@@ -19,7 +19,10 @@ import JobDetailsStaticData from "./JobDetailsStaticData";
 import JobDetailsRowHeading from "./JobDetailsRowHeading";
 import FormGroup from "@mui/material/FormGroup";
 import { TabValueContext } from "../../contexts/TabValueContext";
-import { handleNetWeightChange } from "../../utils/handleNetWeightChange";
+import {
+  handleNetWeightChange,
+  handleGrossWeightChange,
+} from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
@@ -257,6 +260,7 @@ function JobDetails() {
         tare_weight: "",
         actual_weight: "",
         net_weight: "",
+        container_gross_weight: "",
         weight_shortage: "",
         transporter: "",
       },
@@ -451,7 +455,7 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
-                    Documentation Status:{" "}
+                    Documentation Completed:{" "}
                     {formik.values.documentation_completed_date_time ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
@@ -497,22 +501,22 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
-                    E-Sanchit Status:{" "}
-                    {/* {formik.values.documentation_completed_date_time && (
+                    E-Sanchit Completed:{" "}
+                    {formik.values.esanchit_completed_date_time && (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
-                          formik.values.documentation_completed_date_time
+                          formik.values.esanchit_completed_date_time
                         ).toLocaleString("en-US", {
                           timeZone: "Asia/Kolkata",
                           hour12: true,
                         })}
                       </span>
-                    )} */}
+                    )}
                   </strong>
                 </div>
               </Col>
 
-              {/* {user?.role === "Admin" && (
+              {user?.role === "Admin" && (
                 <Col xs={12} md={3}>
                   <TextField
                     type="datetime-local"
@@ -520,15 +524,13 @@ function JobDetails() {
                     size="small"
                     margin="normal"
                     variant="outlined"
-                    id="documentation_completed_date_time"
-                    name="documentation_completed_date_time"
+                    id="esanchit_completed_date_time"
+                    name="esanchit_completed_date_time"
                     label="Set Date (Admin Only)"
-                    value={
-                      formik.values.documentation_completed_date_time || ""
-                    }
+                    value={formik.values.esanchit_completed_date_time || ""}
                     onChange={(e) =>
                       formik.setFieldValue(
-                        "documentation_completed_date_time",
+                        "esanchit_completed_date_time",
                         e.target.value
                       )
                     } // Update formik value
@@ -537,7 +539,7 @@ function JobDetails() {
                     }}
                   />
                 </Col>
-              )} */}
+              )}
             </Row>
             <Row>
               <Col xs={12} lg={3}>
@@ -587,7 +589,7 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
-                    Documentation Status:{" "}
+                    DO Billing Completed:{" "}
                     {formik.values.bill_document_sent_to_accounts ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
@@ -623,6 +625,51 @@ function JobDetails() {
                         "bill_document_sent_to_accounts",
                         e.target.value
                       )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+            </Row>
+            <Row>
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Operation Completed:{" "}
+                    {formik.values.completed_operation_date ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.completed_operation_date
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="completed_operation_date"
+                    name="completed_operation_date"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.completed_operation_date || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue("completed_operation_date", e.target.value)
                     } // Update formik value
                     InputLabelProps={{
                       shrink: true,
@@ -1966,22 +2013,40 @@ function JobDetails() {
                     </button>
 
                     <Row className="job-detail-row">
-                      <Col xs={12} lg={3}>
+                      <Col xs={12} lg={2}>
                         <div className="job-detail-input-container">
                           <strong>Physical Weight:&nbsp;</strong>
                           {container.physical_weight}
                         </div>
                       </Col>
-                      <Col xs={12} lg={3}>
+                      <Col xs={12} lg={2}>
                         <div className="job-detail-input-container">
                           <strong>Tare Weight:&nbsp;</strong>
                           {container.tare_weight}
                         </div>
                       </Col>
-                      <Col xs={12} lg={3}>
+                      <Col xs={12} lg={2}>
                         <div className="job-detail-input-container">
                           <strong>Actual Weight:&nbsp;</strong>
                           {container.actual_weight}
+                        </div>
+                      </Col>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Gross Weight as per Document:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id={`container_gross_weight_${index}`}
+                            name={`container_nos[${index}].container_gross_weight`}
+                            value={container.container_gross_weight}
+                            onChange={(e) =>
+                              handleGrossWeightChange(e, index, formik)
+                            }
+                          />
                         </div>
                       </Col>
                       <Col xs={12} lg={3}>
@@ -1996,9 +2061,7 @@ function JobDetails() {
                             id={`net_weight_${index}`}
                             name={`container_nos[${index}].net_weight`}
                             value={container.net_weight}
-                            onChange={(e) =>
-                              handleNetWeightChange(e, index, formik)
-                            }
+                            onChange={formik.handleChange}
                           />
                         </div>
                       </Col>

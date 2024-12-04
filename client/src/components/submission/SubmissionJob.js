@@ -196,12 +196,12 @@ const SubmissionJob = () => {
         payload
       );
 
-      alert("Job details updated successfully!");
+      // alert("Job details updated successfully!");
       navigate("/submission");
       await fetchJobDetails();
     } catch (error) {
       console.error("Error updating job details:", error);
-      alert("Failed to update job details. Please try again later.");
+      // alert("Failed to update job details. Please try again later.");
     } finally {
       setSubmitting(false);
     }
@@ -561,15 +561,14 @@ const SubmissionJob = () => {
                     </Col>
                   </Row>
                 </div>
-                <Button
-                  variant="contained"
-                  color="primary"
+                <button
+                  className="btn sticky-btn"
                   type="submit"
-                  disabled={isSubmitting}
-                  style={{ float: "right", marginTop: "20px" }}
+                  style={{ float: "right", margin: "10px" }}
+                  aria-label="submit-btn"
                 >
-                  {isSubmitting ? "Submitting..." : "Submit"}
-                </Button>
+                  Submit
+                </button>
               </Form>
             )}
           </Formik>

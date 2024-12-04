@@ -72,6 +72,7 @@ export const convertToExcel = async (
     "DETENTION FROM",
     "SHIPPING LINE",
     "CONTAINER NUM & SIZE",
+    "WEIGHT EXCESS/SHORTAGE", // New header for weight Excess/Shortage",
     "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
@@ -122,6 +123,14 @@ export const convertToExcel = async (
     const containerNumbersWithSizes = item.container_nos
       .map((container) => `${container.container_number} - ${container.size}`)
       .join(",\n");
+    const weightExcessShortage = item.container_nos
+      .map((container) =>
+        container.weight_shortage !== undefined
+          ? `${container.weight_shortage}`
+          : ""
+      )
+      .join(",\n");
+
 
     const size = item.container_nos
       .map((container) => container.size)
@@ -162,6 +171,7 @@ export const convertToExcel = async (
       "DETENTION FROM": detentionFrom,
       "SHIPPING LINE": item.shipping_line_airline,
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
+      "WEIGHT EXCESS/SHORTAGE": weightExcessShortage,
       "NUMBER OF CONTAINERS": item.no_of_container?.slice(0, -2) ?? "",
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,

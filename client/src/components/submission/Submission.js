@@ -15,6 +15,7 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import { useNavigate } from "react-router-dom";
 
 function Submission() {
   const [rows, setRows] = React.useState([]);
@@ -23,6 +24,8 @@ function Submission() {
   const [currentRowIndex, setCurrentRowIndex] = React.useState(null);
   const [submissionQueries, setSubmissionQueries] = React.useState([]);
   const [currentDocumentRow, setCurrentDocumentRow] = React.useState(null);
+
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     async function getData() {
@@ -105,7 +108,24 @@ function Submission() {
       accessorKey: "job_no",
       header: "Job No",
       enableSorting: false,
-      size: 100,
+      size: 150,
+      Cell: ({ row }) => {
+        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
+          row.original;
+
+        return (
+          <div
+            onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
+            style={{
+              cursor: "pointer",
+              color: "blue",
+            }}
+          >
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {custom_house}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "importer",
@@ -114,102 +134,81 @@ function Submission() {
       size: 150,
     },
     {
-      accessorKey: "custom_house",
-      header: "Custom House",
-      enableSorting: false,
-      size: 150,
-    },
-
-    {
       accessorKey: "gateway_igm_date",
-      header: "Gateway IGM Date",
+      header: "Gateway IGM NO. & Date",
       enableSorting: false,
       size: 130,
+      Cell: ({ row }) => {
+        const { gateway_igm_date = "N/A", gateway_igm = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${gateway_igm}`}</div>
+            <div>{`${gateway_igm_date}`}</div>
+          </div>
+        );
+      },
     },
     {
-      accessorKey: "discharge_date",
-      header: "Discharge Date/ IGM Date",
+      accessorKey: "igm_no",
+      header: "IGM NO. & Date",
       enableSorting: false,
       size: 130,
+      Cell: ({ row }) => {
+        const { igm_date = "N/A", igm_no = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${igm_no}`}</div>
+            <div>{`${igm_date}`}</div>
+          </div>
+        );
+      },
     },
     {
-      accessorKey: "checklist_verified_on",
-      header: "Checklist Verified On",
-      enableSorting: false,
-      size: 160,
-      Cell: ({ row }) => (
-        <Box sx={{ display: "flex", justifyContent: "center" }}>
-          <TextField
-            type="date"
-            size="small"
-            value={row.original.checklist_verified_on || ""}
-            onChange={(event) =>
-              handleDateChange(event, row.index, "checklist_verified_on")
-            }
-            InputLabelProps={{
-              shrink: true,
-            }}
-          />
-        </Box>
-      ),
-    },
-    {
-      accessorKey: "submission_date",
-      header: "Submission Date",
+      accessorKey: "invoice_number",
+      header: "Invoice NO. & Date",
       enableSorting: false,
       size: 130,
-      Cell: ({ row }) => (
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <Checkbox
-            checked={!!row.original.submission_date}
-            onChange={(event) => handleSubmissionDateChange(event, row.index)}
-          />
-          {row.original.submission_date && (
-            <Typography sx={{ ml: 2, mt: 3 }}>
-              {new Date(row.original.submission_date).toLocaleDateString()}
-            </Typography>
-          )}
-        </Box>
-      ),
+      Cell: ({ row }) => {
+        const { invoice_date = "N/A", invoice_number = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${invoice_number}`}</div>
+            <div>{`${invoice_date}`}</div>
+          </div>
+        );
+      },
     },
     {
-      accessorKey: "queries",
-      header: "Queries",
-      enableSorting: false,
-      size: 100,
-      Cell: ({ row }) => (
-        <IconButton onClick={() => handleEditClick(row.index)}>
-          <EditIcon />
-        </IconButton>
-      ),
-    },
-    {
-      accessorKey: "documents",
-      header: "Documents",
+      accessorKey: "awb_bl_no",
+      header: "BL Num & Date",
       enableSorting: false,
       size: 150,
-      Cell: ({ row }) => (
-        <IconButton onClick={() => handleDocumentClick(row.original)}>
-          <InsertDriveFileIcon />
-        </IconButton>
-      ),
+      Cell: ({ row }) => {
+        const { awb_bl_no = "N/A", awb_bl_date = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${awb_bl_no}`}</div>
+            <div>{`${awb_bl_date}`}</div>
+          </div>
+        );
+      },
     },
     {
-      accessorKey: "save",
-      header: "Save",
-      enableSorting: false,
-      size: 80,
-      Cell: ({ row }) => (
-        <IconButton onClick={() => handleSave(row.original)}>
-          <SaveIcon sx={{ color: "#015C4B" }} />
-        </IconButton>
-      ),
+      accessorKey: "container_numbers",
+      header: "Container Numbers and Size",
+      size: 200,
+      Cell: ({ cell }) => {
+        const containerNos = cell.row.original.container_nos;
+        return (
+          <React.Fragment>
+            {containerNos?.map((container, id) => (
+              <div key={id} style={{ marginBottom: "4px" }}>
+                {container.container_number}| "{container.size}"
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      },
     },
   ];
 

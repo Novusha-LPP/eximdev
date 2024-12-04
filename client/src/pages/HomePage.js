@@ -21,7 +21,9 @@ import EditCompletedKyc from "../components/customerKyc/EditCompletedKyc.js";
 // Documentation
 import Documentation from "../components/documentation/Documentation.js";
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
+// Submission
 import Submission from "../components/submission/Submission.js";
+import SubmissionJob from "../components/submission/SubmissionJob.js";
 // Employee KYC
 import EmployeeKYC from "../components/employeeKyc/EmployeeKYC.js";
 import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
@@ -62,7 +64,6 @@ import TyreMaintenance from "../components/tyre-maintenance/TyreMaintenance.js";
 import RTO from "../components/rto/RTO.js";
 import SRCEL from "../components/srcel/SRCEL.js";
 import SRCELDashboard from "../components/srcel/SRCELDashboard.js";
-
 
 const drawerWidth = 60;
 
@@ -137,8 +138,17 @@ function HomePage() {
 
             {/* Documentation */}
             <Route path="/documentation" element={<Documentation />} />
-            <Route path="/documentationJob/view-job/:job_no/:year" element={<DocumentationJob />} />
+            <Route
+              path="/documentationJob/view-job/:job_no/:year"
+              element={<DocumentationJob />}
+            />
+
+            {/* Submission */}
             <Route path="/submission" element={<Submission />} />
+            <Route
+              path="/submission-job/:job_no/:year"
+              element={<SubmissionJob />}
+            />
 
             {/* Employee KYC */}
             <Route path="/employee-kyc" element={<EmployeeKYC />} />
@@ -201,9 +211,6 @@ function HomePage() {
               path="/view-srcc-organisation-data/:_id"
               element={<ViewSrccOrganisationData />}
             />
-
-            {/* Submission */}
-            <Route path="/submission" element={<Submission />} />
 
             {/* Tyre Maintenance */}
             <Route path="/tyre-maintenance" element={<TyreMaintenance />} />

@@ -35,11 +35,7 @@ function ESanchit() {
           year,
           type_of_b_e,
           consignment_type,
-          vessel_berthing,
-          container_nos, // Assume this field holds an array of container objects
-          detailed_status,
           custom_house,
-          delivery_date,
         } = cell.row.original;
 
         return (
@@ -77,7 +73,6 @@ function ESanchit() {
         );
       },
     },
-
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",

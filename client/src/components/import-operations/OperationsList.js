@@ -8,12 +8,15 @@ import {
 } from "material-react-table";
 import { UserContext } from "../../contexts/UserContext";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { useNavigate } from "react-router-dom";
 
 function OperationsList() {
   const [years, setYears] = React.useState([]);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
+
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     async function getYears() {
@@ -137,25 +140,23 @@ function OperationsList() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No & ICD Code",
+      header: "Job No",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell, row }) => {
-        const jobNo = cell.getValue();
-        const icdCode = cell.row.original.custom_house;
-        const year = cell.row.original.year;
-        // const navigate = useNavigate(); // Assuming useNavigate is available in the scope
+      Cell: ({ row }) => {
+        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
+          row.original;
 
         return (
           <div
-            style={{ textAlign: "center" }} // Style for pointer
-            // onClick={() =>
-            //   navigate(`/import-operations/view-job/${jobNo}/${year}`)
-            // } // Navigate to the view-job route
+            // onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
+            style={{
+              cursor: "pointer",
+              color: "blue",
+            }}
           >
-            {jobNo}
-            <br />
-            <small>{icdCode}</small> {/* ICD Code */}
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {custom_house}
           </div>
         );
       },

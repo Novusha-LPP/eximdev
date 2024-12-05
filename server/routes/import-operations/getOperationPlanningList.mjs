@@ -46,7 +46,7 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
         detailed_status: "BE Noted, Arrival Pending", // Then check for detailed_status
         ...customHouseCondition, // Apply the custom house condition
       },
-      "job_no detailed_status importer status be_no be_date container_nos examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
+      "job_no detailed_status importer status be_no be_date container_nos examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year consignment_type type_of_b_e"
     )
       .lean() // Use lean() for improved performance
       .sort({ examination_planning_date: 1 });

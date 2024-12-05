@@ -1,13 +1,13 @@
+// SubmissionJob.js
 import React, { useState, useEffect, useRef, useContext } from "react";
 import {
   TextField,
   Box,
   Typography,
-  Button,
   Checkbox,
   FormControlLabel,
 } from "@mui/material";
-import { Formik, Form, Field, ErrorMessage } from "formik";
+import { Formik, Form, Field, ErrorMessage, useFormikContext } from "formik";
 import * as Yup from "yup"; // For form validation
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams, useNavigate } from "react-router-dom";
@@ -18,13 +18,58 @@ import { UserContext } from "../../contexts/UserContext";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 
+// Utility function to get current local datetime in ISO format (YYYY-MM-DDTHH:MM)
+const getCurrentLocalDateTime = () => {
+  const now = new Date();
+  const timezoneOffset = now.getTimezoneOffset() * 60000; // in milliseconds
+  const localISOTime = new Date(now.getTime() - timezoneOffset)
+    .toISOString()
+    .slice(0, 16);
+  return localISOTime;
+};
+
 // Validation Schema (Optional but recommended)
 const SubmissionJobSchema = Yup.object().shape({
+  // Define validation rules as needed
+  // Example:
   // be_no: Yup.string().trim().required("Bill of Entry No. is required"),
-  // verified_checklist_upload_date_and_time: Yup.string().nullable(),
-  // submission_completed_date_time: Yup.string().nullable(),
-  // job_sticker_upload_date_and_time: Yup.string().nullable(),
+  // Additional validation rules can be added here
 });
+
+// Custom component to watch and update 'submission_completed_date_time'
+const SubmissionCompletedWatcher = () => {
+  const { values, setFieldValue } = useFormikContext();
+
+  useEffect(() => {
+    const {
+      verified_checklist_upload_date_and_time,
+      job_sticker_upload_date_and_time,
+      submission_completed_date_time,
+    } = values;
+
+    if (
+      verified_checklist_upload_date_and_time &&
+      job_sticker_upload_date_and_time
+    ) {
+      if (!submission_completed_date_time) {
+        const currentDateTime = getCurrentLocalDateTime();
+        setFieldValue("submission_completed_date_time", currentDateTime);
+      }
+    } else {
+      if (submission_completed_date_time) {
+        setFieldValue("submission_completed_date_time", "");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    values.verified_checklist_upload_date_and_time,
+    values.job_sticker_upload_date_and_time,
+    values.submission_completed_date_time,
+    setFieldValue,
+  ]);
+
+  return null; // This component doesn't render anything
+};
 
 const SubmissionJob = () => {
   const { job_no, year } = useParams();
@@ -69,14 +114,59 @@ const SubmissionJob = () => {
     }
   };
 
-  const getCurrentLocalDateTime = () => {
-    const now = new Date();
-    const timezoneOffset = now.getTimezoneOffset() * 60000; // in milliseconds
-    const localISOTime = new Date(now.getTime() - timezoneOffset)
-      .toISOString()
-      .slice(0, 16);
-    return localISOTime;
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Prepare the payload
+      const payload = {
+        be_no: values.be_no,
+        verified_checklist_upload: verifiedChecklistUploads,
+        verified_checklist_upload_date_and_time:
+          values.verified_checklist_upload_date_and_time,
+        submission_completed_date_time: values.submission_completed_date_time,
+        job_sticker_upload: jobStickerUploads,
+        job_sticker_upload_date_and_time:
+          values.job_sticker_upload_date_and_time,
+        be_date: values.be_date,
+      };
+
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
+        payload
+      );
+
+      // Optionally, show a success message
+      // alert("Job details updated successfully!");
+      navigate("/submission");
+      await fetchJobDetails();
+    } catch (error) {
+      console.error("Error updating job details:", error);
+      // Optionally, show an error message
+      // alert("Failed to update job details. Please try again later.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const handleVerifiedChecklistFilesUploaded = (files) => {
+    // Assuming FileUpload returns an array of URLs
+    setVerifiedChecklistUploads([...verifiedChecklistUploads, ...files]);
+  };
+
+  const handleJobStickerFilesUploaded = (files) => {
+    // Assuming FileUpload returns an array of URLs
+    setJobStickerUploads([...jobStickerUploads, ...files]);
+  };
+
+  const handleDeleteVerifiedChecklist = (index) => {
+    setVerifiedChecklistUploads(
+      verifiedChecklistUploads.filter((_, i) => i !== index)
+    );
+  };
+
+  const handleDeleteJobSticker = (index) => {
+    setJobStickerUploads(jobStickerUploads.filter((_, i) => i !== index));
+  };
+
   const renderDocuments = (documents, type) => {
     if (!documents || documents.length === 0) {
       return <p>No {type} uploaded yet.</p>;
@@ -177,56 +267,6 @@ const SubmissionJob = () => {
     );
   };
 
-  const handleSubmit = async (values, { setSubmitting }) => {
-    try {
-      // Prepare the payload
-      const payload = {
-        be_no: values.be_no,
-        verified_checklist_upload: verifiedChecklistUploads,
-        verified_checklist_upload_date_and_time:
-          values.verified_checklist_upload_date_and_time,
-        submission_completed_date_time: values.submission_completed_date_time,
-        job_sticker_upload: jobStickerUploads,
-        job_sticker_upload_date_and_time:
-          values.job_sticker_upload_date_and_time,
-      };
-
-      await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
-        payload
-      );
-
-      // alert("Job details updated successfully!");
-      navigate("/submission");
-      await fetchJobDetails();
-    } catch (error) {
-      console.error("Error updating job details:", error);
-      // alert("Failed to update job details. Please try again later.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleVerifiedChecklistFilesUploaded = (files) => {
-    // Assuming FileUpload returns an array of URLs
-    setVerifiedChecklistUploads([...verifiedChecklistUploads, ...files]);
-  };
-
-  const handleJobStickerFilesUploaded = (files) => {
-    // Assuming FileUpload returns an array of URLs
-    setJobStickerUploads([...jobStickerUploads, ...files]);
-  };
-
-  const handleDeleteVerifiedChecklist = (index) => {
-    setVerifiedChecklistUploads(
-      verifiedChecklistUploads.filter((_, i) => i !== index)
-    );
-  };
-
-  const handleDeleteJobSticker = (index) => {
-    setJobStickerUploads(jobStickerUploads.filter((_, i) => i !== index));
-  };
-
   return (
     <div>
       {data !== null ? (
@@ -254,12 +294,16 @@ const SubmissionJob = () => {
                 data.submission_completed_date_time || "",
               job_sticker_upload_date_and_time:
                 data.job_sticker_upload_date_and_time || "",
+              be_date: data.be_date || "",
             }}
             validationSchema={SubmissionJobSchema}
             onSubmit={handleSubmit}
           >
             {({ values, setFieldValue, isSubmitting }) => (
               <Form>
+                {/* Include the SubmissionCompletedWatcher here */}
+                <SubmissionCompletedWatcher />
+
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Approved and Verification" />
 
@@ -359,7 +403,7 @@ const SubmissionJob = () => {
                     </Col>
 
                     {/* Bill of Entry No. Section */}
-                    <Col xs={12} lg={4}>
+                    <Col xs={12} lg={2}>
                       <div>
                         <Field
                           as={TextField}
@@ -376,6 +420,26 @@ const SubmissionJob = () => {
                           name="be_no"
                           component="div"
                           style={{ color: "red" }}
+                        />
+                      </div>
+                    </Col>
+                    <Col xs={12} lg={2}>
+                      <div>
+                        <Field
+                          as={TextField}
+                          fullWidth
+                          size="small"
+                          margin="normal"
+                          variant="outlined"
+                          type="date" // Changed from "datetime-local" to "date"
+                          id="be_date"
+                          name="be_date"
+                          value={values.be_date || ""}
+                          onChange={(e) => {
+                            setFieldValue("be_date", e.target.value);
+                          }}
+                          label="Bill of Entry Date"
+                          InputLabelProps={{ shrink: true }}
                         />
                       </div>
                     </Col>
@@ -478,7 +542,7 @@ const SubmissionJob = () => {
                 </div>
 
                 <div className="job-details-container">
-                  <JobDetailsRowHeading heading="All Cleared Submission" />
+                  <JobDetailsRowHeading heading="Submission Completed" />
                   <Row>
                     {/* Submission Completed Date/Time Section */}
                     <Col xs={12} lg={4}>
@@ -503,10 +567,15 @@ const SubmissionJob = () => {
                                   );
                                 }
                               }}
+                              disabled={
+                                !values.verified_checklist_upload_date_and_time ||
+                                !values.job_sticker_upload_date_and_time
+                              } // Disable if conditions are not met
                             />
                           }
                           label="Submission Completed Date/Time"
                         />
+
                         {values.submission_completed_date_time && (
                           <strong>
                             {new Date(
@@ -550,6 +619,10 @@ const SubmissionJob = () => {
                             InputLabelProps={{
                               shrink: true,
                             }}
+                            disabled={
+                              !values.verified_checklist_upload_date_and_time ||
+                              !values.job_sticker_upload_date_and_time
+                            } // Ensure input is disabled when necessary
                           />
                           <ErrorMessage
                             name="submission_completed_date_time"
@@ -566,6 +639,7 @@ const SubmissionJob = () => {
                   type="submit"
                   style={{ float: "right", margin: "10px" }}
                   aria-label="submit-btn"
+                  disabled={isSubmitting}
                 >
                   Submit
                 </button>

@@ -313,7 +313,7 @@ function JobDetails() {
             <JobDetailsRowHeading heading="Documents" />
             <br />
             <Row style={{ marginBottom: "20px" }}>
-              <Col xs={12} lg={3}>
+              <Col xs={12} lg={2}>
                 <TextField
                   fullWidth
                   size="small"
@@ -327,6 +327,37 @@ function JobDetails() {
                   InputLabelProps={{ shrink: true }}
                 />
               </Col>
+               {/* Bill of Entry No. Section */}
+               <Col xs={12} lg={2}>
+               <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    
+                    id="be_no"
+                    name="be_no"
+                    value={formik.values.be_no}
+                    onChange={formik.handleChange}
+                    label="Bill of Entry Number"
+                    InputLabelProps={{ shrink: true }}
+                  />
+              </Col>
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="be_date"
+                    name="be_date"
+                    value={formik.values.be_date}
+                    onChange={formik.handleChange}
+                    label="Bill of Entry Date"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Col>
             </Row>
 
             {/* CTH Documents Section */}

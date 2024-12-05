@@ -216,6 +216,8 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      be_no: "",
+      be_date: "",
       discharge_date: "",
       status: "",
       detailed_status: "",
@@ -292,6 +294,8 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          be_no: values.be_no,
+          be_date: values.be_date,
           discharge_date: values.discharge_date,
           assessment_date: values.assessment_date,
           duty_paid_date: values.duty_paid_date,
@@ -505,6 +509,8 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        be_no: data.be_no === undefined ? "" : data.be_no,
+        be_date: data.be_date === undefined ? "" : data.be_date,
         discharge_date:
           data.discharge_date === undefined ? "" : data.discharge_date,
         assessment_date:

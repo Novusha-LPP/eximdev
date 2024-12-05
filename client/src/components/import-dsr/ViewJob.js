@@ -327,37 +327,36 @@ function JobDetails() {
                   InputLabelProps={{ shrink: true }}
                 />
               </Col>
-               {/* Bill of Entry No. Section */}
-               <Col xs={12} lg={2}>
-               <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    
-                    id="be_no"
-                    name="be_no"
-                    value={formik.values.be_no}
-                    onChange={formik.handleChange}
-                    label="Bill of Entry Number"
-                    InputLabelProps={{ shrink: true }}
-                  />
+              {/* Bill of Entry No. Section */}
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="be_no"
+                  name="be_no"
+                  value={formik.values.be_no}
+                  onChange={formik.handleChange}
+                  label="Bill of Entry Number"
+                  InputLabelProps={{ shrink: true }}
+                />
               </Col>
               <Col xs={12} lg={2}>
                 <TextField
                   fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="be_date"
-                    name="be_date"
-                    value={formik.values.be_date}
-                    onChange={formik.handleChange}
-                    label="Bill of Entry Date"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Col>
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  type="date"
+                  id="be_date"
+                  name="be_date"
+                  value={formik.values.be_date}
+                  onChange={formik.handleChange}
+                  label="Bill of Entry Date"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
             </Row>
 
             {/* CTH Documents Section */}
@@ -533,7 +532,7 @@ function JobDetails() {
                 <div className="job-detail-input-container">
                   <strong>
                     E-Sanchit Completed:{" "}
-                    {formik.values.esanchit_completed_date_time && (
+                    {formik.values.esanchit_completed_date_time ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
                           formik.values.esanchit_completed_date_time
@@ -541,6 +540,10 @@ function JobDetails() {
                           timeZone: "Asia/Kolkata",
                           hour12: true,
                         })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
                       </span>
                     )}
                   </strong>
@@ -576,22 +579,26 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
-                    Submission Status:{" "}
-                    {/* {formik.values.documentation_completed_date_time && (
+                    Submission Completed:{" "}
+                    {formik.values.submission_completed_date_time ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                         {new Date(
-                          formik.values.documentation_completed_date_time
+                          formik.values.submission_completed_date_time
                         ).toLocaleString("en-US", {
                           timeZone: "Asia/Kolkata",
                           hour12: true,
                         })}
                       </span>
-                    )} */}
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
                   </strong>
                 </div>
               </Col>
 
-              {/* {user?.role === "Admin" && (
+              {user?.role === "Admin" && (
                 <Col xs={12} md={3}>
                   <TextField
                     type="datetime-local"
@@ -599,15 +606,13 @@ function JobDetails() {
                     size="small"
                     margin="normal"
                     variant="outlined"
-                    id="documentation_completed_date_time"
-                    name="documentation_completed_date_time"
+                    id="submission_completed_date_time"
+                    name="submission_completed_date_time"
                     label="Set Date (Admin Only)"
-                    value={
-                      formik.values.documentation_completed_date_time || ""
-                    }
+                    value={formik.values.submission_completed_date_time || ""}
                     onChange={(e) =>
                       formik.setFieldValue(
-                        "documentation_completed_date_time",
+                        "submission_completed_date_time",
                         e.target.value
                       )
                     } // Update formik value
@@ -616,7 +621,7 @@ function JobDetails() {
                     }}
                   />
                 </Col>
-              )} */}
+              )}
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
@@ -700,7 +705,10 @@ function JobDetails() {
                     label="Set Date (Admin Only)"
                     value={formik.values.completed_operation_date || ""}
                     onChange={(e) =>
-                      formik.setFieldValue("completed_operation_date", e.target.value)
+                      formik.setFieldValue(
+                        "completed_operation_date",
+                        e.target.value
+                      )
                     } // Update formik value
                     InputLabelProps={{
                       shrink: true,

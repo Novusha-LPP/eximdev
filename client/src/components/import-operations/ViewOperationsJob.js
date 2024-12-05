@@ -3,7 +3,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, TextField } from "@mui/material";
+import { IconButton, TextField, Box, Typography } from "@mui/material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import FileUpload from "../../components/gallery/FileUpload.js"; // Reusable FileUpload component
@@ -41,6 +41,15 @@ function ViewOperationsJob() {
   const params = useParams();
 
   const { data, formik } = useFetchOperationTeamJob(params);
+  const extractFileName = (url) => {
+    try {
+      const parts = url.split("/");
+      return decodeURIComponent(parts[parts.length - 1]);
+    } catch (error) {
+      console.error("Failed to extract file name:", error);
+      return url; // Fallback to original URL
+    }
+  };
 
   const handleContainerFileUpload = async (e, container_number, fileType) => {
     if (e.target.files.length === 0) {
@@ -157,6 +166,106 @@ function ViewOperationsJob() {
     );
   };
 
+  const renderDocuments = (documents, type) => {
+    if (!documents || documents.length === 0) {
+      return <p>No {type} uploaded yet.</p>;
+    }
+
+    return (
+      <Box display="flex" flexWrap="wrap" gap={2} mt={2}>
+        {documents.map((doc, index) => (
+          <Box
+            key={index}
+            sx={{
+              border: "1px solid #ccc",
+              padding: "10px",
+              borderRadius: "5px",
+              flex: "1 1 30%",
+              maxWidth: "30%",
+              minWidth: "250px",
+              maxHeight: "150px",
+              overflowY: "auto",
+            }}
+          >
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: "bold",
+                textAlign: "center",
+                backgroundColor: "#333",
+                color: "#fff",
+                padding: "5px",
+                borderRadius: "5px 5px 0 0",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+              }}
+            >
+              {doc.document_name || `Document ${index + 1}`} (
+              {doc.document_code})
+            </Typography>
+            <Box mt={2}>
+              {doc.url.map((url, imgIndex) => (
+                <div
+                  key={imgIndex}
+                  style={{
+                    marginBottom: "10px",
+                    paddingBottom: "5px",
+                    borderBottom: "1px solid #ccc",
+                  }}
+                >
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none", color: "blue" }}
+                  >
+                    {extractFileName(url)}
+                  </a>
+                </div>
+              ))}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  const renderAllDocuments = (documents) => {
+    if (!documents || documents.length === 0) {
+      return <p>No documents uploaded yet.</p>;
+    }
+
+    return (
+      <Box display="flex" flexWrap="wrap" gap={2} mt={2}>
+        {documents.map((url, index) => (
+          <Box
+            key={index}
+            sx={{
+              border: "1px solid #ccc",
+              padding: "10px",
+              borderRadius: "5px",
+              flex: "1 1 30%",
+              maxWidth: "30%",
+              minWidth: "250px",
+            }}
+          >
+            <Box mt={1} textAlign="center">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "none", color: "blue" }}
+              >
+                {extractFileName(url)}
+              </a>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
   return (
     <>
       {data !== null && (
@@ -167,6 +276,46 @@ function ViewOperationsJob() {
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
           />
+          {/* ********************** CTH Documents ********************** */}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="CTH Documents" />
+            {renderDocuments(data.cth_documents, "CTH Documents")}
+          </div>
+
+          {/* ********************** ALL Documents ********************** */}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="All Documents" />
+            {renderAllDocuments(data.all_documents)}
+          </div>
+          {/* ********************** submission ********************** */}
+          <div className="job-details-container">
+            <Row>
+              <Col xs={12} md={4}>
+                <div className="mb-3">
+                  <strong>Verified Checklist:&nbsp;</strong>
+                  <ImagePreview
+                    images={data.verified_checklist_upload || []}
+                    readOnly
+                  />
+                </div>
+              </Col>
+              <Col xs={12} md={4}>
+                <div className="mb-3">
+                  <strong>Job Sticker:&nbsp;</strong>
+                  <ImagePreview
+                    images={data.job_sticker_upload || []}
+                    readOnly
+                  />
+                </div>
+              </Col>
+              <Col xs={12} md={4}>
+                <div className="mb-3">
+                  <strong>DO Copies:&nbsp;</strong>
+                  <ImagePreview images={data.do_copies || []} readOnly />
+                </div>
+              </Col>
+            </Row>
+          </div>
           {/*************************** Row 11 ****************************/}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Dates" />

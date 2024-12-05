@@ -11,6 +11,7 @@ router.patch("/api/update-submission-job/:id", async (req, res) => {
     // Optional: Validate the incoming data to prevent unwanted fields
     const allowedUpdates = [
       "be_no",
+      "be_date",
       "verified_checklist_upload",
       "verified_checklist_upload_date_and_time",
       "submission_completed_date_time",

@@ -149,7 +149,11 @@ function OperationsList() {
 
         return (
           <div
-            // onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
+            onClick={() =>
+              navigate(
+                `/import-operations/list-operation-job/${job_no}/${year}`
+              )
+            }
             style={{
               cursor: "pointer",
               color: "blue",

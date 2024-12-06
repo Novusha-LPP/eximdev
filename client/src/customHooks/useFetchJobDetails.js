@@ -216,6 +216,8 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      be_no: "",
+      be_date: "",
       discharge_date: "",
       status: "",
       detailed_status: "",
@@ -261,6 +263,7 @@ function useFetchJobDetails(
       checked: false,
       type_of_Do: "",
       documentation_completed_date_time: "",
+      submission_completed_date_time: "",
       completed_operation_date: "",
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
@@ -292,6 +295,8 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          be_no: values.be_no,
+          be_date: values.be_date,
           discharge_date: values.discharge_date,
           assessment_date: values.assessment_date,
           duty_paid_date: values.duty_paid_date,
@@ -318,6 +323,7 @@ function useFetchJobDetails(
           type_of_Do: values.type_of_Do,
           documentation_completed_date_time:
             values.documentation_completed_date_time,
+          submission_completed_date_time: values.submission_completed_date_time,
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
@@ -404,22 +410,22 @@ function useFetchJobDetails(
           container.do_revalidation_date === undefined
             ? ""
             : container.do_revalidation_date,
-        documentation_completed_date_time:
-          container.documentation_completed_date_time === undefined
-            ? ""
-            : container.documentation_completed_date_time,
-        completed_operation_date:
-          container.completed_operation_date === undefined
-            ? ""
-            : container.completed_operation_date,
-        esanchit_completed_date_time:
-          container.esanchit_completed_date_time === undefined
-            ? ""
-            : container.esanchit_completed_date_time,
-        bill_document_sent_to_accounts:
-          container.bill_document_sent_to_accounts === undefined
-            ? ""
-            : container.bill_document_sent_to_accounts,
+        // documentation_completed_date_time:
+        //   container.documentation_completed_date_time === undefined
+        //     ? ""
+        //     : container.documentation_completed_date_time,
+        // completed_operation_date:
+        //   container.completed_operation_date === undefined
+        //     ? ""
+        //     : container.completed_operation_date,
+        // esanchit_completed_date_time:
+        //   container.esanchit_completed_date_time === undefined
+        //     ? ""
+        //     : container.esanchit_completed_date_time,
+        // bill_document_sent_to_accounts:
+        //   container.bill_document_sent_to_accounts === undefined
+        //     ? ""
+        //     : container.bill_document_sent_to_accounts,
         do_validity_upto_container_level:
           container.do_validity_upto_container_level === undefined
             ? ""
@@ -505,6 +511,8 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        be_no: data.be_no === undefined ? "" : data.be_no,
+        be_date: data.be_date === undefined ? "" : data.be_date,
         discharge_date:
           data.discharge_date === undefined ? "" : data.discharge_date,
         assessment_date:
@@ -544,6 +552,10 @@ function useFetchJobDetails(
           data.documentation_completed_date_time === undefined
             ? ""
             : data.documentation_completed_date_time,
+            submission_completed_date_time:
+          data.submission_completed_date_time === undefined
+            ? ""
+            : data.submission_completed_date_time,
         completed_operation_date:
           data.completed_operation_date === undefined
             ? ""

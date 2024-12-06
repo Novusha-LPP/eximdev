@@ -287,6 +287,11 @@ const jobSchema = new mongoose.Schema({
       reply: { type: String },
     },
   ],
+  verified_checklist_upload: [{ type: String, trim: true }],
+  verified_checklist_upload_date_and_time: { type: String },
+  submission_completed_date_time: { type: String },
+  job_sticker_upload: [{ type: String, trim: true }],
+  job_sticker_upload_date_and_time: { type: String },
 });
 
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });

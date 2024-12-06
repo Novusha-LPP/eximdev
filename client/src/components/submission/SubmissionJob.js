@@ -319,7 +319,18 @@ const SubmissionJob = () => {
                         />
                         <ImagePreview
                           images={verifiedChecklistUploads}
-                          onDeleteImage={handleDeleteVerifiedChecklist}
+                          onDeleteImage={(image) => {
+                            handleDeleteVerifiedChecklist(image);
+
+                            // Clear the date and time field if no uploads remain
+                            if (verifiedChecklistUploads.length === 1) {
+                              // 1 because the image will be deleted next
+                              setFieldValue(
+                                "verified_checklist_upload_date_and_time",
+                                ""
+                              );
+                            }
+                          }}
                           readOnly={false}
                         />
                       </div>
@@ -350,6 +361,7 @@ const SubmissionJob = () => {
                                   );
                                 }
                               }}
+                              disabled={verifiedChecklistUploads.length === 0} // Disable checkbox if no uploads
                             />
                           }
                           label="Verified Checklist Upload Approved Date"
@@ -459,7 +471,18 @@ const SubmissionJob = () => {
                         />
                         <ImagePreview
                           images={jobStickerUploads}
-                          onDeleteImage={handleDeleteJobSticker}
+                          onDeleteImage={(image) => {
+                            handleDeleteJobSticker(image);
+
+                            // Clear the date and time field if no uploads remain
+                            if (jobStickerUploads.length === 1) {
+                              // 1 because the image will be deleted next
+                              setFieldValue(
+                                "job_sticker_upload_date_and_time",
+                                ""
+                              );
+                            }
+                          }}
                           readOnly={false}
                         />
                       </div>
@@ -490,6 +513,7 @@ const SubmissionJob = () => {
                                   );
                                 }
                               }}
+                              disabled={jobStickerUploads.length === 0} // Disable checkbox if no uploads
                             />
                           }
                           label="Job Sticker Upload Approved Date"

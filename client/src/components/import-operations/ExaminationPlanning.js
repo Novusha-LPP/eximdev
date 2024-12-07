@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from "react";
 import "../../styles/import-dsr.scss";
-import { IconButton, MenuItem, TextField, InputAdornment } from "@mui/material";
+import { IconButton, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -10,65 +10,63 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 import { blue } from "@mui/material/colors";
-import SearchIcon from "@mui/icons-material/Search";
 
 function ImportOperations() {
-  const [page, setPage] = useState(1); // Current page number
-  const [loading, setLoading] = useState(false); // Loading state
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
-  const [years, setYears] = useState([]);
-  const [selectedYear, setSelectedYear] = useState("");
-  const [rows, setRows] = useState([]);
-  const [filteredRows, setFilteredRows] = useState([]);
-  const [selectedICD, setSelectedICD] = useState("");
+  const [years, setYears] = React.useState([]);
+  const [selectedYear, setSelectedYear] = React.useState("");
+  const [rows, setRows] = React.useState([]);
+  const [filteredRows, setFilteredRows] = React.useState([]); // Holds filtered data based on ICD Code
+  const [selectedICD, setSelectedICD] = React.useState(""); // Holds the selected ICD code
   const { user } = React.useContext(UserContext);
   const navigate = useNavigate();
 
   // Fetch available years for filtering
   React.useEffect(() => {
     async function getYears() {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-years`
-        );
-        const filteredYears = res.data.filter((year) => year !== null);
-        setYears(filteredYears);
-        setSelectedYear(filteredYears[0] || ""); // Select the first year or set to empty
-      } catch (error) {
-        console.error("Error fetching years:", error);
-      }
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-years`
+      );
+      const filteredYears = res.data.filter((year) => year !== null);
+      setYears(filteredYears);
+      setSelectedYear(filteredYears[0]);
     }
     getYears();
   }, []);
 
-  // Fetch rows for the user based on the selected year and search query
+  // Fetch rows for the user based on the selected year
   React.useEffect(() => {
     async function getRows() {
-      setLoading(true);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
-          {
-            params: {
-              year: selectedYear,
-              search: searchQuery,
-            },
-          }
+          `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`
         );
 
-        // Apply sorting logic for the fetched rows
-        const sortedRows = sortRowsByConditions(res.data);
+        // Filter the rows based on custom_house and out_of_charge conditions
+        const filteredRows = res.data.filter((row) => {
+          const { custom_house, out_of_charge } = row;
+
+          // // Check if custom_house is 'ICD SANAND' or 'ICD SACHANA'
+          // if (custom_house === "ICD SANAND" || custom_house === "ICD SACHANA") {
+          //   // If out_of_charge is NOT empty or undefined, exclude the job
+          //   return !(out_of_charge !== "" && out_of_charge !== undefined);
+          // }
+
+          // If the custom_house doesn't match, keep the job in the result
+          return true;
+        });
+
+        // Group jobs in the desired order
+        const sortedRows = sortRowsByConditions(filteredRows);
+
+        // Set the filtered and sorted rows
         setRows(sortedRows);
       } catch (error) {
         console.error("Error fetching rows:", error);
-      } finally {
-        setLoading(false);
       }
     }
     getRows();
-  }, [selectedYear, searchQuery, user]);
-
-  // Sort rows based on conditions for background colors
+  }, [selectedYear, user]);
+  // Function to sort rows based on background color conditions
   const sortRowsByConditions = (rows) => {
     const greenJobs = [];
     const orangeJobs = [];
@@ -78,25 +76,32 @@ function ImportOperations() {
     rows.forEach((row) => {
       const { out_of_charge, examination_planning_date, be_no, container_nos } =
         row;
+
       const anyContainerArrivalDate = container_nos?.some(
         (container) => container.arrival_date
       );
 
-      if (out_of_charge) {
-        greenJobs.push(row);
-      } else if (examination_planning_date) {
-        orangeJobs.push(row);
+      // Group into different arrays based on the conditions
+      if (out_of_charge !== "" && out_of_charge !== undefined) {
+        greenJobs.push(row); // Group all green background jobs first
+      } else if (
+        examination_planning_date !== "" &&
+        examination_planning_date !== undefined
+      ) {
+        orangeJobs.push(row); // Group all orange background jobs second
       } else if (be_no && anyContainerArrivalDate) {
-        yellowJobs.push(row);
+        yellowJobs.push(row); // Group all yellow background jobs third
       } else {
-        otherJobs.push(row);
+        otherJobs.push(row); // Other jobs that do not meet the conditions
       }
     });
 
+    // Sort each group by detention_from in ascending order
     const sortByDetentionFrom = (a, b) => {
-      const dateA = new Date(a.container_nos?.[0]?.detention_from || "");
-      const dateB = new Date(b.container_nos?.[0]?.detention_from || "");
-      return dateA - dateB;
+      const dateA = a.container_nos?.[0]?.detention_from || "";
+      const dateB = b.container_nos?.[0]?.detention_from || "";
+
+      return new Date(dateA) - new Date(dateB);
     };
 
     greenJobs.sort(sortByDetentionFrom);
@@ -104,26 +109,55 @@ function ImportOperations() {
     yellowJobs.sort(sortByDetentionFrom);
     otherJobs.sort(sortByDetentionFrom);
 
+    // Concatenate the arrays in the desired order
     return [...greenJobs, ...orangeJobs, ...yellowJobs, ...otherJobs];
   };
 
-  // Filter rows based on selected ICD
+  // Filter rows based on the selected ICD Code
   React.useEffect(() => {
     if (selectedICD) {
-      setFilteredRows(rows.filter((row) => row.custom_house === selectedICD));
+      const filtered = rows.filter((row) => row.custom_house === selectedICD);
+      setFilteredRows(filtered); // Set filtered rows
     } else {
-      setFilteredRows(rows);
+      setFilteredRows(rows); // If no ICD Code selected, show all rows
     }
   }, [selectedICD, rows]);
 
-  const handleCopy = useCallback((event, text) => {
-    event.stopPropagation();
-    navigator.clipboard
-      .writeText(text)
-      .then(() => console.log("Text copied:", text))
-      .catch((err) => console.error("Failed to copy text:", err));
-  }, []);
+  const handleCopy = (event, text) => {
+    // Optimized handleCopy function using useCallback to avoid re-creation on each render
 
+    event.stopPropagation();
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
       const houseMap = {
@@ -135,7 +169,6 @@ function ImportOperations() {
     },
     []
   );
-
   const formatDate = useCallback((dateStr) => {
     const date = new Date(dateStr);
     const year = date.getFullYear();
@@ -147,25 +180,25 @@ function ImportOperations() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No",
+      header: "Job No & ICD Code",
       enableSorting: false,
       size: 150,
-      Cell: ({ row }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
-          row.original;
+      Cell: ({ cell, row }) => {
+        const jobNo = cell.getValue();
+        const icdCode = cell.row.original.custom_house;
+        const year = cell.row.original.year;
+        const navigate = useNavigate(); // Assuming useNavigate is available in the scope
 
         return (
           <div
+            style={{ textAlign: "center", cursor: "pointer", color: "blue" }} // Style for pointer
             onClick={() =>
-              navigate(`/import-operations/view-job/{job_no}/${year}`)
-            }
-            style={{
-              cursor: "pointer",
-              color: "blue",
-            }}
+              navigate(`/import-operations/view-job/${jobNo}/${year}`)
+            } // Navigate to the view-job route
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
-            {custom_house}
+            {jobNo}
+            <br />
+            <small>{icdCode}</small> {/* ICD Code */}
           </div>
         );
       },
@@ -305,14 +338,23 @@ function ImportOperations() {
 
   const table = useMaterialReactTable({
     columns,
-    data: filteredRows,
+    data: filteredRows, // Pass filtered rows to the table
     enableColumnResizing: true,
+    enableColumnOrdering: true,
+    enableDensityToggle: false, // Disable density toggle
     initialState: {
-      density: "compact",
+      density: "compact", // Set initial table density to compact
+      showColumnFilters: true, // Ensure that the search/filter is shown by default
+      showGlobalFilter: true,
     },
+    enableGrouping: true, // Enable row grouping
+    enableColumnFilters: true, // Enable column filters (search functionality)
     enableColumnActions: false,
-    enableGlobalFilter: false,
-    enableColumnFilters: false,
+    enableGlobalFilter: true,
+    enableStickyHeader: true, // Enable sticky header
+    enablePinning: true, // Enable pinning for sticky columns
+    enablePagination: false,
+    enableBottomToolbar: false,
     muiTableContainerProps: {
       sx: { maxHeight: "580px", overflowY: "auto" },
     },
@@ -325,52 +367,31 @@ function ImportOperations() {
       // style: { cursor: "pointer" }, // Apply inline styles dynamically
     }),
     muiTableHeadCellProps: {
-      sx: { position: "sticky", top: 0, zIndex: 1 },
+      sx: {
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
+      },
     },
     renderTopToolbarCustomActions: () => (
-      <>
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => setSelectedICD(e.target.value)}
-          sx={{ width: "200px" }}
-        >
-          <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "end",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
-          <TextField
-            placeholder="Search by Job No, Importer, or AWB/BL Number"
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton>
-                    <SearchIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            sx={{ width: "300px", marginRight: "20px" }}
-          />
-        </div>
-      </>
+      <TextField
+        select
+        size="small"
+        margin="normal"
+        variant="outlined"
+        label="ICD Code"
+        value={selectedICD}
+        onChange={(e) => setSelectedICD(e.target.value)} // Update selected ICD Code
+        sx={{ width: "200px" }}
+      >
+        <MenuItem value="">All ICDs</MenuItem> {/* Option for no filtering */}
+        <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+        <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+        <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+      </TextField>
     ),
   });
+
   const getTableRowsClassname = (params) => {
     const {
       pcv_date,
@@ -414,21 +435,25 @@ function ImportOperations() {
 
   return (
     <>
+      {/* Select Year Dropdown */}
       <TextField
         select
         size="small"
+        margin="normal"
         variant="outlined"
         label="Select Year"
         value={selectedYear}
         onChange={(e) => setSelectedYear(e.target.value)}
         sx={{ width: "200px" }}
       >
-        {years.map((year) => (
+        {years?.map((year) => (
           <MenuItem key={year} value={year}>
             {year}
           </MenuItem>
         ))}
       </TextField>
+
+      {/* MaterialReactTable */}
       <MaterialReactTable table={table} />
     </>
   );

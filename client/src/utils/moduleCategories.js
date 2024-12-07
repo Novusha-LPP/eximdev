@@ -18,4 +18,7 @@ export const moduleCategories = {
   "SR CEL": "SRCC",
   RTO: "SRCC",
   Export: "Export",
+  Screen1: "Screens",
+  Screen2: "Screens",
+  Screen3: "Screens",
 };

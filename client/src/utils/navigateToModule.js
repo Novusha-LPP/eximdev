@@ -36,6 +36,12 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/documentation");
     case "Submission":
       return navigate("/submission");
+    case "Screen1":
+      return navigate("/screen1");
+    case "Screen2":
+      return navigate("/screen2");
+    case "Screen3":
+      return navigate("/screen3");
     default:
       return navigate("/home");
   }

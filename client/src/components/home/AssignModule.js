@@ -30,7 +30,10 @@ const allModules = [
   "Documentation",
   "Submission",
   "RTO",
-  "SR CEL"
+  "SR CEL",
+  "Screen1",
+  "Screen2",
+  "Screen3",
 ];
 
 function not(a, b) {

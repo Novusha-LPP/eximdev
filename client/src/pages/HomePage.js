@@ -66,6 +66,11 @@ import RTO from "../components/rto/RTO.js";
 import SRCEL from "../components/srcel/SRCEL.js";
 import SRCELDashboard from "../components/srcel/SRCELDashboard.js";
 
+// Screens
+import Screen1 from "../components/Screens/Screen1.js";
+import Screen2 from "../components/Screens/Screen2.js";
+import Screen3 from "../components/Screens/Screen3.js";
+
 const drawerWidth = 60;
 
 function HomePage() {
@@ -209,6 +214,10 @@ function HomePage() {
 
             {/* LR Report */}
             <Route path="/lr-report" element={<LrReport />} />
+            {/* Screens */}
+            <Route path="/screen1" element={<Screen1 />} />
+            <Route path="/screen2" element={<Screen2 />} />
+            <Route path="/screen3" element={<Screen3 />} />
 
             {/* SRCC Directories */}
             <Route path="/srcc-directories" element={<SrccDirectories />} />

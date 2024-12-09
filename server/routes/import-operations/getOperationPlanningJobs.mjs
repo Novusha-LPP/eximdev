@@ -4,14 +4,28 @@ import User from "../../model/userModel.mjs";
 
 const router = express.Router();
 
+// Function to build the search query
+const buildSearchQuery = (search) => ({
+  $or: [
+    { job_no: { $regex: search, $options: "i" } }, // Case-insensitive
+    { custom_house: { $regex: search, $options: "i" } },
+    { importer: { $regex: search, $options: "i" } },
+    { "container_nos.container_number": { $regex: search, $options: "i" } },
+    { "container_nos.detention_from": { $regex: search, $options: "i" } },
+    { be_no: { $regex: search, $options: "i" } },
+    { detailed_status: { $regex: search, $options: "i" } },
+  ],
+});
+
 router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
   const { username } = req.params;
+  const { page = 1, limit = 100, search = "" } = req.query; // Pagination and search params
 
   try {
     const user = await User.findOne({ username });
 
     if (!user) {
-      return res.status(200).send({ message: "User not found" });
+      return res.status(404).send({ message: "User not found" });
     }
 
     // Define the custom house condition based on username
@@ -40,23 +54,31 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         break;
     }
 
-    const jobs = await JobModel.find(
-      {
-        $and: [
-          customHouseCondition, // Apply custom house filter
-          {
-            status: "Pending",
-            be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-            "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" },
-            $or: [
-              { completed_operation_date: { $exists: false } },
-              { completed_operation_date: "" },
-            ],
-          },
-        ],
-      },
-      "job_no status detailed_status be_no be_date container_nos importer examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
-    ).sort({ examination_planning_date: 1 });
+    const skip = (page - 1) * limit; // Calculate items to skip for pagination
+    const searchQuery = search ? buildSearchQuery(search) : {}; // Build search query
+
+    const baseQuery = {
+      $and: [
+        customHouseCondition, // Apply custom house filter
+        {
+          status: "Pending",
+          be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+          "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" },
+          $or: [
+            { completed_operation_date: { $exists: false } },
+            { completed_operation_date: "" },
+          ],
+        },
+        searchQuery, // Add search query
+      ],
+    };
+
+    const jobs = await JobModel.find(baseQuery)
+      .sort({ examination_planning_date: 1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalJobs = await JobModel.countDocuments(baseQuery); // Total jobs count for pagination
 
     // Add row color based on conditions
     const jobsWithColors = jobs.map((job) => {
@@ -79,7 +101,12 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       return { ...job._doc, row_color }; // Add `row_color` field to job data
     });
 
-    res.status(200).send(jobsWithColors); // Return jobs with row colors
+    res.status(200).send({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limit),
+      currentPage: parseInt(page),
+      jobs: jobsWithColors,
+    });
   } catch (error) {
     console.error("Error fetching jobs:", error);
     res.status(500).send({ message: "Error fetching jobs" });

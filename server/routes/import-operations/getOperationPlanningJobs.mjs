@@ -73,15 +73,19 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ],
     };
 
-    const jobs = await JobModel.find(baseQuery)
-      .sort({ examination_planning_date: 1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    const jobs = await JobModel.find(baseQuery).sort({
+      examination_planning_date: 1,
+    });
 
-    const totalJobs = await JobModel.countDocuments(baseQuery); // Total jobs count for pagination
+    const totalJobs = jobs.length; // Total jobs count for pagination
 
-    // Add row color based on conditions
-    const jobsWithColors = jobs.map((job) => {
+    // Add row color based on conditions and group jobs
+    const greenJobs = [];
+    const orangeJobs = [];
+    const yellowJobs = [];
+    const otherJobs = [];
+
+    jobs.forEach((job) => {
       const { out_of_charge, examination_planning_date, be_no, container_nos } =
         job;
 
@@ -92,20 +96,34 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       let row_color = ""; // Default: no color
       if (out_of_charge) {
         row_color = "bg-green"; // Green background
+        greenJobs.push({ ...job._doc, row_color }); // Add to green group
       } else if (examination_planning_date) {
         row_color = "bg-orange"; // Orange background
+        orangeJobs.push({ ...job._doc, row_color }); // Add to orange group
       } else if (be_no && anyContainerArrivalDate) {
         row_color = "bg-yellow"; // Yellow background
+        yellowJobs.push({ ...job._doc, row_color }); // Add to yellow group
+      } else {
+        otherJobs.push({ ...job._doc, row_color }); // Add to other jobs group
       }
-
-      return { ...job._doc, row_color }; // Add `row_color` field to job data
     });
+
+    // Concatenate grouped jobs in the desired order
+    const groupedJobs = [
+      ...greenJobs,
+      ...orangeJobs,
+      ...yellowJobs,
+      ...otherJobs,
+    ];
+
+    // Paginate grouped jobs
+    const paginatedJobs = groupedJobs.slice(skip, skip + limit);
 
     res.status(200).send({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limit),
       currentPage: parseInt(page),
-      jobs: jobsWithColors,
+      jobs: paginatedJobs, // Send paginated and grouped jobs
     });
   } catch (error) {
     console.error("Error fetching jobs:", error);

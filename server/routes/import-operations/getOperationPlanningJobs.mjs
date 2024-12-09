@@ -19,7 +19,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
   const { username } = req.params;
-  const { page = 1, limit = 100, search = "" } = req.query; // Pagination and search params
+  const { page = 1, limit = 100, search = "", selectedICD = "" } = req.query; // Include selectedICD in query params
 
   try {
     const user = await User.findOne({ username });
@@ -30,6 +30,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
 
     // Define the custom house condition based on username
     let customHouseCondition = {};
+
     switch (username) {
       case "majhar_khan":
         customHouseCondition = {
@@ -44,7 +45,9 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         customHouseCondition = { custom_house: "ICD KHODIYAR" };
         break;
       case "gaurav_singh":
-        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
+        customHouseCondition = {
+          custom_house: { $in: ["HAZIRA", "BARODA"] },
+        };
         break;
       case "akshay_rajput":
         customHouseCondition = { custom_house: "ICD VARNAMA" };
@@ -54,12 +57,25 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         break;
     }
 
+    // If selectedICD is provided, override or adjust the customHouseCondition
+    if (selectedICD) {
+      // You can choose to override or combine with existing conditions
+      // Here, we override to filter by selectedICD
+      customHouseCondition = { custom_house: selectedICD };
+      // Alternatively, to combine, use:
+      // customHouseCondition = { 
+      //   ...customHouseCondition,
+      //   custom_house: selectedICD 
+      // };
+    }
+
     const skip = (page - 1) * limit; // Calculate items to skip for pagination
     const searchQuery = search ? buildSearchQuery(search) : {}; // Build search query
 
+    // Construct the base query with all conditions
     const baseQuery = {
       $and: [
-        customHouseCondition, // Apply custom house filter
+        customHouseCondition, // Apply custom house filter (or selectedICD if provided)
         {
           status: "Pending",
           be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
@@ -72,6 +88,9 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         searchQuery, // Add search query
       ],
     };
+
+    // Optionally, add additional filtering based on selectedICD if it's a separate filter
+    // If selectedICD needs to be combined differently, adjust here
 
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,
@@ -86,8 +105,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     const otherJobs = [];
 
     jobs.forEach((job) => {
-      const { out_of_charge, examination_planning_date, be_no, container_nos } =
-        job;
+      const { out_of_charge, examination_planning_date, be_no, container_nos } = job;
 
       const anyContainerArrivalDate = container_nos?.some(
         (container) => container.arrival_date

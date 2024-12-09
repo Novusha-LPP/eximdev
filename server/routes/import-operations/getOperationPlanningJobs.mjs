@@ -40,48 +40,46 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         break;
     }
 
-    const currentDate = new Date().toISOString().split("T")[0]; // Get current date in yyyy-mm-dd format
-
     const jobs = await JobModel.find(
       {
         $and: [
           customHouseCondition, // Apply custom house filter
           {
-            status: "Pending", // Check status is "Pending"
-            be_no: {
-              $exists: true,
-              $ne: null,
-              $ne: "",
-              $not: { $regex: "cancelled", $options: "i" },
-            }, // Ensure `be_no` exists and is not cancelled
-            "container_nos.arrival_date": {
-              $exists: true,
-              $ne: null,
-              $ne: "",
-            }, // Ensure at least one container has an arrival date
+            status: "Pending",
+            be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+            "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" },
             $or: [
-              { completed_operation_date: { $exists: false } }, // Include jobs where `completed_operation_date` does not exist
-              { completed_operation_date: "" }, // Include jobs with empty `completed_operation_date`
+              { completed_operation_date: { $exists: false } },
+              { completed_operation_date: "" },
             ],
           },
         ],
       },
-      // Fields to select
       "job_no status detailed_status be_no be_date container_nos importer examination_planning_date examination_planning_time pcv_date custom_house out_of_charge year"
     ).sort({ examination_planning_date: 1 });
 
-    // Eliminate duplicate jobs by their _id field
-    const uniqueJobs = Array.from(
-      new Set(jobs.map((job) => job._id.toString()))
-    ).map((id) => jobs.find((job) => job._id.toString() === id));
+    // Add row color based on conditions
+    const jobsWithColors = jobs.map((job) => {
+      const { out_of_charge, examination_planning_date, be_no, container_nos } =
+        job;
 
-    // Send response if no jobs are found
-    if (uniqueJobs.length === 0) {
-      return res.status(200).send({ message: "No jobs found for this user" });
-    }
+      const anyContainerArrivalDate = container_nos?.some(
+        (container) => container.arrival_date
+      );
 
-    // Send the unique jobs in response
-    res.status(200).send(uniqueJobs);
+      let row_color = ""; // Default: no color
+      if (out_of_charge) {
+        row_color = "bg-green"; // Green background
+      } else if (examination_planning_date) {
+        row_color = "bg-orange"; // Orange background
+      } else if (be_no && anyContainerArrivalDate) {
+        row_color = "bg-yellow"; // Yellow background
+      }
+
+      return { ...job._doc, row_color }; // Add `row_color` field to job data
+    });
+
+    res.status(200).send(jobsWithColors); // Return jobs with row colors
   } catch (error) {
     console.error("Error fetching jobs:", error);
     res.status(500).send({ message: "Error fetching jobs" });

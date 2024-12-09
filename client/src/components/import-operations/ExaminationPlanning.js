@@ -392,46 +392,48 @@ function ImportOperations() {
     ),
   });
 
-  const getTableRowsClassname = (params) => {
-    const {
-      pcv_date,
-      be_no,
-      container_nos,
-      examination_planning_date,
-      out_of_charge,
-    } = params.original;
+  // const getTableRowsClassname = (params) => {
+  //   const {
+  //     pcv_date,
+  //     be_no,
+  //     container_nos,
+  //     examination_planning_date,
+  //     out_of_charge,
+  //   } = params.original;
 
-    // Check if any container has an arrival_date
-    const anyContainerArrivalDate = container_nos?.some(
-      (container) => container.arrival_date
-    );
+  //   // Check if any container has an arrival_date
+  //   const anyContainerArrivalDate = container_nos?.some(
+  //     (container) => container.arrival_date
+  //   );
 
-    // 1. Condition for out_of_charge - give green background and exit
-    if (out_of_charge !== "" && out_of_charge !== undefined) {
-      return "bg-green"; // Green background for out_of_charge
-    }
+  //   // 1. Condition for out_of_charge - give green background and exit
+  //   if (out_of_charge !== "" && out_of_charge !== undefined) {
+  //     return "bg-green"; // Green background for out_of_charge
+  //   }
 
-    // 2. Condition for examination_planning_date - give orange background
-    if (
-      examination_planning_date !== "" &&
-      examination_planning_date !== undefined
-    ) {
-      return "bg-orange"; // Orange background for examination_planning_date
-    }
+  //   // 2. Condition for examination_planning_date - give orange background
+  //   if (
+  //     examination_planning_date !== "" &&
+  //     examination_planning_date !== undefined
+  //   ) {
+  //     return "bg-orange"; // Orange background for examination_planning_date
+  //   }
 
-    // 3. Condition for be_no and anyContainerArrivalDate - give yellow background
-    if (be_no && anyContainerArrivalDate) {
-      return "bg-yellow"; // Yellow background for be_no and container's arrival_date
-    }
+  //   // 3. Condition for be_no and anyContainerArrivalDate - give yellow background
+  //   if (be_no && anyContainerArrivalDate) {
+  //     return "bg-yellow"; // Yellow background for be_no and container's arrival_date
+  //   }
 
-    // 4. Condition for pcv_date - give custom clearance completed background
-    if (pcv_date !== "" && pcv_date !== undefined) {
-      return "custom-clearance-completed"; // Background for pcv_date
-    }
+  //   // 4. Condition for pcv_date - give custom clearance completed background
+  //   if (pcv_date !== "" && pcv_date !== undefined) {
+  //     return "custom-clearance-completed"; // Background for pcv_date
+  //   }
 
-    // Default return if no conditions met
-    return "";
-  };
+  //   // Default return if no conditions met
+  //   return "";
+  // };
+  const getTableRowsClassname = (row) => row.original.row_color || "";
+
 
   return (
     <>

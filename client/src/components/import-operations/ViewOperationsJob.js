@@ -7,7 +7,6 @@ import { IconButton, TextField, Box, Typography } from "@mui/material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import FileUpload from "../../components/gallery/FileUpload.js"; // Reusable FileUpload component
-import DualOptionFileUpload from "../../components/gallery/DualOptionFileUpload.js"; // Reusable DualOptionFileUpload component
 import ImagePreview from "../../components/gallery/ImagePreview.js"; // Reusable ImagePreview component
 import ConfirmDialog from "../../components/gallery/ConfirmDialog"; // Reusable ConfirmDialog component
 // import { handleFileUpload } from "../../utils/awsFileUpload";
@@ -456,7 +455,7 @@ function ViewOperationsJob() {
               <Col xs={6}>
                 {data.custom_house === "ICD KHODIYAR" && (
                   <>
-                    <DualOptionFileUpload
+                    <FileUpload
                       label="Upload Custodian Gate Pass Copy"
                       bucketPath="custodian_gate_pass"
                       onFilesUploaded={(newFiles) => {

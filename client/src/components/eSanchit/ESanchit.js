@@ -1,112 +1,233 @@
-import * as React from "react";
+// ESanchit.jsx
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import { MaterialReactTable } from "material-react-table";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  MaterialReactTable,
-  useMaterialReactTable,
-} from "material-react-table";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+  TextField,
+  InputAdornment,
+  IconButton,
+  Pagination,
+  CircularProgress,
+  Box,
+  Typography,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 
 function ESanchit() {
-  const [rows, setRows] = React.useState([]);
+  const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(1); // Current page number
+  const [totalPages, setTotalPages] = useState(1); // Total number of pages
+  const [loading, setLoading] = useState(false); // Loading state
+  const [searchQuery, setSearchQuery] = useState(""); // User input for search
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
+  const limit = 100; // Number of items per page
+  const [totalJobs, setTotalJobs] = useState(0); // Total job count
+  
   const navigate = useNavigate();
 
-  React.useEffect(() => {
-    async function getData() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`
-      );
-      setRows(res.data);
-    }
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
 
-    getData();
+  // Fetch jobs with pagination and search
+  const fetchJobs = useCallback(
+    async (currentPage, currentSearchQuery) => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`,
+          {
+            params: { page: currentPage, limit, search: currentSearchQuery },
+          }
+        );
+
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+        } = res.data;
+
+        setRows(jobs);
+        setTotalPages(totalPages);
+        setPage(returnedPage);
+        setTotalJobs(res.data.totalJobs);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        // Optionally, setRows to empty and totalPages to 1
+        setRows([]);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [limit]
+  );
+
+  // Fetch jobs when page or debounced search query changes
+  useEffect(() => {
+    fetchJobs(page, debouncedSearchQuery);
+  }, [page, debouncedSearchQuery, fetchJobs]);
+
+  // Debounce search input to avoid excessive API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPage(1); // Reset to first page on new search
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Handle page change
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  // Handle copy functionality (can be abstracted if used multiple times)
+  const handleCopy = useCallback((event, text) => {
+    event.stopPropagation();
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard using fallback method:", text);
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
   }, []);
 
-  const columns = [
-    {
-      accessorKey: "job_no",
-      header: "Job No",
-      enableSorting: false,
-      size: 150,
+  // Define table columns
+  const columns = React.useMemo(
+    () => [
+      {
+        accessorKey: "job_no",
+        header: "Job No",
+        enableSorting: false,
+        size: 150,
 
-      Cell: ({ cell }) => {
-        const {
-          job_no,
-          year,
-          type_of_b_e,
-          consignment_type,
-          custom_house,
-        } = cell.row.original;
+        Cell: ({ cell }) => {
+          const { job_no, year, type_of_b_e, consignment_type, custom_house } =
+            cell.row.original;
 
-        return (
-          <div
-            onClick={() => navigate(`/esanchit-job/${job_no}/${year}`)}
-            style={{
-              cursor: "pointer",
-              color: "blue",
-            }}
-          >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-            <br />
-          </div>
-        );
+          return (
+            <div
+              onClick={() => navigate(`/esanchit-job/${job_no}/${year}`)}
+              style={{
+                cursor: "pointer",
+                color: "blue",
+              }}
+            >
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
+              <br />
+            </div>
+          );
+        },
       },
-    },
-    {
-      accessorKey: "importer",
-      header: "Importer",
-      enableSorting: false,
-      size: 150,
-    },
-    {
-      accessorKey: "awb_bl_no",
-      header: "BL Num & Date",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => {
-        const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
-        return (
-          <div>
-            {awb_bl_no} <br /> {awb_bl_date}
-          </div>
-        );
+      {
+        accessorKey: "importer",
+        header: "Importer",
+        enableSorting: false,
+        size: 150,
       },
-    },
-    {
-      accessorKey: "container_numbers",
-      header: "Container Numbers and Size",
-      size: 200,
-      Cell: ({ cell }) => {
-        const containerNos = cell.row.original.container_nos;
-        return (
-          <React.Fragment>
-            {containerNos?.map((container, id) => (
-              <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}| "{container.size}"
-              </div>
-            ))}
-          </React.Fragment>
-        );
+      {
+        accessorKey: "awb_bl_no",
+        header: "BL Num & Date",
+        enableSorting: false,
+        size: 150,
+        Cell: ({ cell }) => {
+          const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+          return (
+            <div>
+              {awb_bl_no} <br /> {awb_bl_date}
+            </div>
+          );
+        },
       },
-    },
-  ];
+      {
+        accessorKey: "container_numbers",
+        header: "Container Numbers and Size",
+        size: 200,
+        Cell: ({ cell }) => {
+          const containerNos = cell.row.original.container_nos;
+          return (
+            <React.Fragment>
+              {containerNos?.map((container, id) => (
+                <div key={id} style={{ marginBottom: "4px" }}>
+                  {container.container_number} | "{container.size}"
+                  <IconButton
+                    size="small"
+                    onClick={(event) =>
+                      handleCopy(event, container.container_number)
+                    }
+                  >
+                    <ContentCopyIcon fontSize="inherit" />
+                  </IconButton>
+                </div>
+              ))}
+            </React.Fragment>
+          );
+        },
+      },
+    ],
+    [navigate, handleCopy]
+  );
 
-  const table = useMaterialReactTable({
+  // Table configuration
+  const tableConfig = {
     columns,
     data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
-    enableDensityToggle: false, // Disable density toggle
-    initialState: { density: "compact", pagination: { pageSize: 20 } }, // Set initial table density to compact
-    enableGrouping: true, // Enable row grouping
-    enableColumnFilters: false, // Disable column filters
-    enableColumnActions: false,
-    enableStickyHeader: true, // Enable sticky header
-    enablePinning: true, // Enable pinning for sticky columns
-    muiTableContainerProps: {
-      sx: { maxHeight: "750px", overflowY: "auto" },
+    enablePagination: false, // Handled manually via MUI Pagination
+    enableBottomToolbar: false,
+    enableDensityToggle: false,
+    initialState: {
+      density: "compact",
+      columnPinning: { left: ["job_no"] },
     },
+    enableGlobalFilter: false,
+    enableGrouping: true,
+    enableColumnFilters: false,
+    enableColumnActions: false,
+    enableStickyHeader: true,
+    enablePinning: true,
+    muiTableContainerProps: {
+      sx: { maxHeight: "650px", overflowY: "auto" },
+    },
+    muiTableBodyRowProps: ({ row }) => ({
+      className: getTableRowsClassname(row),
+    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -114,11 +235,63 @@ function ESanchit() {
         zIndex: 1,
       },
     },
-  });
+    renderTopToolbarCustomActions: () => (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "end",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={handleSearchInputChange}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => {
+                    setDebouncedSearchQuery(searchQuery);
+                    setPage(1);
+                  }}
+                >
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{ width: "300px", marginRight: "20px" }}
+        />
+      </div>
+    ),
+  };
 
   return (
-    <div className="table-container">
-      <MaterialReactTable table={table} />
+    <div style={{ height: "80%" }}>
+      <>
+        <MaterialReactTable {...tableConfig} />
+        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      </>
     </div>
   );
 }

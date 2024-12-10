@@ -4,7 +4,7 @@ export const screenData = {
     { title: "Total Jobs", count: 120 },
     { title: "Pending Jobs", count: 30 },
     { title: "Completed Jobs", count: 80 },
-    { title: "Canceled Jobs", count: 10 },
+    { title: "Cancelled Jobs", count: 10 },
     { title: "ETA Date Pending", count: 5 },
     { title: "Estimated Time of Arrival", count: 15 },
   ],

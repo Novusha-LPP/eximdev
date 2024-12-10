@@ -24,8 +24,8 @@ router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
           completedCount: {
             $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
           },
-          canceledCount: {
-            $sum: { $cond: [{ $eq: ["$status", "Canceled"] }, 1, 0] },
+          cancelledCount: {
+            $sum: { $cond: [{ $eq: ["$status", "Cancelled"] }, 1, 0] },
           },
           totalCount: { $sum: 1 }, // Count total jobs
         },
@@ -38,7 +38,7 @@ router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
       responseArray.push(jobCounts[0].totalCount);
       responseArray.push(jobCounts[0].pendingCount);
       responseArray.push(jobCounts[0].completedCount);
-      responseArray.push(jobCounts[0].canceledCount);
+      responseArray.push(jobCounts[0].cancelledCount);
     } else {
       // If no matching documents are found, set all counts to 0
       responseArray.push(0, 0, 0, 0);

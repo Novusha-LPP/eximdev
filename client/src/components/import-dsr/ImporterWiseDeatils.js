@@ -88,7 +88,7 @@ function ImporterWiseDetails() {
         width: 380,
         type: "donut",
       },
-      labels: ["All Jobs", "Pending Jobs", "Completed Jobs", "Canceled Jobs"],
+      labels: ["All Jobs", "Pending Jobs", "Completed Jobs", "Cancelled Jobs"],
       plotOptions: {
         pie: {
           startAngle: -90,

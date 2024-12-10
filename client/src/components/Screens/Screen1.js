@@ -40,7 +40,7 @@ const Screen1 = () => {
     { title: "Total Jobs", count: jobData.totalJobs },
     { title: "Pending Jobs", count: jobData.pendingJobs },
     { title: "Completed Jobs", count: jobData.completedJobs },
-    { title: "Cancelled Jobs", count: jobData.canceledJobs },
+    { title: "Cancelled Jobs", count: jobData.cancelledJobs },
   ];
 
   // If you have additional static data, include it here

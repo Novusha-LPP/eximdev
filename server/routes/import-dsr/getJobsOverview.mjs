@@ -6,22 +6,46 @@ const router = express.Router();
 router.get("/api/get-jobs-overview/:year", async (req, res) => {
   try {
     const { year } = req.params;
+
+    // Optional: Validate the year format (e.g., four-digit year)
+    if (!/^\d{4}$/.test(year)) {
+      return res.status(400).json({ error: "Invalid year format" });
+    }
+
+    // Convert year to number if necessary
+    // const numericYear = parseInt(year, 10);
+
     // Use Mongoose aggregation to count jobs with different statuses
     const jobCounts = await JobModel.aggregate([
       {
-        $match: { year: year }, // Filter documents by year
+        $match: { year: year }, // Or { year: numericYear } if year is a number
       },
       {
         $group: {
           _id: null, // Group all documents together
           pendingJobs: {
-            $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] },
+            $sum: {
+              $cond: [{ $eq: ["$status", "Pending"] }, 1, 0],
+            },
           },
           completedJobs: {
-            $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
+            $sum: {
+              $cond: [{ $eq: ["$status", "Completed"] }, 1, 0],
+            },
           },
-          canceledJobs: {
-            $sum: { $cond: [{ $eq: ["$status", "Canceled"] }, 1, 0] },
+          cancelledJobs: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    // { $eq: ["$status", "Cancelled"] },
+                    { $eq: ["$be_no", "CANCELLED"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
           totalJobs: { $sum: 1 }, // Count total jobs
         },
@@ -31,7 +55,7 @@ router.get("/api/get-jobs-overview/:year", async (req, res) => {
           _id: 0,
           pendingJobs: 1,
           completedJobs: 1,
-          canceledJobs: 1,
+          cancelledJobs: 1,
           totalJobs: 1,
         },
       },
@@ -39,10 +63,10 @@ router.get("/api/get-jobs-overview/:year", async (req, res) => {
 
     // Extract the result from the aggregation and send it as JSON response
     const responseObj = jobCounts[0] || {
-      pendingCount: 0,
-      completedCount: 0,
-      canceledCount: 0,
-      totalCount: 0,
+      pendingJobs: 0,
+      completedJobs: 0,
+      cancelledJobs: 0,
+      totalJobs: 0,
     };
 
     res.json(responseObj);

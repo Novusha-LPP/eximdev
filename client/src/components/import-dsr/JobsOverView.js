@@ -64,8 +64,8 @@ function JobsOverView() {
             <DoDisturbIcon />
           </IconButton>
           <div>
-            <p>Canceled Jobs</p>
-            <h3>{data?.canceledJobs}</h3>
+            <p>Cancelled Jobs</p>
+            <h3>{data?.cancelledJobs}</h3>
           </div>
         </div>
       </Col>

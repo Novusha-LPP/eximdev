@@ -3,54 +3,97 @@ import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 
-// Endpoint to fetch documentation jobs with specific filters
+// Function to build the search query
+const buildSearchQuery = (search) => ({
+  $or: [
+    { job_no: { $regex: search, $options: "i" } },
+    { importer: { $regex: search, $options: "i" } },
+    { type_of_b_e: { $regex: search, $options: "i" } },
+    { custom_house: { $regex: search, $options: "i" } },
+    { consignment_type: { $regex: search, $options: "i" } },
+    { awb_bl_no: { $regex: search, $options: "i" } },
+    { "container_nos.container_number": { $regex: search, $options: "i" } },
+    { "container_nos.size": { $regex: search, $options: "i" } },
+  ],
+});
+
 router.get("/api/get-documentation-jobs", async (req, res) => {
   try {
-    // Query to filter jobs with status 'Pending' (case insensitive), specific detailed_status values,
-    // and where documentation_completed_date_time does not exist or is empty
-    const data = await JobModel.find({
-      status: { $regex: /^pending$/i }, // Case-insensitive regex for 'Pending'
-      detailed_status: {
-        $in: [
-          "ETA Date Pending",
-          "Estimated Time of Arrival",
-          "Gateway IGM Filed",
-          "Discharged",
-        ],
-      },
-      $or: [
-        { documentation_completed_date_time: { $exists: false } }, // Field does not exist
-        { documentation_completed_date_time: "" }, // Field exists but is empty
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    // Ensure query parameters are parsed correctly
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      return res.status(400).json({ message: "Invalid page number" });
+    }
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      return res.status(400).json({ message: "Invalid limit value" });
+    }
+
+    const skip = (pageNumber - 1) * limitNumber;
+    const searchQuery = search ? buildSearchQuery(search) : {};
+
+    // Define the custom order for grouping
+    const statusOrder = [
+      "Discharged",
+      "Gateway IGM Filed",
+      "Estimated Time of Arrival",
+      "ETA Date Pending",
+    ];
+
+    // Build the base query
+    const baseQuery = {
+      $and: [
+        { status: { $regex: /^pending$/i } },
+        {
+          detailed_status: {
+            $in: statusOrder,
+          },
+        },
+        {
+          $or: [
+            { documentation_completed_date_time: { $exists: false } },
+            { documentation_completed_date_time: "" },
+          ],
+        },
+        searchQuery,
       ],
-    })
+    };
+
+    // Fetch total count for pagination
+    const totalJobs = await JobModel.countDocuments(baseQuery);
+
+    // Fetch jobs from the database
+    const jobs = await JobModel.find(baseQuery)
       .select(
         "job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents awb_bl_no awb_bl_date container_nos detailed_status status"
       )
-      .lean(); // Use lean() for better performance with read-only data
+      .lean();
 
-    if (!data || data.length === 0) {
-      return res.status(200).json({ message: "No matching jobs found" });
-    }
+    // Sort jobs based on the custom order
+    const sortedJobs = jobs.sort(
+      (a, b) =>
+        statusOrder.indexOf(a.detailed_status) -
+        statusOrder.indexOf(b.detailed_status)
+    );
 
-    // Custom sorting logic for `detailed_status`
-    const sortedData = data.sort((a, b) => {
-      const order = [
-        "Discharged",
-        "Gateway IGM Filed",
-        "Estimated Time of Arrival",
-        "ETA Date Pending",
-      ];
-      return (
-        order.indexOf(a.detailed_status) - order.indexOf(b.detailed_status)
-      );
+    // Apply pagination after sorting
+    const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
+
+    res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
     });
-
-    res.status(200).json(sortedData);
   } catch (err) {
-    console.error("Error fetching jobs:", err);
-    res
-      .status(500)
-      .json({ message: "Internal Server Error", error: err.message });
+    console.error("Error fetching documentation jobs:", err.stack);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: err.message,
+    });
   }
 });
 

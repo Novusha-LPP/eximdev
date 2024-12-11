@@ -271,7 +271,7 @@ function ESanchit() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),

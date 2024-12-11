@@ -1,30 +1,60 @@
-// Screen1.jsx
 import React, { useEffect, useState } from "react";
 import "../../styles/Screens.scss";
-import { screenData } from "./data";
 import axios from "axios";
 
 const Screen1 = () => {
-  const [jobData, setJobData] = useState(null);
+  const [jobCounts, setJobCounts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const jobEndpoints = {
+    totalJobs: `${process.env.REACT_APP_API_STRING}/get-jobs-overview/24-25`,
+    eta_date_pending: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/eta_date_pending?page=1&limit=100&search=`,
+    estimated_time_of_arrival: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/estimated_time_of_arrival?page=1&limit=100&search=`,
+  };
+
   useEffect(() => {
-    const fetchJobData = async () => {
+    const fetchJobCounts = async () => {
       try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-jobs-overview/24-25`
+        // Fetch total jobs overview
+        const overviewResponse = await axios.get(jobEndpoints.totalJobs);
+        const { totalJobs, pendingJobs, completedJobs, cancelledJobs } =
+          overviewResponse.data;
+
+        // Fetch counts for additional fields
+        const additionalResponses = await Promise.all(
+          Object.entries(jobEndpoints)
+            .filter(([key]) => key !== "totalJobs") // Skip overview endpoint
+            .map(([key, endpoint]) => axios.get(endpoint))
         );
-        setJobData(response.data);
+
+        const additionalCounts = additionalResponses.reduce(
+          (acc, response, index) => {
+            const key = Object.keys(jobEndpoints).filter(
+              (k) => k !== "totalJobs"
+            )[index];
+            acc[key] = response.data.total || 0; // Use `total` from the API response
+            return acc;
+          },
+          {}
+        );
+
+        setJobCounts({
+          totalJobs,
+          pendingJobs,
+          completedJobs,
+          cancelledJobs,
+          ...additionalCounts,
+        });
       } catch (err) {
-        console.error("Error fetching job data:", err);
+        console.error("Error fetching job counts:", err);
         setError(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchJobData();
+    fetchJobCounts();
   }, []);
 
   if (loading) {
@@ -35,26 +65,18 @@ const Screen1 = () => {
     return <div className="screen">Error loading data.</div>;
   }
 
-  // Transform the API data to match the existing structure
-  const dynamicData = [
-    { title: "Total Jobs", count: jobData.totalJobs },
-    { title: "Pending Jobs", count: jobData.pendingJobs },
-    { title: "Completed Jobs", count: jobData.completedJobs },
-    { title: "Cancelled Jobs", count: jobData.cancelledJobs },
+  const dataToRender = [
+    { title: "Total Jobs", count: jobCounts.totalJobs },
+    { title: "Pending Jobs", count: jobCounts.pendingJobs },
+    { title: "Completed Jobs", count: jobCounts.completedJobs },
+    { title: "Cancelled Jobs", count: jobCounts.cancelledJobs },
+    { title: "ETA Date Pending", count: jobCounts.eta_date_pending },
+    { title: "Estimated Time of Arrival", count: jobCounts.estimated_time_of_arrival },
   ];
-
-  // If you have additional static data, include it here
-  const staticData = [
-    { title: "ETA Date Pending", count: 5 },
-    { title: "Estimated Time of Arrival", count: 15 },
-  ];
-
-  // Combine dynamic and static data
-  const combinedData = [...dynamicData, ...staticData];
 
   return (
     <div className="screen">
-      {combinedData.map((item, index) => (
+      {dataToRender.map((item, index) => (
         <div className="box" key={index}>
           <p className="title">{item.title}</p>
           <p className="count">{item.count}</p>

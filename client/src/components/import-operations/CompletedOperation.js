@@ -1,10 +1,20 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { IconButton, MenuItem, TextField } from "@mui/material";
-import axios from "axios";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useContext,
+} from "react";
+import "../../styles/import-dsr.scss";
 import {
-  MaterialReactTable,
-  useMaterialReactTable,
-} from "material-react-table";
+  IconButton,
+  MenuItem,
+  TextField,
+  Pagination,
+  Typography,
+} from "@mui/material";
+import axios from "axios";
+import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
@@ -13,53 +23,77 @@ function CompletedOperations() {
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState("");
   const [rows, setRows] = useState([]);
-  const [filteredRows, setFilteredRows] = useState([]); // Holds filtered data based on ICD Code
-  const [selectedICD, setSelectedICD] = useState(""); // Holds the selected ICD code
-  const { user } = React.useContext(UserContext);
+  const [selectedICD, setSelectedICD] = useState("");
+  const { user } = useContext(UserContext);
   const navigate = useNavigate();
+
+  const [page, setPage] = useState(1); // Current page
+  const [totalPages, setTotalPages] = useState(1); // Total pages
+  const [totalJobs, setTotalJobs] = useState(0); // Total job count
+
+  const [searchQuery, setSearchQuery] = useState(""); // Search query
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
+  const limit = 100; // Rows per page
 
   // Fetch available years for filtering
   useEffect(() => {
-    async function getYears() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-years`
-      );
-      const filteredYears = res.data.filter((year) => year !== null);
-      setYears(filteredYears);
-      setSelectedYear(filteredYears[0]);
-    }
-    getYears();
-  }, []);
-
-  // Fetch completed operations
-  useEffect(() => {
-    async function getRows() {
+    const fetchYears = async () => {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`
+          `${process.env.REACT_APP_API_STRING}/get-years`
         );
-        // Set the rows in descending order by completed_operation_date
-        setRows(res.data);
-        setFilteredRows(res.data); // Initially set filtered rows to all fetched rows
+        setYears(res.data.filter((year) => year !== null)); // Filter valid years
+        setSelectedYear(res.data[0]); // Default to the first year
       } catch (error) {
-        console.error("Error fetching rows:", error);
+        console.error("Error fetching years:", error);
       }
-    }
-    getRows();
-  }, [user]);
+    };
+    fetchYears();
+  }, []);
 
-  // Filter rows based on the selected ICD Code
+  // Fetch rows data
+  const fetchRows = async (page, searchQuery, year, selectedICD) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,    
+        {
+          params: {
+            page,
+            limit,
+            search: searchQuery,
+            year,
+            selectedICD, // Matches backend expectation
+          },
+        }
+      );
+      setRows(res.data.jobs); // Set rows data
+      setTotalPages(res.data.totalPages); // Set total pages
+      setTotalJobs(res.data.totalJobs); // Set total job count
+    } catch (error) {
+      console.error("Error fetching rows:", error);
+    }
+  };
+
+  // Fetch rows on initial load and when filters change
   useEffect(() => {
-    if (selectedICD) {
-      const filtered = rows.filter((row) => row.custom_house === selectedICD);
-      setFilteredRows(filtered); // Set filtered rows based on ICD
-    } else {
-      setFilteredRows(rows); // If no ICD Code selected, show all rows
-    }
-  }, [selectedICD, rows]);
-  const handleCopy = (event, text) => {
-    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+    fetchRows(page, debouncedSearchQuery, selectedYear, selectedICD);
+  }, [page, debouncedSearchQuery, selectedYear, selectedICD]);
 
+  // Handle search input with debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Handle pagination change
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  // Handle copy functionality
+  const handleCopy = useCallback((event, text) => {
     event.stopPropagation();
 
     if (
@@ -91,7 +125,9 @@ function CompletedOperations() {
       }
       document.body.removeChild(textArea);
     }
-  };
+  }, []);
+
+  // Function to get Custom House Location
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
       const houseMap = {
@@ -103,6 +139,8 @@ function CompletedOperations() {
     },
     []
   );
+
+  // Function to format dates
   const formatDate = useCallback((dateStr) => {
     const date = new Date(dateStr);
     const year = date.getFullYear();
@@ -117,21 +155,21 @@ function CompletedOperations() {
       header: "Job No & ICD Code",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
         const jobNo = cell.getValue();
-        const icdCode = cell.row.original.custom_house;
-        const year = cell.row.original.year;
+        const icdCode = row.original.custom_house;
+        const year = row.original.year;
 
         return (
           <div
-            style={{ textAlign: "center", cursor: "pointer", color: "blue" }} // Style for pointer
+            style={{ textAlign: "center", cursor: "pointer", color: "blue" }}
             onClick={() =>
               navigate(`/import-operations/view-job/${jobNo}/${year}`)
-            } // Navigate to the view-job route
+            }
           >
             {jobNo}
             <br />
-            <small>{icdCode}</small> {/* ICD Code */}
+            <small>{icdCode}</small>
           </div>
         );
       },
@@ -148,23 +186,22 @@ function CompletedOperations() {
     {
       accessorKey: "be_no",
       header: "BE Number & BE Date",
-      size: 200,
+      size: 150,
       Cell: ({ cell }) => {
         const beNumber = cell?.getValue()?.toString();
         const rawBeDate = cell.row.original.be_date;
         const customHouse = cell.row.original.custom_house;
 
-        const beDate = formatDate(rawBeDate); // Function to format BE Date
-        const location = getCustomHouseLocation(customHouse); // Function to get custom house location
+        const beDate = formatDate(rawBeDate);
+        const location = getCustomHouseLocation(customHouse);
 
         return (
-          <React.Fragment>
+          <>
             {beNumber && (
-              <React.Fragment>
+              <>
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "10px" }}
                 >
-                  {/* BE Number as a link */}
                   <a
                     href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
                     target="_blank"
@@ -173,7 +210,6 @@ function CompletedOperations() {
                     {beNumber}
                   </a>
 
-                  {/* Copy icon beside BE Number */}
                   <IconButton
                     size="small"
                     onClick={(event) => handleCopy(event, beNumber)}
@@ -183,12 +219,10 @@ function CompletedOperations() {
                     </abbr>
                   </IconButton>
                 </div>
-
-                {/* BE Date below BE Number and copy icon */}
                 <small>{beDate}</small>
-              </React.Fragment>
+              </>
             )}
-          </React.Fragment>
+          </>
         );
       },
     },
@@ -227,12 +261,12 @@ function CompletedOperations() {
       },
     },
     {
-      accessorKey: "arrival_date",
+      accessorKey: "container_nos", // Access the nested container_nos array
       header: "Arrival Date",
       enableSorting: false,
-      size: 120,
+      size: 150,
       Cell: ({ cell }) =>
-        cell.row.original.container_nos?.map((container, id) => (
+        cell.getValue()?.map((container, id) => (
           <React.Fragment key={id}>
             {container.arrival_date}
             <br />
@@ -243,7 +277,7 @@ function CompletedOperations() {
       accessorKey: "examination_planning_date",
       header: "Examination Planning Date",
       enableSorting: false,
-      size: 150,
+      size: 240,
       Cell: ({ cell }) => (
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
@@ -266,38 +300,31 @@ function CompletedOperations() {
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
     },
-    {
-      accessorKey: "completed_operation_date",
-      header: "Operation Date",
-      size: 200,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    // Add other columns as needed...
   ];
 
-  const table = useMaterialReactTable({
+  const tableConfig = {
     columns,
-    data: filteredRows, // Pass filtered rows to the table
+    data: rows, // Use rows directly as backend handles sorting
     enableColumnResizing: true,
     enableColumnOrdering: true,
-    enableDensityToggle: false,
-    initialState: {
-      density: "compact", // Set initial table density to compact
-      showColumnFilters: true, // Ensure that the search/filter is shown by default
-      showGlobalFilter: true,
-    },
-    enableGrouping: true,
-    enableColumnFilters: false,
-    enableGlobalFilter: true,
-    enableStickyHeader: true, // Enable sticky header
-    enablePinning: true, // Enable pinning for sticky columns
     enablePagination: false,
     enableBottomToolbar: false,
-    muiTableContainerProps: {
-      sx: { maxHeight: "580px", overflowY: "auto" },
+    initialState: {
+      density: "compact",
+      columnPinning: { left: ["job_no"] },
     },
+    enableGlobalFilter: false,
+    enableGrouping: true,
+    enableColumnFilters: false,
+    enableColumnActions: false,
+    enableStickyHeader: true,
+    enablePinning: true,
+    muiTableContainerProps: {
+      sx: { maxHeight: "650px", overflowY: "auto" },
+    },
+    muiTableBodyRowProps: ({ row }) => ({
+      className: row.original.row_color || "", // Apply row color
+    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -306,47 +333,92 @@ function CompletedOperations() {
       },
     },
     renderTopToolbarCustomActions: () => (
-      <TextField
-        select
-        size="small"
-        margin="normal"
-        variant="outlined"
-        label="ICD Code"
-        value={selectedICD}
-        onChange={(e) => setSelectedICD(e.target.value)} // Update selected ICD Code
-        sx={{ width: "200px" }}
-      >
-        <MenuItem value="">All ICDs</MenuItem> {/* Option for no filtering */}
-        <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-        <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-        <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-      </TextField>
+      <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+        {/* ICD Code Filter */}
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="ICD Code"
+          value={selectedICD}
+          onChange={(e) => {
+            setSelectedICD(e.target.value); // Update the selected ICD code
+            setPage(1); // Reset to the first page when the filter changes
+          }}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="">All ICDs</MenuItem>
+          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+        </TextField>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "end",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          {/* Job Count Display */}
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+          >
+            Job Count: {totalJobs}
+          </Typography>
+
+          {/* Search Bar */}
+          <TextField
+            placeholder="Search by Job No, Importer, or AWB/BL Number"
+            size="small"
+            variant="outlined"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+          />
+        </div>
+      </div>
     ),
-  });
+  };
 
   return (
-    <>
-      {/* Select Year Dropdown */}
-      <TextField
-        select
-        size="small"
-        margin="normal"
-        variant="outlined"
-        label="Select Year"
-        value={selectedYear}
-        onChange={(e) => setSelectedYear(e.target.value)}
-        sx={{ width: "200px" }}
+    <div style={{ height: "80%" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", marginBottom: "20px" }}
       >
-        {years?.map((year) => (
-          <MenuItem key={year} value={year}>
-            {year}
-          </MenuItem>
-        ))}
-      </TextField>
+        {/* Year Filter */}
+        <TextField
+          select
+          label="Select Year"
+          value={selectedYear}
+          onChange={(e) => {
+            setSelectedYear(e.target.value);
+            setPage(1); // Reset to first page on year change
+          }}
+          sx={{ marginRight: "20px", width: "200px" }}
+        >
+          {years.map((year) => (
+            <MenuItem key={year} value={year}>
+              {year}
+            </MenuItem>
+          ))}
+        </TextField>
+      </div>
 
-      {/* MaterialReactTable */}
-      <MaterialReactTable table={table} />
-    </>
+      {/* Table */}
+      <MaterialReactTable {...tableConfig} />
+
+      {/* Pagination */}
+      <Pagination
+        count={totalPages}
+        page={page}
+        onChange={handlePageChange}
+        color="primary"
+        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+      />
+    </div>
   );
 }
 

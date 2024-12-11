@@ -216,7 +216,7 @@ function Documentation() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),
@@ -224,25 +224,17 @@ function Documentation() {
 
   return (
     <div style={{ height: "80%" }}>
-     
-          <MaterialReactTable {...tableConfig} />
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            mt={2}
-          >
-            <Pagination
-              count={totalPages}
-              page={page}
-              onChange={handlePageChange}
-              color="primary"
-              showFirstButton
-              showLastButton
-            />
-          </Box>
-       
-   
+      <MaterialReactTable {...tableConfig} />
+      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={handlePageChange}
+          color="primary"
+          showFirstButton
+          showLastButton
+        />
+      </Box>
     </div>
   );
 }

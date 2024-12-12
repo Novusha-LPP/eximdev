@@ -12,6 +12,7 @@ import {
   TextField,
   InputAdornment,
   Pagination,
+  Typography,
 } from "@mui/material";
 
 function BillingSheet() {
@@ -22,6 +23,7 @@ function BillingSheet() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
   const navigate = useNavigate();
 
@@ -49,11 +51,14 @@ function BillingSheet() {
         },
       });
 
-      setRows(res.data.jobs || []);
-      setTotalPages(res.data.totalPages || 1);
+      const { jobs = [], totalJobs = 0, totalPages = 1 } = res.data;
+      setRows(jobs);
+      setTotalJobs(totalJobs);
+      setTotalPages(totalPages);
     } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Failed to load data. Please try again later.");
+      setRows([]);
+      setTotalJobs(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -142,6 +147,13 @@ function BillingSheet() {
           width: "100%",
         }}
       >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -160,7 +172,7 @@ function BillingSheet() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),

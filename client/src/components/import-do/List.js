@@ -12,6 +12,7 @@ import {
   TextField,
   InputAdornment,
   Pagination,
+  Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -21,6 +22,7 @@ function List() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [totalJobs, setTotalJobs] = React.useState(0);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const navigate = useNavigate();
   const limit = 100;
@@ -66,10 +68,15 @@ function List() {
         `${process.env.REACT_APP_API_STRING}/do-team-list-of-jobs`,
         { params: { page, limit, search: searchQuery } }
       );
-      setRows(res.data.jobs);
-      setTotalPages(res.data.totalPages);
+      const { jobs = [], totalJobs = 0, totalPages = 1 } = res.data;
+      setRows(jobs);
+      setTotalJobs(totalJobs);
+      setTotalPages(totalPages);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching jobs:", error);
+      setRows([]);
+      setTotalJobs(0);
+      setTotalPages(1);
     }
   };
 
@@ -299,6 +306,13 @@ function List() {
           width: "100%",
         }}
       >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -314,7 +328,7 @@ function List() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),

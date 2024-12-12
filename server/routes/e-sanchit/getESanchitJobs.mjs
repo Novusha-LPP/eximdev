@@ -52,6 +52,7 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
           $or: [
             { esanchit_completed_date_time: { $exists: false } },
             { esanchit_completed_date_time: "" },
+            { esanchit_completed_date_time: null },
             { "cth_documents.document_check_date": "" },
           ],
         },
@@ -65,7 +66,7 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
     // Fetch the jobs with pagination applied
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
+        "esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
       )
       .skip(skip)
       .limit(limitNumber)
@@ -113,7 +114,7 @@ router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
 
     // Update esanchit_completed_date_time only if it exists in the request
     if (esanchit_completed_date_time !== undefined) {
-      job.esanchit_completed_date_time = esanchit_completed_date_time || null; // Set to null if cleared
+      job.esanchit_completed_date_time = esanchit_completed_date_time || ""; // Set to null if cleared
     }
 
     // Save the updated job

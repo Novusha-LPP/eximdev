@@ -47,7 +47,7 @@ function ViewESanchitJob() {
           cth_documents: values.cth_documents,
           eSachitQueries: values.queries, // Send queries as `eSachitQueries`
           esanchit_completed_date_time:
-            values.esanchit_completed_date_time || null, // Send `null` if cleared
+            values.esanchit_completed_date_time || "", // Send `null` if cleared
         };
 
         await axios.patch(

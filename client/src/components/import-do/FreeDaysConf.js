@@ -10,6 +10,7 @@ import {
   TextField,
   InputAdornment,
   Pagination,
+  Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
@@ -21,6 +22,7 @@ const FreeDaysConf = () => {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total pages
+  const [totalJobs, setTotalJobs] = React.useState(0);
   const [loading, setLoading] = useState(false); // Loading state
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
@@ -39,10 +41,15 @@ const FreeDaysConf = () => {
           params: { page, limit, search: searchQuery }, // Pass page, limit, and search query
         }
       );
-      setRows(res.data.jobs); // Set fetched jobs
-      setTotalPages(res.data.totalPages); // Set total pages
+      const { jobs = [], totalJobs = 0, totalPages = 1 } = res.data;
+      setRows(jobs);
+      setTotalJobs(totalJobs);
+      setTotalPages(totalPages);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching jobs:", error);
+      setRows([]);
+      setTotalJobs(0);
+      setTotalPages(1);;
     } finally {
       setLoading(false);
     }
@@ -194,7 +201,6 @@ const FreeDaysConf = () => {
               style={{ marginRight: "8px" }}
             />
             <IconButton onClick={() => handleSave(row.original._id)}>
-            
               <CheckIcon />
             </IconButton>
             <IconButton onClick={handleCancel}>
@@ -335,6 +341,13 @@ const FreeDaysConf = () => {
           width: "100%",
         }}
       >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -350,7 +363,7 @@ const FreeDaysConf = () => {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),

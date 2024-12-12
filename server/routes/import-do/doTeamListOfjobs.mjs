@@ -51,22 +51,24 @@ router.get("/api/do-team-list-of-jobs", async (req, res) => {
       ...searchQuery,
     };
 
-    // Fetch paginated jobs
-    const jobs = await JobModel.find(
+    // Fetch all matching jobs
+    const allJobs = await JobModel.find(
       conditions,
       "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos"
-    )
-      .skip(skip)
-      .limit(parseInt(limit));
+    );
 
-    // Get total count for pagination
-    const totalJobs = await JobModel.countDocuments(conditions);
-    const totalPages = Math.ceil(totalJobs / limit);
+    // Group jobs (if required, otherwise allJobs can be used directly)
+    const groupedJobs = allJobs; // Placeholder for grouping logic, if applicable
 
+    // Paginate the jobs
+    const paginatedJobs = groupedJobs.slice(skip, skip + parseInt(limit));
+
+    // Respond with the grouped and paginated data
     res.status(200).send({
-      jobs,
-      totalPages,
+      totalJobs: groupedJobs.length,
+      totalPages: Math.ceil(groupedJobs.length / limit),
       currentPage: parseInt(page),
+      jobs: paginatedJobs,
     });
   } catch (error) {
     console.error("Error fetching data:", error);

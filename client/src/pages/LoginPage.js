@@ -23,7 +23,9 @@ function LoginPage() {
           </div>
 
           <div className="login-footer">
-            <p> Version: {process.env.REACT_APP_VERSION}</p>
+          {/* <p style={{ margin: 0, color: "#000", fontWeight: "bold" }}>
+            Version: {process.env.REACT_APP_VERSION}
+          </p> */}
             <img
               src={require("../assets/images/alluvium-logo.webp")}
               width={80}

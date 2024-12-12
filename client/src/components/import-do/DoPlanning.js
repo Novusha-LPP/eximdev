@@ -11,6 +11,7 @@ import {
   TextField,
   InputAdornment,
   Pagination,
+  Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
@@ -23,6 +24,7 @@ function DoPlanning() {
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const navigate = useNavigate();
+  const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100; // Number of items per page
 
   const handleCopy = (event, text) => {
@@ -61,10 +63,15 @@ function DoPlanning() {
           params: { page, limit, search: searchQuery },
         }
       );
-      setRows(res.data.jobs); // Set jobs data
-      setTotalPages(res.data.totalPages); // Set total pages from response
+      const { jobs = [], totalJobs = 0, totalPages = 1 } = res.data;
+      setRows(jobs);
+      setTotalJobs(totalJobs);
+      setTotalPages(totalPages);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching jobs:", error);
+      setRows([]);
+      setTotalJobs(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -344,6 +351,13 @@ function DoPlanning() {
           width: "100%",
         }}
       >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -359,7 +373,7 @@ function DoPlanning() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),

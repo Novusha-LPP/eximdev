@@ -5,6 +5,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import Box from "@mui/material/Box";
 
 const drawerWidth = 60;
 
@@ -23,7 +24,6 @@ function AppbarComponent(props) {
       }}
     >
       <Toolbar>
-       
         <IconButton
           color="inherit"
           aria-label="open drawer"
@@ -53,6 +53,15 @@ function AppbarComponent(props) {
             style={{ cursor: "pointer" }}
           />
         </div>
+
+        {/* Spacer to push the version text to the extreme right */}
+        {/* <Box sx={{ flexGrow: 1 }} />
+
+        <Box>
+          <p style={{ margin: 0, color: "#000", fontWeight: "bold" }}>
+            Version: {process.env.REACT_APP_VERSION}
+          </p>
+        </Box> */}
       </Toolbar>
     </AppBar>
   );

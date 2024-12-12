@@ -1,6 +1,13 @@
 import React, { useState, useCallback, useMemo } from "react";
 import "../../styles/import-dsr.scss";
-import { MenuItem, TextField, IconButton } from "@mui/material";
+import {
+  MenuItem,
+  TextField,
+  IconButton,
+  Pagination,
+  InputAdornment,
+  Typography,
+} from "@mui/material";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -9,12 +16,19 @@ import {
 import { UserContext } from "../../contexts/UserContext";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
-
+import SearchIcon from "@mui/icons-material/Search";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 function OperationsList() {
   const [years, setYears] = React.useState([]);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
+
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
   const navigate = useNavigate();
 
@@ -30,56 +44,42 @@ function OperationsList() {
     getYears();
   }, []);
 
+  const limit = 100;
+
+  // Debounce search query
   React.useEffect(() => {
-    async function getRows() {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`
-        );
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
 
-        // Filter jobs
-        const filteredJobs = res.data
-          .filter((job) => {
-            // 1. Job should have a `be_no`
-            if (!job.be_no) {
-              return false;
-            }
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
-            // 2. `be_no` should not be "cancelled" (case-insensitive)
-            if (job.be_no.toLowerCase() === "cancelled") {
-              // console.log(`Job ${job.job_no} is cancelled`);
-              return false;
-            }
-
-            // 3. Exclude jobs where any container has an `arrival_date`
-            const anyContainerArrivalDate = job.container_nos?.some(
-              (container) => container.arrival_date
-            );
-            if (anyContainerArrivalDate) {
-              // console.log(
-              //   `Job ${job.job_no} has container(s) with arrival_date`
-              // );
-              return false;
-            }
-
-            // 4. Exclude jobs that have `out_of_charge` truthy
-            if (job.out_of_charge) {
-              // console.log(`Job ${job.job_no} has out_of_charge as truthy`);
-              return false;
-            }
-
-            return true; // Keep the job if none of the above conditions apply
-          })
-          .sort((a, b) => new Date(a.be_date) - new Date(b.be_date)); // Sort by BE Date in ascending order
-
-        setRows(filteredJobs); // Set the filtered and sorted jobs
-      } catch (error) {
-        console.error("Error fetching jobs:", error);
-      }
+  // Fetch rows with pagination and search
+  const fetchRows = async (page, searchQuery) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`,
+        {
+          params: { page, limit, search: searchQuery },
+        }
+      );
+      setRows(res.data.jobs);
+      setTotalPages(res.data.totalPages);
+      setTotalJobs(res.data.totalJobs);
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
     }
+  };
 
-    getRows();
-  }, [selectedYear, user]);
+  // Fetch rows on page or search query change
+  React.useEffect(() => {
+    fetchRows(page, debouncedSearchQuery);
+  }, [page, debouncedSearchQuery]);
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
 
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
@@ -136,6 +136,9 @@ function OperationsList() {
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}/${month}/${day}`;
   }, []);
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
 
   const columns = [
     {
@@ -259,24 +262,30 @@ function OperationsList() {
     },
   ];
 
-  const table = useMaterialReactTable({
+  const tableConfig = {
     columns,
     data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
-    enableDensityToggle: false, // Disable density toggle
-    initialState: { density: "compact", showGlobalFilter: true }, // Set initial table density to compact
-    enableGlobalFilter: true,
-    enableGrouping: true, // Enable row grouping
-    enableColumnFilters: false, // Disable column filters
-    enableColumnActions: false,
-    enableStickyHeader: true, // Enable sticky header
-    enablePinning: true, // Enable pinning for sticky columns
     enablePagination: false,
     enableBottomToolbar: false,
-    muiTableContainerProps: {
-      sx: { maxHeight: "580px", overflowY: "auto" },
+    enableDensityToggle: false,
+    initialState: {
+      density: "compact",
+      columnPinning: { left: ["job_no"] },
     },
+    enableGlobalFilter: false,
+    enableGrouping: true,
+    enableColumnFilters: false,
+    enableColumnActions: false,
+    enableStickyHeader: true,
+    enablePinning: true,
+    muiTableContainerProps: {
+      sx: { maxHeight: "650px", overflowY: "auto" },
+    },
+    muiTableBodyRowProps: ({ row }) => ({
+      className: getTableRowsClassname(row),
+    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -284,31 +293,59 @@ function OperationsList() {
         zIndex: 1,
       },
     },
-  });
+    renderTopToolbarCustomActions: () => (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "end",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={handleSearchInputChange}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => {
+                    setDebouncedSearchQuery(searchQuery);
+                    setPage(1);
+                  }}
+                >
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+        />
+      </div>
+    ),
+  };
 
   return (
-    <>
-      <TextField
-        select
-        size="small"
-        margin="normal"
-        variant="outlined"
-        label="Select Year"
-        value={selectedYear}
-        onChange={(e) => setSelectedYear(e.target.value)}
-        sx={{ width: "200px" }}
-      >
-        {years?.map((year) => {
-          return (
-            <MenuItem key={year} value={year}>
-              {year}
-            </MenuItem>
-          );
-        })}
-      </TextField>
-
-      <MaterialReactTable table={table} />
-    </>
+    <div style={{ height: "80%" }}>
+      <MaterialReactTable {...tableConfig} />
+      <Pagination
+        count={totalPages}
+        page={page}
+        onChange={handlePageChange}
+        color="primary"
+        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+      />
+    </div>
   );
 }
 

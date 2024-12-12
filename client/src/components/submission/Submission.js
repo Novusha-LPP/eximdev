@@ -4,6 +4,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
+import { useNavigate } from "react-router-dom";
 import {
   TextField,
   Box,
@@ -22,6 +23,7 @@ function Submission() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const navigate = useNavigate();
 
   const limit = 10; // Number of items per page
 
@@ -81,7 +83,13 @@ function Submission() {
         const { job_no, year, type_of_b_e, consignment_type, custom_house } =
           cell.row.original;
         return (
-          <div>
+          <div
+            onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
+            style={{
+              cursor: "pointer",
+              color: "blue",
+            }}
+          >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </div>
@@ -102,6 +110,68 @@ function Submission() {
         return (
           <div>
             {awb_bl_no} <br /> {awb_bl_date}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "container_numbers",
+      header: "Container Numbers and Size",
+      size: 200,
+      Cell: ({ cell }) => {
+        const containerNos = cell.row.original.container_nos;
+        return (
+          <React.Fragment>
+            {containerNos?.map((container, id) => (
+              <div key={id} style={{ marginBottom: "4px" }}>
+                {container.container_number}| "{container.size}"
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      },
+    },
+    {
+      accessorKey: "gateway_igm_date",
+      header: "Gateway IGM NO. & Date",
+      enableSorting: false,
+      size: 130,
+      Cell: ({ row }) => {
+        const { gateway_igm_date = "N/A", gateway_igm = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${gateway_igm}`}</div>
+            <div>{`${gateway_igm_date}`}</div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "igm_no",
+      header: "IGM NO. & Date",
+      enableSorting: false,
+      size: 130,
+      Cell: ({ row }) => {
+        const { igm_date = "N/A", igm_no = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${igm_no}`}</div>
+            <div>{`${igm_date}`}</div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "invoice_number",
+      header: "Invoice NO. & Date",
+      enableSorting: false,
+      size: 130,
+      Cell: ({ row }) => {
+        const { invoice_date = "N/A", invoice_number = "N/A" } = row.original;
+        return (
+          <div>
+            <div>{`${invoice_number}`}</div>
+            <div>{`${invoice_date}`}</div>
           </div>
         );
       },

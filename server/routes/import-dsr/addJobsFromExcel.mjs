@@ -33,6 +33,14 @@ router.post("/api/jobs/add-job", async (req, res) => {
         total_inv_value,
       } = data;
 
+      // Sanitize bill_date before using it
+      const sanitizedBillDate =
+        typeof bill_date === "string"
+          ? bill_date
+          : bill_date != null
+          ? String(bill_date)
+          : "";
+
       // Define the filter to find existing jobs
       const filter = { year, job_no };
 
@@ -72,7 +80,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
             status:
               existingJob.status === "Completed"
                 ? existingJob.status
-                : computeStatus(bill_date),
+                : computeStatus(sanitizedBillDate),
             be_no,
             be_date,
             invoice_number,
@@ -105,7 +113,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
           $set: {
             ...data,
             vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
-            status: computeStatus(bill_date),
+            status: computeStatus(sanitizedBillDate),
           },
         };
 
@@ -137,7 +145,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
       }
     } catch (error) {
       console.error("Error updating the last jobs date:", error);
-      res.status(500).send("An error occurred while updating the date.");
+      return res.status(500).send("An error occurred while updating the date.");
     }
 
     res.status(200).json({ message: "Jobs added/updated successfully" });
@@ -251,7 +259,16 @@ function determineDetailedStatus(job) {
 }
 
 function computeStatus(billDate) {
-  if (!billDate || billDate.trim() === "" || billDate === "--") {
+  // Convert billDate to string if it's not already
+  if (typeof billDate !== "string") {
+    billDate = billDate != null ? String(billDate) : "";
+    console.warn(`computeStatus: Converted billDate to string: "${billDate}"`);
+  }
+
+  // Now safely trim and evaluate billDate
+  const trimmedBillDate = billDate.trim();
+
+  if (!trimmedBillDate || trimmedBillDate === "--") {
     return "Pending";
   }
   return "Completed";

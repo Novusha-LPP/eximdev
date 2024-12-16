@@ -16,7 +16,7 @@ router.get("/api/dsr/:year", async (req, res) => {
 
     // Query the database based on the criteria in the query object
     const jobs = await JobModel.find(query).select(
-      "job_no importer job_date supplier_exporter invoice_number invoice_date awb_bl_no awb_bl_date commodity no_of_pkgs net_weight loading_port free_time container_nos transporter remarks detailed_status"
+      "job_no importer job_date supplier_exporter invoice_number invoice_date awb_bl_no awb_bl_date commodity no_of_pkgs net_weight loading_port free_time container_nos transporter remarks detailed_status do_completed do_validity"
     );
 
     jobs.sort((a, b) => {

@@ -32,7 +32,13 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
         $or: [
           {
             $and: [
-              { $or: [{ do_completed: true }, { do_completed: "Yes" }] },
+              {
+                $or: [
+                  { do_completed: true },
+                  { do_completed: "Yes" },
+                  { do_completed: { $exists: true } },
+                ],
+              },
               {
                 "container_nos.do_revalidation": {
                   $elemMatch: {
@@ -51,6 +57,8 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
                   { do_completed: false },
                   { do_completed: "No" },
                   { do_completed: { $exists: false } },
+                  { do_completed: "" },
+                  { do_completed: null },
                 ],
               },
             ],

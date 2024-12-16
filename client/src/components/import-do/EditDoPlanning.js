@@ -1,59 +1,69 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useContext,
+} from "react";
 import { useFormik } from "formik";
 import axios from "axios";
-// import { handleFileUpload } from "../../utils/awsFileUpload";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
-import DeleteIcon from "@mui/icons-material/Delete";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
-import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
-// import { Checkbox, FormControlLabel, TextField } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import {
   Checkbox,
   FormControlLabel,
   TextField,
-  Button,
-  Box,
   IconButton,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  DialogContentText,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
 import { Row, Col } from "react-bootstrap";
 
+// Import your user context or authentication hook here
+import { UserContext } from "../../contexts/UserContext";
+
 function EditDoPlanning() {
-  const [data, setData] = React.useState();
-  const [loading, setLoading] = React.useState(true); // Loading state
-  const [kycData, setKycData] = React.useState("");
-  const [fileSnackbar, setFileSnackbar] = React.useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true); // Loading state
+  const [kycData, setKycData] = useState("");
+  const [fileSnackbar, setFileSnackbar] = useState(false);
   const { _id } = useParams();
-  //
+
+  // Modal and other states
   const [deleteIndex, setDeleteIndex] = useState(null);
   const [currentField, setCurrentField] = useState(null);
   const [openImageDeleteModal, setOpenImageDeleteModal] = useState(false);
   const container_number_ref = useRef([]);
   const navigate = useNavigate();
+  const { user } = useContext(UserContext); // Access user from context
+
+  // Helper function to get local datetime string in 'YYYY-MM-DDTHH:MM' format
+  const getLocalDatetimeString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = `0${now.getMonth() + 1}`.slice(-2);
+    const day = `0${now.getDate()}`.slice(-2);
+    const hours = `0${now.getHours()}`.slice(-2);
+    const minutes = `0${now.getMinutes()}`.slice(-2);
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  // Helper function to convert date to 'YYYY-MM-DD' format
   const formatDate = (dateString) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
     const year = date.getFullYear();
     const month = `0${date.getMonth() + 1}`.slice(-2);
     const day = `0${date.getDate()}`.slice(-2);
     return `${year}-${month}-${day}`;
   };
+
   // Fetch data on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     async function getData() {
       try {
         const res = await axios.get(
@@ -63,6 +73,25 @@ function EditDoPlanning() {
 
         // Ensure correct access to the job object
         const jobData = res.data.job;
+
+        // Safely handle do_completed field
+        let do_completed = "";
+        if (
+          typeof jobData.do_completed === "string" &&
+          jobData.do_completed.trim() !== ""
+        ) {
+          const parsedDate = new Date(jobData.do_completed);
+          if (!isNaN(parsedDate.getTime())) {
+            // Convert to local datetime string for datetime-local input
+            const year = parsedDate.getFullYear();
+            const month = `0${parsedDate.getMonth() + 1}`.slice(-2);
+            const day = `0${parsedDate.getDate()}`.slice(-2);
+            const hours = `0${parsedDate.getHours()}`.slice(-2);
+            const minutes = `0${parsedDate.getMinutes()}`.slice(-2);
+            do_completed = `${year}-${month}-${day}T${hours}:${minutes}`;
+          }
+        }
+
         // Update data and set appropriate flags for boolean values
         setData({
           ...jobData,
@@ -71,6 +100,7 @@ function EditDoPlanning() {
           do_processed: jobData.do_processed === "Yes",
           other_invoices: jobData.other_invoices === "Yes",
           security_deposit: jobData.security_deposit === "Yes",
+          do_completed, // Set as local datetime string or ""
         });
 
         setLoading(false); // Data loaded
@@ -98,30 +128,34 @@ function EditDoPlanning() {
       shipping_line_invoice_date: "",
       shipping_line_invoice_imgs: [],
       do_queries: [{ query: "", reply: "" }],
-      do_completed: false,
+      do_completed: "", // Initialize as empty string
       do_Revalidation_Completed: false,
+      container_nos: [], // Ensure container_nos is initialized
     },
 
     onSubmit: async (values, { resetForm }) => {
-      // Initialize navigate
-
       // Convert booleans back to "Yes" or "No"
-      const data = {
+      const dataToSubmit = {
         ...values,
         _id,
         do_Revalidation_Completed: values.do_Revalidation_Completed,
         shipping_line_invoice: values.shipping_line_invoice ? "Yes" : "No",
         payment_made: values.payment_made ? "Yes" : "No",
         do_processed: values.do_processed ? "Yes" : "No",
-        do_completed: values.do_completed ? "Yes" : "No",
         other_invoices: values.other_invoices ? "Yes" : "No",
         security_deposit: values.security_deposit ? "Yes" : "No",
+        // Handle do_completed
+        do_completed:
+          typeof values.do_completed === "string" &&
+          values.do_completed.trim() !== ""
+            ? new Date(values.do_completed).toISOString()
+            : "", // Set to ISO string or ""
       };
 
       try {
         const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
-          data
+          dataToSubmit
         );
         resetForm(); // Reset the form
         navigate("/import-do"); // Redirect to /import-do
@@ -131,7 +165,22 @@ function EditDoPlanning() {
     },
   });
 
-  React.useEffect(() => {
+  // Derived state to determine if DO Completed can be enabled
+  const isDoCompletedEnabled =
+    formik.values.do_validity !== "" &&
+    formik.values.do_copies &&
+    formik.values.do_copies.length > 0;
+
+  // Effect to clear do_completed if DO Validity or DO Copies are cleared
+  useEffect(() => {
+    if (!isDoCompletedEnabled && formik.values.do_completed !== "") {
+      formik.setFieldValue("do_completed", "");
+      console.log("Cleared do_completed because prerequisites are not met.");
+    }
+  }, [isDoCompletedEnabled, formik.values.do_completed, formik]);
+
+  // Fetch KYC documents once data is loaded
+  useEffect(() => {
     if (data) {
       const updatedData = {
         ...data,
@@ -145,34 +194,39 @@ function EditDoPlanning() {
           data.other_invoices === "Yes" || data.other_invoices === true, // Handle similar cases for other_invoices
         security_deposit:
           data.security_deposit === "Yes" || data.security_deposit === true, // Handle similar cases for security_deposit
-        do_completed: data.do_completed === "Yes" || data.do_completed === true, // Handle similar cases for do_completed
+        // do_completed is already handled in getData()
         do_Revalidation_Completed: data.do_Revalidation_Completed,
         do_queries: data.do_queries || [{ query: "", reply: "" }],
+        container_nos: data.container_nos || [],
       };
 
       formik.setValues(updatedData);
       console.log(
-        "Update d shipping_line_invoice_date:",
+        "Update shipping_line_invoice_date:",
         updatedData.shipping_line_invoice_date
       ); // Check if value is set
+
       async function getKycDocs() {
         const importer = data.importer;
         const shipping_line_airline = data.shipping_line_airline;
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_STRING}/get-kyc-documents`,
-          { importer, shipping_line_airline }
-        );
-        setKycData(res.data);
+        try {
+          const res = await axios.post(
+            `${process.env.REACT_APP_API_STRING}/get-kyc-documents`,
+            { importer, shipping_line_airline }
+          );
+          setKycData(res.data);
+        } catch (error) {
+          console.error("Error fetching KYC documents:", error);
+        }
       }
 
       getKycDocs();
     }
-  }, [data]);
+  }, [data]); // **Removed 'isDoCompletedEnabled' and 'formik' from dependencies**
 
   //
-  const handleCopy = (event, text) => {
+  const handleCopy = useCallback((event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
-
     event.stopPropagation();
 
     if (
@@ -204,7 +258,8 @@ function EditDoPlanning() {
       }
       document.body.removeChild(textArea);
     }
-  };
+  }, []);
+
   //
   const handleAddField = () => {
     formik.setValues({
@@ -219,7 +274,26 @@ function EditDoPlanning() {
     });
   };
 
-  // const containers = data.container_nos || [];
+  // Handle checkbox change for do_completed
+  const handleCheckboxChange = (event) => {
+    if (event.target.checked) {
+      // Set to current local date and time in 'YYYY-MM-DDTHH:MM' format
+      const localDatetime = getLocalDatetimeString();
+      formik.setFieldValue("do_completed", localDatetime);
+      console.log("DO Completed set to:", localDatetime);
+    } else {
+      // Set to empty string
+      formik.setFieldValue("do_completed", "");
+      console.log("DO Completed cleared.");
+    }
+  };
+
+  // Handle admin date change
+  const handleAdminDateChange = (event) => {
+    formik.setFieldValue("do_completed", event.target.value);
+    console.log("DO Completed set by Admin to:", event.target.value);
+  };
+
   // Render container details only if data is available
   const renderContainerDetails = () => {
     if (!data || !data.container_nos || data.container_nos.length === 0) {
@@ -302,6 +376,8 @@ function EditDoPlanning() {
 
   if (!data) return <p>Failed to load job details.</p>; // Handle missing data
   console.log("shipping_line_invoice:", formik.values.shipping_line_invoice);
+  console.log("do_validity:", formik.values.do_validity);
+  console.log("do_copies:", formik.values.do_copies);
 
   return (
     <>
@@ -433,7 +509,6 @@ function EditDoPlanning() {
                   label="Security Deposit"
                 />
                 <TextField
-                  date
                   fullWidth
                   size="small"
                   margin="normal"
@@ -452,6 +527,10 @@ function EditDoPlanning() {
                       label="Upload Shipping Line Invoices"
                       bucketPath="shipping_line_invoice_imgs"
                       onFilesUploaded={(newFiles) => {
+                        console.log(
+                          "Uploading new Shipping Line Invoices:",
+                          newFiles
+                        );
                         const existingFiles =
                           formik.values.shipping_line_invoice_imgs || [];
                         const updatedFiles = [...existingFiles, ...newFiles];
@@ -459,6 +538,7 @@ function EditDoPlanning() {
                           "shipping_line_invoice_imgs",
                           updatedFiles
                         );
+                        setFileSnackbar(true); // Show success snackbar
                       }}
                       multiple={true}
                     />
@@ -474,6 +554,7 @@ function EditDoPlanning() {
                           "shipping_line_invoice_imgs",
                           updatedFiles
                         );
+                        setFileSnackbar(true); // Show success snackbar
                       }}
                     />
                   </Col>
@@ -483,9 +564,11 @@ function EditDoPlanning() {
                       label="DO Documents"
                       bucketPath="do_documents"
                       onFilesUploaded={(newFiles) => {
+                        console.log("Uploading new DO Documents:", newFiles);
                         const existingFiles = formik.values.do_documents || [];
                         const updatedFiles = [...existingFiles, ...newFiles];
                         formik.setFieldValue("do_documents", updatedFiles);
+                        setFileSnackbar(true); // Show success snackbar
                       }}
                       multiple={true}
                     />
@@ -496,6 +579,7 @@ function EditDoPlanning() {
                         const updatedFiles = [...formik.values.do_documents];
                         updatedFiles.splice(index, 1);
                         formik.setFieldValue("do_documents", updatedFiles);
+                        setFileSnackbar(true); // Show success snackbar
                       }}
                     />
                   </Col>
@@ -503,7 +587,7 @@ function EditDoPlanning() {
                   <Col></Col>
                 </Row>
                 <br />
-                {formik.values.security_deposit === "Yes" && (
+                {formik.values.security_deposit === true && (
                   <TextField
                     fullWidth
                     size="small"
@@ -540,27 +624,32 @@ function EditDoPlanning() {
                   onChange={formik.handleChange}
                   InputLabelProps={{ shrink: true }}
                 />
-                <Col>
-                  <FileUpload
-                    label="Upload DO Copies"
-                    bucketPath="do_copies"
-                    onFilesUploaded={(newFiles) => {
-                      const existingFiles = formik.values.do_copies || [];
-                      const updatedFiles = [...existingFiles, ...newFiles];
-                      formik.setFieldValue("do_copies", updatedFiles);
-                    }}
-                    multiple={true}
-                  />
+                <Row>
+                  <Col>
+                    <FileUpload
+                      label="Upload DO Copies"
+                      bucketPath="do_copies"
+                      onFilesUploaded={(newFiles) => {
+                        console.log("Uploading new DO Copies:", newFiles);
+                        const existingFiles = formik.values.do_copies || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue("do_copies", updatedFiles);
+                        setFileSnackbar(true); // Show success snackbar
+                      }}
+                      multiple={true}
+                    />
 
-                  <ImagePreview
-                    images={formik.values.do_copies || []}
-                    onDeleteImage={(index) => {
-                      const updatedFiles = [...formik.values.do_copies];
-                      updatedFiles.splice(index, 1);
-                      formik.setFieldValue("do_copies", updatedFiles);
-                    }}
-                  />
-                </Col>
+                    <ImagePreview
+                      images={formik.values.do_copies || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [...formik.values.do_copies];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue("do_copies", updatedFiles);
+                        setFileSnackbar(true); // Show success snackbar
+                      }}
+                    />
+                  </Col>
+                </Row>
               </div>
 
               <div className="job-details-container">
@@ -589,19 +678,72 @@ function EditDoPlanning() {
                 </button>
                 <br />
                 <br />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.do_completed}
-                      onChange={(e) =>
-                        formik.setFieldValue("do_completed", e.target.checked)
+              </div>
+
+              {/* DO Completed Section with Date Display and Admin Input */}
+              <div className="job-details-container">
+                <Row>
+                  <Col xs={12} md={6}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={formik.values.do_completed !== ""}
+                          onChange={handleCheckboxChange}
+                          disabled={!isDoCompletedEnabled} // Disable based on derived state
+                          name="do_completed"
+                          color="primary"
+                        />
                       }
-                      name="do_completed"
-                      color="primary"
+                      label="DO Completed"
                     />
-                  }
-                  label="DO Completed"
-                />
+                    {formik.values.do_completed && (
+                      <span
+                        style={{
+                          marginLeft: "10px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {new Date(formik.values.do_completed).toLocaleString(
+                          "en-US",
+                          {
+                            timeZone: "Asia/Kolkata",
+                            hour12: true,
+                          }
+                        )}
+                      </span>
+                    )}
+                  </Col>
+                  {user?.role === "Admin" && (
+                    <Col xs={12} md={6}>
+                      <TextField
+                        type="datetime-local"
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        id="do_completed"
+                        name="do_completed"
+                        label="Set Date (Admin Only)"
+                        value={formik.values.do_completed || ""}
+                        onChange={handleAdminDateChange}
+                        InputLabelProps={{
+                          shrink: true,
+                        }}
+                        disabled={!isDoCompletedEnabled} // Disable based on derived state
+                      />
+                    </Col>
+                  )}
+                </Row>
+                {!isDoCompletedEnabled && (
+                  <Row>
+                    <Col xs={12}>
+                      <span style={{ color: "red", fontSize: "0.9em" }}>
+                        Please set DO Validity and upload at least one DO Copy
+                        to enable DO Completed.
+                      </span>
+                    </Col>
+                  </Row>
+                )}
               </div>
 
               <br />
@@ -622,6 +764,8 @@ function EditDoPlanning() {
 
             <Snackbar
               open={fileSnackbar}
+              autoHideDuration={3000}
+              onClose={() => setFileSnackbar(false)}
               message={"File uploaded successfully!"}
               sx={{ left: "auto !important", right: "24px !important" }}
             />

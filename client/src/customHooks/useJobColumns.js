@@ -262,8 +262,6 @@ function useJobColumns() {
               : "#",
           };
 
-        
-
           // Determine the URL for the specific shipping line
           const shippingLineUrl = shippingLineUrls[shippingLine] || "#";
 
@@ -469,6 +467,33 @@ function useJobColumns() {
         accessorKey: "out_of_charge",
         header: "Out of Charge",
         size: 150,
+      },
+      {
+        accessorKey: "do_validity",
+        header: "DO Completed & Validity",
+        enableSorting: false,
+        size: 200,
+        Cell: ({ row }) => {
+          const doValidity = row.original.do_validity;
+          const doCompleted = row.original.do_completed;
+
+          return (
+            <div style={{ textAlign: "center" }}>
+              <div>
+                <strong>Completed:</strong>{" "}
+                {doCompleted
+                  ? new Date(doCompleted).toLocaleString("en-US", {
+                      timeZone: "Asia/Kolkata",
+                      hour12: true,
+                    })
+                  : "Not Completed"}
+              </div>
+              <div>
+                <strong>Validity:</strong> {doValidity || "N/A"}
+              </div>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "delivery_date",

@@ -267,6 +267,7 @@ function useFetchJobDetails(
       completed_operation_date: "",
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
+      do_completed: "",
     },
     onSubmit: async (values) => {
       await axios.put(
@@ -327,6 +328,7 @@ function useFetchJobDetails(
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
+          do_completed: values.do_completed,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -568,6 +570,10 @@ function useFetchJobDetails(
           data.bill_document_sent_to_accounts === undefined
             ? ""
             : data.bill_document_sent_to_accounts,
+            do_completed:
+          data.do_completed === undefined
+            ? ""
+            : data.do_completed,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked:

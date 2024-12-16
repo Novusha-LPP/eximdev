@@ -629,6 +629,54 @@ function JobDetails() {
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
+                    Do Completed:{" "}
+                    {formik.values.do_completed ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.do_completed
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="do_completed"
+                    name="do_completed"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.do_completed || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "do_completed",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+            </Row>
+            <Row>
+            <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
                     DO Billing Completed:{" "}
                     {formik.values.bill_document_sent_to_accounts ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
@@ -672,8 +720,6 @@ function JobDetails() {
                   />
                 </Col>
               )}
-            </Row>
-            <Row>
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>

@@ -27,6 +27,9 @@ Sentry.init({
   profilesSampleRate: 1.0, // Capture 100% of transactions for profiling
 });
 
+// SSE
+import updateJobCount from "./routes/updateJobCount.mjs";
+
 // Import routes
 import getAllUsers from "./routes/getAllUsers.mjs";
 import getImporterList from "./routes/getImporterList.mjs";
@@ -266,6 +269,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
+      app.use(updateJobCount);
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);

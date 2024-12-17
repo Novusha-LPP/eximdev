@@ -1,85 +1,93 @@
 import React, { useEffect, useState } from "react";
 import "../../styles/Screens.scss";
-import axios from "axios";
 
 const Screen1 = () => {
-  const [jobCounts, setJobCounts] = useState(null);
+  const [jobCounts, setJobCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const jobEndpoints = {
-    totalJobs: `${process.env.REACT_APP_API_STRING}/get-jobs-overview/24-25`,
-    eta_date_pending: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/eta_date_pending?page=1&limit=100&search=`,
-    estimated_time_of_arrival: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/estimated_time_of_arrival?page=1&limit=100&search=`,
-  };
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    const fetchJobCounts = async () => {
+    const SSE_URL = `${process.env.REACT_APP_API_STRING}/sse/job-overview/24-25`;
+    // console.log("Connecting to SSE at:", SSE_URL);
+
+    const eventSource = new EventSource(SSE_URL);
+
+    eventSource.onopen = () => {
+      // console.log("SSE connection opened successfully.");
+    };
+
+    eventSource.onmessage = (event) => {
+      // console.log("SSE Data Received:", event.data);
       try {
-        // Fetch total jobs overview
-        const overviewResponse = await axios.get(jobEndpoints.totalJobs);
-        const { totalJobs, pendingJobs, completedJobs, cancelledJobs } =
-          overviewResponse.data;
-
-        // Fetch counts for additional fields
-        const additionalResponses = await Promise.all(
-          Object.entries(jobEndpoints)
-            .filter(([key]) => key !== "totalJobs") // Skip overview endpoint
-            .map(([key, endpoint]) => axios.get(endpoint))
-        );
-
-        const additionalCounts = additionalResponses.reduce(
-          (acc, response, index) => {
-            const key = Object.keys(jobEndpoints).filter(
-              (k) => k !== "totalJobs"
-            )[index];
-            acc[key] = response.data.total || 0; // Use `total` from the API response
-            return acc;
-          },
-          {}
-        );
-
-        setJobCounts({
-          totalJobs,
-          pendingJobs,
-          completedJobs,
-          cancelledJobs,
-          ...additionalCounts,
-        });
-      } catch (err) {
-        console.error("Error fetching job counts:", err);
-        setError(err);
-      } finally {
+        const parsedData = JSON.parse(event.data);
+        // console.log("Parsed Data:", parsedData);
+        setJobCounts(parsedData);
         setLoading(false);
+      } catch (err) {
+        console.error("Error parsing SSE data:", err);
+        setError("Error parsing server data.");
       }
     };
 
-    fetchJobCounts();
+    eventSource.onerror = (err) => {
+      console.error("SSE Error Occurred:", err);
+      setError("Connection lost. Retrying...");
+      setTimeout(() => window.location.reload(), 5000);
+    };
+
+    return () => {
+      // console.log("Closing SSE connection.");
+      eventSource.close();
+    };
   }, []);
 
+  // Loading State
   if (loading) {
-    return <div className="screen">Loading...</div>;
+    return (
+      <div className="screen">
+        <p>Loading... ({connectionStatus})</p>
+      </div>
+    );
   }
 
+  // Error State
   if (error) {
-    return <div className="screen">Error loading data.</div>;
+    return (
+      <div className="screen error">
+        <p>Error: {error}</p>
+        <p>Connection Status: {connectionStatus}</p>
+      </div>
+    );
   }
 
-  const dataToRender = [
-    { title: "Total Jobs", count: jobCounts.totalJobs },
-    { title: "Pending Jobs", count: jobCounts.pendingJobs },
-    { title: "Completed Jobs", count: jobCounts.completedJobs },
-    { title: "Cancelled Jobs", count: jobCounts.cancelledJobs },
-    { title: "ETA Date Pending", count: jobCounts.eta_date_pending },
-    { title: "Estimated Time of Arrival", count: jobCounts.estimated_time_of_arrival },
+  // Fields to render
+  const statusFields = [
+    { key: "totalJobs", title: "Total Jobs" },
+    { key: "pendingJobs", title: "Pending Jobs" },
+    { key: "completedJobs", title: "Completed Jobs" },
+    { key: "cancelledJobs", title: "Cancelled Jobs" },
+    { key: "billingPending", title: "Billing Pending" },
+    { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
+    {
+      key: "pcvDoneDutyPaymentPending",
+      title: "PCV Done, Duty Payment Pending",
+    },
+    { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
+    { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
+    { key: "discharged", title: "Discharged" },
+    { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
+    { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
+    { key: "etaDatePending", title: "ETA Date Pending" },
   ];
 
+  // Render Job Counts
   return (
     <div className="screen">
-      {dataToRender.map((item, index) => (
+      {statusFields.map((field, index) => (
         <div className="box" key={index}>
-          <p className="title">{item.title}</p>
-          <p className="count">{item.count}</p>
+          <p className="title">{field.title}</p>
+          <p className="count">{jobCounts[field.key] || 0}</p>
         </div>
       ))}
     </div>

@@ -128,28 +128,28 @@ function ViewESanchitJob() {
   };
   // Check if all Approved checkboxes are true
   // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
-  // const areAllApproved = () => {
-  //   return formik.values.cth_documents.every(
-  //     (doc) =>
-  //       !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
-  //       !!doc.irn && // IRN is a non-empty string
-  //       doc.irn.trim() !== "" // IRN is not just whitespace
-  //   );
-  // };
+  const areAllApproved = () => {
+    return formik.values.cth_documents.every(
+      (doc) =>
+        !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
+        !!doc.irn && // IRN is a non-empty string
+        doc.irn.trim() !== "" // IRN is not just whitespace
+    );
+  };
 
   // Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
-  // useEffect(() => {
-  //   if (areAllApproved()) {
-  //     const currentDateTime = new Date(
-  //       Date.now() - new Date().getTimezoneOffset() * 60000
-  //     )
-  //       .toISOString()
-  //       .slice(0, 16);
-  //     formik.setFieldValue("esanchit_completed_date_time", currentDateTime);
-  //   } else {
-  //     formik.setFieldValue("esanchit_completed_date_time", "");
-  //   }
-  // }, [formik.values.cth_documents]);
+  useEffect(() => {
+    if (areAllApproved()) {
+      const currentDateTime = new Date(
+        Date.now() - new Date().getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16);
+      formik.setFieldValue("esanchit_completed_date_time", currentDateTime);
+    } else {
+      formik.setFieldValue("esanchit_completed_date_time", "");
+    }
+  }, [formik.values.cth_documents]);
 
   return (
     <form onSubmit={formik.handleSubmit}>
@@ -358,7 +358,7 @@ function ViewESanchitJob() {
               </button>
             </div>
 
-            {/* <div className="job-details-container">
+            <div className="job-details-container">
               <h4>All Cleared E-Sanchit</h4>
               <Row>
                 <Col xs={12} lg={6}>
@@ -417,83 +417,6 @@ function ViewESanchitJob() {
                           shrink: true,
                         }}
                         disabled={!areAllApproved()} // Allow manual override only if all approved
-                      />
-                    </div>
-                  </Col>
-                )}
-              </Row>
-            </div> */}
-
-            <div className="job-details-container">
-              <h4>All Cleared E-Sanchit</h4>
-              <Row>
-                <Col xs={12} lg={6}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>E-Sanchit Completed:&nbsp;</strong>
-                    <Checkbox
-                      checked={!!formik.values.esanchit_completed_date_time} // True if value exists
-                      onChange={() => {
-                        if (formik.values.esanchit_completed_date_time) {
-                          // If already set, clear the value
-                          formik.setFieldValue(
-                            "esanchit_completed_date_time",
-                            ""
-                          );
-                        } else {
-                          // Set the current date and time in ISO format
-                          const currentDateTime = new Date(
-                            Date.now() - new Date().getTimezoneOffset() * 60000
-                          )
-                            .toISOString()
-                            .slice(0, 16);
-                          formik.setFieldValue(
-                            "esanchit_completed_date_time",
-                            currentDateTime
-                          );
-                        }
-                      }}
-                    />
-                    {formik.values.esanchit_completed_date_time && (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.esanchit_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </Col>
-
-                {user.role === "Admin" && (
-                  <Col xs={12} lg={6}>
-                    <div
-                      className="job-detail-input-container"
-                      style={{ justifyContent: "flex-start" }}
-                    >
-                      <strong>E-Sanchit Completed Date/Time:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        type="datetime-local"
-                        id="esanchit_completed_date_time"
-                        name="esanchit_completed_date_time"
-                        value={formik.values.esanchit_completed_date_time || ""}
-                        onChange={(e) => {
-                          formik.setFieldValue(
-                            "esanchit_completed_date_time",
-                            e.target.value
-                          );
-                        }}
-                        InputLabelProps={{
-                          shrink: true,
-                        }}
                       />
                     </div>
                   </Col>

@@ -69,16 +69,21 @@ const Screen1 = () => {
     { key: "cancelledJobs", title: "Cancelled Jobs" },
     { key: "billingPending", title: "Billing Pending" },
     { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
-    {
-      key: "pcvDoneDutyPaymentPending",
-      title: "PCV Done, Duty Payment Pending",
-    },
-    { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
-    { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
-    { key: "discharged", title: "Discharged" },
-    { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
-    { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
-    { key: "etaDatePending", title: "ETA Date Pending" },
+    // {
+    //   key: "pcvDoneDutyPaymentPending",
+    //   title: "PCV Done, Duty Payment Pending",
+    // },
+    // { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
+    // { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
+    // { key: "discharged", title: "Discharged" },
+    // { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
+    // { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
+    // { key: "etaDatePending", title: "ETA Date Pending" },
+    // { key: "esanchitPending", title: "E-Sanchit Pending" },
+    // { key: "documentationPending", title: "Documentation Pending" },
+    // { key: "submissionPending", title: "Submission Pending" },
+    // { key: "doPlanningPending", title: "Do Planning" },
+    // { key: "operationsPending", title: "Operations" },
   ];
 
   // Render Job Counts

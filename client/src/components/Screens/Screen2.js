@@ -1,85 +1,98 @@
 import React, { useEffect, useState } from "react";
 import "../../styles/Screens.scss";
-import axios from "axios";
 
 const Screen2 = () => {
-  const [jobCounts, setJobCounts] = useState(null);
+  const [jobCounts, setJobCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Updated API endpoints for job data
-  const jobEndpoints = {
-    gateway_igm_filed: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/gateway_igm_filed?page=1&limit=100&search=`,
-    discharged: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/discharged?page=1&limit=100&search=`,
-    be_noted_arrival_pending: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/be_noted_arrival_pending?page=1&limit=100&search=`,
-    be_noted_clearance_pending: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/be_noted_clearance_pending?page=1&limit=100&search=`,
-    pcv_done_duty_payment_pending: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/pcv_done_duty_payment_pending?page=1&limit=100&search=`,
-    custom_clearance_completed: `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/custom_clearance_completed?page=1&limit=100&search=`,
-  };
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    const fetchJobCounts = async () => {
+    const SSE_URL = `${process.env.REACT_APP_API_STRING}/sse/job-overview/24-25`;
+    // console.log("Connecting to SSE at:", SSE_URL);
+
+    const eventSource = new EventSource(SSE_URL);
+
+    eventSource.onopen = () => {
+      // console.log("SSE connection opened successfully.");
+    };
+
+    eventSource.onmessage = (event) => {
+      // console.log("SSE Data Received:", event.data);
       try {
-        // Fetch data from all endpoints concurrently
-        const responses = await Promise.all(
-          Object.entries(jobEndpoints).map(([key, endpoint]) =>
-            axios.get(endpoint)
-          )
-        );
-
-        // Map responses to respective keys
-        const counts = Object.keys(jobEndpoints).reduce((acc, key, index) => {
-          acc[key] = responses[index].data.total || 0; // Extract total from API response
-          return acc;
-        }, {});
-
-        setJobCounts(counts);
-      } catch (err) {
-        console.error("Error fetching job counts:", err);
-        setError(err);
-      } finally {
+        const parsedData = JSON.parse(event.data);
+        // console.log("Parsed Data:", parsedData);
+        setJobCounts(parsedData);
         setLoading(false);
+      } catch (err) {
+        console.error("Error parsing SSE data:", err);
+        setError("Error parsing server data.");
       }
     };
 
-    fetchJobCounts();
+    eventSource.onerror = (err) => {
+      console.error("SSE Error Occurred:", err);
+      setError("Connection lost. Retrying...");
+      setTimeout(() => window.location.reload(), 5000);
+    };
+
+    return () => {
+      // console.log("Closing SSE connection.");
+      eventSource.close();
+    };
   }, []);
 
+  // Loading State
   if (loading) {
-    return <div className="screen">Loading...</div>;
+    return (
+      <div className="screen">
+        <p>Loading... ({connectionStatus})</p>
+      </div>
+    );
   }
 
+  // Error State
   if (error) {
-    return <div className="screen">Error loading data.</div>;
+    return (
+      <div className="screen error">
+        <p>Error: {error}</p>
+        <p>Connection Status: {connectionStatus}</p>
+      </div>
+    );
   }
 
-  const dataToRender = [
-    { title: "Gateway IGM Filed", count: jobCounts.gateway_igm_filed },
-    { title: "Discharged", count: jobCounts.discharged },
+  // Fields to render
+  const statusFields = [
+    // { key: "totalJobs", title: "Total Jobs" },
+    // { key: "pendingJobs", title: "Pending Jobs" },
+    // { key: "completedJobs", title: "Completed Jobs" },
+    // { key: "cancelledJobs", title: "Cancelled Jobs" },
+    // { key: "billingPending", title: "Billing Pending" },
+    // { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
     {
-      title: "BE Noted, Arrival Pending",
-      count: jobCounts.be_noted_arrival_pending,
-    },
-    {
-      title: "BE Noted, Clearance Pending",
-      count: jobCounts.be_noted_clearance_pending,
-    },
-    {
+      key: "pcvDoneDutyPaymentPending",
       title: "PCV Done, Duty Payment Pending",
-      count: jobCounts.pcv_done_duty_payment_pending,
     },
-    {
-      title: "Custom Clearance Completed",
-      count: jobCounts.custom_clearance_completed,
-    },
+    { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
+    { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
+    { key: "discharged", title: "Discharged" },
+    { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
+    { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
+    // { key: "etaDatePending", title: "ETA Date Pending" },
+    // { key: "esanchitPending", title: "E-Sanchit Pending" },
+    // { key: "documentationPending", title: "Documentation Pending" },
+    // { key: "submissionPending", title: "Submission Pending" },
+    // { key: "doPlanningPending", title: "Do Planning" },
+    // { key: "operationsPending", title: "Operations" },
   ];
 
+  // Render Job Counts
   return (
     <div className="screen">
-      {dataToRender.map((item, index) => (
+      {statusFields.map((field, index) => (
         <div className="box" key={index}>
-          <p className="title">{item.title}</p>
-          <p className="count">{item.count}</p>
+          <p className="title">{field.title}</p>
+          <p className="count">{jobCounts[field.key] || 0}</p>
         </div>
       ))}
     </div>

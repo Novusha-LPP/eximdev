@@ -55,13 +55,13 @@ function AppbarComponent(props) {
         </div>
 
         {/* Spacer to push the version text to the extreme right */}
-        {/* <Box sx={{ flexGrow: 1 }} />
+        <Box sx={{ flexGrow: 1 }} />
 
         <Box>
           <p style={{ margin: 0, color: "#000", fontWeight: "bold" }}>
             Version: {process.env.REACT_APP_VERSION}
           </p>
-        </Box> */}
+        </Box>
       </Toolbar>
     </AppBar>
   );

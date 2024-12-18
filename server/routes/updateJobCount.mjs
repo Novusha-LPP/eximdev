@@ -326,7 +326,7 @@ const fetchJobOverviewData = async (year) => {
                         regex: "^pending$",
                         options: "i",
                       },
-                    }, // Check if status is 'pending'
+                    },
                     {
                       $not: {
                         $regexMatch: {
@@ -335,25 +335,26 @@ const fetchJobOverviewData = async (year) => {
                           options: "i",
                         },
                       },
-                    }, // Exclude cancelled jobs
-                    { $ne: ["$job_no", null] }, // Ensure job_no is not null
-                    { $eq: ["$out_of_charge", ""] }, // out_of_charge must be empty string
+                    },
+                    { $ne: ["$job_no", null] },
+                    { $eq: ["$out_of_charge", ""] },
                     {
                       $or: [
                         {
                           $eq: [
-                            { $ifNull: ["$esanchit_completed_date_time", ""] },
-                            "",
+                            { $type: "$esanchit_completed_date_time" },
+                            "missing",
                           ],
-                        }, // esanchit_completed_date_time is null or empty
-                        { $eq: ["$esanchit_completed_date_time", null] }, // esanchit_completed_date_time is null
-                        { $eq: ["$cth_documents.document_check_date", ""] }, // document_check_date is empty
+                        }, // Field is missing
+                        { $eq: ["$esanchit_completed_date_time", null] }, // Field is null
+                        { $eq: ["$esanchit_completed_date_time", ""] }, // Field is an empty string
+                        { $eq: ["$cth_documents.document_check_date", ""] }, // Field is an empty string
                       ],
                     },
                   ],
                 },
-                1, // Add 1 if all conditions are true
-                0, // Otherwise, add 0
+                1,
+                0,
               ],
             },
           },
@@ -374,16 +375,11 @@ const fetchJobOverviewData = async (year) => {
                       $or: [
                         {
                           $eq: [
-                            {
-                              $ifNull: [
-                                "$documentation_completed_date_time",
-                                "",
-                              ],
-                            },
-                            "",
+                            { $type: "$documentation_completed_date_time" },
+                            "missing",
                           ],
-                        }, // Field does not exist or is empty
-                        { $eq: ["$documentation_completed_date_time", ""] }, // Field is explicitly empty string
+                        }, // Field is missing
+                        { $eq: ["$documentation_completed_date_time", ""] }, // Field is an empty string
                       ],
                     },
                   ],
@@ -398,7 +394,7 @@ const fetchJobOverviewData = async (year) => {
               $cond: [
                 {
                   $and: [
-                    // Check if status matches 'pending' (case-insensitive)
+                    // Status is "Pending" (case-insensitive)
                     {
                       $regexMatch: {
                         input: "$status",
@@ -407,29 +403,40 @@ const fetchJobOverviewData = async (year) => {
                       },
                     },
 
-                    // Check if job_no is not null
+                    // job_no is not null
                     { $ne: ["$job_no", null] },
 
-                    // Check if be_no does not exist or is empty
+                    // be_no does not exist or is an empty string
                     {
                       $or: [
-                        { $eq: [{ $ifNull: ["$be_no", ""] }, ""] }, // be_no does not exist or is empty
+                        { $eq: [{ $type: "$be_no" }, "missing"] }, // be_no does not exist
+                        { $eq: ["$be_no", ""] }, // be_no is an empty string
                       ],
                     },
 
-                    // Check if esanchit_completed_date_time exists and is not empty
+                    // esanchit_completed_date_time exists and is not empty
                     {
-                      $ne: [
-                        { $ifNull: ["$esanchit_completed_date_time", ""] },
-                        "",
+                      $and: [
+                        {
+                          $ne: [
+                            { $type: "$esanchit_completed_date_time" },
+                            "missing",
+                          ],
+                        }, // esanchit_completed_date_time exists
+                        { $ne: ["$esanchit_completed_date_time", ""] }, // esanchit_completed_date_time is not empty
                       ],
                     },
 
-                    // Check if documentation_completed_date_time exists and is not empty
+                    // documentation_completed_date_time exists and is not empty
                     {
-                      $ne: [
-                        { $ifNull: ["$documentation_completed_date_time", ""] },
-                        "",
+                      $and: [
+                        {
+                          $ne: [
+                            { $type: "$documentation_completed_date_time" },
+                            "missing",
+                          ],
+                        }, // documentation_completed_date_time exists
+                        { $ne: ["$documentation_completed_date_time", ""] }, // documentation_completed_date_time is not empty
                       ],
                     },
                   ],
@@ -444,7 +451,7 @@ const fetchJobOverviewData = async (year) => {
               $cond: [
                 {
                   $and: [
-                    // Condition 1: Status is 'pending'
+                    // Status is 'Pending' (case-insensitive)
                     {
                       $regexMatch: {
                         input: "$status",
@@ -453,55 +460,41 @@ const fetchJobOverviewData = async (year) => {
                       },
                     },
 
-                    // Condition 2: Combine two OR conditions
+                    // be_no exists and is not null, empty, or 'cancelled' (case-insensitive)
+                    {
+                      $and: [
+                        { $ne: ["$be_no", null] }, // Field is not null
+                        { $ne: ["$be_no", ""] }, // Field is not empty
+                        {
+                          $not: {
+                            $regexMatch: {
+                              input: "$be_no",
+                              regex: "cancelled",
+                              options: "i",
+                            },
+                          },
+                        }, // Field is not 'cancelled'
+                      ],
+                    },
+
+                    // "container_nos.arrival_date" exists and is not null or empty
+                    {
+                      $and: [
+                        { $ne: ["$container_nos.arrival_date", null] }, // Field is not null
+                        { $ne: ["$container_nos.arrival_date", ""] }, // Field is not empty
+                      ],
+                    },
+
+                    // "completed_operation_date" does not exist or is empty
                     {
                       $or: [
-                        // First OR Condition
                         {
-                          $and: [
-                            {
-                              $or: [
-                                { do_completed: true },
-                                { do_completed: "Yes" },
-                                { $ne: ["$do_completed", null] }, // Field is not null
-                              ],
-                            },
-                            {
-                              // Access the nested array with dot notation and use $size
-                              $gt: [
-                                {
-                                  $size: {
-                                    $ifNull: [
-                                      "$container_nos.do_revalidation",
-                                      [],
-                                    ],
-                                  },
-                                },
-                                0,
-                              ],
-                            },
+                          $eq: [
+                            { $type: "$completed_operation_date" },
+                            "missing",
                           ],
-                        },
-                        // Second OR Condition
-                        {
-                          $and: [
-                            {
-                              $or: [
-                                { doPlanning: true },
-                                { doPlanning: "true" },
-                              ],
-                            }, // doPlanning is true
-                            {
-                              $or: [
-                                { do_completed: false },
-                                { do_completed: "No" },
-                                {
-                                  $eq: [{ $ifNull: ["$do_completed", ""] }, ""],
-                                }, // Field is empty or null
-                              ],
-                            },
-                          ],
-                        },
+                        }, // Field does not exist
+                        { $eq: ["$completed_operation_date", ""] }, // Field is empty
                       ],
                     },
                   ],
@@ -516,48 +509,43 @@ const fetchJobOverviewData = async (year) => {
               $cond: [
                 {
                   $and: [
-                    { $eq: ["$status", "Pending"] }, // Status is 'Pending'
-
-                    // be_no checks
+                    // Exact status match (case-insensitive)
                     {
-                      $and: [
-                        { $ne: ["$be_no", null] }, // be_no is not null
-                        { $ne: ["$be_no", ""] }, // be_no is not empty
-                        {
-                          $not: {
-                            $regexMatch: {
-                              input: "$be_no",
-                              regex: "cancelled",
-                              options: "i",
-                            },
-                          },
-                        }, // be_no does not contain 'cancelled'
-                      ],
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i",
+                      },
                     },
 
-                    // container_nos.arrival_date checks
+                    // be_no conditions
+                    { $ne: ["$be_no", null] },
+                    { $ne: ["$be_no", ""] },
                     {
-                      $ne: [
-                        { $ifNull: ["$container_nos.arrival_date", ""] },
-                        "",
-                      ],
+                      $not: {
+                        $regexMatch: {
+                          input: "$be_no",
+                          regex: "cancelled",
+                          options: "i",
+                        },
+                      },
                     },
 
-                    // completed_operation_date checks
+                    // container_nos.arrival_date conditions
+                    { $ne: ["$container_nos.arrival_date", null] },
+                    { $ne: ["$container_nos.arrival_date", ""] },
+
+                    // completed_operation_date conditions
                     {
                       $or: [
-                        {
-                          $eq: [
-                            { $ifNull: ["$completed_operation_date", ""] },
-                            "",
-                          ],
-                        }, // completed_operation_date is null or empty
+                        { $eq: ["$completed_operation_date", null] },
+                        { $eq: ["$completed_operation_date", ""] },
                       ],
                     },
                   ],
                 },
-                1, // Add 1 if all conditions are met
-                0, // Otherwise, add 0
+                1, // If all conditions are true, count this document
+                0, // Otherwise, don't count
               ],
             },
           },
@@ -648,7 +636,7 @@ router.get("/api/sse/job-overview/:year", async (req, res) => {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify(data)}\n\n`);
           res.flush(); // Force flush
-          // console.log("SSE Data Sent:", JSON.stringify(data));
+          console.log("SSE Data Sent:", JSON.stringify(data));
         } else {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify({ totalJobs: 0 })}\n\n`);

@@ -1,92 +1,98 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "../../styles/Screens.scss";
-import axios from "axios";
 
 const Screen3 = () => {
-  const [jobCounts, setJobCounts] = useState({
-    billingPending: 0,
-    esanchit: 0,
-
-    documentation: 0,
-    submission: 0,
-    doPlanning: 0,
-    operations: 0,
-  });
-
-  // Fetch counts for all modules
-  const fetchJobCounts = async () => {
-    try {
-      const billingPendingResponse = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/24-25/jobs/Pending/billing_pending`,
-
-        { params: { page: 1, limit: 100, search: "" } }
-      );
-      const esanchitResponse = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`,
-        { params: { page: 1, limit: 100, search: "" } }
-      );
-
-      const documentationResponse = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-documentation-jobs`,
-        { params: { page: 1, limit: 100, search: "" } }
-      );
-
-      const submissionResponse = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-submission-jobs`,
-        { params: { page: 1, limit: 100, search: "" } }
-      );
-
-      const doPlanningResponse = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
-        { params: { page: 1, limit: 100, search: "" } }
-      );
-
-      const operationsResponse = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/atul_dev`,
-        {
-          params: {
-            page: 1,
-            limit: 100,
-            search: "",
-            year: "24-25",
-            selectedICD: "",
-          },
-        }
-      );
-
-      setJobCounts({
-        billingPending: billingPendingResponse.data.total || 0,
-        esanchit: esanchitResponse.data.totalJobs || 0,
-        documentation: documentationResponse.data.totalJobs || 0,
-        submission: submissionResponse.data.totalJobs || 0,
-        doPlanning: doPlanningResponse.data.totalJobs || 0,
-        operations: operationsResponse.data.totalJobs || 0,
-      });
-    } catch (error) {
-      console.error("Error fetching job counts:", error);
-    }
-  };
+  const [jobCounts, setJobCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    fetchJobCounts();
+    const SSE_URL = `${process.env.REACT_APP_API_STRING}/sse/job-overview/24-25`;
+    // console.log("Connecting to SSE at:", SSE_URL);
+
+    const eventSource = new EventSource(SSE_URL);
+
+    eventSource.onopen = () => {
+      // console.log("SSE connection opened successfully.");
+    };
+
+    eventSource.onmessage = (event) => {
+      // console.log("SSE Data Received:", event.data);
+      try {
+        const parsedData = JSON.parse(event.data);
+        // console.log("Parsed Data:", parsedData);
+        setJobCounts(parsedData);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error parsing SSE data:", err);
+        setError("Error parsing server data.");
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("SSE Error Occurred:", err);
+      setError("Connection lost. Retrying...");
+      setTimeout(() => window.location.reload(), 5000);
+    };
+
+    return () => {
+      // console.log("Closing SSE connection.");
+      eventSource.close();
+    };
   }, []);
 
-  // Map jobCounts to corresponding titles
-  const screen3Data = [
-    { title: "Billing Pending", count: jobCounts.billingPending },
-    { title: "e-Sanchit", count: jobCounts.esanchit },
-    { title: "Documentation", count: jobCounts.documentation },
-    { title: "Submission", count: jobCounts.submission },
-    { title: "DO Planning", count: jobCounts.doPlanning },
-    { title: "Operations", count: jobCounts.operations },
+  // Loading State
+  if (loading) {
+    return (
+      <div className="screen">
+        <p>Loading... ({connectionStatus})</p>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="screen error">
+        <p>Error: {error}</p>
+        <p>Connection Status: {connectionStatus}</p>
+      </div>
+    );
+  }
+
+  // Fields to render
+  const statusFields = [
+    // { key: "totalJobs", title: "Total Jobs" },
+    // { key: "pendingJobs", title: "Pending Jobs" },
+    // { key: "completedJobs", title: "Completed Jobs" },
+    // { key: "cancelledJobs", title: "Cancelled Jobs" },
+    // { key: "billingPending", title: "Billing Pending" },
+    // { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
+    // {
+    //   key: "pcvDoneDutyPaymentPending",
+    //   title: "PCV Done, Duty Payment Pending",
+    // },
+    // { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
+    // { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
+    // { key: "discharged", title: "Discharged" },
+    // { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
+    // { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
+    { key: "etaDatePending", title: "ETA Date Pending" },
+    { key: "esanchitPending", title: "E-Sanchit Pending" },
+    { key: "documentationPending", title: "Documentation Pending" },
+    { key: "submissionPending", title: "Submission Pending" },
+    { key: "doPlanningPending", title: "Do Planning" },
+    { key: "operationsPending", title: "Operations" },
   ];
 
+  // Render Job Counts
   return (
     <div className="screen">
-      {screen3Data.map((item, index) => (
+      {statusFields.map((field, index) => (
         <div className="box" key={index}>
-          <p className="title">{item.title}</p>
-          <p className="count">{item.count}</p>
+          <p className="title">{field.title}</p>
+          <p className="count">{jobCounts[field.key] || 0}</p>
         </div>
       ))}
     </div>

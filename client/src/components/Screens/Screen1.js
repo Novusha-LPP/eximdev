@@ -69,22 +69,27 @@ const Screen1 = () => {
     { key: "cancelledJobs", title: "Cancelled Jobs" },
     { key: "billingPending", title: "Billing Pending" },
     { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
-    {
-      key: "pcvDoneDutyPaymentPending",
-      title: "PCV Done, Duty Payment Pending",
-    },
-    { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
-    { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
-    { key: "discharged", title: "Discharged" },
-    { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
-    { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
-    { key: "etaDatePending", title: "ETA Date Pending" },
+    // {
+    //   key: "pcvDoneDutyPaymentPending",
+    //   title: "PCV Done, Duty Payment Pending",
+    // },
+    // { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
+    // { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
+    // { key: "discharged", title: "Discharged" },
+    // { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
+    // { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
+    // { key: "etaDatePending", title: "ETA Date Pending" },
+    // { key: "esanchitPending", title: "E-Sanchit Pending" },
+    // { key: "documentationPending", title: "Documentation Pending" },
+    // { key: "submissionPending", title: "Submission Pending" },
+    // { key: "doPlanningPending", title: "Do Planning" },
+    // { key: "operationsPending", title: "Operations" },
   ];
 
   // Render Job Counts
   return (
     <div className="screen">
-      {statusFields.map((field, index) => (
+      {statusFields.slice(0, 6).map((field, index) => (
         <div className="box" key={index}>
           <p className="title">{field.title}</p>
           <p className="count">{jobCounts[field.key] || 0}</p>

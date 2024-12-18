@@ -89,7 +89,7 @@ const Screen1 = () => {
   // Render Job Counts
   return (
     <div className="screen">
-      {statusFields.map((field, index) => (
+      {statusFields.slice(0, 6).map((field, index) => (
         <div className="box" key={index}>
           <p className="title">{field.title}</p>
           <p className="count">{jobCounts[field.key] || 0}</p>

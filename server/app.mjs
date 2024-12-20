@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import logger from "./logger.js";
-
+import cookieParser from "cookie-parser";
 process.on("uncaughtException", (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, { stack: error.stack });
 });
@@ -215,6 +215,13 @@ const MONGODB_URI =
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
 
+const CLIENT_URI =
+  process.env.NODE_ENV === "production"
+    ? process.env.PROD_CLIENT_URI
+    : process.env.NODE_ENV === "server"
+    ? process.env.SERVER_CLIENT_URI
+    : process.env.DEV_CLIENT_URI;
+
 const numOfCPU = os.availableParallelism();
 // console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 if (cluster.isPrimary) {
@@ -229,10 +236,24 @@ if (cluster.isPrimary) {
 } else {
   const app = express();
 
-  app.use(bodyParser.json({ limit: "100mb" }));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-  app.use(cors());
+// Middleware order is crucial
+app.use(bodyParser.json({ limit: "100mb" }));
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// CORS Configuration
+app.use(
+  cors({
+    origin: CLIENT_URI, // Your frontend origin
+    credentials: true, // Allow cookies to be sent
+  })
+);
+
+// Handle preflight requests
+app.options("*", cors());
+
+  // Apply compression
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);

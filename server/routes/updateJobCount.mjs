@@ -636,7 +636,7 @@ router.get("/api/sse/job-overview/:year", async (req, res) => {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify(data)}\n\n`);
           res.flush(); // Force flush
-          console.log("SSE Data Sent:", JSON.stringify(data));
+          // console.log("SSE Data Sent:", JSON.stringify(data));
         } else {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify({ totalJobs: 0 })}\n\n`);

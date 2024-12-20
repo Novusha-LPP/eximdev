@@ -8,29 +8,39 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import { UserContext } from "../../contexts/UserContext";
+import axios from "axios";
 
 function Sidebar() {
   const navigate = useNavigate();
-  const { user, setUser } = useContext(UserContext);
-  const handleLogout = () => {
-    setUser(null);
-    navigate("/");
-    // Remove user from local storage
-    localStorage.removeItem("exim_user");
-    localStorage.removeItem("selected_importer");
-    localStorage.removeItem("selected_importer_url");
-    localStorage.removeItem("tab_value");
+  // Use logout from UserContext
+  // Debugging: Check what context provides
+  const { user, logout, loading } = useContext(UserContext); // Destructure all needed context values
+
+  // Debugging: Check what context provides
+  
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      console.log("Logged out successfully");
+      navigate("/login"); // Redirect to login after logout
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
+  if (loading) {
+    return <div>Loading...</div>; // Optionally handle loading state
+  }
   return (
     <div className="sidebar">
       <Tooltip
-        title={`Welcome ${user.first_name}`}
+        title={`Welcome ${user?.first_name || "User"}`}
         enterDelay={0}
         placement="right"
       >
         <IconButton>
-          <Avatar src={user.employee_photo} alt="Employee Photo" />
+          <Avatar src={user?.employee_photo} alt="Employee Photo" />
         </IconButton>
       </Tooltip>
 
@@ -46,7 +56,7 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      {user.role === "Admin" && (
+      {user?.role === "Admin" && (
         <Tooltip title="Assign Module" enterDelay={0} placement="right">
           <ListItemButton
             className="appbar-links"

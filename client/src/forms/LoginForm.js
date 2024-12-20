@@ -3,10 +3,11 @@ import axios from "axios";
 import { useFormik } from "formik";
 import { TextField } from "@mui/material";
 import { UserContext } from "../contexts/UserContext";
+import { useNavigate } from "react-router-dom";
 
-function LoginPage() {
+function LoginForm() {
   const { setUser } = useContext(UserContext);
-
+  const navigate = useNavigate();
   const formik = useFormik({
     initialValues: {
       username: "",
@@ -17,12 +18,15 @@ function LoginPage() {
       try {
         const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/login`,
-          values
+          values,
+          { withCredentials: true }
         );
 
         if (res.status === 200) {
-          localStorage.setItem("exim_user", JSON.stringify(res.data));
-          setUser(res.data);
+          // Set the user in context
+          setUser(res.data.user);
+          // Optionally, navigate to a protected page if needed
+          navigate("/");
           resetForm();
         }
       } catch (error) {
@@ -71,4 +75,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default LoginForm;

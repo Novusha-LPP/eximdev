@@ -1,50 +1,74 @@
-import React, { useState } from "react";
-import { Container, Row, Col } from "react-bootstrap";
-import LoginForm from "../forms/LoginForm";
-import "../styles/login.scss";
+import React, { useContext } from "react";
+import axios from "axios";
+import { useFormik } from "formik";
+import { TextField } from "@mui/material";
+import { UserContext } from "../contexts/UserContext";
 
 function LoginPage() {
-  const [forgotPassword, setForgotPassword] = useState(false);
-  return (
-    <Container fluid className="login-container" style={{ height: "100vh" }}>
-      <Row className="login-row">
-        <Col className="login-left-col"></Col>
-        <Col className="login-right-col">
-          <div className="login-right-col-inner-container">
-            <img
-              src={require("../assets/images/logo.webp")}
-              alt="logo"
-              width="100%"
-            />
-            <LoginForm
-              forgotPassword={forgotPassword}
-              setForgotPassword={setForgotPassword}
-            />
-          </div>
+  const { setUser } = useContext(UserContext);
 
-          <div className="login-footer">
-          {/* <p style={{ margin: 0, color: "#000", fontWeight: "bold" }}>
-            Version: {process.env.REACT_APP_VERSION}
-          </p> */}
-            <img
-              src={require("../assets/images/alluvium-logo.webp")}
-              width={80}
-              alt=""
-            />
-            <p>
-              Powered By:&nbsp;
-              <a
-                href="https://www.alluvium.in/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span>AIVision | EXIM&nbsp;</span>
-              </a>
-            </p>
-          </div>
-        </Col>
-      </Row>
-    </Container>
+  const formik = useFormik({
+    initialValues: {
+      username: "",
+      password: "",
+    },
+
+    onSubmit: async (values, { resetForm }) => {
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/login`, // Corrected API endpoint
+          values,
+          { withCredentials: true } // Include cookies for authentication
+        );
+
+        if (res.status === 200) {
+          // Set user context with the returned user data
+          setUser(res.data.user); // Backend should return user data as `res.data.user`
+          resetForm();
+        }
+      } catch (error) {
+        if (error.response && error.response.status === 400) {
+          alert(error.response.data.message);
+        } else {
+          alert("An unexpected error occurred. Please try again later.");
+        }
+      }
+    },
+  });
+
+  return (
+    <form onSubmit={formik.handleSubmit}>
+      <TextField
+        size="small"
+        fullWidth
+        margin="dense"
+        variant="filled"
+        id="username"
+        name="username"
+        label="Username"
+        value={formik.values.username}
+        onChange={formik.handleChange}
+        error={formik.touched.username && Boolean(formik.errors.username)}
+        helperText={formik.touched.username && formik.errors.username}
+      />
+      <TextField
+        type="password"
+        size="small"
+        fullWidth
+        margin="dense"
+        variant="filled"
+        id="password"
+        name="password"
+        label="Password"
+        value={formik.values.password}
+        onChange={formik.handleChange}
+        error={formik.touched.password && Boolean(formik.errors.password)}
+        helperText={formik.touched.password && formik.errors.password}
+      />
+      <button type="submit" className="btn">
+        Login
+      </button>
+    </form>
   );
 }
 

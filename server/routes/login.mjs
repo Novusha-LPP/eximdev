@@ -34,11 +34,13 @@ const parseExpiration = (expiration) => {
 
 const cookieMaxAge = parseExpiration(JWT_EXPIRATION);
 
-// Login Route
 router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
+  console.log("Login Attempt:", { username, password: "[HIDDEN]" });
+
   if (!username || !password) {
+    console.log("Missing credentials:", { username, password: !!password });
     return res
       .status(400)
       .json({ message: "Username and password are required" });
@@ -47,11 +49,15 @@ router.post("/api/login", async (req, res) => {
   try {
     const user = await UserModel.findOne({ username });
     if (!user) {
+      console.log("User not found for username:", username);
       return res.status(400).json({ message: "User not registered" });
     }
 
+    console.log("User found:", user);
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      console.log("Password mismatch for username:", username);
       return res
         .status(400)
         .json({ message: "Username or password didn't match" });
@@ -63,6 +69,8 @@ router.post("/api/login", async (req, res) => {
       { expiresIn: JWT_EXPIRATION }
     );
 
+    console.log("Generated JWT Token:", token);
+
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: false, // Allow over HTTP
@@ -70,7 +78,7 @@ router.post("/api/login", async (req, res) => {
       maxAge: cookieMaxAge, // e.g., 1 hour
     });
 
-    console.log("Auth token set in cookie:", token); // Debugging line
+    console.log("Auth token set in cookie:", token);
 
     const userResponse = {
       username: user.username,
@@ -87,11 +95,13 @@ router.post("/api/login", async (req, res) => {
       email: user.email,
     };
 
+    console.log("Login successful, returning user response:", userResponse);
+
     return res
       .status(200)
       .json({ message: "Login successful", user: userResponse });
   } catch (err) {
-    console.error(err);
+    console.error("Error during login:", err);
     return res.status(500).json({ message: "Something went wrong" });
   }
 });
@@ -99,34 +109,35 @@ router.post("/api/login", async (req, res) => {
 // Get User Route
 // Get User Route
 router.get("/api/user", (req, res) => {
-  const token = req.cookies.auth_token; // Ensure cookie-parser middleware is being used
-  console.log("Incoming Cookies:", req.cookies); // Log cookies for debugging
+  const token = req.cookies.auth_token;
+
+  console.debug("[Server] Incoming Cookies:", req.cookies);
 
   if (!token) {
-    console.log("No auth_token cookie found.");
+    console.warn("[Server] No auth_token cookie found.");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log("Token verified:", decoded);
+    console.debug("[Server] Token verified, decoded payload:", decoded);
 
     UserModel.findById(decoded.id)
       .select("-password")
       .then((user) => {
         if (!user) {
-          console.log("User not found.");
+          console.warn("[Server] User not found for token ID:", decoded.id);
           return res.status(404).json({ message: "User not found" });
         }
-        console.log("Fetched user:", user);
+        console.debug("[Server] User fetched from database:", user);
         res.status(200).json({ user });
       })
       .catch((err) => {
-        console.error("Error fetching user:", err);
+        console.error("[Server] Database error:", err);
         res.status(500).json({ message: "Internal server error" });
       });
   } catch (err) {
-    console.error("Token verification failed:", err);
+    console.error("[Server] Token verification failed:", err);
     res.status(401).json({ message: "Invalid token" });
   }
 });
@@ -134,7 +145,8 @@ router.get("/api/user", (req, res) => {
 
 // Logout Route
 router.post("/api/logout", (req, res) => {
-  res.cookie("auth_token", token, {
+  console.log("Logout request received. Clearing auth_token cookie.");
+  res.clearCookie("auth_token", {
     httpOnly: true,
     secure: false, // Allow over HTTP
     sameSite: "Lax",

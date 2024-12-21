@@ -61,8 +61,8 @@ router.post("/api/login", async (req, res) => {
 
     res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: false, // Set to true in production
-      sameSite: "Lax", // Adjust based on environment
+      secure: process.env.NODE_ENV === "production", // true in production
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
       maxAge: cookieMaxAge,
     });
     console.log("Auth token set in cookie:", token); // Debugging line
@@ -127,8 +127,8 @@ router.get("/api/user", (req, res) => {
 router.post("/api/logout", (req, res) => {
   res.clearCookie("auth_token", {
     httpOnly: true,
-    secure: false, // Set to true in production
-    sameSite: "Lax", // Adjust based on environment
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
   });
   res.status(200).json({ message: "Logout successful" });
 });

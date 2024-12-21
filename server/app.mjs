@@ -268,12 +268,29 @@ if (cluster.isPrimary) {
   // CORS Configuration
   // const cors = require("cors");
 
-  app.use(
-    cors({
-      origin: CLIENT_URI,
-      credentials: true, // Allow cookies
-    })
-  );
+  const corsOptions = {
+    origin: CLIENT_URI, // Set your frontend origin here
+    credentials: true, // Enable credentials
+  };
+
+  app.use(cors(corsOptions));
+
+  app.use((req, res, next) => {
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "http://eximdev.s3-website.ap-south-1.amazonaws.com"
+    ); // Your frontend URL
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,DELETE,OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+    next();
+  });
 
   // Apply compression
   app.use(compression({ level: 9 }));

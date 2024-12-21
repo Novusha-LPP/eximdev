@@ -39,7 +39,9 @@ router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).json({ message: "Username and password are required" });
+    return res
+      .status(400)
+      .json({ message: "Username and password are required" });
   }
 
   try {
@@ -50,7 +52,9 @@ router.post("/api/login", async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Username or password didn't match" });
+      return res
+        .status(400)
+        .json({ message: "Username or password didn't match" });
     }
 
     const token = jwt.sign(
@@ -61,10 +65,11 @@ router.post("/api/login", async (req, res) => {
 
     res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true in production
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: cookieMaxAge,
+      secure: false, // Allow over HTTP
+      sameSite: "Lax",
+      maxAge: cookieMaxAge, // e.g., 1 hour
     });
+
     console.log("Auth token set in cookie:", token); // Debugging line
 
     const userResponse = {
@@ -82,7 +87,9 @@ router.post("/api/login", async (req, res) => {
       email: user.email,
     };
 
-    return res.status(200).json({ message: "Login successful", user: userResponse });
+    return res
+      .status(200)
+      .json({ message: "Login successful", user: userResponse });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Something went wrong" });
@@ -90,9 +97,10 @@ router.post("/api/login", async (req, res) => {
 });
 
 // Get User Route
+// Get User Route
 router.get("/api/user", (req, res) => {
-  const token = req.cookies.auth_token;
-  console.log("Incoming Cookies:", req.cookies); // Log incoming cookies
+  const token = req.cookies.auth_token; // Ensure cookie-parser middleware is being used
+  console.log("Incoming Cookies:", req.cookies); // Log cookies for debugging
 
   if (!token) {
     console.log("No auth_token cookie found.");
@@ -123,13 +131,16 @@ router.get("/api/user", (req, res) => {
   }
 });
 
+
 // Logout Route
 router.post("/api/logout", (req, res) => {
-  res.clearCookie("auth_token", {
+  res.cookie("auth_token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    secure: false, // Allow over HTTP
+    sameSite: "Lax",
+    maxAge: cookieMaxAge, // e.g., 1 hour
   });
+
   res.status(200).json({ message: "Logout successful" });
 });
 

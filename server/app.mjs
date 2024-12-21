@@ -251,17 +251,24 @@ if (cluster.isPrimary) {
   app.use(express.urlencoded({ extended: true }));
 
   // CORS Configuration
+  // app.use(
+  //   cors({
+  //     origin: function (origin, callback) {
+  //       // Allow requests with no origin (like mobile apps or curl)
+  //       if (!origin) return callback(null, true);
+  //       if (allowedOrigins.includes(origin)) {
+  //         callback(null, true);
+  //       } else {
+  //         callback(new Error("Not allowed by CORS"));
+  //       }
+  //     },
+  //     credentials: true, // Allow cookies to be sent
+  //   })
+  // );
+  // CORS Configuration
   app.use(
     cors({
-      origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
-      },
+      origin: CLIENT_URI, // Frontend origin
       credentials: true, // Allow cookies to be sent
     })
   );

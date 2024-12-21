@@ -12,13 +12,15 @@ export const UserProvider = ({ children }) => {
   const fetchUser = async () => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/user`, {
-        withCredentials: true,
+        withCredentials: true, // Send cookies with the request
       });
-      setUser(res.data.user);
+
+      setUser(res.data.user); // Set the user if authenticated
     } catch (err) {
-      setUser(null);
+      console.error("Failed to fetch user:", err);
+      setUser(null); // Clear user state on error
     } finally {
-      setLoading(false);
+      setLoading(false); // Stop the loading spinner
     }
   };
 

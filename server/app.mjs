@@ -266,16 +266,15 @@ if (cluster.isPrimary) {
   //   })
   // );
   // CORS Configuration
+  // const cors = require("cors");
+
   app.use(
     cors({
-      origin: ["http://eximdev.s3-website.ap-south-1.amazonaws.com", "http://localhost:3000"],
+      origin: CLIENT_URI,
       credentials: true, // Allow cookies
     })
   );
-  
 
-  // Handle preflight requests
-  app.options("*", cors());
   // Apply compression
   app.use(compression({ level: 9 }));
 

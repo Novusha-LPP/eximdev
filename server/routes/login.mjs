@@ -73,10 +73,11 @@ router.post("/api/login", async (req, res) => {
 
     res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: false, // Allow over HTTP
-      sameSite: "None",
-      maxAge: cookieMaxAge, // e.g., 1 hour
+      secure: process.env.NODE_ENV === "production", // Set secure cookies in production
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // Allow cross-origin cookies
+      maxAge: cookieMaxAge,
     });
+    
 
     console.log("Auth token set in cookie:", token);
 
@@ -145,12 +146,13 @@ router.get("/api/user", (req, res) => {
 // Logout Route
 router.post("/api/logout", (req, res) => {
   console.log("Logout request received. Clearing auth_token cookie.");
-  res.clearCookie("auth_token", {
+  res.cookie("auth_token", token, {
     httpOnly: true,
-    secure: false, // Allow over HTTP
-    sameSite: "None",
-    maxAge: cookieMaxAge, // e.g., 1 hour
+    secure: process.env.NODE_ENV === "production", // Set secure cookies in production
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // Allow cross-origin cookies
+    maxAge: cookieMaxAge,
   });
+  
 
   res.status(200).json({ message: "Logout successful" });
 });

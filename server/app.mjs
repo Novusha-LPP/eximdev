@@ -268,10 +268,11 @@ if (cluster.isPrimary) {
   // CORS Configuration
   app.use(
     cors({
-      origin: CLIENT_URI, // Frontend origin
-      credentials: true, // Allow cookies to be sent
+      origin: ["http://eximdev.s3-website.ap-south-1.amazonaws.com", "http://localhost:3000"],
+      credentials: true, // Allow cookies
     })
   );
+  
 
   // Handle preflight requests
   app.options("*", cors());

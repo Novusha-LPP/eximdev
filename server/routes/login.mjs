@@ -74,7 +74,7 @@ router.post("/api/login", async (req, res) => {
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: false, // Allow over HTTP
-      sameSite: "Lax",
+      sameSite: None,
       maxAge: cookieMaxAge, // e.g., 1 hour
     });
 
@@ -142,14 +142,13 @@ router.get("/api/user", (req, res) => {
   }
 });
 
-
 // Logout Route
 router.post("/api/logout", (req, res) => {
   console.log("Logout request received. Clearing auth_token cookie.");
   res.clearCookie("auth_token", {
     httpOnly: true,
     secure: false, // Allow over HTTP
-    sameSite: "Lax",
+    sameSite: None,
     maxAge: cookieMaxAge, // e.g., 1 hour
   });
 

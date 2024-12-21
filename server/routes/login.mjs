@@ -39,7 +39,9 @@ router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).json({ message: "Username and password are required" });
+    return res
+      .status(400)
+      .json({ message: "Username and password are required" });
   }
 
   try {
@@ -50,7 +52,9 @@ router.post("/api/login", async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Username or password didn't match" });
+      return res
+        .status(400)
+        .json({ message: "Username or password didn't match" });
     }
 
     const token = jwt.sign(
@@ -65,7 +69,7 @@ router.post("/api/login", async (req, res) => {
       sameSite: "Lax", // Adjust based on environment
       maxAge: cookieMaxAge,
     });
-    console.log("Auth token set in cookie:", token); // Debugging line
+    // console.log("Auth token set in cookie:", token); // Debugging line
 
     const userResponse = {
       username: user.username,
@@ -82,7 +86,9 @@ router.post("/api/login", async (req, res) => {
       email: user.email,
     };
 
-    return res.status(200).json({ message: "Login successful", user: userResponse });
+    return res
+      .status(200)
+      .json({ message: "Login successful", user: userResponse });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Something went wrong" });
@@ -92,7 +98,7 @@ router.post("/api/login", async (req, res) => {
 // Get User Route
 router.get("/api/user", (req, res) => {
   const token = req.cookies.auth_token;
-  console.log("Incoming Cookies:", req.cookies); // Log incoming cookies
+  // console.log("Incoming Cookies:", req.cookies); // Log incoming cookies
 
   if (!token) {
     console.log("No auth_token cookie found.");
@@ -110,7 +116,7 @@ router.get("/api/user", (req, res) => {
           console.log("User not found.");
           return res.status(404).json({ message: "User not found" });
         }
-        console.log("Fetched user:", user);
+        // console.log("Fetched user:", user);
         res.status(200).json({ user });
       })
       .catch((err) => {

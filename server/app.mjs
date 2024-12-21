@@ -222,8 +222,16 @@ const CLIENT_URI =
     ? process.env.SERVER_CLIENT_URI
     : process.env.DEV_CLIENT_URI;
 
+// Define allowed origins
+const allowedOrigins = [
+  "http://localhost:3000", // Development
+  "http://eximdev.s3-website.ap-south-1.amazonaws.com", // Production
+];
+
+// Determine the number of CPUs for clustering
 const numOfCPU = os.availableParallelism();
-// console.log(`hello check first re baba***************** ${MONGODB_URI}`);
+
+// Initialize clustering
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -236,23 +244,30 @@ if (cluster.isPrimary) {
 } else {
   const app = express();
 
-// Middleware order is crucial
-app.use(bodyParser.json({ limit: "100mb" }));
-app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  // Middleware order is crucial
+  app.use(bodyParser.json({ limit: "100mb" }));
+  app.use(cookieParser());
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
-// CORS Configuration
-app.use(
-  cors({
-    origin: CLIENT_URI, // Your frontend origin
-    credentials: true, // Allow cookies to be sent
-  })
-);
+  // CORS Configuration
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
+      credentials: true, // Allow cookies to be sent
+    })
+  );
 
-// Handle preflight requests
-app.options("*", cors());
-
+  // Handle preflight requests
+  app.options("*", cors());
   // Apply compression
   app.use(compression({ level: 9 }));
 

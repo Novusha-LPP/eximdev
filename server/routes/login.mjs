@@ -74,7 +74,7 @@ router.post("/api/login", async (req, res) => {
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: false, // Allow over HTTP
-      sameSite: None,
+      sameSite: "None",
       maxAge: cookieMaxAge, // e.g., 1 hour
     });
 
@@ -148,7 +148,7 @@ router.post("/api/logout", (req, res) => {
   res.clearCookie("auth_token", {
     httpOnly: true,
     secure: false, // Allow over HTTP
-    sameSite: None,
+    sameSite: "None",
     maxAge: cookieMaxAge, // e.g., 1 hour
   });
 

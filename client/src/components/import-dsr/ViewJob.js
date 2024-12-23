@@ -35,7 +35,7 @@ import {
   Button,
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
-
+import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 function JobDetails() {
   const params = useParams();
   const { user } = useContext(UserContext);
@@ -57,6 +57,14 @@ function JobDetails() {
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // const [dialogOpen, setDialogOpen] = useState(false);
+  // const [currentDocument, setCurrentDocument] = useState(null);
+  const [actionType, setActionType] = useState(""); // "edit" or "delete"
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editValues, setEditValues] = useState({});
 
   const {
     data,
@@ -74,6 +82,7 @@ function JobDetails() {
     setNewDocumentName,
     setNewDocumentCode,
     newDocumentCode,
+    canEditOrDelete,
 
     filterDocuments,
   } = useFetchJobDetails(
@@ -296,6 +305,83 @@ function JobDetails() {
     formik.setFieldValue("container_nos", updatedContainers);
   };
 
+  // const handleOpenDialog = (doc, action) => {
+  //   setCurrentDocument(doc);
+  //   setActionType(action);
+  //   setDialogOpen(true);
+  // };
+
+  // const handleCloseDialog = () => {
+  //   setDialogOpen(false);
+  //   setCurrentDocument(null);
+  //   setActionType("");
+  // };
+
+  // const handleConfirmDialog = () => {
+  //   if (actionType === "delete") {
+  //     setCthDocuments((prevDocs) =>
+  //       prevDocs.filter((doc) => doc !== currentDocument)
+  //     );
+  //   } else if (actionType === "edit") {
+  //     const newName = prompt(
+  //       "Enter new document name:",
+  //       currentDocument.document_name
+  //     );
+  //     const newCode = prompt(
+  //       "Enter new document code:",
+  //       currentDocument.document_code
+  //     );
+
+  //     if (newName && newCode) {
+  //       setCthDocuments((prevDocs) =>
+  //         prevDocs.map((doc) =>
+  //           doc === currentDocument
+  //             ? { ...doc, document_name: newName, document_code: newCode }
+  //             : doc
+  //         )
+  //       );
+  //     }
+  //   }
+  //   handleCloseDialog();
+  // };
+
+  const handleOpenDialog = (doc, isEdit = false) => {
+    setCurrentDocument(doc);
+    setIsEditMode(isEdit);
+
+    if (isEdit) {
+      setEditValues({ ...doc });
+    }
+    setDialogOpen(true);
+  };
+
+  // Close dialog
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setCurrentDocument(null);
+    setIsEditMode(false);
+    setEditValues({});
+  };
+
+  // Confirm action (delete or edit)
+  const handleConfirmDialog = () => {
+    if (isEditMode) {
+      // Save edited document
+      setCthDocuments((prevDocs) =>
+        prevDocs.map((doc) =>
+          doc === currentDocument ? { ...doc, ...editValues } : doc
+        )
+      );
+    } else {
+      // Delete document
+      setCthDocuments((prevDocs) =>
+        prevDocs.filter((doc) => doc !== currentDocument)
+      );
+    }
+
+    handleCloseDialog();
+  };
+
   return (
     <>
       {data !== null && (
@@ -457,6 +543,175 @@ function JobDetails() {
               </Col>
             </Row>
           </div>
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documents" />
+            <br />
+            <Row style={{ marginBottom: "20px" }}>
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="cth_no"
+                  name="cth_no"
+                  label="CTH No."
+                  value={formik.values.cth_no}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+              {/* Bill of Entry No. Section */}
+              {user.role === "Admin" ? (
+                <>
+                  <Col xs={12} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      id="be_no"
+                      name="be_no"
+                      value={formik.values.be_no}
+                      onChange={formik.handleChange}
+                      label="Bill of Entry Number"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Col>
+                  <Col xs={12} lg={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="date"
+                      id="be_date"
+                      name="be_date"
+                      value={formik.values.be_date}
+                      onChange={formik.handleChange}
+                      label="Bill of Entry Date"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Col>
+                </>
+              ) : null}
+            </Row>
+
+            {/* CTH Documents Section */}
+
+            <Row>
+              {cthDocuments?.map((doc, index) => (
+                <Col
+                  xs={12}
+                  lg={4}
+                  key={`cth-${index}`}
+                  style={{ marginBottom: "20px", position: "relative" }}
+                >
+                  <FileUpload
+                    label={`${doc.document_name} (${doc.document_code})`}
+                    bucketPath={`cth-documents/${doc.document_name}`}
+                    onFilesUploaded={(urls) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].url = [
+                        ...(updatedDocuments[index].url || []),
+                        ...urls,
+                      ]; // Append new URLs
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    multiple={true} // Allow multiple uploads
+                  />
+                  <ImagePreview
+                    images={doc.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    readOnly={false}
+                  />
+                  {/* Small icons for Edit and Delete */}
+                  <div
+                    style={{ position: "absolute", top: "10px", right: "10px" }}
+                  >
+                    <span
+                      style={{
+                        cursor: "pointer",
+                        marginRight: "10px",
+                        color: "#007bff",
+                      }}
+                      onClick={() => handleOpenDialog(doc, true)}
+                    >
+                      <i className="fas fa-edit" title="Edit"></i>
+                    </span>
+                    <span
+                      style={{ cursor: "pointer", color: "#dc3545" }}
+                      onClick={() => handleOpenDialog(doc, false)}
+                    >
+                      <i className="fas fa-trash-alt" title="Delete"></i>
+                    </span>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            {/*  */}
+
+            {/* Add Document Section */}
+            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
+              <Col xs={12} lg={4}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  label="New Document Name"
+                  value={newDocumentName}
+                  onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
+                />
+              </Col>
+              <Col xs={12} lg={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  label="New Document Code"
+                  value={newDocumentCode}
+                  onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
+                />
+              </Col>
+              <Col
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ marginTop: "8px", height: "fit-content" }}
+                  onClick={() => {
+                    if (newDocumentName.trim() && newDocumentCode.trim()) {
+                      setCthDocuments([
+                        ...cthDocuments,
+                        {
+                          document_name: newDocumentName,
+                          document_code: newDocumentCode, // Use provided document code
+                          url: [], // Initialize with an empty URL array
+                          document_check_date: "",
+                        },
+                      ]);
+                      setNewDocumentName(""); // Clear name input after adding
+                      setNewDocumentCode(""); // Clear code input after adding
+                    }
+                  }}
+                >
+                  Add Document
+                </button>
+              </Col>
+            </Row>
+          </div>
+          {/* test232423242 */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />
             <br />
@@ -632,12 +887,13 @@ function JobDetails() {
                     Do Completed:{" "}
                     {formik.values.do_completed ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.do_completed
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
+                        {new Date(formik.values.do_completed).toLocaleString(
+                          "en-US",
+                          {
+                            timeZone: "Asia/Kolkata",
+                            hour12: true,
+                          }
+                        )}
                       </span>
                     ) : (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
@@ -661,10 +917,7 @@ function JobDetails() {
                     label="Set Date (Admin Only)"
                     value={formik.values.do_completed || ""}
                     onChange={(e) =>
-                      formik.setFieldValue(
-                        "do_completed",
-                        e.target.value
-                      )
+                      formik.setFieldValue("do_completed", e.target.value)
                     } // Update formik value
                     InputLabelProps={{
                       shrink: true,
@@ -674,7 +927,7 @@ function JobDetails() {
               )}
             </Row>
             <Row>
-            <Col xs={12} lg={3}>
+              <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
                     DO Billing Completed:{" "}
@@ -2381,6 +2634,19 @@ function JobDetails() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={dialogOpen}
+        handleClose={handleCloseDialog}
+        handleConfirm={handleConfirmDialog}
+        message={
+          isEditMode
+            ? undefined // No message for edit
+            : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
+        }
+        isEdit={isEditMode}
+        editValues={editValues}
+        onEditChange={setEditValues}
+      />
     </>
   );
 }

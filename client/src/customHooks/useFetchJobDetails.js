@@ -110,6 +110,22 @@ function useFetchJobDetails(
     "81042010",
   ];
 
+  const canEditOrDelete = (doc) => {
+    return !(
+      cthDocuments.some(
+        (d) =>
+          d.document_name === doc.document_name &&
+          d.document_code === doc.document_code
+      ) ||
+      additionalDocs.some(
+        (d) =>
+          d.document_name === doc.document_name &&
+          d.document_code === doc.document_code
+      ) ||
+      commonCthCodes.includes(formik.values.cth_no)
+    );
+  };
+
   // Fetch data
   useEffect(() => {
     async function getJobDetails() {
@@ -554,7 +570,7 @@ function useFetchJobDetails(
           data.documentation_completed_date_time === undefined
             ? ""
             : data.documentation_completed_date_time,
-            submission_completed_date_time:
+        submission_completed_date_time:
           data.submission_completed_date_time === undefined
             ? ""
             : data.submission_completed_date_time,
@@ -570,10 +586,7 @@ function useFetchJobDetails(
           data.bill_document_sent_to_accounts === undefined
             ? ""
             : data.bill_document_sent_to_accounts,
-            do_completed:
-          data.do_completed === undefined
-            ? ""
-            : data.do_completed,
+        do_completed: data.do_completed === undefined ? "" : data.do_completed,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked:
@@ -865,6 +878,7 @@ function useFetchJobDetails(
     handleAddDocument,
     handleRemoveDocument,
     filterDocuments,
+    canEditOrDelete,
   };
 }
 

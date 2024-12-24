@@ -4,6 +4,7 @@ import { useFormik } from "formik";
 import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
 import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
+import { Dropdown } from "react-bootstrap";
 
 const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
   try {
@@ -59,6 +60,51 @@ function useFetchJobDetails(
       document_name: "Bill of Lading",
       document_code: "704000",
     },
+    // {
+    //   document_name: "Certificate of Origin",
+    //   document_code: "861000",
+    // },
+    // {
+    //   document_name: "Contract",
+    //   document_code: "315000",
+    // },
+    // {
+    //   document_name: "Insurance",
+    //   document_code: "91WH13",
+    // },
+  ]);
+  const [newDocumentName, setNewDocumentName] = useState("");
+  const [newDocumentCode, setNewDocumentCode] = useState("");
+
+  const [documents, setDocuments] = useState([]);
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
+
+  const additionalDocs = [
+    // {
+    //   document_name: "Pre-Shipment Inspection Certificate",
+    //   document_code: "856001",
+    // },
+    // { document_name: "Form 9 & Form 6", document_code: "856001" },
+    // {
+    //   document_name: "Registration Document (SIMS/NFMIMS/PIMS)",
+    //   document_code: "101000",
+    // },
+    // { document_name: "Certificate of Analysis", document_code: "001000" },
+  ];
+  const cth_Dropdown = [
+    // {
+    //   document_name: "Commercial Invoice",
+    //   document_code: "380000",
+    // },
+    // {
+    //   document_name: "Packing List",
+    //   document_code: "271000",
+    // },
+    // {
+    //   document_name: "Bill of Lading",
+    //   document_code: "704000",
+    // },
     {
       document_name: "Certificate of Origin",
       document_code: "861000",
@@ -71,14 +117,6 @@ function useFetchJobDetails(
       document_name: "Insurance",
       document_code: "91WH13",
     },
-  ]);
-  const [newDocumentName, setNewDocumentName] = useState("");
-  const [newDocumentCode, setNewDocumentCode] = useState("");
-
-  const [documents, setDocuments] = useState([]);
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
-
-  const additionalDocs = [
     {
       document_name: "Pre-Shipment Inspection Certificate",
       document_code: "856001",
@@ -879,6 +917,9 @@ function useFetchJobDetails(
     handleRemoveDocument,
     filterDocuments,
     canEditOrDelete,
+    cth_Dropdown,
+    setSelectedDocument,
+    selectedDocument,
   };
 }
 

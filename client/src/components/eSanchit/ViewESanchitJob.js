@@ -183,9 +183,10 @@ function ViewESanchitJob() {
 
   const handleOpenDialog = (document, isEdit) => {
     setDialogMode(isEdit);
-    setEditDocument(document);
+    setEditDocument({ ...document, originalCode: document.document_code });
     setDialogOpen(true);
   };
+
   const handleDeleteDocument = () => {
     const updatedDocuments = formik.values.cth_documents.filter(
       (d) => d.document_code !== editDocument.document_code
@@ -196,13 +197,14 @@ function ViewESanchitJob() {
 
   const handleEditDocument = () => {
     const updatedDocuments = formik.values.cth_documents.map((document) =>
-      document.document_code === editDocument.document_code
-        ? editDocument
+      document.document_code === editDocument.originalCode // Use the original code to identify the document
+        ? { ...document, ...editDocument } // Update both name and code
         : document
     );
     formik.setFieldValue("cth_documents", updatedDocuments);
     setDialogOpen(false);
   };
+
   const addDocument = () => {
     if (
       selectedDocument === "other" &&

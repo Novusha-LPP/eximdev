@@ -3,10 +3,19 @@ import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import Snackbar from "@mui/material/Snackbar";
-import { TextField, Checkbox, Box, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import {
+  TextField,
+  Checkbox,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
+import ConfirmDialog from "../../components/gallery/ConfirmDialog";
 import { useFormik } from "formik";
 import { UserContext } from "../../contexts/UserContext";
 
@@ -14,9 +23,15 @@ const cth_Dropdown = [
   { document_name: "Certificate of Origin", document_code: "861000" },
   { document_name: "Contract", document_code: "315000" },
   { document_name: "Insurance", document_code: "91WH13" },
-  { document_name: "Pre-Shipment Inspection Certificate", document_code: "856001" },
-  { document_name: "Form 9 & Form 6", document_code: "856001" },
-  { document_name: "Registration Document (SIMS/NFMIMS/PIMS)", document_code: "101000" },
+  {
+    document_name: "Pre-Shipment Inspection Certificate",
+    document_code: "856001",
+  },
+  { document_name: "Form 9 & Form 6", document_code: "0856001" },
+  {
+    document_name: "Registration Document (SIMS/NFMIMS/PIMS)",
+    document_code: "101000",
+  },
   { document_name: "Certificate of Analysis", document_code: "001000" },
 ];
 function ViewESanchitJob() {
@@ -26,6 +41,9 @@ function ViewESanchitJob() {
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
+  const [editDocument, setEditDocument] = useState(null);
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
@@ -162,8 +180,35 @@ function ViewESanchitJob() {
       formik.setFieldValue("esanchit_completed_date_time", "");
     }
   }, [formik.values.cth_documents]);
+
+  const handleOpenDialog = (document, isEdit) => {
+    setDialogMode(isEdit);
+    setEditDocument(document);
+    setDialogOpen(true);
+  };
+  const handleDeleteDocument = () => {
+    const updatedDocuments = formik.values.cth_documents.filter(
+      (d) => d.document_code !== editDocument.document_code
+    );
+    formik.setFieldValue("cth_documents", updatedDocuments);
+    setDialogOpen(false);
+  };
+
+  const handleEditDocument = () => {
+    const updatedDocuments = formik.values.cth_documents.map((document) =>
+      document.document_code === editDocument.document_code
+        ? editDocument
+        : document
+    );
+    formik.setFieldValue("cth_documents", updatedDocuments);
+    setDialogOpen(false);
+  };
   const addDocument = () => {
-    if (selectedDocument === "other" && newDocumentName.trim() && newDocumentCode.trim()) {
+    if (
+      selectedDocument === "other" &&
+      newDocumentName.trim() &&
+      newDocumentCode.trim()
+    ) {
       formik.setFieldValue("cth_documents", [
         ...formik.values.cth_documents,
         {
@@ -177,7 +222,9 @@ function ViewESanchitJob() {
       setNewDocumentName("");
       setNewDocumentCode("");
     } else if (selectedDocument) {
-      const doc = cth_Dropdown.find((d) => d.document_code === selectedDocument);
+      const doc = cth_Dropdown.find(
+        (d) => d.document_code === selectedDocument
+      );
       formik.setFieldValue("cth_documents", [
         ...formik.values.cth_documents,
         {
@@ -216,19 +263,23 @@ function ViewESanchitJob() {
                 >
                   <Row className="align-items-center">
                     {/* File Upload & Image Preview */}
-                    <Col xs={12} lg={4}>
+
+                    <Col
+                      xs={12}
+                      lg={4}
+                      key={`cth-${index}`}
+                      style={{ marginBottom: "20px", position: "relative" }}
+                    >
                       <FileUpload
-                        label={`Upload Files for ${document.document_name} (${document.document_code})`}
+                        label={`${document.document_name} (${document.document_code})`}
                         bucketPath={`cth-documents/${document.document_name}`}
-                        onFilesUploaded={(newFiles) => {
+                        onFilesUploaded={(urls) => {
                           const updatedDocuments = [
                             ...formik.values.cth_documents,
                           ];
-                          const documentUrls =
-                            updatedDocuments[index]?.url || [];
                           updatedDocuments[index].url = [
-                            ...documentUrls,
-                            ...newFiles,
+                            ...(updatedDocuments[index].url || []),
+                            ...urls,
                           ];
                           formik.setFieldValue(
                             "cth_documents",
@@ -240,20 +291,41 @@ function ViewESanchitJob() {
                       />
                       <ImagePreview
                         images={document.url || []}
-                        onDeleteImage={(fileIndex) => {
+                        onDeleteImage={(deleteIndex) => {
                           const updatedDocuments = [
                             ...formik.values.cth_documents,
                           ];
-                          const documentUrls = [...updatedDocuments[index].url];
-                          documentUrls.splice(fileIndex, 1);
-                          updatedDocuments[index].url = documentUrls;
+                          updatedDocuments[index].url.splice(deleteIndex, 1);
                           formik.setFieldValue(
                             "cth_documents",
                             updatedDocuments
                           );
                         }}
-                        readOnly={false}
                       />
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            cursor: "pointer",
+                            marginRight: "10px",
+                            color: "#007bff",
+                          }}
+                          onClick={() => handleOpenDialog(document, true)}
+                        >
+                          <i className="fas fa-edit" title="Edit"></i>
+                        </span>
+                        <span
+                          style={{ cursor: "pointer", color: "#dc3545" }}
+                          onClick={() => handleOpenDialog(document, false)}
+                        >
+                          <i className="fas fa-trash-alt" title="Delete"></i>
+                        </span>
+                      </div>
                     </Col>
 
                     {/* IRN Input */}
@@ -348,56 +420,62 @@ function ViewESanchitJob() {
             </div>
 
             <div className="job-details-container">
-            <h4>Add Document</h4>
-          <Row style={{ marginBottom: "20px" }}>
-            <Col xs={12} lg={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Select Document</InputLabel>
-                <Select
-                  value={selectedDocument}
-                  onChange={(e) => {
-                    setSelectedDocument(e.target.value);
-                  }}
-                >
-                  {cth_Dropdown.map((doc) => (
-                    <MenuItem key={doc.document_code} value={doc.document_code}>
-                      {doc.document_name}
-                    </MenuItem>
-                  ))}
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Col>
-            {selectedDocument === "other" && (
-              <>
+              <h4>Add Document</h4>
+              <Row style={{ marginBottom: "20px" }}>
                 <Col xs={12} lg={4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="New Document Name"
-                    value={newDocumentName}
-                    onChange={(e) => setNewDocumentName(e.target.value)}
-                  />
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Select Document</InputLabel>
+                    <Select
+                      value={selectedDocument}
+                      onChange={(e) => {
+                        setSelectedDocument(e.target.value);
+                      }}
+                    >
+                      {cth_Dropdown.map((doc) => (
+                        <MenuItem
+                          key={doc.document_code}
+                          value={doc.document_code}
+                        >
+                          {doc.document_name}
+                        </MenuItem>
+                      ))}
+                      <MenuItem value="other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Col>
-                <Col xs={12} lg={3}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="New Document Code"
-                    value={newDocumentCode}
-                    onChange={(e) => setNewDocumentCode(e.target.value)}
-                  />
+                {selectedDocument === "other" && (
+                  <>
+                    <Col xs={12} lg={4}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="New Document Name"
+                        value={newDocumentName}
+                        onChange={(e) => setNewDocumentName(e.target.value)}
+                      />
+                    </Col>
+                    <Col xs={12} lg={3}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="New Document Code"
+                        value={newDocumentCode}
+                        onChange={(e) => setNewDocumentCode(e.target.value)}
+                      />
+                    </Col>
+                  </>
+                )}
+                <Col
+                  xs={12}
+                  lg={4}
+                  style={{ display: "flex", alignItems: "center" }}
+                >
+                  <button type="button" className="btn" onClick={addDocument}>
+                    Add Document
+                  </button>
                 </Col>
-              </>
-            )}
-            <Col xs={12} lg={4} style={{ display: "flex", alignItems: "center" }}>
-              <button type="button" className="btn" onClick={addDocument}>
-                Add Document
-              </button>
-            </Col>
-          </Row>
+              </Row>
             </div>
-
 
             <div className="job-details-container">
               <h4>All Documents</h4>
@@ -524,6 +602,32 @@ function ViewESanchitJob() {
             >
               Submit
             </button>
+            {/* <ConfirmDialog
+              open={dialogOpen}
+              handleClose={() => setDialogOpen(false)}
+              handleConfirm={
+                dialogMode ? handleEditDocument : handleDeleteDocument
+              }
+              isEdit={dialogMode}
+              editValues={editDocument || {}}
+              onEditChange={setEditDocument}
+            /> */}
+            <ConfirmDialog
+              open={dialogOpen}
+              handleClose={() => setDialogOpen(false)}
+              handleConfirm={
+                dialogMode ? handleEditDocument : handleDeleteDocument
+              }
+              isEdit={dialogMode}
+              editValues={editDocument || {}}
+              onEditChange={(updatedDoc) => setEditDocument(updatedDoc)}
+              message={
+                dialogMode
+                  ? undefined
+                  : `Are you sure you want to delete the document "${editDocument?.document_name}"?`
+              }
+            />
+
             {/* <Snackbar
               open={snackbar || fileSnackbar}
               message={

@@ -121,7 +121,7 @@ function useFetchJobDetails(
       document_name: "Pre-Shipment Inspection Certificate",
       document_code: "856001",
     },
-    { document_name: "Form 9 & Form 6", document_code: "856001" },
+    { document_name: "Form 9 & Form 6", document_code: "0856001" },
     {
       document_name: "Registration Document (SIMS/NFMIMS/PIMS)",
       document_code: "101000",

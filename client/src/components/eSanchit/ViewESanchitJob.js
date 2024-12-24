@@ -3,17 +3,29 @@ import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import Snackbar from "@mui/material/Snackbar";
-import { TextField, Checkbox, Box } from "@mui/material";
+import { TextField, Checkbox, Box, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import { useFormik } from "formik";
 import { UserContext } from "../../contexts/UserContext";
 
+const cth_Dropdown = [
+  { document_name: "Certificate of Origin", document_code: "861000" },
+  { document_name: "Contract", document_code: "315000" },
+  { document_name: "Insurance", document_code: "91WH13" },
+  { document_name: "Pre-Shipment Inspection Certificate", document_code: "856001" },
+  { document_name: "Form 9 & Form 6", document_code: "856001" },
+  { document_name: "Registration Document (SIMS/NFMIMS/PIMS)", document_code: "101000" },
+  { document_name: "Certificate of Analysis", document_code: "001000" },
+];
 function ViewESanchitJob() {
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [data, setData] = useState({ cth_documents: [] });
+  const [selectedDocument, setSelectedDocument] = useState("");
+  const [newDocumentName, setNewDocumentName] = useState("");
+  const [newDocumentCode, setNewDocumentCode] = useState("");
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
@@ -150,6 +162,35 @@ function ViewESanchitJob() {
       formik.setFieldValue("esanchit_completed_date_time", "");
     }
   }, [formik.values.cth_documents]);
+  const addDocument = () => {
+    if (selectedDocument === "other" && newDocumentName.trim() && newDocumentCode.trim()) {
+      formik.setFieldValue("cth_documents", [
+        ...formik.values.cth_documents,
+        {
+          document_name: newDocumentName,
+          document_code: newDocumentCode,
+          url: [],
+          irn: "",
+          document_check_date: "",
+        },
+      ]);
+      setNewDocumentName("");
+      setNewDocumentCode("");
+    } else if (selectedDocument) {
+      const doc = cth_Dropdown.find((d) => d.document_code === selectedDocument);
+      formik.setFieldValue("cth_documents", [
+        ...formik.values.cth_documents,
+        {
+          document_name: doc.document_name,
+          document_code: doc.document_code,
+          url: [],
+          irn: "",
+          document_check_date: "",
+        },
+      ]);
+    }
+    setSelectedDocument("");
+  };
 
   return (
     <form onSubmit={formik.handleSubmit}>
@@ -305,6 +346,58 @@ function ViewESanchitJob() {
                 </div>
               ))}
             </div>
+
+            <div className="job-details-container">
+            <h4>Add Document</h4>
+          <Row style={{ marginBottom: "20px" }}>
+            <Col xs={12} lg={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Select Document</InputLabel>
+                <Select
+                  value={selectedDocument}
+                  onChange={(e) => {
+                    setSelectedDocument(e.target.value);
+                  }}
+                >
+                  {cth_Dropdown.map((doc) => (
+                    <MenuItem key={doc.document_code} value={doc.document_code}>
+                      {doc.document_name}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Col>
+            {selectedDocument === "other" && (
+              <>
+                <Col xs={12} lg={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="New Document Name"
+                    value={newDocumentName}
+                    onChange={(e) => setNewDocumentName(e.target.value)}
+                  />
+                </Col>
+                <Col xs={12} lg={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="New Document Code"
+                    value={newDocumentCode}
+                    onChange={(e) => setNewDocumentCode(e.target.value)}
+                  />
+                </Col>
+              </>
+            )}
+            <Col xs={12} lg={4} style={{ display: "flex", alignItems: "center" }}>
+              <button type="button" className="btn" onClick={addDocument}>
+                Add Document
+              </button>
+            </Col>
+          </Row>
+            </div>
+
 
             <div className="job-details-container">
               <h4>All Documents</h4>

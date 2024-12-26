@@ -176,6 +176,53 @@ function Submission() {
         );
       },
     },
+    {
+      accessorKey: "cth_documents",
+      header: "E-sanchit Doc",
+      enableSorting: false,
+      size: 250,
+      Cell: ({ row }) => {
+        const { cth_documents = [] } = row.original;
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {cth_documents.length > 0 ? (
+              cth_documents.map((doc, index) => (
+                <div
+                  key={index}
+                  style={{
+                    marginBottom: "5px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <a
+                    href={doc.url[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      textDecoration: "none",
+                      color: "#007bff",
+                      display: "block",
+                    }}
+                  >
+                    {`${doc.document_code} - ${doc.document_name}`}
+                  </a>
+                  {/* Uncomment the following if you want to display the date */}
+                  {/* <div style={{ fontSize: "12px", color: "#555" }}>
+                    Checked Date:{" "}
+                    {new Date(doc.document_check_date).toLocaleDateString()}
+                  </div> */}
+                </div>
+              ))
+            ) : (
+              <div>No Documents Available</div>
+            )}
+          </div>
+        );
+      },
+    },
   ];
 
   const tableConfig = {
@@ -199,6 +246,12 @@ function Submission() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
+    muiTableBodyCellProps: {
+      sx: {
+        textAlign: "left", // Ensures all cells in the table body align to the left
+      },
+    },
+
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
     }),
@@ -207,6 +260,7 @@ function Submission() {
         position: "sticky",
         top: 0,
         zIndex: 1,
+        textAlign: "left",
       },
     },
     renderTopToolbarCustomActions: () => (

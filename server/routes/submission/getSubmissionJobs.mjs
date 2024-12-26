@@ -56,7 +56,7 @@ router.get("/api/get-submission-jobs", async (req, res) => {
     // Fetch paginated data
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos"
+        "job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents"
       )
       .skip(skip)
       .limit(limitNumber)

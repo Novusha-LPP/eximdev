@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import logger from "./logger.js";
-import cookieParser from "cookie-parser";
+
 process.on("uncaughtException", (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, { stack: error.stack });
 });
@@ -215,23 +215,8 @@ const MONGODB_URI =
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
 
-const CLIENT_URI =
-  process.env.NODE_ENV === "production"
-    ? process.env.PROD_CLIENT_URI
-    : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_CLIENT_URI
-    : process.env.DEV_CLIENT_URI;
-
-// Define allowed origins
-const allowedOrigins = [
-  "http://localhost:3000", // Development
-  "http://eximdev.s3-website.ap-south-1.amazonaws.com", // Production
-];
-
-// Determine the number of CPUs for clustering
 const numOfCPU = os.availableParallelism();
-
-// Initialize clustering
+// console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -244,55 +229,10 @@ if (cluster.isPrimary) {
 } else {
   const app = express();
 
-  // Middleware order is crucial
   app.use(bodyParser.json({ limit: "100mb" }));
-  app.use(cookieParser());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-
-  // CORS Configuration
-  // app.use(
-  //   cors({
-  //     origin: function (origin, callback) {
-  //       // Allow requests with no origin (like mobile apps or curl)
-  //       if (!origin) return callback(null, true);
-  //       if (allowedOrigins.includes(origin)) {
-  //         callback(null, true);
-  //       } else {
-  //         callback(new Error("Not allowed by CORS"));
-  //       }
-  //     },
-  //     credentials: true, // Allow cookies to be sent
-  //   })
-  // );
-  // CORS Configuration
-  // const cors = require("cors");
-
-  const corsOptions = {
-    origin: CLIENT_URI, // Set your frontend origin here
-    credentials: true, // Enable credentials
-  };
-
-  app.use(cors(corsOptions));
-
-  app.use((req, res, next) => {
-    res.setHeader(
-      "Access-Control-Allow-Origin",
-      "http://eximdev.s3-website.ap-south-1.amazonaws.com"
-    ); // Your frontend URL
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-    next();
-  });
-
-  // Apply compression
+  app.use(cors());
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);

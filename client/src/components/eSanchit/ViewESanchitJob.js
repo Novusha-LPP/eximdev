@@ -419,64 +419,69 @@ function ViewESanchitJob() {
                   </Row>
                 </div>
               ))}
+              
+              <div>
+                <Row style={{ marginBottom: "20px", alignItems: "center" }}>
+                  <Col xs={12} lg={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel shrink={true}>Select Document</InputLabel>
+                      <Select
+                        value={selectedDocument}
+                        onChange={(e) => {
+                          setSelectedDocument(e.target.value);
+                        }}
+                        displayEmpty
+                        label="Select Document"
+                      >
+                        {cth_Dropdown.map((doc) => (
+                          <MenuItem
+                            key={doc.document_code}
+                            value={doc.document_code}
+                          >
+                            {doc.document_name}
+                          </MenuItem>
+                        ))}
+                        <MenuItem value="other">Other</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Col>
+                  {selectedDocument === "other" && (
+                    <>
+                      <Col xs={12} lg={3}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="New Document Name"
+                          value={newDocumentName}
+                          onChange={(e) => setNewDocumentName(e.target.value)}
+                        />
+                      </Col>
+                      <Col xs={12} lg={3}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="New Document Code"
+                          value={newDocumentCode}
+                          onChange={(e) => setNewDocumentCode(e.target.value)}
+                        />
+                      </Col>
+                    </>
+                  )}
+                  <Col
+                    xs={12}
+                    lg={2}
+                    style={{ display: "flex", justifyContent: "flex-end" }}
+                  >
+                    <button type="button" className="btn" onClick={addDocument}>
+                      Add Document
+                    </button>
+                  </Col>
+                </Row>
+              </div>
             </div>
 
             <div className="job-details-container">
               <h4>Add Document</h4>
-              <Row style={{ marginBottom: "20px" }}>
-                <Col xs={12} lg={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Select Document</InputLabel>
-                    <Select
-                      value={selectedDocument}
-                      onChange={(e) => {
-                        setSelectedDocument(e.target.value);
-                      }}
-                    >
-                      {cth_Dropdown.map((doc) => (
-                        <MenuItem
-                          key={doc.document_code}
-                          value={doc.document_code}
-                        >
-                          {doc.document_name}
-                        </MenuItem>
-                      ))}
-                      <MenuItem value="other">Other</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Col>
-                {selectedDocument === "other" && (
-                  <>
-                    <Col xs={12} lg={4}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="New Document Name"
-                        value={newDocumentName}
-                        onChange={(e) => setNewDocumentName(e.target.value)}
-                      />
-                    </Col>
-                    <Col xs={12} lg={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="New Document Code"
-                        value={newDocumentCode}
-                        onChange={(e) => setNewDocumentCode(e.target.value)}
-                      />
-                    </Col>
-                  </>
-                )}
-                <Col
-                  xs={12}
-                  lg={4}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  <button type="button" className="btn" onClick={addDocument}>
-                    Add Document
-                  </button>
-                </Col>
-              </Row>
             </div>
 
             <div className="job-details-container">

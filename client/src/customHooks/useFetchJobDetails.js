@@ -284,6 +284,8 @@ function useFetchJobDetails(
       cth_no: "",
 
       checklist: [],
+      job_sticker_upload: [],
+      rail_out_date: "",
       remarks: "",
       description: "",
       sims_reg_no: "",
@@ -340,6 +342,8 @@ function useFetchJobDetails(
           do_validity_upto_job_level: values.do_validity_upto_job_level,
           do_revalidation_upto_job_level: values.do_revalidation_upto_job_level,
           checklist: values.checklist,
+          job_sticker_upload: values.job_sticker_upload,
+          rail_out_date: values.rail_out_date,
           remarks: values.remarks,
           description: values.description,
           sims_reg_no: values.sims_reg_no,
@@ -554,7 +558,9 @@ function useFetchJobDetails(
             ? ""
             : data.do_revalidation_upto_job_level,
         checklist: data.checklist === undefined ? [] : data.checklist,
+        job_sticker_upload: data.job_sticker_upload === undefined ? [] : data.job_sticker_upload,
         remarks: data.remarks === undefined ? "" : data.remarks,
+        rail_out_date: data.rail_out_date === undefined ? "" : data.rail_out_date,
         description: data.description === undefined ? "" : data.description,
         sims_reg_no: data.sims_reg_no === undefined ? "" : data.sims_reg_no,
         pims_reg_no: data.pims_reg_no === undefined ? "" : data.pims_reg_no,

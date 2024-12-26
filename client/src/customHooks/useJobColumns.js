@@ -210,7 +210,7 @@ function useJobColumns() {
       {
         accessorKey: "awb_bl_no",
         header: "BL Number",
-        size: 200,
+        size: 150,
         Cell: ({ cell, row }) => {
           // Safely retrieve the BL Number, defaulting to an empty string if undefined
           const blNumber = cell?.getValue()?.toString() || "";
@@ -327,6 +327,7 @@ function useJobColumns() {
                       </a>
                     </abbr>
                   </div>
+                  {shippingLine}
                 </React.Fragment>
               )}
             </React.Fragment>
@@ -336,15 +337,40 @@ function useJobColumns() {
       {
         accessorKey: "dates",
         header: "Dates",
-        size: 200,
+        size: 180,
         Cell: ({ cell }) => {
-          const { vessel_berthing, gateway_igm_date, discharge_date } =
-            cell.row.original;
+          const {
+            vessel_berthing,
+            gateway_igm_date,
+            discharge_date,
+            rail_out_date,
+            container_nos = [],
+          } = cell.row.original;
+
           return (
             <div>
               <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
               <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
-              <strong>Discharge :</strong> {discharge_date || "N/A"}
+              <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
+              <strong>Rail-out :</strong>
+              {rail_out_date ? rail_out_date.slice(0, 10) : "N/A"}
+              <br />
+              <strong>Arrival :</strong>
+              {container_nos.length > 0
+                ? container_nos.map((container, id) => (
+                    <React.Fragment key={id}>
+                      {container.arrival_date || "N/A"} <br />
+                    </React.Fragment>
+                  ))
+                : "N/A"}
+              <strong>Detention.F. :</strong>
+              {container_nos.length > 0
+                ? container_nos.map((container, id) => (
+                    <React.Fragment key={id}>
+                      {container.detention_from || "N/A"} <br />
+                    </React.Fragment>
+                  ))
+                : "N/A"}
             </div>
           );
         },
@@ -439,34 +465,39 @@ function useJobColumns() {
           );
         },
       },
+      // {
+      //   accessorKey: "arrival_date",
+      //   header: "Arrival Date",
+      //   size: 150,
+      //   Cell: ({ cell }) =>
+      //     cell.row.original.container_nos?.map((container, id) => (
+      //       <React.Fragment key={id}>
+      //         {container.arrival_date}
+      //         <br />
+      //       </React.Fragment>
+      //     )),
+      // },
+      // {
+      //   accessorKey: "detention_from",
+      //   header: "Detention From",
+      //   size: 150,
+      //   Cell: ({ cell }) =>
+      //     cell.row.original.container_nos?.map((container, id) => (
+      //       <React.Fragment key={id}>
+      //         {container.detention_from}
+      //         <br />
+      //       </React.Fragment>
+      //     )),
+      // },
       {
-        accessorKey: "arrival_date",
-        header: "Arrival Date",
-        size: 150,
-        Cell: ({ cell }) =>
-          cell.row.original.container_nos?.map((container, id) => (
-            <React.Fragment key={id}>
-              {container.arrival_date}
-              <br />
-            </React.Fragment>
-          )),
-      },
-      {
-        accessorKey: "detention_from",
-        header: "Detention From",
-        size: 150,
-        Cell: ({ cell }) =>
-          cell.row.original.container_nos?.map((container, id) => (
-            <React.Fragment key={id}>
-              {container.detention_from}
-              <br />
-            </React.Fragment>
-          )),
+        accessorKey: "pcv_date",
+        header: "PCV Date",
+        size: 100,
       },
       {
         accessorKey: "out_of_charge",
         header: "Out of Charge",
-        size: 150,
+        size: 120,
       },
       {
         accessorKey: "do_validity",

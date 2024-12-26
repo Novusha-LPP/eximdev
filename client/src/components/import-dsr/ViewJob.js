@@ -1,7 +1,13 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
-import { IconButton, TextField, Autocomplete } from "@mui/material";
+import {
+  IconButton,
+  TextField,
+  Autocomplete,
+  InputLabel,
+  Select,
+} from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import "../../styles/job-details.scss";
 import useFetchJobDetails from "../../customHooks/useFetchJobDetails";
@@ -35,7 +41,7 @@ import {
   Button,
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
-
+import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 function JobDetails() {
   const params = useParams();
   const { user } = useContext(UserContext);
@@ -57,6 +63,14 @@ function JobDetails() {
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // const [dialogOpen, setDialogOpen] = useState(false);
+  // const [currentDocument, setCurrentDocument] = useState(null);
+  const [actionType, setActionType] = useState(""); // "edit" or "delete"
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editValues, setEditValues] = useState({});
 
   const {
     data,
@@ -74,8 +88,11 @@ function JobDetails() {
     setNewDocumentName,
     setNewDocumentCode,
     newDocumentCode,
-
+    canEditOrDelete,
+    cth_Dropdown,
     filterDocuments,
+    selectedDocument,
+    setSelectedDocument,
   } = useFetchJobDetails(
     params,
     checked,
@@ -296,6 +313,83 @@ function JobDetails() {
     formik.setFieldValue("container_nos", updatedContainers);
   };
 
+  // const handleOpenDialog = (doc, action) => {
+  //   setCurrentDocument(doc);
+  //   setActionType(action);
+  //   setDialogOpen(true);
+  // };
+
+  // const handleCloseDialog = () => {
+  //   setDialogOpen(false);
+  //   setCurrentDocument(null);
+  //   setActionType("");
+  // };
+
+  // const handleConfirmDialog = () => {
+  //   if (actionType === "delete") {
+  //     setCthDocuments((prevDocs) =>
+  //       prevDocs.filter((doc) => doc !== currentDocument)
+  //     );
+  //   } else if (actionType === "edit") {
+  //     const newName = prompt(
+  //       "Enter new document name:",
+  //       currentDocument.document_name
+  //     );
+  //     const newCode = prompt(
+  //       "Enter new document code:",
+  //       currentDocument.document_code
+  //     );
+
+  //     if (newName && newCode) {
+  //       setCthDocuments((prevDocs) =>
+  //         prevDocs.map((doc) =>
+  //           doc === currentDocument
+  //             ? { ...doc, document_name: newName, document_code: newCode }
+  //             : doc
+  //         )
+  //       );
+  //     }
+  //   }
+  //   handleCloseDialog();
+  // };
+
+  const handleOpenDialog = (doc, isEdit = false) => {
+    setCurrentDocument(doc);
+    setIsEditMode(isEdit);
+
+    if (isEdit) {
+      setEditValues({ ...doc });
+    }
+    setDialogOpen(true);
+  };
+
+  // Close dialog
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setCurrentDocument(null);
+    setIsEditMode(false);
+    setEditValues({});
+  };
+
+  // Confirm action (delete or edit)
+  const handleConfirmDialog = () => {
+    if (isEditMode) {
+      // Save edited document
+      setCthDocuments((prevDocs) =>
+        prevDocs.map((doc) =>
+          doc === currentDocument ? { ...doc, ...editValues } : doc
+        )
+      );
+    } else {
+      // Delete document
+      setCthDocuments((prevDocs) =>
+        prevDocs.filter((doc) => doc !== currentDocument)
+      );
+    }
+
+    handleCloseDialog();
+  };
+
   return (
     <>
       {data !== null && (
@@ -364,24 +458,22 @@ function JobDetails() {
             </Row>
 
             {/* CTH Documents Section */}
+
             <Row>
               {cthDocuments?.map((doc, index) => (
                 <Col
                   xs={12}
                   lg={4}
                   key={`cth-${index}`}
-                  style={{ marginBottom: "20px" }}
+                  style={{ marginBottom: "20px", position: "relative" }}
                 >
                   <FileUpload
                     label={`${doc.document_name} (${doc.document_code})`}
                     bucketPath={`cth-documents/${doc.document_name}`}
                     onFilesUploaded={(urls) => {
                       const updatedDocuments = [...cthDocuments];
-                      if (!Array.isArray(updatedDocuments[index].url)) {
-                        updatedDocuments[index].url = []; // Ensure `url` is an array
-                      }
                       updatedDocuments[index].url = [
-                        ...updatedDocuments[index].url,
+                        ...(updatedDocuments[index].url || []),
                         ...urls,
                       ]; // Append new URLs
                       setCthDocuments(updatedDocuments);
@@ -399,37 +491,98 @@ function JobDetails() {
                     }}
                     readOnly={false}
                   />
+                  {/* Small icons for Edit and Delete */}
+                  <div
+                    style={{ position: "absolute", top: "10px", right: "10px" }}
+                  >
+                    <span
+                      style={{
+                        cursor: "pointer",
+                        marginRight: "10px",
+                        color: "#007bff",
+                      }}
+                      onClick={() => handleOpenDialog(doc, true)}
+                    >
+                      <i className="fas fa-edit" title="Edit"></i>
+                    </span>
+                    <span
+                      style={{ cursor: "pointer", color: "#dc3545" }}
+                      onClick={() => handleOpenDialog(doc, false)}
+                    >
+                      <i className="fas fa-trash-alt" title="Delete"></i>
+                    </span>
+                  </div>
                 </Col>
               ))}
             </Row>
+            {/*  */}
 
+           
             {/* Add Document Section */}
             <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
-              <Col xs={12} lg={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  label="New Document Name"
-                  value={newDocumentName}
-                  onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
-                />
-              </Col>
               <Col xs={12} lg={3}>
-                <TextField
+                <FormControl
                   fullWidth
                   size="small"
                   margin="normal"
                   variant="outlined"
-                  label="New Document Code"
-                  value={newDocumentCode}
-                  onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
-                />
+                >
+                  <InputLabel>Select Document</InputLabel>
+                  <Select
+                    value={selectedDocument}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      if (selectedValue === "other") {
+                        setNewDocumentName("");
+                        setNewDocumentCode("");
+                      }
+                      setSelectedDocument(selectedValue);
+                    }}
+                    label="Select Document"
+                  >
+                    {cth_Dropdown.map((doc) => (
+                      <MenuItem
+                        key={doc.document_code}
+                        value={doc.document_code}
+                      >
+                        {doc.document_name}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                </FormControl>
               </Col>
+
+              {selectedDocument === "other" && (
+                <>
+                  <Col xs={12} lg={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      label="New Document Name"
+                      value={newDocumentName}
+                      onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
+                    />
+                  </Col>
+                  <Col xs={12} lg={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      label="New Document Code"
+                      value={newDocumentCode}
+                      onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
+                    />
+                  </Col>
+                </>
+              )}
+
               <Col
                 xs={12}
-                lg={4}
+                lg={2}
                 style={{ display: "flex", alignItems: "center" }}
               >
                 <button
@@ -437,26 +590,54 @@ function JobDetails() {
                   className="btn"
                   style={{ marginTop: "8px", height: "fit-content" }}
                   onClick={() => {
-                    if (newDocumentName.trim() && newDocumentCode.trim()) {
+                    if (
+                      selectedDocument !== "other" &&
+                      selectedDocument &&
+                      cth_Dropdown.some(
+                        (doc) => doc.document_code === selectedDocument
+                      )
+                    ) {
+                      const selectedDoc = cth_Dropdown.find(
+                        (doc) => doc.document_code === selectedDocument
+                      );
+                      setCthDocuments([
+                        ...cthDocuments,
+                        {
+                          document_name: selectedDoc.document_name,
+                          document_code: selectedDoc.document_code,
+                          url: [],
+                          document_check_date: "",
+                        },
+                      ]);
+                    } else if (
+                      selectedDocument === "other" &&
+                      newDocumentName.trim() &&
+                      newDocumentCode.trim()
+                    ) {
                       setCthDocuments([
                         ...cthDocuments,
                         {
                           document_name: newDocumentName,
-                          document_code: newDocumentCode, // Use provided document code
-                          url: [], // Initialize with an empty URL array
+                          document_code: newDocumentCode,
+                          url: [],
                           document_check_date: "",
                         },
                       ]);
-                      setNewDocumentName(""); // Clear name input after adding
-                      setNewDocumentCode(""); // Clear code input after adding
+                      setNewDocumentName("");
+                      setNewDocumentCode("");
                     }
+                    setSelectedDocument(""); // Reset dropdown
                   }}
                 >
                   Add Document
                 </button>
               </Col>
             </Row>
+
+            {/*  */}
+            {/*  */}
           </div>
+          {/* test232423242 */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />
             <br />
@@ -632,12 +813,13 @@ function JobDetails() {
                     Do Completed:{" "}
                     {formik.values.do_completed ? (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.do_completed
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
+                        {new Date(formik.values.do_completed).toLocaleString(
+                          "en-US",
+                          {
+                            timeZone: "Asia/Kolkata",
+                            hour12: true,
+                          }
+                        )}
                       </span>
                     ) : (
                       <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
@@ -661,10 +843,7 @@ function JobDetails() {
                     label="Set Date (Admin Only)"
                     value={formik.values.do_completed || ""}
                     onChange={(e) =>
-                      formik.setFieldValue(
-                        "do_completed",
-                        e.target.value
-                      )
+                      formik.setFieldValue("do_completed", e.target.value)
                     } // Update formik value
                     InputLabelProps={{
                       shrink: true,
@@ -674,7 +853,7 @@ function JobDetails() {
               )}
             </Row>
             <Row>
-            <Col xs={12} lg={3}>
+              <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>
                     DO Billing Completed:{" "}
@@ -2381,6 +2560,19 @@ function JobDetails() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={dialogOpen}
+        handleClose={handleCloseDialog}
+        handleConfirm={handleConfirmDialog}
+        message={
+          isEditMode
+            ? undefined // No message for edit
+            : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
+        }
+        isEdit={isEditMode}
+        editValues={editValues}
+        onEditChange={setEditValues}
+      />
     </>
   );
 }

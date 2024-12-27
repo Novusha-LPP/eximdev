@@ -189,9 +189,21 @@ function JobDetails() {
     const selectedValue = event.target.value;
 
     if (selectedValue === "clear") {
+      // Clear the values when "clear" is selected
       formik.setFieldValue("obl_telex_bl", "");
+      formik.setFieldValue("document_received_date", "");
     } else {
+      // Set the selected value for the radio button
       formik.setFieldValue("obl_telex_bl", selectedValue);
+
+      // Set the current date and time for "document_received_date"
+      const currentDateTime = new Date(
+        Date.now() - new Date().getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16); // Format to "yyyy-MM-ddTHH:mm"
+
+      formik.setFieldValue("document_received_date", currentDateTime);
     }
   };
 
@@ -517,7 +529,6 @@ function JobDetails() {
             </Row>
             {/*  */}
 
-           
             {/* Add Document Section */}
             <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
               <Col xs={12} lg={3}>
@@ -1052,7 +1063,7 @@ function JobDetails() {
                   onChange={formik.handleChange}
                 />
               </div>
-              <div>
+              <Col xs={12} lg={4}>
                 <FileUpload
                   label="Upload Checklist"
                   bucketPath="checklist"
@@ -1072,14 +1083,36 @@ function JobDetails() {
                     formik.setFieldValue("checklist", updatedFiles);
                   }}
                 />
-              </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <FileUpload
+                  label="Job Sticker Upload"
+                  bucketPath="job-sticker"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles =
+                      formik.values.job_sticker_upload || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+
+                <ImagePreview
+                  images={formik.values.job_sticker_upload || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.job_sticker_upload];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                />
+              </Col>
             </Row>
           </div>
           {/*************************** Row 9 ****************************/}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Status" />
             <Row>
-              <Col xs={12} lg={3}>
+              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Status:&nbsp;</strong>
                   <TextField
@@ -1140,7 +1173,10 @@ function JobDetails() {
                   </TextField>
                 </div>
               </Col>
-              <Col xs={12} lg={5}>
+            </Row>
+
+            <Row>
+              <Col xs={12} lg={4}>
                 <FormControl>
                   <RadioGroup
                     row
@@ -1155,7 +1191,7 @@ function JobDetails() {
                       control={
                         <Radio checked={formik.values.obl_telex_bl === "OBL"} />
                       }
-                      label="OBL"
+                      label="Original Documents"
                     />
                     <FormControlLabel
                       value="Telex"
@@ -1185,9 +1221,6 @@ function JobDetails() {
                   </RadioGroup>
                 </FormControl>
               </Col>
-            </Row>
-
-            <Row>
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1406,7 +1439,7 @@ function JobDetails() {
             </Row>
 
             <Row>
-              <Col xs={12} lg={2}>
+              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
                   {formik.values.do_revalidation ? (
@@ -1426,7 +1459,7 @@ function JobDetails() {
                   )}
                 </div>
               </Col>
-              <Col xs={12} lg={3}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
@@ -1454,7 +1487,7 @@ function JobDetails() {
               </Col>
             </Row>
             <Row>
-              <Col xs={12} lg={3}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
@@ -1540,7 +1573,45 @@ function JobDetails() {
             </Row>
 
             <Row>
-              <Col xs={12} lg={3}>
+            <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>Rail out Date:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="datetime-local"
+                      id="rail_out_date"
+                      name="rail_out_date"
+                      value={
+                        formik.values.rail_out_date
+                          ? formik.values.rail_out_date
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          // formik.setFieldValue("examinationPlanning", true);
+                          formik.setFieldValue(
+                            "rail_out_date",
+                            newValue
+                          );
+                        } else {
+                          // formik.setFieldValue("examinationPlanning", false);
+                          formik.setFieldValue("rail_out_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </Col>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}

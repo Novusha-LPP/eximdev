@@ -240,7 +240,7 @@ const OperationListJob = () => {
                 <div className="mb-3">
                   <strong>Verified Checklist:&nbsp;</strong>
                   <ImagePreview
-                    images={data.verified_checklist_upload || []}
+                    images={data.checklist || []}
                     readOnly
                   />
                 </div>

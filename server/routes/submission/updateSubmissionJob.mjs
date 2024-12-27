@@ -12,7 +12,7 @@ router.patch("/api/update-submission-job/:id", async (req, res) => {
     const allowedUpdates = [
       "be_no",
       "be_date",
-      "verified_checklist_upload",
+      "checklist",
       "verified_checklist_upload_date_and_time",
       "submission_completed_date_time",
       "job_sticker_upload",

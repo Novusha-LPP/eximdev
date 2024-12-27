@@ -102,8 +102,8 @@ const SubmissionJob = () => {
       );
       setData(response.data);
       // Initialize uploads if data exists
-      if (response.data.verified_checklist_upload) {
-        setVerifiedChecklistUploads(response.data.verified_checklist_upload);
+      if (response.data.checklist) {
+        setVerifiedChecklistUploads(response.data.checklist);
       }
       if (response.data.job_sticker_upload) {
         setJobStickerUploads(response.data.job_sticker_upload);
@@ -119,7 +119,7 @@ const SubmissionJob = () => {
       // Prepare the payload
       const payload = {
         be_no: values.be_no,
-        verified_checklist_upload: verifiedChecklistUploads,
+        checklist: verifiedChecklistUploads,
         verified_checklist_upload_date_and_time:
           values.verified_checklist_upload_date_and_time,
         submission_completed_date_time: values.submission_completed_date_time,

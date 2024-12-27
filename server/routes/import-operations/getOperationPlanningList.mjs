@@ -55,6 +55,7 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
 
     const filterConditions = {
       status: "Pending",
+      be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
       detailed_status: "BE Noted, Arrival Pending",
       ...customHouseCondition,
       ...searchQuery,

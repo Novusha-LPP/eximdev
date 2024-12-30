@@ -60,6 +60,7 @@ function AppbarComponent(props) {
         <Box>
           <p style={{ margin: 0, color: "#000", fontWeight: "bold" }}>
             Version: {process.env.REACT_APP_VERSION}
+            {process.env.REACT_APP_VERSION_DATE}
           </p>
         </Box>
       </Toolbar>

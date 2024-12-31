@@ -2,8 +2,125 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 
-const router = express.Router();
 
+const router = express.Router();
+// Route to add a new job
+router.post("/api/jobs/add-job-imp-man", async (req, res) => {
+  try {
+    const {
+      job_no,
+      year,
+      custom_house,
+      job_date,
+      importer,
+      supplier_exporter,
+      invoice_number,
+      invoice_date,
+      awb_bl_no,
+      awb_bl_date,
+      description,
+      be_no,
+      be_date,
+      type_of_b_e,
+      no_of_pkgs,
+      unit,
+      gross_weight,
+      unit_1,
+      gateway_igm,
+      gateway_igm_date,
+      igm_no,
+      igm_date,
+      loading_port,
+      origin_country,
+      port_of_reporting,
+      shipping_line_airline,
+      branchSrNo,
+      adCode,
+      isDraftDoc,
+      fta_Benefit_date_time,
+      exBondValue,
+      scheme,
+      container_nos,
+      cth_documents,
+      documents,
+      all_documents,
+      consignment_type,
+      remarks,
+      status,
+      ooc_copies,
+      cth_no,
+      inv_currency,
+      total_inv_value,
+    } = req.body;
+
+    // Validate required fields
+    if (!job_no || !year || !importer || !invoice_number || !awb_bl_no) {
+      return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    // Create new job entry
+    const newJob = new JobModel({
+      job_no,
+      year,
+      custom_house,
+      job_date,
+      importer,
+      supplier_exporter,
+      invoice_number,
+      invoice_date,
+      awb_bl_no,
+      awb_bl_date,
+      description,
+      be_no,
+      be_date,
+      type_of_b_e,
+      no_of_pkgs,
+      unit,
+      gross_weight,
+      unit_1,
+      gateway_igm,
+      gateway_igm_date,
+      igm_no,
+      igm_date,
+      loading_port,
+      origin_country,
+      port_of_reporting,
+      shipping_line_airline,
+      branchSrNo,
+      adCode,
+      isDraftDoc,
+      fta_Benefit_date_time,
+      exBondValue,
+      scheme,
+      container_nos,
+      cth_documents,
+      documents,
+      all_documents,
+      consignment_type,
+      remarks,
+      status,
+      ooc_copies,
+      cth_no,
+      inv_currency,
+      total_inv_value,
+    });
+
+    // Save to database
+    await newJob.save();
+
+    // Update last jobs update date
+    const lastUpdated = await LastJobsDate.findOneAndUpdate(
+      {},
+      { lastUpdatedOn: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.status(201).json({ message: "Job successfully created.", job: newJob });
+  } catch (error) {
+    console.error("Error adding job:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+});
 router.post("/api/jobs/add-job", async (req, res) => {
   const jsonData = req.body;
 

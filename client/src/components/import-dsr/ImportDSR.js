@@ -63,7 +63,7 @@ function ImportDSR() {
             <Tab label="Dashboard" {...a11yProps(0)} key={0} />,
             <Tab label="Jobs" {...a11yProps(2)} key={1} />,
             <Tab label="View DSR" {...a11yProps(3)} key={2} />
-            <Tab label="New Job" {...a11yProps(3)} key={3} />
+            <Tab label="New Job" {...a11yProps(4)} key={3} />
             ,]
           </Tabs>
         </Box>

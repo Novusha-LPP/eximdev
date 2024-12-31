@@ -122,29 +122,6 @@ const ImportCreateJob = () => {
     setScheme,
   } = useImportJobForm();
 
-  // const resetOtherDetails = () => {
-  //   setOtherDetails({
-  //     awb_bl_no: "",
-  //     awb_bl_date: "",
-  //     scheme: "",
-  //     ooc_copies: [], // Updated to match the model
-  //   });
-  //   setExBondValue("");
-  // };
-  // const canChangeClearance = () => {
-  //   return (
-  //     !exBondValue &&
-  //     !otherDetails.awb_bl_no &&
-  //     !otherDetails.awb_bl_date &&
-  //     !otherDetails.scheme &&
-  //     !(otherDetails.ooc_copies && otherDetails.ooc_copies.length > 0)
-  //   );
-  // };
-
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    setOtherDetails((prev) => ({ ...prev, beCopy: file }));
-  };
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
 
   return (
@@ -157,7 +134,7 @@ const ImportCreateJob = () => {
         spacing={3}
         style={{ maxWidth: "1100px", margin: "0 auto" }}
       >
-        {/* Job Number
+        {/* Job Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Job Number:
@@ -170,7 +147,7 @@ const ImportCreateJob = () => {
             placeholder="Enter Job Number"
             fullWidth
           />
-        </Grid> */}
+        </Grid>
 
         {/* Custom House */}
         <Grid item xs={12} md={6}>

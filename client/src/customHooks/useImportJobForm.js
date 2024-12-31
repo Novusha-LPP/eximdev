@@ -10,43 +10,45 @@ import {
 
 const useImportJobForm = () => {
   // State variables for form fields and UI controls
-  const [customHouse, setCustomHouse] = useState("");
+  const [job_no, setJobNo] = useState("");
+  const [custom_house, setCustomHouse] = useState("");
   const [importer, setImporter] = useState("");
-  const [shippingLine, setShippingLine] = useState("");
+  const [shipping_line_airline, setShippingLineAirline] = useState("");
   const [branchSrNo, setBranchSrNo] = useState("");
   const [adCode, setAdCode] = useState("");
-  const [exporterSupplier, setExporterSupplier] = useState("");
-  const [blNumber, setBlNumber] = useState("");
-  const [typeOf_BE, setTypeOf_BE] = useState("");
-  const [loadingPort, setLoadingPort] = useState("");
-  const [grossWeight, setGrossWeight] = useState("");
-  const [blDate, setBlDate] = useState("");
-  const [cth_no, setcth_no] = useState("");
-  const [originCountry, setOriginCountry] = useState("");
-  const [portOfReporting, setPortOfReporting] = useState("");
-  const [totalInvValue, setTotalInvValue] = useState("");
-  const [invCurrency, setInvCurrency] = useState("");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState("");
+  const [supplier_exporter, setSupplierExporter] = useState("");
+  const [awb_bl_no, setAwbBlNo] = useState("");
+  const [awb_bl_date, setAwbBlDate] = useState("");
+  const [type_of_b_e, setTypeOfBE] = useState("");
+  const [loading_port, setLoadingPort] = useState("");
+  const [gross_weight, setGrossWeight] = useState("");
+  const [cth_no, setCthNo] = useState("");
+  const [origin_country, setOriginCountry] = useState("");
+  const [port_of_reporting, setPortOfReporting] = useState("");
+  const [total_inv_value, setTotalInvValue] = useState("");
+  const [inv_currency, setInvCurrency] = useState("");
+  const [invoice_number, setInvoiceNumber] = useState("");
+  const [invoice_date, setInvoiceDate] = useState("");
   const [description, setDescription] = useState("");
-  const [fclOrLcl, setFclOrLcl] = useState("");
+  const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
-  const [containers, setContainers] = useState([{ number: "", size: "" }]);
-  const [isBenefit, setIsBenefit] = useState(false);
-  const [dateTime, setDateTime] = useState(null);
+  const [deleteIndex, setDeleteIndex] = useState(null);
+  const [container_nos, setContainerNos] = useState([
+    {
+      container_number: "",
+      size: "",
+    },
+  ]);
+  const [fta_Benefit_date_time, setFtaBenefitDateTime] = useState("");
   const [exBondValue, setExBondValue] = useState("");
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
+  const [be_no, setBeNo] = useState("");
+  const [be_date, setBeDate] = useState("");
+  const [ooc_copies, setOocCopies] = useState([]);
+  const [scheme, setScheme] = useState("");
   const [clearanceValue, setClearanceValue] = useState("");
-  const [deleteIndex, setDeleteIndex] = useState(null);
-
-  const [otherDetails, setOtherDetails] = useState({
-    beNumber: "",
-    beDate: "",
-    scheme: "",
-    beCopy: null,
-  });
 
   const [cthDocuments, setCthDocuments] = useState([
     {
@@ -68,6 +70,7 @@ const useImportJobForm = () => {
       isDefault: true,
     },
   ]);
+
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editValues, setEditValues] = useState({});
@@ -81,31 +84,32 @@ const useImportJobForm = () => {
       try {
         const payload = {
           ...values,
-          customHouse,
+          job_no,
+          custom_house,
           importer,
-          shippingLine,
+          shipping_line_airline,
           branchSrNo,
           adCode,
-          exporterSupplier,
-          blNumber,
-          typeOf_BE,
-          loadingPort,
-          grossWeight,
-          blDate,
+          supplier_exporter,
+          awb_bl_no,
+          awb_bl_date,
+          type_of_b_e,
+          loading_port,
+          gross_weight,
           cth_no,
-          originCountry,
-          portOfReporting,
-          totalInvValue,
-          invCurrency,
-          invoiceNumber,
-          invoiceDate,
+          origin_country,
+          port_of_reporting,
+          total_inv_value,
+          inv_currency,
+          invoice_number,
+          invoice_date,
           description,
-          fclOrLcl,
+          consignment_type,
           isDraftDoc,
-          containers,
+          container_nos,
           cthDocuments,
         };
-        console.log(payload)
+        console.log(payload);
         // await axios.post(
         //   `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
         //   payload
@@ -117,25 +121,50 @@ const useImportJobForm = () => {
       }
     },
   });
+  const resetOtherDetails = () => {
+    setBeNo("");
+    setBeDate("");
+    setOocCopies([]);
+    setScheme("");
+    setExBondValue(""); // Reset this if it's part of the same context
+  };
+  const canChangeClearance = () => {
+    return (
+      !exBondValue && !be_no && !be_date && !scheme && ooc_copies.length === 0
+    );
+  };
+
+  const handleOpenEditDialog = (index) => {
+    const documentToEdit = cthDocuments[index];
+    setEditValues(documentToEdit);
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditValues({});
+  };
 
   // Container handlers
   const handleAddContainer = () => {
-    setContainers([...containers, { number: "", size: "" }]);
+    setContainerNos([...container_nos, { container_number: "", size: "" }]);
   };
 
   const handleRemoveContainer = (index) => {
-    const updatedContainers = containers.filter((_, i) => i !== index);
-    setContainers(updatedContainers);
+    const updatedContainers = container_nos.filter((_, i) => i !== index);
+    setContainerNos(updatedContainers);
   };
 
   const handleContainerChange = (index, field, value) => {
-    const updatedContainers = [...containers];
+    const updatedContainers = [...container_nos];
     updatedContainers[index][field] = value;
-    setContainers(updatedContainers);
+    setContainerNos(updatedContainers);
   };
+
   // Document handlers
   const handleAddDocument = () => {
     if (selectedDocument === "other") {
+      // Adding a custom document
       if (newDocumentName && newDocumentCode) {
         setCthDocuments((prevDocs) => [
           ...prevDocs,
@@ -143,46 +172,32 @@ const useImportJobForm = () => {
             document_name: newDocumentName,
             document_code: newDocumentCode,
             url: [],
-            isDefault: false,
           },
         ]);
         setNewDocumentName("");
         setNewDocumentCode("");
+      } else {
+        alert("Please enter valid document details.");
       }
-    } else {
+    } else if (selectedDocument) {
+      // Adding a document from the dropdown
       const selectedDoc = cth_Dropdown.find(
         (doc) => doc.document_code === selectedDocument
       );
+
       if (selectedDoc) {
         setCthDocuments((prevDocs) => [
           ...prevDocs,
-          { ...selectedDoc, url: [], isDefault: false },
+          { ...selectedDoc, url: [] },
         ]);
+        setSelectedDocument("");
+      } else {
+        alert("Invalid document selected.");
       }
-    }
-    setSelectedDocument("");
-  };
-
-  const handleDeleteDocument = () => {
-    if (deleteIndex !== null) {
-      setCthDocuments((prevDocs) =>
-        prevDocs.filter((_, i) => i !== deleteIndex)
-      );
-      setDeleteIndex(null);
-      setConfirmDialogOpen(false);
+    } else {
+      alert("Please select or enter document details.");
     }
   };
-
-  const confirmDeleteDocument = (index) => {
-    setDeleteIndex(index);
-    setConfirmDialogOpen(true);
-  };
-
-  const handleOpenEditDialog = (index) => {
-    setEditValues(cthDocuments[index]);
-    setEditDialogOpen(true);
-  };
-
   const handleSaveEdit = () => {
     const updatedDocuments = [...cthDocuments];
     updatedDocuments[
@@ -193,52 +208,78 @@ const useImportJobForm = () => {
     setCthDocuments(updatedDocuments);
     setEditDialogOpen(false);
   };
+  const handleDeleteDocument = () => {
+    if (deleteIndex !== null) {
+      console.log("Deleting document at index:", deleteIndex);
+      setCthDocuments((prevDocs) => {
+        const updatedDocs = prevDocs.filter((_, i) => i !== deleteIndex);
+        console.log("Updated Documents:", updatedDocs);
+        return updatedDocs;
+      });
+      setDeleteIndex(null);
+      setConfirmDialogOpen(false);
+    } else {
+      console.error("No document selected for deletion.");
+    }
+  };
+
+  const confirmDeleteDocument = (index) => {
+    setDeleteIndex(index);
+    setConfirmDialogOpen(true);
+  };
+  const handleEditDocument = (index, field, value) => {
+    const updatedDocuments = [...cthDocuments];
+    updatedDocuments[index][field] = value;
+    setCthDocuments(updatedDocuments);
+  };
 
   return {
     formik,
-    customHouse,
+    job_no,
+    setJobNo,
+    custom_house,
     setCustomHouse,
     importer,
     setImporter,
-    shippingLine,
-    setShippingLine,
+    shipping_line_airline,
+    setShippingLineAirline,
     branchSrNo,
     setBranchSrNo,
     adCode,
     setAdCode,
-    exporterSupplier,
-    setExporterSupplier,
-    blNumber,
-    setBlNumber,
-    typeOf_BE,
-    setTypeOf_BE,
-    loadingPort,
+    supplier_exporter,
+    setSupplierExporter,
+    awb_bl_no,
+    setAwbBlNo,
+    awb_bl_date,
+    setAwbBlDate,
+    type_of_b_e,
+    setTypeOfBE,
+    loading_port,
     setLoadingPort,
-    grossWeight,
+    gross_weight,
     setGrossWeight,
-    blDate,
-    setBlDate,
     cth_no,
-    setcth_no,
-    originCountry,
+    setCthNo,
+    origin_country,
     setOriginCountry,
-    portOfReporting,
+    port_of_reporting,
     setPortOfReporting,
-    totalInvValue,
+    total_inv_value,
     setTotalInvValue,
-    invCurrency,
+    inv_currency,
     setInvCurrency,
-    invoiceNumber,
+    invoice_number,
     setInvoiceNumber,
-    invoiceDate,
+    invoice_date,
     setInvoiceDate,
     description,
     setDescription,
-    fclOrLcl,
-    setFclOrLcl,
+    consignment_type,
+    setConsignmentType,
     isDraftDoc,
     setIsDraftDoc,
-    containers,
+    container_nos,
     handleAddContainer,
     handleRemoveContainer,
     handleContainerChange,
@@ -246,33 +287,38 @@ const useImportJobForm = () => {
     setCthDocuments,
     handleAddDocument,
     handleDeleteDocument,
-    confirmDeleteDocument,
-    handleOpenEditDialog,
-    handleSaveEdit,
-    confirmDialogOpen,
-    setConfirmDialogOpen,
+    handleEditDocument,
+    ooc_copies,
+    setOocCopies,
+    fta_Benefit_date_time,
+    setFtaBenefitDateTime,
+    selectedDocument,
+    setSelectedDocument,
+    newDocumentName,
+    setNewDocumentName,
+    newDocumentCode,
+    setNewDocumentCode,
     editDialogOpen,
     setEditDialogOpen,
     editValues,
     setEditValues,
-    isBenefit,
-    setIsBenefit,
-    dateTime,
-    setDateTime,
-    otherDetails,
-    setOtherDetails,
-    exBondValue,
-    setExBondValue,
-    selectedDocument,
-    setSelectedDocument,
-    newDocumentCode,
-    setNewDocumentCode,
-    newDocumentName,
-    setNewDocumentName,
+    handleOpenEditDialog,
+    handleCloseEditDialog,
+    handleSaveEdit,
+    confirmDeleteDocument,
+    confirmDialogOpen,
     clearanceValue,
     setClearanceValue,
-    deleteIndex,
-    setDeleteIndex,
+    be_no,
+    setBeNo,
+    be_date,
+    setBeDate,
+    scheme,
+    setScheme,
+    resetOtherDetails,
+    canChangeClearance,
+    exBondValue,
+    setExBondValue,
   };
 };
 

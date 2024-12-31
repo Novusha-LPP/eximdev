@@ -26,197 +26,127 @@ import {
 import { useFormik } from "formik";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import useImportJobForm from "../../customHooks/useImportJobForm.js";
 
 const ImportCreateJob = () => {
-  const [importer, setImporter] = useState("");
-  const [customHouse, setCustomHouse] = useState("");
-  const [shippingLine, setShippingLine] = useState("");
-  const [branchSrNo, setBranchSrNo] = useState("");
-  const [adCode, setAdCode] = useState("");
-  const [exporterSupplier, setExporterSupplier] = useState("");
-  const [blNumber, setBlNumber] = useState("");
-  const [typeOf_BE, setTypeOf_BE] = useState("");
-  const [loadingPort, setLoadingPort] = useState("");
-  const [grossWeight, setGrossWeight] = useState("");
-  const [blDate, setBlDate] = useState("");
-  const [cth_no, setcth_no] = useState("");
-  const [originCountry, setOriginCountry] = useState("");
-  const [portOfReporting, setPortOfReporting] = useState("");
-  const [totalInvValue, setTotalInvValue] = useState("");
-  const [invCurrency, setInvCurrency] = useState("");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState("");
-  const [description, setDescription] = useState("");
-  const [fclOrLcl, setFclOrLcl] = useState("");
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addValues, setAddValues] = useState({
-    document_name: "",
-    document_code: "",
-  });
-  const [isDraftDoc, setIsDraftDoc] = useState(false);
-  const [containers, setContainers] = useState([{ number: "", size: "" }]);
+  const {
+    formik,
+    job_no,
+    setJobNo,
+    custom_house,
+    setCustomHouse,
+    importer,
+    setImporter,
+    shipping_line_airline,
+    setShippingLineAirline,
+    branchSrNo,
+    setBranchSrNo,
+    adCode,
+    setAdCode,
+    supplier_exporter,
+    setSupplierExporter,
+    awb_bl_no,
+    setAwbBlNo,
+    awb_bl_date,
+    setAwbBlDate,
+    type_of_b_e,
+    setTypeOfBE,
+    loading_port,
+    setLoadingPort,
+    gross_weight,
+    setGrossWeight,
+    cth_no,
+    setCthNo,
+    origin_country,
+    setOriginCountry,
+    port_of_reporting,
+    setPortOfReporting,
+    total_inv_value,
+    setTotalInvValue,
+    inv_currency,
+    setInvCurrency,
+    invoice_number,
+    setInvoiceNumber,
+    invoice_date,
+    setInvoiceDate,
+    description,
+    setDescription,
+    consignment_type,
+    setConsignmentType,
+    isDraftDoc,
+    setIsDraftDoc,
+    container_nos,
+    handleAddContainer,
+    handleRemoveContainer,
+    handleContainerChange,
+    cthDocuments,
+    setCthDocuments,
+    handleAddDocument,
+    handleDeleteDocument,
+    confirmDeleteDocument,
+    handleOpenEditDialog,
+    handleSaveEdit,
+    confirmDialogOpen,
+    setConfirmDialogOpen,
+    editDialogOpen,
+    setEditDialogOpen,
+    editValues,
+    setEditValues,
+    exBondValue,
+    setExBondValue,
+    otherDetails,
+    setOtherDetails,
+    clearanceValue,
+    setClearanceValue,
+    isBenefit,
+    setIsBenefit,
+    dateTime,
+    setDateTime,
+    selectedDocument,
+    setSelectedDocument,
+    newDocumentCode,
+    setNewDocumentCode,
+    newDocumentName,
+    setNewDocumentName,
+    fta_Benefit_date_time,
+    setFtaBenefitDateTime,
+    resetOtherDetails,
+    canChangeClearance,
+    be_no,
+    setBeNo,
+    be_date,
+    setBeDate,
+    ooc_copies,
+    setOocCopies,
+    scheme,
+    setScheme,
+  } = useImportJobForm();
 
-  const [cthDocuments, setCthDocuments] = useState([
-    {
-      document_name: "Commercial Invoice",
-      document_code: "380000",
-      url: [],
-      isDefault: true,
-    },
-    {
-      document_name: "Packing List",
-      document_code: "271000",
-      url: [],
-      isDefault: true,
-    },
-    {
-      document_name: "Bill of Lading",
-      document_code: "704000",
-      url: [],
-      isDefault: true,
-    },
-  ]);
+  // const resetOtherDetails = () => {
+  //   setOtherDetails({
+  //     awb_bl_no: "",
+  //     awb_bl_date: "",
+  //     scheme: "",
+  //     ooc_copies: [], // Updated to match the model
+  //   });
+  //   setExBondValue("");
+  // };
+  // const canChangeClearance = () => {
+  //   return (
+  //     !exBondValue &&
+  //     !otherDetails.awb_bl_no &&
+  //     !otherDetails.awb_bl_date &&
+  //     !otherDetails.scheme &&
+  //     !(otherDetails.ooc_copies && otherDetails.ooc_copies.length > 0)
+  //   );
+  // };
 
-  const [selectedDocument, setSelectedDocument] = useState("");
-  const [newDocumentName, setNewDocumentName] = useState("");
-  const [newDocumentCode, setNewDocumentCode] = useState("");
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editValues, setEditValues] = useState({});
-  const [deleteIndex, setDeleteIndex] = useState(null);
-  const [isBenefit, setIsBenefit] = useState(false);
-  const [dateTime, setDateTime] = useState(null);
-  const [clearanceValue, setClearanceValue] = useState("");
-  const [exBondValue, setExBondValue] = useState("");
-  const [otherDetails, setOtherDetails] = useState({
-    beNumber: "",
-    beDate: "",
-    scheme: "",
-    beCopy: null,
-  });
-
-  const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
-  const resetOtherDetails = () => {
-    setOtherDetails({
-      beNumber: "",
-      beDate: "",
-      scheme: "",
-      beCopy: null,
-    });
-    setExBondValue("");
-  };
-
-  const canChangeClearance = () => {
-    return (
-      !exBondValue &&
-      !otherDetails.beNumber &&
-      !otherDetails.beDate &&
-      !otherDetails.scheme &&
-      !(otherDetails.beCopy && otherDetails.beCopy.length > 0)
-    );
-  };
-  const formik = useFormik({
-    initialValues: {
-      all_documents: [], // Initialize the all_documents array
-    },
-    onSubmit: (values) => {
-      console.log("Form submitted", values);
-    },
-  });
-  // Handle Add Document
-  const handleAddDocument = () => {
-    if (selectedDocument === "other") {
-      if (newDocumentName && newDocumentCode) {
-        setCthDocuments((prevDocs) => [
-          ...prevDocs,
-          {
-            document_name: newDocumentName,
-            document_code: newDocumentCode,
-            url: [],
-            isDefault: false,
-          },
-        ]);
-        setNewDocumentName("");
-        setNewDocumentCode("");
-      }
-    } else {
-      const selectedDoc = cth_Dropdown.find(
-        (doc) => doc.document_code === selectedDocument
-      );
-      if (selectedDoc) {
-        setCthDocuments((prevDocs) => [
-          ...prevDocs,
-          { ...selectedDoc, url: [], isDefault: false },
-        ]);
-      }
-    }
-    setSelectedDocument("");
-  };
-
-  const handleToggle = () => {
-    const newValue = !isBenefit;
-    setIsBenefit(newValue);
-
-    if (newValue) {
-      // Record the date and time when set to true
-      setDateTime(new Date().toISOString());
-    } else {
-      // Reset the date and time when set to false
-      setDateTime(null);
-    }
-  };
-  // Handle Delete Document
-  const handleDeleteDocument = () => {
-    if (deleteIndex !== null) {
-      setCthDocuments((prevDocs) =>
-        prevDocs.filter((_, i) => i !== deleteIndex)
-      );
-      setDeleteIndex(null);
-      setConfirmDialogOpen(false);
-    }
-  };
-
-  // Open Delete Confirmation Dialog
-  const confirmDeleteDocument = (index) => {
-    setDeleteIndex(index);
-    setConfirmDialogOpen(true);
-  };
-
-  // Handle Open Edit Dialog
-  const handleOpenEditDialog = (index) => {
-    setEditValues(cthDocuments[index]);
-    setEditDialogOpen(true);
-  };
-
-  // Handle Save Edit
-  const handleSaveEdit = () => {
-    const updatedDocuments = [...cthDocuments];
-    updatedDocuments[
-      cthDocuments.findIndex(
-        (doc) => doc.document_code === editValues.document_code
-      )
-    ] = editValues;
-    setCthDocuments(updatedDocuments);
-    setEditDialogOpen(false);
-  };
-  const handleAddContainer = () => {
-    setContainers([...containers, { number: "", size: "" }]);
-  };
-
-  const handleRemoveContainer = (index) => {
-    const updatedContainers = containers.filter((_, i) => i !== index);
-    setContainers(updatedContainers);
-  };
-
-  const handleContainerChange = (index, field, value) => {
-    const updatedContainers = [...containers];
-    updatedContainers[index][field] = value;
-    setContainers(updatedContainers);
-  };
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     setOtherDetails((prev) => ({ ...prev, beCopy: file }));
   };
+  const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
+
   return (
     <div style={{ padding: "20px" }}>
       <Typography variant="h4" gutterBottom style={{ marginBottom: "20px" }}>
@@ -227,7 +157,22 @@ const ImportCreateJob = () => {
         spacing={3}
         style={{ maxWidth: "1100px", margin: "0 auto" }}
       >
-        {/* Custom House Field */}
+        {/* Job Number
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Job Number:
+          </Typography>
+          <TextField
+            value={job_no}
+            onChange={(e) => setJobNo(e.target.value)}
+            variant="outlined"
+            size="small"
+            placeholder="Enter Job Number"
+            fullWidth
+          />
+        </Grid> */}
+
+        {/* Custom House */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Select Custom House:
@@ -235,7 +180,7 @@ const ImportCreateJob = () => {
           <Autocomplete
             freeSolo
             options={customHouseOptions}
-            value={customHouse}
+            value={custom_house}
             onInputChange={(event, newValue) => setCustomHouse(newValue)}
             renderInput={(params) => (
               <TextField
@@ -246,14 +191,13 @@ const ImportCreateJob = () => {
                 fullWidth
               />
             )}
-            ListboxProps={{ style: { maxHeight: 200, overflow: "auto" } }}
           />
         </Grid>
 
-        {/* Importer Name */}
+        {/* Importer */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Importer Name:
+            Importer:
           </Typography>
           <Autocomplete
             freeSolo
@@ -269,14 +213,13 @@ const ImportCreateJob = () => {
                 fullWidth
               />
             )}
-            ListboxProps={{ style: { maxHeight: 200, overflow: "auto" } }}
           />
         </Grid>
 
-        {/* Branch SR. NO. */}
+        {/* Branch SR No */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Branch SR. NO.:
+            Branch SR No:
           </Typography>
           <TextField
             value={branchSrNo}
@@ -297,19 +240,17 @@ const ImportCreateJob = () => {
             onChange={(e) => setAdCode(e.target.value)}
             variant="outlined"
             size="small"
-            placeholder="Enter AD Code"
             fullWidth
           />
         </Grid>
-
         {/* Exporter/Supplier */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Supplier/Exporter
           </Typography>
           <TextField
-            value={exporterSupplier}
-            onChange={(e) => setExporterSupplier(e.target.value)}
+            value={supplier_exporter}
+            onChange={(e) => setSupplierExporter(e.target.value)}
             variant="outlined"
             size="small"
             placeholder="Enter Supplier/Exporter"
@@ -325,8 +266,10 @@ const ImportCreateJob = () => {
           <Autocomplete
             freeSolo
             options={shippingLineOptions}
-            value={shippingLine}
-            onInputChange={(event, newValue) => setShippingLine(newValue)}
+            value={shipping_line_airline}
+            onInputChange={(event, newValue) =>
+              setShippingLineAirline(newValue)
+            }
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -336,9 +279,9 @@ const ImportCreateJob = () => {
                 fullWidth
               />
             )}
-            ListboxProps={{ style: { maxHeight: 200, overflow: "auto" } }}
           />
         </Grid>
+        {/* test01-02 */}
 
         {/* BL Number */}
         <Grid item xs={12} md={6}>
@@ -346,8 +289,8 @@ const ImportCreateJob = () => {
             AWB/BL Number:
           </Typography>
           <TextField
-            value={blNumber}
-            onChange={(e) => setBlNumber(e.target.value)}
+            value={awb_bl_no}
+            onChange={(e) => setAwbBlNo(e.target.value)}
             variant="outlined"
             size="small"
             placeholder="Enter BL Number"
@@ -362,8 +305,8 @@ const ImportCreateJob = () => {
           </Typography>
           <TextField
             type="date"
-            value={blDate}
-            onChange={(e) => setBlDate(e.target.value)}
+            value={awb_bl_date}
+            onChange={(e) => setAwbBlDate(e.target.value)}
             variant="outlined"
             size="small"
             fullWidth
@@ -377,8 +320,8 @@ const ImportCreateJob = () => {
             Type Of B/E:
           </Typography>
           <TextField
-            value={typeOf_BE}
-            onChange={(e) => setTypeOf_BE(e.target.value)}
+            value={type_of_b_e}
+            onChange={(e) => setTypeOfBE(e.target.value)}
             variant="outlined"
             size="small"
             placeholder="Enter Type Of B/E"
@@ -391,7 +334,7 @@ const ImportCreateJob = () => {
             Gross Weight:
           </Typography>
           <TextField
-            value={grossWeight}
+            value={gross_weight}
             onChange={(e) => setGrossWeight(e.target.value)}
             variant="outlined"
             size="small"
@@ -405,7 +348,7 @@ const ImportCreateJob = () => {
             Loading Port:
           </Typography>
           <TextField
-            value={loadingPort}
+            value={loading_port}
             onChange={(e) => setLoadingPort(e.target.value)}
             variant="outlined"
             size="small"
@@ -419,7 +362,7 @@ const ImportCreateJob = () => {
             Origin Country:
           </Typography>
           <TextField
-            value={originCountry}
+            value={origin_country}
             onChange={(e) => setOriginCountry(e.target.value)}
             variant="outlined"
             size="small"
@@ -433,7 +376,7 @@ const ImportCreateJob = () => {
             Port of Reporting:
           </Typography>
           <TextField
-            value={portOfReporting}
+            value={port_of_reporting}
             onChange={(e) => setPortOfReporting(e.target.value)}
             variant="outlined"
             size="small"
@@ -447,7 +390,7 @@ const ImportCreateJob = () => {
             Total Inv Value:
           </Typography>
           <TextField
-            value={totalInvValue}
+            value={total_inv_value}
             onChange={(e) => setTotalInvValue(e.target.value)}
             variant="outlined"
             size="small"
@@ -461,25 +404,11 @@ const ImportCreateJob = () => {
             Inv Currency:
           </Typography>
           <TextField
-            value={invCurrency}
+            value={inv_currency}
             onChange={(e) => setInvCurrency(e.target.value)}
             variant="outlined"
             size="small"
             placeholder="Enter Inv Currency"
-            fullWidth
-          />
-        </Grid>
-        {/* BL Number */}
-        <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            CTH No:
-          </Typography>
-          <TextField
-            value={cth_no}
-            onChange={(e) => setcth_no(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter CTH No"
             fullWidth
           />
         </Grid>
@@ -490,7 +419,7 @@ const ImportCreateJob = () => {
             Invoice Number:
           </Typography>
           <TextField
-            value={invoiceNumber}
+            value={invoice_number}
             onChange={(e) => setInvoiceNumber(e.target.value)}
             variant="outlined"
             size="small"
@@ -506,7 +435,7 @@ const ImportCreateJob = () => {
           </Typography>
           <TextField
             type="date"
-            value={invoiceDate}
+            value={invoice_date}
             onChange={(e) => setInvoiceDate(e.target.value)}
             variant="outlined"
             size="small"
@@ -536,8 +465,8 @@ const ImportCreateJob = () => {
           </Typography>
           <TextField
             select
-            value={fclOrLcl}
-            onChange={(e) => setFclOrLcl(e.target.value)}
+            value={consignment_type}
+            onChange={(e) => setConsignmentType(e.target.value)}
             variant="outlined"
             size="small"
             fullWidth
@@ -546,6 +475,22 @@ const ImportCreateJob = () => {
             <MenuItem value="LCL">LCL</MenuItem>
           </TextField>
         </Grid>
+
+        {/* BL Number */}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            CTH No:
+          </Typography>
+          <TextField
+            value={cth_no}
+            onChange={(e) => setCthNo(e.target.value)}
+            variant="outlined"
+            size="small"
+            placeholder="Enter CTH No"
+            fullWidth
+          />
+        </Grid>
+
         {/* FCL/LCL Selector */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -747,7 +692,12 @@ const ImportCreateJob = () => {
         )}
 
         {/*  */}
-        <Grid container style={{ marginTop: "20px", padding: "0 20px" }}>
+
+        <Grid
+          container
+          style={{ marginTop: "20px", padding: "0 20px" }}
+          spacing={2}
+        >
           <Grid
             item
             xs={12}
@@ -773,7 +723,6 @@ const ImportCreateJob = () => {
               }}
               multiple={true}
             />
-
             <ImagePreview
               images={formik.values.all_documents || []}
               onDeleteImage={(index) => {
@@ -796,27 +745,35 @@ const ImportCreateJob = () => {
             }}
           >
             <Typography variant="body1" style={{ fontWeight: 600 }}>
-              FTA benefit
+              FTA Benefit
             </Typography>
             <Switch
-              checked={isBenefit}
-              onChange={handleToggle}
+              checked={!!fta_Benefit_date_time}
+              onChange={() => {
+                if (fta_Benefit_date_time) {
+                  setFtaBenefitDateTime(null); // Disable the benefit
+                } else {
+                  setFtaBenefitDateTime(new Date().toISOString()); // Enable the benefit
+                }
+              }}
               color="primary"
             />
             <Typography variant="body2" style={{ marginTop: "8px" }}>
-              {isBenefit
-                ? `Benefit enabled on ${new Date(dateTime).toLocaleString()}`
+              {fta_Benefit_date_time
+                ? `Benefit enabled on ${new Date(
+                    fta_Benefit_date_time
+                  ).toLocaleString()}`
                 : "Benefit not enabled"}
             </Typography>
           </Grid>
         </Grid>
 
-        <Grid item xs={12} md={12} spacing={3} style={{ marginTop: "10px" }}>
+        <Grid item xs={12} md={12} style={{ marginTop: "10px" }}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Container Details :
+            Container Details:
           </Typography>
 
-          {containers.map((container, index) => (
+          {container_nos.map((container, index) => (
             <Grid
               container
               item
@@ -826,18 +783,25 @@ const ImportCreateJob = () => {
               alignItems="center"
               style={{ marginTop: "10px" }}
             >
+              {/* Container Number */}
               <Grid item xs={5}>
                 <TextField
                   fullWidth
                   size="small"
                   variant="outlined"
                   label="Container Number"
-                  value={container.number}
+                  value={container.container_number}
                   onChange={(e) =>
-                    handleContainerChange(index, "number", e.target.value)
+                    handleContainerChange(
+                      index,
+                      "container_number",
+                      e.target.value
+                    )
                   }
                 />
               </Grid>
+
+              {/* Container Size */}
               <Grid item xs={5}>
                 <TextField
                   fullWidth
@@ -850,6 +814,8 @@ const ImportCreateJob = () => {
                   }
                 />
               </Grid>
+
+              {/* Remove Container Button */}
               <Grid item xs={2}>
                 <IconButton
                   color="primary"
@@ -862,6 +828,7 @@ const ImportCreateJob = () => {
             </Grid>
           ))}
 
+          {/* Add Container Button */}
           <Grid item xs={12} style={{ marginTop: "10px" }}>
             <Button
               variant="contained"
@@ -873,6 +840,7 @@ const ImportCreateJob = () => {
             </Button>
           </Grid>
         </Grid>
+
         {/* test01 */}
         <Grid item xs={12} md={6} spacing={3} style={{ marginTop: "10px" }}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -919,7 +887,7 @@ const ImportCreateJob = () => {
                   displayEmpty
                 >
                   <MenuItem value="" disabled>
-                    Select Ex-Bond Type
+                    Select In-Bond Type
                   </MenuItem>
                   <MenuItem value="101">101</MenuItem>
                   <MenuItem value="102">102</MenuItem>
@@ -932,21 +900,19 @@ const ImportCreateJob = () => {
 
           {exBondValue === "other" && (
             <Grid container spacing={2} style={{ marginTop: "10px" }}>
+              {/* BE Number */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   size="small"
                   variant="outlined"
                   label="BE Number"
-                  value={otherDetails.beNumber}
-                  onChange={(e) =>
-                    setOtherDetails((prev) => ({
-                      ...prev,
-                      beNumber: e.target.value,
-                    }))
-                  }
+                  value={be_no}
+                  onChange={(e) => setBeNo(e.target.value)}
                 />
               </Grid>
+
+              {/* BE Date */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -954,61 +920,46 @@ const ImportCreateJob = () => {
                   variant="outlined"
                   label="BE Date"
                   type="date"
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  value={otherDetails.beDate}
-                  onChange={(e) =>
-                    setOtherDetails((prev) => ({
-                      ...prev,
-                      beDate: e.target.value,
-                    }))
-                  }
+                  InputLabelProps={{ shrink: true }}
+                  value={be_date}
+                  onChange={(e) => setBeDate(e.target.value)}
                 />
               </Grid>
+
+              {/* File Upload for OOC Copies */}
               <Grid item xs={12}>
                 <FileUpload
                   label="Upload BE Copy"
                   bucketPath="be_copy_documents"
-                  onFilesUploaded={(newFiles) => {
-                    setOtherDetails((prev) => ({
-                      ...prev,
-                      beCopy: [...(prev.beCopy || []), ...newFiles],
-                    }));
-                  }}
+                  onFilesUploaded={(newFiles) =>
+                    setOocCopies([...ooc_copies, ...newFiles])
+                  }
                   multiple={true}
                 />
                 <ImagePreview
-                  images={otherDetails.beCopy || []}
+                  images={ooc_copies || []}
                   onDeleteImage={(index) => {
-                    const updatedFiles = [...(otherDetails.beCopy || [])];
+                    const updatedFiles = [...ooc_copies];
                     updatedFiles.splice(index, 1);
-                    setOtherDetails((prev) => ({
-                      ...prev,
-                      beCopy: updatedFiles,
-                    }));
+                    setOocCopies(updatedFiles);
                   }}
                 />
               </Grid>
 
+              {/* Scheme Selection */}
               <Grid item xs={12}>
                 <FormControl fullWidth size="small" variant="outlined">
                   <Select
-                    value={otherDetails.scheme}
-                    onChange={(e) =>
-                      setOtherDetails((prev) => ({
-                        ...prev,
-                        scheme: e.target.value,
-                      }))
-                    }
+                    value={scheme}
+                    onChange={(e) => setScheme(e.target.value)}
                     displayEmpty
                   >
                     <MenuItem value="" disabled>
                       Select Scheme
                     </MenuItem>
-                    {schemeOptions.map((scheme, index) => (
-                      <MenuItem key={index} value={scheme}>
-                        {scheme}
+                    {schemeOptions.map((schemeOption, index) => (
+                      <MenuItem key={index} value={schemeOption}>
+                        {schemeOption}
                       </MenuItem>
                     ))}
                   </Select>
@@ -1032,6 +983,16 @@ const ImportCreateJob = () => {
         </Grid>
 
         {/* test 02 */}
+        <Grid item xs={12}>
+          <Button
+            variant="contained"
+            color="primary"
+            style={{ marginTop: "20px" }}
+            onClick={formik.handleSubmit}
+          >
+            Submit
+          </Button>
+        </Grid>
       </Grid>
 
       {/* Confirm Delete Dialog */}
@@ -1051,14 +1012,6 @@ const ImportCreateJob = () => {
         editValues={editValues}
         onEditChange={setEditValues}
       />
-      <Button
-        variant="contained"
-        color="primary"
-        style={{ marginTop: "20px" }}
-        onClick={formik.handleSubmit}
-      >
-        Submit
-      </Button>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import axios from "axios";
 import {
@@ -9,12 +9,33 @@ import {
 } from "../components/MasterLists/MasterLists";
 
 const useImportJobForm = () => {
-  // NEW: Include a "year" field since backend checks it
-  // const [year, setYear] = useState(new Date().getFullYear().toString());
-  const [year, setYear] = useState("24-25");
+  // Get the current date
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+
+  // Extract the last two digits of the current year
+  const currentTwoDigits = String(currentYear).slice(-2); // e.g., "24" for 2024
+
+  // Calculate the next year's last two digits
+  const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0"); // e.g., "25" for 2025
+  const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0"); // e.g., "23" for 2023
+
+  // Determine the financial year range
+  let defaultYearPair;
+  if (currentMonth >= 4) {
+    // From April of the current year to March of the next year
+    defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+  } else {
+    // From January to March, previous financial year
+    defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
+  }
+
+  // Initialize the state with the determined year pair
+  const [year, setYear] = useState(defaultYearPair);
 
   // Existing states:
-  const [job_no, setJobNo] = useState("");
+  // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
   const [importer, setImporter] = useState("");
   const [shipping_line_airline, setShippingLineAirline] = useState("");
@@ -23,6 +44,7 @@ const useImportJobForm = () => {
   const [supplier_exporter, setSupplierExporter] = useState("");
   const [awb_bl_no, setAwbBlNo] = useState("");
   const [awb_bl_date, setAwbBlDate] = useState("");
+  const [vessel_berthing, setVesselberthing] = useState("");
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
   const [gross_weight, setGrossWeight] = useState("");
@@ -43,6 +65,7 @@ const useImportJobForm = () => {
 
   const [fta_Benefit_date_time, setFtaBenefitDateTime] = useState("");
   const [exBondValue, setExBondValue] = useState("");
+  const [jobDetails, setJobDetails] = useState([]);
 
   // The back end expects "cth_documents". In your front end, you called it "cthDocuments".
   // Keep your internal state as is, but rename it in the final payload.
@@ -85,11 +108,25 @@ const useImportJobForm = () => {
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
 
+  // Fetch job numbers dynamically
+  // Fetch job details dynamically
+  useEffect(() => {
+    async function fetchJobDetails() {
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/jobs/add-job-all-In-bond`
+        );
+        setJobDetails(response.data); // Set the job details from the response
+      } catch (error) {
+        console.error("Error fetching job details:", error);
+      }
+    }
+    fetchJobDetails();
+  }, []);
   //
   // Reset form function
   const resetForm = () => {
-    setYear("24-25");
-    setJobNo("");
+    setYear(defaultYearPair);
     setCustomHouse("");
     setImporter("");
     setShippingLineAirline("");
@@ -98,6 +135,7 @@ const useImportJobForm = () => {
     setSupplierExporter("");
     setAwbBlNo("");
     setAwbBlDate("");
+    setVesselberthing("");
     setTypeOfBE("");
     setLoadingPort("");
     setGrossWeight("");
@@ -158,7 +196,6 @@ const useImportJobForm = () => {
         const payload = {
           ...values,
           year, // <-- MANDATORY for back end
-          job_no,
           custom_house,
           importer,
           shipping_line_airline,
@@ -167,6 +204,7 @@ const useImportJobForm = () => {
           supplier_exporter,
           awb_bl_no,
           awb_bl_date,
+          vessel_berthing,
           type_of_b_e,
           loading_port,
           gross_weight,
@@ -328,8 +366,6 @@ const useImportJobForm = () => {
     // Export states so the component can use them
     year,
     setYear,
-    job_no,
-    setJobNo,
     custom_house,
     setCustomHouse,
     importer,
@@ -345,7 +381,9 @@ const useImportJobForm = () => {
     awb_bl_no,
     setAwbBlNo,
     awb_bl_date,
+    vessel_berthing,
     setAwbBlDate,
+    setVesselberthing,
     type_of_b_e,
     setTypeOfBE,
     loading_port,
@@ -412,6 +450,8 @@ const useImportJobForm = () => {
     setClearanceValue,
     resetOtherDetails,
     canChangeClearance,
+    jobDetails,
+    setJobDetails,
   };
 };
 

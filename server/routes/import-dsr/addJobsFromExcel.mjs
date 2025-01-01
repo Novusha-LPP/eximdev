@@ -2,13 +2,24 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 
-
 const router = express.Router();
+// API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
+router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
+  try {
+    const jobs = await JobModel.find(
+      { type_of_b_e: "In-Bond" },
+      { job_no: 1, importer: 1, _id: 0 } // Fetch job_no and importer
+    );
+    res.status(200).json(jobs);
+  } catch (error) {
+    console.error("Error fetching In-Bond jobs:", error);
+    res.status(500).json({ message: "Error fetching In-Bond jobs." });
+  }
+});
 // Route to add a new job
 router.post("/api/jobs/add-job-imp-man", async (req, res) => {
   try {
     const {
-      job_no,
       year,
       custom_house,
       job_date,
@@ -18,6 +29,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       invoice_date,
       awb_bl_no,
       awb_bl_date,
+      vessel_berthing,
       description,
       be_no,
       be_date,
@@ -53,14 +65,34 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       total_inv_value,
     } = req.body;
 
-    // Validate required fields
-    if (!job_no || !year || !importer || !invoice_number || !awb_bl_no) {
-      return res.status(400).json({ message: "Missing required fields." });
-    }
+    const lastJob = await JobModel.findOne({}, { job_no: 1 })
+      .sort({ job_no: -1 })
+      .exec(); // Fetch the job with the highest job_no
+    // console.log("Last Job:", lastJob);
+
+    // // Validate required fields
+    // if (!year || !importer || !invoice_number || !awb_bl_no) {
+    //   return res.status(400).json({ message: "Missing required fields." });
+    // }
+
+    // Generate new job_no
+    let newJobNo;
+
+    // if (lastJob && lastJob.job_no) {
+    // Extract the numeric part from job_no
+    const numericJobNo = parseInt(lastJob.job_no, 10); // Convert job_no to a number
+    const totalDigits = lastJob.job_no.length; // Preserve the length of the original job_no
+    newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0"); // Increment and pad with leading zeros
+    // } else {
+    //   // Start with a base number if no jobs exist
+    //   newJobNo = "00001"; // Initial job_no with leading zeros
+    // }
+
+    // console.log("Generated job_no:", newJobNo);
 
     // Create new job entry
     const newJob = new JobModel({
-      job_no,
+      job_no: newJobNo,
       year,
       custom_house,
       job_date,
@@ -70,6 +102,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       invoice_date,
       awb_bl_no,
       awb_bl_date,
+      vessel_berthing,
       description,
       be_no,
       be_date,
@@ -109,7 +142,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     await newJob.save();
 
     // Update last jobs update date
-    const lastUpdated = await LastJobsDate.findOneAndUpdate(
+    await LastJobsDate.findOneAndUpdate(
       {},
       { lastUpdatedOn: new Date() },
       { upsert: true, new: true }

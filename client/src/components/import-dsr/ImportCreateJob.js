@@ -12,7 +12,6 @@ import {
 } from "@mui/material";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
-
 import Autocomplete from "@mui/material/Autocomplete";
 import FileUpload from "../../components/gallery/FileUpload";
 import ImagePreview from "../../components/gallery/ImagePreview";
@@ -31,7 +30,7 @@ import useImportJobForm from "../../customHooks/useImportJobForm.js";
 const ImportCreateJob = () => {
   const {
     formik,
-    job_no,
+    // job_no,
     setJobNo,
     custom_house,
     setCustomHouse,
@@ -48,7 +47,9 @@ const ImportCreateJob = () => {
     awb_bl_no,
     setAwbBlNo,
     awb_bl_date,
+    vessel_berthing,
     setAwbBlDate,
+    setVesselberthing,
     type_of_b_e,
     setTypeOfBE,
     loading_port,
@@ -120,6 +121,8 @@ const ImportCreateJob = () => {
     setOocCopies,
     scheme,
     setScheme,
+    jobDetails,
+    setJobDetails,
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
@@ -135,7 +138,7 @@ const ImportCreateJob = () => {
         style={{ maxWidth: "1100px", margin: "0 auto" }}
       >
         {/* Job Number */}
-        <Grid item xs={12} md={6}>
+        {/* <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Job Number:
           </Typography>
@@ -147,7 +150,7 @@ const ImportCreateJob = () => {
             placeholder="Enter Job Number"
             fullWidth
           />
-        </Grid>
+        </Grid> */}
 
         {/* Custom House */}
         <Grid item xs={12} md={6}>
@@ -259,6 +262,21 @@ const ImportCreateJob = () => {
           />
         </Grid>
         {/* test01-02 */}
+        {/* BL Date */}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            ETA Date:
+          </Typography>
+          <TextField
+            type="date"
+            value={vessel_berthing}
+            onChange={(e) => setVesselberthing(e.target.value)}
+            variant="outlined"
+            size="small"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
 
         {/* BL Number */}
         <Grid item xs={12} md={6}>
@@ -750,63 +768,66 @@ const ImportCreateJob = () => {
             Container Details:
           </Typography>
 
-          {container_nos.map((container, index) => (
-            <Grid
-              container
-              item
-              xs={12}
-              spacing={2}
-              key={`container-${index}`}
-              alignItems="center"
-              style={{ marginTop: "10px" }}
-            >
-              {/* Container Number */}
-              <Grid item xs={5}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="Container Number"
-                  value={container.container_number}
-                  onChange={(e) =>
-                    handleContainerChange(
-                      index,
-                      "container_number",
-                      e.target.value
-                    )
-                  }
-                />
-              </Grid>
+          {/* Parent container with spacing */}
+          <Grid container spacing={2} style={{ marginTop: "10px" }}>
+            {container_nos.map((container, index) => (
+              <Grid
+                container
+                item
+                xs={12}
+                alignItems="center"
+                key={`container-${index}`}
+                spacing={2} // Add spacing for child containers
+                style={{ marginTop: "10px" }}
+              >
+                {/* Container Number */}
+                <Grid item xs={5}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Container Number"
+                    value={container.container_number}
+                    onChange={(e) =>
+                      handleContainerChange(
+                        index,
+                        "container_number",
+                        e.target.value
+                      )
+                    }
+                  />
+                </Grid>
 
-              {/* Container Size */}
-              <Grid item xs={5}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="Container Size"
-                  value={container.size}
-                  onChange={(e) =>
-                    handleContainerChange(index, "size", e.target.value)
-                  }
-                />
-              </Grid>
+                {/* Container Size */}
+                <Grid item xs={5}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="Container Size"
+                    value={container.size}
+                    onChange={(e) =>
+                      handleContainerChange(index, "size", e.target.value)
+                    }
+                  />
+                </Grid>
 
-              {/* Remove Container Button */}
-              <Grid item xs={2}>
-                <IconButton
-                  color="primary"
-                  onClick={() => handleRemoveContainer(index)}
-                  title="Remove Container"
-                >
-                  <DeleteIcon />
-                </IconButton>
+                {/* Remove Container Button */}
+                <Grid item xs={2}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => handleRemoveContainer(index)}
+                    title="Remove Container"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Grid>
               </Grid>
-            </Grid>
-          ))}
+            ))}
+          </Grid>
 
           {/* Add Container Button */}
-          <Grid item xs={12} style={{ marginTop: "10px" }}>
+          <Grid container item xs={12} style={{ marginTop: "10px" }}>
             <Button
               variant="contained"
               color="primary"
@@ -866,10 +887,14 @@ const ImportCreateJob = () => {
                   <MenuItem value="" disabled>
                     Select In-Bond Type
                   </MenuItem>
-                  <MenuItem value="101">101</MenuItem>
-                  <MenuItem value="102">102</MenuItem>
-                  <MenuItem value="103">103</MenuItem>
+                  {/* Static "Other" option at the top */}
                   <MenuItem value="other">Other</MenuItem>
+                  {/* Dynamically generate MenuItem components */}
+                  {jobDetails.map((job) => (
+                    <MenuItem key={job.job_no} value={job.job_no}>
+                      {`${job.job_no} - ${job.importer}`}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>

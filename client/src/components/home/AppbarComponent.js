@@ -5,7 +5,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import Box from "@mui/material/Box";
+import { Box, Typography } from "@mui/material";
 
 const drawerWidth = 60;
 
@@ -57,11 +57,16 @@ function AppbarComponent(props) {
         {/* Spacer to push the version text to the extreme right */}
         <Box sx={{ flexGrow: 1 }} />
 
-        <Box>
-          <p style={{ margin: 0, color: "#000", fontWeight: "bold" }}>
+        <Box sx={{ textAlign: "center", mt: 2 }}>
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", color: "#000" }}
+          >
             Version: {process.env.REACT_APP_VERSION}
+          </Typography>
+          <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
             {process.env.REACT_APP_VERSION_DATE}
-          </p>
+          </Typography>
         </Box>
       </Toolbar>
     </AppBar>

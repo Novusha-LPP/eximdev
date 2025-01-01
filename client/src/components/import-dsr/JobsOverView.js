@@ -8,32 +8,43 @@ import { IconButton, TextField, MenuItem } from "@mui/material";
 import { Col, Row } from "react-bootstrap";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
 
+// Predefined array of year ranges
+const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
+
 function JobsOverView() {
   const [data, setData] = useState("");
   const { selectedYear, setSelectedYear } =
     React.useContext(SelectedYearContext);
 
-  // Predefined array of year ranges
-  const years = ["24-25", "25-26", "26-27", "27-28", "28-29", "29-30", "30-31"];
-
   useEffect(() => {
-    // Determine default selection based on current year
-    const currentYear = new Date().getFullYear();
-    const currentTwoDigits = String(currentYear).slice(-2); // e.g. "24" for 2024
-    const nextTwoDigits = String(Number(currentTwoDigits) + 1).padStart(2, "0");
-    // Construct the year pair, e.g. "24-25"
-    const defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+    // Determine the current date
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
+    const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0"); // Last two digits of next year
+    const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0"); // Last two digits of previous year
 
+    let defaultYearPair;
+
+    // Determine the financial year
+    if (currentMonth >= 4) {
+      // From April of the current year to March of the next year
+      defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+    } else {
+      // From January to March, use the previous financial year
+      defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
+    }
+
+    // Set default year pair if not already selected
     if (!selectedYear) {
-      // If our constructed year pair exists in the predefined array, use it
-      // otherwise, fallback to the first element
       if (years.includes(defaultYearPair)) {
         setSelectedYear(defaultYearPair);
       } else {
         setSelectedYear(years[0]);
       }
     }
-  }, [selectedYear, setSelectedYear, years]);
+  }, [selectedYear, setSelectedYear]);
 
   useEffect(() => {
     async function getData() {

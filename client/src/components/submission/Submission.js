@@ -180,7 +180,7 @@ function Submission() {
       accessorKey: "cth_documents",
       header: "E-sanchit Doc",
       enableSorting: false,
-      size: 250,
+      size: 300,
       Cell: ({ row }) => {
         const { cth_documents = [] } = row.original;
 
@@ -207,7 +207,9 @@ function Submission() {
                       display: "block",
                     }}
                   >
-                    {`${doc.document_code} - ${doc.document_name}`}
+                    {`${doc.document_code} - ${doc.document_name}${
+                      doc.irn ? ` - ${doc.irn}` : ""
+                    }`}
                   </a>
                   {/* Uncomment the following if you want to display the date */}
                   {/* <div style={{ fontSize: "12px", color: "#555" }}>

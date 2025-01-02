@@ -79,6 +79,8 @@ export const convertToExcel = async (
     "DETAILED STATUS",
   ];
 
+  console.log(rowsWithoutBillNo);
+
   // Row headers
   const dataWithHeaders = rowsWithoutBillNo.map((item) => {
     const jobNoAndDate = `${item.job_no} | ${formatDate(item.job_date)} | ${
@@ -93,7 +95,8 @@ export const convertToExcel = async (
       item.discharge_date ? item.discharge_date : item.vessel_berthing
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
-    }${
+    }
+    ${item.rail_out_date ? ` | Rail-Out: ${item.rail_out_date}` : ""}${
       item.examination_date
         ? ` | Examination Date: ${formatDate(item.examination_date)}`
         : ""
@@ -109,6 +112,14 @@ export const convertToExcel = async (
       item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
     }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${
       item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
+    }${
+      item.obl_telex_bl
+        ? ` | ${
+            item.obl_telex_bl === "OBL"
+              ? `ORG-RCVD: ${item.document_received_date}`
+              : `DOC-RCVD: ${item.document_received_date}`
+          }`
+        : ""
     }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
 
     const arrivalDates = formatContainerDates(
@@ -130,7 +141,6 @@ export const convertToExcel = async (
           : ""
       )
       .join(",\n");
-
 
     const size = item.container_nos
       .map((container) => container.size)

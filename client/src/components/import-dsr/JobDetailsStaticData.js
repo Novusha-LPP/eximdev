@@ -315,7 +315,7 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.awb_bl_date}</span>
         </Col>
         <Col xs={12} lg={4}>
-          <strong>Clearance Value:&nbsp;</strong>
+          <strong>Clearance Under:&nbsp;</strong>
           <span className="non-editable-text">
             {props.data.clearanceValue === "exbond"
               ? props.data.exBondValue && props.data.exBondValue === "other"

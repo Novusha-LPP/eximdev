@@ -54,15 +54,51 @@ function JobList(props) {
 
   useEffect(() => {
     async function getYears() {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-years`
-      );
-      const filteredYears = res.data.filter((year) => year !== null);
-      setYears(filteredYears);
-      setSelectedYear(filteredYears[0]);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-years`
+        );
+        const filteredYears = res.data.filter((year) => year !== null);
+        setYears(filteredYears);
+
+        // Determine the current financial year
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+        const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
+        const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+        const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
+
+        let defaultYearPair;
+
+        // Check if the current date falls within the financial year
+        if (currentMonth >= 4) {
+          // From April of the current year to March of the next year
+          defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+        } else {
+          // From January to March, previous financial year
+          defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
+        }
+
+        // Set the default year pair only if the user hasn't already selected one
+        if (!selectedYear && filteredYears.length > 0) {
+          if (filteredYears.includes(defaultYearPair)) {
+            setSelectedYear(defaultYearPair);
+          } else {
+            setSelectedYear(filteredYears[0]); // Fallback to the first available year
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching years:", error);
+      }
     }
     getYears();
-  }, [setSelectedYear]);
+  }, [selectedYear, setSelectedYear]);
+
+  useEffect(() => {
+    console.log("Selected Year:", selectedYear);
+    console.log("Available Years:", years);
+  }, [selectedYear, years]);
 
   // Debounce the search query with useEffect
   useEffect(() => {

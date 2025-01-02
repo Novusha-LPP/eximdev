@@ -9,6 +9,7 @@ import axios from "axios";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
 import JobTabs from "./JobTabs";
 import ViewDSR from "./ViewDSR";
+import ImportCreateJob from "./ImportCreateJob";
 import useFileUpload from "../../customHooks/useFileUpload";
 import CircularProgress from "@mui/material/CircularProgress";
 import InfoIcon from "@mui/icons-material/Info";
@@ -62,6 +63,7 @@ function ImportDSR() {
             <Tab label="Dashboard" {...a11yProps(0)} key={0} />,
             <Tab label="Jobs" {...a11yProps(2)} key={1} />,
             <Tab label="View DSR" {...a11yProps(3)} key={2} />
+            <Tab label="New Job" {...a11yProps(4)} key={3} />
             ,]
           </Tabs>
         </Box>
@@ -114,6 +116,9 @@ function ImportDSR() {
         </CustomTabPanel>
         <CustomTabPanel value={tabValue} index={2}>
           <ViewDSR />
+        </CustomTabPanel>
+        <CustomTabPanel value={tabValue} index={3}>
+          <ImportCreateJob />
         </CustomTabPanel>
       </Box>
       <Snackbar

@@ -49,6 +49,14 @@ const jobSchema = new mongoose.Schema({
   origin_country: { type: String, trim: true },
   port_of_reporting: { type: String, trim: true },
   shipping_line_airline: { type: String, trim: true },
+  branchSrNo: { type: String, trim: true },
+  adCode: { type: String, trim: true },
+  isDraftDoc: { type: Boolean },
+  fta_Benefit_date_time: { type: String, trim: true },
+  exBondValue: { type: String, trim: true },
+  scheme: { type: String, trim: true },
+  clearanceValue: { type: String, trim: true },
+
   container_nos: [
     {
       container_number: { type: String, trim: true },

@@ -184,18 +184,15 @@ const useImportJobForm = () => {
     // Reset any other states if necessary
   };
   //
-  // Formik init
   const formik = useFormik({
     initialValues: {
-      // "all_documents" array from your schema
       all_documents: [],
     },
     onSubmit: async (values) => {
       try {
-        // Construct payload with all required fields
         const payload = {
           ...values,
-          year, // <-- MANDATORY for back end
+          year, // <-- MANDATORY for backend
           custom_house,
           importer,
           shipping_line_airline,
@@ -219,37 +216,43 @@ const useImportJobForm = () => {
           consignment_type,
           isDraftDoc,
           container_nos,
-          // Rename "cthDocuments" to "cth_documents" to match your route
-          cth_documents: cthDocuments,
+          cth_documents: cthDocuments, // Renamed to match backend expectations
           scheme,
           be_no,
           be_date,
           ooc_copies,
           exBondValue,
           fta_Benefit_date_time,
-          // Optional remarks or other fields you might want:
           remarks: "",
           status: "Pending",
         };
 
-        console.log("Payload:", payload);
+      
 
-        // IMPORTANT: Make sure your route matches EXACTLY how your server is defined:
-        // If your server uses `router.post("/api/jobs/add-job-imp-man", ...)`,
-        // you either call: axios.post(`${BASE_URL}/api/jobs/add-job-imp-man`, payload)
-        // or remove "/api" in the Express route.
-        await axios.post(
+        // Make the API call and store response
+        const response = await axios.post(
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-imp-man`,
           payload
         );
 
-        alert("Job successfully created!");
+        // Show success alert or details
+        alert(
+          `Job successfully created! \nResponse: ${JSON.stringify(
+            response.data
+          )}`
+        );
+
         // Reset the form after successful submission
         resetForm();
         formik.resetForm();
       } catch (error) {
         console.error("Error creating job", error);
-        alert("Failed to create job. Please try again.");
+
+        if (error.response && error.response.status === 400) {
+          alert("Missing importer or custom_house fields.");
+        } else {
+          alert("Failed to create job. Please try again.");
+        }
       }
     },
   });

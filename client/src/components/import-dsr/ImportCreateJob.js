@@ -137,20 +137,6 @@ const ImportCreateJob = () => {
         spacing={3}
         style={{ maxWidth: "1100px", margin: "0 auto" }}
       >
-        {/* Job Number */}
-        {/* <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Job Number:
-          </Typography>
-          <TextField
-            value={job_no}
-            onChange={(e) => setJobNo(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Job Number"
-            fullWidth
-          />
-        </Grid> */}
 
         {/* Custom House */}
         <Grid item xs={12} md={6}>

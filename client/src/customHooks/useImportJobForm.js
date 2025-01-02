@@ -225,6 +225,7 @@ const useImportJobForm = () => {
           fta_Benefit_date_time,
           remarks: "",
           status: "Pending",
+          clearanceValue,
         };
 
       

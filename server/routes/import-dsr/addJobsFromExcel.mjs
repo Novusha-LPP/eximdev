@@ -62,6 +62,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       ooc_copies,
       cth_no,
       inv_currency,
+      clearanceValue,
       total_inv_value,
     } = req.body;
 
@@ -135,6 +136,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       ooc_copies,
       cth_no,
       inv_currency,
+      clearanceValue,
       total_inv_value,
     });
 

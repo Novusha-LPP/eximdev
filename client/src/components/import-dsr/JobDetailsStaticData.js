@@ -221,9 +221,16 @@ function JobDetailsStaticData(props) {
           </span>
         </Col>
 
-        <Col xs={12} lg={5}>
+        <Col xs={12} lg={3}>
           <strong>Bill of Entry Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.be_date}</span>
+        </Col>
+        <Col xs={12} lg={4}>
+          <strong>FTA Benefit:&nbsp;</strong>
+          <span className="non-editable-text">
+            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()}` ||
+              "NA"}
+          </span>
         </Col>
       </Row>
       <Row>
@@ -303,9 +310,21 @@ function JobDetailsStaticData(props) {
           </div>
         </Col>
 
-        <Col xs={12} lg={5}>
+        <Col xs={12} lg={3}>
           <strong>Bill of Lading Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.awb_bl_date}</span>
+        </Col>
+        <Col xs={12} lg={4}>
+          <strong>Clearance Value:&nbsp;</strong>
+          <span className="non-editable-text">
+            {props.data.clearanceValue === "exbond"
+              ? props.data.exBondValue && props.data.exBondValue === "other"
+                ? `${props.data.clearanceValue} (${
+                    props.data.scheme || "No Scheme"
+                  })`
+                : `${props.data.clearanceValue} (${props.data.exBondValue})`
+              : props.data.clearanceValue || "NA"}
+          </span>
         </Col>
       </Row>
 

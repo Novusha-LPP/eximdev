@@ -62,6 +62,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       ooc_copies,
       cth_no,
       inv_currency,
+      clearanceValue,
       total_inv_value,
     } = req.body;
 
@@ -70,10 +71,10 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       .exec(); // Fetch the job with the highest job_no
     // console.log("Last Job:", lastJob);
 
-    // // Validate required fields
-    // if (!year || !importer || !invoice_number || !awb_bl_no) {
-    //   return res.status(400).json({ message: "Missing required fields." });
-    // }
+    // Validate required fields
+    if (!importer || !custom_house) {
+      return res.status(400).json({ message: "Missing required fields." });
+    }
 
     // Generate new job_no
     let newJobNo;
@@ -135,6 +136,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       ooc_copies,
       cth_no,
       inv_currency,
+      clearanceValue,
       total_inv_value,
     });
 
@@ -148,7 +150,14 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       { upsert: true, new: true }
     );
 
-    res.status(201).json({ message: "Job successfully created.", job: newJob });
+    res.status(201).json({
+      message: "Job successfully created.",
+      job: {
+        job_no: newJob.job_no,
+        custom_house: newJob.custom_house,
+        importer: newJob.importer,
+      },
+    });
   } catch (error) {
     console.error("Error adding job:", error);
     res.status(500).json({ message: "Internal server error." });

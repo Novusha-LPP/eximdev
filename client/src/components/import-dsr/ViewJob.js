@@ -465,6 +465,42 @@ function JobDetails() {
                       InputLabelProps={{ shrink: true }}
                     />
                   </Col>
+                  <Col xs={12} lg={3}>
+                    <div
+                      className="job-detail-input-container"
+                      style={{ justifyContent: "flex-start" }}
+                    >
+                      <strong>FTA Benefit:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="datetime-local"
+                        id="do_revalidation_date"
+                        name="do_revalidation_date"
+                        value={
+                          formik.values.fta_Benefit_date_time
+                            ? formik.values.fta_Benefit_date_time
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const newValue = e.target.value;
+                          if (newValue) {
+                            formik.setFieldValue(
+                              "fta_Benefit_date_time",
+                              newValue
+                            );
+                          } else {
+                            formik.setFieldValue("fta_Benefit_date_time", "");
+                          }
+                        }}
+                        InputLabelProps={{
+                          shrink: true,
+                        }}
+                      />
+                    </div>
+                  </Col>
                 </>
               ) : null}
             </Row>
@@ -1573,44 +1609,41 @@ function JobDetails() {
             </Row>
 
             <Row>
-            <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Rail out Date:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="rail_out_date"
-                      name="rail_out_date"
-                      value={
-                        formik.values.rail_out_date
-                          ? formik.values.rail_out_date
-                          : ""
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Rail out Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="rail_out_date"
+                    name="rail_out_date"
+                    value={
+                      formik.values.rail_out_date
+                        ? formik.values.rail_out_date
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        // formik.setFieldValue("examinationPlanning", true);
+                        formik.setFieldValue("rail_out_date", newValue);
+                      } else {
+                        // formik.setFieldValue("examinationPlanning", false);
+                        formik.setFieldValue("rail_out_date", "");
                       }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          // formik.setFieldValue("examinationPlanning", true);
-                          formik.setFieldValue(
-                            "rail_out_date",
-                            newValue
-                          );
-                        } else {
-                          // formik.setFieldValue("examinationPlanning", false);
-                          formik.setFieldValue("rail_out_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col>
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"

@@ -137,21 +137,6 @@ const ImportCreateJob = () => {
         spacing={3}
         style={{ maxWidth: "1100px", margin: "0 auto" }}
       >
-        {/* Job Number */}
-        {/* <Grid item xs={12} md={6}>
-          <Typography variant="body1" style={{ fontWeight: 600 }}>
-            Job Number:
-          </Typography>
-          <TextField
-            value={job_no}
-            onChange={(e) => setJobNo(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Job Number"
-            fullWidth
-          />
-        </Grid> */}
-
         {/* Custom House */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -728,9 +713,11 @@ const ImportCreateJob = () => {
             />
           </Grid>
           <Grid
+            container
             item
             xs={12}
             md={6}
+            spacing={2} // Apply spacing only when the container prop is present
             style={{
               position: "relative",
               border: "1px solid #ddd",
@@ -748,7 +735,12 @@ const ImportCreateJob = () => {
                 if (fta_Benefit_date_time) {
                   setFtaBenefitDateTime(null); // Disable the benefit
                 } else {
-                  setFtaBenefitDateTime(new Date().toISOString()); // Enable the benefit
+                  const currentDateTime = new Date(
+                    Date.now() - new Date().getTimezoneOffset() * 60000
+                  )
+                    .toISOString()
+                    .slice(0, 16); // Adjusted to conform to the yyyy-MM-ddTHH:mm format
+                  setFtaBenefitDateTime(currentDateTime); // Enable the benefit with the formatted date-time
                 }
               }}
               color="primary"
@@ -757,7 +749,10 @@ const ImportCreateJob = () => {
               {fta_Benefit_date_time
                 ? `Benefit enabled on ${new Date(
                     fta_Benefit_date_time
-                  ).toLocaleString()}`
+                  ).toLocaleString("en-US", {
+                    timeZone: "Asia/Kolkata",
+                    hour12: true,
+                  })}`
                 : "Benefit not enabled"}
             </Typography>
           </Grid>

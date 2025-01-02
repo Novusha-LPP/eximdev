@@ -55,7 +55,7 @@ const jobSchema = new mongoose.Schema({
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },
   scheme: { type: String, trim: true },
-  
+  clearanceValue: { type: String, trim: true },
 
   container_nos: [
     {

@@ -270,6 +270,7 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      fta_Benefit_date_time: "",
       be_no: "",
       be_date: "",
       discharge_date: "",
@@ -354,6 +355,7 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          fta_Benefit_date_time: values.fta_Benefit_date_time,
           be_no: values.be_no,
           be_date: values.be_date,
           discharge_date: values.discharge_date,
@@ -558,9 +560,11 @@ function useFetchJobDetails(
             ? ""
             : data.do_revalidation_upto_job_level,
         checklist: data.checklist === undefined ? [] : data.checklist,
-        job_sticker_upload: data.job_sticker_upload === undefined ? [] : data.job_sticker_upload,
+        job_sticker_upload:
+          data.job_sticker_upload === undefined ? [] : data.job_sticker_upload,
         remarks: data.remarks === undefined ? "" : data.remarks,
-        rail_out_date: data.rail_out_date === undefined ? "" : data.rail_out_date,
+        rail_out_date:
+          data.rail_out_date === undefined ? "" : data.rail_out_date,
         description: data.description === undefined ? "" : data.description,
         sims_reg_no: data.sims_reg_no === undefined ? "" : data.sims_reg_no,
         pims_reg_no: data.pims_reg_no === undefined ? "" : data.pims_reg_no,
@@ -573,6 +577,8 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+          fta_Benefit_date_time:
+          data.fta_Benefit_date_time === undefined ? "" : data.fta_Benefit_date_time,
         be_no: data.be_no === undefined ? "" : data.be_no,
         be_date: data.be_date === undefined ? "" : data.be_date,
         discharge_date:
@@ -926,6 +932,7 @@ function useFetchJobDetails(
     cth_Dropdown,
     setSelectedDocument,
     selectedDocument,
+    
   };
 }
 

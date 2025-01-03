@@ -327,10 +327,20 @@ function useFetchJobDetails(
       do_completed: "",
     },
     onSubmit: async (values) => {
+      // Create a copy of cthDocuments to modify
+      const updatedCthDocuments = cthDocuments.map((doc) => {
+        if (doc.document_check_date === "") {
+          // Clear the esanchit_completed_date_time if a document_check_date is empty
+          values.esanchit_completed_date_time = "";
+        }
+        return doc;
+      });
+
+      // Update the payload with the modified cthDocuments and other values
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/update-job/${params.selected_year}/${params.job_no}`,
         {
-          cth_documents: cthDocuments,
+          cth_documents: updatedCthDocuments,
           documents: selectedDocuments,
           checkedDocs: values.checkedDocs,
           vessel_berthing: values.vessel_berthing,
@@ -391,6 +401,7 @@ function useFetchJobDetails(
           do_completed: values.do_completed,
         }
       );
+
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
       navigate("/import-dsr");
@@ -577,8 +588,10 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
-          fta_Benefit_date_time:
-          data.fta_Benefit_date_time === undefined ? "" : data.fta_Benefit_date_time,
+        fta_Benefit_date_time:
+          data.fta_Benefit_date_time === undefined
+            ? ""
+            : data.fta_Benefit_date_time,
         be_no: data.be_no === undefined ? "" : data.be_no,
         be_date: data.be_date === undefined ? "" : data.be_date,
         discharge_date:
@@ -932,7 +945,6 @@ function useFetchJobDetails(
     cth_Dropdown,
     setSelectedDocument,
     selectedDocument,
-    
   };
 }
 

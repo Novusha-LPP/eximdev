@@ -17,6 +17,11 @@ const userSchema = new Schema({
       type: String,
     },
   ],
+  assigned_importer_name: [
+    {
+      type: String,
+    },
+  ],
   ////////////////////////////////////////////////////////////////// Onboarding
   first_name: {
     type: String,

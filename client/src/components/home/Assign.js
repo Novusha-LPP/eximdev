@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { TextField, MenuItem } from "@mui/material";
 import AssignModule from "./AssignModule";
-import AssignRole from "./AssignRole";
+import AssignRole from "./AssignRole/AssignRole";
 import Autocomplete from "@mui/material/Autocomplete";
 
 function Assign() {

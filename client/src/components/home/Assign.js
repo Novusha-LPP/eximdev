@@ -61,10 +61,11 @@ function Assign() {
         <TextField
           select
           size="small"
-          label="Select"
+          label={!selectedUser ? "First select user" : "Select"}
           sx={{ width: "200px", marginBottom: "20px" }}
           value={masterType}
           onChange={handleMasterChange}
+          disabled={!selectedUser} // Disable if no user is selected
         >
           <MenuItem value="Assign Module">Assign Module</MenuItem>
           <MenuItem value="Assign Role">Assign Role</MenuItem>

@@ -1,34 +1,45 @@
+// src/components/AssignRole.js
 import React, { useState } from "react";
 import { useFormik } from "formik";
-import { MenuItem, TextField } from "@mui/material";
+import { MenuItem, TextField, Button, Typography } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import axios from "axios";
-import ExecutiveRoleModal from "./ExecutiveRoleModal"; // Import the modal
+import ExecutiveRoleModal from "./ExecutiveRoleModal";
+import UserImportersBox from "./UserImportersBox";
+import sampleUsers from "./sampleUsers";
 
-function AssignRole(props) {
+function AssignRole({ selectedUser }) {
+  // Destructure props
   const [showModal, setShowModal] = useState(false);
-  const [selectedImporters, setSelectedImporters] = useState([]); // Store selected importers
+  const [selectedImporters, setSelectedImporters] = useState([]);
+  const [selectedUserData, setSelectedUserData] = useState(null); // State for UserRoleInfoModal
 
   const formik = useFormik({
     initialValues: {
       role: "",
     },
     onSubmit: async (values, { resetForm }) => {
-      if (!props.selectedUser) {
+      if (!selectedUser) {
         alert("Please select a user");
         return;
       }
       const data = {
         ...values,
-        username: props.selectedUser,
+        username: selectedUser,
         importers: selectedImporters,
       };
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/assign-role`,
-        data
-      );
-      alert(res.data.message);
-      resetForm();
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/assign-role`,
+          data
+        );
+        alert(res.data.message);
+        resetForm();
+        setSelectedImporters([]); // Reset selected importers after submission
+      } catch (error) {
+        console.error("Error assigning role:", error);
+        alert("Failed to assign role. Please try again.");
+      }
     },
   });
 
@@ -43,7 +54,7 @@ function AssignRole(props) {
   };
 
   const handleSaveImporters = (importers) => {
-    setSelectedImporters(importers); // Update selected importers
+    setSelectedImporters(importers);
   };
 
   return (
@@ -76,22 +87,35 @@ function AssignRole(props) {
                 <MenuItem value="Executive">Executive</MenuItem>
                 <MenuItem value="Asst_Executive">Asst. Executive</MenuItem>
                 <MenuItem value="User">User</MenuItem>
+                <MenuItem value="">Clear</MenuItem>
               </TextField>
-              <button className="btn" type="submit">
+              <Button
+                variant="contained"
+                color="primary"
+                type="submit"
+                style={{ marginTop: "10px" }}
+              >
                 Submit
-              </button>
+              </Button>
+            </Col>
+            <Col xs={12} lg={10}>
+              <UserImportersBox
+                users={sampleUsers}
+                role={formik.values.role}
+                selectedUser={selectedUser}
+              />
             </Col>
           </Row>
         </form>
       </div>
 
-      {/* Modal Component with Editing Capability */}
+      {/* ExecutiveRoleModal for 'Executive' role */}
       <ExecutiveRoleModal
         open={showModal}
         onClose={() => setShowModal(false)}
         initialSelectedImporters={selectedImporters} // Pass saved importers
         onSave={handleSaveImporters} // Save updated importers
-        selectedUser={props.selectedUser} // Pass the selected user
+        selectedUser={selectedUser} // Pass the selected user
       />
     </>
   );

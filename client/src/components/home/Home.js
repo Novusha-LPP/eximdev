@@ -14,6 +14,7 @@ const importPriority = [
   "Submission",
   "Import - DO",
   "Import - Operations",
+  "Import - Add",
 ];
 
 function Home() {

@@ -1,39 +1,41 @@
-// src/components/UserImportersBox.js
 import React from "react";
 import { Box, Avatar, Typography, Grid, Paper } from "@mui/material";
-import { styled } from "@mui/material/styles"; // Corrected import
+import { styled } from "@mui/material/styles";
 import PropTypes from "prop-types";
 
-// Styled components with defensive checks
 const BigBox = styled(Paper)(({ theme }) => ({
-  padding: theme?.spacing?.(2) || "16px",
+  padding: theme.spacing(2),
   backgroundColor: "#f5f5f5",
 }));
 
 const SmallBox = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "center",
-  padding: theme?.spacing?.(1) || "8px",
-  margin: theme?.spacing?.(1) || "8px",
+  padding: theme.spacing(1),
+  margin: theme.spacing(1),
   backgroundColor: "#ffffff",
-  borderRadius: theme?.shape?.borderRadius || "4px",
-  boxShadow: theme?.shadows?.[1] || "none",
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[1],
+  cursor: "pointer", // Add pointer for click indication
+  "&:hover": {
+    backgroundColor: theme.palette.action.hover,
+  },
 }));
 
 const UserInfo = styled(Box)(({ theme }) => ({
-  marginLeft: theme?.spacing?.(2) || "16px",
+  marginLeft: theme.spacing(2),
 }));
 
 const CountBadge = styled(Box)(({ theme }) => ({
   marginLeft: "auto",
-  backgroundColor: theme?.palette?.primary?.main || "#1976d2",
+  backgroundColor: theme.palette.primary.main,
   color: "#ffffff",
   padding: "4px 8px",
   borderRadius: "12px",
   fontSize: "0.8rem",
 }));
 
-const UserImportersBox = ({ users, role, selectedUser }) => {
+const UserImportersBox = ({ users, role, selectedUser, onSmallBoxClick }) => {
   if (!role) {
     return (
       <Typography variant="body1" color="textSecondary">
@@ -45,12 +47,12 @@ const UserImportersBox = ({ users, role, selectedUser }) => {
   return (
     <BigBox elevation={3}>
       <Typography variant="h6" gutterBottom>
-        list of {role}
+        List of {role}
       </Typography>
       <Grid container spacing={2}>
         {users.map((user) => (
           <Grid item xs={12} sm={6} md={4} key={user.id}>
-            <SmallBox>
+            <SmallBox onClick={() => onSmallBoxClick(user)}>
               <Avatar src={user.avatar} alt={user.name} />
               <UserInfo>
                 <Typography variant="subtitle1">{user.name}</Typography>
@@ -79,6 +81,7 @@ UserImportersBox.propTypes = {
   ).isRequired,
   role: PropTypes.string,
   selectedUser: PropTypes.string,
+  onSmallBoxClick: PropTypes.func.isRequired,
 };
 
 export default UserImportersBox;

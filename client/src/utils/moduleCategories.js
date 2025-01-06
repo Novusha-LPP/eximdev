@@ -7,6 +7,7 @@ export const moduleCategories = {
   Documentation: "Import",
   Submission: "Import",
   "Import - Operations": "Import",
+  "Import - Add": "Import",
   "Import - DO": "Import",
   "e-Sanchit": "Import",
   "LR Report": "SRCC",

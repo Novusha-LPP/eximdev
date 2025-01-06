@@ -46,6 +46,9 @@ import ViewJob from "../components/import-dsr/ViewJob.js";
 import ImportOperations from "../components/import-operations/ImportOperations.js";
 import ViewOperationsJob from "../components/import-operations/ViewOperationsJob.js";
 import OperationListJob from "../components/import-operations/OperationListJob.js";
+
+// Import add
+import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -201,7 +204,9 @@ function HomePage() {
               path="/import-operations/list-operation-job/:job_no/:year"
               element={<OperationListJob />}
             />
+            {/* ImportersInfo */}
 
+            <Route path="/ImportersInfo" element={<ImportersInfo />} />
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
 

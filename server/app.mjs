@@ -95,6 +95,9 @@ import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
 
+// ImportersInfo
+import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
+
 // Import DO
 import doTeamListOfjobs from "./routes/import-do/doTeamListOfjobs.mjs";
 import getDoBilling from "./routes/import-do/getDoBilling.mjs";
@@ -334,6 +337,9 @@ if (cluster.isPrimary) {
       app.use(assignRole);
       app.use(unassignModule);
       app.use(changePassword);
+
+      // ImportersInfo
+      app.use(ImportersInfo);
 
       // Import DO
       app.use(doTeamListOfjobs);

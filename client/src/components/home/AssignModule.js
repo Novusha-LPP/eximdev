@@ -15,6 +15,7 @@ const allModules = [
   "Import - DSR",
   "Import - DO",
   "Import - Operations",
+  "Import - Add",
   "Export",
   "LR Report",
   "Accounts",

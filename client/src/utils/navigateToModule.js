@@ -8,6 +8,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/import-dsr");
     case "Import - Operations":
       return navigate("/import-operations");
+    case "Import - Add":
+      return navigate("/ImportersInfo");
     case "Import - DO":
       return navigate("/import-do");
     case "Inward Register":

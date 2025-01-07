@@ -183,6 +183,9 @@ function AssignRole({ selectedUser }) {
               <MenuItem value="User">User</MenuItem>
               <MenuItem value="">Clear</MenuItem>
             </TextField>
+            <button className="btn" type="submit">
+              Submit
+            </button>
           </Col>
           <Col xs={12} lg={10}>
             {loading ? (
@@ -217,6 +220,7 @@ function AssignRole({ selectedUser }) {
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert severity={snackbar.type}>{snackbar.message}</Alert>
       </Snackbar>

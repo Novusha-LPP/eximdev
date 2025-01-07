@@ -24,7 +24,7 @@ router.post("/api/assign-role", async (req, res) => {
         username: user.username,
         role: user.role,
         employee_photo: user.employee_photo || null,
-        assigned_importer_name: user.assigned_importer_name || [],
+        assigned_importer: user.assigned_importer || [],
       },
     });
   } catch (error) {
@@ -46,7 +46,7 @@ router.get("/api/users-by-role", async (req, res) => {
   try {
     const users = await UserModel.find(
       { role },
-      "username role employee_photo assigned_importer_name"
+      "username role employee_photo  assigned_importer_name"
     );
 
     if (users.length === 0) {
@@ -88,18 +88,18 @@ router.patch("/api/users/:username/add-importer", async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    if (user.assigned_importer_name.includes(importerName)) {
+    if (user.assigned_importer.includes(importerName)) {
       return res
         .status(400)
         .send({ message: "Importer already assigned to this user" });
     }
 
-    user.assigned_importer_name.push(importerName);
+    user.assigned_importer.push(importerName);
     await user.save();
 
     res.status(200).send({
       message: "Importer added successfully",
-      assigned_importer_name: user.assigned_importer_name,
+      assigned_importer: user.assigned_importer,
     });
   } catch (error) {
     res

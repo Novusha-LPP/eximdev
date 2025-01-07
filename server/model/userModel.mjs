@@ -19,6 +19,11 @@ const userSchema = new Schema({
   ],
   assigned_importer_name: [
     {
+      type: String,
+    },
+  ],
+  assigned_importer: [
+    {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Importer", // References the Importer model
     },

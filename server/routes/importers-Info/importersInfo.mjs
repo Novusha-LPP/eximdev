@@ -101,27 +101,28 @@ router.delete("/api/importers/:id", async (req, res) => {
 // PATCH API to assign importers to a user
 router.patch("/api/users/:userId/importers", async (req, res) => {
   const { userId } = req.params;
-  const { importerIds } = req.body; // Array of importer IDs to assign
+  const { importers } = req.body; // Array of importer names to assign
 
-  if (!importerIds || !Array.isArray(importerIds)) {
+  if (!importers || !Array.isArray(importers)) {
     return res
       .status(400)
-      .send({ message: "Importer IDs must be an array of valid IDs." });
+      .send({ message: "Importers must be an array of valid names." });
   }
 
   try {
+    // Find the user
     const user = await UserModel.findById(userId);
-
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
 
-    user.assigned_importer_name = importerIds; // Assign the importer IDs
+    // Assign the importer names to the user
+    user.assigned_importer_name = importers;
     await user.save();
 
     res.status(200).send({
       message: "Importers assigned successfully to the user.",
-      user,
+      
     });
   } catch (error) {
     console.error("Error assigning importers:", error);
@@ -138,7 +139,8 @@ router.get("/api/users/:userId", async (req, res) => {
 
   try {
     const user = await UserModel.findById(userId).populate(
-      "assigned_importer_name"
+      "assigned_importer",
+      "name"
     );
 
     if (!user) {

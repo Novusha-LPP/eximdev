@@ -34,6 +34,7 @@ router.post("/api/login", async (req, res) => {
           department: user.department,
           employment_type: user.employment_type,
           email: user.email,
+          assigned_importer: user.assigned_importer,
           assigned_importer_name: user.assigned_importer_name,
         };
 

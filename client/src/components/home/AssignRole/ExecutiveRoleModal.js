@@ -8,57 +8,40 @@ import {
   Checkbox,
   TextField,
   Typography,
-  CircularProgress,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import axios from "axios";
+import { importerOptions } from "../../MasterLists/MasterLists"; // Import importerOptions
 
 function ExecutiveRoleModal({
   open,
   onClose,
   initialSelectedImporters = [],
   onSave,
-  selectedUser,
   userDetails,
 }) {
-  const [selectedOptions, setSelectedOptions] = useState(
-    initialSelectedImporters
-  );
-  const [importerOptions, setImporterOptions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [selectedOptions, setSelectedOptions] = useState([]);
 
+  // Transform importerOptions into objects with { id, name } for compatibility
+  const transformedImporterOptions = importerOptions.map((name, index) => ({
+    id: index + 1,
+    name,
+  }));
+
+  // When the modal opens, set selectedOptions with matching transformed objects
   useEffect(() => {
     if (open) {
-      setSelectedOptions(initialSelectedImporters);
-      fetchImporterOptions();
+      const formattedImporters = initialSelectedImporters.map((importerName) => {
+        const match = transformedImporterOptions.find(
+          (option) => option.name === importerName
+        );
+        return match || { id: null, name: importerName };
+      });
+      setSelectedOptions(formattedImporters);
     }
-  }, [open, initialSelectedImporters]);
-  useEffect(() => {
-    console.log("Importer Options:", importerOptions);
-    console.log("Selected Options:", selectedOptions);
-  }, [importerOptions, selectedOptions]);
+  }, [open, initialSelectedImporters, transformedImporterOptions]);
 
-  // Fetch importer options
-  const fetchImporterOptions = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/importers`
-      );
-      setImporterOptions(
-        res.data.importers.map((importer) => ({
-          id: importer?._id || "unknown-id",
-          name: importer?.name || "Unnamed Importer",
-        }))
-      );
-    } catch (error) {
-      console.error("Error fetching importer options:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle selection changes
+  // Handle selection changes in Autocomplete
   const handleSelect = (event, value) => {
     setSelectedOptions(value);
   };
@@ -68,11 +51,9 @@ function ExecutiveRoleModal({
     try {
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/users/${userDetails?._id}/importers`,
-        {
-          importerIds: selectedOptions.map((option) => option.id),
-        }
+        { importers: selectedOptions.map((option) => option.name) }
       );
-      onSave(selectedOptions);
+      onSave(selectedOptions.map((option) => option.name)); // Pass names back to parent
       onClose();
     } catch (error) {
       console.error("Error saving importers:", error);
@@ -87,7 +68,6 @@ function ExecutiveRoleModal({
         {userDetails?.username || "Unknown User"}
       </DialogTitle>
       <DialogContent>
-        {/* Display user details */}
         {userDetails && (
           <div style={{ marginBottom: "20px" }}>
             <Typography variant="body1">
@@ -103,43 +83,27 @@ function ExecutiveRoleModal({
           </div>
         )}
 
-        {/* Autocomplete for Importers */}
-        {loading ? (
-          <CircularProgress />
-        ) : (
-          <Autocomplete
-            multiple
-            options={importerOptions}
-            getOptionLabel={(option) => option?.name || "Unnamed"}
-
-            value={selectedOptions}
-            isOptionEqualToValue={(option, value) => option?.id === value?.id} // Safe comparison
-            onChange={(event, value) => handleSelect(event, value)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Search Importers"
-                variant="outlined"
-              />
-            )}
-            renderOption={(props, option, { selected }) => (
-              <li {...props}>
-                <Checkbox checked={selected} style={{ marginRight: 8 }} />
-                {option?.name || "Unnamed"}
-              </li>
-            )}
-          />
-        )}
-
-        {/* Display selected importers */}
-        <div style={{ marginTop: "20px" }}>
-          <Typography variant="h6">Selected Importers:</Typography>
-          {selectedOptions.map((option) => (
-            <Typography key={option?.id || "unknown"}>
-              {option?.name || "Unnamed"}
-            </Typography>
-          ))}
-        </div>
+        <Autocomplete
+          multiple
+          options={transformedImporterOptions}
+          getOptionLabel={(option) => option.name}
+          value={selectedOptions}
+          isOptionEqualToValue={(option, value) => option.name === value.name}
+          onChange={handleSelect}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Search Importers"
+              variant="outlined"
+            />
+          )}
+          renderOption={(props, option, { selected }) => (
+            <li {...props}>
+              <Checkbox checked={selected} style={{ marginRight: 8 }} />
+              {option.name}
+            </li>
+          )}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

@@ -15,22 +15,20 @@ import {
 } from "@mui/material";
 import { useFormik } from "formik";
 import { Row, Col } from "react-bootstrap";
-import ExecutiveRoleModal from "./ExecutiveRoleModal";
+import UserDetails from "./UserDetails.js"; // Import the UserDetails component
 
 function AssignRole({ selectedUser }) {
   const [selectedRole, setSelectedRole] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [selectedUserDetails, setSelectedUserDetails] = useState(null);
-  const [importerOptions, setImporterOptions] = useState([]);
-  const [selectedImporters, setSelectedImporters] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     type: "",
   });
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const [selectedUserDetails, setSelectedUserDetails] = useState(null);
 
   const fetchUsersByRole = async (role) => {
     if (!role) {
@@ -60,45 +58,39 @@ function AssignRole({ selectedUser }) {
     }
   };
 
-  const fetchImporterOptions = async () => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/importers`
-      );
-      setImporterOptions(res.data.importers.map((importer) => importer.name));
-    } catch (error) {
-      console.error("Error fetching importer options:", error);
-    }
-  };
-
   const handleRoleChange = (event) => {
     const role = event.target.value;
     setSelectedRole(role);
     fetchUsersByRole(role);
   };
 
-  const handleBoxClick = async (user) => {
+  const handleBoxClick = (user) => {
     setSelectedUserDetails(user);
-    setSelectedImporters(user.assigned_importer_name); // Set the raw IDs for now
+    setShowUserDetails(true);
+  };
 
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/importers`
-      );
-      const allImporters = res.data.importers;
+  const closeUserDetails = () => {
+    setShowUserDetails(false);
+    setSelectedUserDetails(null);
+  };
 
-      // Filter importers based on assigned_importer_name
-      const assignedImporters = allImporters.filter((importer) =>
-        user.assigned_importer_name.includes(importer._id)
-      );
+  // Define the handleUserUpdate function
+  const handleUserUpdate = (updatedImporters) => {
+    if (!selectedUserDetails) return;
 
-      setSelectedImporters(assignedImporters); // Update with detailed importer info
-    } catch (error) {
-      console.error("Error fetching importer details:", error);
-    }
+    setUsers((prevUsers) =>
+      prevUsers.map((user) =>
+        user._id === selectedUserDetails._id
+          ? { ...user, assigned_importer_name: updatedImporters }
+          : user
+      )
+    );
 
-    fetchImporterOptions();
-    setShowModal(true);
+    setSnackbar({
+      open: true,
+      message: "Importers updated successfully.",
+      type: "success",
+    });
   };
 
   const formik = useFormik({
@@ -118,7 +110,6 @@ function AssignRole({ selectedUser }) {
       const data = {
         ...values,
         username: selectedUser,
-        importers: selectedImporters,
       };
 
       try {
@@ -134,7 +125,6 @@ function AssignRole({ selectedUser }) {
         });
 
         resetForm();
-        setSelectedImporters([]);
       } catch (error) {
         console.error("Error assigning role:", error);
 
@@ -154,67 +144,93 @@ function AssignRole({ selectedUser }) {
   return (
     <div className="job-details-container">
       <h4>Assign Role</h4>
-      <form onSubmit={formik.handleSubmit}>
-        <Row style={{ marginBottom: "20px" }}>
-          <Col xs={12} lg={2}>
-            <TextField
-              select
-              size="small"
-              margin="dense"
-              variant="filled"
-              fullWidth
-              label="Role"
-              value={formik.values.role}
-              onChange={(event) => {
-                handleRoleChange(event);
-                formik.setFieldValue("role", event.target.value);
-              }}
-              error={formik.touched.role && Boolean(formik.errors.role)}
-              helperText={formik.touched.role && formik.errors.role}
-              className="login-input"
-            >
-              <MenuItem value="Admin">Admin</MenuItem>
-              <MenuItem value="Sr_Manager">Sr. Manager</MenuItem>
-              <MenuItem value="Manager">Manager</MenuItem>
-              <MenuItem value="Asst_Manager">Asst. Manager</MenuItem>
-              <MenuItem value="Sr_Executive">Sr. Executive</MenuItem>
-              <MenuItem value="Executive">Executive</MenuItem>
-              <MenuItem value="Asst_Executive">Asst. Executive</MenuItem>
-              <MenuItem value="User">User</MenuItem>
-              <MenuItem value="">Clear</MenuItem>
-            </TextField>
-            <button className="btn" type="submit">
-              Submit
-            </button>
-          </Col>
-          <Col xs={12} lg={10}>
-            {loading ? (
-              <CircularProgress />
-            ) : errorMessage ? (
-              <Typography>{errorMessage}</Typography>
-            ) : (
-              <Grid container spacing={2}>
-                {users.map((user) => (
-                  <Grid item xs={12} sm={6} md={4} key={user._id}>
-                    <Card onClick={() => handleBoxClick(user)}>
-                      <CardContent>
-                        <Avatar
-                          src={user.employee_photo || "/default-avatar.png"}
-                        />
-                        <Typography>{user.username}</Typography>
-                        <Typography>Role: {user.role}</Typography>
-                        <Typography>
-                          Importers: {user.assigned_importer_name.length}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Col>
-        </Row>
-      </form>
+      {showUserDetails ? (
+        <UserDetails
+          selectedUser={selectedUserDetails}
+          onClose={closeUserDetails}
+          onSave={handleUserUpdate} // Pass the onSave prop here
+        />
+      ) : (
+        <form onSubmit={formik.handleSubmit}>
+          <Row style={{ marginBottom: "20px" }}>
+            <Col xs={12} lg={2}>
+              <TextField
+                select
+                size="small"
+                margin="dense"
+                variant="filled"
+                fullWidth
+                label="Role"
+                value={formik.values.role}
+                onChange={(event) => {
+                  handleRoleChange(event);
+                  formik.setFieldValue("role", event.target.value);
+                }}
+                error={formik.touched.role && Boolean(formik.errors.role)}
+                helperText={formik.touched.role && formik.errors.role}
+                className="login-input"
+              >
+                <MenuItem value="Admin">Admin</MenuItem>
+                <MenuItem value="Sr_Manager">Sr. Manager</MenuItem>
+                <MenuItem value="Manager">Manager</MenuItem>
+                <MenuItem value="Asst_Manager">Asst. Manager</MenuItem>
+                <MenuItem value="Sr_Executive">Sr. Executive</MenuItem>
+                <MenuItem value="Executive">Executive</MenuItem>
+                <MenuItem value="Asst_Executive">Asst. Executive</MenuItem>
+                <MenuItem value="User">User</MenuItem>
+                <MenuItem value="">Clear</MenuItem>
+              </TextField>
+              <button className="btn" type="submit">
+                Submit
+              </button>
+            </Col>
+            <Col xs={12} lg={10}>
+              {loading ? (
+                <CircularProgress />
+              ) : errorMessage ? (
+                <Typography>{errorMessage}</Typography>
+              ) : (
+                <Grid container spacing={2}>
+                  {users.map((user) => (
+                    <Grid item xs={12} sm={6} md={4} key={user._id}>
+                      <Card
+                        onClick={() => handleBoxClick(user)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <CardContent>
+                          <Avatar
+                            src={user.employee_photo || "/default-avatar.png"}
+                            alt={user.username}
+                            style={{ marginBottom: "10px" }}
+                          />
+                          <Typography variant="h6">{user.username}</Typography>
+                          <Typography variant="body2">
+                            Role: {user.role}
+                          </Typography>
+                          <Typography variant="body2">
+                            Importers:
+                            {user.assigned_importer_name.length > 0 ? (
+                              <ul>
+                                {user.assigned_importer_name.map(
+                                  (importer, index) => (
+                                    <li key={index}>{importer}</li>
+                                  )
+                                )}
+                              </ul>
+                            ) : (
+                              " No importers assigned"
+                            )}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Col>
+          </Row>
+        </form>
+      )}
 
       <Snackbar
         open={snackbar.open}
@@ -224,15 +240,6 @@ function AssignRole({ selectedUser }) {
       >
         <Alert severity={snackbar.type}>{snackbar.message}</Alert>
       </Snackbar>
-
-      <ExecutiveRoleModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        initialSelectedImporters={selectedImporters.map((imp) => imp.name)}
-        onSave={(importers) => setSelectedImporters(importers)}
-        selectedUser={selectedUser}
-        userDetails={selectedUserDetails}
-      />
     </div>
   );
 }

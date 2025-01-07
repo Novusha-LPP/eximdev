@@ -208,18 +208,10 @@ function AssignRole({ selectedUser }) {
                             Role: {user.role}
                           </Typography>
                           <Typography variant="body2">
-                            Importers:
-                            {user.assigned_importer_name.length > 0 ? (
-                              <ul>
-                                {user.assigned_importer_name.map(
-                                  (importer, index) => (
-                                    <li key={index}>{importer}</li>
-                                  )
-                                )}
-                              </ul>
-                            ) : (
-                              " No importers assigned"
-                            )}
+                            Importers Assigned:
+                            {user.assigned_importer_name.length > 0
+                              ? user.assigned_importer_name.length
+                              : 0}
                           </Typography>
                         </CardContent>
                       </Card>

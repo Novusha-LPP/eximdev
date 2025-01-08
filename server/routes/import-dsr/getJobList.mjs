@@ -1,10 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { body, param, validationResult } from "express-validator";
 
 const router = express.Router();
 
 // Status Rank Configuration
-
 const statusRank = {
   "Billing Pending": { rank: 1, field: "delivery_date" },
   "Custom Clearance Completed": { rank: 2, field: "detention_from" },
@@ -60,119 +60,212 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
+// Status Mapping
+const statusMapping = {
+  billing_pending: "Billing Pending",
+  eta_date_pending: "ETA Date Pending",
+  estimated_time_of_arrival: "Estimated Time of Arrival",
+  discharged: "Discharged",
+  gateway_igm_filed: "Gateway IGM Filed",
+  be_noted_arrival_pending: "BE Noted, Arrival Pending",
+  be_noted_clearance_pending: "BE Noted, Clearance Pending",
+  pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
+  custom_clearance_completed: "Custom Clearance Completed",
+};
+
+// Validation Middleware
+const validateRequest = [
+  param("year")
+    .matches(/^\d{2}-\d{2}$/)
+    .withMessage("Year must be in the format 'YY-YY'."),
+  param("status").isString().withMessage("Status must be a string."),
+  param("detailedStatus").isString().withMessage("Detailed Status must be a string."),
+  body("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer."),
+  body("limit")
+    .optional()
+    .isInt({ min: 1, max: 1000 })
+    .withMessage("Limit must be a positive integer up to 1000."),
+  body("search")
+    .optional()
+    .isString()
+    .trim()
+    .escape()
+    .withMessage("Search must be a string."),
+  body("assigned_importer_name")
+    .optional()
+    .isArray()
+    .withMessage("assigned_importer_name must be an array."),
+  body("assigned_importer_name.*")
+    .optional()
+    .isString()
+    .trim()
+    .escape()
+    .withMessage("Each importer name must be a string."),
+];
+
 // API to fetch jobs with pagination, sorting, and search
-router.post("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
-  try {
-    const { year, status, detailedStatus } = req.params;
-    const {
-      page = 1,
-      limit = 100,
-      search = "",
-      assigned_importer_name = [],
-    } = req.body;
-    const skip = (page - 1) * limit;
+router.post(
+  "/api/:year/jobs/:status/:detailedStatus",
+  validateRequest,
+  async (req, res) => {
+    try {
+      // Validate inputs
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
 
-    const query = { year };
+      const { year, status, detailedStatus } = req.params;
+      const {
+        page = 1,
+        limit = 100,
+        search = "",
+        assigned_importer_name = [],
+      } = req.body;
 
-    if (assigned_importer_name.length > 0) {
-      query.importer = { $in: assigned_importer_name };
-    }
+      const skip = (page - 1) * limit;
 
-    const statusLower = status.toLowerCase();
+      // Build initial query with year
+      const query = { year }; // Use year as string
 
-    if (statusLower === "pending") {
-      query.$and = [
-        { status: { $regex: "^pending$", $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+      // Apply importer filtering if assigned_importer_name is provided
+      if (Array.isArray(assigned_importer_name) && assigned_importer_name.length > 0) {
+        query.importer = { $in: assigned_importer_name };
+      }
+
+      const statusLower = status.toLowerCase();
+
+      // Apply status-specific conditions
+      if (statusLower === "pending") {
+        query.$and = [
+          { status: { $regex: "^pending$", $options: "i" } },
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          {
+            $or: [
+              { bill_date: { $in: [null, ""] } },
+              { status: { $regex: "^pending$", $options: "i" } },
+            ],
+          },
+        ];
+      } else if (statusLower === "completed") {
+        query.$and = [
+          { status: { $regex: "^completed$", $options: "i" } },
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          {
+            $or: [
+              { bill_date: { $nin: [null, ""] } },
+              { status: { $regex: "^completed$", $options: "i" } },
+            ],
+          },
+        ];
+      } else if (statusLower === "cancelled") {
+        query.$and = [
+          {
+            $or: [
+              { status: { $regex: "^cancelled$", $options: "i" } },
+              { be_no: { $regex: "^cancelled$", $options: "i" } },
+            ],
+          },
+        ];
+      } else {
+        query.$and = [
+          { status: { $regex: `^${status}$`, $options: "i" } },
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        ];
+      }
+
+      // Apply detailedStatus if not 'all'
+      if (detailedStatus.toLowerCase() !== "all") {
+        const mappedStatus = statusMapping[detailedStatus.toLowerCase()] || detailedStatus;
+        query.detailed_status = mappedStatus;
+      }
+
+      // Apply search if provided
+      if (search && statusLower !== "cancelled") {
+        query.$and = query.$and || [];
+        query.$and.push(buildSearchQuery(search));
+      }
+
+      // Define sort criteria based on statusRank
+      // Jobs will be sorted first by rank, then by the associated date field
+      const sortCriteria = {
+        rank: 1, // Ascending order of rank
+        // Secondary sort will be handled in the aggregation pipeline
+      };
+
+      // Aggregation Pipeline for Sorting
+      const aggregationPipeline = [
+        { $match: query },
+        // Add a 'rank' field based on 'detailed_status'
         {
-          $or: [
-            { bill_date: { $in: [null, ""] } },
-            { status: { $regex: "^pending$", $options: "i" } },
-          ],
+          $addFields: {
+            rank: {
+              $switch: {
+                branches: Object.entries(statusRank).map(([statusKey, { rank }]) => ({
+                  case: { $eq: ["$detailed_status", statusKey] },
+                  then: rank,
+                })),
+                default: Number.MAX_SAFE_INTEGER,
+              },
+            },
+            sortDate: {
+              $let: {
+                vars: {
+                  statusInfo: {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: Object.entries(statusRank),
+                          as: "statusEntry",
+                          cond: { $eq: ["$$statusEntry.0", "$detailed_status"] },
+                        },
+                      },
+                      0,
+                    ],
+                  },
+                },
+                in: {
+                  $ifNull: [
+                    { $arrayElemAt: [`$container_nos.${statusRank[detailedStatus]?.field}`, 0] },
+                    `$${statusRank[detailedStatus]?.field}`,
+                  ],
+                },
+              },
+            },
+          },
         },
+        // Sort by rank and sortDate
+        { $sort: { rank: 1, sortDate: 1 } },
+        // Project the necessary fields
+        { $project: { rank: 0, sortDate: 0 } },
+        // Pagination
+        { $skip: skip },
+        { $limit: parseInt(limit, 10) },
       ];
-    } else if (statusLower === "completed") {
-      query.$and = [
-        { status: { $regex: "^completed$", $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-        {
-          $or: [
-            { bill_date: { $nin: [null, ""] } },
-            { status: { $regex: "^completed$", $options: "i" } },
-          ],
-        },
-      ];
-    } else if (statusLower === "cancelled") {
-      query.$and = [
-        {
-          $or: [
-            { status: { $regex: "^cancelled$", $options: "i" } },
-            { be_no: { $regex: "^cancelled$", $options: "i" } },
-          ],
-        },
-      ];
-      if (search) query.$and.push(buildSearchQuery(search));
-    } else {
-      query.$and = [
-        { status: { $regex: `^${status}$`, $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-      ];
+
+      // Count total documents matching the query
+      const total = await JobModel.countDocuments(query);
+
+      // Execute aggregation pipeline
+      const jobs = await JobModel.aggregate(aggregationPipeline).exec();
+
+      // Calculate total pages
+      const totalPages = Math.ceil(total / limit);
+
+      res.json({
+        data: jobs,
+        total,
+        currentPage: parseInt(page, 10),
+        totalPages,
+      });
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-
-    const statusMapping = {
-      billing_pending: "Billing Pending",
-      eta_date_pending: "ETA Date Pending",
-      estimated_time_of_arrival: "Estimated Time of Arrival",
-      discharged: "Discharged",
-      gateway_igm_filed: "Gateway IGM Filed",
-      be_noted_arrival_pending: "BE Noted, Arrival Pending",
-      be_noted_clearance_pending: "BE Noted, Clearance Pending",
-      pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
-      custom_clearance_completed: "Custom Clearance Completed",
-    };
-
-    if (detailedStatus !== "all") {
-      query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
-    }
-
-    if (search && statusLower !== "cancelled") {
-      query.$and.push(buildSearchQuery(search));
-    }
-
-    const jobs = await JobModel.find(query).select(
-      getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus)
-    );
-
-    const rankedJobs = jobs.filter((job) => statusRank[job.detailed_status]);
-    const unrankedJobs = jobs.filter((job) => !statusRank[job.detailed_status]);
-
-    const sortedRankedJobs = Object.entries(statusRank).reduce(
-      (acc, [status, { field }]) => [
-        ...acc,
-        ...rankedJobs
-          .filter((job) => job.detailed_status === status)
-          .sort(
-            (a, b) =>
-              parseDate(a.container_nos?.[0]?.[field] || a[field]) -
-              parseDate(b.container_nos?.[0]?.[field] || b[field])
-          ),
-      ],
-      []
-    );
-
-    const allJobs = [...sortedRankedJobs, ...unrankedJobs];
-    const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
-
-    res.json({
-      data: paginatedJobs,
-      total: allJobs.length,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(allJobs.length / limit),
-    });
-  } catch (error) {
-    console.error("Error fetching jobs:", error);
-    res.status(500).json({ error: "Internal Server Error" });
   }
-});
+);
 
 export default router;

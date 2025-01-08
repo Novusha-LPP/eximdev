@@ -13,14 +13,29 @@ function useFetchJobList(detailedStatus, selectedYear, status, searchQuery) {
   const fetchJobs = async (page) => {
     setLoading(true);
     try {
+      // Ensure selectedYear is in 'YY-YY' format
+      if (!/^\d{2}-\d{2}$/.test(selectedYear)) {
+        throw new Error("Selected year must be in 'YY-YY' format.");
+      }
+
+      // Ensure assigned_importer_name is an array
+      const assignedImporterNames = Array.isArray(user.assigned_importer_name)
+        ? user.assigned_importer_name
+        : [user.assigned_importer_name];
+
       const response = await axios.post(
         `${
           process.env.REACT_APP_API_STRING
         }/${selectedYear}/jobs/${status}/${detailedStatus
           .toLowerCase()
           .replace(/ /g, "_")
-          .replace(/,/g, "")}?page=${page}&limit=100&search=${searchQuery}`,
-        { assigned_importer_name: user.assigned_importer_name } // Pass assigned_importer_name
+          .replace(/,/g, "")}`,
+        {
+          assigned_importer_name: assignedImporterNames,
+          page: page,
+          limit: 100,
+          search: searchQuery,
+        }
       );
       const { data, total, totalPages, currentPage } = response.data;
       setRows(data);
@@ -28,7 +43,16 @@ function useFetchJobList(detailedStatus, selectedYear, status, searchQuery) {
       setTotalPages(totalPages);
       setCurrentPage(currentPage);
     } catch (error) {
-      console.error("Error fetching job list:", error);
+      if (error.response) {
+        // Backend returned an error response
+        console.error("Error fetching job list:", error.response.data);
+      } else if (error.request) {
+        // No response received from backend
+        console.error("No response received:", error.request);
+      } else {
+        // Other errors
+        console.error("Error:", error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -38,6 +62,7 @@ function useFetchJobList(detailedStatus, selectedYear, status, searchQuery) {
     if (selectedYear) {
       fetchJobs(currentPage);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailedStatus, selectedYear, status, currentPage, searchQuery]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);

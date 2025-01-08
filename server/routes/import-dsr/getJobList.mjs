@@ -61,16 +61,23 @@ const buildSearchQuery = (search) => ({
 });
 
 // API to fetch jobs with pagination, sorting, and search
-router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
+router.post("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
   try {
     const { year, status, detailedStatus } = req.params;
-    const { page = 1, limit = 100, search = "" } = req.query;
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      assigned_importer_name = [],
+    } = req.body;
     const skip = (page - 1) * limit;
 
-    // Base query to filter by year
     const query = { year };
 
-    // Handle case-insensitive status filtering and bill_date conditions
+    if (assigned_importer_name.length > 0) {
+      query.importer = { $in: assigned_importer_name };
+    }
+
     const statusLower = status.toLowerCase();
 
     if (statusLower === "pending") {
@@ -112,7 +119,6 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       ];
     }
 
-    // Handle detailedStatus filtering using a mapping object
     const statusMapping = {
       billing_pending: "Billing Pending",
       eta_date_pending: "ETA Date Pending",
@@ -129,21 +135,17 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
     }
 
-    // Add search filter if provided (for non-cancelled cases)
     if (search && statusLower !== "cancelled") {
       query.$and.push(buildSearchQuery(search));
     }
 
-    // Fetch jobs from the database
     const jobs = await JobModel.find(query).select(
       getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus)
     );
 
-    // Group jobs into ranked and unranked
     const rankedJobs = jobs.filter((job) => statusRank[job.detailed_status]);
     const unrankedJobs = jobs.filter((job) => !statusRank[job.detailed_status]);
 
-    // Sort ranked jobs by status rank and date field
     const sortedRankedJobs = Object.entries(statusRank).reduce(
       (acc, [status, { field }]) => [
         ...acc,
@@ -158,10 +160,7 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       []
     );
 
-    // Combine ranked and unranked jobs
     const allJobs = [...sortedRankedJobs, ...unrankedJobs];
-
-    // Paginate results
     const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
 
     res.json({

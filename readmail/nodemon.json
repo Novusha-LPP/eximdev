@@ -1,6 +1,6 @@
 {
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "development"
   },
   "watch": ["app.mjs", "readMail.mjs", ".env", "logger.js"],
   "ext": "js,json,mjs",

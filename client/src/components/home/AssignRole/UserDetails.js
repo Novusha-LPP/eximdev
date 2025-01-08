@@ -1,6 +1,4 @@
-// src/components/UserDetails/UserDetails.js
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Card,
   CardContent,
@@ -15,11 +13,13 @@ import {
 import axios from "axios";
 import PropTypes from "prop-types";
 import { importerOptions } from "../../MasterLists/MasterLists"; // Ensure the path is correct
+import { UserContext } from "../../../contexts/UserContext"; // Import UserContext
 
 // Convert importerOptions to the format required for Autocomplete
 const formattedImporterOptions = importerOptions.map((name) => ({ name }));
 
 function UserDetails({ selectedUser, onClose, onSave }) {
+  const { user, setUser } = useContext(UserContext); // Access user and setUser from UserContext
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -46,15 +46,25 @@ function UserDetails({ selectedUser, onClose, onSave }) {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const newImporters = selectedOptions.map((option) => option.name);
+
       // Make API call to update importers
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/users/${selectedUser?._id}/importers`,
-        { importers: selectedOptions.map((option) => option.name) }
+        { importers: newImporters }
       );
+
+      // Update context state if setUser exists
+      if (setUser) {
+        setUser((prev) => ({
+          ...prev,
+          assigned_importer_name: newImporters,
+        }));
+      }
 
       // Notify parent component about the update
       if (onSave) {
-        onSave(selectedOptions.map((option) => option.name));
+        onSave(newImporters);
       }
 
       // Show success snackbar

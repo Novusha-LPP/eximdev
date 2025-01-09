@@ -18,12 +18,13 @@ const getTodayDate = () => {
   const year = today.getFullYear();
   return `${day}/${month}/${year}`; // Format: DD/MM/YYYY
 };
-
+const todayYearDate = new Date().toISOString().split("T")[0]; // Current date in YYYY-MM-DD
+// const todayYearDate = "2024-11-14"; // Current date in YYYY-MM-DD
 // Function to fetch job overview data using MongoDB aggregation
 const fetchJobOverviewData = async (year) => {
   // console.log("Year Parameter:", year);
   const todayDate = getTodayDate(); // Get today's date
-
+  console.log(todayYearDate);
   try {
     const pipeline = [
       { $match: { year: year.toString() } }, // Filter for the provided year
@@ -167,6 +168,126 @@ const fetchJobOverviewData = async (year) => {
               ],
             },
           },
+          todayJobBeDate: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i",
+                      },
+                    },
+                    {
+                      $eq: [
+                        {
+                          $substr: ["$be_date", 0, 10],
+                        },
+                        todayYearDate,
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          todayJobOutOfCharge: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    {
+                      $eq: ["$out_of_charge", todayYearDate], // Check if out_of_charge matches today's date
+                    },
+                  ],
+                },
+                1, // Increment the count if the condition is true
+                0, // Otherwise, don't increment
+              ],
+            },
+          },
+
+          todayJobPcvDate: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    {
+                      $eq: ["$pcv_date", todayYearDate], // Check if pcv_date matches today's date
+                    },
+                  ],
+                },
+                1, // Increment the count if the condition is true
+                0, // Otherwise, don't increment
+              ],
+            },
+          },
+
+          todayJobArrivalDate: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    // Check if the job has a status of "Pending"
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    // Check if at least one container has a valid arrival_date and matches today's date
+                    {
+                      $gt: [
+                        {
+                          $size: {
+                            $filter: {
+                              input: "$container_nos",
+                              as: "container",
+                              cond: {
+                                $and: [
+                                  { $ne: ["$$container.arrival_date", null] }, // Ensure arrival_date is not null
+                                  { $ne: ["$$container.arrival_date", ""] }, // Ensure arrival_date is not an empty string
+                                  {
+                                    $eq: [
+                                      "$$container.arrival_date",
+                                      new Date().toISOString().split("T")[0],
+                                    ],
+                                  }, // Match today's date
+                                ],
+                              },
+                            },
+                          },
+                        },
+                        0,
+                      ], // Check if filtered array has at least one element
+                    },
+                  ],
+                },
+                1, // Increment the count if the condition is true
+                0, // Otherwise, don't increment
+              ],
+            },
+          },
+
           billingPending: {
             $sum: {
               $cond: [
@@ -610,6 +731,10 @@ const fetchJobOverviewData = async (year) => {
           completedJobs: 1,
           cancelledJobs: 1,
           todayJobCreateImport: 1,
+          todayJobBeDate: 1,
+          todayJobOutOfCharge: 1,
+          todayJobPcvDate: 1,
+          todayJobArrivalDate: 1,
           billingPending: 1,
           customClearanceCompleted: 1,
           pcvDoneDutyPaymentPending: 1,
@@ -639,6 +764,10 @@ const fetchJobOverviewData = async (year) => {
         completedJobs: 0,
         cancelledJobs: 0,
         todayJobCreateImport: 0,
+        todayJobBeDate: 0,
+        todayJobOutOfCharge: 0,
+        todayJobPcvDate: 0,
+        todayJobArrivalDate: 0,
         billingPending: 0,
         customClearanceCompleted: 0,
         pcvDoneDutyPaymentPending: 0,

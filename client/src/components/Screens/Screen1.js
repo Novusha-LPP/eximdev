@@ -63,14 +63,18 @@ const Screen1 = () => {
 
   // Fields to render
   const statusFields = [
-    { key: "totalJobs", title: "Total Jobs" },
-    { key: "todayJobBeNumber", title: "todayJobBeNumber" },
+    // { key: "totalJobs", title: "Total Jobs" },
+   
     { key: "todayJobCreateImport", title: "today JobCreateImport" },
-    { key: "pendingJobs", title: "Pending Jobs" },
-    { key: "completedJobs", title: "Completed Jobs" },
-    { key: "cancelledJobs", title: "Cancelled Jobs" },
-    { key: "billingPending", title: "Billing Pending" },
-    { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
+    { key: "todayJobBeDate", title: "todayJobBeDate" },
+    { key: "todayJobArrivalDate", title: "todayJobArrivalDate" },
+    { key: "todayJobPcvDate", title: "todayJobPcvDate" },
+    { key: "todayJobOutOfCharge", title: "todayJobOutOfCharge" },
+    // { key: "pendingJobs", title: "Pending Jobs" },
+    // { key: "completedJobs", title: "Completed Jobs" },
+    // { key: "cancelledJobs", title: "Cancelled Jobs" },
+    // { key: "billingPending", title: "Billing Pending" },
+    // { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
     // {
     //   key: "pcvDoneDutyPaymentPending",
     //   title: "PCV Done, Duty Payment Pending",

@@ -9,19 +9,16 @@ const Screen1 = () => {
 
   useEffect(() => {
     const SSE_URL = `${process.env.REACT_APP_API_STRING}/sse/job-overview/24-25`;
-    // console.log("Connecting to SSE at:", SSE_URL);
 
     const eventSource = new EventSource(SSE_URL);
 
     eventSource.onopen = () => {
-      // console.log("SSE connection opened successfully.");
+      console.log("SSE connection opened successfully.");
     };
 
     eventSource.onmessage = (event) => {
-      // console.log("SSE Data Received:", event.data);
       try {
         const parsedData = JSON.parse(event.data);
-        // console.log("Parsed Data:", parsedData);
         setJobCounts(parsedData);
         setLoading(false);
       } catch (err) {
@@ -37,12 +34,10 @@ const Screen1 = () => {
     };
 
     return () => {
-      // console.log("Closing SSE connection.");
       eventSource.close();
     };
   }, []);
 
-  // Loading State
   if (loading) {
     return (
       <div className="screen">
@@ -51,7 +46,6 @@ const Screen1 = () => {
     );
   }
 
-  // Error State
   if (error) {
     return (
       <div className="screen error">
@@ -61,46 +55,26 @@ const Screen1 = () => {
     );
   }
 
-  // Fields to render
   const statusFields = [
-    // { key: "totalJobs", title: "Total Jobs" },
-   
-    { key: "todayJobCreateImport", title: "today JobCreateImport" },
-    { key: "todayJobBeDate", title: "todayJobBeDate" },
-    { key: "todayJobArrivalDate", title: "todayJobArrivalDate" },
-    { key: "todayJobPcvDate", title: "todayJobPcvDate" },
-    { key: "todayJobOutOfCharge", title: "todayJobOutOfCharge" },
-    // { key: "pendingJobs", title: "Pending Jobs" },
-    // { key: "completedJobs", title: "Completed Jobs" },
-    // { key: "cancelledJobs", title: "Cancelled Jobs" },
-    // { key: "billingPending", title: "Billing Pending" },
-    // { key: "customClearanceCompleted", title: "Custom Clearance Completed" },
-    // {
-    //   key: "pcvDoneDutyPaymentPending",
-    //   title: "PCV Done, Duty Payment Pending",
-    // },
-    // { key: "beNotedClearancePending", title: "BE Noted, Clearance Pending" },
-    // { key: "beNotedArrivalPending", title: "BE Noted, Arrival Pending" },
-    // { key: "discharged", title: "Discharged" },
-    // { key: "gatewayIGMFiled", title: "Gateway IGM Filed" },
-    // { key: "estimatedTimeOfArrival", title: "Estimated Time of Arrival" },
-    // { key: "etaDatePending", title: "ETA Date Pending" },
-    // { key: "esanchitPending", title: "E-Sanchit Pending" },
-    // { key: "documentationPending", title: "Documentation Pending" },
-    // { key: "submissionPending", title: "Submission Pending" },
-    // { key: "doPlanningPending", title: "Do Planning" },
-    // { key: "operationsPending", title: "Operations" },
+    { key: "todayJobCreateImport", title: "New Jobs Created" },
+    { key: "todayJobBeDate", title: "Be Generated" },
+    { key: "todayJobArrivalDate", title: "Arrived" },
+    { key: "todayJobPcvDate", title: "PCV" },
+    { key: "todayJobOutOfCharge", title: "Out Of Charge" },
+    { key: "doPlanningPending", title: "Do Planning" },
   ];
 
-  // Render Job Counts
   return (
-    <div className="screen">
-      {statusFields.slice(0, 6).map((field, index) => (
-        <div className="box" key={index}>
-          <p className="title">{field.title}</p>
-          <p className="count">{jobCounts[field.key] || 0}</p>
-        </div>
-      ))}
+    <div className="screen-container">
+      <h1 className="heading">Today's Job Status</h1>
+      <div className="screen">
+        {statusFields.slice(0, 6).map((field, index) => (
+          <div className="box" key={index}>
+            <p className="title">{field.title}</p>
+            <p className="count">{jobCounts[field.key] || 0}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

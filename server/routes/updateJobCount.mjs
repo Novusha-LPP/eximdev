@@ -24,7 +24,7 @@ const todayYearDate = new Date().toISOString().split("T")[0]; // Current date in
 const fetchJobOverviewData = async (year) => {
   // console.log("Year Parameter:", year);
   const todayDate = getTodayDate(); // Get today's date
-  console.log(todayYearDate);
+  // console.log(todayYearDate);
   try {
     const pipeline = [
       { $match: { year: year.toString() } }, // Filter for the provided year
@@ -604,7 +604,6 @@ const fetchJobOverviewData = async (year) => {
               $cond: [
                 {
                   $and: [
-                    // Condition 1: Status is 'pending'
                     {
                       $regexMatch: {
                         input: "$status",
@@ -612,29 +611,48 @@ const fetchJobOverviewData = async (year) => {
                         options: "i",
                       },
                     },
-
-                    // Condition 2: Combine two OR conditions
                     {
                       $or: [
-                        // First OR Condition
                         {
                           $and: [
                             {
                               $or: [
-                                { do_completed: true },
-                                { do_completed: "Yes" },
-                                { $ne: ["$do_completed", null] }, // Field is not null
+                                { $eq: ["$do_completed", true] },
+                                { $eq: ["$do_completed", "Yes"] },
+                                {
+                                  $ne: [
+                                    {
+                                      $ifNull: ["$do_completed", null],
+                                    },
+                                    null,
+                                  ],
+                                },
                               ],
                             },
                             {
-                              // Access the nested array with dot notation and use $size
                               $gt: [
                                 {
                                   $size: {
-                                    $ifNull: [
-                                      "$container_nos.do_revalidation",
-                                      [],
-                                    ],
+                                    $filter: {
+                                      input: "$container_nos.do_revalidation",
+                                      as: "revalidation",
+                                      cond: {
+                                        $and: [
+                                          {
+                                            $ne: [
+                                              "$$revalidation.do_revalidation_upto",
+                                              "",
+                                            ],
+                                          },
+                                          {
+                                            $eq: [
+                                              "$$revalidation.do_Revalidation_Completed",
+                                              false,
+                                            ],
+                                          },
+                                        ],
+                                      },
+                                    },
                                   },
                                 },
                                 0,
@@ -642,22 +660,26 @@ const fetchJobOverviewData = async (year) => {
                             },
                           ],
                         },
-                        // Second OR Condition
                         {
                           $and: [
                             {
                               $or: [
-                                { doPlanning: true },
-                                { doPlanning: "true" },
+                                { $eq: ["$doPlanning", true] },
+                                { $eq: ["$doPlanning", "true"] },
                               ],
-                            }, // doPlanning is true
+                            },
                             {
                               $or: [
-                                { do_completed: false },
-                                { do_completed: "No" },
+                                { $eq: ["$do_completed", false] },
+                                { $eq: ["$do_completed", "No"] },
                                 {
-                                  $eq: [{ $ifNull: ["$do_completed", ""] }, ""],
-                                }, // Field is empty or null
+                                  $eq: [
+                                    {
+                                      $ifNull: ["$do_completed", ""],
+                                    },
+                                    "",
+                                  ],
+                                },
                               ],
                             },
                           ],
@@ -666,23 +688,25 @@ const fetchJobOverviewData = async (year) => {
                     },
                   ],
                 },
-                1, // Add 1 if conditions are met
-                0, // Otherwise, add 0
+                1,
+                0,
               ],
             },
           },
+
           operationsPending: {
             $sum: {
               $cond: [
                 {
                   $and: [
-                    { $eq: ["$status", "Pending"] }, // Status is 'Pending'
+                    // Status is "Pending"
+                    { $eq: ["$status", "Pending"] },
 
-                    // be_no checks
+                    // `be_no` checks
                     {
                       $and: [
-                        { $ne: ["$be_no", null] }, // be_no is not null
-                        { $ne: ["$be_no", ""] }, // be_no is not empty
+                        { $ne: ["$be_no", null] },
+                        { $ne: ["$be_no", ""] },
                         {
                           $not: {
                             $regexMatch: {
@@ -691,27 +715,36 @@ const fetchJobOverviewData = async (year) => {
                               options: "i",
                             },
                           },
-                        }, // be_no does not contain 'cancelled'
+                        },
                       ],
                     },
 
-                    // container_nos.arrival_date checks
+                    // `container_nos.arrival_date` checks
                     {
-                      $ne: [
-                        { $ifNull: ["$container_nos.arrival_date", ""] },
-                        "",
+                      $gt: [
+                        {
+                          $size: {
+                            $filter: {
+                              input: "$container_nos",
+                              as: "container",
+                              cond: {
+                                $and: [
+                                  { $ne: ["$$container.arrival_date", null] },
+                                  { $ne: ["$$container.arrival_date", ""] },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                        0,
                       ],
                     },
 
-                    // completed_operation_date checks
+                    // `completed_operation_date` checks
                     {
                       $or: [
-                        {
-                          $eq: [
-                            { $ifNull: ["$completed_operation_date", ""] },
-                            "",
-                          ],
-                        }, // completed_operation_date is null or empty
+                        { $eq: ["$completed_operation_date", null] },
+                        { $eq: ["$completed_operation_date", ""] },
                       ],
                     },
                   ],
@@ -818,7 +851,7 @@ router.get("/api/sse/job-overview/:year", async (req, res) => {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify(data)}\n\n`);
           res.flush(); // Force flush
-          console.log("SSE Data Sent:", JSON.stringify(data));
+          // console.log("SSE Data Sent:", JSON.stringify(data));
         } else {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify({ totalJobs: 0 })}\n\n`);

@@ -82,8 +82,8 @@ const Screen3 = () => {
     { key: "esanchitPending", title: "E-Sanchit Pending" },
     { key: "documentationPending", title: "Documentation Pending" },
     { key: "submissionPending", title: "Submission Pending" },
-    { key: "doPlanningPending", title: "Do Planning" },
-    { key: "operationsPending", title: "Operations" },
+    // { key: "doPlanningPending", title: "Do Planning" },
+    // { key: "operationsPending", title: "Operations" },
   ];
 
   // Render Job Counts

@@ -17,6 +17,17 @@ const userSchema = new Schema({
       type: String,
     },
   ],
+  assigned_importer_name: [
+    {
+      type: String,
+    },
+  ],
+  assigned_importer: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Importer", // References the Importer model
+    },
+  ],
   ////////////////////////////////////////////////////////////////// Onboarding
   first_name: {
     type: String,

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { TextField, MenuItem } from "@mui/material";
 import AssignModule from "./AssignModule";
-import AssignRole from "./AssignRole";
+import AssignRole from "./AssignRole/AssignRole";
 import Autocomplete from "@mui/material/Autocomplete";
 
 function Assign() {
@@ -61,10 +61,11 @@ function Assign() {
         <TextField
           select
           size="small"
-          label="Select"
+          label={!selectedUser ? "First select user" : "Select"}
           sx={{ width: "200px", marginBottom: "20px" }}
           value={masterType}
           onChange={handleMasterChange}
+          disabled={!selectedUser} // Disable if no user is selected
         >
           <MenuItem value="Assign Module">Assign Module</MenuItem>
           <MenuItem value="Assign Role">Assign Role</MenuItem>

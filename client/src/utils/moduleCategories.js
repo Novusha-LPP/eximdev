@@ -7,6 +7,7 @@ export const moduleCategories = {
   Documentation: "Import",
   Submission: "Import",
   "Import - Operations": "Import",
+  "Import - Add": "Import",
   "Import - DO": "Import",
   "e-Sanchit": "Import",
   "LR Report": "SRCC",
@@ -21,4 +22,7 @@ export const moduleCategories = {
   Screen1: "Screens",
   Screen2: "Screens",
   Screen3: "Screens",
+  Screen4: "Screens",
+  Screen5: "Screens",
+  Screen6: "Screens",
 };

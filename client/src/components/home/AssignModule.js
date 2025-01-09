@@ -15,6 +15,7 @@ const allModules = [
   "Import - DSR",
   "Import - DO",
   "Import - Operations",
+  "Import - Add",
   "Export",
   "LR Report",
   "Accounts",
@@ -34,6 +35,9 @@ const allModules = [
   "Screen1",
   "Screen2",
   "Screen3",
+  "Screen4",
+  // "Screen5",
+  // "Screen6",
 ];
 
 function not(a, b) {

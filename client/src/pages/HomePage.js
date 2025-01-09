@@ -46,6 +46,9 @@ import ViewJob from "../components/import-dsr/ViewJob.js";
 import ImportOperations from "../components/import-operations/ImportOperations.js";
 import ViewOperationsJob from "../components/import-operations/ViewOperationsJob.js";
 import OperationListJob from "../components/import-operations/OperationListJob.js";
+
+// Import add
+import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -70,6 +73,9 @@ import SRCELDashboard from "../components/srcel/SRCELDashboard.js";
 import Screen1 from "../components/Screens/Screen1.js";
 import Screen2 from "../components/Screens/Screen2.js";
 import Screen3 from "../components/Screens/Screen3.js";
+import Screen4 from "../components/Screens/Screen4.js";
+import Screen5 from "../components/Screens/Screen5.js";
+import Screen6 from "../components/Screens/Screen6.js";
 
 const drawerWidth = 60;
 
@@ -201,7 +207,9 @@ function HomePage() {
               path="/import-operations/list-operation-job/:job_no/:year"
               element={<OperationListJob />}
             />
+            {/* ImportersInfo */}
 
+            <Route path="/ImportersInfo" element={<ImportersInfo />} />
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
 
@@ -218,6 +226,9 @@ function HomePage() {
             <Route path="/screen1" element={<Screen1 />} />
             <Route path="/screen2" element={<Screen2 />} />
             <Route path="/screen3" element={<Screen3 />} />
+            <Route path="/screen4" element={<Screen4 />} />
+            <Route path="/screen5" element={<Screen5 />} />
+            <Route path="/screen6" element={<Screen6 />} />
 
             {/* SRCC Directories */}
             <Route path="/srcc-directories" element={<SrccDirectories />} />

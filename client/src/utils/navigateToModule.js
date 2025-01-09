@@ -8,6 +8,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/import-dsr");
     case "Import - Operations":
       return navigate("/import-operations");
+    case "Import - Add":
+      return navigate("/ImportersInfo");
     case "Import - DO":
       return navigate("/import-do");
     case "Inward Register":
@@ -42,6 +44,12 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/screen2");
     case "Screen3":
       return navigate("/screen3");
+    case "Screen4":
+      return navigate("/screen4");
+    case "Screen5":
+      return navigate("/screen5");
+    case "Screen6":
+      return navigate("/screen6");
     default:
       return navigate("/home");
   }

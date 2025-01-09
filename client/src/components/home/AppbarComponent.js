@@ -64,9 +64,9 @@ function AppbarComponent(props) {
           >
             Version: {process.env.REACT_APP_VERSION}
           </Typography>
-          <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
+          {/* <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
             {process.env.REACT_APP_VERSION_DATE}
-          </Typography>
+          </Typography> */}
         </Box>
       </Toolbar>
     </AppBar>

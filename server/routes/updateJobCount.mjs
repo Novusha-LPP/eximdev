@@ -9,9 +9,22 @@ const statusOrder = [
   "Estimated Time of Arrival",
   "ETA Date Pending",
 ];
+
+// Helper function to fetch today's date in the correct format (DD/MM/YYYY)
+const getTodayDate = () => {
+  const today = new Date();
+  const day = String(today.getDate()).padStart(2, "0");
+  const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+  const year = today.getFullYear();
+  return `${day}/${month}/${year}`; // Format: DD/MM/YYYY
+};
+const todayYearDate = new Date().toISOString().split("T")[0]; // Current date in YYYY-MM-DD
+// const todayYearDate = "2024-11-14"; // Current date in YYYY-MM-DD
 // Function to fetch job overview data using MongoDB aggregation
 const fetchJobOverviewData = async (year) => {
   // console.log("Year Parameter:", year);
+  const todayDate = getTodayDate(); // Get today's date
+  // console.log(todayYearDate);
   try {
     const pipeline = [
       { $match: { year: year.toString() } }, // Filter for the provided year
@@ -124,6 +137,153 @@ const fetchJobOverviewData = async (year) => {
                 },
                 1, // Value to sum if condition is true
                 0, // Value to sum if condition is false
+              ],
+            },
+          },
+
+          todayJobCreateImport: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    {
+                      $regexMatch: {
+                        input: {
+                          $substr: ["$job_date", 0, 10], // Extract the "DD/MM/YYYY" portion from `job_date`
+                        },
+                        regex: todayDate,
+                      },
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          todayJobBeDate: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i",
+                      },
+                    },
+                    {
+                      $eq: [
+                        {
+                          $substr: ["$be_date", 0, 10],
+                        },
+                        todayYearDate,
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          todayJobOutOfCharge: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    {
+                      $eq: ["$out_of_charge", todayYearDate], // Check if out_of_charge matches today's date
+                    },
+                  ],
+                },
+                1, // Increment the count if the condition is true
+                0, // Otherwise, don't increment
+              ],
+            },
+          },
+
+          todayJobPcvDate: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    {
+                      $eq: ["$pcv_date", todayYearDate], // Check if pcv_date matches today's date
+                    },
+                  ],
+                },
+                1, // Increment the count if the condition is true
+                0, // Otherwise, don't increment
+              ],
+            },
+          },
+
+          todayJobArrivalDate: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    // Check if the job has a status of "Pending"
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    // Check if at least one container has a valid arrival_date and matches today's date
+                    {
+                      $gt: [
+                        {
+                          $size: {
+                            $filter: {
+                              input: "$container_nos",
+                              as: "container",
+                              cond: {
+                                $and: [
+                                  { $ne: ["$$container.arrival_date", null] }, // Ensure arrival_date is not null
+                                  { $ne: ["$$container.arrival_date", ""] }, // Ensure arrival_date is not an empty string
+                                  {
+                                    $eq: [
+                                      "$$container.arrival_date",
+                                      new Date().toISOString().split("T")[0],
+                                    ],
+                                  }, // Match today's date
+                                ],
+                              },
+                            },
+                          },
+                        },
+                        0,
+                      ], // Check if filtered array has at least one element
+                    },
+                  ],
+                },
+                1, // Increment the count if the condition is true
+                0, // Otherwise, don't increment
               ],
             },
           },
@@ -444,7 +604,6 @@ const fetchJobOverviewData = async (year) => {
               $cond: [
                 {
                   $and: [
-                    // Condition 1: Status is 'pending'
                     {
                       $regexMatch: {
                         input: "$status",
@@ -452,29 +611,48 @@ const fetchJobOverviewData = async (year) => {
                         options: "i",
                       },
                     },
-
-                    // Condition 2: Combine two OR conditions
                     {
                       $or: [
-                        // First OR Condition
                         {
                           $and: [
                             {
                               $or: [
-                                { do_completed: true },
-                                { do_completed: "Yes" },
-                                { $ne: ["$do_completed", null] }, // Field is not null
+                                { $eq: ["$do_completed", true] },
+                                { $eq: ["$do_completed", "Yes"] },
+                                {
+                                  $ne: [
+                                    {
+                                      $ifNull: ["$do_completed", null],
+                                    },
+                                    null,
+                                  ],
+                                },
                               ],
                             },
                             {
-                              // Access the nested array with dot notation and use $size
                               $gt: [
                                 {
                                   $size: {
-                                    $ifNull: [
-                                      "$container_nos.do_revalidation",
-                                      [],
-                                    ],
+                                    $filter: {
+                                      input: "$container_nos.do_revalidation",
+                                      as: "revalidation",
+                                      cond: {
+                                        $and: [
+                                          {
+                                            $ne: [
+                                              "$$revalidation.do_revalidation_upto",
+                                              "",
+                                            ],
+                                          },
+                                          {
+                                            $eq: [
+                                              "$$revalidation.do_Revalidation_Completed",
+                                              false,
+                                            ],
+                                          },
+                                        ],
+                                      },
+                                    },
                                   },
                                 },
                                 0,
@@ -482,22 +660,26 @@ const fetchJobOverviewData = async (year) => {
                             },
                           ],
                         },
-                        // Second OR Condition
                         {
                           $and: [
                             {
                               $or: [
-                                { doPlanning: true },
-                                { doPlanning: "true" },
+                                { $eq: ["$doPlanning", true] },
+                                { $eq: ["$doPlanning", "true"] },
                               ],
-                            }, // doPlanning is true
+                            },
                             {
                               $or: [
-                                { do_completed: false },
-                                { do_completed: "No" },
+                                { $eq: ["$do_completed", false] },
+                                { $eq: ["$do_completed", "No"] },
                                 {
-                                  $eq: [{ $ifNull: ["$do_completed", ""] }, ""],
-                                }, // Field is empty or null
+                                  $eq: [
+                                    {
+                                      $ifNull: ["$do_completed", ""],
+                                    },
+                                    "",
+                                  ],
+                                },
                               ],
                             },
                           ],
@@ -506,23 +688,25 @@ const fetchJobOverviewData = async (year) => {
                     },
                   ],
                 },
-                1, // Add 1 if conditions are met
-                0, // Otherwise, add 0
+                1,
+                0,
               ],
             },
           },
+
           operationsPending: {
             $sum: {
               $cond: [
                 {
                   $and: [
-                    { $eq: ["$status", "Pending"] }, // Status is 'Pending'
+                    // Status is "Pending"
+                    { $eq: ["$status", "Pending"] },
 
-                    // be_no checks
+                    // `be_no` checks
                     {
                       $and: [
-                        { $ne: ["$be_no", null] }, // be_no is not null
-                        { $ne: ["$be_no", ""] }, // be_no is not empty
+                        { $ne: ["$be_no", null] },
+                        { $ne: ["$be_no", ""] },
                         {
                           $not: {
                             $regexMatch: {
@@ -531,27 +715,36 @@ const fetchJobOverviewData = async (year) => {
                               options: "i",
                             },
                           },
-                        }, // be_no does not contain 'cancelled'
+                        },
                       ],
                     },
 
-                    // container_nos.arrival_date checks
+                    // `container_nos.arrival_date` checks
                     {
-                      $ne: [
-                        { $ifNull: ["$container_nos.arrival_date", ""] },
-                        "",
+                      $gt: [
+                        {
+                          $size: {
+                            $filter: {
+                              input: "$container_nos",
+                              as: "container",
+                              cond: {
+                                $and: [
+                                  { $ne: ["$$container.arrival_date", null] },
+                                  { $ne: ["$$container.arrival_date", ""] },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                        0,
                       ],
                     },
 
-                    // completed_operation_date checks
+                    // `completed_operation_date` checks
                     {
                       $or: [
-                        {
-                          $eq: [
-                            { $ifNull: ["$completed_operation_date", ""] },
-                            "",
-                          ],
-                        }, // completed_operation_date is null or empty
+                        { $eq: ["$completed_operation_date", null] },
+                        { $eq: ["$completed_operation_date", ""] },
                       ],
                     },
                   ],
@@ -570,6 +763,11 @@ const fetchJobOverviewData = async (year) => {
           pendingJobs: 1,
           completedJobs: 1,
           cancelledJobs: 1,
+          todayJobCreateImport: 1,
+          todayJobBeDate: 1,
+          todayJobOutOfCharge: 1,
+          todayJobPcvDate: 1,
+          todayJobArrivalDate: 1,
           billingPending: 1,
           customClearanceCompleted: 1,
           pcvDoneDutyPaymentPending: 1,
@@ -598,6 +796,11 @@ const fetchJobOverviewData = async (year) => {
         pendingJobs: 0,
         completedJobs: 0,
         cancelledJobs: 0,
+        todayJobCreateImport: 0,
+        todayJobBeDate: 0,
+        todayJobOutOfCharge: 0,
+        todayJobPcvDate: 0,
+        todayJobArrivalDate: 0,
         billingPending: 0,
         customClearanceCompleted: 0,
         pcvDoneDutyPaymentPending: 0,

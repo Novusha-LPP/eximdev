@@ -22,6 +22,20 @@ const documentSchema = new mongoose.Schema({
 });
 
 const jobSchema = new mongoose.Schema({
+  createdAt: {
+    type: Date,
+    default: Date.now, // Automatically sets the current date and time
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+
+  job_date: {
+    type: String,
+    trim: true,
+    default: () => new Date().toISOString(), // Optional for specific fields like `job_date`
+  },
   ////////////////////////////////////////////////// Excel sheet
   year: { type: String, trim: true },
   job_no: { type: String, trim: true },
@@ -301,6 +315,12 @@ const jobSchema = new mongoose.Schema({
   submission_completed_date_time: { type: String },
   job_sticker_upload: [{ type: String, trim: true }],
   job_sticker_upload_date_and_time: { type: String },
+});
+
+// Automatically update `updatedAt` before saving
+jobSchema.pre("save", function (next) {
+  this.updatedAt = Date.now();
+  next();
 });
 
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });

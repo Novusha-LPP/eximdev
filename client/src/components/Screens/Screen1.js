@@ -64,6 +64,8 @@ const Screen1 = () => {
   // Fields to render
   const statusFields = [
     { key: "totalJobs", title: "Total Jobs" },
+    { key: "todayJobBeNumber", title: "todayJobBeNumber" },
+    { key: "todayJobCreateImport", title: "today JobCreateImport" },
     { key: "pendingJobs", title: "Pending Jobs" },
     { key: "completedJobs", title: "Completed Jobs" },
     { key: "cancelledJobs", title: "Cancelled Jobs" },

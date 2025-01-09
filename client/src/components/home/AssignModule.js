@@ -35,6 +35,9 @@ const allModules = [
   "Screen1",
   "Screen2",
   "Screen3",
+  "Screen4",
+  // "Screen5",
+  // "Screen6",
 ];
 
 function not(a, b) {

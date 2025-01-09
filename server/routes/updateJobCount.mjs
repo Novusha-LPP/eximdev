@@ -9,9 +9,21 @@ const statusOrder = [
   "Estimated Time of Arrival",
   "ETA Date Pending",
 ];
+
+// Helper function to fetch today's date in the correct format (DD/MM/YYYY)
+const getTodayDate = () => {
+  const today = new Date();
+  const day = String(today.getDate()).padStart(2, "0");
+  const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+  const year = today.getFullYear();
+  return `${day}/${month}/${year}`; // Format: DD/MM/YYYY
+};
+
 // Function to fetch job overview data using MongoDB aggregation
 const fetchJobOverviewData = async (year) => {
   // console.log("Year Parameter:", year);
+  const todayDate = getTodayDate(); // Get today's date
+
   try {
     const pipeline = [
       { $match: { year: year.toString() } }, // Filter for the provided year
@@ -128,6 +140,33 @@ const fetchJobOverviewData = async (year) => {
             },
           },
 
+          todayJobCreateImport: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $regexMatch: {
+                        input: "$status",
+                        regex: "^pending$",
+                        options: "i", // Case-insensitive match
+                      },
+                    },
+                    {
+                      $regexMatch: {
+                        input: {
+                          $substr: ["$job_date", 0, 10], // Extract the "DD/MM/YYYY" portion from `job_date`
+                        },
+                        regex: todayDate,
+                      },
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
           billingPending: {
             $sum: {
               $cond: [
@@ -570,6 +609,7 @@ const fetchJobOverviewData = async (year) => {
           pendingJobs: 1,
           completedJobs: 1,
           cancelledJobs: 1,
+          todayJobCreateImport: 1,
           billingPending: 1,
           customClearanceCompleted: 1,
           pcvDoneDutyPaymentPending: 1,
@@ -598,6 +638,7 @@ const fetchJobOverviewData = async (year) => {
         pendingJobs: 0,
         completedJobs: 0,
         cancelledJobs: 0,
+        todayJobCreateImport: 0,
         billingPending: 0,
         customClearanceCompleted: 0,
         pcvDoneDutyPaymentPending: 0,
@@ -648,7 +689,7 @@ router.get("/api/sse/job-overview/:year", async (req, res) => {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify(data)}\n\n`);
           res.flush(); // Force flush
-          // console.log("SSE Data Sent:", JSON.stringify(data));
+          console.log("SSE Data Sent:", JSON.stringify(data));
         } else {
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify({ totalJobs: 0 })}\n\n`);

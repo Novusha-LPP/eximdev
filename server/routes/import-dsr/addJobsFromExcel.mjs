@@ -3,6 +3,27 @@ import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
 
 const router = express.Router();
+const formatDateToIST = () => {
+  const options = {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  };
+  const formatter = new Intl.DateTimeFormat("en-IN", options);
+  const formattedDate = formatter.format(new Date());
+
+  // Adjust format to match `MM/DD/YYYY, hh:mm:ss am/pm`
+  const [date, time] = formattedDate.split(", ");
+  return `${date.split("-").join("/")} ${time}`;
+};
+
+const currentTimeIST = formatDateToIST();
+
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
   try {
@@ -96,7 +117,9 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       job_no: newJobNo,
       year,
       custom_house,
-      job_date,
+      job_date: currentTimeIST, // IST Time
+      createdAt: currentTimeIST, // IST Time
+      updatedAt: currentTimeIST, // IST Time
       importer,
       supplier_exporter,
       invoice_number,

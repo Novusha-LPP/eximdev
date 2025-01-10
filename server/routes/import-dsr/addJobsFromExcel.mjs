@@ -1,8 +1,9 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
-
+// Initialize the router
 const router = express.Router();
+
 const formatDateToIST = () => {
   const options = {
     timeZone: "Asia/Kolkata",
@@ -14,15 +15,29 @@ const formatDateToIST = () => {
     second: "2-digit",
     hour12: true,
   };
-  const formatter = new Intl.DateTimeFormat("en-IN", options);
-  const formattedDate = formatter.format(new Date());
 
-  // Adjust format to match `MM/DD/YYYY, hh:mm:ss am/pm`
-  const [date, time] = formattedDate.split(", ");
-  return `${date.split("-").join("/")} ${time}`;
+  const formatter = new Intl.DateTimeFormat("en-US", options);
+  const parts = formatter.formatToParts(new Date());
+
+  const dateParts = {};
+  parts.forEach(({ type, value }) => {
+    dateParts[type] = value;
+  });
+
+  const year = dateParts.year;
+  const month = dateParts.month;
+  const day = dateParts.day;
+  const hour = dateParts.hour;
+  const minute = dateParts.minute;
+  const second = dateParts.second;
+  const dayPeriod = dateParts.dayPeriod.toLowerCase();
+
+  return `${year}-${month}-${day} ${hour}:${minute}:${second} ${dayPeriod}`;
 };
 
+// Example usage:
 const currentTimeIST = formatDateToIST();
+console.log(currentTimeIST); // e.g., "2024-04-23 11:57:43 am"
 
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
@@ -109,8 +124,8 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     //   // Start with a base number if no jobs exist
     //   newJobNo = "00001"; // Initial job_no with leading zeros
     // }
-
-    // console.log("Generated job_no:", newJobNo);
+    console.log(currentTimeIST);
+    console.log("Generated job_no:", newJobNo);
 
     // Create new job entry
     const newJob = new JobModel({

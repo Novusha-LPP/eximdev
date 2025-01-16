@@ -26,7 +26,7 @@ const parseDate = (dateStr) => {
 const defaultFields = `
   job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
   gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
-  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date do_completed do_validity rail_out_date
+  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date do_completed do_validity rail_out_date cth_documents
 `;
 
 const additionalFieldsByStatus = {

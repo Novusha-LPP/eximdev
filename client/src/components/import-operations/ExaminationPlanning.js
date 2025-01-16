@@ -284,6 +284,12 @@ function ImportOperations() {
               </React.Fragment>
             ))}
 
+            {/* OOC Date */}
+            <strong>Ex.Plan: </strong>
+            {examination_planning_date
+              ? examination_planning_date.substring(0, 10)
+              : "N/A"}
+            <br />
             {/* PCV Date */}
             <strong>PCV: </strong>
             {pcvDate ?? "N/A"}
@@ -293,17 +299,11 @@ function ImportOperations() {
             <strong>OOC: </strong>
             {outOfCharge ?? "N/A"}
             <br />
-            {/* OOC Date */}
-            <strong>Ex.Plan: </strong>
-            {examination_planning_date
-              ? examination_planning_date.substring(0, 10)
-              : "N/A"}
           </div>
         );
       },
     },
 
-   
     {
       accessorKey: "do_copies",
       header: "Do Copies",

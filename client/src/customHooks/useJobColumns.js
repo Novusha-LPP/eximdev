@@ -357,10 +357,7 @@ function useJobColumns() {
               <strong>Rail-out :</strong>
               {rail_out_date ? rail_out_date.slice(0, 10) : "N/A"}
               <br />
-              <strong>PCV :</strong> {pcv_date ? pcv_date : "N/A"}
-              <br />
-              <strong>OOC :</strong> {out_of_charge ? out_of_charge : "N/A"}
-              <br />
+              
               <strong>Arrival :</strong>
               {container_nos.length > 0
                 ? container_nos.map((container, id) => (
@@ -377,6 +374,10 @@ function useJobColumns() {
                     </React.Fragment>
                   ))
                 : "N/A"}
+                <strong>PCV :</strong> {pcv_date ? pcv_date : "N/A"}
+              <br />
+              <strong>OOC :</strong> {out_of_charge ? out_of_charge : "N/A"}
+              <br />
             </div>
           );
         },

@@ -228,8 +228,6 @@ const useImportJobForm = () => {
           clearanceValue,
         };
 
-      
-
         // Make the API call and store response
         const response = await axios.post(
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-imp-man`,
@@ -268,9 +266,7 @@ const useImportJobForm = () => {
   };
 
   const canChangeClearance = () => {
-    return (
-      !exBondValue && !be_no && !be_date && !scheme && ooc_copies.length === 0
-    );
+    return !exBondValue && !be_no && !be_date && ooc_copies.length === 0;
   };
 
   // Container handlers

@@ -344,6 +344,8 @@ function useJobColumns() {
             gateway_igm_date,
             discharge_date,
             rail_out_date,
+            pcv_date,
+            out_of_charge,
             container_nos = [],
           } = cell.row.original;
 
@@ -354,6 +356,10 @@ function useJobColumns() {
               <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
               <strong>Rail-out :</strong>
               {rail_out_date ? rail_out_date.slice(0, 10) : "N/A"}
+              <br />
+              <strong>PCV :</strong> {pcv_date ? pcv_date : "N/A"}
+              <br />
+              <strong>OOC :</strong> {out_of_charge ? out_of_charge : "N/A"}
               <br />
               <strong>Arrival :</strong>
               {container_nos.length > 0
@@ -489,16 +495,7 @@ function useJobColumns() {
       //       </React.Fragment>
       //     )),
       // },
-      {
-        accessorKey: "pcv_date",
-        header: "PCV Date",
-        size: 100,
-      },
-      {
-        accessorKey: "out_of_charge",
-        header: "Out of Charge",
-        size: 120,
-      },
+
       {
         accessorKey: "do_validity",
         header: "DO Completed & Validity",
@@ -530,6 +527,57 @@ function useJobColumns() {
         accessorKey: "delivery_date",
         header: "Delivery Completed Date",
         size: 150,
+      },
+      {
+        accessorKey: "cth_documents",
+        header: "E-sanchit Doc",
+        enableSorting: false,
+        size: 180,
+        Cell: ({ row }) => {
+          const { cth_documents = [] } = row.original;
+          // Filter out documents that do not have a document_check_date
+          const validDocuments = cth_documents.filter(
+            (doc) => doc.document_check_date
+          );
+
+          return (
+            <div style={{ textAlign: "left" }}>
+              {validDocuments.length > 0 ? (
+                validDocuments.map((doc, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "5px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        textDecoration: "none",
+                        color: "#007bff",
+                        display: "block",
+                      }}
+                    >
+                      {`${doc.document_name}`}
+                    </a>
+                    <div style={{ fontSize: "12px", color: "#555" }}>
+                      {/* Display the checked date */}
+                      Checked Date:{" "}
+                      {new Date(doc.document_check_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div>No Documents Available</div>
+              )}
+            </div>
+          );
+        },
       },
     ],
     [formatDate, getPortLocation, getCustomHouseLocation, handleCopy]

@@ -261,45 +261,49 @@ function ImportOperations() {
       },
     },
     {
-      accessorKey: "container_nos", // Access the nested container_nos array
-      header: "Arrival Date",
+      accessorKey: "all_dates", // This key won't be used directly for data.
+      header: "Dates",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell }) =>
-        cell.getValue()?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.arrival_date}
+      // Use row.original to access the entire row's data
+      Cell: ({ row }) => {
+        const containerNos = row.original?.container_nos ?? [];
+        const pcvDate = row.original?.pcv_date;
+        const outOfCharge = row.original?.out_of_charge;
+        const examination_planning_date =
+          row.original?.examination_planning_date;
+
+        return (
+          <div style={{ lineHeight: "1.5" }}>
+            {/* Arrival dates (plural if multiple containers) */}
+            <strong>Arrival: </strong>
+            {containerNos.map((container, id) => (
+              <React.Fragment key={id}>
+                {container.arrival_date}
+                <br />
+              </React.Fragment>
+            ))}
+
+            {/* PCV Date */}
+            <strong>PCV: </strong>
+            {pcvDate ?? "N/A"}
             <br />
-          </React.Fragment>
-        )),
+
+            {/* OOC Date */}
+            <strong>OOC: </strong>
+            {outOfCharge ?? "N/A"}
+            <br />
+            {/* OOC Date */}
+            <strong>Ex.Plan: </strong>
+            {examination_planning_date
+              ? examination_planning_date.substring(0, 10)
+              : "N/A"}
+          </div>
+        );
+      },
     },
-    {
-      accessorKey: "examination_planning_date",
-      header: "Examination Planning Date",
-      enableSorting: false,
-      size: 240,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "pcv_date",
-      header: "PCV Date",
-      enableSorting: false,
-      size: 120,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "out_of_charge",
-      header: "Out Of Charge Date",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
+
+   
     {
       accessorKey: "do_copies",
       header: "Do Copies",

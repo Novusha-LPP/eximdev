@@ -75,7 +75,7 @@ function useFetchJobDetails(
   ]);
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
-
+  //
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
@@ -128,6 +128,37 @@ function useFetchJobDetails(
     },
     { document_name: "Certificate of Analysis", document_code: "001000" },
   ];
+  //
+  // State variables for form values
+  const [jobDetails, setJobDetails] = useState([]);
+
+  const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const clearanceOptionsMapping = {
+    Home: [
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+    ],
+    "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
+    "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
+  };
+
+  // Fetch job details for Ex-Bond details.
+  useEffect(() => {
+    async function fetchJobDetails() {
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/jobs/add-job-all-In-bond`
+        );
+        setJobDetails(response.data);
+      } catch (error) {
+        console.error("Error fetching job details:", error);
+      }
+    }
+    fetchJobDetails();
+  }, []);
 
   const commonCthCodes = [
     "72041000",
@@ -305,6 +336,10 @@ function useFetchJobDetails(
       examination_planning_date: "",
       examination_date: "",
       pcv_date: "",
+      type_of_b_e: "",
+      exBondValue: "",
+      scheme: "",
+      clearanceValue: "",
       do_copies: [],
       do_queries: [],
       documentationQueries: [],
@@ -372,6 +407,7 @@ function useFetchJobDetails(
           assessment_date: values.assessment_date,
           duty_paid_date: values.duty_paid_date,
           doPlanning: values.doPlanning,
+          clearanceValue: values.clearanceValue,
           do_planning_date: values.do_planning_date,
           examinationPlanning: values.examinationPlanning,
           examination_planning_date: values.examination_planning_date,
@@ -392,6 +428,9 @@ function useFetchJobDetails(
           obl_telex_bl: values.obl_telex_bl,
           document_received_date: values.document_received_date,
           type_of_Do: values.type_of_Do,
+          type_of_b_e: values.type_of_b_e,
+          exBondValue: values.exBondValue,
+          scheme: values.scheme,
           documentation_completed_date_time:
             values.documentation_completed_date_time,
           submission_completed_date_time: values.submission_completed_date_time,
@@ -407,6 +446,33 @@ function useFetchJobDetails(
       navigate("/import-dsr");
     },
   });
+  const filteredClearanceOptions =
+    clearanceOptionsMapping[formik.values.type_of_b_e] || [];
+
+  // When the BE type changes, update Formik's clearanceValue field to the first available option.
+  useEffect(() => {
+    if (filteredClearanceOptions.length > 0) {
+      formik.setFieldValue("clearanceValue", filteredClearanceOptions[0].value);
+    } else {
+      formik.setFieldValue("clearanceValue", "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formik.values.type_of_b_e]);
+
+  // Validation function remains unchanged – now you can use it in your onChange for clearance selection.
+  const canChangeClearance = () => {
+    // Insert your custom validation logic here.
+    return true;
+  };
+
+  // Instead of having a separate reset function for Ex-Bond fields that use useState,
+  // update Formik values directly.
+  const resetOtherDetails = () => {
+    formik.setFieldValue("exBondValue", "");
+    formik.setFieldValue("be_no", "");
+    formik.setFieldValue("be_date", "");
+    formik.setFieldValue("ooc_copies", []);
+  };
 
   const serializedContainerNos = useMemo(
     () =>
@@ -601,6 +667,11 @@ function useFetchJobDetails(
         examination_date:
           data.examination_date === undefined ? "" : data.examination_date,
         pcv_date: data.pcv_date === undefined ? "" : data.pcv_date,
+        type_of_b_e: data.type_of_b_e === undefined ? "" : data.type_of_b_e,
+        exBondValue: data.exBondValue === undefined ? "" : data.exBondValue,
+        scheme: data.scheme === undefined ? "" : data.scheme,
+        clearanceValue:
+          data.clearanceValue === undefined ? "" : data.clearanceValue,
         duty_paid_date:
           data.duty_paid_date === undefined ? "" : data.duty_paid_date,
 
@@ -933,6 +1004,8 @@ function useFetchJobDetails(
     setNewDocumentName,
     newDocumentName,
     newDocumentCode,
+    clearanceOptionsMapping,
+    schemeOptions,
     setNewDocumentCode,
     handleFileChange,
     selectedDocuments,
@@ -945,6 +1018,13 @@ function useFetchJobDetails(
     cth_Dropdown,
     setSelectedDocument,
     selectedDocument,
+    jobDetails,
+    setJobDetails,
+
+    beTypeOptions,
+    filteredClearanceOptions,
+    canChangeClearance,
+    resetOtherDetails,
   };
 }
 

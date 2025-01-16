@@ -7,6 +7,7 @@ import {
   Autocomplete,
   InputLabel,
   Select,
+  Typography,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import "../../styles/job-details.scss";
@@ -93,6 +94,28 @@ function JobDetails() {
     filterDocuments,
     selectedDocument,
     setSelectedDocument,
+    clearanceOptionsMapping,
+    jobDetails,
+    setJobDetails,
+    type_of_b_e,
+    setTypeOfBE,
+    clearanceValue,
+    setClearanceValue,
+    scheme,
+    setScheme,
+    exBondValue,
+    setExBondValue,
+    be_no,
+    setBeNo,
+    be_date,
+    setBeDate,
+    ooc_copies,
+    setOocCopies,
+    beTypeOptions,
+    filteredClearanceOptions,
+    canChangeClearance,
+    resetOtherDetails,
+    schemeOptions,
   } = useFetchJobDetails(
     params,
     checked,
@@ -434,75 +457,313 @@ function JobDetails() {
                 />
               </Col>
               {/* Bill of Entry No. Section */}
-              {user.role === "Admin" ? (
-                <>
-                  <Col xs={12} lg={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      id="be_no"
-                      name="be_no"
-                      value={formik.values.be_no}
-                      onChange={formik.handleChange}
-                      label="Bill of Entry Number"
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Col>
-                  <Col xs={12} lg={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="date"
-                      id="be_date"
-                      name="be_date"
-                      value={formik.values.be_date}
-                      onChange={formik.handleChange}
-                      label="Bill of Entry Date"
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Col>
-                  <Col xs={12} lg={3}>
-                    <div
-                      className="job-detail-input-container"
-                      style={{ justifyContent: "flex-start" }}
-                    >
-                      <strong>FTA Benefit:&nbsp;</strong>
+              {/* {user.role === "Admin" ? (
+                <> */}
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="be_no"
+                  name="be_no"
+                  value={formik.values.be_no}
+                  onChange={formik.handleChange}
+                  label="Bill of Entry Number"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  type="date"
+                  id="be_date"
+                  name="be_date"
+                  value={formik.values.be_date}
+                  onChange={formik.handleChange}
+                  label="Bill of Entry Date"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+              <Col xs={12} lg={2}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="do_revalidation_date"
+                    name="do_revalidation_date"
+                    label="FTA Benefit:"
+                    value={
+                      formik.values.fta_Benefit_date_time
+                        ? formik.values.fta_Benefit_date_time
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        formik.setFieldValue("fta_Benefit_date_time", newValue);
+                      } else {
+                        formik.setFieldValue("fta_Benefit_date_time", "");
+                      }
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                  select
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="type_of_b_e"
+                  name="type_of_b_e"
+                  label="Select BE Type"
+                  value={formik.values.type_of_b_e}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                >
+                  <MenuItem value="Home">Home</MenuItem>
+                  <MenuItem value="In-Bond">In-Bond</MenuItem>
+                  <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
+                </TextField>
+              </Col>
+
+              {/* Column for selecting Clearance Value */}
+              <Col xs={12} lg={2}>
+                <TextField
+                  fullWidth
+                  select
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="clearanceValue"
+                  name="clearanceValue"
+                  label="Clearance Value"
+                  value={formik.values.clearanceValue}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                >
+                  {clearanceOptionsMapping[formik.values.type_of_b_e] &&
+                    clearanceOptionsMapping[formik.values.type_of_b_e].map(
+                      (option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      )
+                    )}
+                </TextField>
+              </Col>
+
+              {/* </>
+              ) : null} */}
+            </Row>
+            <Row style={{ marginTop: "10px" }}>
+              <Col xs={12} md={6}>
+                {/* BE Type Selection */}
+                <Typography
+                  variant="body1"
+                  style={{ fontWeight: 600, marginBottom: "8px" }}
+                >
+                  BE Type:
+                </Typography>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  style={{ marginBottom: "16px" }}
+                >
+                  <Select
+                    name="type_of_b_e"
+                    value={formik.values.type_of_b_e}
+                    onChange={formik.handleChange}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select BE Type
+                    </MenuItem>
+                    {beTypeOptions.map((option, index) => (
+                      <MenuItem key={index} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Clearance Under Selection */}
+                <Typography
+                  variant="body1"
+                  style={{ fontWeight: 600, marginBottom: "8px" }}
+                >
+                  Clearance Under:
+                </Typography>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  style={{ marginBottom: "16px" }}
+                >
+                  <Select
+                    name="clearanceValue"
+                    value={formik.values.clearanceValue}
+                    onChange={(e) => {
+                      if (canChangeClearance()) {
+                        formik.setFieldValue("clearanceValue", e.target.value);
+                      } else {
+                        alert(
+                          "Please clear Ex-Bond details before changing Clearance Under."
+                        );
+                      }
+                    }}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select Clearance Type
+                    </MenuItem>
+                    {filteredClearanceOptions.map((option, index) => (
+                      <MenuItem key={index} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Scheme Selection */}
+                <Typography
+                  variant="body1"
+                  style={{ fontWeight: 600, marginBottom: "8px" }}
+                >
+                  Scheme:
+                </Typography>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  style={{ marginBottom: "16px" }}
+                >
+                  <Select
+                    name="scheme"
+                    value={formik.values.scheme}
+                    onChange={formik.handleChange}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select Scheme
+                    </MenuItem>
+                    {schemeOptions.map((schemeOption, index) => (
+                      <MenuItem key={index} value={schemeOption}>
+                        {schemeOption}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
+                {formik.values.clearanceValue === "Ex-Bond" && (
+                  <Row style={{ marginTop: "10px" }}>
+                    <Col xs={12}>
+                      <FormControl fullWidth size="small" variant="outlined">
+                        <Select
+                          name="exBondValue"
+                          value={formik.values.exBondValue}
+                          onChange={formik.handleChange}
+                          displayEmpty
+                        >
+                          <MenuItem value="" disabled>
+                            Select In-Bond Type
+                          </MenuItem>
+                          {/* Static "Other" option */}
+                          <MenuItem value="other">Other</MenuItem>
+                          {/* Dynamic Job Details from API */}
+                          {jobDetails.map((job) => (
+                            <MenuItem key={job.job_no} value={job.job_no}>
+                              {`${job.job_no} - ${job.importer}`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Col>
+                  </Row>
+                )}
+
+                {/* Additional BE Details if the "other" option is selected */}
+                {formik.values.exBondValue === "other" && (
+                  <Row style={{ marginTop: "10px" }}>
+                    <Col xs={12}>
                       <TextField
                         fullWidth
                         size="small"
-                        margin="normal"
                         variant="outlined"
-                        type="datetime-local"
-                        id="do_revalidation_date"
-                        name="do_revalidation_date"
-                        value={
-                          formik.values.fta_Benefit_date_time
-                            ? formik.values.fta_Benefit_date_time
-                            : ""
+                        label="BE Number"
+                        name="be_no"
+                        value={formik.values.be_no}
+                        onChange={formik.handleChange}
+                      />
+                    </Col>
+                    <Col xs={12} style={{ marginTop: "10px" }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        label="BE Date"
+                        type="date"
+                        InputLabelProps={{ shrink: true }}
+                        name="be_date"
+                        value={formik.values.be_date}
+                        onChange={formik.handleChange}
+                      />
+                    </Col>
+                    <Col xs={12} style={{ marginTop: "10px" }}>
+                      <FileUpload
+                        label="Upload BE Copy"
+                        bucketPath="be_copy_documents"
+                        onFilesUploaded={(newFiles) =>
+                          formik.setFieldValue("ooc_copies", [
+                            ...formik.values.ooc_copies,
+                            ...newFiles,
+                          ])
                         }
-                        onChange={(e) => {
-                          const newValue = e.target.value;
-                          if (newValue) {
-                            formik.setFieldValue(
-                              "fta_Benefit_date_time",
-                              newValue
-                            );
-                          } else {
-                            formik.setFieldValue("fta_Benefit_date_time", "");
-                          }
-                        }}
-                        InputLabelProps={{
-                          shrink: true,
+                        multiple
+                      />
+                      <ImagePreview
+                        images={formik.values.ooc_copies || []}
+                        onDeleteImage={(index) => {
+                          const updatedFiles = [...formik.values.ooc_copies];
+                          updatedFiles.splice(index, 1);
+                          formik.setFieldValue("ooc_copies", updatedFiles);
                         }}
                       />
-                    </div>
-                  </Col>
-                </>
-              ) : null}
+                    </Col>
+                  </Row>
+                )}
+
+                {/* Reset Button for Ex-Bond Details */}
+                {formik.values.clearanceValue === "Ex-Bond" && (
+                  <Row style={{ marginTop: "10px" }}>
+                    <Col xs={12}>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={resetOtherDetails}
+                      >
+                        Reset Ex-Bond Details
+                      </Button>
+                    </Col>
+                  </Row>
+                )}
+              </Col>
             </Row>
 
             {/* CTH Documents Section */}

@@ -154,14 +154,22 @@ function JobDetailsStaticData(props) {
             {invoice_value_and_unit_price}
           </span>
         </Col>
-        <Col xs={12} lg={3}>
+        {/* <Col xs={12} lg={3}>
           <strong>Bill Number:&nbsp;</strong>
           <span className="non-editable-text">{props.data.bill_no}</span>
+        </Col> */}
+        <Col xs={12} lg={3}>
+          <strong>Origin Country:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.origin_country}</span>
         </Col>
-        <Col xs={12} lg={4}>
+       <Col xs={12} lg={3}>
+          <strong>Supplier/Exporter:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.supplier_exporter}</span>
+        </Col>
+        {/* <Col xs={12} lg={4}>
           <strong>Bill Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.bill_date}</span>
-        </Col>
+        </Col> */}
       </Row>
       {/*************************** Row 3 ****************************/}
       <Row className="job-detail-row">

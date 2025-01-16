@@ -21,6 +21,8 @@ import {
   importerOptions,
   shippingLineOptions,
   cth_Dropdown,
+  countryOptions,
+  portReportingOptions,
 } from "../MasterLists/MasterLists";
 import { useFormik } from "formik";
 import AddIcon from "@mui/icons-material/Add";
@@ -126,7 +128,18 @@ const ImportCreateJob = () => {
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
-
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const clearanceOptionsMapping = {
+    Home: [
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+    ],
+    "In-Bond": [{ value: "In-bond", label: "In-bond" }],
+    "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
+  };
+  const filteredClearanceOptions = clearanceOptionsMapping[type_of_b_e] || [];
   return (
     <div style={{ padding: "20px" }}>
       <Typography variant="h4" gutterBottom style={{ marginBottom: "20px" }}>
@@ -294,18 +307,23 @@ const ImportCreateJob = () => {
           />
         </Grid>
 
-        {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Type Of B/E:
           </Typography>
-          <TextField
+          <Autocomplete
+            options={beTypeOptions}
             value={type_of_b_e}
-            onChange={(e) => setTypeOfBE(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Type Of B/E"
-            fullWidth
+            onChange={(event, newValue) => setTypeOfBE(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                placeholder="Enter Type Of B/E"
+                fullWidth
+              />
+            )}
           />
         </Grid>
         {/* BL Number */}
@@ -341,13 +359,20 @@ const ImportCreateJob = () => {
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Origin Country:
           </Typography>
-          <TextField
+          <Autocomplete
+            freeSolo
+            options={countryOptions}
             value={origin_country}
-            onChange={(e) => setOriginCountry(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Origin Country"
-            fullWidth
+            onInputChange={(event, newValue) => setOriginCountry(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                helperText="Start typing to see suggestions"
+                fullWidth
+              />
+            )}
           />
         </Grid>
         {/* BL Number */}
@@ -717,7 +742,7 @@ const ImportCreateJob = () => {
             item
             xs={12}
             md={6}
-            spacing={2} // Apply spacing only when the container prop is present
+            // spacing={2} // Apply spacing only when the container prop is present
             style={{
               position: "relative",
               border: "1px solid #ddd",
@@ -835,7 +860,7 @@ const ImportCreateJob = () => {
         </Grid>
 
         {/* test01 */}
-        <Grid item xs={12} md={6} spacing={3} style={{ marginTop: "10px" }}>
+        <Grid item xs={12} md={6} style={{ marginTop: "10px" }}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Clearance Under:
           </Typography>
@@ -861,17 +886,34 @@ const ImportCreateJob = () => {
               <MenuItem value="" disabled>
                 Select Clearance Type
               </MenuItem>
-              <MenuItem value="001">Full Duty</MenuItem>
-              <MenuItem value="1002">In-bond</MenuItem>
-              <MenuItem value="2002">DEEC</MenuItem>
-              <MenuItem value="2003">EPCG</MenuItem>
-              <MenuItem value="RODTEP">RODTEP</MenuItem>
-              <MenuItem value="ROSTL">ROSTL</MenuItem>
-              <MenuItem value="exbond">Ex-Bond</MenuItem>
+              {filteredClearanceOptions.map((option, index) => (
+                <MenuItem key={index} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
+            {/* Scheme Selection */}
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small" variant="outlined">
+                <Select
+                  value={scheme}
+                  onChange={(e) => setScheme(e.target.value)}
+                  displayEmpty
+                >
+                  <MenuItem value="" disabled>
+                    Select Scheme
+                  </MenuItem>
+                  {schemeOptions.map((schemeOption, index) => (
+                    <MenuItem key={index} value={schemeOption}>
+                      {schemeOption}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
           </FormControl>
 
-          {clearanceValue === "exbond" && (
+          {clearanceValue === "Ex-Bond" && (
             <Grid container spacing={2} style={{ marginTop: "10px" }}>
               <FormControl fullWidth size="small" variant="outlined">
                 <Select
@@ -942,31 +984,11 @@ const ImportCreateJob = () => {
                   }}
                 />
               </Grid>
-
-              {/* Scheme Selection */}
-              <Grid item xs={12}>
-                <FormControl fullWidth size="small" variant="outlined">
-                  <Select
-                    value={scheme}
-                    onChange={(e) => setScheme(e.target.value)}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      Select Scheme
-                    </MenuItem>
-                    {schemeOptions.map((schemeOption, index) => (
-                      <MenuItem key={index} value={schemeOption}>
-                        {schemeOption}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
             </Grid>
           )}
 
           {/* Reset Button */}
-          {clearanceValue === "exbond" && (
+          {clearanceValue === "Ex-Bond" && (
             <Grid item xs={12} style={{ marginTop: "10px" }}>
               <Button
                 variant="contained"

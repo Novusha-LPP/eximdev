@@ -79,7 +79,7 @@ function useFetchJobDetails(
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
-
+  const [fristCheck, setFristCheck] = useState(false);
   const additionalDocs = [
     // {
     //   document_name: "Pre-Shipment Inspection Certificate",
@@ -178,6 +178,21 @@ function useFetchJobDetails(
     "80020010",
     "81042010",
   ];
+  const handleSwitchChange = (event) => {
+    if (event.target.checked) {
+      // Set the current date-time when checked
+      const currentDateTime = new Date(
+        Date.now() - new Date().getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16);
+      setFristCheck(currentDateTime);
+    } else {
+      // Clear the date-time when unchecked
+      setFristCheck('');
+    }
+  };
+
 
   const canEditOrDelete = (doc) => {
     return !(
@@ -1025,6 +1040,9 @@ function useFetchJobDetails(
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
+    fristCheck,
+    setFristCheck,
+    handleSwitchChange,
   };
 }
 

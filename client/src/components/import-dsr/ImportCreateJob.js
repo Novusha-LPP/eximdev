@@ -136,7 +136,7 @@ const ImportCreateJob = () => {
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
     ],
-    "In-Bond": [{ value: "In-bond", label: "In-bond" }],
+    "In-Bond": [{ value: "In-Bond", label: "In-bond" }],
     "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
   };
   const filteredClearanceOptions = clearanceOptionsMapping[type_of_b_e] || [];
@@ -1000,6 +1000,8 @@ const ImportCreateJob = () => {
             </Grid>
           )}
         </Grid>
+
+        
 
         {/* test 02 */}
         <Grid item xs={12}>

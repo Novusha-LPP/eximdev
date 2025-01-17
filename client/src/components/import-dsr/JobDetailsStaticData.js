@@ -162,9 +162,11 @@ function JobDetailsStaticData(props) {
           <strong>Origin Country:&nbsp;</strong>
           <span className="non-editable-text">{props.data.origin_country}</span>
         </Col>
-       <Col xs={12} lg={3}>
+        <Col xs={12} lg={3}>
           <strong>Supplier/Exporter:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.supplier_exporter}</span>
+          <span className="non-editable-text">
+            {props.data.supplier_exporter}
+          </span>
         </Col>
         {/* <Col xs={12} lg={4}>
           <strong>Bill Date:&nbsp;</strong>
@@ -236,8 +238,9 @@ function JobDetailsStaticData(props) {
         <Col xs={12} lg={4}>
           <strong>FTA Benefit:&nbsp;</strong>
           <span className="non-editable-text">
-            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()}` ||
-              "NA"}
+            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
+              props.data.origin_country
+            }) ` || "NA"}
           </span>
         </Col>
       </Row>

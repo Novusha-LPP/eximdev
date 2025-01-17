@@ -79,7 +79,7 @@ function useFetchJobDetails(
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
-  const [fristCheck, setFristCheck] = useState(false);
+
   const additionalDocs = [
     // {
     //   document_name: "Pre-Shipment Inspection Certificate",
@@ -178,21 +178,6 @@ function useFetchJobDetails(
     "80020010",
     "81042010",
   ];
-  const handleSwitchChange = (event) => {
-    if (event.target.checked) {
-      // Set the current date-time when checked
-      const currentDateTime = new Date(
-        Date.now() - new Date().getTimezoneOffset() * 60000
-      )
-        .toISOString()
-        .slice(0, 16);
-      setFristCheck(currentDateTime);
-    } else {
-      // Clear the date-time when unchecked
-      setFristCheck('');
-    }
-  };
-
 
   const canEditOrDelete = (doc) => {
     return !(
@@ -316,6 +301,9 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      fristCheck: "",
+      priorityJob: "",
+      gross_weight: "",
       fta_Benefit_date_time: "",
       be_no: "",
       be_date: "",
@@ -415,6 +403,9 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          fristCheck: values.fristCheck,
+          priorityJob: values.priorityJob,
+          gross_weight: values.gross_weight,
           fta_Benefit_date_time: values.fta_Benefit_date_time,
           be_no: values.be_no,
           be_date: values.be_date,
@@ -669,6 +660,9 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
+        priorityJob: data.priorityJob === undefined ? "" : data.priorityJob,
+        gross_weight: data.gross_weight === undefined ? "" : data.gross_weight,
         fta_Benefit_date_time:
           data.fta_Benefit_date_time === undefined
             ? ""
@@ -1040,9 +1034,6 @@ function useFetchJobDetails(
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
-    fristCheck,
-    setFristCheck,
-    handleSwitchChange,
   };
 }
 

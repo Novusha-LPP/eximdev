@@ -117,9 +117,6 @@ function JobDetails() {
     canChangeClearance,
     resetOtherDetails,
     schemeOptions,
-    fristCheck,
-    setFristCheck,
-    handleSwitchChange,
   } = useFetchJobDetails(
     params,
     checked,
@@ -573,8 +570,8 @@ function JobDetails() {
               {/* </>
               ) : null} */}
             </Row>
-            <Row >
-            <Col xs={12} lg={3}>
+            <Row>
+              <Col xs={12} lg={3}>
                 <TextField
                   fullWidth
                   select
@@ -604,12 +601,24 @@ function JobDetails() {
                   Frist check
                 </Typography>
                 <Switch
-                  checked={Boolean(fristCheck)}
-                  onChange={handleSwitchChange}
+                  checked={Boolean(formik.values.fristCheck)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
+                      const currentDateTime = new Date(
+                        Date.now() - new Date().getTimezoneOffset() * 60000
+                      )
+                        .toISOString()
+                        .slice(0, 16);
+                      formik.setFieldValue("fristCheck", currentDateTime);
+                    } else {
+                      formik.setFieldValue("fristCheck", "");
+                    }
+                  }}
                   name="fristCheck"
                   color="primary"
                 />
-                {fristCheck && (
+                {formik.values.fristCheck && (
                   <>
                     <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
                       Active
@@ -618,15 +627,18 @@ function JobDetails() {
                       variant="body1"
                       sx={{ ml: 1, fontWeight: "bold" }}
                     >
-                      {new Date(fristCheck).toLocaleString("en-GB", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                        timeZone: "Asia/Kolkata",
-                      })}
+                      {new Date(formik.values.fristCheck).toLocaleString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                          timeZone: "Asia/Kolkata",
+                        }
+                      )}
                     </Typography>
                   </>
                 )}
@@ -636,15 +648,14 @@ function JobDetails() {
                 lg={3}
                 style={{ display: "flex", alignItems: "center" }}
               >
-                {/* Priority Job Radio Group section */}
-                {/* Priority Job Radio Group section */}
                 <Typography variant="body1" sx={{ ml: 2, mr: 1 }}>
                   Priority Job:
                 </Typography>
                 <RadioGroup
                   row
                   name="priorityJob"
-                  defaultValue="normal"
+                  value={formik.values.priorityJob}
+                  onChange={formik.handleChange}
                   sx={{ alignItems: "center" }}
                 >
                   <FormControlLabel
@@ -676,142 +687,136 @@ function JobDetails() {
                   />
                 </RadioGroup>
               </Col>
+
+              <Col xs={12} lg={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  id="gross_weight"
+                  name="gross_weight"
+                  label="Gross Weight"
+                  value={formik.values.gross_weight}
+                  onChange={formik.handleChange}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
             </Row>
             <Row style={{ marginTop: "10px" }}>
+              {/* BE Type Selection */}
               <Col xs={12} lg={3}>
-                {/* BE Type Selection */}
-                <Typography
-                  variant="body1"
-                  style={{ fontWeight: 600, marginBottom: "8px" }}
-                >
-                  BE Type:
-                </Typography>
-                <FormControl
+                <TextField
+                  select
                   fullWidth
                   size="small"
                   variant="outlined"
+                  label="BE Type:"
+                  name="type_of_b_e"
+                  value={formik.values.type_of_b_e}
+                  onChange={formik.handleChange}
                   style={{ marginBottom: "16px" }}
+                  displayEmpty
                 >
-                  <Select
-                    name="type_of_b_e"
-                    value={formik.values.type_of_b_e}
-                    onChange={formik.handleChange}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      Select BE Type
+                  <MenuItem value="" disabled>
+                    Select BE Type
+                  </MenuItem>
+                  {beTypeOptions.map((option, index) => (
+                    <MenuItem key={index} value={option}>
+                      {option}
                     </MenuItem>
-                    {beTypeOptions.map((option, index) => (
-                      <MenuItem key={index} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                  ))}
+                </TextField>
               </Col>
+
+              {/* Clearance Under Selection */}
               <Col xs={12} lg={3}>
-                {/* Clearance Under Selection */}
-                <Typography
-                  variant="body1"
-                  style={{ fontWeight: 600, marginBottom: "8px" }}
-                >
-                  Clearance Under:
-                </Typography>
-                <FormControl
+                <TextField
+                  select
                   fullWidth
                   size="small"
                   variant="outlined"
+                  label="Clearance Under:"
+                  name="clearanceValue"
+                  value={formik.values.clearanceValue}
+                  onChange={(e) => {
+                    if (canChangeClearance()) {
+                      formik.setFieldValue("clearanceValue", e.target.value);
+                    } else {
+                      alert(
+                        "Please clear Ex-Bond details before changing Clearance Under."
+                      );
+                    }
+                  }}
                   style={{ marginBottom: "16px" }}
+                  displayEmpty
                 >
-                  <Select
-                    name="clearanceValue"
-                    value={formik.values.clearanceValue}
-                    onChange={(e) => {
-                      if (canChangeClearance()) {
-                        formik.setFieldValue("clearanceValue", e.target.value);
-                      } else {
-                        alert(
-                          "Please clear Ex-Bond details before changing Clearance Under."
-                        );
-                      }
-                    }}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      Select Clearance Type
+                  <MenuItem value="" disabled>
+                    Select Clearance Type
+                  </MenuItem>
+                  {filteredClearanceOptions.map((option, index) => (
+                    <MenuItem key={index} value={option.value}>
+                      {option.label}
                     </MenuItem>
-                    {filteredClearanceOptions.map((option, index) => (
-                      <MenuItem key={index} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                  ))}
+                </TextField>
               </Col>
+
+              {/* Scheme Selection */}
               <Col xs={12} lg={3}>
-                {/* Scheme Selection */}
-                <Typography
-                  variant="body1"
-                  style={{ fontWeight: 600, marginBottom: "8px" }}
-                >
-                  Scheme:
-                </Typography>
-                <FormControl
+                <TextField
+                  select
                   fullWidth
                   size="small"
                   variant="outlined"
+                  label="Scheme:"
+                  name="scheme"
+                  value={formik.values.scheme}
+                  onChange={formik.handleChange}
                   style={{ marginBottom: "16px" }}
+                  displayEmpty
                 >
-                  <Select
-                    name="scheme"
-                    value={formik.values.scheme}
-                    onChange={formik.handleChange}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      Select Scheme
+                  <MenuItem value="" disabled>
+                    Select Scheme
+                  </MenuItem>
+                  {schemeOptions.map((schemeOption, index) => (
+                    <MenuItem key={index} value={schemeOption}>
+                      {schemeOption}
                     </MenuItem>
-                    {schemeOptions.map((schemeOption, index) => (
-                      <MenuItem key={index} value={schemeOption}>
-                        {schemeOption}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                  ))}
+                </TextField>
               </Col>
+
+              {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
               <Col xs={12} lg={3}>
-                {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
                 {formik.values.clearanceValue === "Ex-Bond" && (
-                  <>
-                    <Typography
-                      variant="body1"
-                      style={{ fontWeight: 600, marginBottom: "8px" }}
-                    >
-                      In-Bond:
-                    </Typography>
-                    <FormControl fullWidth size="small" variant="outlined">
-                      <Select
-                        name="exBondValue"
-                        value={formik.values.exBondValue}
-                        onChange={formik.handleChange}
-                        displayEmpty
-                      >
-                        <MenuItem value="" disabled>
-                          Select In-Bond Type
-                        </MenuItem>
-                        {/* Static "Other" option */}
-                        <MenuItem value="other">Other</MenuItem>
-                        {/* Dynamic Job Details from API */}
-                        {jobDetails.map((job) => (
-                          <MenuItem key={job.job_no} value={job.job_no}>
-                            {`${job.job_no} - ${job.importer}`}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    label="In-Bond:"
+                    name="exBondValue"
+                    value={formik.values.exBondValue}
+                    onChange={formik.handleChange}
+                    style={{ marginBottom: "16px" }}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select In-Bond Type
+                    </MenuItem>
+                    {/* Static "Other" option */}
+                    <MenuItem value="other">Other</MenuItem>
+                    {/* Dynamic Job Details from API */}
+                    {jobDetails.map((job) => (
+                      <MenuItem key={job.job_no} value={job.job_no}>
+                        {`${job.job_no} - ${job.importer}`}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 )}
               </Col>
+
               {/* Additional BE Details if the "other" option is selected */}
               {formik.values.exBondValue === "other" && (
                 <>
@@ -864,7 +869,6 @@ function JobDetails() {
                       />
                     </Col>
                     <Col xs={12} lg={3}>
-                      {/* Reset Button for Ex-Bond Details */}
                       {formik.values.clearanceValue === "Ex-Bond" && (
                         <Row style={{ marginTop: "10px" }}>
                           <Col xs={12}>
@@ -882,7 +886,6 @@ function JobDetails() {
                   </Row>
                 </>
               )}
-              
             </Row>
           </div>
 
@@ -2616,8 +2619,30 @@ function JobDetails() {
                           </div>
                         </Col>
                       )}
-
-                      <Col xs={12} lg={3} className="flex-div">
+                      <Col xs={12} lg={1}>
+                        <div className="job-detail-input-container">
+                          <strong>Free Time:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            select
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id="free_time"
+                            name="free_time"
+                            value={formik.values.free_time}
+                            onChange={formik.handleChange}
+                            disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                          >
+                            {options?.map((option, id) => (
+                              <MenuItem key={id} value={option}>
+                                {option}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </div>
+                      </Col>
+                      <Col xs={12} lg={2} className="flex-div">
                         <strong>Detention From:&nbsp;</strong>
                         {detentionFrom[index]}
                       </Col>

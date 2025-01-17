@@ -36,6 +36,7 @@ const jobSchema = new mongoose.Schema({
     trim: true,
     default: () => new Date().toISOString(), // Optional for specific fields like `job_date`
   },
+
   ////////////////////////////////////////////////// Excel sheet
   year: { type: String, trim: true },
   job_no: { type: String, trim: true },
@@ -54,6 +55,8 @@ const jobSchema = new mongoose.Schema({
   no_of_pkgs: { type: String, trim: true },
   unit: { type: String, trim: true },
   gross_weight: { type: String, trim: true },
+  fristCheck: { type: String, trim: true },
+  priorityJob: { type: String, trim: true },
   unit_1: { type: String, trim: true },
   gateway_igm: { type: String, trim: true },
   gateway_igm_date: { type: String, trim: true },

@@ -303,10 +303,13 @@ function useFetchJobDetails(
       gateway_igm_date: "",
       fristCheck: "",
       priorityJob: "",
+      payment_method: "",
       gross_weight: "",
       fta_Benefit_date_time: "",
       be_no: "",
+      ex_be_no: "",
       be_date: "",
+      ex_be_date: "",
       discharge_date: "",
       status: "",
       detailed_status: "",
@@ -350,6 +353,7 @@ function useFetchJobDetails(
       eSachitQueries: [],
       processed_be_attachment: [],
       ooc_copies: [],
+      ex_ooc_copies: [],
       gate_pass_copies: [],
       all_documents: [],
       do_revalidation: false,
@@ -405,15 +409,19 @@ function useFetchJobDetails(
           gateway_igm_date: values.gateway_igm_date,
           fristCheck: values.fristCheck,
           priorityJob: values.priorityJob,
+          payment_method: values.payment_method,
           gross_weight: values.gross_weight,
           fta_Benefit_date_time: values.fta_Benefit_date_time,
           be_no: values.be_no,
+          ex_be_no: values.ex_be_no,
           be_date: values.be_date,
+          ex_be_date: values.ex_be_date,
           discharge_date: values.discharge_date,
           assessment_date: values.assessment_date,
           duty_paid_date: values.duty_paid_date,
           doPlanning: values.doPlanning,
           clearanceValue: values.clearanceValue,
+          pcv_date: values.pcv_date,
           do_planning_date: values.do_planning_date,
           examinationPlanning: values.examinationPlanning,
           examination_planning_date: values.examination_planning_date,
@@ -424,6 +432,7 @@ function useFetchJobDetails(
           eSachitQueries: values.eSachitQueries,
           processed_be_attachment: values.processed_be_attachment,
           ooc_copies: values.ooc_copies,
+          ex_ooc_copies: values.ex_ooc_copies,
           gate_pass_copies: values.gate_pass_copies,
           all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
@@ -475,9 +484,9 @@ function useFetchJobDetails(
   // update Formik values directly.
   const resetOtherDetails = () => {
     formik.setFieldValue("exBondValue", "");
-    formik.setFieldValue("be_no", "");
-    formik.setFieldValue("be_date", "");
-    formik.setFieldValue("ooc_copies", []);
+    formik.setFieldValue("ex_be_no", "");
+    formik.setFieldValue("ex_be_date", "");
+    formik.setFieldValue("ex_ooc_copies", []);
   };
 
   const serializedContainerNos = useMemo(
@@ -662,13 +671,17 @@ function useFetchJobDetails(
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
         fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
         priorityJob: data.priorityJob === undefined ? "" : data.priorityJob,
+        payment_method:
+          data.payment_method === undefined ? "" : data.payment_method,
         gross_weight: data.gross_weight === undefined ? "" : data.gross_weight,
         fta_Benefit_date_time:
           data.fta_Benefit_date_time === undefined
             ? ""
             : data.fta_Benefit_date_time,
         be_no: data.be_no === undefined ? "" : data.be_no,
+        ex_be_no: data.ex_be_no === undefined ? "" : data.ex_be_no,
         be_date: data.be_date === undefined ? "" : data.be_date,
+        ex_be_date: data.ex_be_date === undefined ? "" : data.ex_be_date,
         discharge_date:
           data.discharge_date === undefined ? "" : data.discharge_date,
         assessment_date:
@@ -699,6 +712,8 @@ function useFetchJobDetails(
             ? []
             : data.processed_be_attachment,
         ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
+        ex_ooc_copies:
+          data.ex_ooc_copies === undefined ? [] : data.ex_ooc_copies,
         gate_pass_copies:
           data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
         all_documents:

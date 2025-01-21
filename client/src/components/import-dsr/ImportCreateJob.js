@@ -115,11 +115,11 @@ const ImportCreateJob = () => {
     setFtaBenefitDateTime,
     resetOtherDetails,
     canChangeClearance,
-    be_no,
+    ex_be_no,
     setBeNo,
-    be_date,
+    ex_be_date,
     setBeDate,
-    ooc_copies,
+    ex_ooc_copies,
     setOocCopies,
     scheme,
     setScheme,
@@ -945,8 +945,8 @@ const ImportCreateJob = () => {
                   fullWidth
                   size="small"
                   variant="outlined"
-                  label="BE Number"
-                  value={be_no}
+                  label="Ex-BE Number"
+                  value={ex_be_no}
                   onChange={(e) => setBeNo(e.target.value)}
                 />
               </Grid>
@@ -957,10 +957,10 @@ const ImportCreateJob = () => {
                   fullWidth
                   size="small"
                   variant="outlined"
-                  label="BE Date"
+                  label="Ex-BE Date"
                   type="date"
                   InputLabelProps={{ shrink: true }}
-                  value={be_date}
+                  value={ex_be_date}
                   onChange={(e) => setBeDate(e.target.value)}
                 />
               </Grid>
@@ -968,17 +968,17 @@ const ImportCreateJob = () => {
               {/* File Upload for OOC Copies */}
               <Grid item xs={12}>
                 <FileUpload
-                  label="Upload BE Copy"
-                  bucketPath="be_copy_documents"
+                  label="Upload Ex-BE Copy"
+                  bucketPath="ex_be_copy_documents"
                   onFilesUploaded={(newFiles) =>
-                    setOocCopies([...ooc_copies, ...newFiles])
+                    setOocCopies([...ex_ooc_copies, ...newFiles])
                   }
                   multiple={true}
                 />
                 <ImagePreview
-                  images={ooc_copies || []}
+                  images={ex_ooc_copies || []}
                   onDeleteImage={(index) => {
-                    const updatedFiles = [...ooc_copies];
+                    const updatedFiles = [...ex_ooc_copies];
                     updatedFiles.splice(index, 1);
                     setOocCopies(updatedFiles);
                   }}
@@ -1000,8 +1000,6 @@ const ImportCreateJob = () => {
             </Grid>
           )}
         </Grid>
-
-        
 
         {/* test 02 */}
         <Grid item xs={12}>

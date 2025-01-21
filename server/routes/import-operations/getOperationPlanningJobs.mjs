@@ -7,7 +7,7 @@ const router = express.Router();
 // Function to build the search query
 const buildSearchQuery = (search) => ({
   $or: [
-    { job_no: { $regex: search, $options: "i" } }, // Case-insensitive
+    { job_no: { $regex: search, $options: "i" } },
     { custom_house: { $regex: search, $options: "i" } },
     { importer: { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
@@ -19,18 +19,23 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
   const { username } = req.params;
-  const { page = 1, limit = 100, search = "", selectedICD = "" } = req.query; // Include selectedICD in query params
+  const {
+    page = 1,
+    limit = 100,
+    search = "",
+    selectedICD = "",
+    detailedStatusExPlan = "all", // defaults to all if not provided
+    year, // if you need to filter by year later, you'll capture it here
+  } = req.query;
 
   try {
     const user = await User.findOne({ username });
-
     if (!user) {
       return res.status(404).send({ message: "User not found" });
     }
 
     // Define the custom house condition based on username
     let customHouseCondition = {};
-
     switch (username) {
       case "majhar_khan":
         customHouseCondition = {
@@ -57,76 +62,127 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         break;
     }
 
-    // If selectedICD is provided, override or adjust the customHouseCondition
+    // If selectedICD is provided, override the custom house condition.
     if (selectedICD) {
-      // You can choose to override or combine with existing conditions
-      // Here, we override to filter by selectedICD
       customHouseCondition = { custom_house: selectedICD };
-      // Alternatively, to combine, use:
-      // customHouseCondition = { 
-      //   ...customHouseCondition,
-      //   custom_house: selectedICD 
-      // };
     }
 
-    const skip = (page - 1) * limit; // Calculate items to skip for pagination
-    const searchQuery = search ? buildSearchQuery(search) : {}; // Build search query
+    const skip = (page - 1) * limit;
+    const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Construct the base query with all conditions
-    const baseQuery = {
-      $and: [
-        customHouseCondition, // Apply custom house filter (or selectedICD if provided)
-        {
-          status: "Pending",
-          be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-          "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" },
-          $or: [
-            { completed_operation_date: { $exists: false } },
-            { completed_operation_date: "" },
-          ],
-        },
-        searchQuery, // Add search query
+    // Base conditions (common for all jobs)
+    // Note that the arrival_date condition is here by default.
+    let baseConditions = {
+      status: "Pending",
+      be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+      "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" },
+      $or: [
+        { completed_operation_date: { $exists: false } },
+        { completed_operation_date: "" },
       ],
     };
 
-    // Optionally, add additional filtering based on selectedICD if it's a separate filter
-    // If selectedICD needs to be combined differently, adjust here
+    // Define extra conditions based on the detailedStatusExPlan filter
+    let statusExtraCondition = {};
+    if (detailedStatusExPlan === "Arrival") {
+      // Arrival: arrival_date is already satisfied above;
+      // ensure pcv_date is missing/empty and out_of_charge is missing/empty/false.
+      statusExtraCondition = {
+        $and: [
+          { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+          {
+            $or: [
+              { out_of_charge: { $exists: false } },
+              { out_of_charge: "" },
+              { out_of_charge: false },
+            ],
+          },
+        ],
+      };
+    } else if (detailedStatusExPlan === "Ex. Planning") {
+      // Ex. Planning: examination_planning_date must exist;
+      // plus pcv_date and out_of_charge are missing/empty
+      statusExtraCondition = {
+        examination_planning_date: { $exists: true, $nin: ["", null] },
+        $and: [
+          { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+          {
+            $or: [
+              { out_of_charge: { $exists: false } },
+              { out_of_charge: "" },
+              { out_of_charge: false },
+            ],
+          },
+        ],
+      };
+    } else if (detailedStatusExPlan === "PCV") {
+      // PCV: pcv_date must exist and be non-empty; out_of_charge must be empty or not defined.
+      statusExtraCondition = {
+        pcv_date: { $exists: true, $nin: ["", null] },
+        $or: [
+          { out_of_charge: { $exists: false } },
+          { out_of_charge: "" },
+          { out_of_charge: false },
+        ],
+      };
+    } else if (detailedStatusExPlan === "OOC") {
+      // OOC: out_of_charge must be present and non-empty.
+      statusExtraCondition = {
+        out_of_charge: { $exists: true, $nin: ["", null] },
+      };
+    } else if (detailedStatusExPlan === "Do Completed") {
+      // Do Completed: do_completed must be present and non-empty.
+      statusExtraCondition = {
+        do_completed: { $exists: true, $nin: ["", null] },
+      };
+    }
+    // For "all" or any other value, no additional extra condition is applied.
 
+    // Combine all conditions into one query
+    const baseQuery = {
+      $and: [
+        customHouseCondition,
+        baseConditions,
+        statusExtraCondition,
+        searchQuery,
+      ],
+    };
+
+    // Fetch jobs using the combined query.
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,
     });
 
-    const totalJobs = jobs.length; // Total jobs count for pagination
+    const totalJobs = jobs.length;
 
-    // Add row color based on conditions and group jobs
+    // Add row color based on conditions and group jobs (existing logic)
     const greenJobs = [];
     const orangeJobs = [];
     const yellowJobs = [];
     const otherJobs = [];
 
     jobs.forEach((job) => {
-      const { out_of_charge, examination_planning_date, be_no, container_nos } = job;
-
+      const { out_of_charge, examination_planning_date, be_no, container_nos } =
+        job;
       const anyContainerArrivalDate = container_nos?.some(
         (container) => container.arrival_date
       );
-
-      let row_color = ""; // Default: no color
+      let row_color = "";
       if (out_of_charge) {
-        row_color = "bg-green"; // Green background
-        greenJobs.push({ ...job._doc, row_color }); // Add to green group
+        row_color = "bg-green";
+        greenJobs.push({ ...job._doc, row_color });
       } else if (examination_planning_date) {
-        row_color = "bg-orange"; // Orange background
-        orangeJobs.push({ ...job._doc, row_color }); // Add to orange group
+        row_color = "bg-orange";
+        orangeJobs.push({ ...job._doc, row_color });
       } else if (be_no && anyContainerArrivalDate) {
-        row_color = "bg-yellow"; // Yellow background
-        yellowJobs.push({ ...job._doc, row_color }); // Add to yellow group
+        row_color = "bg-yellow";
+        yellowJobs.push({ ...job._doc, row_color });
       } else {
-        otherJobs.push({ ...job._doc, row_color }); // Add to other jobs group
+        otherJobs.push({ ...job._doc, row_color });
       }
     });
 
-    // Concatenate grouped jobs in the desired order
+    // Concatenate grouped jobs in the desired order.
     const groupedJobs = [
       ...greenJobs,
       ...orangeJobs,
@@ -134,14 +190,14 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ...otherJobs,
     ];
 
-    // Paginate grouped jobs
-    const paginatedJobs = groupedJobs.slice(skip, skip + limit);
+    // Paginate grouped jobs.
+    const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
 
     res.status(200).send({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limit),
       currentPage: parseInt(page),
-      jobs: paginatedJobs, // Send paginated and grouped jobs
+      jobs: paginatedJobs,
     });
   } catch (error) {
     console.error("Error fetching jobs:", error);

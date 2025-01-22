@@ -687,6 +687,42 @@ function JobDetails() {
                   />
                 </RadioGroup>
               </Col>
+              <Col
+                xs={12}
+                lg={3}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <Typography variant="body1" sx={{ ml: 2, mr: 1 }}>
+                Payment Method:
+                </Typography>
+                <RadioGroup
+                  row
+                  name="payment_method"
+                  value={formik.values.payment_method}
+                  onChange={formik.handleChange}
+                  sx={{ alignItems: "center" }}
+                >
+                  <FormControlLabel
+                    value="transaction"
+                    control={<Radio size="small" />}
+                    label="Transaction"
+                    // sx={{
+                    //   color: "green",
+                    //   "& .MuiSvgIcon-root": { color: "green" },
+                    // }}
+                  />
+                  <FormControlLabel
+                    value="deferred"
+                    control={<Radio size="small" />}
+                    label="Deferred"
+                    // sx={{
+                    //   color: "orange",
+                    //   "& .MuiSvgIcon-root": { color: "orange" },
+                    // }}
+                  />
+                 
+                </RadioGroup>
+              </Col>
 
               <Col xs={12} lg={3}>
                 <TextField
@@ -825,9 +861,9 @@ function JobDetails() {
                       fullWidth
                       size="small"
                       variant="outlined"
-                      label="BE Number"
-                      name="be_no"
-                      value={formik.values.be_no}
+                      label="Ex-BE Number"
+                      name="ex_be_no"
+                      value={formik.values.ex_be_no}
                       onChange={formik.handleChange}
                     />
                   </Col>
@@ -837,11 +873,11 @@ function JobDetails() {
                       fullWidth
                       size="small"
                       variant="outlined"
-                      label="BE Date"
+                      label="Ex-BE Date"
                       type="date"
                       InputLabelProps={{ shrink: true }}
-                      name="be_date"
-                      value={formik.values.be_date}
+                      name="ex_be_date"
+                      value={formik.values.ex_be_date}
                       onChange={formik.handleChange}
                     />
                   </Col>
@@ -849,22 +885,22 @@ function JobDetails() {
                   <Row>
                     <Col xs={12} lg={3}>
                       <FileUpload
-                        label="Upload BE Copy"
-                        bucketPath="be_copy_documents"
+                        label="Upload Ex-BE Copy"
+                        bucketPath="ex_be_copy_documents"
                         onFilesUploaded={(newFiles) =>
-                          formik.setFieldValue("ooc_copies", [
-                            ...formik.values.ooc_copies,
+                          formik.setFieldValue("ex_ooc_copies", [
+                            ...formik.values.ex_ooc_copies,
                             ...newFiles,
                           ])
                         }
                         multiple
                       />
                       <ImagePreview
-                        images={formik.values.ooc_copies || []}
+                        images={formik.values.ex_ooc_copies || []}
                         onDeleteImage={(index) => {
-                          const updatedFiles = [...formik.values.ooc_copies];
+                          const updatedFiles = [...formik.values.ex_ooc_copies];
                           updatedFiles.splice(index, 1);
-                          formik.setFieldValue("ooc_copies", updatedFiles);
+                          formik.setFieldValue("ex_ooc_copies", updatedFiles);
                         }}
                       />
                     </Col>
@@ -2291,16 +2327,21 @@ function JobDetails() {
                   {data.examination_date ? data.examination_date : ""}
                 </div>
               </Col>
+              
               <Col xs={12} lg={4}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  <strong>PCV Date:&nbsp;</strong>
-                  {data.pcv_date ? data.pcv_date : ""}
+                <div className="job-detail-input-container">
+                <strong>PCV Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="pcv_date"
+                    name="pcv_date"
+                    value={formik.values.pcv_date}
+                    onChange={formik.handleChange}
+                  />
                 </div>
               </Col>
             </Row>

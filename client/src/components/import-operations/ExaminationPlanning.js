@@ -18,12 +18,14 @@ import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
+import { examinationPlaningStatus } from "./../../assets/data/examinationPlaningStatus";
 
 function ImportOperations() {
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
+  const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("all");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -51,8 +53,14 @@ function ImportOperations() {
     fetchYears();
   }, []);
 
-  // Fetch rows data
-  const fetchRows = async (page, searchQuery, year, selectedICD) => {
+  // In ImportOperations.jsx (or similar)
+  const fetchRows = async (
+    page,
+    searchQuery,
+    year,
+    selectedICD,
+    detailedStatusExPlan
+  ) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
@@ -63,21 +71,34 @@ function ImportOperations() {
             search: searchQuery,
             year,
             selectedICD, // Matches backend expectation
+            detailedStatusExPlan, // Pass the additional filter value
           },
         }
       );
-      setRows(res.data.jobs); // Set rows data
-      setTotalPages(res.data.totalPages); // Set total pages
-      setTotalJobs(res.data.totalJobs); // Set total job count
+      setRows(res.data.jobs);
+      setTotalPages(res.data.totalPages);
+      setTotalJobs(res.data.totalJobs);
     } catch (error) {
       console.error("Error fetching rows:", error);
     }
   };
 
-  // Fetch rows on initial load and when filters change
+  // Fetch rows when dependencies change
   useEffect(() => {
-    fetchRows(page, debouncedSearchQuery, selectedYear, selectedICD);
-  }, [page, debouncedSearchQuery, selectedYear, selectedICD]);
+    fetchRows(
+      page,
+      debouncedSearchQuery,
+      selectedYear,
+      selectedICD,
+      detailedStatusExPlan
+    );
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedYear,
+    selectedICD,
+    detailedStatusExPlan,
+  ]);
 
   // Handle search input with debounce
   useEffect(() => {
@@ -421,6 +442,20 @@ function ImportOperations() {
             width: "100%",
           }}
         >
+          {/* examinationPlaningStatus  */}
+          <TextField
+            select
+            size="small"
+            value={detailedStatusExPlan}
+            onChange={(e) => setDetailedStatusExPlan(e.target.value)}
+            sx={{ width: "300px", marginRight: "20px" }}
+          >
+            {examinationPlaningStatus.map((option) => (
+              <MenuItem key={option.id} value={option.value}>
+                {option.name}
+              </MenuItem>
+            ))}
+          </TextField>
           {/* Job Count Display */}
           <Typography
             variant="body1"

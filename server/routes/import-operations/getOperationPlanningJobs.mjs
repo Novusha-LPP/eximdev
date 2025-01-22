@@ -87,54 +87,54 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     if (detailedStatusExPlan === "Arrival") {
       // Arrival: arrival_date is already satisfied above;
       // ensure pcv_date is missing/empty and out_of_charge is missing/empty/false.
-      statusExtraCondition = {
-        $and: [
-          { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
-          {
-            $or: [
-              { out_of_charge: { $exists: false } },
-              { out_of_charge: "" },
-              { out_of_charge: false },
-            ],
-          },
-        ],
-      };
+      // statusExtraCondition = {
+      //   $and: [
+      //     { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+      //     {
+      //       $or: [
+      //         { out_of_charge: { $exists: false } },
+      //         { out_of_charge: "" },
+      //         { out_of_charge: false },
+      //       ],
+      //     },
+      //   ],
+      // };
     } else if (detailedStatusExPlan === "Ex. Planning") {
       // Ex. Planning: examination_planning_date must exist;
       // plus pcv_date and out_of_charge are missing/empty
-      statusExtraCondition = {
-        examination_planning_date: { $exists: true, $nin: ["", null] },
-        $and: [
-          { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
-          {
-            $or: [
-              { out_of_charge: { $exists: false } },
-              { out_of_charge: "" },
-              { out_of_charge: false },
-            ],
-          },
-        ],
-      };
+      // statusExtraCondition = {
+      //   examination_planning_date: { $exists: true, $nin: ["", null] },
+      //   $and: [
+      //     { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+      //     {
+      //       $or: [
+      //         { out_of_charge: { $exists: false } },
+      //         { out_of_charge: "" },
+      //         { out_of_charge: false },
+      //       ],
+      //     },
+      //   ],
+      // };
     } else if (detailedStatusExPlan === "PCV") {
       // PCV: pcv_date must exist and be non-empty; out_of_charge must be empty or not defined.
-      statusExtraCondition = {
-        pcv_date: { $exists: true, $nin: ["", null] },
-        $or: [
-          { out_of_charge: { $exists: false } },
-          { out_of_charge: "" },
-          { out_of_charge: false },
-        ],
-      };
+      // statusExtraCondition = {
+      //   pcv_date: { $exists: true, $nin: ["", null] },
+      //   $or: [
+      //     { out_of_charge: { $exists: false } },
+      //     { out_of_charge: "" },
+      //     { out_of_charge: false },
+      //   ],
+      // };
     } else if (detailedStatusExPlan === "OOC") {
       // OOC: out_of_charge must be present and non-empty.
-      statusExtraCondition = {
-        out_of_charge: { $exists: true, $nin: ["", null] },
-      };
+      // statusExtraCondition = {
+      //   out_of_charge: { $exists: true, $nin: ["", null] },
+      // };
     } else if (detailedStatusExPlan === "Do Completed") {
       // Do Completed: do_completed must be present and non-empty.
-      statusExtraCondition = {
-        do_completed: { $exists: true, $nin: ["", null] },
-      };
+      // statusExtraCondition = {
+      //   do_completed: { $exists: true, $nin: ["", null] },
+      // };
     }
     // For "all" or any other value, no additional extra condition is applied.
 

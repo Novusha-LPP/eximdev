@@ -19,6 +19,8 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
+  console.log(props);
+  console.log(props.data.exBondValue);
   const handleCopy = (event, text) => {
     event.stopPropagation();
 
@@ -207,6 +209,21 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.cif_amount}</span>
         </Col>
       </Row>
+      {/*************************** Row 4+ ****************************/}
+      <Row className="job-detail-row">
+        <Col xs={12} lg={5}>
+          <strong>Payment Method:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.payment_method}</span>
+        </Col>
+        <Col xs={12} lg={3}>
+          {/* <strong>Exchange Rate:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.exrate}</span> */}
+        </Col>
+        <Col xs={12} lg={4}>
+          {/* <strong>CIF Amount:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.cif_amount}</span> */}
+        </Col>
+      </Row>
 
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">
@@ -328,13 +345,12 @@ function JobDetailsStaticData(props) {
         <Col xs={12} lg={4}>
           <strong>Clearance Under:&nbsp;</strong>
           <span className="non-editable-text">
-            {props.data.clearanceValue === "exbond"
+            {props.data.clearanceValue === "Ex-Bond"
               ? props.data.exBondValue && props.data.exBondValue === "other"
-                ? `${props.data.clearanceValue} (${
-                    props.data.scheme || "No Scheme"
-                  })`
+                ? `${props.data.clearanceValue} `
                 : `${props.data.clearanceValue} (${props.data.exBondValue})`
-              : props.data.clearanceValue || "NA"}
+              : props.data.clearanceValue || "NA"}{" "}
+            ({props.data.scheme})
           </span>
         </Col>
       </Row>

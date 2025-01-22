@@ -91,9 +91,9 @@ const useImportJobForm = () => {
   ]);
 
   const [scheme, setScheme] = useState("");
-  const [ex_be_no, setBeNo] = useState("");
-  const [ex_be_date, setBeDate] = useState("");
-  const [ex_ooc_copies, setOocCopies] = useState([]);
+  const [in_bond_be_no, setBeNo] = useState("");
+  const [in_bond_be_date, setBeDate] = useState("");
+  const [in_bond_ooc_copies, setOocCopies] = useState([]);
   const [clearanceValue, setClearanceValue] = useState("");
 
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -218,9 +218,9 @@ const useImportJobForm = () => {
           container_nos,
           cth_documents: cthDocuments, // Renamed to match backend expectations
           scheme,
-          ex_be_no,
-          ex_be_date,
-          ex_ooc_copies,
+          in_bond_be_no,
+          in_bond_be_date,
+          in_bond_ooc_copies,
           exBondValue,
           fta_Benefit_date_time,
           remarks: "",
@@ -267,7 +267,10 @@ const useImportJobForm = () => {
 
   const canChangeClearance = () => {
     return (
-      !exBondValue && !ex_be_no && !ex_be_date && ex_ooc_copies.length === 0
+      !exBondValue &&
+      !in_bond_be_no &&
+      !in_bond_be_date &&
+      in_bond_ooc_copies.length === 0
     );
   };
 
@@ -420,11 +423,11 @@ const useImportJobForm = () => {
     setCthDocuments,
     scheme,
     setScheme,
-    ex_be_no,
+    in_bond_be_no,
     setBeNo,
-    ex_be_date,
+    in_bond_be_date,
     setBeDate,
-    ex_ooc_copies,
+    in_bond_ooc_copies,
     setOocCopies,
     exBondValue,
     setExBondValue,

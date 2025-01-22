@@ -50,9 +50,9 @@ const jobSchema = new mongoose.Schema({
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
   be_no: { type: String, trim: true },
-  ex_be_no: { type: String, trim: true },
+  in_bond_be_no: { type: String, trim: true },
   be_date: { type: String, trim: true },
-  ex_be_date: { type: String, trim: true },
+  in_bond_be_date: { type: String, trim: true },
   type_of_b_e: { type: String, trim: true },
   no_of_pkgs: { type: String, trim: true },
   unit: { type: String, trim: true },
@@ -160,7 +160,7 @@ const jobSchema = new mongoose.Schema({
   examination_planning_date: { type: String, trim: true },
   processed_be_attachment: [{ type: String }],
   ooc_copies: [{ type: String }],
-  ex_ooc_copies: [{ type: String }],
+  in_bond_ooc_copies: [{ type: String }],
   gate_pass_copies: [{ type: String }],
   // *******
   sims_reg_no: {

@@ -170,3 +170,5 @@ The project relies on the following major dependencies:
 - AWS S3 (for static asset hosting)
 - AWS EC2 (for backend hosting)
 
+
+c

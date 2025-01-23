@@ -115,11 +115,11 @@ const ImportCreateJob = () => {
     setFtaBenefitDateTime,
     resetOtherDetails,
     canChangeClearance,
-    ex_be_no,
+    in_bond_be_no,
     setBeNo,
-    ex_be_date,
+    in_bond_be_date,
     setBeDate,
-    ex_ooc_copies,
+    in_bond_ooc_copies,
     setOocCopies,
     scheme,
     setScheme,
@@ -945,8 +945,8 @@ const ImportCreateJob = () => {
                   fullWidth
                   size="small"
                   variant="outlined"
-                  label="Ex-BE Number"
-                  value={ex_be_no}
+                  label="InBond BE Number"
+                  value={in_bond_be_no}
                   onChange={(e) => setBeNo(e.target.value)}
                 />
               </Grid>
@@ -957,10 +957,10 @@ const ImportCreateJob = () => {
                   fullWidth
                   size="small"
                   variant="outlined"
-                  label="Ex-BE Date"
+                  label="InBond BE Date"
                   type="date"
                   InputLabelProps={{ shrink: true }}
-                  value={ex_be_date}
+                  value={in_bond_be_date}
                   onChange={(e) => setBeDate(e.target.value)}
                 />
               </Grid>
@@ -968,17 +968,17 @@ const ImportCreateJob = () => {
               {/* File Upload for OOC Copies */}
               <Grid item xs={12}>
                 <FileUpload
-                  label="Upload Ex-BE Copy"
+                  label="Upload InBond BE Copy"
                   bucketPath="ex_be_copy_documents"
                   onFilesUploaded={(newFiles) =>
-                    setOocCopies([...ex_ooc_copies, ...newFiles])
+                    setOocCopies([...in_bond_ooc_copies, ...newFiles])
                   }
                   multiple={true}
                 />
                 <ImagePreview
-                  images={ex_ooc_copies || []}
+                  images={in_bond_ooc_copies || []}
                   onDeleteImage={(index) => {
-                    const updatedFiles = [...ex_ooc_copies];
+                    const updatedFiles = [...in_bond_ooc_copies];
                     updatedFiles.splice(index, 1);
                     setOocCopies(updatedFiles);
                   }}

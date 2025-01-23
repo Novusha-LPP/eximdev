@@ -307,9 +307,9 @@ function useFetchJobDetails(
       gross_weight: "",
       fta_Benefit_date_time: "",
       be_no: "",
-      ex_be_no: "",
+      in_bond_be_no: "",
       be_date: "",
-      ex_be_date: "",
+      in_bond_be_date: "",
       discharge_date: "",
       status: "",
       detailed_status: "",
@@ -353,7 +353,7 @@ function useFetchJobDetails(
       eSachitQueries: [],
       processed_be_attachment: [],
       ooc_copies: [],
-      ex_ooc_copies: [],
+      in_bond_ooc_copies: [],
       gate_pass_copies: [],
       all_documents: [],
       do_revalidation: false,
@@ -413,9 +413,9 @@ function useFetchJobDetails(
           gross_weight: values.gross_weight,
           fta_Benefit_date_time: values.fta_Benefit_date_time,
           be_no: values.be_no,
-          ex_be_no: values.ex_be_no,
+          in_bond_be_no: values.in_bond_be_no,
           be_date: values.be_date,
-          ex_be_date: values.ex_be_date,
+          in_bond_be_date: values.in_bond_be_date,
           discharge_date: values.discharge_date,
           assessment_date: values.assessment_date,
           duty_paid_date: values.duty_paid_date,
@@ -432,7 +432,7 @@ function useFetchJobDetails(
           eSachitQueries: values.eSachitQueries,
           processed_be_attachment: values.processed_be_attachment,
           ooc_copies: values.ooc_copies,
-          ex_ooc_copies: values.ex_ooc_copies,
+          in_bond_ooc_copies: values.in_bond_ooc_copies,
           gate_pass_copies: values.gate_pass_copies,
           all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
@@ -484,9 +484,9 @@ function useFetchJobDetails(
   // update Formik values directly.
   const resetOtherDetails = () => {
     formik.setFieldValue("exBondValue", "");
-    formik.setFieldValue("ex_be_no", "");
-    formik.setFieldValue("ex_be_date", "");
-    formik.setFieldValue("ex_ooc_copies", []);
+    formik.setFieldValue("in_bond_be_no", "");
+    formik.setFieldValue("in_bond_be_date", "");
+    formik.setFieldValue("in_bond_ooc_copies", []);
   };
 
   const serializedContainerNos = useMemo(
@@ -679,9 +679,11 @@ function useFetchJobDetails(
             ? ""
             : data.fta_Benefit_date_time,
         be_no: data.be_no === undefined ? "" : data.be_no,
-        ex_be_no: data.ex_be_no === undefined ? "" : data.ex_be_no,
+        in_bond_be_no:
+          data.in_bond_be_no === undefined ? "" : data.in_bond_be_no,
         be_date: data.be_date === undefined ? "" : data.be_date,
-        ex_be_date: data.ex_be_date === undefined ? "" : data.ex_be_date,
+        in_bond_be_date:
+          data.in_bond_be_date === undefined ? "" : data.in_bond_be_date,
         discharge_date:
           data.discharge_date === undefined ? "" : data.discharge_date,
         assessment_date:
@@ -712,8 +714,8 @@ function useFetchJobDetails(
             ? []
             : data.processed_be_attachment,
         ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
-        ex_ooc_copies:
-          data.ex_ooc_copies === undefined ? [] : data.ex_ooc_copies,
+        in_bond_ooc_copies:
+          data.in_bond_ooc_copies === undefined ? [] : data.in_bond_ooc_copies,
         gate_pass_copies:
           data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
         all_documents:

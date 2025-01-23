@@ -703,7 +703,7 @@ function JobDetails() {
                   sx={{ alignItems: "center" }}
                 >
                   <FormControlLabel
-                    value="transaction"
+                    value="Transaction"
                     control={<Radio size="small" />}
                     label="Transaction"
                     // sx={{
@@ -712,7 +712,7 @@ function JobDetails() {
                     // }}
                   />
                   <FormControlLabel
-                    value="deferred"
+                    value="Deferred"
                     control={<Radio size="small" />}
                     label="Deferred"
                     // sx={{
@@ -1127,6 +1127,7 @@ function JobDetails() {
                 }}
                 multiple={true}
               />
+            
               <ImagePreview
                 images={formik.values.all_documents || []}
                 onDeleteImage={(index) => {

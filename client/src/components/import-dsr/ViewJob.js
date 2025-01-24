@@ -668,7 +668,7 @@ function JobDetails() {
                     }}
                   />
                   <FormControlLabel
-                    value="priority"
+                    value="Priority"
                     control={<Radio size="small" />}
                     label="Priority"
                     sx={{
@@ -677,7 +677,7 @@ function JobDetails() {
                     }}
                   />
                   <FormControlLabel
-                    value="high"
+                    value="High Priority"
                     control={<Radio size="small" />}
                     label="High Priority"
                     sx={{

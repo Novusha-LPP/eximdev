@@ -25,7 +25,7 @@ function ESanchit() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
-  
+
   const navigate = useNavigate();
 
   // Function to build the search query (not needed on client-side, handled by server)
@@ -134,10 +134,15 @@ function ESanchit() {
         header: "Job No",
         enableSorting: false,
         size: 150,
-
         Cell: ({ cell }) => {
-          const { job_no, year, type_of_b_e, consignment_type, custom_house } =
-            cell.row.original;
+          const {
+            job_no,
+            year,
+            type_of_b_e,
+            consignment_type,
+            custom_house,
+            priorityColor, // Add priorityColor from API response
+          } = cell.row.original;
 
           return (
             <div
@@ -145,6 +150,14 @@ function ESanchit() {
               style={{
                 cursor: "pointer",
                 color: "blue",
+                backgroundColor:
+                  cell.row.original.priorityJob === "High Priority"
+                    ? "orange"
+                    : cell.row.original.priorityJob === "Priority"
+                    ? "yellow"
+                    : "transparent", // Dynamically set the background color
+                padding: "10px", // Add padding for better visibility
+                borderRadius: "5px", // Optional: Add some styling for aesthetics
               }}
             >
               {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
@@ -160,6 +173,7 @@ function ESanchit() {
         enableSorting: false,
         size: 150,
       },
+
       {
         accessorKey: "awb_bl_no",
         header: "BL Num & Date",
@@ -199,6 +213,58 @@ function ESanchit() {
           );
         },
       },
+      {
+        accessorKey: "Doc",
+        header: "Docs",
+        enableSorting: false,
+        size: 150,
+        Cell: ({ cell }) => {
+          const { cth_documents, all_documents } = cell.row.original;
+
+          return (
+            <div style={{ textAlign: "left" }}>
+              {" "}
+              {/* Ensure all content aligns to the left */}
+              {/* Render CTH Documents with URLs */}
+              {cth_documents
+                ?.filter((doc) => doc.url && doc.url.length > 0) // Only include documents with a URL
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]} // Use the first URL in the array
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))}
+              {/* Render All Documents */}
+              {all_documents?.map((docUrl, index) => (
+                <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
+                  <a
+                    href={docUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "green",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Doc{index + 1}
+                  </a>
+                </div>
+              ))}
+            </div>
+          );
+        },
+      },
     ],
     [navigate, handleCopy]
   );
@@ -225,16 +291,22 @@ function ESanchit() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
         top: 0,
         zIndex: 1,
+        textAlign: "left", // Ensure header content aligns left
       },
     },
+    muiTableBodyCellProps: {
+      sx: {
+        textAlign: "left", // Align all body cell content to the left
+      },
+    },
+    muiTableBodyRowProps: ({ row }) => ({
+      className: getTableRowsClassname(row),
+    }),
     renderTopToolbarCustomActions: () => (
       <div
         style={{

@@ -693,7 +693,7 @@ function JobDetails() {
                 style={{ display: "flex", alignItems: "center" }}
               >
                 <Typography variant="body1" sx={{ ml: 2, mr: 1 }}>
-                Payment Method:
+                  Payment Method:
                 </Typography>
                 <RadioGroup
                   row
@@ -703,7 +703,7 @@ function JobDetails() {
                   sx={{ alignItems: "center" }}
                 >
                   <FormControlLabel
-                    value="transaction"
+                    value="Transaction"
                     control={<Radio size="small" />}
                     label="Transaction"
                     // sx={{
@@ -712,7 +712,7 @@ function JobDetails() {
                     // }}
                   />
                   <FormControlLabel
-                    value="deferred"
+                    value="Deferred"
                     control={<Radio size="small" />}
                     label="Deferred"
                     // sx={{
@@ -720,7 +720,6 @@ function JobDetails() {
                     //   "& .MuiSvgIcon-root": { color: "orange" },
                     // }}
                   />
-                 
                 </RadioGroup>
               </Col>
 
@@ -861,9 +860,9 @@ function JobDetails() {
                       fullWidth
                       size="small"
                       variant="outlined"
-                      label="Ex-BE Number"
-                      name="ex_be_no"
-                      value={formik.values.ex_be_no}
+                      label="InBond BE Number"
+                      name="in_bond_be_no"
+                      value={formik.values.in_bond_be_no}
                       onChange={formik.handleChange}
                     />
                   </Col>
@@ -873,11 +872,11 @@ function JobDetails() {
                       fullWidth
                       size="small"
                       variant="outlined"
-                      label="Ex-BE Date"
+                      label="InBond BE Date"
                       type="date"
                       InputLabelProps={{ shrink: true }}
-                      name="ex_be_date"
-                      value={formik.values.ex_be_date}
+                      name="in_bond_be_date"
+                      value={formik.values.in_bond_be_date}
                       onChange={formik.handleChange}
                     />
                   </Col>
@@ -885,22 +884,27 @@ function JobDetails() {
                   <Row>
                     <Col xs={12} lg={3}>
                       <FileUpload
-                        label="Upload Ex-BE Copy"
+                        label="Upload InBond BE Copy"
                         bucketPath="ex_be_copy_documents"
                         onFilesUploaded={(newFiles) =>
-                          formik.setFieldValue("ex_ooc_copies", [
-                            ...formik.values.ex_ooc_copies,
+                          formik.setFieldValue("in_bond_ooc_copies", [
+                            ...formik.values.in_bond_ooc_copies,
                             ...newFiles,
                           ])
                         }
                         multiple
                       />
                       <ImagePreview
-                        images={formik.values.ex_ooc_copies || []}
+                        images={formik.values.in_bond_ooc_copies || []}
                         onDeleteImage={(index) => {
-                          const updatedFiles = [...formik.values.ex_ooc_copies];
+                          const updatedFiles = [
+                            ...formik.values.in_bond_ooc_copies,
+                          ];
                           updatedFiles.splice(index, 1);
-                          formik.setFieldValue("ex_ooc_copies", updatedFiles);
+                          formik.setFieldValue(
+                            "in_bond_ooc_copies",
+                            updatedFiles
+                          );
                         }}
                       />
                     </Col>
@@ -1123,6 +1127,7 @@ function JobDetails() {
                 }}
                 multiple={true}
               />
+            
               <ImagePreview
                 images={formik.values.all_documents || []}
                 onDeleteImage={(index) => {
@@ -2327,10 +2332,10 @@ function JobDetails() {
                   {data.examination_date ? data.examination_date : ""}
                 </div>
               </Col>
-              
+
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
-                <strong>PCV Date:&nbsp;</strong>
+                  <strong>PCV Date:&nbsp;</strong>
                   <TextField
                     fullWidth
                     size="small"

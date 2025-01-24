@@ -19,6 +19,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 import { examinationPlaningStatus } from "./../../assets/data/examinationPlaningStatus";
+import Tooltip from "@mui/material/Tooltip";
 
 function ImportOperations() {
   const [years, setYears] = useState([]);
@@ -282,43 +283,67 @@ function ImportOperations() {
       },
     },
     {
-      accessorKey: "all_dates", // This key won't be used directly for data.
+      accessorKey: "all_dates",
       header: "Dates",
       enableSorting: false,
       size: 150,
-      // Use row.original to access the entire row's data
       Cell: ({ row }) => {
+        // Helper function to handle empty or missing values
+        const formatDate = (date) => {
+          return date && date.split("T")[0].trim() !== ""
+            ? date.split("T")[0]
+            : "N/A";
+        };
+
         const containerNos = row.original?.container_nos ?? [];
-        const pcvDate = row.original?.pcv_date;
-        const outOfCharge = row.original?.out_of_charge;
-        const examination_planning_date =
-          row.original?.examination_planning_date;
+        const pcvDate = formatDate(row.original?.pcv_date);
+        const outOfCharge = formatDate(row.original?.out_of_charge);
+        const examinationPlanningDate = formatDate(
+          row.original?.examination_planning_date
+        );
+        const fristCheck = formatDate(row.original?.fristCheck);
 
         return (
           <div style={{ lineHeight: "1.5" }}>
-            {/* Arrival dates (plural if multiple containers) */}
-            <strong>Arrival: </strong>
-            {containerNos.map((container, id) => (
-              <React.Fragment key={id}>
-                {container.arrival_date}
-                <br />
-              </React.Fragment>
-            ))}
-
-            {/* OOC Date */}
-            <strong>Ex.Plan: </strong>
-            {examination_planning_date
-              ? examination_planning_date.substring(0, 10)
+            {/* Arrival dates */}
+            <Tooltip title="Arrival Date" arrow>
+              <strong>Arrival: </strong>
+            </Tooltip>
+            {containerNos.length > 0
+              ? containerNos.map((container, id) => (
+                  <React.Fragment key={id}>
+                    {container.arrival_date?.split("T")[0] ?? "N/A"}
+                    <br />
+                  </React.Fragment>
+                ))
               : "N/A"}
+
+            {/* Examination Planning Date */}
+            <Tooltip title="Examination Planning Date" arrow>
+              <strong>Ex.Plan: </strong>
+            </Tooltip>
+            {examinationPlanningDate}
             <br />
+
             {/* PCV Date */}
-            <strong>PCV: </strong>
-            {pcvDate ?? "N/A"}
+            <Tooltip title="PCV Date" arrow>
+              <strong>PCV: </strong>
+            </Tooltip>
+            {pcvDate}
             <br />
 
             {/* OOC Date */}
-            <strong>OOC: </strong>
-            {outOfCharge ?? "N/A"}
+            <Tooltip title="Out of Charge Date" arrow>
+              <strong>OOC: </strong>
+            </Tooltip>
+            {outOfCharge}
+            <br />
+
+            {/* First Check Date */}
+            <Tooltip title="First Check Date" arrow>
+              <strong>FC: </strong>
+            </Tooltip>
+            {fristCheck}
             <br />
           </div>
         );

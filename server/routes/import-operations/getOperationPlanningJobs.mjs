@@ -127,14 +127,19 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       };
     } else if (detailedStatusExPlan === "OOC") {
       // OOC: out_of_charge must be present and non-empty.
-      // statusExtraCondition = {
-      //   out_of_charge: { $exists: true, $nin: ["", null] },
-      // };
+      statusExtraCondition = {
+        out_of_charge: { $exists: true, $nin: ["", null] },
+      };
     } else if (detailedStatusExPlan === "Do Completed") {
       // Do Completed: do_completed must be present and non-empty.
-      // statusExtraCondition = {
-      //   do_completed: { $exists: true, $nin: ["", null] },
-      // };
+      statusExtraCondition = {
+        do_completed: { $exists: true, $nin: ["", null] },
+      };
+    } else if (detailedStatusExPlan === "Frist Check") {
+      // Do Completed: do_completed must be present and non-empty.
+      statusExtraCondition = {
+        fristCheck: { $exists: true, $nin: ["", null] },
+      };
     }
     // For "all" or any other value, no additional extra condition is applied.
 

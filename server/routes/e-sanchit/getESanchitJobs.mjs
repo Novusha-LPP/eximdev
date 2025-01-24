@@ -23,13 +23,12 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
   const { page = 1, limit = 100, search = "" } = req.query;
 
   // Validate query parameters
-  const pageNumber = parseInt(page);
-  const limitNumber = parseInt(limit);
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
 
   if (isNaN(pageNumber) || pageNumber < 1) {
     return res.status(400).json({ message: "Invalid page number" });
   }
-
   if (isNaN(limitNumber) || limitNumber < 1) {
     return res.status(400).json({ message: "Invalid limit value" });
   }
@@ -41,7 +40,7 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
     // Build the search query if a search term is provided
     const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Construct the base query with existing conditions and search filters
+    // Construct the base query
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
@@ -56,37 +55,56 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
             { "cth_documents.document_check_date": "" },
           ],
         },
-        searchQuery, // Incorporate the search filters
+        searchQuery,
       ],
     };
 
-    // Fetch the total number of jobs matching the query for pagination metadata
-    const totalJobs = await JobModel.countDocuments(baseQuery);
-
-    // Fetch the jobs with pagination applied
-    const jobs = await JobModel.find(baseQuery)
+    // First, fetch ALL matching documents (so we can custom-sort them):
+    const allJobs = await JobModel.find(baseQuery)
       .select(
-        "esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
       )
-      .skip(skip)
-      .limit(limitNumber)
-      .sort({ gateway_igm_date: 1 }); // Adjust the sort field as needed
+      .sort({ gateway_igm_date: 1 });
+    // You can keep this initial sort if you want gateway_igm_date ascending within ties.
 
-    // If no jobs are found, return a 404 response
-    if (!jobs || jobs.length === 0) {
+    // Now do a custom in-memory sort based on priority/detailed_status
+    // in the exact order you mentioned:
+    // 1) High Priority
+    // 2) Priority
+    // 3) Discharged
+    // 4) Gateway IGM Filed
+    // 5) The rest
+    const rankedJobs = allJobs.sort((a, b) => {
+      const rank = (job) => {
+        if (job.priorityJob === "High Priority") return 1;
+        if (job.priorityJob === "Priority") return 2;
+        if (job.detailed_status === "Discharged") return 3;
+        if (job.detailed_status === "Gateway IGM Filed") return 4;
+        // anything else
+        return 5;
+      };
+      return rank(a) - rank(b);
+    });
+
+    // Now apply pagination on the sorted array
+    const totalJobs = rankedJobs.length; // total number of matched documents
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
+
+    // If no jobs found in this paginated slice, return 404
+    if (!paginatedJobs || paginatedJobs.length === 0) {
       return res.status(404).json({ message: "Data not found" });
     }
 
     // Send the response with pagination and job data
-    res.status(200).json({
-      totalJobs, // Total number of jobs matching the query
-      totalPages: Math.ceil(totalJobs / limitNumber), // Total number of pages based on limit
-      currentPage: pageNumber, // The current page number
-      jobs, // The array of paginated job objects
+    return res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
     });
   } catch (err) {
     console.error("Error fetching data:", err);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 

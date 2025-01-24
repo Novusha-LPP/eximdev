@@ -419,7 +419,7 @@ function ViewESanchitJob() {
                   </Row>
                 </div>
               ))}
-              
+
               <div>
                 <Row style={{ marginBottom: "20px", alignItems: "center" }}>
                   <Col xs={12} lg={3}>
@@ -478,10 +478,6 @@ function ViewESanchitJob() {
                   </Col>
                 </Row>
               </div>
-            </div>
-
-            <div className="job-details-container">
-              <h4>Add Document</h4>
             </div>
 
             <div className="job-details-container">

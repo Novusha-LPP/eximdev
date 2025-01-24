@@ -130,7 +130,113 @@ function JobDetailsStaticData(props) {
         <h4>
           Job Number:&nbsp;{props.params.job_no}&nbsp;|&nbsp;
           {props.data && `Custom House: ${props.data.custom_house}`}
+          &nbsp;
+          {(props.data?.priorityJob === "High Priority" ||
+            props.data?.priorityJob === "Priority") && (
+            <span
+              style={{
+                display: "inline-block", // Ensure the box behaves like a block element
+                fontWeight: "bold",
+                fontStyle: "italic",
+                fontSize: "1.2rem", // Adjust font size as needed
+                color:
+                  props.data.priorityJob === "High Priority"
+                    ? "white" // High Priority text color
+                    : "black", // Priority text color
+                border: "2px solid", // Border for the box
+                borderColor:
+                  props.data.priorityJob === "High Priority"
+                    ? "red" // High Priority border color
+                    : "blue", // Priority border color
+                borderRadius: "8px", // Rounded corners
+                padding: "8px 12px", // Padding for content inside the box
+                backgroundColor:
+                  props.data.priorityJob === "High Priority"
+                    ? "rgba(255, 0, 0, 0.8)" // High Priority background color
+                    : "rgba(0, 0, 255, 0.2)", // Priority background color
+                marginTop: "10px", // Add some spacing
+              }}
+            >
+              {props.data.priorityJob}
+            </span>
+          )}
         </h4>
+      </Row>
+      <Row
+        className="job-detail-row"
+        style={{
+          padding: "20px", // Add padding for better spacing
+          marginBottom: "15px", // Add spacing between rows
+          backgroundColor: "#f8f9fa", // Light background color for visual distinction
+          borderRadius: "8px", // Rounded corners for a modern look
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", // Subtle shadow for depth
+        }}
+      >
+        <Col
+          xs={12}
+          lg={5}
+          style={{
+            borderRight: "2px solid #ddd", // Add a vertical separator
+            paddingRight: "10px", // Add padding inside the column
+          }}
+        >
+          <strong style={{ color: "#495057", fontSize: "1.1rem" }}>
+            Payment Method:&nbsp;
+          </strong>
+          <span
+            className="non-editable-text"
+            style={{
+              color: "#007bff", // Highlight the value in a blue color
+              fontWeight: "600", // Semi-bold for emphasis
+            }}
+          >
+            {props.data.payment_method}
+          </span>
+        </Col>
+
+        <Col
+          xs={12}
+          lg={3}
+          style={{
+            borderRight: "2px solid #ddd", // Add a vertical separator
+            paddingRight: "10px", // Add padding inside the column
+          }}
+        >
+          <strong style={{ color: "#495057", fontSize: "1.1rem" }}>
+            Clearance Under:&nbsp;
+          </strong>
+          <span
+            className="non-editable-text"
+            style={{
+              color: "#007bff", // Use green to signify "clearance under" value
+              fontWeight: "600",
+            }}
+          >
+            {props.data.clearanceValue === "Ex-Bond"
+              ? props.data.exBondValue && props.data.exBondValue === "other"
+                ? `${props.data.clearanceValue} `
+                : `${props.data.clearanceValue} (${props.data.exBondValue})`
+              : props.data.clearanceValue || "NA"}{" "}
+            ({props.data.scheme})
+          </span>
+        </Col>
+
+        <Col xs={12} lg={4}>
+          <strong style={{ color: "#495057", fontSize: "1.1rem" }}>
+            FTA Benefit:&nbsp;
+          </strong>
+          <span
+            className="non-editable-text"
+            style={{
+              color: "#007bff", // Red to signify time-sensitive or critical information
+              fontWeight: "600",
+            }}
+          >
+            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
+              props.data.origin_country
+            }) ` || "NA"}
+          </span>
+        </Col>
       </Row>
 
       {/*************************** Row 1 ****************************/}
@@ -210,20 +316,7 @@ function JobDetailsStaticData(props) {
         </Col>
       </Row>
       {/*************************** Row 4+ ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>Payment Method:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.payment_method}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          {/* <strong>Exchange Rate:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.exrate}</span> */}
-        </Col>
-        <Col xs={12} lg={4}>
-          {/* <strong>CIF Amount:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.cif_amount}</span> */}
-        </Col>
-      </Row>
+      
 
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">
@@ -252,14 +345,14 @@ function JobDetailsStaticData(props) {
           <strong>Bill of Entry Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.be_date}</span>
         </Col>
-        <Col xs={12} lg={4}>
+        {/* <Col xs={12} lg={4}>
           <strong>FTA Benefit:&nbsp;</strong>
           <span className="non-editable-text">
             {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
               props.data.origin_country
             }) ` || "NA"}
           </span>
-        </Col>
+        </Col> */}
       </Row>
       <Row>
         <Col xs={12} lg={5}>
@@ -342,7 +435,7 @@ function JobDetailsStaticData(props) {
           <strong>Bill of Lading Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.awb_bl_date}</span>
         </Col>
-        <Col xs={12} lg={4}>
+        {/* <Col xs={12} lg={4}>
           <strong>Clearance Under:&nbsp;</strong>
           <span className="non-editable-text">
             {props.data.clearanceValue === "Ex-Bond"
@@ -352,7 +445,7 @@ function JobDetailsStaticData(props) {
               : props.data.clearanceValue || "NA"}{" "}
             ({props.data.scheme})
           </span>
-        </Col>
+        </Col> */}
       </Row>
 
       {/*************************** Row 6 ****************************/}

@@ -35,7 +35,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     const skip = (pageNumber - 1) * limitNumber;
     const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Define the custom order for grouping
+    // Define the custom order for grouping by `detailed_status`
     const statusOrder = [
       "Discharged",
       "Gateway IGM Filed",
@@ -68,16 +68,29 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     // Fetch jobs from the database
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status"
+        "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status"
       )
       .lean();
 
-    // Sort jobs based on the custom order
-    const sortedJobs = jobs.sort(
-      (a, b) =>
+    // Define priority-based ranking logic
+    const priorityRank = (job) => {
+      if (job.priorityJob === "High Priority") return 1;
+      if (job.priorityJob === "Priority") return 2;
+      return 3; // Default rank for jobs without a priority
+    };
+
+    // Sort jobs by priority first, then by custom status order
+    const sortedJobs = jobs.sort((a, b) => {
+      const priorityDifference = priorityRank(a) - priorityRank(b);
+      if (priorityDifference !== 0) {
+        return priorityDifference; // If priorities differ, sort by priority
+      }
+      // If priorities are the same, sort by `detailed_status`
+      return (
         statusOrder.indexOf(a.detailed_status) -
         statusOrder.indexOf(b.detailed_status)
-    );
+      );
+    });
 
     // Apply pagination after sorting
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);

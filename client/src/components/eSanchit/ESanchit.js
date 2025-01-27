@@ -304,9 +304,9 @@ function ESanchit() {
         textAlign: "left", // Align all body cell content to the left
       },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-    }),
+    // muiTableBodyRowProps: ({ row }) => ({
+    //   className: getTableRowsClassname(row),
+    // }),
     renderTopToolbarCustomActions: () => (
       <div
         style={{

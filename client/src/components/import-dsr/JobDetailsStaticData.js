@@ -126,7 +126,6 @@ function JobDetailsStaticData(props) {
 
   return (
     <div className="job-details-container">
-    
       <Row>
         <h4>
           Job Number:&nbsp;{props.params.job_no}&nbsp;|&nbsp;
@@ -224,7 +223,6 @@ function JobDetailsStaticData(props) {
                 ? `${props.data.clearanceValue} `
                 : `${props.data.clearanceValue} (${props.data.exBondValue})`
               : props.data.clearanceValue || "NA"}{" "}
-            ({props.data.scheme})
           </span>
         </Col>
 
@@ -239,9 +237,12 @@ function JobDetailsStaticData(props) {
               fontWeight: "600",
             }}
           >
-            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
-              props.data.origin_country
-            }) ` || "NA"}
+            {isNaN(new Date(props.data.fta_Benefit_date_time).getTime()) ||
+            props.data.fta_Benefit_date_time === ""
+              ? `No (${props.data.origin_country})`
+              : `Yes (${new Date(
+                  props.data.fta_Benefit_date_time
+                ).toLocaleString()}) (${props.data.origin_country})`}
           </span>
         </Col>
       </Row>

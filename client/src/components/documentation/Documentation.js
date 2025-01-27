@@ -147,6 +147,58 @@ function Documentation() {
         );
       },
     },
+    {
+      accessorKey: "Doc",
+      header: "Docs",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => {
+        const { cth_documents, all_documents } = cell.row.original;
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {" "}
+            {/* Ensure all content aligns to the left */}
+            {/* Render CTH Documents with URLs */}
+            {cth_documents
+              ?.filter((doc) => doc.url && doc.url.length > 0) // Only include documents with a URL
+              .map((doc) => (
+                <div key={doc._id} style={{ marginBottom: "5px" }}>
+                  <a
+                    href={doc.url[0]} // Use the first URL in the array
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {doc.document_name}
+                  </a>
+                </div>
+              ))}
+            {/* Render All Documents */}
+            {all_documents?.map((docUrl, index) => (
+              <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
+                <a
+                  href={docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "green",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Doc{index + 1}
+                </a>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
   ];
 
   const tableConfig = {

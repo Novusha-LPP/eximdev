@@ -68,7 +68,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     // Fetch jobs from the database
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents awb_bl_no awb_bl_date container_nos detailed_status status"
+        "job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status"
       )
       .lean();
 

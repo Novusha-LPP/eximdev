@@ -131,37 +131,43 @@ function JobDetailsStaticData(props) {
           Job Number:&nbsp;{props.params.job_no}&nbsp;|&nbsp;
           {props.data && `Custom House: ${props.data.custom_house}`}
           &nbsp;
-          {(props.data?.priorityJob === "High Priority" ||
-            props.data?.priorityJob === "Priority") && (
-            <span
-              style={{
-                display: "inline-block", // Ensure the box behaves like a block element
-                fontWeight: "bold",
-                fontStyle: "italic",
-                fontSize: "1.2rem", // Adjust font size as needed
-                color:
-                  props.data.priorityJob === "High Priority"
-                    ? "white" // High Priority text color
-                    : "black", // Priority text color
-                border: "2px solid", // Border for the box
-                borderColor:
-                  props.data.priorityJob === "High Priority"
-                    ? "red" // High Priority border color
-                    : "blue", // Priority border color
-                borderRadius: "8px", // Rounded corners
-                padding: "8px 12px", // Padding for content inside the box
-                backgroundColor:
-                  props.data.priorityJob === "High Priority"
-                    ? "rgba(255, 0, 0, 0.8)" // High Priority background color
-                    : "rgba(0, 0, 255, 0.2)", // Priority background color
-                marginTop: "10px", // Add some spacing
-              }}
-            >
-              {props.data.priorityJob}
-            </span>
+          {props.data?.be_no ? (
+            // Render BE No if it exists
+            <>&nbsp;</>
+          ) : (
+            // Render Priority Job if BE No does not exist
+            props.data?.priorityJob &&
+            (props.data.priorityJob === "High Priority" ||
+              props.data.priorityJob === "Priority") && (
+              <span
+                style={{
+                  display: "inline-block",
+                  fontWeight: "bold",
+                  fontStyle: "italic",
+                  fontSize: "1.2rem",
+                  color:
+                    props.data.priorityJob === "High Priority"
+                      ? "white"
+                      : "black",
+                  border: "2px solid",
+                  borderColor:
+                    props.data.priorityJob === "High Priority" ? "red" : "blue",
+                  borderRadius: "8px",
+                  padding: "8px 12px",
+                  backgroundColor:
+                    props.data.priorityJob === "High Priority"
+                      ? "rgba(255, 0, 0, 0.8)"
+                      : "rgba(0, 0, 255, 0.2)",
+                  marginTop: "10px",
+                }}
+              >
+                {props.data.priorityJob}
+              </span>
+            )
           )}
         </h4>
       </Row>
+
       <Row
         className="job-detail-row"
         style={{
@@ -217,7 +223,6 @@ function JobDetailsStaticData(props) {
                 ? `${props.data.clearanceValue} `
                 : `${props.data.clearanceValue} (${props.data.exBondValue})`
               : props.data.clearanceValue || "NA"}{" "}
-            ({props.data.scheme})
           </span>
         </Col>
 
@@ -232,9 +237,12 @@ function JobDetailsStaticData(props) {
               fontWeight: "600",
             }}
           >
-            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
-              props.data.origin_country
-            }) ` || "NA"}
+            {isNaN(new Date(props.data.fta_Benefit_date_time).getTime()) ||
+            props.data.fta_Benefit_date_time === ""
+              ? `No (${props.data.origin_country})`
+              : `Yes (${new Date(
+                  props.data.fta_Benefit_date_time
+                ).toLocaleString()}) (${props.data.origin_country})`}
           </span>
         </Col>
       </Row>
@@ -316,7 +324,6 @@ function JobDetailsStaticData(props) {
         </Col>
       </Row>
       {/*************************** Row 4+ ****************************/}
-      
 
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">

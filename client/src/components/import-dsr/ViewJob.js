@@ -798,7 +798,7 @@ function JobDetails() {
               </Col>
 
               {/* Scheme Selection */}
-              <Col xs={12} lg={3}>
+              {/* <Col xs={12} lg={3}>
                 <TextField
                   select
                   fullWidth
@@ -820,7 +820,7 @@ function JobDetails() {
                     </MenuItem>
                   ))}
                 </TextField>
-              </Col>
+              </Col> */}
 
               {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
               <Col xs={12} lg={3}>
@@ -1127,7 +1127,7 @@ function JobDetails() {
                 }}
                 multiple={true}
               />
-            
+
               <ImagePreview
                 images={formik.values.all_documents || []}
                 onDeleteImage={(index) => {

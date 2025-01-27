@@ -138,6 +138,7 @@ function useFetchJobDetails(
     Home: [
       { value: "Full Duty", label: "Full Duty" },
       { value: "DEEC", label: "DEEC" },
+      { value: "EPCG", label: "EPCG" },
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
     ],

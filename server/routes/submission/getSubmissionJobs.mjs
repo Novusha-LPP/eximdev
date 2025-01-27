@@ -50,23 +50,31 @@ router.get("/api/get-submission-jobs", async (req, res) => {
       ],
     };
 
-    // Fetch total count for pagination metadata
-    const totalJobs = await JobModel.countDocuments(baseQuery);
-
-    // Fetch paginated data
+    // Fetch all jobs matching the base query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents"
+        "priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents"
       )
-      .skip(skip)
-      .limit(limitNumber)
       .lean();
 
+    // Define priority-based ranking logic
+    const priorityRank = (job) => {
+      if (job.priorityJob === "High Priority") return 1;
+      if (job.priorityJob === "Priority") return 2;
+      return 3; // Default rank for jobs without a priority
+    };
+
+    // Sort jobs by priority
+    const sortedJobs = jobs.sort((a, b) => priorityRank(a) - priorityRank(b));
+
+    // Apply pagination after sorting
+    const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
+
     res.status(200).json({
-      totalJobs, // Total number of jobs matching the query
-      totalPages: Math.ceil(totalJobs / limitNumber), // Total pages based on limit
+      totalJobs: jobs.length, // Total number of jobs matching the query
+      totalPages: Math.ceil(jobs.length / limitNumber), // Total pages based on limit
       currentPage: pageNumber, // Current page
-      jobs, // Array of jobs for the current page
+      jobs: paginatedJobs, // Array of jobs for the current page
     });
   } catch (error) {
     console.error("Error fetching submission jobs:", error.stack);

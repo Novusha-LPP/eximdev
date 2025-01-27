@@ -78,20 +78,37 @@ function Submission() {
     {
       accessorKey: "job_no",
       header: "Job No",
+      enableSorting: false,
       size: 150,
       Cell: ({ cell }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
-          cell.row.original;
+        const {
+          job_no,
+          year,
+          type_of_b_e,
+          consignment_type,
+          custom_house,
+          priorityColor, // Add priorityColor from API response
+        } = cell.row.original;
+
         return (
           <div
             onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
             style={{
               cursor: "pointer",
               color: "blue",
+              backgroundColor:
+                cell.row.original.priorityJob === "High Priority"
+                  ? "orange"
+                  : cell.row.original.priorityJob === "Priority"
+                  ? "yellow"
+                  : "transparent", // Dynamically set the background color
+              padding: "10px", // Add padding for better visibility
+              borderRadius: "5px", // Optional: Add some styling for aesthetics
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
+            <br />
           </div>
         );
       },

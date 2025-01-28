@@ -143,7 +143,13 @@ function useFetchJobDetails(
       { value: "ROSTL", label: "ROSTL" },
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
-    "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
+    "Ex-Bond": [
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "EPCG", label: "EPCG" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+    ],
   };
 
   // Fetch job details for Ex-Bond details.

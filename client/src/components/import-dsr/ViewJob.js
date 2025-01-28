@@ -824,7 +824,7 @@ function JobDetails() {
 
               {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
               <Col xs={12} lg={3}>
-                {formik.values.clearanceValue === "Ex-Bond" && (
+                {formik.values.type_of_b_e === "Ex-Bond" && (
                   <TextField
                     select
                     fullWidth
@@ -908,8 +908,12 @@ function JobDetails() {
                         }}
                       />
                     </Col>
-                    <Col xs={12} lg={3}>
-                      {formik.values.clearanceValue === "Ex-Bond" && (
+                    
+                  </Row>
+                </>
+              )}
+              <Col xs={12} lg={3}>
+                      {formik.values.type_of_b_e === "Ex-Bond" && (
                         <Row style={{ marginTop: "10px" }}>
                           <Col xs={12}>
                             <Button
@@ -923,9 +927,6 @@ function JobDetails() {
                         </Row>
                       )}
                     </Col>
-                  </Row>
-                </>
-              )}
             </Row>
           </div>
 

@@ -218,7 +218,7 @@ function JobDetailsStaticData(props) {
               fontWeight: "600",
             }}
           >
-            {props.data.clearanceValue === "Ex-Bond"
+            {props.data.type_of_b_e === "Ex-Bond"
               ? props.data.exBondValue && props.data.exBondValue === "other"
                 ? `${props.data.clearanceValue} `
                 : `${props.data.clearanceValue} (${props.data.exBondValue})`

@@ -459,7 +459,7 @@ function JobDetailsStaticData(props) {
         </Col>
         <Col xs={12} lg={3}>
           <strong>Net Weight (KGS):&nbsp;</strong>
-          <span className="non-editable-text">{net_weight}</span>
+          <span className="non-editable-text">{props.data.job_net_weight}</span>
         </Col>
       </Row>
     </div>

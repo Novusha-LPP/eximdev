@@ -309,9 +309,11 @@ function useFetchJobDetails(
       vessel_berthing: "",
       gateway_igm_date: "",
       fristCheck: "",
-      priorityJob: "",
-      payment_method: "",
+      priorityJob: "Normal",
+      emptyContainerOffLoadDate: "",
+      payment_method: "Transaction",
       gross_weight: "",
+      job_net_weight: "",
       fta_Benefit_date_time: "",
       be_no: "",
       in_bond_be_no: "",
@@ -327,7 +329,6 @@ function useFetchJobDetails(
       do_revalidation_upto_job_level: "",
       required_do_validity_upto: "",
       cth_no: "",
-
       checklist: [],
       job_sticker_upload: [],
       rail_out_date: "",
@@ -416,8 +417,10 @@ function useFetchJobDetails(
           gateway_igm_date: values.gateway_igm_date,
           fristCheck: values.fristCheck,
           priorityJob: values.priorityJob,
+          emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
           payment_method: values.payment_method,
           gross_weight: values.gross_weight,
+          job_net_weight: values.job_net_weight,
           fta_Benefit_date_time: values.fta_Benefit_date_time,
           be_no: values.be_no,
           in_bond_be_no: values.in_bond_be_no,
@@ -677,9 +680,18 @@ function useFetchJobDetails(
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
         fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
-        priorityJob: data.priorityJob === undefined ? "" : data.priorityJob,
+        priorityJob:
+          data.priorityJob === undefined ? "Normal" : data.priorityJob,
+        emptyContainerOffLoadDate:
+          data.emptyContainerOffLoadDate === undefined
+            ? ""
+            : data.emptyContainerOffLoadDate,
+        job_net_weight:
+          data.job_net_weight === undefined ? "" : data.job_net_weight,
         payment_method:
-          data.payment_method === undefined ? "" : data.payment_method,
+          data.payment_method === undefined
+            ? "Transaction"
+            : data.payment_method,
         gross_weight: data.gross_weight === undefined ? "" : data.gross_weight,
         fta_Benefit_date_time:
           data.fta_Benefit_date_time === undefined

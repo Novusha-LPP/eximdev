@@ -120,7 +120,9 @@ export const convertToExcel = async (
               : `DOC-RCVD: ${item.document_received_date}`
           }`
         : ""
-    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
+    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
+      item.remarks ? ` | Remarks: ${item.remarks}` : ""
+    }`;
 
     const arrivalDates = formatContainerDates(
       item.container_nos,

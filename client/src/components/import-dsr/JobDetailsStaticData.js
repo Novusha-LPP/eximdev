@@ -131,37 +131,43 @@ function JobDetailsStaticData(props) {
           Job Number:&nbsp;{props.params.job_no}&nbsp;|&nbsp;
           {props.data && `Custom House: ${props.data.custom_house}`}
           &nbsp;
-          {(props.data?.priorityJob === "High Priority" ||
-            props.data?.priorityJob === "Priority") && (
-            <span
-              style={{
-                display: "inline-block", // Ensure the box behaves like a block element
-                fontWeight: "bold",
-                fontStyle: "italic",
-                fontSize: "1.2rem", // Adjust font size as needed
-                color:
-                  props.data.priorityJob === "High Priority"
-                    ? "white" // High Priority text color
-                    : "black", // Priority text color
-                border: "2px solid", // Border for the box
-                borderColor:
-                  props.data.priorityJob === "High Priority"
-                    ? "red" // High Priority border color
-                    : "blue", // Priority border color
-                borderRadius: "8px", // Rounded corners
-                padding: "8px 12px", // Padding for content inside the box
-                backgroundColor:
-                  props.data.priorityJob === "High Priority"
-                    ? "rgba(255, 0, 0, 0.8)" // High Priority background color
-                    : "rgba(0, 0, 255, 0.2)", // Priority background color
-                marginTop: "10px", // Add some spacing
-              }}
-            >
-              {props.data.priorityJob}
-            </span>
+          {props.data?.be_no ? (
+            // Render BE No if it exists
+            <>&nbsp;</>
+          ) : (
+            // Render Priority Job if BE No does not exist
+            props.data?.priorityJob &&
+            (props.data.priorityJob === "High Priority" ||
+              props.data.priorityJob === "Priority") && (
+              <span
+                style={{
+                  display: "inline-block",
+                  fontWeight: "bold",
+                  fontStyle: "italic",
+                  fontSize: "1.2rem",
+                  color:
+                    props.data.priorityJob === "High Priority"
+                      ? "white"
+                      : "black",
+                  border: "2px solid",
+                  borderColor:
+                    props.data.priorityJob === "High Priority" ? "red" : "blue",
+                  borderRadius: "8px",
+                  padding: "8px 12px",
+                  backgroundColor:
+                    props.data.priorityJob === "High Priority"
+                      ? "rgba(255, 0, 0, 0.8)"
+                      : "rgba(0, 0, 255, 0.2)",
+                  marginTop: "10px",
+                }}
+              >
+                {props.data.priorityJob}
+              </span>
+            )
           )}
         </h4>
       </Row>
+
       <Row
         className="job-detail-row"
         style={{
@@ -212,12 +218,11 @@ function JobDetailsStaticData(props) {
               fontWeight: "600",
             }}
           >
-            {props.data.clearanceValue === "Ex-Bond"
+            {props.data.type_of_b_e === "Ex-Bond"
               ? props.data.exBondValue && props.data.exBondValue === "other"
                 ? `${props.data.clearanceValue} `
                 : `${props.data.clearanceValue} (${props.data.exBondValue})`
               : props.data.clearanceValue || "NA"}{" "}
-            ({props.data.scheme})
           </span>
         </Col>
 
@@ -232,9 +237,12 @@ function JobDetailsStaticData(props) {
               fontWeight: "600",
             }}
           >
-            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
-              props.data.origin_country
-            }) ` || "NA"}
+            {isNaN(new Date(props.data.fta_Benefit_date_time).getTime()) ||
+            props.data.fta_Benefit_date_time === ""
+              ? `No (${props.data.origin_country})`
+              : `Yes (${new Date(
+                  props.data.fta_Benefit_date_time
+                ).toLocaleString()}) (${props.data.origin_country})`}
           </span>
         </Col>
       </Row>
@@ -246,7 +254,7 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.importer}</span>
         </Col>
         <Col xs={12} lg={3}>
-          <strong>Invoice Number:&nbsp;</strong>
+          <strong>Invoice No.:&nbsp;</strong>
           <span className="non-editable-text">{props.data.invoice_number}</span>
         </Col>
         <Col xs={12} lg={4}>
@@ -311,17 +319,16 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.exrate}</span>
         </Col>
         <Col xs={12} lg={4}>
-          <strong>CIF Amount:&nbsp;</strong>
+          <strong>CIF Amount(INR):&nbsp;</strong>
           <span className="non-editable-text">{props.data.cif_amount}</span>
         </Col>
       </Row>
       {/*************************** Row 4+ ****************************/}
-      
 
       {/*************************** Row 5 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
-          <strong>Bill of Entry Number:&nbsp;</strong>
+          <strong>Bill Of Entry (BOE) No.:&nbsp;</strong>
           <span className="non-editable-text">
             {props.data.be_no && (
               <a
@@ -342,17 +349,13 @@ function JobDetailsStaticData(props) {
         </Col>
 
         <Col xs={12} lg={3}>
-          <strong>Bill of Entry Date:&nbsp;</strong>
+          <strong> BOE Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.be_date}</span>
         </Col>
-        {/* <Col xs={12} lg={4}>
-          <strong>FTA Benefit:&nbsp;</strong>
-          <span className="non-editable-text">
-            {`${new Date(props.data.fta_Benefit_date_time).toLocaleString()} (${
-              props.data.origin_country
-            }) ` || "NA"}
-          </span>
-        </Col> */}
+        <Col xs={12} lg={4}>
+          <strong> No of Packages: &nbsp;</strong>
+          <span className="non-editable-text">{props.data.no_of_pkgs}</span>
+        </Col>
       </Row>
       <Row>
         <Col xs={12} lg={5}>
@@ -360,7 +363,7 @@ function JobDetailsStaticData(props) {
           <div style={{ display: "flex", flexDirection: "row" }}>
             {/* Inner Flex Row 1: Label and Value */}
             <div style={{ display: "flex", alignItems: "center" }}>
-              <strong>Bill of Lading Number:&nbsp;</strong>
+              <strong>Bill of Lading (BL) No.:&nbsp;</strong>
             </div>
 
             <div style={{ marginTop: "5px" }}>
@@ -432,7 +435,7 @@ function JobDetailsStaticData(props) {
         </Col>
 
         <Col xs={12} lg={3}>
-          <strong>Bill of Lading Date:&nbsp;</strong>
+          <strong>BL Date:&nbsp;</strong>
           <span className="non-editable-text">{props.data.awb_bl_date}</span>
         </Col>
         {/* <Col xs={12} lg={4}>
@@ -451,16 +454,12 @@ function JobDetailsStaticData(props) {
       {/*************************** Row 6 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
-          <strong>Number of Packages:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.no_of_pkgs}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          <strong>Gross Weight:&nbsp;</strong>
+          <strong>Gross Weight (KGS):&nbsp;</strong>
           <span className="non-editable-text">{props.data.gross_weight}</span>
         </Col>
-        <Col xs={12} lg={4}>
-          <strong>Net Weight:&nbsp;</strong>
-          <span className="non-editable-text">{net_weight}</span>
+        <Col xs={12} lg={3}>
+          <strong>Net Weight (KGS):&nbsp;</strong>
+          <span className="non-editable-text">{props.data.job_net_weight}</span>
         </Col>
       </Row>
     </div>

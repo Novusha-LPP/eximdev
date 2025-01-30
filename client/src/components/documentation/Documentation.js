@@ -78,18 +78,14 @@ function Documentation() {
       header: "Job No",
       enableSorting: false,
       size: 150,
-
       Cell: ({ cell }) => {
         const {
           job_no,
           year,
           type_of_b_e,
           consignment_type,
-          vessel_berthing,
-          container_nos, // Assume this field holds an array of container objects
-          detailed_status,
           custom_house,
-          delivery_date,
+          priorityColor, // Add priorityColor from API response
         } = cell.row.original;
 
         return (
@@ -100,6 +96,14 @@ function Documentation() {
             style={{
               cursor: "pointer",
               color: "blue",
+              backgroundColor:
+                cell.row.original.priorityJob === "High Priority"
+                  ? "orange"
+                  : cell.row.original.priorityJob === "Priority"
+                  ? "yellow"
+                  : "transparent", // Dynamically set the background color
+              padding: "10px", // Add padding for better visibility
+              borderRadius: "5px", // Optional: Add some styling for aesthetics
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
@@ -147,6 +151,58 @@ function Documentation() {
         );
       },
     },
+    {
+      accessorKey: "Doc",
+      header: "Docs",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => {
+        const { cth_documents, all_documents } = cell.row.original;
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {" "}
+            {/* Ensure all content aligns to the left */}
+            {/* Render CTH Documents with URLs */}
+            {cth_documents
+              ?.filter((doc) => doc.url && doc.url.length > 0) // Only include documents with a URL
+              .map((doc) => (
+                <div key={doc._id} style={{ marginBottom: "5px" }}>
+                  <a
+                    href={doc.url[0]} // Use the first URL in the array
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {doc.document_name}
+                  </a>
+                </div>
+              ))}
+            {/* Render All Documents */}
+            {all_documents?.map((docUrl, index) => (
+              <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
+                <a
+                  href={docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "green",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Doc{index + 1}
+                </a>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
   ];
 
   const tableConfig = {
@@ -170,9 +226,9 @@ function Documentation() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-    }),
+    // muiTableBodyRowProps: ({ row }) => ({
+    //   className: getTableRowsClassname(row),
+    // }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

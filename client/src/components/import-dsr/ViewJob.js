@@ -131,6 +131,7 @@ function JobDetails() {
       vessel_berthing: eta,
       gateway_igm_date: gatewayIGMDate,
       discharge_date: dischargeDate,
+      rail_out_date: RailOutDate,
       out_of_charge: outOfChargeDate,
       delivery_date: deliveryDate,
       pcv_date: pcvDate,
@@ -157,6 +158,8 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
     } else if (billOfEntryNo) {
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+    } else if (RailOutDate) {
+      formik.setFieldValue("detailed_status", "Rail Out");
     } else if (dischargeDate) {
       formik.setFieldValue("detailed_status", "Discharged");
     } else if (gatewayIGMDate) {
@@ -178,6 +181,7 @@ function JobDetails() {
     formik.values.vessel_berthing,
     formik.values.gateway_igm_date,
     formik.values.discharge_date,
+    formik.values.rail_out_date,
     formik.values.arrival_date, // Ensure this is included
     formik.values.out_of_charge,
     formik.values.pcv_date,
@@ -430,6 +434,7 @@ function JobDetails() {
     <>
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
+          {/* Importer info start*/}
           <JobDetailsStaticData
             data={data}
             params={params}
@@ -438,61 +443,602 @@ function JobDetails() {
             container_nos={formik.values.container_nos}
             // Passing be_no from formik
           />
+          {/* Importer info End*/}
+          {/* completion status start*/}
           <div className="job-details-container">
-            {/* <JobDetailsRowHeading heading="Documents" /> */}
-            <br />
-            <Row style={{ marginBottom: "20px" }}>
+            <JobDetailsRowHeading heading="Completion Status" />
+
+            <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="cth_no"
-                  name="cth_no"
-                  label="CTH No."
-                  value={formik.values.cth_no}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                />
+                <div className="job-detail-input-container">
+                  <strong>
+                    Documentation Completed:{" "}
+                    {formik.values.documentation_completed_date_time ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.documentation_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px" }}>Pending</span>
+                    )}
+                  </strong>
+                </div>
               </Col>
-              {/* Bill of Entry No. Section */}
-              {/* {user.role === "Admin" ? (
-                <> */}
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="documentation_completed_date_time"
+                    name="documentation_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={
+                      formik.values.documentation_completed_date_time || ""
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "documentation_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
               <Col xs={12} lg={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="be_no"
-                  name="be_no"
-                  value={formik.values.be_no}
-                  onChange={formik.handleChange}
-                  label="Bill of Entry Number"
-                  InputLabelProps={{ shrink: true }}
-                />
+                <div className="job-detail-input-container">
+                  <strong>
+                    E-Sanchit Completed:{" "}
+                    {formik.values.esanchit_completed_date_time ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.esanchit_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
               </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="esanchit_completed_date_time"
+                    name="esanchit_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.esanchit_completed_date_time || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "esanchit_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+            </Row>
+            <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  type="date"
-                  id="be_date"
-                  name="be_date"
-                  value={formik.values.be_date}
-                  onChange={formik.handleChange}
-                  label="Bill of Entry Date"
-                  InputLabelProps={{ shrink: true }}
-                />
+                <div className="job-detail-input-container">
+                  <strong>
+                    Submission Completed:{" "}
+                    {formik.values.submission_completed_date_time ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.submission_completed_date_time
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
               </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="submission_completed_date_time"
+                    name="submission_completed_date_time"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.submission_completed_date_time || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "submission_completed_date_time",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
               <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Do Completed:{" "}
+                    {formik.values.do_completed ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(formik.values.do_completed).toLocaleString(
+                          "en-US",
+                          {
+                            timeZone: "Asia/Kolkata",
+                            hour12: true,
+                          }
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="do_completed"
+                    name="do_completed"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.do_completed || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue("do_completed", e.target.value)
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+            </Row>
+            <Row style={{ marginTop: "10px" }}>
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Operation Completed Date:{" "}
+                    {formik.values.completed_operation_date ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.completed_operation_date
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="completed_operation_date"
+                    name="completed_operation_date"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.completed_operation_date || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "completed_operation_date",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Delivery Completed :{" "}
+                    {formik.values.bill_document_sent_to_accounts ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(
+                          formik.values.bill_document_sent_to_accounts
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="bill_document_sent_to_accounts"
+                    name="bill_document_sent_to_accounts"
+                    label="Set Date (Admin Only)"
+                    value={formik.values.bill_document_sent_to_accounts || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "bill_document_sent_to_accounts",
+                        e.target.value
+                      )
+                    } // Update formik value
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
+            </Row>
+            <Row style={{ marginTop: "10px" }}>
+              <Col xs={12} lg={2}>
+                <div className="job-detail-input-container">
+                  <strong>Status:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    select
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="status"
+                    name="status"
+                    value={formik.values.status}
+                    onChange={formik.handleChange}
+                  >
+                    <MenuItem value="Pending">Pending</MenuItem>
+                    <MenuItem value="Completed">Completed</MenuItem>
+                    <MenuItem value="Cancelled">Cancelled</MenuItem>
+                  </TextField>
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Detailed Status:&nbsp;</strong>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="detailed_status"
+                    name="detailed_status"
+                    value={formik.values.detailed_status}
+                    onChange={formik.handleChange}
+                  >
+                    <MenuItem value="ETA Date Pending">
+                      ETA Date Pending
+                    </MenuItem>
+                    <MenuItem value="Estimated Time of Arrival">
+                      Estimated Time of Arrival
+                    </MenuItem>
+                    <MenuItem value="Gateway IGM Filed">
+                      Gateway IGM Filed
+                    </MenuItem>
+                    <MenuItem value="Discharged">Discharged</MenuItem>
+                    <MenuItem value="Rail Out">Rail Out</MenuItem>
+                    <MenuItem value="BE Noted, Arrival Pending">
+                      BE Noted, Arrival Pending
+                    </MenuItem>
+                    <MenuItem value="BE Noted, Clearance Pending">
+                      BE Noted, Clearance Pending
+                    </MenuItem>
+                    <MenuItem value="PCV Done, Duty Payment Pending">
+                      PCV Done, Duty Payment Pending
+                    </MenuItem>
+                    <MenuItem value="Custom Clearance Completed">
+                      Cus.Clearance Completed, delivery pending
+                    </MenuItem>
+
+                    <MenuItem value="Billing Pending">Billing Pending</MenuItem>
+                  </TextField>
+                </div>
+              </Col>
+            </Row>
+          </div>
+          {/* completion status end  */}
+          {/* Tracking status start*/}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Tracking Status" />
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>ETA Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="vessel_berthing"
+                    name="vessel_berthing"
+                    value={formik.values.vessel_berthing}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>G-IGM Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="gateway_igm_date"
+                    name="gateway_igm_date"
+                    value={formik.values.gateway_igm_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Discharge/ L-IGM Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="discharge_date"
+                    name="discharge_date"
+                    value={formik.values.discharge_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
+                  <strong>Railout Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="rail_out_date"
+                    name="rail_out_date"
+                    value={
+                      formik.values.rail_out_date
+                        ? formik.values.rail_out_date
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        // formik.setFieldValue("examinationPlanning", true);
+                        formik.setFieldValue("rail_out_date", newValue);
+                      } else {
+                        // formik.setFieldValue("examinationPlanning", false);
+                        formik.setFieldValue("rail_out_date", "");
+                      }
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4} className="mb-3">
+                <div className="job-detail-input-container">
+                  <Checkbox
+                    checked={formik.values.checked}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setChecked(true);
+                        formik.setFieldValue("checked", true);
+                      } else {
+                        setChecked(false);
+                        formik.setFieldValue("checked", false);
+                      }
+                    }}
+                  />
+                  {!formik.values.checked && (
+                    <strong>All containers arrived at same date</strong>
+                  )}
+                  {formik.values.checked && (
+                    <>
+                      <strong>All Arrival Date:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="date"
+                        id="arrival_date"
+                        name="arrival_date"
+                        value={formik.values.arrival_date}
+                        onChange={formik.handleChange}
+                      />
+                    </>
+                  )}
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Free time:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    select
+                    size="small"
+                    variant="outlined"
+                    id="free_time"
+                    name="free_time"
+                    value={formik.values.free_time}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    // disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                  >
+                    {options?.map((option, id) => (
+                      <MenuItem key={id} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Priority :&nbsp;</strong>
+
+                  <RadioGroup
+                    row
+                    name="priorityJob"
+                    value={formik.values.priorityJob}
+                    onChange={formik.handleChange}
+                    sx={{ alignItems: "center" }}
+                  >
+                    <FormControlLabel
+                      value="normal"
+                      control={<Radio size="small" />}
+                      label="Normal"
+                      sx={{
+                        color: "green",
+                        "& .MuiSvgIcon-root": { color: "green" },
+                      }}
+                    />
+                    <FormControlLabel
+                      value="Priority"
+                      control={<Radio size="small" />}
+                      label="Priority"
+                      sx={{
+                        color: "orange",
+                        "& .MuiSvgIcon-root": { color: "orange" },
+                      }}
+                    />
+                    <FormControlLabel
+                      value="High Priority"
+                      control={<Radio size="small" />}
+                      label="High Priority"
+                      sx={{
+                        color: "red",
+                        "& .MuiSvgIcon-root": { color: "red" },
+                      }}
+                    />
+                  </RadioGroup>
+                </div>
+              </Col>
+              <Col
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Payment Method:&nbsp;</strong>
+
+                  <RadioGroup
+                    row
+                    name="payment_method"
+                    value={formik.values.payment_method}
+                    onChange={formik.handleChange}
+                    sx={{ alignItems: "center" }}
+                  >
+                    <FormControlLabel
+                      value="Transaction"
+                      control={<Radio size="small" />}
+                      label="Transaction"
+                      // sx={{
+                      //   color: "green",
+                      //   "& .MuiSvgIcon-root": { color: "green" },
+                      // }}
+                    />
+                    <FormControlLabel
+                      value="Deferred"
+                      control={<Radio size="small" />}
+                      label="Deferred"
+                      // sx={{
+                      //   color: "orange",
+                      //   "& .MuiSvgIcon-root": { color: "orange" },
+                      // }}
+                    />
+                  </RadioGroup>
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>FTA Benefit: &nbsp;</strong>
                   <TextField
                     fullWidth
                     size="small"
@@ -501,7 +1047,6 @@ function JobDetails() {
                     type="datetime-local"
                     id="do_revalidation_date"
                     name="do_revalidation_date"
-                    label="FTA Benefit:"
                     value={
                       formik.values.fta_Benefit_date_time
                         ? formik.values.fta_Benefit_date_time
@@ -521,80 +1066,513 @@ function JobDetails() {
                   />
                 </div>
               </Col>
-              {/* <Col xs={12} lg={2}>
-                <TextField
-                  fullWidth
-                  select
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="type_of_b_e"
-                  name="type_of_b_e"
-                  label="Select BE Type"
-                  value={formik.values.type_of_b_e}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                >
-                  <MenuItem value="Home">Home</MenuItem>
-                  <MenuItem value="In-Bond">In-Bond</MenuItem>
-                  <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
-                </TextField>
-              </Col> */}
-
-              {/* Column for selecting Clearance Value */}
-              {/* <Col xs={12} lg={2}>
-                <TextField
-                  fullWidth
-                  select
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="clearanceValue"
-                  name="clearanceValue"
-                  label="Clearance Value"
-                  value={formik.values.clearanceValue}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                >
-                  {clearanceOptionsMapping[formik.values.type_of_b_e] &&
-                    clearanceOptionsMapping[formik.values.type_of_b_e].map(
-                      (option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      )
-                    )}
-                </TextField>
-              </Col> */}
-
-              {/* </>
-              ) : null} */}
             </Row>
-            <Row>
-              <Col xs={12} lg={3}>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Description:&nbsp;</strong>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    margin="normal"
+                    variant="outlined"
+                    id="description"
+                    name="description"
+                    value={formik.values.description}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>CTH No.: &nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="cth_no"
+                    name="cth_no"
+                    value={formik.values.cth_no}
+                    onChange={formik.handleChange}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+              {/* BE Type Selection */}
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>BOE Type:&nbsp;</strong>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    margin="normal"
+                    name="type_of_b_e"
+                    value={formik.values.type_of_b_e}
+                    onChange={formik.handleChange}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      Select BE Type
+                    </MenuItem>
+                    {beTypeOptions.map((option, index) => (
+                      <MenuItem key={index} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </div>
+              </Col>
+            </Row>
+            {/* Clearance under start */}
+            <Row style={{ marginTop: "20px" }}>
+              {/* Clearance Under Selection */}
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Clearance Under:&nbsp;</strong>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    name="clearanceValue"
+                    value={formik.values.clearanceValue}
+                    onChange={(e) => {
+                      if (canChangeClearance()) {
+                        formik.setFieldValue("clearanceValue", e.target.value);
+                      } else {
+                        alert(
+                          "Please clear Ex-Bond details before changing Clearance Under."
+                        );
+                      }
+                    }}
+                  >
+                    <MenuItem value="" disabled>
+                      Select Clearance Type
+                    </MenuItem>
+                    {filteredClearanceOptions.map((option, index) => (
+                      <MenuItem key={index} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </div>
+              </Col>
+
+              {/* Scheme Selection */}
+              {/* <Col xs={12} lg={3}>
                 <TextField
-                  fullWidth
                   select
+                  fullWidth
                   size="small"
                   variant="outlined"
-                  id="free_time"
-                  name="free_time"
-                  label="Free Time"
-                  value={formik.values.free_time}
+                  label="Scheme:"
+                  name="scheme"
+                  value={formik.values.scheme}
                   onChange={formik.handleChange}
-                  style={{ marginTop: "10px" }}
-                  // disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                  style={{ marginBottom: "16px" }}
+                  displayEmpty
                 >
-                  {options?.map((option, id) => (
-                    <MenuItem key={id} value={option}>
-                      {option}
+                  <MenuItem value="" disabled>
+                    Select Scheme
+                  </MenuItem>
+                  {schemeOptions.map((schemeOption, index) => (
+                    <MenuItem key={index} value={schemeOption}>
+                      {schemeOption}
                     </MenuItem>
                   ))}
                 </TextField>
+              </Col> */}
+
+              {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
+              <Col xs={12} lg={4}>
+                {formik.values.type_of_b_e === "Ex-Bond" && (
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>In Bond:&nbsp;</strong>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      name="exBondValue"
+                      value={formik.values.exBondValue}
+                      onChange={formik.handleChange}
+                    >
+                      <MenuItem value="" disabled>
+                        Select In-Bond Type
+                      </MenuItem>
+                      {/* Static "Other" option */}
+                      <MenuItem value="other">Other</MenuItem>
+                      {/* Dynamic Job Details from API */}
+                      {jobDetails.map((job) => (
+                        <MenuItem key={job.job_no} value={job.job_no}>
+                          {`${job.job_no} - ${job.importer}`}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </div>
+                )}
               </Col>
+
+              {/* Additional BE Details if the "other" option is selected */}
+              {formik.values.exBondValue === "other" && (
+                <>
+                  <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                    <div
+                      className="job-detail-input-container"
+                      style={{ justifyContent: "flex-start" }}
+                    >
+                      <strong>InBond BE Number:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        name="in_bond_be_no"
+                        value={formik.values.in_bond_be_no}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </Col>
+
+                  <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                    <div
+                      className="job-detail-input-container"
+                      style={{ justifyContent: "flex-start" }}
+                    >
+                      <strong>InBond BE Date:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        label="InBond BE Date"
+                        type="date"
+                        InputLabelProps={{ shrink: true }}
+                        name="in_bond_be_date"
+                        value={formik.values.in_bond_be_date}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                  </Col>
+
+                  <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                    <FileUpload
+                      label="Upload InBond BE Copy"
+                      bucketPath="ex_be_copy_documents"
+                      onFilesUploaded={(newFiles) =>
+                        formik.setFieldValue("in_bond_ooc_copies", [
+                          ...formik.values.in_bond_ooc_copies,
+                          ...newFiles,
+                        ])
+                      }
+                      multiple
+                    />
+                    <ImagePreview
+                      images={formik.values.in_bond_ooc_copies || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [
+                          ...formik.values.in_bond_ooc_copies,
+                        ];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue(
+                          "in_bond_ooc_copies",
+                          updatedFiles
+                        );
+                      }}
+                    />
+                  </Col>
+                </>
+              )}
+              <Col xs={12} lg={4} style={{ marginTop: "30px" }}>
+                {formik.values.type_of_b_e === "Ex-Bond" && (
+                  <Row>
+                    <Col xs={12}>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={resetOtherDetails}
+                      >
+                        Reset Ex-Bond Details
+                      </Button>
+                    </Col>
+                  </Row>
+                )}
+              </Col>
+            </Row>
+            {/* Clearance under end */}
+            {/* total weight start */}
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Gross Weight (KGS):&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="gross_weight"
+                    name="gross_weight"
+                    value={formik.values.gross_weight}
+                    onChange={formik.handleChange}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Net Weight (KGS):&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="job_net_weight"
+                    name="job_net_weight"
+                    value={formik.values.job_net_weight}
+                    onChange={formik.handleChange}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+            </Row>
+            {/* total weight end */}
+
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>BOE NO:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="be_no"
+                    name="be_no"
+                    value={formik.values.be_no}
+                    onChange={formik.handleChange}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>BOE Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="be_date"
+                    name="be_date"
+                    value={formik.values.be_date}
+                    onChange={formik.handleChange}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Assessment Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="assessment_date"
+                    name="assessment_date"
+                    value={formik.values.assessment_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <FileUpload
+                  label="Upload Checklist"
+                  bucketPath="checklist"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.checklist || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("checklist", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+
+                <ImagePreview
+                  images={formik.values.checklist || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.checklist];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("checklist", updatedFiles);
+                  }}
+                />
+              </Col>
+              <Col xs={12} lg={4}>
+                <FileUpload
+                  label="Job Sticker Upload"
+                  bucketPath="job-sticker"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles =
+                      formik.values.job_sticker_upload || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+
+                <ImagePreview
+                  images={formik.values.job_sticker_upload || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.job_sticker_upload];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                />
+              </Col>
+              <Col xs={12} lg={4}>
+                <FileUpload
+                  label="Upload Processed BE Copy"
+                  bucketPath="processed_be_attachment"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles =
+                      formik.values.processed_be_attachment || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue(
+                      "processed_be_attachment",
+                      updatedFiles
+                    );
+                  }}
+                  multiple={true}
+                />
+                <ImagePreview
+                  images={formik.values.processed_be_attachment || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [
+                      ...formik.values.processed_be_attachment,
+                    ];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue(
+                      "processed_be_attachment",
+                      updatedFiles
+                    );
+                  }}
+                />
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Examination Planning Date:&nbsp;</strong>
+                  <Checkbox
+                    value={formik.values.examinationPlanning}
+                    checked={formik.values.examinationPlanning}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      if (isChecked) {
+                        // Set current date-time when checked, adjusted to local timezone
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
+                        formik.setFieldValue("examinationPlanning", true);
+                        formik.setFieldValue(
+                          "examination_planning_date",
+                          currentDateTime
+                        );
+                      } else {
+                        // Clear values when unchecked
+                        formik.setFieldValue("examinationPlanning", false);
+                        formik.setFieldValue("examination_planning_date", "");
+                      }
+                    }}
+                  />
+                  {formik.values.examination_planning_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.examination_planning_date
+                      ).toLocaleString("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </Col>
+              {user.role === "Admin" && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>Examination Planning Date:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="datetime-local"
+                      id="examination_planning_date"
+                      name="examination_planning_date"
+                      value={
+                        formik.values.examination_planning_date
+                          ? formik.values.examination_planning_date
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue("examinationPlanning", true);
+                          formik.setFieldValue(
+                            "examination_planning_date",
+                            newValue
+                          );
+                        } else {
+                          formik.setFieldValue("examinationPlanning", false);
+                          formik.setFieldValue("examination_planning_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </Col>
+              )}
               <Col
                 xs={12}
-                lg={3}
+                lg={4}
                 style={{ display: "flex", alignItems: "center" }}
               >
                 <Typography variant="body1" sx={{ mr: 1 }}>
@@ -621,7 +1599,7 @@ function JobDetails() {
                 {formik.values.fristCheck && (
                   <>
                     <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
-                      Active
+                      YES &nbsp;
                     </Typography>
                     <Typography
                       variant="body1"
@@ -643,292 +1621,647 @@ function JobDetails() {
                   </>
                 )}
               </Col>
-              <Col
-                xs={12}
-                lg={3}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <Typography variant="body1" sx={{ ml: 2, mr: 1 }}>
-                  Priority Job:
-                </Typography>
-                <RadioGroup
-                  row
-                  name="priorityJob"
-                  value={formik.values.priorityJob}
-                  onChange={formik.handleChange}
-                  sx={{ alignItems: "center" }}
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
                 >
-                  <FormControlLabel
-                    value="normal"
-                    control={<Radio size="small" />}
-                    label="Normal"
-                    sx={{
-                      color: "green",
-                      "& .MuiSvgIcon-root": { color: "green" },
-                    }}
-                  />
-                  <FormControlLabel
-                    value="Priority"
-                    control={<Radio size="small" />}
-                    label="Priority"
-                    sx={{
-                      color: "orange",
-                      "& .MuiSvgIcon-root": { color: "orange" },
-                    }}
-                  />
-                  <FormControlLabel
-                    value="High Priority"
-                    control={<Radio size="small" />}
-                    label="High Priority"
-                    sx={{
-                      color: "red",
-                      "& .MuiSvgIcon-root": { color: "red" },
-                    }}
-                  />
-                </RadioGroup>
-              </Col>
-              <Col
-                xs={12}
-                lg={3}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <Typography variant="body1" sx={{ ml: 2, mr: 1 }}>
-                  Payment Method:
-                </Typography>
-                <RadioGroup
-                  row
-                  name="payment_method"
-                  value={formik.values.payment_method}
-                  onChange={formik.handleChange}
-                  sx={{ alignItems: "center" }}
-                >
-                  <FormControlLabel
-                    value="Transaction"
-                    control={<Radio size="small" />}
-                    label="Transaction"
-                    // sx={{
-                    //   color: "green",
-                    //   "& .MuiSvgIcon-root": { color: "green" },
-                    // }}
-                  />
-                  <FormControlLabel
-                    value="Deferred"
-                    control={<Radio size="small" />}
-                    label="Deferred"
-                    // sx={{
-                    //   color: "orange",
-                    //   "& .MuiSvgIcon-root": { color: "orange" },
-                    // }}
-                  />
-                </RadioGroup>
+                  <strong>Examination Date:&nbsp;</strong>
+                  {data.examination_date ? data.examination_date : ""}
+                </div>
               </Col>
 
-              <Col xs={12} lg={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="gross_weight"
-                  name="gross_weight"
-                  label="Gross Weight"
-                  value={formik.values.gross_weight}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>PCV Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="pcv_date"
+                    name="pcv_date"
+                    value={formik.values.pcv_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Duty Paid Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="duty_paid_date"
+                    name="duty_paid_date"
+                    value={formik.values.duty_paid_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Out of Charge Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="date"
+                    id="out_of_charge"
+                    name="out_of_charge"
+                    value={formik.values.out_of_charge}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={4}>
+                <FileUpload
+                  label="Upload OOC Copy"
+                  bucketPath="ooc_copies"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.ooc_copies || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("ooc_copies", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+                <ImagePreview
+                  images={formik.values.ooc_copies || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.ooc_copies];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("ooc_copies", updatedFiles);
+                  }}
+                />
+              </Col>
+              <Col xs={12} lg={4}>
+                <FileUpload
+                  label="Upload Customs Gate Pass Copy"
+                  bucketPath="gate_pass_copies"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles = formik.values.gate_pass_copies || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("gate_pass_copies", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+                <ImagePreview
+                  images={formik.values.gate_pass_copies || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.gate_pass_copies];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("gate_pass_copies", updatedFiles);
+                  }}
                 />
               </Col>
             </Row>
-            <Row style={{ marginTop: "10px" }}>
-              {/* BE Type Selection */}
-              <Col xs={12} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="BE Type:"
-                  name="type_of_b_e"
-                  value={formik.values.type_of_b_e}
-                  onChange={formik.handleChange}
-                  style={{ marginBottom: "16px" }}
-                  displayEmpty
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
                 >
-                  <MenuItem value="" disabled>
-                    Select BE Type
-                  </MenuItem>
-                  {beTypeOptions.map((option, index) => (
-                    <MenuItem key={index} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  <strong>
+                    {formik.values.obl_telex_bl === "OBL"
+                      ? "Original Document Received Date:"
+                      : "Document Received Date:"}
+                  </strong>
+                  &nbsp;
+                  {formik.values.document_received_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.document_received_date
+                      ).toLocaleString("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
+                </div>
               </Col>
-
-              {/* Clearance Under Selection */}
-              <Col xs={12} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="Clearance Under:"
-                  name="clearanceValue"
-                  value={formik.values.clearanceValue}
-                  onChange={(e) => {
-                    if (canChangeClearance()) {
-                      formik.setFieldValue("clearanceValue", e.target.value);
-                    } else {
-                      alert(
-                        "Please clear Ex-Bond details before changing Clearance Under."
-                      );
-                    }
-                  }}
-                  style={{ marginBottom: "16px" }}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select Clearance Type
-                  </MenuItem>
-                  {filteredClearanceOptions.map((option, index) => (
-                    <MenuItem key={index} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Col>
-
-              {/* Scheme Selection */}
-              <Col xs={12} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="Scheme:"
-                  name="scheme"
-                  value={formik.values.scheme}
-                  onChange={formik.handleChange}
-                  style={{ marginBottom: "16px" }}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select Scheme
-                  </MenuItem>
-                  {schemeOptions.map((schemeOption, index) => (
-                    <MenuItem key={index} value={schemeOption}>
-                      {schemeOption}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Col>
-
-              {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
-              <Col xs={12} lg={3}>
-                {formik.values.clearanceValue === "Ex-Bond" && (
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    label="In-Bond:"
-                    name="exBondValue"
-                    value={formik.values.exBondValue}
-                    onChange={formik.handleChange}
-                    style={{ marginBottom: "16px" }}
-                    displayEmpty
+              <Col xs={12} lg={4}>
+                <FormControl>
+                  <RadioGroup
+                    row
+                    aria-labelledby="demo-radio-buttons-group-label"
+                    name="radio-buttons-group"
+                    value={formik.values.obl_telex_bl}
+                    onChange={handleBlStatusChange}
+                    style={{ marginTop: "10px" }}
                   >
-                    <MenuItem value="" disabled>
-                      Select In-Bond Type
-                    </MenuItem>
-                    {/* Static "Other" option */}
-                    <MenuItem value="other">Other</MenuItem>
-                    {/* Dynamic Job Details from API */}
-                    {jobDetails.map((job) => (
-                      <MenuItem key={job.job_no} value={job.job_no}>
-                        {`${job.job_no} - ${job.importer}`}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
+                    <FormControlLabel
+                      value="OBL"
+                      control={
+                        <Radio checked={formik.values.obl_telex_bl === "OBL"} />
+                      }
+                      label="Original Documents"
+                    />
+                    <FormControlLabel
+                      value="Telex"
+                      control={
+                        <Radio
+                          checked={formik.values.obl_telex_bl === "Telex"}
+                        />
+                      }
+                      label="Telex"
+                    />
+                    <FormControlLabel
+                      value="Surrender BL"
+                      control={
+                        <Radio
+                          checked={
+                            formik.values.obl_telex_bl === "Surrender BL"
+                          }
+                        />
+                      }
+                      label="Surrender BL"
+                    />
+                    <FormControlLabel
+                      value="Waybill"
+                      control={
+                        <Radio
+                          checked={formik.values.obl_telex_bl === "Waybill"}
+                        />
+                      }
+                      label="Waybill"
+                    />
+                    <FormControlLabel
+                      value="clear"
+                      control={<Radio />}
+                      label="Clear"
+                    />
+                  </RadioGroup>
+                </FormControl>
               </Col>
-
-              {/* Additional BE Details if the "other" option is selected */}
-              {formik.values.exBondValue === "other" && (
-                <>
-                  <Col xs={12} lg={3}>
+              {user.role === "Admin" && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>
+                      {formik.values.obl_telex_bl === "OBL"
+                        ? "Original Document Received Date:"
+                        : "Document Received Date:"}
+                    </strong>
+                    &nbsp;
                     <TextField
                       fullWidth
                       size="small"
+                      margin="normal"
                       variant="outlined"
-                      label="InBond BE Number"
-                      name="in_bond_be_no"
-                      value={formik.values.in_bond_be_no}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-
-                  <Col xs={12} lg={3}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      label="InBond BE Date"
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      name="in_bond_be_date"
-                      value={formik.values.in_bond_be_date}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-
-                  <Row>
-                    <Col xs={12} lg={3}>
-                      <FileUpload
-                        label="Upload InBond BE Copy"
-                        bucketPath="ex_be_copy_documents"
-                        onFilesUploaded={(newFiles) =>
-                          formik.setFieldValue("in_bond_ooc_copies", [
-                            ...formik.values.in_bond_ooc_copies,
-                            ...newFiles,
-                          ])
-                        }
-                        multiple
-                      />
-                      <ImagePreview
-                        images={formik.values.in_bond_ooc_copies || []}
-                        onDeleteImage={(index) => {
-                          const updatedFiles = [
-                            ...formik.values.in_bond_ooc_copies,
-                          ];
-                          updatedFiles.splice(index, 1);
+                      type="datetime-local"
+                      id="document_received_date"
+                      name="document_received_date"
+                      value={
+                        formik.values.document_received_date
+                          ? formik.values.document_received_date
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
                           formik.setFieldValue(
-                            "in_bond_ooc_copies",
-                            updatedFiles
+                            "document_received_date",
+                            newValue
                           );
-                        }}
-                      />
-                    </Col>
-                    <Col xs={12} lg={3}>
-                      {formik.values.clearanceValue === "Ex-Bond" && (
-                        <Row style={{ marginTop: "10px" }}>
-                          <Col xs={12}>
-                            <Button
-                              variant="contained"
-                              color="secondary"
-                              onClick={resetOtherDetails}
-                            >
-                              Reset Ex-Bond Details
-                            </Button>
-                          </Col>
-                        </Row>
-                      )}
-                    </Col>
-                  </Row>
-                </>
+                        } else {
+                          formik.setFieldValue("document_received_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </Col>
               )}
             </Row>
-          </div>
+            <Row style={{ marginTop: "20px" }}>
+              {/* Checkbox for DO Planning */}
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>DO Planning:&nbsp;</strong>
+                  <Checkbox
+                    value={formik.values.doPlanning}
+                    checked={formik.values.doPlanning}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      if (isChecked) {
+                        // Set current date-time when checked
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16); // Format to "yyyy-MM-ddTHH:mm"
+                        formik.setFieldValue("doPlanning", true);
+                        formik.setFieldValue(
+                          "do_planning_date",
+                          currentDateTime
+                        );
+                      } else {
+                        // Clear values when unchecked
+                        formik.setFieldValue("doPlanning", false);
+                        formik.setFieldValue("do_planning_date", "");
+                      }
+                    }}
+                  />
+                  {formik.values.do_planning_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(formik.values.do_planning_date).toLocaleString(
+                        "en-US",
+                        {
+                          timeZone: "Asia/Kolkata",
+                          hour12: true,
+                        }
+                      )}
+                    </span>
+                  )}
+                </div>
+              </Col>
 
+              {/* Radio Button for DO Planning Type */}
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>DO Planning Type:&nbsp;</strong>
+                  <RadioGroup
+                    row
+                    aria-label="do-planning-type"
+                    name="type_of_Do"
+                    value={formik.values.type_of_Do}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      if (selectedValue === "Clear") {
+                        // Retain the current date but reset only the type
+                        formik.setFieldValue("type_of_Do", "");
+                      } else {
+                        // Set the selected type without changing the date
+                        formik.setFieldValue("type_of_Do", selectedValue);
+                      }
+                    }}
+                    style={{ marginLeft: "10px" }}
+                  >
+                    <FormControlLabel
+                      value="ICD"
+                      control={
+                        <Radio
+                          style={{
+                            color:
+                              formik.values.type_of_Do === "ICD"
+                                ? "green"
+                                : "inherit",
+                          }}
+                        />
+                      }
+                      label="ICD"
+                    />
+                    <FormControlLabel
+                      value="Factory"
+                      control={
+                        <Radio
+                          style={{
+                            color:
+                              formik.values.type_of_Do === "Factory"
+                                ? "green"
+                                : "inherit",
+                          }}
+                        />
+                      }
+                      label="Factory"
+                    />
+                    <FormControlLabel
+                      value="Clear"
+                      control={
+                        <Radio
+                          style={{
+                            color:
+                              formik.values.type_of_Do === "Clear"
+                                ? "red"
+                                : "inherit",
+                          }}
+                        />
+                      }
+                      label="Clear"
+                    />
+                  </RadioGroup>
+                </div>
+              </Col>
+
+              {/* Admin TextField for DO Planning Date */}
+              {user.role === "Admin" && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>DO Planning Date (Admin Only):&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="datetime-local"
+                      id="do_planning_date"
+                      name="do_planning_date"
+                      value={formik.values.do_planning_date || ""}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue("do_planning_date", newValue);
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </Col>
+              )}
+            </Row>
+
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
+                  {formik.values.do_revalidation ? (
+                    formik.values.do_validity_upto_job_level
+                  ) : (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="date"
+                      id="do_validity_upto_job_level"
+                      name="do_validity_upto_job_level"
+                      value={formik.values.do_validity_upto_job_level}
+                      onChange={formik.handleChange}
+                    />
+                  )}
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <Col xs={12} lg={12}>
+                    <div className="job-detail-input-container">
+                      <strong>Required DO Validity Upto:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="date"
+                        id={`required_do_validity_upto_0`}
+                        name={`container_nos[0].required_do_validity_upto`}
+                        value={
+                          formik.values.container_nos[0]
+                            ?.required_do_validity_upto || ""
+                        }
+                        onChange={(e) => handleDateChange(e.target.value)}
+                      />
+                    </div>
+                  </Col>
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>DO Revalidation:&nbsp;</strong>
+                  <Checkbox
+                    value={formik.values.do_revalidation}
+                    checked={formik.values.do_revalidation}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      if (isChecked) {
+                        // Set current date-time adjusted to local timezone
+                        const currentDateTime = new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
+                        formik.setFieldValue("do_revalidation", true);
+                        formik.setFieldValue(
+                          "do_revalidation_date",
+                          currentDateTime
+                        );
+                      } else {
+                        // Clear values when unchecked
+                        formik.setFieldValue("do_revalidation", false);
+                        formik.setFieldValue("do_revalidation_date", "");
+                      }
+                    }}
+                  />
+                  {formik.values.do_revalidation_date && (
+                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                      {new Date(
+                        formik.values.do_revalidation_date
+                      ).toLocaleString("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour12: true,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </Col>
+
+              {user.role === "Admin" && (
+                <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    <strong>DO Revalidation Date:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="datetime-local"
+                      id="do_revalidation_date"
+                      name="do_revalidation_date"
+                      value={
+                        formik.values.do_revalidation_date
+                          ? formik.values.do_revalidation_date
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        if (newValue) {
+                          formik.setFieldValue("do_revalidation", true);
+                          formik.setFieldValue(
+                            "do_revalidation_date",
+                            newValue
+                          );
+                        } else {
+                          formik.setFieldValue("do_revalidation", false);
+                          formik.setFieldValue("do_revalidation_date", "");
+                        }
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </Col>
+              )}
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>DO Received Date:</strong>
+                  &nbsp;
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="document_received_date"
+                    name="document_received_date"
+                    value={
+                      formik.values.document_received_date
+                        ? formik.values.document_received_date
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        formik.setFieldValue(
+                          "document_received_date",
+                          newValue
+                        );
+                      } else {
+                        formik.setFieldValue("document_received_date", "");
+                      }
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>DO Valid Up to:</strong> &nbsp;&nbsp;
+                  {formik.values.do_validity_upto_job_level}
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div className="mb-3">
+                  <strong>DO Copies:&nbsp;</strong>
+                  <ImagePreview
+                    images={formik.values.do_copies || []} // Corrected optional chaining syntax
+                    readOnly
+                  />
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4} className="mb-3">
+                <div className="job-detail-input-container">
+                  <strong>Delivery Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="date"
+                    margin="normal"
+                    variant="outlined"
+                    id="delivery_date"
+                    name="delivery_date"
+                    value={formik.values.delivery_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Emty Cont. Off-Load Date.</strong>
+                  &nbsp;
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="emptyContainerOffLoadDate"
+                    name="emptyContainerOffLoadDate"
+                    value={
+                      formik.values.emptyContainerOffLoadDate
+                        ? formik.values.emptyContainerOffLoadDate
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        formik.setFieldValue(
+                          "emptyContainerOffLoadDate",
+                          newValue
+                        );
+                      } else {
+                        formik.setFieldValue("emptyContainerOffLoadDate", "");
+                      }
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: "20px" }}>
+              <Col>
+                <div className="job-detail-input-container">
+                  <strong>Remarks:&nbsp;</strong>
+                  <TextField
+                    multiline
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="remarks"
+                    name="remarks"
+                    value={formik.values.remarks}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+            </Row>
+          </div>
+          {/* Tracking status end*/}
+
+          {/* document section */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Documents" />
             <br />
@@ -1127,7 +2460,7 @@ function JobDetails() {
                 }}
                 multiple={true}
               />
-            
+
               <ImagePreview
                 images={formik.values.all_documents || []}
                 onDeleteImage={(index) => {
@@ -1139,290 +2472,8 @@ function JobDetails() {
             </Col>
           </div>
 
+          {/* Queries status start  */}
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Completion Status" />
-
-            <Row>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Documentation Completed:{" "}
-                    {formik.values.documentation_completed_date_time ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.documentation_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px" }}>Pending</span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="documentation_completed_date_time"
-                    name="documentation_completed_date_time"
-                    label="Set Date (Admin Only)"
-                    value={
-                      formik.values.documentation_completed_date_time || ""
-                    }
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "documentation_completed_date_time",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    E-Sanchit Completed:{" "}
-                    {formik.values.esanchit_completed_date_time ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.esanchit_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="esanchit_completed_date_time"
-                    name="esanchit_completed_date_time"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.esanchit_completed_date_time || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "esanchit_completed_date_time",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-            </Row>
-            <Row>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Submission Completed:{" "}
-                    {formik.values.submission_completed_date_time ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.submission_completed_date_time
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="submission_completed_date_time"
-                    name="submission_completed_date_time"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.submission_completed_date_time || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "submission_completed_date_time",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Do Completed:{" "}
-                    {formik.values.do_completed ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(formik.values.do_completed).toLocaleString(
-                          "en-US",
-                          {
-                            timeZone: "Asia/Kolkata",
-                            hour12: true,
-                          }
-                        )}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="do_completed"
-                    name="do_completed"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.do_completed || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue("do_completed", e.target.value)
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-            </Row>
-            <Row>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    DO Billing Completed:{" "}
-                    {formik.values.bill_document_sent_to_accounts ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.bill_document_sent_to_accounts
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="bill_document_sent_to_accounts"
-                    name="bill_document_sent_to_accounts"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.bill_document_sent_to_accounts || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "bill_document_sent_to_accounts",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Operation Completed:{" "}
-                    {formik.values.completed_operation_date ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.completed_operation_date
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="completed_operation_date"
-                    name="completed_operation_date"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.completed_operation_date || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "completed_operation_date",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-            </Row>
-
             <JobDetailsRowHeading heading="Queries" />
             <br />
             {formik.values.do_queries.length > 0 &&
@@ -1510,1069 +2561,7 @@ function JobDetails() {
                 </Row>
               ))}
           </div>
-
-          {/*************************** Row 8 ****************************/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Description and Checklist" />
-            <Row className="job-detail-row">
-              <div className="job-detail-input-container">
-                <strong>Description:&nbsp;</strong>
-                <TextField
-                  size="small"
-                  fullWidth
-                  margin="normal"
-                  variant="outlined"
-                  id="description"
-                  name="description"
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                />
-              </div>
-              <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Checklist"
-                  bucketPath="checklist"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.checklist || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("checklist", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-
-                <ImagePreview
-                  images={formik.values.checklist || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.checklist];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("checklist", updatedFiles);
-                  }}
-                />
-              </Col>
-              <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Job Sticker Upload"
-                  bucketPath="job-sticker"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles =
-                      formik.values.job_sticker_upload || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-
-                <ImagePreview
-                  images={formik.values.job_sticker_upload || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.job_sticker_upload];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                />
-              </Col>
-            </Row>
-          </div>
-          {/*************************** Row 9 ****************************/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Status" />
-            <Row>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Status:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    select
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="status"
-                    name="status"
-                    value={formik.values.status}
-                    onChange={formik.handleChange}
-                  >
-                    <MenuItem value="Pending">Pending</MenuItem>
-                    <MenuItem value="Completed">Completed</MenuItem>
-                    <MenuItem value="Cancelled">Cancelled</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Detailed Status:&nbsp;</strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="detailed_status"
-                    name="detailed_status"
-                    value={formik.values.detailed_status}
-                    onChange={formik.handleChange}
-                  >
-                    <MenuItem value="ETA Date Pending">
-                      ETA Date Pending
-                    </MenuItem>
-                    <MenuItem value="Estimated Time of Arrival">
-                      Estimated Time of Arrival
-                    </MenuItem>
-                    <MenuItem value="Gateway IGM Filed">
-                      Gateway IGM Filed
-                    </MenuItem>
-                    <MenuItem value="Discharged">Discharged</MenuItem>
-                    <MenuItem value="BE Noted, Arrival Pending">
-                      BE Noted, Arrival Pending
-                    </MenuItem>
-                    <MenuItem value="BE Noted, Clearance Pending">
-                      BE Noted, Clearance Pending
-                    </MenuItem>
-                    <MenuItem value="PCV Done, Duty Payment Pending">
-                      PCV Done, Duty Payment Pending
-                    </MenuItem>
-                    <MenuItem value="Custom Clearance Completed">
-                      Cus.Clearance Completed, delivery pending
-                    </MenuItem>
-
-                    <MenuItem value="Billing Pending">Billing Pending</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col xs={12} lg={4}>
-                <FormControl>
-                  <RadioGroup
-                    row
-                    aria-labelledby="demo-radio-buttons-group-label"
-                    name="radio-buttons-group"
-                    value={formik.values.obl_telex_bl}
-                    onChange={handleBlStatusChange}
-                    style={{ marginTop: "10px" }}
-                  >
-                    <FormControlLabel
-                      value="OBL"
-                      control={
-                        <Radio checked={formik.values.obl_telex_bl === "OBL"} />
-                      }
-                      label="Original Documents"
-                    />
-                    <FormControlLabel
-                      value="Telex"
-                      control={
-                        <Radio
-                          checked={formik.values.obl_telex_bl === "Telex"}
-                        />
-                      }
-                      label="Telex"
-                    />
-                    <FormControlLabel
-                      value="Surrender BL"
-                      control={
-                        <Radio
-                          checked={
-                            formik.values.obl_telex_bl === "Surrender BL"
-                          }
-                        />
-                      }
-                      label="Surrender BL"
-                    />
-                    <FormControlLabel
-                      value="clear"
-                      control={<Radio />}
-                      label="Clear"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>
-                    {formik.values.obl_telex_bl === "OBL"
-                      ? "Original Document Received Date:"
-                      : "Document Received Date:"}
-                  </strong>
-                  &nbsp;
-                  {formik.values.document_received_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(
-                        formik.values.document_received_date
-                      ).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </Col>
-
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>
-                      {formik.values.obl_telex_bl === "OBL"
-                        ? "Original Document Received Date:"
-                        : "Document Received Date:"}
-                    </strong>
-                    &nbsp;
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="document_received_date"
-                      name="document_received_date"
-                      value={
-                        formik.values.document_received_date
-                          ? formik.values.document_received_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue(
-                            "document_received_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("document_received_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-
-            <Row>
-              {/* Checkbox for DO Planning */}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Planning:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.doPlanning}
-                    checked={formik.values.doPlanning}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time when checked
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16); // Format to "yyyy-MM-ddTHH:mm"
-                        formik.setFieldValue("doPlanning", true);
-                        formik.setFieldValue(
-                          "do_planning_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("doPlanning", false);
-                        formik.setFieldValue("do_planning_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.do_planning_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(formik.values.do_planning_date).toLocaleString(
-                        "en-US",
-                        {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        }
-                      )}
-                    </span>
-                  )}
-                </div>
-              </Col>
-
-              {/* Radio Button for DO Planning Type */}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Planning Type:&nbsp;</strong>
-                  <RadioGroup
-                    row
-                    aria-label="do-planning-type"
-                    name="type_of_Do"
-                    value={formik.values.type_of_Do}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      if (selectedValue === "Clear") {
-                        // Retain the current date but reset only the type
-                        formik.setFieldValue("type_of_Do", "");
-                      } else {
-                        // Set the selected type without changing the date
-                        formik.setFieldValue("type_of_Do", selectedValue);
-                      }
-                    }}
-                    style={{ marginLeft: "10px" }}
-                  >
-                    <FormControlLabel
-                      value="ICD"
-                      control={
-                        <Radio
-                          style={{
-                            color:
-                              formik.values.type_of_Do === "ICD"
-                                ? "green"
-                                : "inherit",
-                          }}
-                        />
-                      }
-                      label="ICD"
-                    />
-                    <FormControlLabel
-                      value="Factory"
-                      control={
-                        <Radio
-                          style={{
-                            color:
-                              formik.values.type_of_Do === "Factory"
-                                ? "green"
-                                : "inherit",
-                          }}
-                        />
-                      }
-                      label="Factory"
-                    />
-                    <FormControlLabel
-                      value="Clear"
-                      control={
-                        <Radio
-                          style={{
-                            color:
-                              formik.values.type_of_Do === "Clear"
-                                ? "red"
-                                : "inherit",
-                          }}
-                        />
-                      }
-                      label="Clear"
-                    />
-                  </RadioGroup>
-                </div>
-              </Col>
-
-              {/* Admin TextField for DO Planning Date */}
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>DO Planning Date (Admin Only):&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="do_planning_date"
-                      name="do_planning_date"
-                      value={formik.values.do_planning_date || ""}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("do_planning_date", newValue);
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-
-            <Row>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong style={{ width: "50%" }}>DO Validity:&nbsp;</strong>
-                  {formik.values.do_revalidation ? (
-                    formik.values.do_validity_upto_job_level
-                  ) : (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="date"
-                      id="do_validity_upto_job_level"
-                      name="do_validity_upto_job_level"
-                      value={formik.values.do_validity_upto_job_level}
-                      onChange={formik.handleChange}
-                    />
-                  )}
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <Col xs={12} lg={12}>
-                    <div className="job-detail-input-container">
-                      <strong>Required DO Validity Upto:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        type="date"
-                        id={`required_do_validity_upto_0`}
-                        name={`container_nos[0].required_do_validity_upto`}
-                        value={
-                          formik.values.container_nos[0]
-                            ?.required_do_validity_upto || ""
-                        }
-                        onChange={(e) => handleDateChange(e.target.value)}
-                      />
-                    </div>
-                  </Col>
-                </div>
-              </Col>
-            </Row>
-            <Row>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>DO Revalidation:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.do_revalidation}
-                    checked={formik.values.do_revalidation}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time adjusted to local timezone
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16);
-                        formik.setFieldValue("do_revalidation", true);
-                        formik.setFieldValue(
-                          "do_revalidation_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("do_revalidation", false);
-                        formik.setFieldValue("do_revalidation_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.do_revalidation_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(
-                        formik.values.do_revalidation_date
-                      ).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </Col>
-
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>DO Revalidation Date:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="do_revalidation_date"
-                      name="do_revalidation_date"
-                      value={
-                        formik.values.do_revalidation_date
-                          ? formik.values.do_revalidation_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("do_revalidation", true);
-                          formik.setFieldValue(
-                            "do_revalidation_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("do_revalidation", false);
-                          formik.setFieldValue("do_revalidation_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-
-            <Row>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Rail out Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="rail_out_date"
-                    name="rail_out_date"
-                    value={
-                      formik.values.rail_out_date
-                        ? formik.values.rail_out_date
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      if (newValue) {
-                        // formik.setFieldValue("examinationPlanning", true);
-                        formik.setFieldValue("rail_out_date", newValue);
-                      } else {
-                        // formik.setFieldValue("examinationPlanning", false);
-                        formik.setFieldValue("rail_out_date", "");
-                      }
-                    }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Examination Planning:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.examinationPlanning}
-                    checked={formik.values.examinationPlanning}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time when checked, adjusted to local timezone
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16);
-                        formik.setFieldValue("examinationPlanning", true);
-                        formik.setFieldValue(
-                          "examination_planning_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("examinationPlanning", false);
-                        formik.setFieldValue("examination_planning_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.examination_planning_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(
-                        formik.values.examination_planning_date
-                      ).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </Col>
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Examination Planning Date:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="examination_planning_date"
-                      name="examination_planning_date"
-                      value={
-                        formik.values.examination_planning_date
-                          ? formik.values.examination_planning_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("examinationPlanning", true);
-                          formik.setFieldValue(
-                            "examination_planning_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("examinationPlanning", false);
-                          formik.setFieldValue("examination_planning_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
-            </Row>
-          </div>
-          {/*************************** Row 10 ****************************/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="SIMS/PIMS/NFMIMS" />
-            <br />
-            <Row>
-              <Col sx={12} lg={2}>
-                <strong>SIMS Reg No and Date</strong>
-              </Col>
-              <Col>
-                <TextField
-                  id="outlined-start-adornment"
-                  size="small"
-                  fullWidth
-                  // sx={{ m: 1 }}
-                  name="sims_reg_no"
-                  value={formik.values.sims_reg_no}
-                  onChange={formik.handleChange}
-                />
-              </Col>
-              <Col>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  sx={{ margin: 0 }}
-                  variant="outlined"
-                  id="sims_date"
-                  name="sims_date"
-                  value={formik.values.sims_date}
-                  onChange={formik.handleChange}
-                />
-              </Col>
-            </Row>
-            <br />
-            <Row>
-              <Col sx={12} lg={2}>
-                <strong>PIMS Reg No and Date</strong>
-              </Col>
-              <Col>
-                <TextField
-                  id="outlined-start-adornment"
-                  size="small"
-                  fullWidth
-                  name="pims_reg_no"
-                  value={formik.values.pims_reg_no}
-                  onChange={formik.handleChange}
-                />
-              </Col>
-              <Col>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  variant="outlined"
-                  id="pims_date"
-                  name="pims_date"
-                  sx={{ margin: 0 }}
-                  value={formik.values.pims_date}
-                  onChange={formik.handleChange}
-                />
-              </Col>
-            </Row>
-            <br />
-            <Row>
-              <Col sx={12} lg={2}>
-                <strong>NFMIMS Reg No and Date</strong>
-              </Col>
-              <Col>
-                <TextField
-                  id="outlined-start-adornment"
-                  size="small"
-                  fullWidth
-                  name="nfmims_reg_no"
-                  value={formik.values.nfmims_reg_no}
-                  onChange={formik.handleChange}
-                />
-              </Col>
-              <Col>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  variant="outlined"
-                  id="nfmims_date"
-                  name="nfmims_date"
-                  sx={{ margin: 0 }}
-                  value={formik.values.nfmims_date}
-                  onChange={formik.handleChange}
-                />
-              </Col>
-            </Row>
-          </div>
-          {/*************************** Row 11 ****************************/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Dates" />
-            <Row>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>ETA:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="vessel_berthing"
-                    name="vessel_berthing"
-                    value={formik.values.vessel_berthing}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Gateway IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="gateway_igm_date"
-                    name="gateway_igm_date"
-                    value={formik.values.gateway_igm_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Discharge Date/ IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="discharge_date"
-                    name="discharge_date"
-                    value={formik.values.discharge_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-            {/*************************** Row 12 ****************************/}
-            <Row>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Assessment Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="assessment_date"
-                    name="assessment_date"
-                    value={formik.values.assessment_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  <strong>Examination Date:&nbsp;</strong>
-                  {data.examination_date ? data.examination_date : ""}
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>PCV Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="pcv_date"
-                    name="pcv_date"
-                    value={formik.values.pcv_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            {/*************************** Row 13 ****************************/}
-            <Row>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Duty Paid Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="duty_paid_date"
-                    name="duty_paid_date"
-                    value={formik.values.duty_paid_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>DO Validity:&nbsp;</strong>
-                  {formik.values.do_validity}
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Out of Charge Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="out_of_charge"
-                    name="out_of_charge"
-                    value={formik.values.out_of_charge}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row className="my-3">
-              <Col xs={12} lg={4} className="mb-3">
-                <div className="job-detail-input-container">
-                  <strong>Delivery Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    type="date"
-                    margin="normal"
-                    variant="outlined"
-                    id="delivery_date"
-                    name="delivery_date"
-                    value={formik.values.delivery_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4} className="mb-3">
-                <div className="job-detail-input-container">
-                  <Checkbox
-                    checked={formik.values.checked}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setChecked(true);
-                        formik.setFieldValue("checked", true);
-                      } else {
-                        setChecked(false);
-                        formik.setFieldValue("checked", false);
-                      }
-                    }}
-                  />
-                  {!formik.values.checked && (
-                    <strong>All containers arrived at same date</strong>
-                  )}
-                  {formik.values.checked && (
-                    <>
-                      <strong>Arrival Date:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        type="date"
-                        id="arrival_date"
-                        name="arrival_date"
-                        value={formik.values.arrival_date}
-                        onChange={formik.handleChange}
-                      />
-                    </>
-                  )}
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4} className="mb-3">
-                <div
-                  className="job-detail-input-container"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  <strong>Completed Operation Date:&nbsp;</strong>
-                  {data.completed_operation_date
-                    ? data.completed_operation_date
-                    : ""}
-                </div>
-              </Col>
-            </Row>
-
-            <br />
-            <Row>
-              <Col xs={6}>
-                <div className="mb-3">
-                  <strong>DO Copies:&nbsp;</strong>
-                  <ImagePreview
-                    images={formik.values.do_copies || []} // Corrected optional chaining syntax
-                    readOnly
-                  />
-                </div>
-              </Col>
-              <Col xs={6}>
-                <FileUpload
-                  label="Upload Processed BE Attachment"
-                  bucketPath="processed_be_attachment"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles =
-                      formik.values.processed_be_attachment || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue(
-                      "processed_be_attachment",
-                      updatedFiles
-                    );
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.processed_be_attachment || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [
-                      ...formik.values.processed_be_attachment,
-                    ];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue(
-                      "processed_be_attachment",
-                      updatedFiles
-                    );
-                  }}
-                />
-              </Col>
-            </Row>
-
-            <Row>
-              <Col xs={6}>
-                <FileUpload
-                  label="Upload OOC Copy"
-                  bucketPath="ooc_copies"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.ooc_copies || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("ooc_copies", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.ooc_copies || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.ooc_copies];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("ooc_copies", updatedFiles);
-                  }}
-                />
-              </Col>
-
-              <Col xs={6}>
-                <FileUpload
-                  label="Upload e-Gate Pass Copy"
-                  bucketPath="gate_pass_copies"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.gate_pass_copies || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("gate_pass_copies", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.gate_pass_copies || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.gate_pass_copies];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("gate_pass_copies", updatedFiles);
-                  }}
-                />
-              </Col>
-            </Row>
-          </div>
-
-          {/*************************** Row 14 ****************************/}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Remarks" />
-            <Row>
-              <Col>
-                <div className="job-detail-input-container">
-                  <strong>Remarks:&nbsp;</strong>
-                  <TextField
-                    multiline
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="remarks"
-                    name="remarks"
-                    value={formik.values.remarks}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-            </Row>
-          </div>
+          {/* Queries status end  */}
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Container Details" />
@@ -2665,7 +2654,7 @@ function JobDetails() {
                           </div>
                         </Col>
                       )}
-                      <Col xs={12} lg={1}>
+                      {/* <Col xs={12} lg={1}>
                         <div className="job-detail-input-container">
                           <strong>Free Time:&nbsp;</strong>
                           <TextField
@@ -2687,7 +2676,7 @@ function JobDetails() {
                             ))}
                           </TextField>
                         </div>
-                      </Col>
+                      </Col> */}
                       <Col xs={12} lg={2} className="flex-div">
                         <strong>Detention From:&nbsp;</strong>
                         {detentionFrom[index]}
@@ -2854,7 +2843,7 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
-                      <Col xs={12} lg={3}>
+                      {/* <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>Weight as per Document:&nbsp;</strong>
                           <TextField
@@ -2869,7 +2858,7 @@ function JobDetails() {
                             onChange={formik.handleChange}
                           />
                         </div>
-                      </Col>
+                      </Col> */}
                     </Row>
 
                     <Row>
@@ -3046,6 +3035,13 @@ function JobDetails() {
               );
             })}
           </div>
+
+          {/*************************** Row 8 ****************************/}
+
+          {/*************************** Row 9 ****************************/}
+
+          {/*************************** Row 11 ****************************/}
+
           <Row>
             <Col>
               <button

@@ -405,6 +405,7 @@ function determineDetailedStatus(job) {
     out_of_charge,
     pcv_date,
     discharge_date,
+    rail_out_date,
     gateway_igm_date,
     vessel_berthing,
     delivery_date,
@@ -425,6 +426,7 @@ function determineDetailedStatus(job) {
   const validOutOfChargeDate = isValidDate(out_of_charge);
   const validPcvDate = isValidDate(pcv_date);
   const validDischargeDate = isValidDate(discharge_date);
+  const validRailOutDate = isValidDate(rail_out_date);
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
   const validDeliveryDate = isValidDate(delivery_date);
@@ -444,6 +446,8 @@ function determineDetailedStatus(job) {
     return "BE Noted, Clearance Pending";
   } else if (be_no) {
     return "BE Noted, Arrival Pending";
+  } else if (validRailOutDate) {
+    return "Rail Out";
   } else if (validDischargeDate) {
     return "Discharged";
   } else if (validGatewayIgmDate) {

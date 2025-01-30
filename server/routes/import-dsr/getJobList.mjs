@@ -11,9 +11,10 @@ const statusRank = {
   "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
   "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
   "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
-  "Gateway IGM Filed": { rank: 6, field: "gateway_igm_date" },
+  "Rail Out": { rank: 6, field: "rail_out_date" },
   Discharged: { rank: 7, field: "discharge_date" },
-  "Estimated Time of Arrival": { rank: 8, field: "vessel_berthing" },
+  "Gateway IGM Filed": { rank: 8, field: "gateway_igm_date" },
+  "Estimated Time of Arrival": { rank: 9, field: "vessel_berthing" },
 };
 
 // Helper to safely parse dates
@@ -26,7 +27,7 @@ const parseDate = (dateStr) => {
 const defaultFields = `
   job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
   gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
-  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date do_completed do_validity rail_out_date cth_documents payment_method
+  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity rail_out_date cth_documents payment_method
 `;
 
 const additionalFieldsByStatus = {
@@ -117,8 +118,9 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
       billing_pending: "Billing Pending",
       eta_date_pending: "ETA Date Pending",
       estimated_time_of_arrival: "Estimated Time of Arrival",
-      discharged: "Discharged",
       gateway_igm_filed: "Gateway IGM Filed",
+      discharged: "Discharged",
+      rail_out: "Rail Out",
       be_noted_arrival_pending: "BE Noted, Arrival Pending",
       be_noted_clearance_pending: "BE Noted, Clearance Pending",
       pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",

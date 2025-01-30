@@ -131,6 +131,7 @@ function JobDetails() {
       vessel_berthing: eta,
       gateway_igm_date: gatewayIGMDate,
       discharge_date: dischargeDate,
+      rail_out_date: RailOutDate,
       out_of_charge: outOfChargeDate,
       delivery_date: deliveryDate,
       pcv_date: pcvDate,
@@ -157,6 +158,8 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
     } else if (billOfEntryNo) {
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+    } else if (RailOutDate) {
+      formik.setFieldValue("detailed_status", "Rail Out");
     } else if (dischargeDate) {
       formik.setFieldValue("detailed_status", "Discharged");
     } else if (gatewayIGMDate) {
@@ -178,6 +181,7 @@ function JobDetails() {
     formik.values.vessel_berthing,
     formik.values.gateway_igm_date,
     formik.values.discharge_date,
+    formik.values.rail_out_date,
     formik.values.arrival_date, // Ensure this is included
     formik.values.out_of_charge,
     formik.values.pcv_date,
@@ -769,6 +773,7 @@ function JobDetails() {
                       Gateway IGM Filed
                     </MenuItem>
                     <MenuItem value="Discharged">Discharged</MenuItem>
+                    <MenuItem value="Rail Out">Rail Out</MenuItem>
                     <MenuItem value="BE Noted, Arrival Pending">
                       BE Noted, Arrival Pending
                     </MenuItem>

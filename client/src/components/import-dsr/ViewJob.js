@@ -71,7 +71,8 @@ function JobDetails() {
   // const [currentDocument, setCurrentDocument] = useState(null);
   const [actionType, setActionType] = useState(""); // "edit" or "delete"
   // Modal visibility state
-
+  // Loading state for downloading
+  const [isDownloading, setIsDownloading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -395,6 +396,9 @@ function JobDetails() {
   //   }
   //   handleCloseDialog();
   // };
+  /**
+   * Handle PDF generation and download
+   */
 
   const handleOpenDialog = (doc, isEdit = false) => {
     setCurrentDocument(doc);
@@ -444,7 +448,11 @@ function JobDetails() {
   const [isUploading, setIsUploading] = useState(false);
 
   // Open modal
-  const handleOpenModal = () => setShowModal(true);
+  // Inside ParentComponent.jsx or ViewJob.js
+  const handleOpenModal = () => {
+    console.log("Opening modal with jobData:", formik.values.job_no);
+    setShowModal(true);
+  };
 
   // Close modal
   const handleCloseModal = () => setShowModal(false);
@@ -485,6 +493,86 @@ function JobDetails() {
     setIsUploading(false);
   };
 
+  // const handleDownload = async () => {
+  //   setIsDownloading(true);
+  //   try {
+  //     if (jobStickerRef.current) {
+        
+  //       // Generate PDF as Blob
+  //       const pdfBlob = await jobStickerRef.current.generatePdf();
+  //       // Check if Blob was generated successfully
+  //       if (!pdfBlob) {
+  //         throw new Error("PDF Blob is undefined");
+  //       }
+
+  //       // Create a download link
+  //       const url = window.URL.createObjectURL(pdfBlob);
+  //       const link = document.createElement("a");
+  //       link.href = url;
+  //       link.setAttribute(
+  //         "download",
+  //         `Job_Sticker_${formik.values.job_no}.pdf`
+  //       );
+  //       document.body.appendChild(link);
+  //       link.click();
+  //       link.parentNode.removeChild(link);
+
+  //       // Release the object URL
+  //       window.URL.revokeObjectURL(url);
+  //       console.log("PDF downloaded successfully.");
+  //     } else {
+  //       throw new Error("JobStickerPDF ref is not defined");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error generating or downloading PDF:", error);
+  //     alert(
+  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
+  //     );
+  //   }
+  //   setIsDownloading(false);
+  // };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      if (jobStickerRef.current) {
+        
+        // Generate PDF as Blob without passing arguments
+        const pdfBlob = await jobStickerRef.current.generatePdf();
+  
+        // Check if Blob was generated successfully
+        if (!pdfBlob) {
+          throw new Error("PDF Blob is undefined");
+        }
+  
+        // Create a download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute(
+          "download",
+          `Job_Sticker_${formik.values.job_no}.pdf`
+        );
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+  
+        // Release the object URL
+        window.URL.revokeObjectURL(url);
+        console.log("PDF downloaded successfully.");
+      } else {
+        throw new Error("JobStickerPDF ref is not defined");
+      }
+    } catch (error) {
+      console.error("Error generating or downloading PDF:", error);
+      alert(
+        `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
+      );
+    }
+    setIsDownloading(false);
+  };
+  
+  
   /**
    * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
    * @param {Blob} blob - The PDF blob to upload.
@@ -3167,9 +3255,16 @@ function JobDetails() {
       />
       {/* Modal for Review and Alteration */}
       {/* Modal for Review and Alteration */}
-      <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
+      {/* Modal for Review and Download */}
+      <Modal
+        show={showModal}
+        onHide={handleCloseModal}
+        size="lg"
+        centered
+        style={{ marginTop: "40px" }}
+      >
         <Modal.Header closeButton>
-          <Modal.Title>Review and Confirm Job Sticker</Modal.Title>
+          <Modal.Title>Review and Download Job Sticker</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <JobStickerPDF
@@ -3195,12 +3290,8 @@ function JobDetails() {
               awb_bl_date: formik.values.awb_bl_date,
               shipping_line_airline: formik.values.shipping_line_airline,
               custom_house: formik.values.custom_house,
+              container_nos: formik.values.container_nos,
             }}
-            onJobDataChange={(field, value) =>
-              formik.setFieldValue(field, value)
-            }
-            errors={formik.errors}
-            touched={formik.touched}
             data={data}
           />
         </Modal.Body>
@@ -3208,18 +3299,16 @@ function JobDetails() {
           <Button
             variant="secondary"
             onClick={handleCloseModal}
-            disabled={isUploading}
+            disabled={isDownloading}
           >
             Cancel
           </Button>
           <Button
-            variant="success"
-            onClick={handleConfirm}
-            disabled={isUploading}
+            variant="primary"
+            onClick={handleDownload}
+            disabled={isDownloading}
           >
-            {isUploading
-              ? "Uploading..."
-              : "Confirm and Upload Job Sticker PDF"}
+            {isDownloading ? "Downloading..." : "Download PDF"}
           </Button>
         </Modal.Footer>
       </Modal>

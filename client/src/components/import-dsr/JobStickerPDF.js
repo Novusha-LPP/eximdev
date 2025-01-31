@@ -11,7 +11,7 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
    */
   useImperativeHandle(ref, () => ({
     /**
-     *
+     * Generates the PDF and returns it as a Blob.
      * @returns {Promise<Blob>}
      */
     generatePdf: () => {
@@ -27,10 +27,10 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
           const pageHeight = doc.internal.pageSize.getHeight();
 
           // Define margins
-          const leftMargin = 20;
-          const rightMargin = 20;
-          const topMargin = 20;
-          const bottomMargin = 20;
+          const leftMargin = 40;
+          const rightMargin = 40;
+          const topMargin = 40;
+          const bottomMargin = 40;
 
           // Calculate available width
           const availableWidth = pageWidth - leftMargin - rightMargin;
@@ -49,105 +49,229 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
               const logoWidth = availableWidth;
               const logoHeight = logoWidth * aspectRatio;
 
-              const jobNumberText = `JOB NO. AMD/IMP/SEA/ ${data.job_no} / ${data.year}`;
-              doc.setFontSize(14);
+              // JOB NO. AMD/IMP/SEA/{job_no}/{year} centered at the top
+              const jobNumberText = `JOB NO. AMD/IMP/SEA/${data.job_no}/${data.year}`;
+              doc.setFontSize(16);
               doc.setFont("helvetica", "bold");
               const jobNumberWidth = doc.getTextWidth(jobNumberText);
               const jobNumberX = (pageWidth - jobNumberWidth) / 2;
-              const jobNumberY = topMargin + 20;
+              const jobNumberY = topMargin + 15; // Position at top margin + offset
               doc.text(jobNumberText, jobNumberX, jobNumberY);
 
+              // Add Logo below the job number
               const logoX = leftMargin;
-              const logoY = jobNumberY + 10;
+              const logoY = jobNumberY + 20; // Space below job number
               doc.addImage(img, "JPEG", logoX, logoY, logoWidth, logoHeight);
 
-              const titleText = "Job Sticker";
-              doc.setFontSize(16);
-              doc.setFont("helvetica", "bold");
-              const titleWidth = doc.getTextWidth(titleText);
-              const titleX = (pageWidth - titleWidth) / 2;
-              const titleY = logoY + logoHeight + 20;
-              // doc.text(titleText, titleX, titleY);
+              // Initialize current Y position for content
+              let currentY = logoY + logoHeight + 30; // Space below the logo
 
-              // Prepare data for the table
-              const tableHead = [["Field", "Value"]];
-              const tableBody = [
-                ["Job Number", data.job_no || "N/A"],
-                ["Year", data.year || "N/A"],
-                ["Importer", data.importer || "N/A"],
-                ["BE No", jobData.be_no || "N/A"],
-                ["BE Date", jobData.be_date || "N/A"],
-                ["Invoice Number", data.invoice_number || "N/A"],
-                ["Invoice Date", data.invoice_date || "N/A"],
-                ["Loading Port", data.loading_port || "N/A"],
-                ["Number of Packages", data.no_of_pkgs || "N/A"],
-                ["Description", jobData.description || "N/A"],
-                ["Gross Weight", jobData.gross_weight || "N/A"],
-                ["Net Weight", jobData.job_net_weight || "N/A"],
-                ["Gateway IGM", data.gateway_igm || "N/A"],
-                ["Gateway IGM Date", data.gateway_igm_date || "N/A"],
-                ["Local IGM No", data.igm_no || "N/A"],
-                ["Local IGM Date", data.igm_date || "N/A"],
-                ["BL No", data.awb_bl_no || "N/A"],
-                ["BL Date", data.awb_bl_date || "N/A"],
-                ["Shipping Line/Airline", data.shipping_line_airline || "N/A"],
-                ["ICD", data.custom_house || "N/A"],
+              /**
+               * Helper function to add a two-column row with borders
+               * @param {string} label1 - Label for the first column
+               * @param {string} value1 - Value for the first column
+               * @param {string} label2 - Label for the second column
+               * @param {string} value2 - Value for the second column
+               */
+              const addTwoColumnRow = (label1, value1, label2, value2) => {
+                const labelWidth = 100; // Fixed width for labels
+                const gap = 20; // Gap between columns
+
+                // First Column
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                doc.text(`${label1}:`, leftMargin, currentY);
+                doc.setFont("helvetica", "normal");
+                doc.text(`${value1}`, leftMargin + labelWidth + 10, currentY);
+
+                // Second Column
+                doc.setFont("helvetica", "bold");
+                doc.text(
+                  `${label2}:`,
+                  leftMargin + availableWidth / 2 + gap,
+                  currentY
+                );
+                doc.setFont("helvetica", "normal");
+                doc.text(
+                  `${value2}`,
+                  leftMargin + availableWidth / 2 + gap + labelWidth + 10,
+                  currentY
+                );
+
+                // Draw horizontal line for the row border
+                doc.setLineWidth(0.5);
+                doc.line(
+                  leftMargin,
+                  currentY + 5,
+                  pageWidth - rightMargin,
+                  currentY + 5
+                );
+
+                currentY += 25; // Move to next line with spacing
+              };
+
+              /**
+               * Helper function to add a single-column row with borders
+               * @param {string} label - Label for the row
+               * @param {string} value - Value for the row
+               */
+              const addSingleColumnRow = (label, value) => {
+                const labelWidth = 100; // Fixed width for labels
+
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                doc.text(`${label}:`, leftMargin, currentY);
+                doc.setFont("helvetica", "normal");
+                doc.text(`${value}`, leftMargin + labelWidth + 10, currentY);
+
+                // Draw horizontal line for the row border
+                doc.setLineWidth(0.5);
+                doc.line(
+                  leftMargin,
+                  currentY + 5,
+                  pageWidth - rightMargin,
+                  currentY + 5
+                );
+
+                currentY += 25; // Move to next line with spacing
+              };
+
+              // Add General Job Details with mixed column layouts
+              // Row 1: Single Column (Importer)
+              addSingleColumnRow("Importer", data.importer || "N/A");
+
+              // Row 2: Two Columns (BE No & BE Date)
+              addTwoColumnRow(
+                "BE No",
+                jobData.be_no || "N/A",
+                "BE Date",
+                jobData.be_date || "N/A"
+              );
+
+              // Row 3: Two Columns (Invoice Number & Invoice Date)
+              addTwoColumnRow(
+                "Invoice NO.",
+                data.invoice_number || "N/A",
+                "Invoice Date",
+                data.invoice_date || "N/A"
+              );
+
+              // Row 4: Two Columns (Loading Port & Number of Packages)
+              addTwoColumnRow(
+                "Loading Port",
+                data.loading_port || "N/A",
+                "Packages",
+                data.no_of_pkgs || "N/A"
+              );
+
+              // Row 5: Single Column (Description)
+              addSingleColumnRow("Description", jobData.description || "N/A");
+
+              // Row 6: Two Columns (Gross Weight & Net Weight)
+              addTwoColumnRow(
+                "Gross Weight",
+                jobData.gross_weight || "N/A",
+                "Net Weight",
+                jobData.job_net_weight || "N/A"
+              );
+
+              // Row 7: Two Columns (Gateway IGM & Gateway IGM Date)
+              addTwoColumnRow(
+                "Gateway IGM",
+                data.gateway_igm || "N/A",
+                "Gateway IGM Date",
+                data.gateway_igm_date || "N/A"
+              );
+
+              // Row 8: Two Columns (Local IGM No & Local IGM Date)
+              addTwoColumnRow(
+                "Local IGM No",
+                data.igm_no || "N/A",
+                "Local IGM Date",
+                data.igm_date || "N/A"
+              );
+
+              // Row 9: Two Columns (BL No & BL Date)
+              addTwoColumnRow(
+                "BL No",
+                data.awb_bl_no || "N/A",
+                "BL Date",
+                data.awb_bl_date || "N/A"
+              );
+
+              // Row 10: Two Columns (Shipping Line/Airline & ICD)
+              addTwoColumnRow(
+                "Shipping Line",
+                data.shipping_line_airline || "N/A",
+                "ICD",
+                data.custom_house || "N/A"
+              );
+
+              // Add some space before Container Details
+              currentY += 10;
+
+              // Container Details Header
+              doc.setFontSize(14);
+              doc.setFont("helvetica", "bold");
+              doc.text("Container Details", leftMargin, currentY);
+              currentY += 20;
+
+              // Define Container Table Columns
+              const containerColumns = [
+                { header: "Container No", dataKey: "container_number" },
+                { header: "Size", dataKey: "size" },
+                { header: "Seal Number", dataKey: "seal_no" },
               ];
 
-              // Use jspdf-autotable to generate a table with your job data
-              doc.autoTable({
-                startY: titleY + 10,
-                head: tableHead,
-                body: tableBody,
-                styles: { fontSize: 12, cellPadding: 5 },
-                headStyles: {
-                  fillColor: [22, 160, 133],
-                  textColor: 255,
-                  fontStyle: "bold",
-                }, // Teal header with white text
-                alternateRowStyles: { fillColor: [240, 240, 240] }, // Light grey for alternate rows
-                columnStyles: {
-                  0: { cellWidth: 150 }, // "Field" column width
-                  1: { cellWidth: availableWidth - 150 }, // "Value" column adjusts based on available width
-                },
-                margin: { left: leftMargin, right: rightMargin },
-              });
-
-              // Add Container Details Table
-              const containerStartY = doc.lastAutoTable.finalY + 20; // 20 points below the previous table
-
-              // Define container table headers and body
-              const containerHead = [["Container No", "Size", "Seal Number"]];
-              const containerBody =
+              // Prepare Container Data
+              const containerData =
                 jobData.container_nos && jobData.container_nos.length > 0
-                  ? jobData.container_nos.map((container) => [
-                      container.container_number || "N/A",
-                      container.size || "N/A",
-                      container.seal_no || "N/A",
-                    ])
-                  : [["No containers available.", "", ""]];
+                  ? jobData.container_nos.map((container) => ({
+                      container_number: container.container_number || "N/A",
+                      size: container.size || "N/A",
+                      seal_no: container.seal_no || "N/A",
+                    }))
+                  : [
+                      {
+                        container_number: "No containers available.",
+                        size: "",
+                        seal_no: "",
+                      },
+                    ];
 
-              // Generate container table
+              // Generate Container Table
               doc.autoTable({
-                startY: containerStartY,
-                head: containerHead,
-                body: containerBody,
+                startY: currentY,
+                head: [containerColumns.map((col) => col.header)],
+                body: containerData.map((row) => [
+                  row.container_number,
+                  row.size,
+                  row.seal_no,
+                ]),
                 styles: { fontSize: 12, cellPadding: 5 },
                 headStyles: {
                   fillColor: [52, 58, 64],
                   textColor: 255,
                   fontStyle: "bold",
-                }, // Dark header with white text
-                alternateRowStyles: { fillColor: [248, 249, 250] }, // Light grey for alternate rows
+                  halign: "center",
+                },
+                bodyStyles: {
+                  halign: "center",
+                },
                 columnStyles: {
                   0: { cellWidth: 150 },
                   1: { cellWidth: 100 },
                   2: { cellWidth: 150 },
                 },
+                theme: "striped",
+                alternateRowStyles: { fillColor: [248, 249, 250] },
                 margin: { left: leftMargin, right: rightMargin },
               });
 
-              // Add footer with page number
+              // Update currentY after the container table
+              currentY = doc.lastAutoTable.finalY + 20;
+
+              // Add Footer with Page Number
               const pageCount = doc.internal.getNumberOfPages();
               doc.setFontSize(10);
               for (let i = 1; i <= pageCount; i++) {
@@ -404,7 +528,7 @@ const JobStickerPDF = forwardRef(({ jobData, data }, ref) => {
         {/* Row 11: Shipping Line/Airline & ICD */}
         <Row style={{ padding: "10px 0" }}>
           <Col xs={12} lg={6} style={{ padding: "10px" }}>
-            <strong style={{ color: "#495057" }}>Shipping Line/Airline:</strong>
+            <strong style={{ color: "#495057" }}>Shipping Line:</strong>
             <span style={{ marginLeft: "10px", color: "#212529" }}>
               {data.shipping_line_airline || "N/A"}
             </span>

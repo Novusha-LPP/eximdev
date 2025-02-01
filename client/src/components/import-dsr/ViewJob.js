@@ -1605,9 +1605,8 @@ function JobDetails() {
                   }}
                 />
               </Col>
-              <Col xs={12} lg={4}>
-                {" "}
-                {/* Generate PDF Button */}
+              {/* <Col xs={12} lg={4}>
+              
                 <div style={{ textAlign: "center", marginBottom: "20px" }}>
                   <Button
                     variant="primary"
@@ -1622,7 +1621,7 @@ function JobDetails() {
                     Generate Job Sticker
                   </Button>
                 </div>
-              </Col>
+              </Col> */}
               <Col xs={12} lg={4}>
                 <FileUpload
                   label="Job Sticker Upload"

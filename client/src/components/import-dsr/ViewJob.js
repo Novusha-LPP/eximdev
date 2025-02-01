@@ -1,6 +1,8 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
-import { Row, Col } from "react-bootstrap";
+import { Modal, Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
+import { uploadFileToS3 } from "../../utils/awsFileUpload";
+import JobStickerPDF from "./JobStickerPDF";
 import {
   IconButton,
   TextField,
@@ -68,7 +70,9 @@ function JobDetails() {
   // const [dialogOpen, setDialogOpen] = useState(false);
   // const [currentDocument, setCurrentDocument] = useState(null);
   const [actionType, setActionType] = useState(""); // "edit" or "delete"
-
+  // Modal visibility state
+  // Loading state for downloading
+  const [isDownloading, setIsDownloading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -392,6 +396,9 @@ function JobDetails() {
   //   }
   //   handleCloseDialog();
   // };
+  /**
+   * Handle PDF generation and download
+   */
 
   const handleOpenDialog = (doc, isEdit = false) => {
     setCurrentDocument(doc);
@@ -428,6 +435,169 @@ function JobDetails() {
     }
 
     handleCloseDialog();
+  };
+
+  //
+  // Ref to JobStickerPDF component
+  const jobStickerRef = useRef();
+
+  // Modal visibility state
+  const [showModal, setShowModal] = useState(false);
+
+  // Loading state for uploading
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Open modal
+  // Inside ParentComponent.jsx or ViewJob.js
+  const handleOpenModal = () => {
+    console.log("Opening modal with jobData:", formik.values.job_no);
+    setShowModal(true);
+  };
+
+  // Close modal
+  const handleCloseModal = () => setShowModal(false);
+
+  // Handle PDF generation and upload on Confirm
+  const handleConfirm = async () => {
+    setIsUploading(true);
+    try {
+      if (jobStickerRef.current) {
+        // Generate PDF as Blob
+        const pdfBlob = await jobStickerRef.current.generatePdf();
+
+        // Upload the PDF Blob
+        const uploadedFile = await uploadPdf(
+          pdfBlob,
+          `job-sticker/${formik.values.jobId}.pdf`
+        );
+
+        // Update Formik's job_sticker_upload with the uploaded file info
+        const existingFiles = formik.values.job_sticker_upload || [];
+        const updatedFiles = [...existingFiles, uploadedFile];
+        formik.setFieldValue("job_sticker_upload", updatedFiles);
+
+        alert("PDF uploaded successfully!");
+
+        // Optionally, handle further actions like form submission
+        // formik.handleSubmit();
+
+        // Close the modal
+        handleCloseModal();
+      }
+    } catch (error) {
+      console.error("Error generating or uploading PDF:", error);
+      alert(
+        "An error occurred while generating or uploading the PDF. Please try again."
+      );
+    }
+    setIsUploading(false);
+  };
+
+  // const handleDownload = async () => {
+  //   setIsDownloading(true);
+  //   try {
+  //     if (jobStickerRef.current) {
+        
+  //       // Generate PDF as Blob
+  //       const pdfBlob = await jobStickerRef.current.generatePdf();
+  //       // Check if Blob was generated successfully
+  //       if (!pdfBlob) {
+  //         throw new Error("PDF Blob is undefined");
+  //       }
+
+  //       // Create a download link
+  //       const url = window.URL.createObjectURL(pdfBlob);
+  //       const link = document.createElement("a");
+  //       link.href = url;
+  //       link.setAttribute(
+  //         "download",
+  //         `Job_Sticker_${formik.values.job_no}.pdf`
+  //       );
+  //       document.body.appendChild(link);
+  //       link.click();
+  //       link.parentNode.removeChild(link);
+
+  //       // Release the object URL
+  //       window.URL.revokeObjectURL(url);
+  //       console.log("PDF downloaded successfully.");
+  //     } else {
+  //       throw new Error("JobStickerPDF ref is not defined");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error generating or downloading PDF:", error);
+  //     alert(
+  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
+  //     );
+  //   }
+  //   setIsDownloading(false);
+  // };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      if (jobStickerRef.current) {
+        
+        // Generate PDF as Blob without passing arguments
+        const pdfBlob = await jobStickerRef.current.generatePdf();
+  
+        // Check if Blob was generated successfully
+        if (!pdfBlob) {
+          throw new Error("PDF Blob is undefined");
+        }
+  
+        // Create a download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute(
+          "download",
+          `Job_Sticker_${formik.values.job_no}.pdf`
+        );
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+  
+        // Release the object URL
+        window.URL.revokeObjectURL(url);
+        console.log("PDF downloaded successfully.");
+      } else {
+        throw new Error("JobStickerPDF ref is not defined");
+      }
+    } catch (error) {
+      console.error("Error generating or downloading PDF:", error);
+      alert(
+        `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
+      );
+    }
+    setIsDownloading(false);
+  };
+  
+  
+  /**
+   * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
+   * @param {Blob} blob - The PDF blob to upload.
+   * @param {string} filePath - The desired file path or name in storage.
+   * @returns {Promise<Object>} - An object containing uploaded file's details.
+   */
+  const uploadPdf = async (blob, filePath) => {
+    // Assuming uploadFileToS3 is a utility function you've defined
+    // that uploads a file to AWS S3 and returns the file URL.
+
+    // Example implementation:
+    // const result = await uploadFileToS3(blob, filePath);
+    // return { url: result.Location, name: result.Key };
+
+    // Replace the below mock implementation with your actual upload logic
+    try {
+      const result = await uploadFileToS3(blob, filePath);
+      return {
+        name: result.Key, // Assuming Key is the file name/path in S3
+        url: result.Location, // URL of the uploaded file
+        size: blob.size,
+      };
+    } catch (error) {
+      throw new Error("Upload failed");
+    }
   };
 
   return (
@@ -1435,6 +1605,23 @@ function JobDetails() {
                   }}
                 />
               </Col>
+              {/* <Col xs={12} lg={4}>
+              
+                <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                  <Button
+                    variant="primary"
+                    onClick={handleOpenModal}
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "16px",
+                      borderRadius: "6px",
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    Generate Job Sticker
+                  </Button>
+                </div>
+              </Col> */}
               <Col xs={12} lg={4}>
                 <FileUpload
                   label="Job Sticker Upload"
@@ -3065,6 +3252,66 @@ function JobDetails() {
         }
         sx={{ left: "auto !important", right: "24px !important" }}
       />
+      {/* Modal for Review and Alteration */}
+      {/* Modal for Review and Alteration */}
+      {/* Modal for Review and Download */}
+      <Modal
+        show={showModal}
+        onHide={handleCloseModal}
+        size="lg"
+        centered
+        style={{ marginTop: "40px" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Review and Download Job Sticker</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <JobStickerPDF
+            ref={jobStickerRef}
+            jobData={{
+              job_no: formik.values.job_no,
+              year: formik.values.year,
+              importer: formik.values.importer,
+              be_no: formik.values.be_no,
+              be_date: formik.values.be_date,
+              invoice_number: formik.values.invoice_number,
+              invoice_date: formik.values.invoice_date,
+              loading_port: formik.values.loading_port,
+              no_of_pkgs: formik.values.no_of_pkgs,
+              description: formik.values.description,
+              gross_weight: formik.values.gross_weight,
+              job_net_weight: formik.values.job_net_weight,
+              gateway_igm: formik.values.gateway_igm,
+              gateway_igm_date: formik.values.gateway_igm_date,
+              igm_no: formik.values.igm_no,
+              igm_date: formik.values.igm_date,
+              awb_bl_no: formik.values.awb_bl_no,
+              awb_bl_date: formik.values.awb_bl_date,
+              shipping_line_airline: formik.values.shipping_line_airline,
+              custom_house: formik.values.custom_house,
+              container_nos: formik.values.container_nos,
+            }}
+            data={data}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={handleCloseModal}
+            disabled={isDownloading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleDownload}
+            disabled={isDownloading}
+          >
+            {isDownloading ? "Downloading..." : "Download PDF"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* Confirm Deletion */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>

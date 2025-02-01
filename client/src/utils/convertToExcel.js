@@ -176,7 +176,7 @@ export const convertToExcel = async (
       "BL NUMBER AND DATE": blNoAndDate,
       COMMODITY: item.description,
 
-      "NET WEIGHT": net_weight,
+      "NET WEIGHT": item.job_net_weight,
       PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
       "FREE TIME": item.free_time,

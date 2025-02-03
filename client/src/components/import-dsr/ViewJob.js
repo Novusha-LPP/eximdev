@@ -1475,12 +1475,15 @@ function JobDetails() {
                   return matchedJob ? (
                     <>
                       <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                        <strong>BE No:</strong> {matchedJob.be_no || "N/A"}
+                        <strong>BE No:</strong>&nbsp;&nbsp;&nbsp;&nbsp;{" "}
+                        {matchedJob.be_no || "N/A"}
                       </Col>
                       <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                        <strong>BE Date:</strong> {matchedJob.be_date || "N/A"}
+                        <strong>BE Date:</strong> &nbsp;&nbsp;&nbsp;&nbsp;{" "}
+                        {matchedJob.be_date || "N/A"}
                       </Col>
                       <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                        <strong>OOC copy:</strong>
                         <ImagePreview
                           images={matchedJob.ooc_copies || []} // Corrected optional chaining syntax
                           readOnly

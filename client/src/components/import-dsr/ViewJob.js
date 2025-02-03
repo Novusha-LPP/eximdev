@@ -497,7 +497,7 @@ function JobDetails() {
   //   setIsDownloading(true);
   //   try {
   //     if (jobStickerRef.current) {
-        
+
   //       // Generate PDF as Blob
   //       const pdfBlob = await jobStickerRef.current.generatePdf();
   //       // Check if Blob was generated successfully
@@ -536,15 +536,14 @@ function JobDetails() {
     setIsDownloading(true);
     try {
       if (jobStickerRef.current) {
-        
         // Generate PDF as Blob without passing arguments
         const pdfBlob = await jobStickerRef.current.generatePdf();
-  
+
         // Check if Blob was generated successfully
         if (!pdfBlob) {
           throw new Error("PDF Blob is undefined");
         }
-  
+
         // Create a download link
         const url = window.URL.createObjectURL(pdfBlob);
         const link = document.createElement("a");
@@ -556,7 +555,7 @@ function JobDetails() {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
-  
+
         // Release the object URL
         window.URL.revokeObjectURL(url);
         console.log("PDF downloaded successfully.");
@@ -571,8 +570,7 @@ function JobDetails() {
     }
     setIsDownloading(false);
   };
-  
-  
+
   /**
    * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
    * @param {Blob} blob - The PDF blob to upload.
@@ -1466,6 +1464,36 @@ function JobDetails() {
                   </Col>
                 </>
               )}
+              {formik.values.exBondValue !== "other" &&
+                formik.values.exBondValue !== "" &&
+                (() => {
+                  // Find the matching job based on job_no
+                  const matchedJob = jobDetails.find(
+                    (job) => job.job_no === formik.values.exBondValue
+                  );
+
+                  return matchedJob ? (
+                    <>
+                      <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                        <strong>BE No:</strong> {matchedJob.be_no || "N/A"}
+                      </Col>
+                      <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                        <strong>BE Date:</strong> {matchedJob.be_date || "N/A"}
+                      </Col>
+                      <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
+                        <ImagePreview
+                          images={matchedJob.ooc_copies || []} // Corrected optional chaining syntax
+                          readOnly
+                        />
+                      </Col>
+                    </>
+                  ) : (
+                    <Col xs={12} style={{ marginTop: "20px" }}>
+                      No matching job found.
+                    </Col>
+                  );
+                })()}
+
               <Col xs={12} lg={4} style={{ marginTop: "30px" }}>
                 {formik.values.type_of_b_e === "Ex-Bond" && (
                   <Row>

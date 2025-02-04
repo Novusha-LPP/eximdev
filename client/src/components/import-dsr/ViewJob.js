@@ -195,6 +195,7 @@ function JobDetails() {
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
+
   const handleRadioChange = (event) => {
     const selectedValue = event.target.value;
 
@@ -2853,13 +2854,18 @@ function JobDetails() {
                     </div>
                     <br />
                     <Row>
-                      {!checked && (
-                        <Col xs={12} lg={3}>
-                          <div className="job-detail-input-container">
-                            <strong>Arrival Date:&nbsp;</strong>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Arrival Date:&nbsp;</strong>
+                          {formik.values.checked ? (
+                            // ✅ Show Text Only (Read-Only View)
+                            <span>
+                              {container.arrival_date || "Not Available"}
+                            </span>
+                          ) : (
+                            // ✅ Show Editable Input Field
                             <TextField
                               fullWidth
-                              key={index}
                               size="small"
                               margin="normal"
                               variant="outlined"
@@ -2869,9 +2875,9 @@ function JobDetails() {
                               value={container.arrival_date}
                               onChange={formik.handleChange}
                             />
-                          </div>
-                        </Col>
-                      )}
+                          )}
+                        </div>
+                      </Col>                      
                       {/* <Col xs={12} lg={1}>
                         <div className="job-detail-input-container">
                           <strong>Free Time:&nbsp;</strong>
@@ -2899,7 +2905,6 @@ function JobDetails() {
                         <strong>Detention From:&nbsp;</strong>
                         {detentionFrom[index]}
                       </Col>
-
                       <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>DO Validity :&nbsp;</strong>

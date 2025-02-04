@@ -625,7 +625,7 @@ function useFetchJobDetails(
         document_received_date: data.document_received_date
           ? data.document_received_date
           : "",
-        arrival_date: container_nos[0]?.arrival_date,
+        arrival_date: data.arrival_date,
         vessel_berthing:
           data.vessel_berthing === undefined
             ? ""

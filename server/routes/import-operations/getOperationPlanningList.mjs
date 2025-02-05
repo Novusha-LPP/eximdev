@@ -67,7 +67,7 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
     // Fetch paginated jobs
     const jobs = await JobModel.find(filterConditions)
       .select(
-        "job_no detailed_status importer status be_no be_date container_nos examination_planning_date custom_house year consignment_type type_of_b_e cth_documents all_documents "
+        "job_no detailed_status importer status be_no be_date container_nos examination_planning_date custom_house year consignment_type type_of_b_e cth_documents all_documents job_sticker_upload verified_checklist_upload "
       )
       .sort({ examination_planning_date: 1 })
       .skip(skip)

@@ -267,19 +267,77 @@ function OperationsList() {
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => {
-        const { cth_documents, all_documents } = cell.row.original;
+        const {
+          cth_documents,
+          all_documents,
+          job_sticker_upload,
+          verified_checklist_upload,
+        } = cell.row.original;
+
+        // Helper function to safely get the first link if it's an array or a string
+        const getFirstLink = (input) => {
+          if (Array.isArray(input)) {
+            return input.length > 0 ? input[0] : null;
+          }
+          return input || null;
+        };
+
+        const stickerLink = getFirstLink(job_sticker_upload);
+        const checklistLink = getFirstLink(verified_checklist_upload);
 
         return (
           <div style={{ textAlign: "left" }}>
-            {" "}
-            {/* Ensure all content aligns to the left */}
-            {/* Render CTH Documents with URLs */}
+            {/* Render the "Sticker" link or fallback text */}
+            {stickerLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={stickerLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Sticker
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>No Sticker </span>
+              </div>
+            )}
+
+            {/* Render the "Checklist" link or fallback text */}
+            {checklistLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={checklistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Checklist
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>No Checklist </span>
+              </div>
+            )}
+
+            {/* Render CTH Documents (showing actual URL) */}
             {cth_documents
-              ?.filter((doc) => doc.url && doc.url.length > 0) // Only include documents with a URL
+              ?.filter((doc) => doc.url && doc.url.length > 0)
               .map((doc) => (
                 <div key={doc._id} style={{ marginBottom: "5px" }}>
                   <a
-                    href={doc.url[0]} // Use the first URL in the array
+                    href={doc.url[0]}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -292,7 +350,8 @@ function OperationsList() {
                   </a>
                 </div>
               ))}
-            {/* Render All Documents */}
+
+            {/* Render All Documents (showing actual URL) */}
             {all_documents?.map((docUrl, index) => (
               <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
                 <a
@@ -321,17 +380,17 @@ function OperationsList() {
       Cell: ({ row }) => {
         // 1) Create a ref for the JobStickerPDF child
         const pdfRef = React.useRef(null);
-    
+
         // 2) Handler calls the child method
         const handleGenerate = () => {
           pdfRef.current?.generatePdf();
         };
-    
+
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {/* 3) The invisible child that has .generatePdf() */}
             <JobStickerPDF ref={pdfRef} data={row.original} />
-    
+
             {/* 4) A button that triggers PDF generation */}
             <button
               onClick={handleGenerate}
@@ -348,8 +407,7 @@ function OperationsList() {
           </div>
         );
       },
-    }
-    
+    },
   ];
 
   const tableConfig = {

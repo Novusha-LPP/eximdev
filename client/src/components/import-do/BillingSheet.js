@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
-import { useNavigate } from "react-router-dom";
+
 import { Link } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import {
@@ -26,6 +27,8 @@ function BillingSheet() {
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
   const navigate = useNavigate();
+  const location = useLocation();
+  const listRef = useRef(null);
 
   // Debounce search input
   useEffect(() => {
@@ -35,7 +38,28 @@ function BillingSheet() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
+  // Restore scroll position on component mount
+  useEffect(() => {
+    if (location.state?.scrollPosition && listRef.current) {
+      listRef.current.scrollTo(0, location.state.scrollPosition);
+    }
+  }, [location.state?.scrollPosition]);
 
+  // Save scroll position before component unmounts
+  useEffect(() => {
+    return () => {
+      if (listRef.current) {
+        const scrollPosition = listRef.current.scrollTop;
+        window.history.replaceState(
+          {
+            ...window.history.state,
+            scrollPosition,
+          },
+          ""
+        );
+      }
+    };
+  }, []);
   // Fetch jobs based on search query and pagination
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -186,7 +210,7 @@ function BillingSheet() {
   const handlePageChange = (event, newPage) => setPage(newPage);
 
   return (
-    <div style={{ height: "80%" }}>
+    <div ref={listRef} style={{ height: "80%", overflow: "auto" }}>
       {error ? (
         <div>{error}</div>
       ) : (

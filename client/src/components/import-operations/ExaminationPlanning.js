@@ -20,6 +20,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 import { examinationPlaningStatus } from "./../../assets/data/examinationPlaningStatus";
 import Tooltip from "@mui/material/Tooltip";
+import JobStickerPDF from "../import-dsr/JobStickerPDF";
 
 function ImportOperations() {
   const [years, setYears] = useState([]);
@@ -454,6 +455,42 @@ function ImportOperations() {
                 </a>
               </div>
             ))}
+          </div>
+        );
+      },
+    },
+    {
+      id: "jS",
+      header: "Job Sticker",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        // 1) Create a ref for the JobStickerPDF child
+        const pdfRef = React.useRef(null);
+
+        // 2) Handler calls the child method
+        const handleGenerate = () => {
+          pdfRef.current?.generatePdf();
+        };
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* 3) The invisible child that has .generatePdf() */}
+            <JobStickerPDF ref={pdfRef} data={row.original} />
+
+            {/* 4) A button that triggers PDF generation */}
+            <button
+              onClick={handleGenerate}
+              style={{
+                padding: "10px 20px",
+                fontSize: "16px",
+                borderRadius: "6px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                cursor: "pointer",
+              }}
+            >
+              Generate Job Sticker
+            </button>
           </div>
         );
       },

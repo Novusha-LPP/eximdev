@@ -105,7 +105,7 @@ const jobSchema = new mongoose.Schema({
       examination_videos: [{ type: String, trim: true }],
       do_revalidation_date: { type: String, trim: true },
       do_validity_upto_container_level: { type: String, trim: true },
-      required_do_validity_upto: { type: String, trim: true },
+      seal_number: { type: String, trim: true },
       do_revalidation: [
         {
           do_revalidation_upto: { type: String },

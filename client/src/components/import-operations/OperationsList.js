@@ -18,6 +18,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
+import JobStickerPDF from "../import-dsr/JobStickerPDF";
 function OperationsList() {
   const [years, setYears] = React.useState([]);
   const [selectedYear, setSelectedYear] = React.useState("");
@@ -312,6 +313,43 @@ function OperationsList() {
         );
       },
     },
+    {
+      id: "js",
+      header: "Job Sticker",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        // 1) Create a ref for the JobStickerPDF child
+        const pdfRef = React.useRef(null);
+    
+        // 2) Handler calls the child method
+        const handleGenerate = () => {
+          pdfRef.current?.generatePdf();
+        };
+    
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* 3) The invisible child that has .generatePdf() */}
+            <JobStickerPDF ref={pdfRef} data={row.original} />
+    
+            {/* 4) A button that triggers PDF generation */}
+            <button
+              onClick={handleGenerate}
+              style={{
+                padding: "10px 20px",
+                fontSize: "16px",
+                borderRadius: "6px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                cursor: "pointer",
+              }}
+            >
+              Generate Job Sticker
+            </button>
+          </div>
+        );
+      },
+    }
+    
   ];
 
   const tableConfig = {

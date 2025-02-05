@@ -539,6 +539,8 @@ function useFetchJobDetails(
             : convertDateFormatForUI(container.arrival_date), // convert date to yyyy-mm-dd
         container_number: container.container_number,
         size: container.size === undefined ? "20" : container.size,
+        seal_number:
+          container.seal_number === undefined ? "" : container.seal_number,
         weighment_slip_images:
           container.weighment_slip_images === undefined
             ? []

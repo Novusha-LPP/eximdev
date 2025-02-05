@@ -62,7 +62,7 @@ function JobDetails() {
   const gatePassCopyRef = useRef();
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
-
+  const pdfRef = useRef(null);
   // delete modal
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
@@ -194,7 +194,6 @@ function JobDetails() {
     formik.values.delivery_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
-
 
   const handleRadioChange = (event) => {
     const selectedValue = event.target.value;
@@ -357,7 +356,9 @@ function JobDetails() {
 
     formik.setFieldValue("container_nos", updatedContainers);
   };
-
+  const handleGenerate = () => {
+    pdfRef.current?.generatePdf();
+  };
   // const handleOpenDialog = (doc, action) => {
   //   setCurrentDocument(doc);
   //   setActionType(action);
@@ -1638,11 +1639,10 @@ function JobDetails() {
                 />
               </Col>
               {/* <Col xs={12} lg={4}>
-              
                 <div style={{ textAlign: "center", marginBottom: "20px" }}>
                   <Button
                     variant="primary"
-                    onClick={handleOpenModal}
+                    onClick={handleGenerate}
                     style={{
                       padding: "10px 20px",
                       fontSize: "16px",
@@ -1654,7 +1654,34 @@ function JobDetails() {
                   </Button>
                 </div>
               </Col> */}
-              <Col xs={12} lg={4}>
+              <JobStickerPDF
+                ref={pdfRef}
+                jobData={{
+                  job_no: formik.values.job_no,
+                  year: formik.values.year,
+                  importer: formik.values.importer,
+                  be_no: formik.values.be_no,
+                  be_date: formik.values.be_date,
+                  invoice_number: formik.values.invoice_number,
+                  invoice_date: formik.values.invoice_date,
+                  loading_port: formik.values.loading_port,
+                  no_of_pkgs: formik.values.no_of_pkgs,
+                  description: formik.values.description,
+                  gross_weight: formik.values.gross_weight,
+                  job_net_weight: formik.values.job_net_weight,
+                  gateway_igm: formik.values.gateway_igm,
+                  gateway_igm_date: formik.values.gateway_igm_date,
+                  igm_no: formik.values.igm_no,
+                  igm_date: formik.values.igm_date,
+                  awb_bl_no: formik.values.awb_bl_no,
+                  awb_bl_date: formik.values.awb_bl_date,
+                  shipping_line_airline: formik.values.shipping_line_airline,
+                  custom_house: formik.values.custom_house,
+                  container_nos: formik.values.container_nos,
+                }}
+                data={data}
+              />
+              {/* <Col xs={12} lg={4}>
                 <FileUpload
                   label="Job Sticker Upload"
                   bucketPath="job-sticker"
@@ -1675,7 +1702,54 @@ function JobDetails() {
                     formik.setFieldValue("job_sticker_upload", updatedFiles);
                   }}
                 />
+              </Col> */}
+              <Col xs={12} lg={4}>
+                {/* Only show FileUpload if there's NO PDF in the array */}
+
+                <div
+                  style={{
+                    display: "flex", // puts items in a row
+                    alignItems: "center", // vertically center items
+                    gap: "10px", // space between items
+                    marginBottom: "10px", // optional spacing below
+                  }}
+                >
+                  <Button
+                    variant="primary"
+                    onClick={handleGenerate}
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "16px",
+                      borderRadius: "6px",
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    Generate Job Sticker
+                  </Button>
+
+                  <FileUpload
+                    label="Job Sticker Upload"
+                    bucketPath="job-sticker"
+                    onFilesUploaded={(newFiles) => {
+                      const existingFiles =
+                        formik.values.job_sticker_upload || [];
+                      const updatedFiles = [...existingFiles, ...newFiles];
+                      formik.setFieldValue("job_sticker_upload", updatedFiles);
+                    }}
+                    multiple={true}
+                  />
+                </div>
+
+                <ImagePreview
+                  images={formik.values.job_sticker_upload || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.job_sticker_upload];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                />
               </Col>
+
               <Col xs={12} lg={4}>
                 <FileUpload
                   label="Upload Processed BE Copy"
@@ -2851,6 +2925,21 @@ function JobDetails() {
                         <MenuItem value="20">20</MenuItem>
                         <MenuItem value="40">40</MenuItem>
                       </TextField>
+                      <Col xs={10} lg={4} style={{ marginLeft: "20px" }}>
+                        <div className="job-detail-input-container">
+                          <strong>Seal Number:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id={`seal_number${index}`}
+                            name={`container_nos[${index}].seal_number`}
+                            value={container.seal_number}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
                     </div>
                     <br />
                     <Row>
@@ -2877,7 +2966,8 @@ function JobDetails() {
                             />
                           )}
                         </div>
-                      </Col>                      
+                      </Col>
+
                       {/* <Col xs={12} lg={1}>
                         <div className="job-detail-input-container">
                           <strong>Free Time:&nbsp;</strong>
@@ -3291,7 +3381,7 @@ function JobDetails() {
       {/* Modal for Review and Alteration */}
       {/* Modal for Review and Alteration */}
       {/* Modal for Review and Download */}
-      <Modal
+      {/* <Modal
         show={showModal}
         onHide={handleCloseModal}
         size="lg"
@@ -3346,7 +3436,7 @@ function JobDetails() {
             {isDownloading ? "Downloading..." : "Download PDF"}
           </Button>
         </Modal.Footer>
-      </Modal>
+      </Modal> */}
 
       {/* Confirm Deletion */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>

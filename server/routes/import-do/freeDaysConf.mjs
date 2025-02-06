@@ -51,7 +51,7 @@ router.get("/api/get-free-days", async (req, res) => {
           searchQuery,
         ],
       },
-      "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time"
+      "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type"
     );
 
     const rankOrder = [
@@ -77,8 +77,6 @@ router.get("/api/get-free-days", async (req, res) => {
     res.status(500).send({ error: "Internal Server Error" });
   }
 });
-
-
 
 // PATCH API that updates only the free_time
 router.patch("/api/update-free-time/:id", async (req, res) => {

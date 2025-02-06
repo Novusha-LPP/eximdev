@@ -54,7 +54,7 @@ router.get("/api/do-team-list-of-jobs", async (req, res) => {
     // Fetch all matching jobs
     const allJobs = await JobModel.find(
       conditions,
-      "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos"
+      "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type"
     );
 
     // Group jobs (if required, otherwise allJobs can be used directly)

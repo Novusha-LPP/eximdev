@@ -100,12 +100,11 @@ function List() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No & ICD Code",
-      size: 150,
+      header: "Job No ",
+      size: 120,
       Cell: ({ cell }) => {
-        const jobNo = cell.row.original.job_no;
-        const icdCode = cell.row.original.custom_house;
-        const rowId = cell.row.original._id;
+        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
+          cell.row.original;
 
         return (
           <div
@@ -114,11 +113,10 @@ function List() {
               cursor: "pointer",
               color: "blue",
             }}
-            onClick={() => navigate(`/edit-do-list/${rowId}`)}
+            onClick={() => navigate(`/edit-do-list/${_id}`)}
           >
-            {jobNo}
-            <br />
-            <small>{icdCode}</small>
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
           </div>
         );
       },

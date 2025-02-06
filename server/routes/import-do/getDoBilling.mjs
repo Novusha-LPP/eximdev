@@ -45,7 +45,7 @@ router.get("/api/get-do-billing", async (req, res) => {
     // Query to find jobs matching the combined conditions
     const jobs = await JobModel.find(
       { $and: primaryConditions },
-      "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date"
+      "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type"
     )
       .skip(skip)
       .limit(limit);

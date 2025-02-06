@@ -5,7 +5,7 @@ import {
   useMaterialReactTable,
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   IconButton,
   TextField,
@@ -24,8 +24,13 @@ function DoPlanning() {
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const navigate = useNavigate();
+  const location = useLocation();
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100; // Number of items per page
+  const [selectedJobId, setSelectedJobId] = useState(
+    // If you previously stored a job ID in location.state, retrieve it
+    location.state?.selectedJobId || null
+  );
 
   const handleCopy = (event, text) => {
     event.stopPropagation();
@@ -97,25 +102,36 @@ function DoPlanning() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No & ICD Code",
-      size: 150,
+      header: "Job No",
+      size: 120,
       Cell: ({ cell }) => {
-        const jobNo = cell.row.original.job_no;
-        const icdCode = cell.row.original.custom_house;
-        const rowId = cell.row.original._id;
+        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
+          cell.row.original;
 
         return (
           <div
             style={{
+              // If the row matches the selected ID, give it a highlight
+              backgroundColor:
+                selectedJobId === _id ? "#ffffcc" : "transparent",
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
             }}
-            onClick={() => navigate(`/edit-do-planning/${rowId}`)}
+            onClick={() => {
+              // 1) Set the selected job in state so we can highlight it
+              setSelectedJobId(_id);
+
+              // 2) Navigate to the detail page, and pass selectedJobId
+              navigate(`/edit-do-planning/${_id}`, {
+                state: {
+                  selectedJobId: _id,
+                },
+              });
+            }}
           >
-            {jobNo}
-            <br />
-            <small>{icdCode}</small>
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
           </div>
         );
       },

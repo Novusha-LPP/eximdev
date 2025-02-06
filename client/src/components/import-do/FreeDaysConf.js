@@ -49,7 +49,7 @@ const FreeDaysConf = () => {
       console.error("Error fetching jobs:", error);
       setRows([]);
       setTotalJobs(0);
-      setTotalPages(1);;
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -147,16 +147,15 @@ const FreeDaysConf = () => {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No & ICD Code",
-      size: 150,
+      header: "Job No ",
+      size: 120,
       Cell: ({ cell }) => {
-        const jobNo = cell.row.original.job_no;
-        const icdCode = cell.row.original.custom_house;
+        const { job_no, custom_house, type_of_b_e, consignment_type } =
+          cell.row.original;
         return (
           <div style={{ textAlign: "center" }}>
-            {jobNo}
-            <br />
-            <small>{icdCode}</small>
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
           </div>
         );
       },

@@ -30,6 +30,10 @@ function BillingSheet() {
   const location = useLocation();
   const listRef = useRef(null);
 
+  const [selectedJobId, setSelectedJobId] = useState(
+    // If you previously stored a job ID in location.state, retrieve it
+    location.state?.selectedJobId || null
+  );
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -95,18 +99,19 @@ function BillingSheet() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No & ICD Code",
-      size: 150,
+      header: "Job No",
+      size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id } = cell.row.original;
+        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
+          cell.row.original;
         return (
           <div
             style={{ textAlign: "center", cursor: "pointer", color: "blue" }}
             onClick={() => navigate(`/edit-billing-sheet/${_id}`)}
           >
-            {job_no}
-            <br />
-            <small>{custom_house}</small>
+            
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
           </div>
         );
       },

@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 import { useFormik } from "formik";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   TextField,
@@ -28,7 +28,11 @@ function EditBillingSheet() {
   const { _id } = useParams();
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
   const { setCurrentTab } = useContext(TabContext);
+  // This might be the job you're editing...
+  const { selectedJobId } = location.state || {};
 
   const formik = useFormik({
     initialValues: {
@@ -64,6 +68,7 @@ function EditBillingSheet() {
           state: {
             tabIndex: 3, // BillingSheet tab index
             scrollPosition, // Preserve scroll position
+            selectedJobId,
           },
         });
 

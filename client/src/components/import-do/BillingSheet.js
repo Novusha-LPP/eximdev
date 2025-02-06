@@ -106,10 +106,26 @@ function BillingSheet() {
           cell.row.original;
         return (
           <div
-            style={{ textAlign: "center", cursor: "pointer", color: "blue" }}
-            onClick={() => navigate(`/edit-billing-sheet/${_id}`)}
+            style={{
+              // If the row matches the selected ID, give it a highlight
+              backgroundColor:
+                selectedJobId === _id ? "#ffffcc" : "transparent",
+              textAlign: "center",
+              cursor: "pointer",
+              color: "blue",
+            }}
+            onClick={() => {
+              // 1) Set the selected job in state so we can highlight it
+              setSelectedJobId(_id);
+
+              // 2) Navigate to the detail page, and pass selectedJobId
+              navigate(`/edit-billing-sheet/${_id}`, {
+                state: {
+                  selectedJobId: _id,
+                },
+              });
+            }}
           >
-            
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
           </div>

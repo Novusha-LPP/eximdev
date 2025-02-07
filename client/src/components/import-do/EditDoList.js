@@ -1,12 +1,13 @@
-import * as React from "react";
+import React, { useContext } from "react";
 import { Checkbox, FormControlLabel } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "axios";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { handleFileUpload } from "../../utils/awsFileUpload";
 import Snackbar from "@mui/material/Snackbar";
 import { TextField } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
+import { TabContext } from "./ImportDO";
 
 function EditDoList() {
   const { _id } = useParams();
@@ -17,6 +18,10 @@ function EditDoList() {
     awb_bl_no: "",
   });
   const kycDocsRef = React.useRef();
+  const location = useLocation();
+  const { setCurrentTab } = useContext(TabContext);
+  // This might be the job you're editing...
+  const { selectedJobId } = location.state || {};
 
   React.useEffect(() => {
     async function getData() {
@@ -88,6 +93,19 @@ function EditDoList() {
       resetForm();
     },
   });
+
+  // const currentState = window.history.state || {};
+  //       const scrollPosition = currentState.scrollPosition || 0;
+
+  //       navigate("/import-do", {
+  //         state: {
+  //           tabIndex: 2, // BillingSheet tab index
+  //           scrollPosition, // Preserve scroll position
+  //           selectedJobId,
+  //         },
+  //       });
+
+  //       setCurrentTab(2); // Update the active tab in context
 
   return (
     <div>

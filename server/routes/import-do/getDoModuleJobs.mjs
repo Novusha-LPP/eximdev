@@ -74,7 +74,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
 
     const initialJobs = await JobModel.find(
       { $and: primaryConditions },
-      "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning do_completed type_of_Do"
+      "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning do_completed type_of_Do type_of_b_e consignment_type"
     );
 
     // const initialJobs = await JobModel.find({ status: "pending" }).limit(10);

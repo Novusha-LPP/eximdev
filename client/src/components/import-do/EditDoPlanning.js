@@ -8,12 +8,13 @@ import React, {
 import { useFormik } from "formik";
 import axios from "axios";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
+import { TabContext } from "./ImportDO";
 import {
   Checkbox,
   FormControlLabel,
@@ -38,7 +39,12 @@ function EditDoPlanning() {
   const [openImageDeleteModal, setOpenImageDeleteModal] = useState(false);
   const container_number_ref = useRef([]);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
+
+  // This might be the job you're editing...
+  const { selectedJobId } = location.state || {};
 
   // Helper function to get local datetime string in 'YYYY-MM-DDTHH:MM' format
   const getLocalDatetimeString = () => {
@@ -158,7 +164,18 @@ function EditDoPlanning() {
           dataToSubmit
         );
         resetForm(); // Reset the form
-        navigate("/import-do"); // Redirect to /import-do
+        const currentState = window.history.state || {};
+        const scrollPosition = currentState.scrollPosition || 0;
+
+        navigate("/import-do", {
+          state: {
+            tabIndex: 2, // BillingSheet tab index
+            scrollPosition, // Preserve scroll position
+            selectedJobId,
+          },
+        });
+
+        setCurrentTab(2); // Update the active tab in context
       } catch (error) {
         console.error("Error submitting form:", error);
       }

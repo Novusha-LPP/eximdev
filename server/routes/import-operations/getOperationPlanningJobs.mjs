@@ -75,7 +75,9 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     let baseConditions = {
       status: "Pending",
       be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-      "container_nos.arrival_date": { $exists: true, $ne: null, $ne: "" },
+      container_nos: {
+        $elemMatch: { arrival_date: { $exists: true, $ne: null, $ne: "" } },
+      },
       $or: [
         { completed_operation_date: { $exists: false } },
         { completed_operation_date: "" },

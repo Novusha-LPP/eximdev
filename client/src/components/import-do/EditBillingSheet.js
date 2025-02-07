@@ -1,8 +1,7 @@
 import React, { useContext } from "react";
 import { useFormik } from "formik";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import {
   TextField,
   MenuItem,
@@ -16,6 +15,7 @@ import { Row, Col } from "react-bootstrap";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import { UserContext } from "../../contexts/UserContext";
+import { TabContext } from "./ImportDO";
 
 function EditBillingSheet() {
   const [data, setData] = React.useState(null);
@@ -28,6 +28,11 @@ function EditBillingSheet() {
   const { _id } = useParams();
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const { setCurrentTab } = useContext(TabContext);
+  // This might be the job you're editing...
+  const { selectedJobId } = location.state || {};
 
   const formik = useFormik({
     initialValues: {
@@ -55,7 +60,19 @@ function EditBillingSheet() {
           open: true,
           message: "Billing details updated successfully!",
         });
-        navigate("/import-do");
+        // Navigate back to the BillingSheet tab after submission
+        const currentState = window.history.state || {};
+        const scrollPosition = currentState.scrollPosition || 0;
+
+        navigate("/import-do", {
+          state: {
+            tabIndex: 3, // BillingSheet tab index
+            scrollPosition, // Preserve scroll position
+            selectedJobId,
+          },
+        });
+
+        setCurrentTab(3); // Update the active tab in context
       } catch (error) {
         console.error("Error updating billing details:", error);
         setFileSnackbar({

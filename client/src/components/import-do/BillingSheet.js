@@ -42,6 +42,12 @@ function BillingSheet() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
+  useEffect(() => {
+    if (location.state?.searchQuery) {
+      setSearchQuery(location.state.searchQuery);
+    }
+  }, [location.state?.searchQuery]);
+
   // Restore scroll position on component mount
   useEffect(() => {
     if (location.state?.scrollPosition && listRef.current) {
@@ -122,6 +128,7 @@ function BillingSheet() {
               navigate(`/edit-billing-sheet/${_id}`, {
                 state: {
                   selectedJobId: _id,
+                  searchQuery,
                 },
               });
             }}

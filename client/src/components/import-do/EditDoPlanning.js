@@ -172,6 +172,7 @@ function EditDoPlanning() {
             tabIndex: 2, // BillingSheet tab index
             scrollPosition, // Preserve scroll position
             selectedJobId,
+            searchQuery: location.state?.searchQuery || "", // Preserve search query
           },
         });
 

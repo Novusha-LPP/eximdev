@@ -81,6 +81,11 @@ function DoPlanning() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    if (location.state?.searchQuery) {
+      setSearchQuery(location.state.searchQuery);
+    }
+  }, [location.state?.searchQuery]);
 
   // Fetch jobs whenever page or debounced search query changes
   useEffect(() => {
@@ -126,6 +131,7 @@ function DoPlanning() {
               navigate(`/edit-do-planning/${_id}`, {
                 state: {
                   selectedJobId: _id,
+                  searchQuery,
                 },
               });
             }}

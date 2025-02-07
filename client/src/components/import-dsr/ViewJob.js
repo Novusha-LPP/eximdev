@@ -137,7 +137,7 @@ function JobDetails() {
       discharge_date: dischargeDate,
       rail_out_date: RailOutDate,
       out_of_charge: outOfChargeDate,
-      delivery_date: deliveryDate,
+      emptyContainerOffLoadDate: deliveryDate,
       pcv_date: pcvDate,
       container_nos,
     } = formik.values;
@@ -191,7 +191,7 @@ function JobDetails() {
     formik.values.pcv_date,
     formik.values.completed_operation_date,
     formik.values.be_no,
-    formik.values.delivery_date,
+    formik.values.emptyContainerOffLoadDate,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 

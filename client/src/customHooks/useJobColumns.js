@@ -99,6 +99,7 @@ function useJobColumns() {
             detailed_status,
             custom_house,
             delivery_date,
+            emptyContainerOffLoadDate,
           } = cell.row.original;
 
           // Default background and text colors
@@ -134,7 +135,9 @@ function useJobColumns() {
           }
           // Check if the detailed status is "Billing Pending"
           if (detailed_status === "Billing Pending") {
-            const daysDifference = calculateDaysDifference(delivery_date);
+            const daysDifference = calculateDaysDifference(
+              emptyContainerOffLoadDate
+            );
 
             // Apply colors based on past and current dates only
             if (daysDifference <= 0 && daysDifference >= -5) {

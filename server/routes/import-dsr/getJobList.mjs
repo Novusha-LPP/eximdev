@@ -6,7 +6,7 @@ const router = express.Router();
 // Status Rank Configuration
 
 const statusRank = {
-  "Billing Pending": { rank: 1, field: "delivery_date" },
+  "Billing Pending": { rank: 1, field: "emptyContainerOffLoadDate" },
   "Custom Clearance Completed": { rank: 2, field: "detention_from" },
   "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
   "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },

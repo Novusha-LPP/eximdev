@@ -60,7 +60,7 @@ const jobSchema = new mongoose.Schema({
   fristCheck: { type: String, trim: true },
   job_net_weight: { type: String, trim: true },
   priorityJob: { type: String, trim: true, default: "Normal" },
-  emptyContainerOffLoadDate: { type: String, trim: true, default: "Normal" },
+  emptyContainerOffLoadDate: { type: String, trim: true },
   unit_1: { type: String, trim: true },
   gateway_igm: { type: String, trim: true },
   gateway_igm_date: { type: String, trim: true },

@@ -410,6 +410,7 @@ function determineDetailedStatus(job) {
     gateway_igm_date,
     vessel_berthing,
     delivery_date,
+    emptyContainerOffLoadDate,
   } = job;
 
   // Validate date using a stricter check
@@ -430,7 +431,7 @@ function determineDetailedStatus(job) {
   const validRailOutDate = isValidDate(rail_out_date);
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
-  const validDeliveryDate = isValidDate(delivery_date);
+  const validDeliveryDate = isValidDate(emptyContainerOffLoadDate);
 
   if (
     be_no &&

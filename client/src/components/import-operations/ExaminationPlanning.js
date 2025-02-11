@@ -17,7 +17,7 @@ import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { examinationPlaningStatus } from "./../../assets/data/examinationPlaningStatus";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
@@ -38,7 +38,11 @@ function ImportOperations() {
   const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
   const limit = 100; // Rows per page
-
+  const location = useLocation();
+  const [selectedJobId, setSelectedJobId] = useState(
+    // If you previously stored a job ID in location.state, retrieve it
+    location.state?.selectedJobId || null
+  );
   // Fetch available years for filtering
   useEffect(() => {
     const fetchYears = async () => {
@@ -109,6 +113,11 @@ function ImportOperations() {
     }, 500); // 500ms debounce delay
     return () => clearTimeout(handler);
   }, [searchQuery]);
+  useEffect(() => {
+    if (location.state?.searchQuery) {
+      setSearchQuery(location.state.searchQuery);
+    }
+  }, [location.state?.searchQuery]);
 
   // Handle pagination change
   const handlePageChange = (event, newPage) => {
@@ -185,10 +194,27 @@ function ImportOperations() {
 
         return (
           <div
-            style={{ textAlign: "center", cursor: "pointer", color: "blue" }}
-            onClick={() =>
-              navigate(`/import-operations/view-job/${jobNo}/${year}`)
-            }
+            style={{
+              // If the row matches the selected ID, give it a highlight
+              backgroundColor:
+                selectedJobId === jobNo ? "#ffffcc" : "transparent",
+              textAlign: "center",
+              cursor: "pointer",
+              color: "blue",
+            }}
+            onClick={() => {
+              // 1) Set the selected job in state so we can highlight it
+              setSelectedJobId(jobNo);
+
+              // 2) Navigate to the detail page, and pass selectedJobId
+              navigate(`/import-operations/view-job/${jobNo}/${year}`, {
+                state: {
+                  selectedJobId: jobNo,
+                  tab_number: 1,
+                  searchQuery,
+                },
+              });
+            }}
           >
             {jobNo}
             <br />

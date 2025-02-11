@@ -210,6 +210,7 @@ function ImportOperations() {
               navigate(`/import-operations/view-job/${jobNo}/${year}`, {
                 state: {
                   selectedJobId: jobNo,
+                  tab_number: 1,
                   searchQuery,
                 },
               });

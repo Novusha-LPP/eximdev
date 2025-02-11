@@ -50,7 +50,7 @@ function useFetchOperationTeamJob(params) {
         );
         navigate("/import-operations", {
           state: {
-            tabIndex: 1,
+            tabIndex: location.state?.tab_number ?? 2,
             selectedJobId: params.job_no,
             searchQuery: location.state?.searchQuery,
             page: location.state?.page,

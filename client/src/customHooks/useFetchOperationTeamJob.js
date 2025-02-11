@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useContext } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useFormik } from "formik";
+import { TabContext } from "../components/import-operations/ImportOperations";
 
 function useFetchOperationTeamJob(params) {
   const [data, setData] = useState(null);
   const navigate = useNavigate();
-
+  const location = useLocation();
+  const { setCurrentTab } = useContext(TabContext);
+  // This might be the job you're editing...
   // Fetch data
   useEffect(() => {
     async function getJobDetails() {
@@ -43,9 +46,17 @@ function useFetchOperationTeamJob(params) {
       try {
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
-          values // Only send updated values
+          values
         );
-        navigate(`/import-operations`);
+        navigate("/import-operations", {
+          state: {
+            tabIndex: 1,
+            selectedJobId: params.job_no,
+            searchQuery: location.state?.searchQuery,
+            page: location.state?.page,
+          },
+        });
+        setCurrentTab(1);
       } catch (error) {
         console.error("Error updating job:", error);
       }

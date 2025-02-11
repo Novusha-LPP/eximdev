@@ -1,6 +1,6 @@
-import React, { useState, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import { Row, Col } from "react-bootstrap";
 import { IconButton, TextField, Box, Typography } from "@mui/material";
@@ -23,6 +23,7 @@ import {
 } from "../../utils/handleTareWeightChange";
 import Checkbox from "@mui/material/Checkbox";
 import { UserContext } from "../../contexts/UserContext";
+import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 
@@ -39,8 +40,11 @@ function ViewOperationsJob() {
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const params = useParams();
+  const location = useLocation();
+  const { selectedJobId, searchQuery, page } = location.state || {};
 
   const { data, formik } = useFetchOperationTeamJob(params);
+
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -293,10 +297,7 @@ function ViewOperationsJob() {
               <Col xs={12} md={4}>
                 <div className="mb-3">
                   <strong>Verified Checklist:&nbsp;</strong>
-                  <ImagePreview
-                    images={data.checklist || []}
-                    readOnly
-                  />
+                  <ImagePreview images={data.checklist || []} readOnly />
                 </div>
               </Col>
               <Col xs={12} md={4}>

@@ -273,6 +273,43 @@ function DoPlanning() {
       },
     },
     {
+      accessorKey: "do_revalidation_upto",
+      header: "DO Revalidation Upto",
+      size: 180,
+      Cell: ({ cell }) => {
+        const containers = cell.row.original.container_nos; // Access all containers
+
+        return (
+          <React.Fragment>
+            {containers.map((container, containerIndex) => {
+              // Check if the container has `do_revalidation` data
+              const revalidationData = container.do_revalidation || [];
+
+              return (
+                <div
+                  key={container.container_number}
+                  style={{ marginBottom: "8px" }}
+                >
+                 
+                  {revalidationData.length === 0 ? (
+                    <div></div>
+                  ) : (
+                    revalidationData.map((item, index) => (
+                      <div key={item._id} style={{ marginBottom: "4px" }}>
+                        {/* Display rank number and revalidation date */}
+                        {containerIndex + 1}.{index + 1}.{" "}
+                        {item.do_revalidation_upto || "N/A"}
+                      </div>
+                    ))
+                  )}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        );
+      },
+    },
+    {
       accessorKey: "vessel_and_voyage",
       header: "Vessel & Voyage No",
       enableSorting: false,

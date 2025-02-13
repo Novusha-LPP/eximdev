@@ -532,11 +532,11 @@ function useFetchJobDetails(
           container.required_do_validity_upto === undefined
             ? ""
             : container.required_do_validity_upto,
-
-        arrival_date:
-          container.arrival_date === undefined
-            ? ""
-            : convertDateFormatForUI(container.arrival_date), // convert date to yyyy-mm-dd
+        arrival_date: checked
+          ? data.arrival_date || "" // If checked, use the common arrival date
+          : container.arrival_date === undefined
+          ? ""
+          : convertDateFormatForUI(container.arrival_date),
         container_number: container.container_number,
         size: container.size === undefined ? "20" : container.size,
         seal_number:
@@ -549,7 +549,6 @@ function useFetchJobDetails(
           container.container_images === undefined
             ? []
             : container.container_images,
-
         loose_material_photo:
           container.loose_material_photo === undefined
             ? []
@@ -562,12 +561,10 @@ function useFetchJobDetails(
           container.examination_videos === undefined
             ? []
             : container.examination_videos,
-
         container_pre_damage_images:
           container.container_pre_damage_images === undefined
             ? []
             : container.container_pre_damage_images,
-
         physical_weight:
           container.physical_weight === undefined
             ? ""
@@ -576,22 +573,6 @@ function useFetchJobDetails(
           container.do_revalidation_date === undefined
             ? ""
             : container.do_revalidation_date,
-        // documentation_completed_date_time:
-        //   container.documentation_completed_date_time === undefined
-        //     ? ""
-        //     : container.documentation_completed_date_time,
-        // completed_operation_date:
-        //   container.completed_operation_date === undefined
-        //     ? ""
-        //     : container.completed_operation_date,
-        // esanchit_completed_date_time:
-        //   container.esanchit_completed_date_time === undefined
-        //     ? ""
-        //     : container.esanchit_completed_date_time,
-        // bill_document_sent_to_accounts:
-        //   container.bill_document_sent_to_accounts === undefined
-        //     ? ""
-        //     : container.bill_document_sent_to_accounts,
         do_validity_upto_container_level:
           container.do_validity_upto_container_level === undefined
             ? ""
@@ -627,7 +608,7 @@ function useFetchJobDetails(
         document_received_date: data.document_received_date
           ? data.document_received_date
           : "",
-        arrival_date: data.arrival_date,
+        arrival_date: data.arrival_date || "",
         vessel_berthing:
           data.vessel_berthing === undefined
             ? ""
@@ -719,7 +700,6 @@ function useFetchJobDetails(
           data.clearanceValue === undefined ? "" : data.clearanceValue,
         duty_paid_date:
           data.duty_paid_date === undefined ? "" : data.duty_paid_date,
-
         do_copies: data.do_copies === undefined ? [] : data.do_copies,
         do_queries: data.do_queries === undefined ? [] : data.do_queries,
         documentationQueries:
@@ -770,44 +750,57 @@ function useFetchJobDetails(
         do_completed: data.do_completed === undefined ? "" : data.do_completed,
         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
-        checked:
-          data.containers_arrived_on_same_date === undefined
-            ? false
-            : data.containers_arrived_on_same_date,
+        checked: data.checked || false, // Make sure to set the checkbox state
         type_of_Do: data.type_of_Do || "",
       });
     }
     // eslint-disable-next-line
   }, [data]);
 
-  // Update detention from dates and do validity upto job level
+  // Add a new useEffect to handle checkbox changes
+  useEffect(() => {
+    if (formik.values.container_nos?.length > 0) {
+      const updatedContainers = formik.values.container_nos.map(
+        (container) => ({
+          ...container,
+          arrival_date: formik.values.checked
+            ? formik.values.arrival_date || ""
+            : container.arrival_date,
+        })
+      );
+
+      formik.setFieldValue("container_nos", updatedContainers);
+    }
+  }, [formik.values.checked, formik.values.arrival_date]);
+
+  // Update detention from dates and set do_validity_upto_job_level
   useEffect(() => {
     function addDaysToDate(dateString, days) {
-      var date = new Date(dateString);
+      if (!dateString) return "";
+
+      const date = new Date(dateString);
       date.setDate(date.getDate() + days);
-      var year = date.getFullYear();
-      var month = String(date.getMonth() + 1).padStart(2, "0");
-      var day = String(date.getDate()).padStart(2, "0");
-      return year + "-" + month + "-" + day;
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
     }
 
-    if (formik.values.container_nos !== "" && data !== null) {
+    if (formik.values.container_nos?.length > 0) {
       let updatedDate = [];
 
-      // If all containers do not arrive at the same time, use the arrival date of individual container
-      if (!checked) {
-        updatedDate = formik.values.container_nos?.map((container) =>
-          addDaysToDate(
-            container.arrival_date,
-            parseInt(formik.values.free_time)
-          )
+      // If all containers arrive at the same time, use the common arrival date
+      if (formik.values.checked) {
+        const commonDate = formik.values.arrival_date;
+        updatedDate = formik.values.container_nos.map(() =>
+          addDaysToDate(commonDate, parseInt(formik.values.free_time) || 0)
         );
       } else {
-        // If all containers arrive at the same time, use the common arrival date
-        updatedDate = formik.values.container_nos?.map((container) =>
+        // Use individual container arrival dates
+        updatedDate = formik.values.container_nos.map((container) =>
           addDaysToDate(
-            formik.values.arrival_date,
-            parseInt(formik.values.free_time)
+            container.arrival_date,
+            parseInt(formik.values.free_time) || 0
           )
         );
       }
@@ -828,112 +821,11 @@ function useFetchJobDetails(
       );
     }
     // eslint-disable-next-line
-  }, [formik.values.arrival_date, formik.values.free_time, data, checked]);
-
-  // const currentDate = new Date().toISOString().split("T")[0];
-
-  // // Set document_received_date to today if obl_telex_bl is not empty
-  // useEffect(() => {
-  //   if (formik.values.obl_telex_bl !== "") {
-  //     formik.setFieldValue("document_received_date", currentDate);
-  //   } else {
-  //     formik.setFieldValue("document_received_date", "");
-  //   }
-  // }, [formik.values.obl_telex_bl]);
-
-  // // Set do_planning_date to today if doPlanning is true
-  // useEffect(() => {
-  //   if (formik.values.doPlanning === true) {
-  //     formik.setFieldValue("do_planning_date", currentDate);
-  //   } else {
-  //     formik.setFieldValue("do_planning_date", "");
-  //   }
-  // }, [formik.values.doPlanning]);
-
-  // // Set do_revalidation_date to today if do_revalidation is true
-  // useEffect(() => {
-  //   if (formik.values.do_revalidation === true) {
-  //     formik.setFieldValue("do_revalidation_date", currentDate);
-  //   } else {
-  //     formik.setFieldValue("do_revalidation_date", "");
-  //   }
-  // }, [formik.values.do_revalidation]);
-
-  // // Set examination_planning_date to today if examinationPlanning is true
-  // useEffect(() => {
-  //   if (formik.values.examinationPlanning === true) {
-  //     formik.setFieldValue("examination_planning_date", currentDate);
-  //   } else {
-  //     formik.setFieldValue("examination_planning_date", "");
-  //   }
-  // }, [formik.values.examinationPlanning]);
-
-  // Update detention from dates and set do_validity_upto_job_level
-  useEffect(() => {
-    function addDaysToDate(dateString, days) {
-      const date = new Date(dateString);
-      date.setDate(date.getDate() + days);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-
-    function subtractDaysFromDate(dateString, days) {
-      const date = new Date(dateString);
-      date.setDate(date.getDate() - days);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-
-    if (formik.values.container_nos !== "" && data !== null) {
-      let updatedDate = [];
-
-      // If all containers do not arrive at the same time, use the arrival date of individual container
-      if (!checked) {
-        updatedDate = formik.values.container_nos?.map((container) =>
-          addDaysToDate(
-            container.arrival_date,
-            parseInt(formik.values.free_time)
-          )
-        );
-      } else {
-        // If all containers arrive at the same time, use the common arrival date
-        updatedDate = formik.values.container_nos?.map((container) =>
-          addDaysToDate(
-            formik.values.arrival_date,
-            parseInt(formik.values.free_time)
-          )
-        );
-      }
-
-      setDetentionFrom(updatedDate);
-
-      // Find the earliest date from updatedDate
-      const earliestDate = updatedDate.reduce((earliest, current) => {
-        return current < earliest ? current : earliest;
-      }, "9999-12-31"); // Set a far future date as the initial value
-
-      // Subtract one day from the earliest date
-      const doValidityDate =
-        earliestDate === "9999-12-31"
-          ? ""
-          : subtractDaysFromDate(earliestDate, 1);
-
-      // Set do_validity_upto_job_level to the calculated date
-      formik.setFieldValue(
-        "do_validity_upto_job_level",
-        doValidityDate === "" ? data.do_validity_upto_job_level : doValidityDate
-      );
-    }
-    // eslint-disable-next-line
   }, [
     formik.values.arrival_date,
     formik.values.free_time,
-    data,
-    checked,
+    formik.values.checked,
+    formik.values.container_nos,
     serializedContainerNos,
   ]);
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Table,
   TableBody,
@@ -7,40 +7,32 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Paper,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-function DirectoryTable({ directoryType, onEdit }) {
-  // You'll need to fetch and manage data based on directoryType
-  const [data, setData] = useState([]);
-
-  const handleDelete = (id) => {
-    // Implement delete functionality
-  };
-
+function DirectoryTable({ directoryType, onEdit, onDelete, data }) {
   return (
     <TableContainer>
       <Table>
         <TableHead>
           <TableRow>
-            {/* Add dynamic columns based on directoryType */}
             <TableCell>Actions</TableCell>
+            {/* Add dynamic columns based on directoryType */}
           </TableRow>
         </TableHead>
         <TableBody>
           {data.map((row) => (
             <TableRow key={row.id}>
-              {/* Add dynamic cells based on directoryType */}
               <TableCell>
                 <IconButton onClick={() => onEdit(row)}>
                   <EditIcon />
                 </IconButton>
-                <IconButton onClick={() => handleDelete(row.id)}>
+                <IconButton onClick={() => onDelete(row.id)}>
                   <DeleteIcon />
                 </IconButton>
               </TableCell>
+              {/* Render dynamic fields based on directoryType */}
             </TableRow>
           ))}
         </TableBody>

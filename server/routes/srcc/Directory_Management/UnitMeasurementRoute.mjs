@@ -3,49 +3,54 @@ import UnitMeasurement from "../../../model/srcc/Directory_Management/UnitMeasur
 
 const router = express.Router();
 
-// Create new unit measurement
-router.post("/api/unit-measurement", async (req, res) => {
-  try {
-    const { description, code, unit_type, decimal_places } = req.body;
+/**
+ * @route POST /api/add-unit-measurement
+ * @desc Create a new unit measurement
+ */
+router.post("/api/add-unit-measurement", async (req, res) => {
+  const { description, code, unit_type, decimal_places } = req.body;
+  console.log("Received request:", req.body);
 
-    // Check for duplicate description
+  try {
     const existingUnit = await UnitMeasurement.findOne({ description });
     if (existingUnit) {
-      return res.status(400).json({
-        error: "Unit measurement with this description already exists",
-      });
+      return res.status(400).json({ error: "Unit measurement already exists" });
     }
 
-    const newUnitMeasurement = await UnitMeasurement.create({
+    const newUnit = await UnitMeasurement.create({
       description,
       code,
       unit_type,
       decimal_places,
     });
-
-    res.status(201).json({
-      message: "Unit measurement added successfully",
-      data: newUnitMeasurement,
-    });
+    res
+      .status(201)
+      .json({ message: "Unit Measurement added successfully", data: newUnit });
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// Get all unit measurements
-router.get("/api/unit-measurements", async (req, res) => {
+/**
+ * @route GET /api/get-unit-measurements
+ * @desc Retrieve all unit measurements
+ */
+router.get("/api/get-unit-measurements", async (req, res) => {
   try {
     const unitMeasurements = await UnitMeasurement.find();
     res.status(200).json(unitMeasurements);
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// Get single unit measurement by ID
-router.get("/api/unit-measurement/:id", async (req, res) => {
+/**
+ * @route GET /api/get-unit-measurement/:id
+ * @desc Retrieve a single unit measurement by ID
+ */
+router.get("/api/get-unit-measurement/:id", async (req, res) => {
   try {
     const unitMeasurement = await UnitMeasurement.findById(req.params.id);
     if (!unitMeasurement) {
@@ -53,26 +58,29 @@ router.get("/api/unit-measurement/:id", async (req, res) => {
     }
     res.status(200).json(unitMeasurement);
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// Update unit measurement
-router.put("/api/unit-measurement/:id", async (req, res) => {
+/**
+ * @route PUT /api/update-unit-measurement/:id
+ * @desc Update an existing unit measurement
+ */
+router.put("/api/update-unit-measurement/:id", async (req, res) => {
   try {
     const { description, code, unit_type, decimal_places } = req.body;
 
-    // Check for duplicate description but exclude current record
     const existingUnit = await UnitMeasurement.findOne({
       description,
       _id: { $ne: req.params.id },
     });
-
     if (existingUnit) {
-      return res.status(400).json({
-        error: "Unit measurement with this description already exists",
-      });
+      return res
+        .status(400)
+        .json({
+          error: "Unit measurement with this description already exists",
+        });
     }
 
     const updatedUnit = await UnitMeasurement.findByIdAndUpdate(
@@ -85,28 +93,31 @@ router.put("/api/unit-measurement/:id", async (req, res) => {
       return res.status(404).json({ error: "Unit measurement not found" });
     }
 
-    res.status(200).json({
-      message: "Unit measurement updated successfully",
-      data: updatedUnit,
-    });
+    res
+      .status(200)
+      .json({
+        message: "Unit measurement updated successfully",
+        data: updatedUnit,
+      });
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// Delete unit measurement
-router.delete("/api/unit-measurement/:id", async (req, res) => {
+/**
+ * @route DELETE /api/delete-unit-measurement/:id
+ * @desc Delete a unit measurement
+ */
+router.delete("/api/delete-unit-measurement/:id", async (req, res) => {
   try {
     const deletedUnit = await UnitMeasurement.findByIdAndDelete(req.params.id);
     if (!deletedUnit) {
       return res.status(404).json({ error: "Unit measurement not found" });
     }
-    res.status(200).json({
-      message: "Unit measurement deleted successfully",
-    });
+    res.status(200).json({ message: "Unit measurement deleted successfully" });
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

@@ -599,6 +599,15 @@ function JobDetails() {
       throw new Error("Upload failed");
     }
   };
+  function subtractOneDay(dateString) {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    date.setDate(date.getDate() - 1);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`; // Fixed template literal syntax
+  }
 
   return (
     <>
@@ -2995,7 +3004,11 @@ function JobDetails() {
                         <strong>Detention From:&nbsp;</strong>
                         {detentionFrom[index]}
                       </Col>
-                      <Col xs={12} lg={3}>
+                      <Col xs={12} lg={2} className="flex-div">
+                        <strong>DO Validity:&nbsp;</strong>
+                        {subtractOneDay(detentionFrom[index])}
+                      </Col>
+                      {/* <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>DO Validity :&nbsp;</strong>
                           <TextField
@@ -3011,7 +3024,7 @@ function JobDetails() {
                             onChange={formik.handleChange}
                           />
                         </div>
-                      </Col>
+                      </Col> */}
                       {/* <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>Required DO Validity Upto:&nbsp;</strong>

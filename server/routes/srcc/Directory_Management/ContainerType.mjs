@@ -8,10 +8,22 @@ const router = express.Router();
  * @desc Create a new container type
  */
 router.post("/api/add-container-type", async (req, res) => {
-  const { name, iso_code, teu, outer_dimension, tare_weight, payload } =
-    req.body;
+  console.log("Received Data:", req.body); // ✅ Debugging log
+
+  const {
+    container_type,
+    iso_code,
+    teu,
+    outer_dimension,
+    tare_weight,
+    payload,
+  } = req.body;
 
   try {
+    if (!container_type) {
+      return res.status(400).json({ error: "container_type is required" }); // ✅ Explicit error
+    }
+
     const existingContainer = await ContainerType.findOne({ iso_code });
     if (existingContainer) {
       return res
@@ -20,7 +32,7 @@ router.post("/api/add-container-type", async (req, res) => {
     }
 
     const newContainer = await ContainerType.create({
-      name,
+      container_type,
       iso_code,
       teu,
       outer_dimension,
@@ -75,8 +87,14 @@ router.get("/api/get-container-type/:id", async (req, res) => {
  */
 router.put("/api/update-container-type/:id", async (req, res) => {
   try {
-    const { name, iso_code, teu, outer_dimension, tare_weight, payload } =
-      req.body;
+    const {
+      container_type,
+      iso_code,
+      teu,
+      outer_dimension,
+      tare_weight,
+      payload,
+    } = req.body;
 
     const existingContainer = await ContainerType.findOne({
       iso_code,
@@ -91,7 +109,7 @@ router.put("/api/update-container-type/:id", async (req, res) => {
 
     const updatedContainer = await ContainerType.findByIdAndUpdate(
       req.params.id,
-      { name, iso_code, teu, outer_dimension, tare_weight, payload },
+      { container_type, iso_code, teu, outer_dimension, tare_weight, payload }, // ✅ Updated field name
       { new: true, runValidators: true }
     );
 

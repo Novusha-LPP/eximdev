@@ -15,17 +15,42 @@ export const formMasterList = [
 ];
 
 export const viewMasterList = [
-  "Vendors",
-  "Vehicles",
-  "Tyre types",
-  "Tyre sizes",
-  "Tyre brands",
-  "Tyre models",
-  "Repair types",
-  "Ply ratings",
-  "Driver details",
-  "Type of vehicle",
-  "Container type",
-  "Locations",
-  "Organisations",
+  "Unit Measurement",
+  "Vehicle",
+  "Container Type",
+  "Driver Details",
+  "Location",
+  "Organisation",
+  "Ply Rating",
+  "Repair Type",
+  "Type of Vehicle",
+  "Tyre Brand",
+  "Tyre Model",
+  "Tyre Size",
+  "Tyre Type",
+  "Vendor",
 ];
+
+export const directoryFields = {
+  "Unit Measurement": [
+    { name: "name", label: "Name", type: "text" },
+    { name: "symbol", label: "Symbol", type: "text" },
+    {
+      name: "unit_type",
+      label: "Unit Type",
+      type: "select",
+      options: [
+        "number",
+        "weight",
+        "distance",
+        "volume",
+        "area",
+        "time",
+        "pressure",
+        "power",
+        "temperature",
+      ],
+    },
+    { name: "decimal_places", label: "No. of Decimal Places", type: "number" },
+  ],
+};

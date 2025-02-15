@@ -94,7 +94,7 @@ function UnitMeasurementDirectory() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Description</TableCell>
+              <TableCell>Name</TableCell>
               <TableCell>Code</TableCell>
               <TableCell>Unit Type</TableCell>
               <TableCell>Decimal Places</TableCell>
@@ -104,8 +104,8 @@ function UnitMeasurementDirectory() {
           <TableBody>
             {units.map((unit) => (
               <TableRow key={unit._id}>
-                <TableCell>{unit.description}</TableCell>
-                <TableCell>{unit.code}</TableCell>
+                <TableCell>{unit.name}</TableCell>
+                <TableCell>{unit.symbol}</TableCell>
                 <TableCell>{unit.unit_type}</TableCell>
                 <TableCell>{unit.decimal_places}</TableCell>
                 <TableCell>

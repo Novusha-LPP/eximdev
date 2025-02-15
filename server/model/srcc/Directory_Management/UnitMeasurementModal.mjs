@@ -1,11 +1,21 @@
 import mongoose from "mongoose";
 
 const unitMeasurementSchema = new mongoose.Schema({
-  description: { type: String, trim: true },
-  code: { type: String, trim: true },
+  name: { type: String, trim: true },
+  symbol: { type: String, trim: true },
   unit_type: {
     type: String,
-    enum: ["number", "weight", "distance", "volume", "area"],
+    enum: [
+      "number",
+      "weight",
+      "distance",
+      "volume",
+      "area",
+      "time",
+      "pressure",
+      "power",
+      "temperature",
+    ],
     required: true,
   },
   decimal_places: {

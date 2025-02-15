@@ -33,13 +33,23 @@ export const viewMasterList = [
 
 export const directoryFields = {
   "Unit Measurement": [
-    { name: "description", label: "Description", type: "text" },
-    { name: "code", label: "Code", type: "text" },
+    { name: "name", label: "Name", type: "text" },
+    { name: "symbol", label: "Symbol", type: "text" },
     {
       name: "unit_type",
       label: "Unit Type",
       type: "select",
-      options: ["number", "weight", "distance", "volume", "area"],
+      options: [
+        "number",
+        "weight",
+        "distance",
+        "volume",
+        "area",
+        "time",
+        "pressure",
+        "power",
+        "temperature",
+      ],
     },
     { name: "decimal_places", label: "No. of Decimal Places", type: "number" },
   ],

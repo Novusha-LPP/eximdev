@@ -27,6 +27,17 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
     return year + "-" + month + "-" + day;
   }
 
+  // Helper function to subtract one day from a date
+  function subtractOneDay(dateString) {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    date.setDate(date.getDate() - 1);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   try {
     // 1. Retrieve the matching job document
     const matchingJob = await JobModel.findOne({ year, job_no: jobNo });
@@ -189,24 +200,29 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
 
     if (checked) {
       matchingJob.container_nos = container_nos.map((container) => {
+        const detentionDate =
+          arrival_date === ""
+            ? ""
+            : addDaysToDate(arrival_date, parseInt(free_time));
         return {
           ...container,
           arrival_date: arrival_date,
-          detention_from:
-            arrival_date === ""
-              ? ""
-              : addDaysToDate(arrival_date, parseInt(free_time)),
+          detention_from: detentionDate,
+          do_validity_upto_container_level: subtractOneDay(detentionDate),
         };
       });
     } else {
       matchingJob.container_nos = container_nos.map((container) => {
+        const detentionDate =
+          container.arrival_date === ""
+            ? ""
+            : addDaysToDate(container.arrival_date, parseInt(free_time));
+
         return {
           ...container,
           arrival_date: container.arrival_date,
-          detention_from:
-            container.arrival_date === ""
-              ? ""
-              : addDaysToDate(container.arrival_date, parseInt(free_time)),
+          detention_from: detentionDate,
+          do_validity_upto_container_level: subtractOneDay(detentionDate),
         };
       });
     }

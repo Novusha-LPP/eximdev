@@ -1,3 +1,5 @@
+import mongoose from "mongoose"; // Ensure you import mongoose
+
 const containerTypeSchema = new mongoose.Schema(
   {
     container_type: { type: String, required: true, trim: true }, // ✅ Check spelling
@@ -9,5 +11,5 @@ const containerTypeSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-export default mongoose.model("ContainerType", containerTypeSchema);
+const ContainerType = mongoose.model("ContainerType", containerTypeSchema);
+export default ContainerType;

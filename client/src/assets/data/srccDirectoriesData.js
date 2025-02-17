@@ -16,7 +16,6 @@ export const formMasterList = [
 
 export const viewMasterList = [
   "Unit Measurement",
-  "Vehicle",
   "Container Type",
   "Driver Details",
   "Location",
@@ -52,5 +51,14 @@ export const directoryFields = {
       ],
     },
     { name: "decimal_places", label: "No. of Decimal Places", type: "number" },
+  ],
+
+  "Container Type": [
+    { name: "container_type", label: "Container Type", type: "text" },
+    { name: "iso_code", label: "ISO Code", type: "text" },
+    { name: "teu", label: "TEU", type: "number", min: 1 },
+    { name: "outer_dimension", label: "Outer Dimension", type: "text" },
+    { name: "tare_weight", label: "Tare Weight", type: "number", min: 0 },
+    { name: "payload", label: "Payload", type: "number", min: 0 },
   ],
 };

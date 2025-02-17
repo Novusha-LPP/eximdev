@@ -168,6 +168,8 @@ import updateSrccDsr from "./routes/lr/updateSrccDsr.mjs";
 
 // SRCC Directories
 import unitMeasurementRoute from "./routes/srcc/Directory_Management/UnitMeasurementRoute.mjs";
+import ContainerType from "./routes/srcc/Directory_Management/ContainerTypeRoute.mjs";
+import LocationRoute from "./routes/srcc/Directory_Management/LocationRoute.mjs";
 import addContainerType from "./routes/srcc-directories/addContainerType.mjs";
 import addDriverDetails from "./routes/srcc-directories/addDriverDetails.mjs";
 import addLocation from "./routes/srcc-directories/addLocation.mjs";
@@ -238,6 +240,7 @@ if (cluster.isPrimary) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cors());
+
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);
@@ -412,6 +415,8 @@ if (cluster.isPrimary) {
 
       // SRCC Directories
       app.use(unitMeasurementRoute);
+      app.use(ContainerType);
+      app.use(LocationRoute);
       app.use(addContainerType);
       app.use(addDriverDetails);
       app.use(addLocation);

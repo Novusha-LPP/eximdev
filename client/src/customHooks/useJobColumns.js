@@ -4,7 +4,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
-
+import Tooltip from "@mui/material/Tooltip";
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
@@ -220,6 +220,9 @@ function useJobColumns() {
 
           const portOfReporting = row?.original?.port_of_reporting || "";
           const shippingLine = row?.original?.shipping_line_airline || "";
+          const supplier_exporter = row?.original?.supplier_exporter || "";
+          const gross_weight = row?.original?.gross_weight || "";
+          const job_net_weight = row?.original?.job_net_weight || "";
           const containerFirst =
             row?.original?.container_nos?.[0]?.container_number || "";
 
@@ -331,6 +334,18 @@ function useJobColumns() {
                     </abbr>
                   </div>
                   {shippingLine}
+                  <Tooltip title="shippingLine" arrow>
+                    <strong> {shippingLine} </strong>
+                  </Tooltip>
+                  <Tooltip title="Supplier/Exporter" arrow>
+                    {supplier_exporter}
+                  </Tooltip>
+                  <Tooltip title="Gross Weight" arrow>
+                    <strong>Gross(KGS): {gross_weight || "N/A"} </strong>{" "}
+                  </Tooltip>
+                  <Tooltip title="Net Weight" arrow>
+                    <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
+                  </Tooltip>
                 </React.Fragment>
               )}
             </React.Fragment>

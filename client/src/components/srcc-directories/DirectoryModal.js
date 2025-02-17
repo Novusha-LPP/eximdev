@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { Select, MenuItem, InputLabel, FormControl } from "@mui/material";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  TextField,
+  Box,
+} from "@mui/material";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  TextField,
-  Box,
 } from "@mui/material";
+import axios from "axios";
 
 function DirectoryModal({
   open,
@@ -20,6 +26,7 @@ function DirectoryModal({
   fields,
 }) {
   const [formData, setFormData] = useState({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (editData) {
@@ -32,6 +39,64 @@ function DirectoryModal({
       setFormData(initialData);
     }
   }, [editData, fields]);
+
+  // ✅ Fetch Address using Postal Code
+  const fetchAddressByPostalCode = useCallback(async (postalCode) => {
+    if (!postalCode) return;
+    setLoading(true);
+
+    try {
+      console.log(`🔎 Fetching address for postal code: ${postalCode}`);
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/search?postalcode=${postalCode}&country=India&format=json`
+      );
+
+      if (response.data.length > 0) {
+        const addressParts = response.data[0].display_name
+          .split(", ")
+          .reverse(); // ✅ Extract from the end
+        console.log("📍 Address Data:", response.data[0]);
+
+        // ✅ Extracting values from the end to ensure accuracy
+        let country = addressParts[0] || "India";
+        let state = addressParts[1] || "";
+        let district = addressParts[2] || "";
+        let city = addressParts[3] || district; // ✅ Use District if City is missing
+
+        setFormData((prev) => ({
+          ...prev,
+          city,
+          district,
+          state,
+          country,
+        }));
+      } else {
+        // alert("⚠️ No address found for this postal code.");
+        setFormData((prev) => ({
+          ...prev,
+          city: "",
+          district: "",
+          state: "",
+          country: "",
+        }));
+      }
+    } catch (error) {
+      console.error("❌ Error fetching address:", error);
+      // alert("Failed to fetch address details.");
+    }
+    setLoading(false);
+  }, []);
+
+  // ✅ Debounce Effect for Postal Code API Call
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (formData.postal_code) {
+        fetchAddressByPostalCode(formData.postal_code);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [formData.postal_code, fetchAddressByPostalCode]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,6 +152,7 @@ function DirectoryModal({
                   onChange={handleChange}
                   fullWidth
                   InputLabelProps={{ shrink: true }}
+                  // disabled={field.name !== "postal_code" && field.disabled} // ✅ Disable fields except Postal Code
                 />
               )
             )}
@@ -95,8 +161,8 @@ function DirectoryModal({
 
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="contained">
-            {mode === "add" ? "Add" : "Save"}
+          <Button type="submit" variant="contained" disabled={loading}>
+            {loading ? "Fetching..." : mode === "add" ? "Add" : "Save"}
           </Button>
         </DialogActions>
       </form>

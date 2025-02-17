@@ -17,8 +17,8 @@ export const formMasterList = [
 export const viewMasterList = [
   "Unit Measurement",
   "Container Type",
-  "Driver Details",
   "Location",
+  "Driver Details",
   "Organisation",
   "Ply Rating",
   "Repair Type",
@@ -60,5 +60,18 @@ export const directoryFields = {
     { name: "outer_dimension", label: "Outer Dimension", type: "text" },
     { name: "tare_weight", label: "Tare Weight", type: "number", min: 0 },
     { name: "payload", label: "Payload", type: "number", min: 0 },
+  ],
+  Location: [
+    // ✅ Location Fields Added
+    { name: "name", label: "Name", type: "text", disabled: true },
+    {
+      name: "postal_code",
+      label: "Postal Code * (Enter correct PIN to auto-fill other details)",
+      type: "text",
+    },
+    { name: "city", label: "City", type: "text", disabled: true },
+    { name: "district", label: "District", type: "text", disabled: true },
+    { name: "state", label: "State", type: "text", disabled: true },
+    { name: "country", label: "Country", type: "text", disabled: true },
   ],
 };

@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  Select,
-  MenuItem,
-  InputLabel,
-  FormControl,
-  TextField,
-  Box,
-} from "@mui/material";
-import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
+  TextField,
+  Box,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from "@mui/material";
 import axios from "axios";
 
@@ -27,7 +25,9 @@ function DirectoryModal({
 }) {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [postalCodeError, setPostalCodeError] = useState("");
 
+  // ✅ Reset Form when Modal Opens or Edit Data Changes
   useEffect(() => {
     if (editData) {
       setFormData(editData);
@@ -40,11 +40,19 @@ function DirectoryModal({
     }
   }, [editData, fields]);
 
-  // ✅ Fetch Address using Postal Code
-  const fetchAddressByPostalCode = useCallback(async (postalCode) => {
-    if (!postalCode) return;
-    setLoading(true);
+  // ✅ Validate Postal Code (6 Digits Only)
+  const validatePostalCode = (code) => /^[0-9]{6}$/.test(code);
 
+  // ✅ Fetch Address Based on Postal Code (Only for Location Directory)
+  const fetchAddressByPostalCode = useCallback(async (postalCode) => {
+    if (!validatePostalCode(postalCode)) {
+      setPostalCodeError("Postal Code must be exactly 6 digits.");
+      return;
+    } else {
+      setPostalCodeError(""); // Clear error if valid
+    }
+
+    setLoading(true);
     try {
       console.log(`🔎 Fetching address for postal code: ${postalCode}`);
       const response = await axios.get(
@@ -54,24 +62,23 @@ function DirectoryModal({
       if (response.data.length > 0) {
         const addressParts = response.data[0].display_name
           .split(", ")
-          .reverse(); // ✅ Extract from the end
+          .reverse();
         console.log("📍 Address Data:", response.data[0]);
 
-        // ✅ Extracting values from the end to ensure accuracy
         let country = addressParts[0] || "India";
         let state = addressParts[1] || "";
         let district = addressParts[2] || "";
-        let city = addressParts[3] || district; // ✅ Use District if City is missing
+        let city = addressParts[3] || district; // ✅ Use District if City is Missing
 
         setFormData((prev) => ({
           ...prev,
+          postal_code: postalCode,
           city,
           district,
           state,
           country,
         }));
       } else {
-        // alert("⚠️ No address found for this postal code.");
         setFormData((prev) => ({
           ...prev,
           city: "",
@@ -82,33 +89,57 @@ function DirectoryModal({
       }
     } catch (error) {
       console.error("❌ Error fetching address:", error);
-      // alert("Failed to fetch address details.");
     }
     setLoading(false);
   }, []);
 
-  // ✅ Debounce Effect for Postal Code API Call
+  // ✅ Debounced Postal Code API Call (Only for Location)
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (formData.postal_code) {
-        fetchAddressByPostalCode(formData.postal_code);
-      }
-    }, 500);
+    if (directoryType === "Location") {
+      const delayDebounceFn = setTimeout(() => {
+        if (formData.postal_code) {
+          fetchAddressByPostalCode(formData.postal_code);
+        }
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [formData.postal_code, fetchAddressByPostalCode, directoryType]);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [formData.postal_code, fetchAddressByPostalCode]);
-
+  // ✅ Handle Input Changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ Ensure Postal Code is Only 6 Digits
+    if (name === "postal_code") {
+      if (!/^\d{0,6}$/.test(value)) return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
+  // ✅ Handle Form Submission
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (
+      directoryType === "Location" &&
+      !validatePostalCode(formData.postal_code)
+    ) {
+      setPostalCodeError("Postal Code must be exactly 6 digits.");
+      return;
+    }
+
     onSave(formData);
+
+    // ✅ Reset Form Data After Submission
+    setFormData(
+      fields.reduce((acc, field) => {
+        acc[field.name] = "";
+        return acc;
+      }, {})
+    );
   };
 
   return (
@@ -152,7 +183,12 @@ function DirectoryModal({
                   onChange={handleChange}
                   fullWidth
                   InputLabelProps={{ shrink: true }}
-                  // disabled={field.name !== "postal_code" && field.disabled} // ✅ Disable fields except Postal Code
+                  error={
+                    field.name === "postal_code" && Boolean(postalCodeError)
+                  }
+                  helperText={
+                    field.name === "postal_code" ? postalCodeError : ""
+                  }
                 />
               )
             )}

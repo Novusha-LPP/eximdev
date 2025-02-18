@@ -44,6 +44,7 @@ const buildSearchQuery = (search) => ({
   $or: [
     { job_no: { $regex: search, $options: "i" } },
     { type_of_b_e: { $regex: search, $options: "i" } },
+    { supplier_exporter: { $regex: search, $options: "i" } },
     { consignment_type: { $regex: search, $options: "i" } },
     { importer: { $regex: search, $options: "i" } },
     { custom_house: { $regex: search, $options: "i" } },

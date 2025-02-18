@@ -1,39 +1,42 @@
-import * as React from "react";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import Box from "@mui/material/Box";
-import useTabs from "../../customHooks/useTabs";
-import FormMaster from "./FormMaster";
-import ViewData from "./ViewData";
+import React, { useState } from "react";
+import { Box, Typography, TextField, Paper, MenuItem } from "@mui/material";
+import { viewMasterList } from "../../assets/data/srccDirectoriesData";
+import DirectoryComponent from "./DirectoryComponent";
 
 function SrccDirectories() {
-  const [value, setValue] = React.useState(0);
-  const { a11yProps, CustomTabPanel } = useTabs();
+  const [selectedDirectory, setSelectedDirectory] = useState("");
 
-  const handleChange = (event, newValue) => {
-    setValue(newValue);
+  const handleDirectoryChange = (event) => {
+    console.log("Selected value:", event.target.value);
+    setSelectedDirectory(event.target.value);
   };
 
   return (
-    <Box sx={{ width: "100%" }}>
-      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Tabs
-          value={value}
-          onChange={handleChange}
-          aria-label="basic tabs example"
-        >
-          [
-          <Tab label="Forms" {...a11yProps(0)} key={0} />,
-          <Tab label="View Data" {...a11yProps(1)} key={1} />, ]
-        </Tabs>
-      </Box>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5" sx={{ mb: 3, fontWeight: "bold" }}>
+        Directory Management
+      </Typography>
 
-      <CustomTabPanel value={value} index={0}>
-        <FormMaster />
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
-        <ViewData />
-      </CustomTabPanel>
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <TextField
+          select
+          size="small"
+          label="Select Directory"
+          value={selectedDirectory}
+          onChange={handleDirectoryChange}
+          sx={{ minWidth: 250 }}
+        >
+          {viewMasterList.map((dir) => (
+            <MenuItem key={dir} value={dir}>
+              {dir}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Paper>
+
+      {selectedDirectory && (
+        <DirectoryComponent directoryType={selectedDirectory} />
+      )}
     </Box>
   );
 }

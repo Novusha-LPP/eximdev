@@ -19,8 +19,6 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
-  console.log(props);
-  console.log(props.data.exBondValue);
   const handleCopy = (event, text) => {
     event.stopPropagation();
 

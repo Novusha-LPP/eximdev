@@ -283,7 +283,6 @@ function useJobColumns() {
                   >
                     {blNumber}
                   </a>
-
                   <div
                     style={{
                       display: "flex",
@@ -333,7 +332,7 @@ function useJobColumns() {
                       </a>
                     </abbr>
                   </div>
-                  {shippingLine}
+
                   <Tooltip title="shippingLine" arrow>
                     <strong> {shippingLine} </strong>
                   </Tooltip>

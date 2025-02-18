@@ -58,7 +58,7 @@ router.post("/api/add-container-type", async (req, res) => {
 router.get("/api/get-container-types", async (req, res) => {
   try {
     const containerTypes = await ContainerType.find(); // ✅ Ensure correct response format
-    console.log("✅ Sending Container Types:", containerTypes);
+
     res.status(200).json(containerTypes);
   } catch (error) {
     console.error("Error fetching container types:", error);

@@ -9,7 +9,7 @@ const router = express.Router();
  * @desc Create a new location
  */
 router.post("/api/add-location", async (req, res) => {
-  console.log("📍 Received Location Data:", req.body);
+  
 
   const { name, postal_code, city, district, state, country } = req.body;
 

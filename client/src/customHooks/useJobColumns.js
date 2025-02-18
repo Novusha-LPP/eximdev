@@ -340,10 +340,10 @@ function useJobColumns() {
                     {supplier_exporter}
                   </Tooltip>
                   <Tooltip title="Gross Weight" arrow>
-                    <strong>Gross: {gross_weight || "N/A"}</strong>{" "}
+                    <strong>Gross(KGS): {gross_weight || "N/A"}</strong>{" "}
                   </Tooltip>
                   <Tooltip title="Net Weight" arrow>
-                    <strong>Net: {job_net_weight || "N/A"}</strong>
+                    <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
                   </Tooltip>
                 </React.Fragment>
               )}

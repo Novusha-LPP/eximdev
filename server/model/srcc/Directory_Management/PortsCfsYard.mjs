@@ -11,11 +11,13 @@ const PortsCfsYardSchema = new mongoose.Schema(
       type: String,
       enum: ["Air custodian", "CFS", "Ports", "Empty yard", "ICD", "Terminal"],
     },
-    contactPersonName: { type: String, required: true, trim: true }, // Contact person name
-    contactPersonEmail: { type: String, required: true, trim: true }, // Contact person email
-    contactPersonPhone: { type: String, required: true, trim: true }, // Contact person phone number
+    contactPersonName: { type: String, required: true, trim: true },
+    contactPersonEmail: { type: String, required: true, trim: true },
+    contactPersonPhone: { type: String, required: true, trim: true },
   },
   { timestamps: true }
 );
-const PortICDcode = mongoose.model(PortICDcode, "PortsCfsYardSchema");
+
+const PortICDcode = mongoose.model("PortICDcode", PortsCfsYardSchema);
+
 export default PortICDcode;

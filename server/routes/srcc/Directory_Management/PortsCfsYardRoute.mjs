@@ -1,5 +1,5 @@
 import express from "express";
-import PortICDcode from "../../../model/srcc/Directory_Management/PortICDcode.mjs";
+import PortICDcode from "../../../model/srcc/Directory_Management/PortsCfsYard.mjs";
 
 const router = express.Router();
 
@@ -20,6 +20,8 @@ router.post("/api/add-port-type", async (req, res) => {
     if (!icd_code) {
       return res.status(400).json({ error: "ICD code is required" });
     }
+
+    // Check if the ICD code already exists
     const existingICDCode = await PortICDcode.findOne({ icd_code });
     if (existingICDCode) {
       return res
@@ -27,6 +29,7 @@ router.post("/api/add-port-type", async (req, res) => {
         .json({ error: "Ports/CFS/Yard with this ICD code already exists" });
     }
 
+    // Create a new PortICDcode entry
     const newICDCode = await PortICDcode.create({
       name,
       icd_code,
@@ -38,11 +41,15 @@ router.post("/api/add-port-type", async (req, res) => {
       contactPersonEmail,
       contactPersonPhone,
     });
+
     res.status(201).json({
-      message: "ICD Ports/CFS/Yard added Successfully",
+      message: "ICD Ports/CFS/Yard added successfully",
       data: newICDCode,
     });
   } catch (error) {
+    console.error(error); // For debugging purposes
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+export default router;

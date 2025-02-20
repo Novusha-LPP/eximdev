@@ -18,6 +18,7 @@ export const viewMasterList = [
   "Unit Measurement",
   "Container Type",
   "Location",
+  "State District",
   "Driver Details",
   "Organisation",
   "Ply Rating",
@@ -73,5 +74,9 @@ export const directoryFields = {
     { name: "district", label: "District", type: "text", disabled: true },
     { name: "state", label: "State", type: "text", disabled: true },
     { name: "country", label: "Country", type: "text", disabled: true },
+  ],
+  "State District": [
+    { name: "state", label: "State Name", type: "text" },
+    { name: "districts", label: "Districts", type: "multi-select" },
   ],
 };

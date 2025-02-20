@@ -12,6 +12,7 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
+  activeState: { type: Number },
   modules: [
     {
       type: String,

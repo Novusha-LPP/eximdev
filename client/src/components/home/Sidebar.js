@@ -8,20 +8,33 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import { UserContext } from "../../contexts/UserContext";
+import axios from "axios";
 
 function Sidebar() {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
-  const handleLogout = () => {
-    setUser(null);
-    navigate("/");
-    // Remove user from local storage
-    localStorage.removeItem("exim_user");
-    localStorage.removeItem("selected_importer");
-    localStorage.removeItem("selected_importer_url");
-    localStorage.removeItem("tab_value");
-  };
 
+  const handleLogout = async () => {
+    try {
+      // Make a request to update activeState to 0
+      if (user && user.username) {
+        await axios.post(`${process.env.REACT_APP_API_STRING}/logout`, {
+          username: user.username,
+        });
+      }
+
+      setUser(null);
+      navigate("/");
+
+      // Remove user from local storage
+      localStorage.removeItem("exim_user");
+      localStorage.removeItem("selected_importer");
+      localStorage.removeItem("selected_importer_url");
+      localStorage.removeItem("tab_value");
+    } catch (err) {
+      console.error("Error during logout", err);
+    }
+  };
   return (
     <div className="sidebar">
       <Tooltip

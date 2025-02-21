@@ -226,9 +226,11 @@ const Commoditys = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
+                    disabled={modalMode === "edit"} // 👈 Prevents editing in edit mode
                     error={touched.hsn_code && Boolean(errors.hsn_code)}
                     helperText={touched.hsn_code && errors.hsn_code}
                   />
+
                   <TextField
                     name="description"
                     label="Description"

@@ -64,22 +64,24 @@ router.put("/api/update-commodity-type/:hsn_code", async (req, res) => {
   const { name, description } = req.body;
 
   try {
-    const updatedHsn = await CommodityCode.findOneAndUpdate(
-      { hsn_code },
-      { name, description },
-      { new: true }
-    );
+    const existingCommodity = await CommodityCode.findOne({ hsn_code });
 
-    if (!updatedHsn) {
-      return res.status(404).json({ error: "HSN code not found" });
+    if (!existingCommodity) {
+      return res.status(404).json({ error: "HSN Code not found" });
     }
 
+    // Update only name & description, but keep hsn_code unchanged
+    existingCommodity.name = name;
+    existingCommodity.description = description;
+
+    const updatedCommodity = await existingCommodity.save();
+
     res.status(200).json({
-      message: "HSN code updated successfully",
-      data: updatedHsn, // ✅ FIXED: Returning correct data
+      message: "Commodity updated successfully",
+      data: updatedCommodity,
     });
   } catch (error) {
-    console.error("❌ Error updating commodity:", error);
+    console.error("Error updating commodity:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

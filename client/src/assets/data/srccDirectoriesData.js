@@ -19,6 +19,7 @@ export const viewMasterList = [
   "Container Type",
   "Location",
   "State District",
+  "Ports/CFS/Yard Directory",
   "Driver Details",
   "Organisation",
   "Ply Rating",

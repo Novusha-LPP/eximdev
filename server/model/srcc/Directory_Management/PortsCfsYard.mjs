@@ -6,10 +6,11 @@ const PortsCfsYardSchema = new mongoose.Schema(
     icd_code: { type: String, required: true, trim: true },
     state: { type: String, required: true, trim: true },
     country: { type: String, required: true, trim: true },
-    active: { type: Boolean },
+    active: { type: Boolean, default: true }, // Default value to true (active)
     type: {
       type: String,
       enum: ["Air custodian", "CFS", "Ports", "Empty yard", "ICD", "Terminal"],
+      required: true, // Make sure it's always required
     },
     contactPersonName: { type: String, required: true, trim: true },
     contactPersonEmail: { type: String, required: true, trim: true },

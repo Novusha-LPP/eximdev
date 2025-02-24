@@ -2952,7 +2952,7 @@ function JobDetails() {
                       </Col>
                       <Col xs={10} lg={4} style={{ marginLeft: "20px" }}>
                         <div className="job-detail-input-container">
-                          <strong>container_rail_out_date:&nbsp;</strong>
+                          <strong>Railout date:&nbsp;</strong>
                           <TextField
                             fullWidth
                             size="small"

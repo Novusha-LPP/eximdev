@@ -6,6 +6,7 @@ import LocationDirectory from "./LocationDirectory";
 import StateDistrictDirectory from "./StateDistrictDirectory";
 import PortsCfsYardDirectory from "./PortsCfsYardDirectory";
 import Commodity from "./Commodity";
+import VehicleTypes from "./VehicleTypes";
 
 function DirectoryComponent({ directoryType }) {
   console.log("Selected Directory Type:", directoryType); // Debugging log
@@ -24,6 +25,8 @@ function DirectoryComponent({ directoryType }) {
         return <PortsCfsYardDirectory />;
       case "Commodity": // ✅ Added Commoditys Directory
         return <Commodity />;
+      case "Vehicle Types": // ✅ Added Commoditys Directory
+        return <VehicleTypes />;
       default:
         console.log("No matching directory found for:", directoryType);
         return null;

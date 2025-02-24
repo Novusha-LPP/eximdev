@@ -21,6 +21,7 @@ export const viewMasterList = [
   "State District",
   "Ports/CFS/Yard Directory",
   "Commodity",
+  "Vehicle Types",
   "Driver Details",
   "Organisation",
   "Ply Rating",

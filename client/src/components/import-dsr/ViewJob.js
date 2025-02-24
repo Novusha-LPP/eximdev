@@ -1,12 +1,11 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
-import { Modal, Row, Col } from "react-bootstrap";
+import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
-import { uploadFileToS3 } from "../../utils/awsFileUpload";
+// import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import {
   IconButton,
   TextField,
-  Autocomplete,
   InputLabel,
   Select,
   Typography,
@@ -22,16 +21,12 @@ import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import AWS from "aws-sdk";
-import { handleFileUpload } from "../../utils/awsFileUpload";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
 import JobDetailsStaticData from "./JobDetailsStaticData";
 import JobDetailsRowHeading from "./JobDetailsRowHeading";
 import FormGroup from "@mui/material/FormGroup";
 import { TabValueContext } from "../../contexts/TabValueContext";
-import {
-  handleNetWeightChange,
-  handleGrossWeightChange,
-} from "../../utils/handleNetWeightChange";
+import { handleGrossWeightChange } from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
@@ -46,6 +41,7 @@ import {
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
+
 function JobDetails() {
   const params = useParams();
   const { user } = useContext(UserContext);
@@ -56,10 +52,10 @@ function JobDetails() {
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const bl_no_ref = useRef();
-  const checklistRef = useRef();
-  const processedBeAttachmentRef = useRef();
-  const oocCopyRef = useRef();
-  const gatePassCopyRef = useRef();
+  // const checklistRef = useRef();
+  // const processedBeAttachmentRef = useRef();
+  // const oocCopyRef = useRef();
+  // const gatePassCopyRef = useRef();
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
   const pdfRef = useRef(null);
@@ -69,10 +65,9 @@ function JobDetails() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   // const [dialogOpen, setDialogOpen] = useState(false);
   // const [currentDocument, setCurrentDocument] = useState(null);
-  const [actionType, setActionType] = useState(""); // "edit" or "delete"
   // Modal visibility state
   // Loading state for downloading
-  const [isDownloading, setIsDownloading] = useState(false);
+  // const [isDownloading, setIsDownloading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -84,43 +79,43 @@ function JobDetails() {
     formik,
     cthDocuments,
     setCthDocuments,
-    handleFileChange,
-    selectedDocuments,
-    setSelectedDocuments,
-    handleDocumentChange,
-    handleAddDocument,
-    handleRemoveDocument,
+    // handleFileChange,
+    // selectedDocuments,
+    // setSelectedDocuments,
+    // handleDocumentChange,
+    // handleAddDocument,
+    // handleRemoveDocument,
     newDocumentName,
     setNewDocumentName,
     setNewDocumentCode,
     newDocumentCode,
-    canEditOrDelete,
+    // canEditOrDelete,
     cth_Dropdown,
-    filterDocuments,
+    // filterDocuments,
     selectedDocument,
     setSelectedDocument,
-    clearanceOptionsMapping,
+    // clearanceOptionsMapping,
     jobDetails,
-    setJobDetails,
-    type_of_b_e,
-    setTypeOfBE,
-    clearanceValue,
-    setClearanceValue,
-    scheme,
-    setScheme,
-    exBondValue,
-    setExBondValue,
-    be_no,
-    setBeNo,
-    be_date,
-    setBeDate,
-    ooc_copies,
-    setOocCopies,
+    // setJobDetails,
+    // type_of_b_e,
+    // setTypeOfBE,
+    // clearanceValue,
+    // setClearanceValue,
+    // scheme,
+    // setScheme,
+    // exBondValue,
+    // setExBondValue,
+    // be_no,
+    // setBeNo,
+    // be_date,
+    // setBeDate,
+    // ooc_copies,
+    // setOocCopies,
     beTypeOptions,
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
-    schemeOptions,
+    // schemeOptions,
   } = useFetchJobDetails(
     params,
     checked,
@@ -187,6 +182,7 @@ function JobDetails() {
     formik.values.discharge_date,
     formik.values.rail_out_date,
     formik.values.arrival_date, // Ensure this is included
+    formik.values.container_rail_out_date,
     formik.values.out_of_charge,
     formik.values.pcv_date,
     formik.values.completed_operation_date,
@@ -195,27 +191,27 @@ function JobDetails() {
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
-  const handleRadioChange = (event) => {
-    const selectedValue = event.target.value;
+  // const handleRadioChange = (event) => {
+  //   const selectedValue = event.target.value;
 
-    if (selectedValue === "clear") {
-      setSelectedRegNo("");
-      formik.setFieldValue("sims_reg_no", "");
-      formik.setFieldValue("pims_reg_no", "");
-      formik.setFieldValue("nfmims_reg_no", "");
-      formik.setFieldValue("sims_date", "");
-      formik.setFieldValue("pims_date", "");
-      formik.setFieldValue("nfmims_date", "");
-    } else {
-      setSelectedRegNo(selectedValue);
-      formik.setFieldValue("sims_reg_no", "");
-      formik.setFieldValue("pims_reg_no", "");
-      formik.setFieldValue("nfmims_reg_no", "");
-      formik.setFieldValue("sims_date", "");
-      formik.setFieldValue("pims_date", "");
-      formik.setFieldValue("nfmims_date", "");
-    }
-  };
+  //   if (selectedValue === "clear") {
+  //     setSelectedRegNo("");
+  //     formik.setFieldValue("sims_reg_no", "");
+  //     formik.setFieldValue("pims_reg_no", "");
+  //     formik.setFieldValue("nfmims_reg_no", "");
+  //     formik.setFieldValue("sims_date", "");
+  //     formik.setFieldValue("pims_date", "");
+  //     formik.setFieldValue("nfmims_date", "");
+  //   } else {
+  //     setSelectedRegNo(selectedValue);
+  //     formik.setFieldValue("sims_reg_no", "");
+  //     formik.setFieldValue("pims_reg_no", "");
+  //     formik.setFieldValue("nfmims_reg_no", "");
+  //     formik.setFieldValue("sims_date", "");
+  //     formik.setFieldValue("pims_date", "");
+  //     formik.setFieldValue("nfmims_date", "");
+  //   }
+  // };
 
   const handleBlStatusChange = (event) => {
     const selectedValue = event.target.value;
@@ -324,6 +320,7 @@ function JobDetails() {
         container_gross_weight: "",
         weight_shortage: "",
         transporter: "",
+        container_rail_out_date: ""
       },
     ]);
   };
@@ -441,59 +438,59 @@ function JobDetails() {
 
   //
   // Ref to JobStickerPDF component
-  const jobStickerRef = useRef();
+  // const jobStickerRef = useRef();
 
   // Modal visibility state
-  const [showModal, setShowModal] = useState(false);
+  // const [showModal, setShowModal] = useState(false);
 
   // Loading state for uploading
-  const [isUploading, setIsUploading] = useState(false);
+  // const [isUploading, setIsUploading] = useState(false);
 
   // Open modal
   // Inside ParentComponent.jsx or ViewJob.js
-  const handleOpenModal = () => {
-    console.log("Opening modal with jobData:", formik.values.job_no);
-    setShowModal(true);
-  };
+  // const handleOpenModal = () => {
+  //   console.log("Opening modal with jobData:", formik.values.job_no);
+  //   setShowModal(true);
+  // };
 
   // Close modal
-  const handleCloseModal = () => setShowModal(false);
+  // const handleCloseModal = () => setShowModal(false);
 
   // Handle PDF generation and upload on Confirm
-  const handleConfirm = async () => {
-    setIsUploading(true);
-    try {
-      if (jobStickerRef.current) {
-        // Generate PDF as Blob
-        const pdfBlob = await jobStickerRef.current.generatePdf();
+  // const handleConfirm = async () => {
+  //   setIsUploading(true);
+  //   try {
+  //     if (jobStickerRef.current) {
+  //       // Generate PDF as Blob
+  //       const pdfBlob = await jobStickerRef.current.generatePdf();
 
-        // Upload the PDF Blob
-        const uploadedFile = await uploadPdf(
-          pdfBlob,
-          `job-sticker/${formik.values.jobId}.pdf`
-        );
+  //       // Upload the PDF Blob
+  //       const uploadedFile = await uploadPdf(
+  //         pdfBlob,
+  //         `job-sticker/${formik.values.jobId}.pdf`
+  //       );
 
-        // Update Formik's job_sticker_upload with the uploaded file info
-        const existingFiles = formik.values.job_sticker_upload || [];
-        const updatedFiles = [...existingFiles, uploadedFile];
-        formik.setFieldValue("job_sticker_upload", updatedFiles);
+  //       // Update Formik's job_sticker_upload with the uploaded file info
+  //       const existingFiles = formik.values.job_sticker_upload || [];
+  //       const updatedFiles = [...existingFiles, uploadedFile];
+  //       formik.setFieldValue("job_sticker_upload", updatedFiles);
 
-        alert("PDF uploaded successfully!");
+  //       alert("PDF uploaded successfully!");
 
-        // Optionally, handle further actions like form submission
-        // formik.handleSubmit();
+  //       // Optionally, handle further actions like form submission
+  //       // formik.handleSubmit();
 
-        // Close the modal
-        handleCloseModal();
-      }
-    } catch (error) {
-      console.error("Error generating or uploading PDF:", error);
-      alert(
-        "An error occurred while generating or uploading the PDF. Please try again."
-      );
-    }
-    setIsUploading(false);
-  };
+  //       // Close the modal
+  //       handleCloseModal();
+  //     }
+  //   } catch (error) {
+  //     console.error("Error generating or uploading PDF:", error);
+  //     alert(
+  //       "An error occurred while generating or uploading the PDF. Please try again."
+  //     );
+  //   }
+  //   setIsUploading(false);
+  // };
 
   // const handleDownload = async () => {
   //   setIsDownloading(true);
@@ -534,44 +531,44 @@ function JobDetails() {
   //   setIsDownloading(false);
   // };
 
-  const handleDownload = async () => {
-    setIsDownloading(true);
-    try {
-      if (jobStickerRef.current) {
-        // Generate PDF as Blob without passing arguments
-        const pdfBlob = await jobStickerRef.current.generatePdf();
+  // const handleDownload = async () => {
+  //   setIsDownloading(true);
+  //   try {
+  //     if (jobStickerRef.current) {
+  //       // Generate PDF as Blob without passing arguments
+  //       const pdfBlob = await jobStickerRef.current.generatePdf();
 
-        // Check if Blob was generated successfully
-        if (!pdfBlob) {
-          throw new Error("PDF Blob is undefined");
-        }
+  //       // Check if Blob was generated successfully
+  //       if (!pdfBlob) {
+  //         throw new Error("PDF Blob is undefined");
+  //       }
 
-        // Create a download link
-        const url = window.URL.createObjectURL(pdfBlob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute(
-          "download",
-          `Job_Sticker_${formik.values.job_no}.pdf`
-        );
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
+  //       // Create a download link
+  //       const url = window.URL.createObjectURL(pdfBlob);
+  //       const link = document.createElement("a");
+  //       link.href = url;
+  //       link.setAttribute(
+  //         "download",
+  //         `Job_Sticker_${formik.values.job_no}.pdf`
+  //       );
+  //       document.body.appendChild(link);
+  //       link.click();
+  //       link.parentNode.removeChild(link);
 
-        // Release the object URL
-        window.URL.revokeObjectURL(url);
-        console.log("PDF downloaded successfully.");
-      } else {
-        throw new Error("JobStickerPDF ref is not defined");
-      }
-    } catch (error) {
-      console.error("Error generating or downloading PDF:", error);
-      alert(
-        `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
-      );
-    }
-    setIsDownloading(false);
-  };
+  //       // Release the object URL
+  //       window.URL.revokeObjectURL(url);
+  //       console.log("PDF downloaded successfully.");
+  //     } else {
+  //       throw new Error("JobStickerPDF ref is not defined");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error generating or downloading PDF:", error);
+  //     alert(
+  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
+  //     );
+  //   }
+  //   setIsDownloading(false);
+  // };
 
   /**
    * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
@@ -579,26 +576,26 @@ function JobDetails() {
    * @param {string} filePath - The desired file path or name in storage.
    * @returns {Promise<Object>} - An object containing uploaded file's details.
    */
-  const uploadPdf = async (blob, filePath) => {
-    // Assuming uploadFileToS3 is a utility function you've defined
-    // that uploads a file to AWS S3 and returns the file URL.
+  // const uploadPdf = async (blob, filePath) => {
+  //   // Assuming uploadFileToS3 is a utility function you've defined
+  //   // that uploads a file to AWS S3 and returns the file URL.
 
-    // Example implementation:
-    // const result = await uploadFileToS3(blob, filePath);
-    // return { url: result.Location, name: result.Key };
+  //   // Example implementation:
+  //   // const result = await uploadFileToS3(blob, filePath);
+  //   // return { url: result.Location, name: result.Key };
 
-    // Replace the below mock implementation with your actual upload logic
-    try {
-      const result = await uploadFileToS3(blob, filePath);
-      return {
-        name: result.Key, // Assuming Key is the file name/path in S3
-        url: result.Location, // URL of the uploaded file
-        size: blob.size,
-      };
-    } catch (error) {
-      throw new Error("Upload failed");
-    }
-  };
+  //   // Replace the below mock implementation with your actual upload logic
+  //   try {
+  //     const result = await uploadFileToS3(blob, filePath);
+  //     return {
+  //       name: result.Key, // Assuming Key is the file name/path in S3
+  //       url: result.Location, // URL of the uploaded file
+  //       size: blob.size,
+  //     };
+  //   } catch (error) {
+  //     throw new Error("Upload failed");
+  //   }
+  // };
   function subtractOneDay(dateString) {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -919,7 +916,7 @@ function JobDetails() {
                     variant="outlined"
                     id="status"
                     name="status"
-                    value={formik.values.status}
+                    value={formik.values.status || ""}
                     onChange={formik.handleChange}
                   >
                     <MenuItem value="Pending">Pending</MenuItem>
@@ -939,7 +936,7 @@ function JobDetails() {
                     variant="outlined"
                     id="detailed_status"
                     name="detailed_status"
-                    value={formik.values.detailed_status}
+                    value={formik.values.detailed_status || ""}
                     onChange={formik.handleChange}
                   >
                     <MenuItem value="ETA Date Pending">
@@ -988,7 +985,7 @@ function JobDetails() {
                     type="date"
                     id="vessel_berthing"
                     name="vessel_berthing"
-                    value={formik.values.vessel_berthing}
+                    value={formik.values.vessel_berthing || ""}
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1004,7 +1001,7 @@ function JobDetails() {
                     type="date"
                     id="gateway_igm_date"
                     name="gateway_igm_date"
-                    value={formik.values.gateway_igm_date}
+                    value={formik.values.gateway_igm_date || ""}
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1020,14 +1017,14 @@ function JobDetails() {
                     type="date"
                     id="discharge_date"
                     name="discharge_date"
-                    value={formik.values.discharge_date}
+                    value={formik.values.discharge_date || ""}
                     onChange={formik.handleChange}
                   />
                 </div>
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
+              {/* <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
@@ -1061,7 +1058,7 @@ function JobDetails() {
                     }}
                   />
                 </div>
-              </Col>
+              </Col> */}
               <Col xs={12} lg={4} className="mb-3">
                 <div className="job-detail-input-container">
                   <Checkbox
@@ -1090,7 +1087,7 @@ function JobDetails() {
                         type="date"
                         id="arrival_date"
                         name="arrival_date"
-                        value={formik.values.arrival_date}
+                        value={formik.values.arrival_date || ""}
                         onChange={formik.handleChange}
                       />
                     </>
@@ -1110,7 +1107,7 @@ function JobDetails() {
                     variant="outlined"
                     id="free_time"
                     name="free_time"
-                    value={formik.values.free_time}
+                    value={formik.values.free_time || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     // disabled={user.role !== "Admin"} // Disable if the user is not Admin
@@ -1139,7 +1136,7 @@ function JobDetails() {
                   <RadioGroup
                     row
                     name="priorityJob"
-                    value={formik.values.priorityJob}
+                    value={formik.values.priorityJob || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
                   >
@@ -1187,7 +1184,7 @@ function JobDetails() {
                   <RadioGroup
                     row
                     name="payment_method"
-                    value={formik.values.payment_method}
+                    value={formik.values.payment_method || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
                   >
@@ -1257,7 +1254,7 @@ function JobDetails() {
                     variant="outlined"
                     id="description"
                     name="description"
-                    value={formik.values.description}
+                    value={formik.values.description || ""}
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1275,7 +1272,7 @@ function JobDetails() {
                     variant="outlined"
                     id="cth_no"
                     name="cth_no"
-                    value={formik.values.cth_no}
+                    value={formik.values.cth_no || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1295,9 +1292,9 @@ function JobDetails() {
                     variant="outlined"
                     margin="normal"
                     name="type_of_b_e"
-                    value={formik.values.type_of_b_e}
+                    value={formik.values.type_of_b_e || ""}
                     onChange={formik.handleChange}
-                    displayEmpty
+                    displayempty="true"
                   >
                     <MenuItem value="" disabled>
                       Select BE Type
@@ -1326,7 +1323,7 @@ function JobDetails() {
                     size="small"
                     variant="outlined"
                     name="clearanceValue"
-                    value={formik.values.clearanceValue}
+                    value={formik.values.clearanceValue || ""}
                     onChange={(e) => {
                       if (canChangeClearance()) {
                         formik.setFieldValue("clearanceValue", e.target.value);
@@ -1341,7 +1338,7 @@ function JobDetails() {
                       Select Clearance Type
                     </MenuItem>
                     {filteredClearanceOptions.map((option, index) => (
-                      <MenuItem key={index} value={option.value}>
+                      <MenuItem key={index} value={option.value || ""}>
                         {option.label}
                       </MenuItem>
                     ))}
@@ -1388,7 +1385,7 @@ function JobDetails() {
                       size="small"
                       variant="outlined"
                       name="exBondValue"
-                      value={formik.values.exBondValue}
+                      value={formik.values.exBondValue || ""}
                       onChange={formik.handleChange}
                     >
                       <MenuItem value="" disabled>
@@ -1421,7 +1418,7 @@ function JobDetails() {
                         size="small"
                         variant="outlined"
                         name="in_bond_be_no"
-                        value={formik.values.in_bond_be_no}
+                        value={formik.values.in_bond_be_no || ""}
                         onChange={formik.handleChange}
                       />
                     </div>
@@ -1441,7 +1438,7 @@ function JobDetails() {
                         type="date"
                         InputLabelProps={{ shrink: true }}
                         name="in_bond_be_date"
-                        value={formik.values.in_bond_be_date}
+                        value={formik.values.in_bond_be_date || ""}
                         onChange={formik.handleChange}
                       />
                     </div>
@@ -1540,7 +1537,7 @@ function JobDetails() {
                     variant="outlined"
                     id="gross_weight"
                     name="gross_weight"
-                    value={formik.values.gross_weight}
+                    value={formik.values.gross_weight || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1559,7 +1556,7 @@ function JobDetails() {
                     variant="outlined"
                     id="job_net_weight"
                     name="job_net_weight"
-                    value={formik.values.job_net_weight}
+                    value={formik.values.job_net_weight || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1582,7 +1579,7 @@ function JobDetails() {
                     variant="outlined"
                     id="be_no"
                     name="be_no"
-                    value={formik.values.be_no}
+                    value={formik.values.be_no || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1602,7 +1599,7 @@ function JobDetails() {
                     type="date"
                     id="be_date"
                     name="be_date"
-                    value={formik.values.be_date}
+                    value={formik.values.be_date || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -2578,19 +2575,21 @@ function JobDetails() {
                   key={`cth-${index}`}
                   style={{ marginBottom: "20px", position: "relative" }}
                 >
-                  <FileUpload
-                    label={`${doc.document_name} (${doc.document_code})`}
-                    bucketPath={`cth-documents/${doc.document_name}`}
-                    onFilesUploaded={(urls) => {
-                      const updatedDocuments = [...cthDocuments];
-                      updatedDocuments[index].url = [
-                        ...(updatedDocuments[index].url || []),
-                        ...urls,
-                      ]; // Append new URLs
-                      setCthDocuments(updatedDocuments);
-                    }}
-                    multiple={true} // Allow multiple uploads
-                  />
+                  <div className="" tyle={{ display: "inline" }}>
+                    <FileUpload
+                      label={`${doc.document_name} (${doc.document_code})`}
+                      bucketPath={`cth-documents/${doc.document_name}`}
+                      onFilesUploaded={(urls) => {
+                        const updatedDocuments = [...cthDocuments];
+                        updatedDocuments[index].url = [
+                          ...(updatedDocuments[index].url || []),
+                          ...urls,
+                        ]; // Append new URLs
+                        setCthDocuments(updatedDocuments);
+                      }}
+                      multiple={true} // Allow multiple uploads
+                    />
+                  </div>
                   <ImagePreview
                     images={doc.url || []} // Pass all uploaded URLs
                     onDeleteImage={(deleteIndex) => {
@@ -2878,6 +2877,7 @@ function JobDetails() {
                     container_number: "",
                     size: "",
                     arrival_date: "",
+                    container_rail_out_date: "",
                     do_revalidation: [],
                   },
                 ]
@@ -2889,6 +2889,7 @@ function JobDetails() {
                       padding: "30px",
                     }}
                   >
+                    <Row>
                     <div style={{ display: "flex", alignItems: "center" }}>
                       <h6 style={{ marginBottom: 0 }}>
                         <strong>
@@ -2949,7 +2950,57 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
+                      <Col xs={10} lg={4} style={{ marginLeft: "20px" }}>
+                        <div className="job-detail-input-container">
+                          <strong>container_rail_out_date:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="datetime-local"   
+                            id={`container_rail_out_date${index}`}
+                            name={`container_nos[${index}].container_rail_out_date`}
+                            value={container.container_rail_out_date}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
+
+                      {/* <Col xs={10} lg={3} style={{ marginLeft: "20px" }}>
+                        <div
+                          className="job-detail-input-container"
+                          style={{ justifyContent: "flex-start" }}
+                        >
+                          <strong>Railout Date:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="datetime-local"
+                            id="rail_out_date"
+                            name="rail_out_date"
+                            value={console.log(container.container_rail_out_date?  container.container_rail_out_date: "")}
+                            onChange={formik.handleChange}
+                            // onChange={(e) => {
+                            //   const newValue = e.target.value;
+                            //   if (newValue) {
+                            //     // formik.setFieldValue("examinationPlanning", true);
+                            //     formik.setFieldValue("rail_out_date", newValue);
+                            //   } else {
+                            //     // formik.setFieldValue("examinationPlanning", false);
+                            //     formik.setFieldValue("rail_out_date", "");
+                            //   }
+                            // }}
+                            InputLabelProps={{
+                              shrink: true,
+                            }}
+                          />
+                        </div>
+                      </Col> */}
                     </div>
+                    </Row>
                     <br />
                     <Row>
                       <Col xs={12} lg={3}>

@@ -337,10 +337,10 @@ function useJobColumns() {
                     <strong> {shippingLine} </strong>
                   </Tooltip>
                   <Tooltip title="Supplier/Exporter" arrow>
-                    {supplier_exporter}
+                    <span>{supplier_exporter}</span>
                   </Tooltip>
                   <Tooltip title="Gross Weight" arrow>
-                    <strong>Gross(KGS): {gross_weight || "N/A"} </strong>{" "}
+                    <><strong>Gross(KGS): {gross_weight || "N/A"} </strong>{" "}</>
                   </Tooltip>
                   <Tooltip title="Net Weight" arrow>
                     <strong>Net(KGS): {job_net_weight || "N/A"}</strong>

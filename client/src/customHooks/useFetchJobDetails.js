@@ -4,7 +4,7 @@ import { useFormik } from "formik";
 import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
 import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
-import { Dropdown } from "react-bootstrap";
+// import { Dropdown } from "react-bootstrap";
 
 const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
   try {
@@ -375,6 +375,7 @@ function useFetchJobDetails(
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
       do_completed: "",
+      // container_rail_out_date: ""
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -504,6 +505,7 @@ function useFetchJobDetails(
       JSON.stringify(
         formik.values.container_nos.map((container) => ({
           arrival_date: container.arrival_date,
+          // container_rail_out_date: container.container_rail_out_date,
           free_time: container.free_time,
           required_do_validity_upto: container.required_do_validity_upto || "",
         }))
@@ -541,6 +543,8 @@ function useFetchJobDetails(
         size: container.size === undefined ? "20" : container.size,
         seal_number:
           container.seal_number === undefined ? "" : container.seal_number,
+          container_rail_out_date:
+          container.container_rail_out_date === undefined ? "": container.container_rail_out_date,
         weighment_slip_images:
           container.weighment_slip_images === undefined
             ? []

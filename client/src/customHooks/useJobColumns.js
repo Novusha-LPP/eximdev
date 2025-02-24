@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
-
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
@@ -333,14 +332,17 @@ function useJobColumns() {
                       </a>
                     </abbr>
                   </div>
+
                   <Tooltip title="shippingLine" arrow>
                     <strong> {shippingLine} </strong>
                   </Tooltip>
                   <Tooltip title="Supplier/Exporter" arrow>
-                    {supplier_exporter}
+                    <span>{supplier_exporter}</span>
                   </Tooltip>
                   <Tooltip title="Gross Weight" arrow>
-                    <strong>Gross(KGS): {gross_weight || "N/A"}</strong>{" "}
+                    <>
+                      <strong>Gross(KGS): {gross_weight || "N/A"} </strong>{" "}
+                    </>
                   </Tooltip>
                   <Tooltip title="Net Weight" arrow>
                     <strong>Net(KGS): {job_net_weight || "N/A"}</strong>

@@ -376,8 +376,16 @@ function useJobColumns() {
               <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
               <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
               <strong>Rail-out :</strong>
-              {rail_out_date ? rail_out_date.slice(0, 10) : "N/A"}
-              <br />
+              {container_nos.length > 0
+                ? container_nos.map((container, id) => (
+                    <React.Fragment key={id}>
+                      {container.container_rail_out_date
+                        ? container.container_rail_out_date.slice(0, 10)
+                        : "N/A"}{" "}
+                      <br />
+                    </React.Fragment>
+                  ))
+                : "N/A"}
               <strong>Arrival :</strong>
               {container_nos.length > 0
                 ? container_nos.map((container, id) => (

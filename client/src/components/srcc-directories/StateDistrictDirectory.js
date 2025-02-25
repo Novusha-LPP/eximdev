@@ -28,21 +28,18 @@ function StateDistrictDirectory() {
   const [formData, setFormData] = useState({ state: "", districts: "" });
   const [existingStates, setExistingStates] = useState([]);
   const [stateError, setStateError] = useState("");
-  const [typingTimeout, setTypingTimeout] = useState(null);
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  // ✅ Fetch States from API
   const fetchStates = async () => {
     try {
-      console.log("🚀 Fetching States...");
       const response = await axios.get(`${API_URL}/get-state-districts`);
       const statesList = response.data.states || [];
       setStateData(statesList);
-      setExistingStates(statesList.map((s) => s.state.toLowerCase())); // Store existing states for quick check
+      setExistingStates(statesList.map((s) => s.state.toLowerCase()));
     } catch (error) {
-      console.error("❌ Error fetching states:", error);
+      console.error("Error fetching states:", error);
     }
   };
 
@@ -53,7 +50,7 @@ function StateDistrictDirectory() {
   const handleAdd = () => {
     setModalMode("add");
     setFormData({ state: "", districts: "" });
-    setStateError(""); // Reset error message
+    setStateError("");
     setOpenModal(true);
   };
 
@@ -72,33 +69,34 @@ function StateDistrictDirectory() {
         await axios.delete(`${API_URL}/delete-state/${stateName}`);
         fetchStates();
       } catch (error) {
-        console.error("❌ Error deleting state:", error);
+        console.error("Error deleting state:", error);
       }
     }
   };
 
   const handleSave = async () => {
+    const { state, districts } = formData;
+
+    const uniqueDistricts = [
+      ...new Set(districts.split(",").map((district) => district.trim())),
+    ].filter((district) => district.length > 0);
+
+    const formattedData = {
+      state: state.trim(),
+      districts: uniqueDistricts,
+    };
+
+    if (
+      modalMode === "add" &&
+      existingStates.includes(formattedData.state.toLowerCase())
+    ) {
+      setStateError(
+        `"${formattedData.state}" already exists! Try a different name.`
+      );
+      return;
+    }
+
     try {
-      const formattedData = {
-        state: formData.state.trim(),
-        districts: [
-          ...new Set( // ✅ Remove duplicates before saving
-            formData.districts.split(",").map((district) => district.trim())
-          ),
-        ].filter((district) => district.length > 0), // ✅ Remove empty values
-      };
-
-      // ✅ Check for duplicate states (Frontend)
-      if (
-        modalMode === "add" &&
-        existingStates.includes(formattedData.state.toLowerCase())
-      ) {
-        setStateError(
-          `⚠️ "${formattedData.state}" already exists! Try a different name.`
-        );
-        return;
-      }
-
       if (modalMode === "add") {
         await axios.post(`${API_URL}/add-state-district`, {
           states: [formattedData],
@@ -106,16 +104,14 @@ function StateDistrictDirectory() {
       } else {
         await axios.put(
           `${API_URL}/update-state-district/${formattedData.state}`,
-          {
-            districts: formattedData.districts,
-          }
+          { districts: formattedData.districts }
         );
       }
 
       setOpenModal(false);
       fetchStates();
     } catch (error) {
-      console.error("❌ Error saving state:", error);
+      console.error("Error saving state:", error);
     }
   };
 
@@ -125,24 +121,6 @@ function StateDistrictDirectory() {
       ...prev,
       [name]: value,
     }));
-
-    // ✅ If editing "districts", start a 5-second delay to remove duplicates
-    if (name === "districts") {
-      if (typingTimeout) clearTimeout(typingTimeout);
-      const newTimeout = setTimeout(() => {
-        const uniqueDistricts = [
-          ...new Set(value.split(",").map((d) => d.trim())),
-        ]
-          .filter((d) => d.length > 0)
-          .join(", ");
-
-        setFormData((prev) => ({
-          ...prev,
-          districts: uniqueDistricts, // ✅ After 5 sec, update input with unique values
-        }));
-      }, 1000); // 5-second delay before removing duplicates
-      setTypingTimeout(newTimeout);
-    }
   };
 
   return (
@@ -186,7 +164,6 @@ function StateDistrictDirectory() {
         </Table>
       </TableContainer>
 
-      {/* ✅ Modal for Adding & Editing States */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -217,15 +194,8 @@ function StateDistrictDirectory() {
               onChange={handleChange}
               fullWidth
               multiline
-              rows={4} // ✅ Expands but remains controlled
-              sx={{
-                overflow: "auto",
-                maxHeight: "150px", // ✅ Scroll appears if text exceeds
-                "& .MuiInputBase-root": {
-                  overflowY: "auto", // ✅ Enables vertical scrolling
-                },
-              }}
-              helperText="Enter multiple districts separated by commas (duplicates will be removed automatically after 5 seconds)."
+              rows={4}
+              helperText="Enter multiple districts separated by commas. Duplicates will be removed before submission."
             />
           </Box>
         </DialogContent>

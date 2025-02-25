@@ -74,19 +74,23 @@ const Commoditys = () => {
   const handleEdit = (commodity) => {
     setModalMode("edit");
     setFormData({
+      _id: commodity._id, // Include ID for updates
       name: commodity.name,
-      hsn_code: commodity.hsn_code,
+      hsn_code: commodity.hsn_code, // Non-editable in form
       description: commodity.description,
     });
     setOpenModal(true);
   };
 
-  const handleDelete = async (hsn_code) => {
+  const handleDelete = async (commodity) => {
+    // Use _id for deletion
     if (
-      window.confirm(`Are you sure you want to delete HSN code: ${hsn_code}?`)
+      window.confirm(
+        `Are you sure you want to delete HSN code: ${commodity.hsn_code}?`
+      )
     ) {
       try {
-        await axios.delete(`${API_URL}/delete-commodity-type/${hsn_code}`);
+        await axios.delete(`${API_URL}/delete-commodity-type/${commodity._id}`);
         fetchCommodities();
       } catch (error) {
         console.error("❌ Error deleting commodity:", error);
@@ -95,20 +99,30 @@ const Commoditys = () => {
   };
 
   const handleSave = async (values) => {
-    try {
-      const formattedData = {
-        ...values,
-        hsn_code: values.hsn_code.trim(),
-        name: values.name.trim(),
-        description: values.description.trim(),
-      };
+    const { _id, name, hsn_code, description } = values;
 
-      if (
-        modalMode === "add" &&
-        existingHsn.includes(formattedData.hsn_code.toLowerCase())
-      ) {
-        alert(`⚠️ HSN Code "${formattedData.hsn_code}" already exists!`);
-        return;
+    const formattedData = {
+      name: name.trim(),
+      description: description.trim(),
+      hsn_code: hsn_code.trim(),
+    };
+
+    try {
+      if (modalMode === "add" || modalMode === "edit") {
+        // Check for duplicate HSN Code before submitting
+        const response = await axios.get(`${API_URL}/get-commodity-type`);
+
+        const commodityList = response.data.data || [];
+        const isHSNExists = commodityList.some(
+          (item) =>
+            item.hsn_code.toLowerCase() ===
+              formattedData.hsn_code.toLowerCase() && item._id !== _id
+        );
+
+        if (isHSNExists) {
+          alert(`HSN Code "${formattedData.hsn_code}" already exists!`);
+          return;
+        }
       }
 
       if (modalMode === "add") {
@@ -117,25 +131,36 @@ const Commoditys = () => {
           `${API_URL}/add-commodity-type`,
           formattedData
         );
-        if (response.status === 201) {
-          setOpenModal(false);
-          fetchCommodities();
-        }
+        responseHandler(response, "added");
       } else {
-        // Update existing commodity
+        // Update existing commodity with the new HSN Code
         const response = await axios.put(
-          `${API_URL}/update-commodity-type/${formattedData.hsn_code}`,
+          `${API_URL}/update-commodity-type/${_id}`,
           formattedData
         );
-        if (response.status === 200) {
-          setOpenModal(false);
-          fetchCommodities();
-        }
+        responseHandler(response, "updated");
       }
     } catch (error) {
       console.error("❌ Error saving commodity:", error);
+      alert(
+        `Failed to save commodity: ${
+          error.response?.data?.error || "Server error"
+        }`
+      );
     }
   };
+
+  const responseHandler = (response, action) => {
+    if (response.status === 200 || response.status === 201) {
+      alert(`Commodity ${action} successfully!`);
+      setOpenModal(false);
+      fetchCommodities();
+    } else {
+      alert(`Failed to ${action} commodity: ${response.statusText}`);
+    }
+  };
+
+  // Simplify response handling
 
   return (
     <Box>
@@ -169,7 +194,7 @@ const Commoditys = () => {
                     <EditIcon />
                   </IconButton>
                   <IconButton
-                    onClick={() => handleDelete(commodity.hsn_code)}
+                    onClick={() => handleDelete(commodity)}
                     color="error"
                   >
                     <DeleteIcon />
@@ -226,7 +251,7 @@ const Commoditys = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    disabled={modalMode === "edit"} // 👈 Prevents editing in edit mode
+                    // disabled={modalMode === "edit"} // 👈 Prevents editing in edit mode
                     error={touched.hsn_code && Boolean(errors.hsn_code)}
                     helperText={touched.hsn_code && errors.hsn_code}
                   />

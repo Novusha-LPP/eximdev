@@ -59,22 +59,38 @@ router.get("/api/get-commodity-type/:hsn_code", async (req, res) => {
   }
 });
 
-router.put("/api/update-commodity-type/:hsn_code", async (req, res) => {
-  const { hsn_code } = req.params;
-  const { name, description } = req.body;
+router.put("/api/update-commodity-type/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, description, hsn_code } = req.body;
 
   try {
-    const existingCommodity = await CommodityCode.findOne({ hsn_code });
-
-    if (!existingCommodity) {
-      return res.status(404).json({ error: "HSN Code not found" });
+    // Ensure HSN code is provided
+    if (!hsn_code) {
+      return res.status(400).json({ error: "HSN code is required" });
     }
 
-    // Update only name & description, but keep hsn_code unchanged
-    existingCommodity.name = name;
-    existingCommodity.description = description;
+    // Check if the HSN code already exists in another record
+    const existingHSNCode = await CommodityCode.findOne({
+      hsn_code,
+      _id: { $ne: id },
+    });
 
-    const updatedCommodity = await existingCommodity.save();
+    if (existingHSNCode) {
+      return res
+        .status(400)
+        .json({ error: "HSN code already exists. Choose a different one." });
+    }
+
+    // Update the commodity
+    const updatedCommodity = await CommodityCode.findByIdAndUpdate(
+      id,
+      { name, description, hsn_code },
+      { new: true }
+    );
+
+    if (!updatedCommodity) {
+      return res.status(404).json({ error: "Commodity not found" });
+    }
 
     res.status(200).json({
       message: "Commodity updated successfully",
@@ -86,20 +102,22 @@ router.put("/api/update-commodity-type/:hsn_code", async (req, res) => {
   }
 });
 
-router.delete("/api/delete-commodity-type/:hsn_code", async (req, res) => {
-  const { hsn_code } = req.params;
+// Delete a commodity using MongoDB _id
+router.delete("/api/delete-commodity-type/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const deleteHSN = await CommodityCode.findOneAndDelete({ hsn_code });
-    if (!deleteHSN) {
-      return res.status(404).json({ error: "HSN code not found" });
+    const commodity = await CommodityCode.findByIdAndDelete(id);
+    if (!commodity) {
+      return res.status(404).json({ error: "Commodity not found" });
     }
     res.status(200).json({
-      message: "HNS code deleted successfully",
-      data: deleteHSN,
+      message: "Commodity deleted successfully",
+      data: commodity,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server Error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
+
 export default router;

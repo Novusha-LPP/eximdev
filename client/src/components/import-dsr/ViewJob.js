@@ -130,7 +130,6 @@ function JobDetails() {
       vessel_berthing: eta,
       gateway_igm_date: gatewayIGMDate,
       discharge_date: dischargeDate,
-      rail_out_date: RailOutDate,
       out_of_charge: outOfChargeDate,
       emptyContainerOffLoadDate: deliveryDate,
       pcv_date: pcvDate,
@@ -141,6 +140,8 @@ function JobDetails() {
     const anyContainerArrivalDate = container_nos?.some(
       (container) => container.arrival_date
     );
+    const containerRailOutDate = container_nos?.some((container)=> container.container_rail_out_date);
+    console.log(`containerRailOutDate: ${containerRailOutDate}`);
 
     if (
       billOfEntryNo &&
@@ -157,7 +158,7 @@ function JobDetails() {
       formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
     } else if (billOfEntryNo) {
       formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-    } else if (RailOutDate) {
+    } else if (containerRailOutDate) {
       formik.setFieldValue("detailed_status", "Rail Out");
     } else if (dischargeDate) {
       formik.setFieldValue("detailed_status", "Discharged");
@@ -320,7 +321,7 @@ function JobDetails() {
         container_gross_weight: "",
         weight_shortage: "",
         transporter: "",
-        container_rail_out_date: ""
+        container_rail_out_date: "",
       },
     ]);
   };
@@ -2889,59 +2890,61 @@ function JobDetails() {
                       padding: "30px",
                     }}
                   >
-                    <Row>
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <h6 style={{ marginBottom: 0 }}>
-                        <strong>
-                          {index + 1}. Container Number:&nbsp;
-                          <span ref={container_number_ref[index]}>
-                            <TextField
-                              size="small"
-                              value={container.container_number}
-                              key={index}
-                              variant="outlined"
-                              id={`container_number_${index}`}
-                              name={`container_nos[${index}].container_number`}
-                              onChange={formik.handleChange}
-                            />
-                          </span>
-                          <IconButton
-                            onClick={() =>
-                              handleCopyContainerNumber(
-                                container.container_number,
-                                setSnackbar
-                              )
-                            }
-                            aria-label="copy-btn"
-                          >
-                            <ContentCopyIcon />
-                          </IconButton>
-                        </strong>
-                      </h6>
+                    <Row className="align-items-center">
+                      <Col xs={12} md={4} lg={3} className="mb-2">
+                        <h6 style={{ marginBottom: 0 }}>
+                          <strong>
+                            {index + 1}. Container Number:&nbsp;
+                            <span ref={container_number_ref[index]}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                value={container.container_number}
+                                key={index}
+                                variant="outlined"
+                                id={`container_number_${index}`}
+                                name={`container_nos[${index}].container_number`}
+                                onChange={formik.handleChange}
+                              />
+                            </span>
+                            <IconButton
+                              onClick={() =>
+                                handleCopyContainerNumber(
+                                  container.container_number,
+                                  setSnackbar
+                                )
+                              }
+                              aria-label="copy-btn"
+                            >
+                              <ContentCopyIcon />
+                            </IconButton>
+                          </strong>
+                        </h6>
+                      </Col>
 
-                      <strong style={{ marginLeft: "20px" }}>
-                        Size:&nbsp;
-                      </strong>
-                      <TextField
-                        select
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        id={`size_${index}`}
-                        name={`container_nos[${index}].size`}
-                        value={container.size}
-                        onChange={formik.handleChange}
-                      >
-                        <MenuItem value="20">20</MenuItem>
-                        <MenuItem value="40">40</MenuItem>
-                      </TextField>
-                      <Col xs={10} lg={4} style={{ marginLeft: "20px" }}>
+                      <Col xs={12} md={3} lg={2} className="mb-2">
+                        <strong>Size:&nbsp;</strong>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          id={`size_${index}`}
+                          name={`container_nos[${index}].size`}
+                          value={container.size}
+                          onChange={formik.handleChange}
+                        >
+                          <MenuItem value="20">20</MenuItem>
+                          <MenuItem value="40">40</MenuItem>
+                        </TextField>
+                      </Col>
+
+                      <Col xs={12} md={5} lg={4} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Seal Number:&nbsp;</strong>
                           <TextField
                             fullWidth
                             size="small"
-                            margin="normal"
                             variant="outlined"
                             id={`seal_number${index}`}
                             name={`container_nos[${index}].seal_number`}
@@ -2950,15 +2953,15 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
-                      <Col xs={10} lg={4} style={{ marginLeft: "20px" }}>
+
+                      <Col xs={12} md={6} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
-                          <strong>Railout date:&nbsp;</strong>
+                          <strong>Railout Date:&nbsp;</strong>
                           <TextField
                             fullWidth
                             size="small"
-                            margin="normal"
                             variant="outlined"
-                            type="datetime-local"   
+                            type="datetime-local"
                             id={`container_rail_out_date${index}`}
                             name={`container_nos[${index}].container_rail_out_date`}
                             value={container.container_rail_out_date}
@@ -2966,41 +2969,8 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
-
-                      {/* <Col xs={10} lg={3} style={{ marginLeft: "20px" }}>
-                        <div
-                          className="job-detail-input-container"
-                          style={{ justifyContent: "flex-start" }}
-                        >
-                          <strong>Railout Date:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            type="datetime-local"
-                            id="rail_out_date"
-                            name="rail_out_date"
-                            value={console.log(container.container_rail_out_date?  container.container_rail_out_date: "")}
-                            onChange={formik.handleChange}
-                            // onChange={(e) => {
-                            //   const newValue = e.target.value;
-                            //   if (newValue) {
-                            //     // formik.setFieldValue("examinationPlanning", true);
-                            //     formik.setFieldValue("rail_out_date", newValue);
-                            //   } else {
-                            //     // formik.setFieldValue("examinationPlanning", false);
-                            //     formik.setFieldValue("rail_out_date", "");
-                            //   }
-                            // }}
-                            InputLabelProps={{
-                              shrink: true,
-                            }}
-                          />
-                        </div>
-                      </Col> */}
-                    </div>
                     </Row>
+
                     <br />
                     <Row>
                       <Col xs={12} lg={3}>

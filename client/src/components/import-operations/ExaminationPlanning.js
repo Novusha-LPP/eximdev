@@ -444,6 +444,7 @@ function ImportOperations() {
           all_documents,
           job_sticker_upload,
           verified_checklist_upload,
+          checklist,
         } = cell.row.original;
 
         // Helper function to safely get the first link if it's an array or a string
@@ -455,7 +456,7 @@ function ImportOperations() {
         };
 
         const stickerLink = getFirstLink(job_sticker_upload);
-        const checklistLink = getFirstLink(verified_checklist_upload);
+        const checklistLink = getFirstLink(checklist);
 
         return (
           <div style={{ textAlign: "left" }}>

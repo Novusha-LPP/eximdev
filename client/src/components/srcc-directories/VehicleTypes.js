@@ -16,15 +16,15 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  MenuItem,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import useCommodities from "../../customHooks/Transport/useCommodities";
-import { MenuItem } from "@mui/material";
 
-// Validation schema with Yup
+// ✅ Validation schema with Yup
 const validationSchema = Yup.object({
   vehicleType: Yup.string().required("Vehicle Type is required"),
   shortName: Yup.string().required("Short Name is required"),
@@ -51,19 +51,18 @@ const VehicleTypes = () => {
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
   const { commodities, loading, error } = useCommodities(API_URL);
 
-  // Fetch vehicle data from API
+  // ✅ Fetch vehicle data from API
   const fetchVehicles = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-type`);
-      const vehicleList = response.data.data || [];
-      setVehicles(vehicleList);
+      setVehicles(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching vehicles:", error);
     }
   };
 
   useEffect(() => {
-    fetchVehicles();
+    fetchVehicles(); // ✅ Fetch data on mount
   }, []);
 
   const handleAdd = () => {
@@ -82,6 +81,7 @@ const VehicleTypes = () => {
   const handleEdit = (vehicle) => {
     setModalMode("edit");
     setFormData({
+      _id: vehicle._id,
       vehicleType: vehicle.vehicleType,
       shortName: vehicle.shortName,
       loadCapacity: vehicle.loadCapacity,
@@ -92,37 +92,77 @@ const VehicleTypes = () => {
     setOpenModal(true);
   };
 
-  const handleDelete = async (vehicleType) => {
+  const handleDelete = async (id) => {
     if (
-      window.confirm(
-        `Are you sure you want to delete this vehicle type: ${vehicleType}?`
-      )
+      window.confirm(`❗ Are you sure you want to delete this vehicle type?`)
     ) {
       try {
-        await axios.delete(`${API_URL}/delete-vehicle-type/${vehicleType}`);
-        fetchVehicles();
+        const response = await axios.delete(
+          `${API_URL}/delete-vehicle-type/${id}`
+        );
+        if (response.status === 200) {
+          alert("✅ Vehicle type deleted successfully!");
+          fetchVehicles(); // ✅ Refresh data without page reload
+        }
       } catch (error) {
         console.error("❌ Error deleting vehicle:", error);
+        alert(
+          `⚠️ Failed to delete vehicle: ${
+            error.response?.data?.error || "Server error"
+          }`
+        );
       }
     }
   };
 
   const handleSave = async (values) => {
+    const {
+      _id,
+      vehicleType,
+      shortName,
+      loadCapacity,
+      engineCapacity,
+      cargoTypeAllowed,
+      CommodityCarry,
+    } = values;
+
     try {
-      const response =
-        modalMode === "add"
-          ? await axios.post(`${API_URL}/add-vehicle-type`, values)
-          : await axios.put(
-              `${API_URL}/update-vehicle-type/${values.vehicleType}`,
-              values
-            );
+      const formattedData = {
+        vehicleType: vehicleType.trim(),
+        shortName: shortName.trim(),
+        loadCapacity: loadCapacity.trim(),
+        engineCapacity: engineCapacity.trim(),
+        cargoTypeAllowed,
+        CommodityCarry,
+      };
+
+      let response;
+
+      if (modalMode === "add") {
+        response = await axios.post(
+          `${API_URL}/add-vehicle-type`,
+          formattedData
+        );
+        alert("✅ Vehicle type added successfully!");
+      } else {
+        response = await axios.put(
+          `${API_URL}/update-vehicle-type/${_id}`,
+          formattedData
+        );
+        alert("✅ Vehicle type updated successfully!");
+      }
 
       if (response.status === 200 || response.status === 201) {
-        setOpenModal(false);
-        fetchVehicles();
+        setOpenModal(false); // ✅ Close modal
+        fetchVehicles(); // ✅ Refresh data automatically
       }
     } catch (error) {
       console.error("❌ Error saving vehicle:", error);
+      alert(
+        `⚠️ Failed to save vehicle: ${
+          error.response?.data?.error || "Server error"
+        }`
+      );
     }
   };
 
@@ -164,7 +204,7 @@ const VehicleTypes = () => {
                     <EditIcon />
                   </IconButton>
                   <IconButton
-                    onClick={() => handleDelete(vehicle.vehicleType)}
+                    onClick={() => handleDelete(vehicle._id)}
                     color="error"
                   >
                     <DeleteIcon />
@@ -176,7 +216,7 @@ const VehicleTypes = () => {
         </Table>
       </TableContainer>
 
-      {/* Formik Modal for Adding & Editing Vehicle Types */}
+      {/* ✅ Formik Modal for Adding & Editing Vehicle Types */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -210,9 +250,6 @@ const VehicleTypes = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    disabled={modalMode === "edit"} // Prevents editing in edit mode
-                    error={touched.vehicleType && Boolean(errors.vehicleType)}
-                    helperText={touched.vehicleType && errors.vehicleType}
                   />
                   <TextField
                     name="shortName"
@@ -222,8 +259,6 @@ const VehicleTypes = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    error={touched.shortName && Boolean(errors.shortName)}
-                    helperText={touched.shortName && errors.shortName}
                   />
                   <TextField
                     name="loadCapacity"
@@ -233,8 +268,6 @@ const VehicleTypes = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    error={touched.loadCapacity && Boolean(errors.loadCapacity)}
-                    helperText={touched.loadCapacity && errors.loadCapacity}
                   />
                   <TextField
                     name="engineCapacity"
@@ -244,59 +277,20 @@ const VehicleTypes = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    error={
-                      touched.engineCapacity && Boolean(errors.engineCapacity)
-                    }
-                    helperText={touched.engineCapacity && errors.engineCapacity}
                   />
                   <TextField
                     select
-                    label="Cargo Type Allowed"
                     name="cargoTypeAllowed"
+                    label="Cargo Type Allowed"
                     value={values.cargoTypeAllowed}
                     onChange={handleChange}
-                    onBlur={handleBlur}
                     fullWidth
                     required
-                    error={
-                      touched.cargoTypeAllowed &&
-                      Boolean(errors.cargoTypeAllowed)
-                    }
-                    helperText={
-                      touched.cargoTypeAllowed && errors.cargoTypeAllowed
-                    }
                   >
                     <MenuItem value="Package">Package</MenuItem>
                     <MenuItem value="LiquidBulk">Liquid Bulk</MenuItem>
                     <MenuItem value="Bulk">Bulk</MenuItem>
                     <MenuItem value="Container">Container</MenuItem>
-                  </TextField>
-
-                  <TextField
-                    select
-                    label="Commodity Carry"
-                    name="CommodityCarry"
-                    value={values.CommodityCarry}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={
-                      touched.CommodityCarry && Boolean(errors.CommodityCarry)
-                    }
-                    helperText={touched.CommodityCarry && errors.CommodityCarry}
-                  >
-                    {loading ? (
-                      <MenuItem disabled>Loading...</MenuItem>
-                    ) : error ? (
-                      <MenuItem disabled>Error loading commodities</MenuItem>
-                    ) : (
-                      commodities.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      ))
-                    )}
                   </TextField>
                 </Box>
                 <DialogActions>

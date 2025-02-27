@@ -18,6 +18,10 @@ import {
   TextField,
   Typography,
   Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -26,6 +30,7 @@ import * as Yup from "yup";
 import FileUpload from "../../components/gallery/FileUpload";
 import ImagePreview from "../../components/gallery/ImagePreview";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog";
+import useVehicleTypes from "../../customHooks/Transport/useVehicleTypes";
 
 // -------------------------
 // Validation Schema with proper date handling
@@ -107,6 +112,8 @@ const DriversListDirectory = () => {
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+
+  const { vehicleTypes, loading, error } = useVehicleTypes(API_URL);
 
   // -------------------------
   // Fetch drivers from API
@@ -418,7 +425,7 @@ const DriversListDirectory = () => {
                         variant="caption"
                       />
                     </Box>
-                    <Box sx={{ mb: 2 }}>
+                    {/* <Box sx={{ mb: 2 }}>
                       <TextField
                         name="drivingVehicleTypes"
                         label="Driving Vehicle Types"
@@ -434,7 +441,33 @@ const DriversListDirectory = () => {
                         color="error"
                         variant="caption"
                       />
-                    </Box>
+                    </Box> */}
+                    <FormControl fullWidth sx={{ mb: 2 }} required>
+                      <InputLabel id="drivingVehicleTypes-label">
+                        Driving Vehicle Types
+                      </InputLabel>
+                      <Select
+                        labelId="drivingVehicleTypes-label"
+                        id="drivingVehicleTypes"
+                        name="drivingVehicleTypes"
+                        value={values.drivingVehicleTypes}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        label="Driving Vehicle Types"
+                      >
+                        {vehicleTypes.map((vehicle) => (
+                          <MenuItem key={vehicle.value} value={vehicle.value}>
+                            {vehicle.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      <ErrorMessage
+                        name="drivingVehicleTypes"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
+                    </FormControl>
                     <Box sx={{ mb: 2 }}>
                       <TextField
                         name="remarks"

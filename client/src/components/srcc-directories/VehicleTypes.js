@@ -292,6 +292,32 @@ const VehicleTypes = () => {
                     <MenuItem value="Bulk">Bulk</MenuItem>
                     <MenuItem value="Container">Container</MenuItem>
                   </TextField>
+                  <TextField
+                    select
+                    label="Commodity Carry"
+                    name="CommodityCarry"
+                    value={values.CommodityCarry}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    fullWidth
+                    required
+                    error={
+                      touched.CommodityCarry && Boolean(errors.CommodityCarry)
+                    }
+                    helperText={touched.CommodityCarry && errors.CommodityCarry}
+                  >
+                    {loading ? (
+                      <MenuItem disabled>Loading...</MenuItem>
+                    ) : error ? (
+                      <MenuItem disabled>Error loading commodities</MenuItem>
+                    ) : (
+                      commodities.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))
+                    )}
+                  </TextField>
                 </Box>
                 <DialogActions>
                   <Button onClick={() => setOpenModal(false)}>Cancel</Button>

@@ -39,10 +39,16 @@ const validationSchema = Yup.object({
       "License Number must start with 2 letters followed by 13 digits"
     )
     .required("License Number is required"),
-  licenseIssueAuthority: Yup.string().required("License Issue Authority is required"),
+  licenseIssueAuthority: Yup.string().required(
+    "License Issue Authority is required"
+  ),
   licenseExpiryDate: Yup.string() // Keeping as string to handle date input
     .required("License Expiry Date is required")
-    .test("valid-date", "Invalid License Expiry Date", (value) => !isNaN(new Date(value))),
+    .test(
+      "valid-date",
+      "Invalid License Expiry Date",
+      (value) => !isNaN(new Date(value))
+    ),
   phoneNumber: Yup.string()
     .matches(/^\d{10}$/, "Phone Number must be exactly 10 digits")
     .required("Phone Number is required"),
@@ -50,10 +56,15 @@ const validationSchema = Yup.object({
     .matches(/^\d{10}$/, "Alternate Phone Number must be exactly 10 digits")
     .required("Alternate Phone Number is required"),
   residentialAddress: Yup.string().required("Residential Address is required"),
-  drivingVehicleTypes: Yup.string().required("Driving Vehicle Types are required"),
+  drivingVehicleTypes: Yup.string().required(
+    "Driving Vehicle Types are required"
+  ),
   remarks: Yup.string().required("Remarks are required"),
   photoUpload: Yup.array().min(1, "At least one photo is required"),
-  licenseUpload: Yup.array().min(1, "At least one license document is required"),
+  licenseUpload: Yup.array().min(
+    1,
+    "At least one license document is required"
+  ),
   notes: Yup.array().of(
     Yup.object({
       date: Yup.string(), // using string for date input (YYYY-MM-DD)
@@ -88,10 +99,14 @@ const DriversListDirectory = () => {
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [serverErrors, setServerErrors] = useState("");
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, onConfirm: () => {} });
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    onConfirm: () => {},
+  });
   const [formData, setFormData] = useState(initialFormData);
 
-  const API_URL = process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+  const API_URL =
+    process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
   // -------------------------
   // Fetch drivers from API
@@ -139,25 +154,24 @@ const DriversListDirectory = () => {
     setOpenModal(true);
   };
 
-  const handleDelete = (id) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: "Are you sure you want to delete this driver?",
-      subtitle: "This action cannot be undone.",
-      onConfirm: async () => {
-        try {
-          await axios.delete(`${API_URL}/delete-driver/${id}`);
-          alert("✅ Driver deleted successfully!");
-          fetchDrivers();
-        } catch (error) {
-          console.error("❌ Error deleting driver:", error);
-          alert(
-            `⚠️ Failed to delete driver: ${error.response?.data?.message || "Server error"}`
-          );
-        }
-        setConfirmDialog({ isOpen: false });
-      },
-    });
+  const handleDelete = async (id) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this driver? This action cannot be undone."
+    );
+    if (confirmed) {
+      try {
+        await axios.delete(`${API_URL}/delete-driver/${id}`);
+        alert("✅ Driver deleted successfully!");
+        fetchDrivers();
+      } catch (error) {
+        console.error("❌ Error deleting driver:", error);
+        alert(
+          `⚠️ Failed to delete driver: ${
+            error.response?.data?.message || "Server error"
+          }`
+        );
+      }
+    }
   };
 
   // -------------------------
@@ -216,10 +230,16 @@ const DriversListDirectory = () => {
                 <TableCell>{driver.licenseNumber}</TableCell>
                 <TableCell>{driver.phoneNumber}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleEdit(driver)} color="primary">
+                  <IconButton
+                    onClick={() => handleEdit(driver)}
+                    color="primary"
+                  >
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(driver._id)} color="error">
+                  <IconButton
+                    onClick={() => handleDelete(driver._id)}
+                    color="error"
+                  >
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -232,8 +252,15 @@ const DriversListDirectory = () => {
       {/* -------------------------
           Modal for Adding/Editing Driver
       ------------------------- */}
-      <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>{modalMode === "add" ? "Add New Driver" : "Edit Driver"}</DialogTitle>
+      <Dialog
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>
+          {modalMode === "add" ? "Add New Driver" : "Edit Driver"}
+        </DialogTitle>
         <DialogContent>
           {serverErrors && (
             <Typography color="error" sx={{ mb: 2 }}>
@@ -261,7 +288,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="name" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="name"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -273,7 +305,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="alias" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="alias"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -285,7 +322,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="licenseNumber" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="licenseNumber"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -297,7 +339,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="licenseIssueAuthority" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="licenseIssueAuthority"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -311,7 +358,12 @@ const DriversListDirectory = () => {
                         InputLabelProps={{ shrink: true }}
                         required
                       />
-                      <ErrorMessage name="licenseExpiryDate" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="licenseExpiryDate"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -323,7 +375,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="phoneNumber" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="phoneNumber"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -335,7 +392,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="alternateNumber" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="alternateNumber"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -349,7 +411,12 @@ const DriversListDirectory = () => {
                         rows={2}
                         required
                       />
-                      <ErrorMessage name="residentialAddress" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="residentialAddress"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -361,7 +428,12 @@ const DriversListDirectory = () => {
                         fullWidth
                         required
                       />
-                      <ErrorMessage name="drivingVehicleTypes" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="drivingVehicleTypes"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
@@ -375,7 +447,12 @@ const DriversListDirectory = () => {
                         rows={2}
                         required
                       />
-                      <ErrorMessage name="remarks" component={Typography} color="error" variant="caption" />
+                      <ErrorMessage
+                        name="remarks"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
                     </Box>
 
                     {/* Notes Section */}
@@ -395,55 +472,70 @@ const DriversListDirectory = () => {
                           >
                             Create Note
                           </Button>
-                          {values.notes && values.notes.length > 0 && values.notes.map((note, index) => (
-                            <Box key={index} sx={{ border: "1px solid #ccc", p: 2, mb: 2 }}>
-                              <TextField
-                                name={`notes[${index}].note`}
-                                label={`Note ${index + 1}`}
-                                value={note.note}
-                                onChange={handleChange}
-                                onBlur={handleBlur}
-                                fullWidth
-                                multiline
-                                rows={2}
-                                required
-                                sx={{ mb: 1 }}
-                              />
-                              <ErrorMessage
-                                name={`notes[${index}].note`}
-                                component={Typography}
-                                color="error"
-                                variant="caption"
-                              />
-                              <Box sx={{ mt: 1 }}>
-                                <FileUpload
-                                  label={`Note ${index + 1} Attachment`}
-                                  bucketPath="noteAttachments"
-                                  multiple={true}
-                                  onFilesUploaded={(files) => {
-                                    const updatedAttachments = note.attachment ? [...note.attachment, ...files] : [...files];
-                                    setFieldValue(`notes[${index}].attachment`, updatedAttachments);
-                                  }}
-                                />
-                                <ImagePreview
-                                  images={note.attachment || []}
-                                  onDeleteImage={(fileIndex) => {
-                                    const updatedAttachments = [...(note.attachment || [])];
-                                    updatedAttachments.splice(fileIndex, 1);
-                                    setFieldValue(`notes[${index}].attachment`, updatedAttachments);
-                                  }}
-                                />
-                              </Box>
-                              <Button
-                                variant="text"
-                                color="error"
-                                onClick={() => remove(index)}
-                                sx={{ mt: 1 }}
+                          {values.notes &&
+                            values.notes.length > 0 &&
+                            values.notes.map((note, index) => (
+                              <Box
+                                key={index}
+                                sx={{ border: "1px solid #ccc", p: 2, mb: 2 }}
                               >
-                                Remove Note
-                              </Button>
-                            </Box>
-                          ))}
+                                <TextField
+                                  name={`notes[${index}].note`}
+                                  label={`Note ${index + 1}`}
+                                  value={note.note}
+                                  onChange={handleChange}
+                                  onBlur={handleBlur}
+                                  fullWidth
+                                  multiline
+                                  rows={2}
+                                  required
+                                  sx={{ mb: 1 }}
+                                />
+                                <ErrorMessage
+                                  name={`notes[${index}].note`}
+                                  component={Typography}
+                                  color="error"
+                                  variant="caption"
+                                />
+                                <Box sx={{ mt: 1 }}>
+                                  <FileUpload
+                                    label={`Note ${index + 1} Attachment`}
+                                    bucketPath="noteAttachments"
+                                    multiple={true}
+                                    onFilesUploaded={(files) => {
+                                      const updatedAttachments = note.attachment
+                                        ? [...note.attachment, ...files]
+                                        : [...files];
+                                      setFieldValue(
+                                        `notes[${index}].attachment`,
+                                        updatedAttachments
+                                      );
+                                    }}
+                                  />
+                                  <ImagePreview
+                                    images={note.attachment || []}
+                                    onDeleteImage={(fileIndex) => {
+                                      const updatedAttachments = [
+                                        ...(note.attachment || []),
+                                      ];
+                                      updatedAttachments.splice(fileIndex, 1);
+                                      setFieldValue(
+                                        `notes[${index}].attachment`,
+                                        updatedAttachments
+                                      );
+                                    }}
+                                  />
+                                </Box>
+                                <Button
+                                  variant="text"
+                                  color="error"
+                                  onClick={() => remove(index)}
+                                  sx={{ mt: 1 }}
+                                >
+                                  Remove Note
+                                </Button>
+                              </Box>
+                            ))}
                         </Box>
                       )}
                     </FieldArray>
@@ -456,7 +548,9 @@ const DriversListDirectory = () => {
                         label="Photo Upload"
                         bucketPath="photoUpload"
                         multiple={true}
-                        onFilesUploaded={(files) => setFieldValue("photoUpload", files)}
+                        onFilesUploaded={(files) =>
+                          setFieldValue("photoUpload", files)
+                        }
                       />
                       <ImagePreview
                         images={values.photoUpload}
@@ -478,7 +572,9 @@ const DriversListDirectory = () => {
                         label="License Upload"
                         bucketPath="licenseUpload"
                         multiple={true}
-                        onFilesUploaded={(files) => setFieldValue("licenseUpload", files)}
+                        onFilesUploaded={(files) =>
+                          setFieldValue("licenseUpload", files)
+                        }
                       />
                       <ImagePreview
                         images={values.licenseUpload}
@@ -509,7 +605,10 @@ const DriversListDirectory = () => {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog confirmDialog={confirmDialog} setConfirmDialog={setConfirmDialog} />
+      <ConfirmDialog
+        confirmDialog={confirmDialog}
+        setConfirmDialog={setConfirmDialog}
+      />
     </Box>
   );
 };

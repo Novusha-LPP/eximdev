@@ -22,7 +22,7 @@ export const viewMasterList = [
   "Ports/CFS/Yard Directory",
   "Commodity",
   "Vehicle Types",
-  "Driver Details",
+  "Drivers",
   "Organisation",
   "Ply Rating",
   "Repair Type",

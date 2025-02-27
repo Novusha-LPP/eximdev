@@ -168,6 +168,7 @@ import updateSrccDsr from "./routes/lr/updateSrccDsr.mjs";
 
 // SRCC Directories
 import unitMeasurementRoute from "./routes/srcc/Directory_Management/UnitMeasurementRoute.mjs";
+import DriverRoute from "./routes/srcc/Directory_Management/DriverRoute.mjs";
 import stateDistrictRoutes from "./routes/srcc/Directory_Management/stateDistrictRoutes.mjs";
 import VehicleTypeRoute from "./routes/srcc/Directory_Management/VehicleTypeRoute.mjs";
 import CommodityRoute from "./routes/srcc/Directory_Management/CommodityRoute.mjs";
@@ -419,6 +420,7 @@ if (cluster.isPrimary) {
 
       // SRCC Directories
       app.use(unitMeasurementRoute);
+      app.use(DriverRoute);
       app.use(stateDistrictRoutes);
       app.use(VehicleTypeRoute);
       app.use(CommodityRoute);

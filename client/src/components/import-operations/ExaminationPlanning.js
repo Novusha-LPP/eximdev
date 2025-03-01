@@ -23,8 +23,11 @@ import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 
 function ImportOperations() {
-  const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState("");
+  const [years, setYears] = useState([]);
+  const [selectedImporter, setSelectedImporter] = useState("");
+  const [importers, setImporters] = useState("");
+  const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("all");
@@ -43,6 +46,48 @@ function ImportOperations() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
+
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYear) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+        );
+        setImporters(res.data);
+        setSelectedImporter("Select Importer");
+      }
+    }
+    getImporterList();
+  }, [selectedYear]);
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
+
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  };
+
+  const importerNames = [
+    { label: "Select Importer" },
+    ...getUniqueImporterNames(importers),
+  ];
+
+  useEffect(() => {
+    if (!selectedImporter) {
+      setSelectedImporter("Select Importer");
+    }
+  }, [importerNames]);
+
   // Fetch available years for filtering
   useEffect(() => {
     const fetchYears = async () => {
@@ -59,44 +104,63 @@ function ImportOperations() {
     fetchYears();
   }, []);
 
-  // In ImportOperations.jsx (or similar)
-  const fetchRows = async (
-    page,
-    searchQuery,
-    year,
-    selectedICD,
-    detailedStatusExPlan
-  ) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
-        {
-          params: {
-            page,
-            limit,
-            search: searchQuery,
-            year,
-            selectedICD, // Matches backend expectation
-            detailedStatusExPlan, // Pass the additional filter value
-          },
-        }
-      );
-      setRows(res.data.jobs);
-      setTotalPages(res.data.totalPages);
-      setTotalJobs(res.data.totalJobs);
-    } catch (error) {
-      console.error("Error fetching rows:", error);
-    }
-  };
+  const fetchJobs = useCallback(
+    async (
+      currentPage,
+      currentSearchQuery,
+      currentYear,
+      currentICD,
+      currentStatus,
+      selectedImporter
+    ) => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
+          {
+            params: {
+              page: currentPage,
+              limit,
+              search: currentSearchQuery,
+              year: currentYear,
+              selectedICD: currentICD,
+              detailedStatusExPlan: currentStatus, // Ensure parameter name matches backend
+              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+            },
+          }
+        );
 
-  // Fetch rows when dependencies change
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+        } = res.data;
+
+        setRows(jobs);
+        setTotalPages(totalPages);
+        setPage(returnedPage); // Ensure the page state stays in sync
+        setTotalJobs(totalJobs);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setRows([]); // Reset data on failure
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [limit] // Dependencies (limit is included if it changes)
+  );
+
+  // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchRows(
+    fetchJobs(
       page,
       debouncedSearchQuery,
       selectedYear,
       selectedICD,
-      detailedStatusExPlan
+      detailedStatusExPlan,
+      selectedImporter
     );
   }, [
     page,
@@ -104,6 +168,8 @@ function ImportOperations() {
     selectedYear,
     selectedICD,
     detailedStatusExPlan,
+    selectedImporter,
+    fetchJobs,
   ]);
 
   // Handle search input with debounce
@@ -614,7 +680,51 @@ function ImportOperations() {
       },
     },
     renderTopToolbarCustomActions: () => (
-      <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
+
+        <TextField
+          fullWidth
+          select
+          size="small"
+          value={selectedImporter || ""}
+          onChange={(e) => setSelectedImporter(e.target.value)}
+          label="Select Importer"
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {importerNames.map((option, index) => (
+            <MenuItem key={`importer-${index}`} value={option.label}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {years.map((year, index) => (
+            <MenuItem key={`year-${year}-${index}`} value={year}>
+              {year}
+            </MenuItem>
+          ))}
+        </TextField>
         {/* ICD Code Filter */}
         <TextField
           select
@@ -633,75 +743,21 @@ function ImportOperations() {
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "end",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
-          {/* examinationPlaningStatus  */}
-          <TextField
-            select
-            size="small"
-            value={detailedStatusExPlan}
-            onChange={(e) => setDetailedStatusExPlan(e.target.value)}
-            sx={{ width: "300px", marginRight: "20px" }}
-          >
-            {examinationPlaningStatus.map((option) => (
-              <MenuItem key={option.id} value={option.value}>
-                {option.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          {/* Job Count Display */}
-          <Typography
-            variant="body1"
-            sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
-          >
-            Job Count: {totalJobs}
-          </Typography>
-
-          {/* Search Bar */}
-          <TextField
-            placeholder="Search by Job No, Importer, or AWB/BL Number"
-            size="small"
-            variant="outlined"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-          />
-        </div>
+        {/* Search Bar */}
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+        />
       </div>
     ),
   };
 
   return (
     <div style={{ height: "80%" }}>
-      <div
-        style={{ display: "flex", alignItems: "center", marginBottom: "20px" }}
-      >
-        {/* Year Filter */}
-        <TextField
-          select
-          label="Select Year"
-          value={selectedYear}
-          onChange={(e) => {
-            setSelectedYear(e.target.value);
-            setPage(1); // Reset to first page on year change
-          }}
-          sx={{ marginRight: "20px", width: "200px" }}
-        >
-          {years.map((year) => (
-            <MenuItem key={year} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-      </div>
-
       {/* Table */}
       <MaterialReactTable {...tableConfig} />
 

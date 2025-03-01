@@ -11,6 +11,7 @@ import { downloadAllReport } from "../../utils/downloadAllReport";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
+import { useImportersContext } from "../../contexts/importersContext";
 
 const style = {
   position: "absolute",
@@ -25,6 +26,7 @@ const style = {
 
 export default function SelectImporterModal(props) {
   const { selectedYear } = React.useContext(SelectedYearContext);
+  const { importers, setImporters } = useImportersContext();
   const [importerData, setImporterData] = React.useState([]);
   const [selectedImporter, setSelectedImporter] = React.useState("");
   const [checked, setChecked] = React.useState(false);
@@ -57,6 +59,7 @@ export default function SelectImporterModal(props) {
           `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
         );
         setImporterData(res.data);
+        setImporters(res.data);
         // Check if importerData is not empty before setting the selectedImporter
         if (res.data.length > 0) {
           setSelectedImporter(res.data[0].importer);
@@ -72,7 +75,6 @@ export default function SelectImporterModal(props) {
   };
 
   const importerNames = getUniqueImporterNames(importerData);
-
   const handleReportDownload = async () => {
     if (selectedImporter !== "") {
       const res = await axios.get(
@@ -94,6 +96,8 @@ export default function SelectImporterModal(props) {
       );
     }
   };
+
+  
 
   const handleDownloadAll = async () => {
     const res = await axios.get(

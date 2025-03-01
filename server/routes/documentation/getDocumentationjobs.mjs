@@ -19,12 +19,11 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-jobs", async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "", importer } = req.query;
 
-    // Ensure query parameters are parsed correctly
+    // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
-
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
     }
@@ -35,7 +34,10 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     const skip = (pageNumber - 1) * limitNumber;
     const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Define the custom order for grouping by `detailed_status`
+    // Decode importer (handle spaces and special characters)
+    const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+
+    // Define the order for grouping by `detailed_status`
     const statusOrder = [
       "Discharged",
       "Gateway IGM Filed",
@@ -47,6 +49,9 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }, // Exclude "cancelled"
+        { job_no: { $ne: null } }, // Ensure job_no is not null
+        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
         {
           detailed_status: {
             $in: statusOrder,
@@ -62,11 +67,16 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       ],
     };
 
-    // Fetch total count for pagination
-    const totalJobs = await JobModel.countDocuments(baseQuery);
+    // ✅ Apply Importer Filter (similar to E-Sanchit API)
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    // 🔍 Debugging - Log the query to verify filtering
+    console.log("Final Query:", JSON.stringify(baseQuery, null, 2));
 
     // Fetch jobs from the database
-    const jobs = await JobModel.find(baseQuery)
+    const allJobs = await JobModel.find(baseQuery)
       .select(
         "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status"
       )
@@ -76,24 +86,29 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     const priorityRank = (job) => {
       if (job.priorityJob === "High Priority") return 1;
       if (job.priorityJob === "Priority") return 2;
-      return 3; // Default rank for jobs without a priority
+      if (job.detailed_status === "Discharged") return 3;
+      if (job.detailed_status === "Gateway IGM Filed") return 4;
+      return 5; // Default rank for jobs without a priority
     };
 
     // Sort jobs by priority first, then by custom status order
-    const sortedJobs = jobs.sort((a, b) => {
+    const sortedJobs = allJobs.sort((a, b) => {
       const priorityDifference = priorityRank(a) - priorityRank(b);
       if (priorityDifference !== 0) {
-        return priorityDifference; // If priorities differ, sort by priority
+        return priorityDifference; // Sort by priority if different
       }
       // If priorities are the same, sort by `detailed_status`
-      return (
-        statusOrder.indexOf(a.detailed_status) -
-        statusOrder.indexOf(b.detailed_status)
-      );
+      return statusOrder.indexOf(a.detailed_status) - statusOrder.indexOf(b.detailed_status);
     });
 
     // Apply pagination after sorting
+    const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
+
+    // If no jobs found, return 404 (similar to E-Sanchit)
+    if (!paginatedJobs || paginatedJobs.length === 0) {
+      return res.status(404).json({ message: "Data not found" });
+    }
 
     res.status(200).json({
       totalJobs,
@@ -109,6 +124,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     });
   }
 });
+
 
 router.patch("/api/update-documentation-job/:id", async (req, res) => {
   try {

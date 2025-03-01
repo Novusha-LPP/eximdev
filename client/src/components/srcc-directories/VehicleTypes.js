@@ -17,6 +17,11 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Select,
+  Checkbox,
+  ListItemText,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -30,8 +35,6 @@ const validationSchema = Yup.object({
   shortName: Yup.string().required("Short Name is required"),
   loadCapacity: Yup.string().required("Load Capacity is required"),
   engineCapacity: Yup.string().required("Engine Capacity is required"),
-  cargoTypeAllowed: Yup.string().required("Cargo Type Allowed is required"),
-  CommodityCarry: Yup.string().required("Commodity Carry is required"),
 });
 
 const VehicleTypes = () => {
@@ -43,9 +46,10 @@ const VehicleTypes = () => {
     shortName: "",
     loadCapacity: "",
     engineCapacity: "",
-    cargoTypeAllowed: "",
-    CommodityCarry: "",
+    cargoTypeAllowed: [],
+    CommodityCarry: [],
   });
+  // Example state initialization (inside a functional component)
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
@@ -72,8 +76,8 @@ const VehicleTypes = () => {
       shortName: "",
       loadCapacity: "",
       engineCapacity: "",
-      cargoTypeAllowed: "",
-      CommodityCarry: "",
+      cargoTypeAllowed: [],
+      CommodityCarry: [],
     });
     setOpenModal(true);
   };
@@ -86,8 +90,8 @@ const VehicleTypes = () => {
       shortName: vehicle.shortName,
       loadCapacity: vehicle.loadCapacity,
       engineCapacity: vehicle.engineCapacity,
-      cargoTypeAllowed: vehicle.cargoTypeAllowed,
-      CommodityCarry: vehicle.CommodityCarry,
+      cargoTypeAllowed: vehicle.cargoTypeAllowed || [],
+      CommodityCarry: vehicle.CommodityCarry || [],
     });
     setOpenModal(true);
   };
@@ -194,8 +198,12 @@ const VehicleTypes = () => {
                 <TableCell>{vehicle.shortName}</TableCell>
                 <TableCell>{vehicle.loadCapacity}</TableCell>
                 <TableCell>{vehicle.engineCapacity}</TableCell>
-                <TableCell>{vehicle.cargoTypeAllowed}</TableCell>
-                <TableCell>{vehicle.CommodityCarry}</TableCell>
+                <TableCell>
+                  {vehicle.cargoTypeAllowed?.join(", ") || "N/A"}
+                </TableCell>
+                <TableCell>
+                  {vehicle.CommodityCarry?.join(", ") || "N/A"}
+                </TableCell>
                 <TableCell>
                   <IconButton
                     onClick={() => handleEdit(vehicle)}
@@ -278,46 +286,55 @@ const VehicleTypes = () => {
                     fullWidth
                     required
                   />
-                  <TextField
-                    select
-                    name="cargoTypeAllowed"
-                    label="Cargo Type Allowed"
-                    value={values.cargoTypeAllowed}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                  >
-                    <MenuItem value="Package">Package</MenuItem>
-                    <MenuItem value="LiquidBulk">Liquid Bulk</MenuItem>
-                    <MenuItem value="Bulk">Bulk</MenuItem>
-                    <MenuItem value="Container">Container</MenuItem>
-                  </TextField>
-                  <TextField
-                    select
-                    label="Commodity Carry"
-                    name="CommodityCarry"
-                    value={values.CommodityCarry}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={
-                      touched.CommodityCarry && Boolean(errors.CommodityCarry)
-                    }
-                    helperText={touched.CommodityCarry && errors.CommodityCarry}
-                  >
-                    {loading ? (
-                      <MenuItem disabled>Loading...</MenuItem>
-                    ) : error ? (
-                      <MenuItem disabled>Error loading commodities</MenuItem>
-                    ) : (
-                      commodities.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      ))
-                    )}
-                  </TextField>
+                  <FormControl fullWidth>
+                    <InputLabel>Cargo Type Allowed</InputLabel>
+                    <Select
+                      multiple
+                      name="cargoTypeAllowed"
+                      value={values.cargoTypeAllowed}
+                      onChange={handleChange}
+                      renderValue={(selected) => selected.join(", ")}
+                    >
+                      {["Package", "LiquidBulk", "Bulk", "Container"].map(
+                        (type) => (
+                          <MenuItem key={type} value={type}>
+                            <Checkbox
+                              checked={values.cargoTypeAllowed.includes(type)}
+                            />
+                            <ListItemText primary={type} />
+                          </MenuItem>
+                        )
+                      )}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth>
+                    <InputLabel>Commodity Carry</InputLabel>
+                    <Select
+                      multiple
+                      name="CommodityCarry"
+                      value={values.CommodityCarry}
+                      onChange={handleChange}
+                      renderValue={(selected) => selected.join(", ")}
+                    >
+                      {loading ? (
+                        <MenuItem disabled>Loading...</MenuItem>
+                      ) : error ? (
+                        <MenuItem disabled>Error loading commodities</MenuItem>
+                      ) : (
+                        commodities.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            <Checkbox
+                              checked={values.CommodityCarry.includes(
+                                option.value
+                              )}
+                            />
+                            <ListItemText primary={option.label} />
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                  </FormControl>
                 </Box>
                 <DialogActions>
                   <Button onClick={() => setOpenModal(false)}>Cancel</Button>

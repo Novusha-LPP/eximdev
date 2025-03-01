@@ -6,12 +6,8 @@ const VehicleTypeSchema = new mongoose.Schema(
     shortName: { type: String, required: true, trim: true },
     loadCapacity: { type: String, required: true, trim: true },
     engineCapacity: { type: String, required: true, trim: true },
-    cargoTypeAllowed: {
-      type: String,
-      enum: ["Package", "LiquidBulk", "Bulk", "Container"], // Change here: use strings
-      required: true,
-    },
-    CommodityCarry: { type: String, required: true, trim: true },
+    cargoTypeAllowed: [{ type: String, trim: true }],
+    CommodityCarry: [{ type: String, trim: true }],
   },
   { timestamps: true }
 );

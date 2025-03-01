@@ -57,14 +57,11 @@ const validationSchema = Yup.object({
   phoneNumber: Yup.string()
     .matches(/^\d{10}$/, "Phone Number must be exactly 10 digits")
     .required("Phone Number is required"),
-  alternateNumber: Yup.string()
-    .matches(/^\d{10}$/, "Alternate Phone Number must be exactly 10 digits")
-    .required("Alternate Phone Number is required"),
   residentialAddress: Yup.string().required("Residential Address is required"),
-  drivingVehicleTypes: Yup.string().required(
-    "Driving Vehicle Types are required"
-  ),
-  remarks: Yup.string().required("Remarks are required"),
+  // drivingVehicleTypes: Yup.string().required(
+  //   "Driving Vehicle Types are required"
+  // ),
+  remarks: Yup.string(),
   photoUpload: Yup.array().min(1, "At least one photo is required"),
   licenseUpload: Yup.array().min(
     1,
@@ -92,7 +89,7 @@ const initialFormData = {
   phoneNumber: "",
   alternateNumber: "",
   residentialAddress: "",
-  drivingVehicleTypes: "",
+  drivingVehicleTypes: [],
   remarks: "",
   photoUpload: [],
   licenseUpload: [],
@@ -226,6 +223,7 @@ const DriversListDirectory = () => {
               <TableCell>Alias</TableCell>
               <TableCell>License Number</TableCell>
               <TableCell>Phone Number</TableCell>
+              <TableCell>Vehicle Types</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -236,6 +234,9 @@ const DriversListDirectory = () => {
                 <TableCell>{driver.alias}</TableCell>
                 <TableCell>{driver.licenseNumber}</TableCell>
                 <TableCell>{driver.phoneNumber}</TableCell>
+                <TableCell>
+                  {driver.drivingVehicleTypes?.join(", ") || "N/A"}
+                </TableCell>
                 <TableCell>
                   <IconButton
                     onClick={() => handleEdit(driver)}
@@ -397,7 +398,6 @@ const DriversListDirectory = () => {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
-                        required
                       />
                       <ErrorMessage
                         name="alternateNumber"
@@ -414,7 +414,7 @@ const DriversListDirectory = () => {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
-                        multiline
+                      
                         rows={2}
                         required
                       />
@@ -447,6 +447,7 @@ const DriversListDirectory = () => {
                         Driving Vehicle Types
                       </InputLabel>
                       <Select
+                        multiple
                         labelId="drivingVehicleTypes-label"
                         id="drivingVehicleTypes"
                         name="drivingVehicleTypes"
@@ -476,9 +477,8 @@ const DriversListDirectory = () => {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
-                        multiline
+                        
                         rows={2}
-                        required
                       />
                       <ErrorMessage
                         name="remarks"
@@ -519,7 +519,7 @@ const DriversListDirectory = () => {
                                   onChange={handleChange}
                                   onBlur={handleBlur}
                                   fullWidth
-                                  multiline
+                                  
                                   rows={2}
                                   required
                                   sx={{ mb: 1 }}

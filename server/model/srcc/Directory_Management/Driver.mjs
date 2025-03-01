@@ -26,11 +26,11 @@ const DriverSchema = new mongoose.Schema(
 
     phoneNumber: { type: String, required: true, trim: true }, // Phone Number (10 Numeric)
 
-    alternateNumber: { type: String, required: true, trim: true }, // Alternate Number (10 Numeric)
+    alternateNumber: { type: String, trim: true }, // Alternate Number (10 Numeric)
 
     residentialAddress: { type: String, required: true, trim: true },
-    drivingVehicleTypes: { type: String, required: true, trim: true },
-    remarks: { type: String, required: true, trim: true },
+    drivingVehicleTypes: [{ type: String, required: true }],
+    remarks: { type: String, trim: true },
     notes: [NoteSchema], // Use the NoteSchema for the notes array
   },
   { timestamps: true } // This will add `createdAt` and `updatedAt` for the driver document

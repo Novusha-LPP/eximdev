@@ -23,9 +23,9 @@ const validateDriverData = (data) => {
   if (!validatePhoneNumber(data.phoneNumber)) {
     errors.push("Phone Number must be 10 digits.");
   }
-  if (!validatePhoneNumber(data.alternateNumber)) {
-    errors.push("Alternate Phone Number must be 10 digits.");
-  }
+  // if (!validatePhoneNumber(data.alternateNumber)) {
+  //   errors.push("Alternate Phone Number must be 10 digits.");
+  // }
   if (!validateExpiryDate(data.licenseExpiryDate)) {
     errors.push("Invalid License Expiry Date.");
   }

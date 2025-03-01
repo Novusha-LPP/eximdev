@@ -5,7 +5,7 @@
       "script": "app.mjs",
       "watch": true,
       "env": {
-        "NODE_ENV": "devlopment"
+        "NODE_ENV": "server"
       }
     }
   ]

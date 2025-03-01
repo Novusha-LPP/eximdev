@@ -267,12 +267,8 @@ function OperationsList() {
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => {
-        const {
-          cth_documents,
-          all_documents,
-          job_sticker_upload,
-          verified_checklist_upload,
-        } = cell.row.original;
+        const { cth_documents, all_documents, job_sticker_upload, checklist } =
+          cell.row.original;
 
         // Helper function to safely get the first link if it's an array or a string
         const getFirstLink = (input) => {
@@ -283,7 +279,7 @@ function OperationsList() {
         };
 
         const stickerLink = getFirstLink(job_sticker_upload);
-        const checklistLink = getFirstLink(verified_checklist_upload);
+        const checklistLink = getFirstLink(checklist);
 
         return (
           <div style={{ textAlign: "left" }}>

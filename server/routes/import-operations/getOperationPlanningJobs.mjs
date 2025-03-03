@@ -159,7 +159,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ],
     };
 
-    console.log("Filter Conditions:", JSON.stringify(filterConditions, null, 2));
+    
 
     // **Fetch total job count**
     const totalJobs = await JobModel.countDocuments(filterConditions);

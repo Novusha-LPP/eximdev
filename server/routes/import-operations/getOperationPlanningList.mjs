@@ -71,7 +71,7 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
     }
 
     // **Debugging Log** (Check this in the console to verify the filter)
-    console.log("Filter Conditions:", JSON.stringify(filterConditions, null, 2));
+    
 
     // **Fetch total count for pagination**
     const totalJobs = await JobModel.countDocuments(filterConditions);

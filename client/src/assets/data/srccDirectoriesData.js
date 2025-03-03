@@ -23,6 +23,7 @@ export const viewMasterList = [
   "Commodity",
   "Vehicle Types",
   "Drivers",
+  "Vehicle Registration",
   // "Organisation",
   // "Ply Rating",
   // "Repair Type",

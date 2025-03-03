@@ -18,9 +18,10 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-submission-jobs", async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "" } = req.query;
+    // Extract query parameters
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "" } = req.query;
 
-    // Validate query parameters
+    // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     if (isNaN(pageNumber) || pageNumber < 1) {
@@ -31,7 +32,22 @@ router.get("/api/get-submission-jobs", async (req, res) => {
     }
 
     const skip = (pageNumber - 1) * limitNumber;
-    const searchQuery = search ? buildSearchQuery(search) : {};
+
+    // Decode and trim filters
+    const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedICD = icd_code ? decodeURIComponent(icd_code).trim() : "";
+
+    // Build the search query
+    const searchQuery = search
+      ? {
+          $or: [
+            { job_no: { $regex: search, $options: "i" } },
+            { importer: { $regex: search, $options: "i" } },
+            { awb_bl_no: { $regex: search, $options: "i" } },
+            { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
+          ],
+        }
+      : {};
 
     // Construct the base query
     const baseQuery = {
@@ -50,10 +66,20 @@ router.get("/api/get-submission-jobs", async (req, res) => {
       ],
     };
 
-    // Fetch all jobs matching the base query
+    // ✅ Apply Importer Filter if provided
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    // ✅ Apply ICD Code Filter if provided
+    if (decodedICD && decodedICD !== "All ICDs") {
+      baseQuery.$and.push({ icd_code: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+    }
+
+    // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents"
+        "priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code"
       )
       .lean();
 
@@ -84,5 +110,6 @@ router.get("/api/get-submission-jobs", async (req, res) => {
     });
   }
 });
+
 
 export default router;

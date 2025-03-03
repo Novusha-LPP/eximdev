@@ -1074,7 +1074,7 @@ function JobDetails() {
                       }
                     }}
                   />
-                  {!formik.values.checked && (
+                  {/* {!formik.values.checked && (
                     <strong>All containers arrived at same date</strong>
                   )}
                   {formik.values.checked && (
@@ -1092,7 +1092,7 @@ function JobDetails() {
                         onChange={formik.handleChange}
                       />
                     </>
-                  )}
+                  )} */}
                 </div>
               </Col>
               <Col xs={12} lg={4}>

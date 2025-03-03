@@ -24,6 +24,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     limit = 100,
     search = "",
     selectedICD = "",
+    importer = "", // Added from get-operations-planning-list
     detailedStatusExPlan = "all", // defaults to all if not provided
     year, // if you need to filter by year later, you'll capture it here
   } = req.query;
@@ -34,13 +35,11 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    // Define the custom house condition based on username
+    // **Define custom house condition based on username**
     let customHouseCondition = {};
     switch (username) {
       case "majhar_khan":
-        customHouseCondition = {
-          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
-        };
+        customHouseCondition = { custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] } };
         break;
       case "parasmal_marvadi":
         customHouseCondition = { custom_house: "AIR CARGO" };
@@ -50,28 +49,42 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         customHouseCondition = { custom_house: "ICD KHODIYAR" };
         break;
       case "gaurav_singh":
-        customHouseCondition = {
-          custom_house: { $in: ["HAZIRA", "BARODA"] },
-        };
+        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
         break;
       case "akshay_rajput":
         customHouseCondition = { custom_house: "ICD VARNAMA" };
         break;
       default:
-        customHouseCondition = {}; // No filter for other users
+        customHouseCondition = {};
         break;
     }
 
-    // If selectedICD is provided, override the custom house condition.
+    // **Override with selectedICD if provided**
     if (selectedICD) {
       customHouseCondition = { custom_house: selectedICD };
     }
 
     const skip = (page - 1) * limit;
-    const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Base conditions (common for all jobs)
-    // Note that the arrival_date condition is here by default.
+    // **Build search conditions**
+    let searchQuery = [];
+    if (search) {
+      searchQuery.push({
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+          { be_no: { $regex: search, $options: "i" } },
+          { custom_house: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    // **Apply importer filter only if it's NOT "Select Importer"**
+    if (importer && importer !== "Select Importer") {
+      searchQuery.push({ importer: importer });
+    }
+
+    // **Base conditions (common for all jobs)**
     let baseConditions = {
       status: "Pending",
       be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
@@ -84,11 +97,9 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ],
     };
 
-    // Define extra conditions based on the detailedStatusExPlan filter
+    // **Detailed status filtering**
     let statusExtraCondition = {};
     if (detailedStatusExPlan === "Arrival") {
-      // Arrival: arrival_date is already satisfied above;
-      // ensure pcv_date is missing/empty and out_of_charge is missing/empty/false.
       statusExtraCondition = {
         $and: [
           { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
@@ -102,8 +113,6 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         ],
       };
     } else if (detailedStatusExPlan === "Ex. Planning") {
-      // Ex. Planning: examination_planning_date must exist;
-      // plus pcv_date and out_of_charge are missing/empty
       statusExtraCondition = {
         examination_planning_date: { $exists: true, $nin: ["", null] },
         $and: [
@@ -118,7 +127,6 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         ],
       };
     } else if (detailedStatusExPlan === "PCV") {
-      // PCV: pcv_date must exist and be non-empty; out_of_charge must be empty or not defined.
       statusExtraCondition = {
         pcv_date: { $exists: true, $nin: ["", null] },
         $or: [
@@ -128,88 +136,86 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         ],
       };
     } else if (detailedStatusExPlan === "OOC") {
-      // OOC: out_of_charge must be present and non-empty.
       statusExtraCondition = {
         out_of_charge: { $exists: true, $nin: ["", null] },
       };
     } else if (detailedStatusExPlan === "Do Completed") {
-      // Do Completed: do_completed must be present and non-empty.
       statusExtraCondition = {
         do_completed: { $exists: true, $nin: ["", null] },
       };
     } else if (detailedStatusExPlan === "Frist Check") {
-      // Do Completed: do_completed must be present and non-empty.
       statusExtraCondition = {
         fristCheck: { $exists: true, $nin: ["", null] },
       };
     }
-    // For "all" or any other value, no additional extra condition is applied.
 
-    // Combine all conditions into one query
-    const baseQuery = {
+    // **Combine all conditions**
+    const filterConditions = {
       $and: [
         customHouseCondition,
         baseConditions,
         statusExtraCondition,
-        searchQuery,
+        ...searchQuery, // Merge search queries properly
       ],
     };
 
-    // Fetch jobs using the combined query.
-    const jobs = await JobModel.find(baseQuery).sort({
-      examination_planning_date: 1,
-    });
+    console.log("Filter Conditions:", JSON.stringify(filterConditions, null, 2));
 
-    const totalJobs = jobs.length;
+    // **Fetch total job count**
+    const totalJobs = await JobModel.countDocuments(filterConditions);
 
-    // Add row color based on conditions and group jobs (existing logic)
+    // **Fetch paginated jobs**
+    const jobs = await JobModel.find(filterConditions)
+      .select(
+        "job_no detailed_status importer status be_no be_date container_nos examination_planning_date custom_house year consignment_type type_of_b_e cth_documents all_documents job_sticker_upload verified_checklist_upload invoice_number invoice_date loading_port no_of_pkgs description gross_weight job_net_weight gateway_igm gateway_igm_date igm_no igm_date awb_bl_no awb_bl_date shipping_line_airline"
+      )
+      .sort({ examination_planning_date: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // **Row color logic (unchanged)**
     const greenJobs = [];
     const orangeJobs = [];
     const yellowJobs = [];
     const otherJobs = [];
 
     jobs.forEach((job) => {
-      const { out_of_charge, examination_planning_date, be_no, container_nos } =
-        job;
-      const anyContainerArrivalDate = container_nos?.some(
-        (container) => container.arrival_date
-      );
+      const { out_of_charge, examination_planning_date, be_no, container_nos } = job;
+      const anyContainerArrivalDate = container_nos?.some((container) => container.arrival_date);
       let row_color = "";
       if (out_of_charge) {
         row_color = "bg-green";
-        greenJobs.push({ ...job._doc, row_color });
+        greenJobs.push({ ...job, row_color });
       } else if (examination_planning_date) {
         row_color = "bg-orange";
-        orangeJobs.push({ ...job._doc, row_color });
+        orangeJobs.push({ ...job, row_color });
       } else if (be_no && anyContainerArrivalDate) {
         row_color = "bg-yellow";
-        yellowJobs.push({ ...job._doc, row_color });
+        yellowJobs.push({ ...job, row_color });
       } else {
-        otherJobs.push({ ...job._doc, row_color });
+        otherJobs.push({ ...job, row_color });
       }
     });
 
-    // Concatenate grouped jobs in the desired order.
-    const groupedJobs = [
-      ...greenJobs,
-      ...orangeJobs,
-      ...yellowJobs,
-      ...otherJobs,
-    ];
+    // **Concatenate jobs in order**
+    const groupedJobs = [...greenJobs, ...orangeJobs, ...yellowJobs, ...otherJobs];
 
-    // Paginate grouped jobs.
+    // **Paginate grouped jobs**
     const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
 
+    // **Send response**
     res.status(200).send({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limit),
-      currentPage: parseInt(page),
+      currentPage: parseInt(page, 10),
       jobs: paginatedJobs,
     });
   } catch (error) {
     console.error("Error fetching jobs:", error);
-    res.status(500).send({ message: "Error fetching jobs" });
+    res.status(500).send({ message: "Internal Server Error", error: error.message });
   }
 });
+
 
 export default router;

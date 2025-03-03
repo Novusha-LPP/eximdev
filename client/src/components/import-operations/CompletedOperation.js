@@ -20,8 +20,10 @@ import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function CompletedOperations() {
-  const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState("");
+  const [years, setYears] = useState([]);
+  const [selectedImporter, setSelectedImporter] = useState("");
+  const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const { user } = useContext(UserContext);
@@ -40,6 +42,48 @@ function CompletedOperations() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
+
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYear) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+        );
+        setImporters(res.data);
+        setSelectedImporter("Select Importer");
+      }
+    }
+    getImporterList();
+  }, [selectedYear]);
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
+
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  };
+
+  const importerNames = [
+    { label: "Select Importer" },
+    ...getUniqueImporterNames(importers),
+  ];
+
+  useEffect(() => {
+    if (!selectedImporter) {
+      setSelectedImporter("Select Importer");
+    }
+  }, [importerNames]);
+
   // Fetch available years for filtering
   useEffect(() => {
     const fetchYears = async () => {
@@ -57,7 +101,13 @@ function CompletedOperations() {
   }, []);
 
   // Fetch rows data
-  const fetchRows = async (page, searchQuery, year, selectedICD) => {
+  const fetchRows = async (
+    page,
+    searchQuery,
+    year,
+    selectedICD,
+    selectedImporter
+  ) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
@@ -68,21 +118,32 @@ function CompletedOperations() {
             search: searchQuery,
             year,
             selectedICD, // Matches backend expectation
+            importer: selectedImporter?.trim() || "", // ✅ Ensure correct parameter name
           },
         }
       );
+
       setRows(res.data.jobs); // Set rows data
       setTotalPages(res.data.totalPages); // Set total pages
       setTotalJobs(res.data.totalJobs); // Set total job count
     } catch (error) {
       console.error("Error fetching rows:", error);
+      setRows([]); // Reset rows if an error occurs
+      setTotalPages(1); // Reset pagination
     }
   };
 
-  // Fetch rows on initial load and when filters change
+  // Fetch rows when dependencies change
   useEffect(() => {
-    fetchRows(page, debouncedSearchQuery, selectedYear, selectedICD);
-  }, [page, debouncedSearchQuery, selectedYear, selectedICD]);
+    fetchRows(
+      page,
+      debouncedSearchQuery,
+      selectedYear,
+      selectedICD,
+      selectedImporter
+    );
+  }, [page, debouncedSearchQuery, selectedYear, selectedICD, selectedImporter]);
+
   useEffect(() => {
     if (location.state?.searchQuery) {
       setSearchQuery(location.state.searchQuery);
@@ -358,7 +419,51 @@ function CompletedOperations() {
       },
     },
     renderTopToolbarCustomActions: () => (
-      <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        {/* Job Count Display */}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        >
+          Job Count: {totalJobs}
+        </Typography>
+
+        <TextField
+          fullWidth
+          select
+          size="small"
+          value={selectedImporter || ""}
+          onChange={(e) => setSelectedImporter(e.target.value)}
+          label="Select Importer"
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {importerNames.map((option, index) => (
+            <MenuItem key={`importer-${index}`} value={option.label}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {years.map((year, index) => (
+            <MenuItem key={`year-${year}-${index}`} value={year}>
+              {year}
+            </MenuItem>
+          ))}
+        </TextField>
         {/* ICD Code Filter */}
         <TextField
           select
@@ -377,61 +482,21 @@ function CompletedOperations() {
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "end",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
-          {/* Job Count Display */}
-          <Typography
-            variant="body1"
-            sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
-          >
-            Job Count: {totalJobs}
-          </Typography>
-
-          {/* Search Bar */}
-          <TextField
-            placeholder="Search by Job No, Importer, or AWB/BL Number"
-            size="small"
-            variant="outlined"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-          />
-        </div>
+        {/* Search Bar */}
+        <TextField
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+        />
       </div>
     ),
   };
 
   return (
     <div style={{ height: "80%" }}>
-      <div
-        style={{ display: "flex", alignItems: "center", marginBottom: "20px" }}
-      >
-        {/* Year Filter */}
-        <TextField
-          select
-          label="Select Year"
-          value={selectedYear}
-          onChange={(e) => {
-            setSelectedYear(e.target.value);
-            setPage(1); // Reset to first page on year change
-          }}
-          sx={{ marginRight: "20px", width: "200px" }}
-        >
-          {years.map((year) => (
-            <MenuItem key={year} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-      </div>
-
       {/* Table */}
       <MaterialReactTable {...tableConfig} />
 

@@ -308,6 +308,8 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      hss: "",
+      sailer_name: "",
       fristCheck: "",
       priorityJob: "Normal",
       emptyContainerOffLoadDate: "",
@@ -416,6 +418,8 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          hss: values.hss,
+          sailer_name: values.sailer_name,
           fristCheck: values.fristCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
@@ -464,6 +468,7 @@ function useFetchJobDetails(
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
           do_completed: values.do_completed,
+          
         }
       );
 
@@ -666,6 +671,10 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        hss:
+          data.hss === undefined ? "" : data.hss,
+          sailer_name:
+          data.sailer_name === undefined ? "" : data.sailer_name,
         fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
         priorityJob:
           data.priorityJob === undefined ? "Normal" : data.priorityJob,

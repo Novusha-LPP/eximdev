@@ -9,6 +9,9 @@ import Commodity from "./Commodity";
 import VehicleTypes from "./VehicleTypes";
 import Drivers from "./DriversListDirectory";
 import VehicleRegistration from "./VehicleRegistration";
+import TollData from "./TollData";
+import AdvanceToDriver from "./AdvanceToDriver";
+import ShippingLine from "./ShippingLine";
 
 function DirectoryComponent({ directoryType }) {
   console.log("Selected Directory Type:", directoryType); // Debugging log
@@ -33,6 +36,12 @@ function DirectoryComponent({ directoryType }) {
         return <Drivers />;
       case "Vehicle Registration": // ✅ Added Commoditys Directory
         return <VehicleRegistration />;
+      case "Toll Data": // ✅ Added Commoditys Directory
+        return <TollData />;
+      case "Advance To Driver": // ✅ Added Commoditys Directory
+        return <AdvanceToDriver />;
+      case "shipping Line": // ✅ Added Commoditys Directory
+        return <ShippingLine />;
       default:
         console.log("No matching directory found for:", directoryType);
         return null;

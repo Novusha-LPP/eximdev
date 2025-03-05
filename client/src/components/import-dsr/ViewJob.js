@@ -140,7 +140,9 @@ function JobDetails() {
     const anyContainerArrivalDate = container_nos?.some(
       (container) => container.arrival_date
     );
-    const containerRailOutDate = container_nos?.some((container)=> container.container_rail_out_date);
+    const containerRailOutDate = container_nos?.some(
+      (container) => container.container_rail_out_date
+    );
     console.log(`containerRailOutDate: ${containerRailOutDate}`);
 
     if (
@@ -1060,7 +1062,7 @@ function JobDetails() {
                   />
                 </div>
               </Col> */}
-              <Col xs={12} lg={4} className="mb-3">
+              {/* <Col xs={12} lg={4} className="mb-3">
                 <div className="job-detail-input-container">
                   <Checkbox
                     checked={formik.values.checked}
@@ -1074,7 +1076,7 @@ function JobDetails() {
                       }
                     }}
                   />
-                  {/* {!formik.values.checked && (
+                  {!formik.values.checked && (
                     <strong>All containers arrived at same date</strong>
                   )}
                   {formik.values.checked && (
@@ -1092,9 +1094,54 @@ function JobDetails() {
                         onChange={formik.handleChange}
                       />
                     </>
-                  )} */}
+                  )}
+                </div>
+              </Col> */}
+
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* HSS Field */}
+                  <strong>HSS:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    select
+                    size="small"
+                    variant="outlined"
+                    id="hss"
+                    name="hss"
+                    value={formik.values.hss || "No"}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                  >
+                    <MenuItem value="Yes">Yes</MenuItem>
+                    <MenuItem value="No">No</MenuItem>
+                  </TextField>
                 </div>
               </Col>
+
+              <Col xs={12} lg={4}>
+  <div
+    className="job-detail-input-container"
+    style={{ justifyContent: "flex-start" }}
+  >
+    {/* Sailer Name Field */}
+    <strong>Sailer Name:&nbsp;</strong>
+    <TextField
+      fullWidth
+      size="small"
+      variant="outlined"
+      id="sailer_name"
+      name="sailer_name"
+      value={formik.values.sailer_name || ""}
+      onChange={formik.handleChange}
+      style={{ marginTop: "10px" }}
+      placeholder="Enter Sailer Name"
+    />
+  </div>
+</Col>
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"

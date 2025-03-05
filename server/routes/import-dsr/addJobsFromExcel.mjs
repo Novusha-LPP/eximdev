@@ -56,152 +56,67 @@ router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
 // Route to add a new job
 router.post("/api/jobs/add-job-imp-man", async (req, res) => {
   try {
-    const {
-      year,
-      custom_house,
-      job_date,
-      importer,
-      supplier_exporter,
-      invoice_number,
-      invoice_date,
-      awb_bl_no,
-      awb_bl_date,
-      vessel_berthing,
-      description,
-      in_bond_be_no,
-      in_bond_be_date,
-      type_of_b_e,
-      no_of_pkgs,
-      unit,
-      gross_weight,
-      unit_1,
-      gateway_igm,
-      gateway_igm_date,
-      igm_no,
-      igm_date,
-      loading_port,
-      origin_country,
-      port_of_reporting,
-      shipping_line_airline,
-      branchSrNo,
-      adCode,
-      isDraftDoc,
-      fta_Benefit_date_time,
-      exBondValue,
-      scheme,
-      container_nos,
-      cth_documents,
-      documents,
-      all_documents,
-      consignment_type,
-      remarks,
-      status,
-      in_bond_ooc_copies,
-      cth_no,
-      inv_currency,
-      clearanceValue,
-      total_inv_value,
-    } = req.body;
+    const { container_nos, importer, awb_bl_no, custom_house } = req.body;
 
-    const lastJob = await JobModel.findOne({}, { job_no: 1 })
-      .sort({ job_no: -1 })
-      .exec(); // Fetch the job with the highest job_no
-    // console.log("Last Job:", lastJob);
-
-    // Validate required fields
+    // ✅ Validate required fields
     if (!importer || !custom_house) {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
-    // Generate new job_no
-    let newJobNo;
+    // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
+    if (container_nos && container_nos.length > 1) {
+      const existingContainer = await JobModel.findOne({
+        "container_nos.container_number": { $in: container_nos.map(c => c.container_number) }
+      });
 
-    // if (lastJob && lastJob.job_no) {
-    // Extract the numeric part from job_no
-    const numericJobNo = parseInt(lastJob.job_no, 10); // Convert job_no to a number
-    const totalDigits = lastJob.job_no.length; // Preserve the length of the original job_no
-    newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0"); // Increment and pad with leading zeros
-    // } else {
-    //   // Start with a base number if no jobs exist
-    //   newJobNo = "00001"; // Initial job_no with leading zeros
-    // }
-    console.log(currentTimeIST);
-    console.log("Generated job_no:", newJobNo);
+      if (existingContainer) {
+        return res.status(400).json({
+          message: `Duplicate container number found: ${container_nos
+            .map(c => c.container_number)
+            .join(", ")}`,
+        });
+      }
+    }
 
-    // Create new job entry
-    const newJob = new JobModel({
-      job_no: newJobNo,
-      year,
-      custom_house,
-      job_date: currentTimeIST, // IST Time
-      createdAt: currentTimeIST, // IST Time
-      updatedAt: currentTimeIST, // IST Time
-      importer,
-      supplier_exporter,
-      invoice_number,
-      invoice_date,
-      awb_bl_no,
-      awb_bl_date,
-      vessel_berthing,
-      description,
-      in_bond_be_no,
-      in_bond_be_date,
-      type_of_b_e,
-      no_of_pkgs,
-      unit,
-      gross_weight,
-      unit_1,
-      gateway_igm,
-      gateway_igm_date,
-      igm_no,
-      igm_date,
-      loading_port,
-      origin_country,
-      port_of_reporting,
-      shipping_line_airline,
-      branchSrNo,
-      adCode,
-      isDraftDoc,
-      fta_Benefit_date_time,
-      exBondValue,
-      scheme,
-      container_nos,
-      cth_documents,
-      documents,
-      all_documents,
-      consignment_type,
-      remarks,
-      status,
-      in_bond_ooc_copies,
-      cth_no,
-      inv_currency,
-      clearanceValue,
-      total_inv_value,
-    });
+    // ✅ Check for duplicate BL Number **only if awb_bl_no is provided**
+    if (awb_bl_no && awb_bl_no.length > 0) {
+      const existingBl = await JobModel.findOne({ awb_bl_no });
 
-    // Save to database
+      if (existingBl) {
+        return res.status(400).json({
+          message: `Duplicate BL number found: ${awb_bl_no}`,
+        });
+      }
+    }
+
+    // ✅ Generate new job_no
+    const lastJob = await JobModel.findOne({}, { job_no: 1 }).sort({ job_no: -1 }).exec();
+    const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
+    const totalDigits = lastJob?.job_no?.length || 5;
+    const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
+
+    // ✅ Create new job entry
+    const newJob = new JobModel({ job_no: newJobNo, ...req.body });
+
+    // ✅ Save to database
     await newJob.save();
 
-    // Update last jobs update date
-    await LastJobsDate.findOneAndUpdate(
-      {},
-      { lastUpdatedOn: new Date() },
-      { upsert: true, new: true }
-    );
+    // ✅ Update last job update date
+    await LastJobsDate.findOneAndUpdate({}, { lastUpdatedOn: new Date() }, { upsert: true, new: true });
 
     res.status(201).json({
       message: "Job successfully created.",
-      job: {
-        job_no: newJob.job_no,
-        custom_house: newJob.custom_house,
-        importer: newJob.importer,
-      },
+      job: { job_no: newJob.job_no, custom_house: newJob.custom_house, importer: newJob.importer }
     });
   } catch (error) {
     console.error("Error adding job:", error);
-    res.status(500).json({ message: "Internal server error." });
+    
+    // ✅ Return proper error messages
+    res.status(500).json({ message: error.message || "Internal server error." });
   }
 });
+
+
 router.post("/api/jobs/add-job", async (req, res) => {
   const jsonData = req.body;
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Grid,
   Typography,
@@ -10,6 +10,7 @@ import {
   Switch,
   Checkbox,
 } from "@mui/material";
+import axios from "axios";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -125,10 +126,49 @@ const ImportCreateJob = () => {
     setScheme,
     jobDetails,
     setJobDetails,
+    setYear,
+    year
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const [selectedYear, setSelectedYear] = useState("");
+  const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
+
+    useEffect(() => {
+      // Determine the current date
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+      const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
+      const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0"); // Last two digits of next year
+      const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0"); // Last two digits of previous year
+  
+      let defaultYearPair;
+  
+      // Determine the financial year
+      if (currentMonth >= 4) {
+        // From April of the current year to March of the next year
+        defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+      } else {
+        // From January to March, use the previous financial year
+        defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
+      }
+  
+      // Set default year pair if not already selected
+      if (!selectedYear) {
+        if (years.includes(defaultYearPair)) {
+          setSelectedYear(defaultYearPair);
+        } else {
+          setSelectedYear(years[0]);
+        }
+      }
+    }, [selectedYear, setSelectedYear]);
+  
+useEffect(() => {
+  setYear(selectedYear);
+},[selectedYear]);
+
   const clearanceOptionsMapping = {
     Home: [
       { value: "Full Duty", label: "Full Duty" },
@@ -145,6 +185,21 @@ const ImportCreateJob = () => {
       <Typography variant="h4" gutterBottom style={{ marginBottom: "20px" }}>
         Create Import Job
       </Typography>
+
+      <TextField
+                select
+                size="small"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                sx={{ width: "200px", marginRight: "20px" }}
+              >
+                {years.map((year, index) => (
+                  <MenuItem key={`year-${year}-${index}`} value={year}>
+                    {year}
+                  </MenuItem>
+                ))}
+              </TextField>
+
       <Grid
         container
         spacing={3}

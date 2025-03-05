@@ -64,6 +64,8 @@ const jobSchema = new mongoose.Schema({
   unit_1: { type: String, trim: true },
   gateway_igm: { type: String, trim: true },
   gateway_igm_date: { type: String, trim: true },
+  hss: { type: String, trim: true, default: "No" },
+  sailer_name: { type: String, trim: true },
   igm_no: { type: String, trim: true },
   igm_date: { type: String, trim: true },
   loading_port: { type: String, trim: true },

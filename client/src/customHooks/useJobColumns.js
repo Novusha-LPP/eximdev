@@ -223,6 +223,17 @@ function useJobColumns() {
           const supplier_exporter = row?.original?.supplier_exporter || "";
           const gross_weight = row?.original?.gross_weight || "";
           const job_net_weight = row?.original?.job_net_weight || "";
+            const  loading_port = row?.original.loading_port ||  "";
+            const port_of_reporting = row?.original.port_of_reporting ||  "";
+
+            // Remove the codes from the port names if they are in the format "(CODE) PortName"
+          const cleanLoadingPort = loading_port
+          ? loading_port.replace(/\(.*?\)\s*/, "")
+          : "N/A";
+        const cleanPortOfReporting = port_of_reporting
+          ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+          : "N/A";
+
           const containerFirst =
             row?.original?.container_nos?.[0]?.container_number || "";
 
@@ -347,6 +358,10 @@ function useJobColumns() {
                   <Tooltip title="Net Weight" arrow>
                     <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
                   </Tooltip>
+                  <div>
+              <strong>LO :</strong> {cleanLoadingPort} <br />
+              <strong>POD :</strong> {cleanPortOfReporting} <br />
+            </div>
                 </React.Fragment>
               )}
             </React.Fragment>
@@ -356,7 +371,7 @@ function useJobColumns() {
       {
         accessorKey: "dates",
         header: "Dates",
-        size: 180,
+        size: 350,
         Cell: ({ cell }) => {
           const {
             vessel_berthing,
@@ -371,6 +386,8 @@ function useJobColumns() {
           } = cell.row.original;
 
           return (
+            <div style={{ display: "flex", gap: "20px" }}>
+            {/* Left Section */}
             <div>
               <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
               <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
@@ -402,19 +419,18 @@ function useJobColumns() {
                     </React.Fragment>
                   ))
                 : "N/A"}
-              <strong>PCV :</strong> {pcv_date ? pcv_date : "N/A"}
-              <br />
-              <strong>OOC :</strong> {out_of_charge ? out_of_charge : "N/A"}
-              <br />
-              <strong>Delivery :</strong>{" "}
-              {delivery_date ? delivery_date : "N/A"}
-              <br />
-              <strong>EmptyOff:</strong>{" "}
-              {emptyContainerOffLoadDate
-                ? emptyContainerOffLoadDate.slice(0, 10)
-                : "N/A"}
-              <br />
             </div>
+          
+            {/* Right Section */}
+            <div>
+              <strong>PCV :</strong> {pcv_date || "N/A"} <br />
+              <strong>OOC :</strong> {out_of_charge || "N/A"} <br />
+              <strong>Delivery :</strong> {delivery_date || "N/A"} <br />
+              <strong>EmptyOff:</strong> {emptyContainerOffLoadDate ? emptyContainerOffLoadDate.slice(0, 10) : "N/A"} <br />
+            </div>
+          </div>
+          
+          
           );
         },
       },
@@ -450,29 +466,29 @@ function useJobColumns() {
           );
         },
       },
-      {
-        accessorKey: "Port",
-        header: "Port",
-        size: 150,
-        Cell: ({ cell }) => {
-          const { loading_port, port_of_reporting } = cell.row.original;
+      // {
+      //   accessorKey: "Port",
+      //   header: "Port",
+      //   size: 150,
+      //   Cell: ({ cell }) => {
+      //     const { loading_port, port_of_reporting } = cell.row.original;
 
-          // Remove the codes from the port names if they are in the format "(CODE) PortName"
-          const cleanLoadingPort = loading_port
-            ? loading_port.replace(/\(.*?\)\s*/, "")
-            : "N/A";
-          const cleanPortOfReporting = port_of_reporting
-            ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-            : "N/A";
+      //     // Remove the codes from the port names if they are in the format "(CODE) PortName"
+      //     const cleanLoadingPort = loading_port
+      //       ? loading_port.replace(/\(.*?\)\s*/, "")
+      //       : "N/A";
+      //     const cleanPortOfReporting = port_of_reporting
+      //       ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+      //       : "N/A";
 
-          return (
-            <div>
-              <strong>LO :</strong> {cleanLoadingPort} <br />
-              <strong>POD :</strong> {cleanPortOfReporting} <br />
-            </div>
-          );
-        },
-      },
+      //     return (
+      //       <div>
+      //         <strong>LO :</strong> {cleanLoadingPort} <br />
+      //         <strong>POD :</strong> {cleanPortOfReporting} <br />
+      //       </div>
+      //     );
+      //   },
+      // },
 
       {
         accessorKey: "container_numbers",

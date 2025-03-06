@@ -140,10 +140,9 @@ function JobDetails() {
     const anyContainerArrivalDate = container_nos?.some(
       (container) => container.arrival_date
     );
-    const containerRailOutDate = container_nos?.some(
-      (container) => container.container_rail_out_date
-    );
-    console.log(`containerRailOutDate: ${containerRailOutDate}`);
+      const containerRailOutDate = container_nos?.some(
+        (container) => container.container_rail_out_date
+      );
 
     if (
       billOfEntryNo &&
@@ -191,6 +190,7 @@ function JobDetails() {
     formik.values.completed_operation_date,
     formik.values.be_no,
     formik.values.emptyContainerOffLoadDate,
+    formik.values.delivery_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
@@ -323,6 +323,8 @@ function JobDetails() {
         container_gross_weight: "",
         weight_shortage: "",
         transporter: "",
+        delivery_date: "",
+        emptyContainerOffLoadDate: "",
         container_rail_out_date: "",
       },
     ]);
@@ -2532,7 +2534,7 @@ function JobDetails() {
                 </div>
               </Col>
             </Row>
-            <Row style={{ marginTop: "20px" }}>
+            {/* <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4} className="mb-3">
                 <div className="job-detail-input-container">
                   <strong>Delivery Date:&nbsp;</strong>
@@ -2586,7 +2588,7 @@ function JobDetails() {
                   />
                 </div>
               </Col>
-            </Row>
+            </Row> */}
             <Row style={{ marginTop: "20px" }}>
               <Col>
                 <div className="job-detail-input-container">
@@ -2937,7 +2939,7 @@ function JobDetails() {
                       padding: "30px",
                     }}
                   >
-                    <Row className="align-items-center">
+                    <Row >
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <h6 style={{ marginBottom: 0 }}>
                           <strong>
@@ -2969,7 +2971,7 @@ function JobDetails() {
                         </h6>
                       </Col>
 
-                      <Col xs={12} md={3} lg={2} className="mb-2">
+                      <Col xs={12} md={4} lg={3} className="mb-2">
                         <strong>Size:&nbsp;</strong>
                         <TextField
                           select
@@ -2986,7 +2988,7 @@ function JobDetails() {
                         </TextField>
                       </Col>
 
-                      <Col xs={12} md={5} lg={4} className="mb-2">
+                      <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Seal Number:&nbsp;</strong>
                           <TextField
@@ -3001,7 +3003,7 @@ function JobDetails() {
                         </div>
                       </Col>
 
-                      <Col xs={12} md={6} lg={3} className="mb-2">
+                      <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Railout Date:&nbsp;</strong>
                           <TextField
@@ -3314,6 +3316,39 @@ function JobDetails() {
                         )}
                       </Col>
                     </Row>
+
+                      <Row style={{ marginTop: "20px",  displayflex: "flex", alignItems: "baseline" }}>
+                      <Col xs={12} md={4} lg={3} className="mb-2">
+                        <div className="job-detail-input-container">
+                          <strong>Delivery Date:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            type="datetime-local"
+                            id={`delivery_date${index}`}
+                            name={`container_nos[${index}].delivery_date`}
+                            value={container.delivery_date}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
+              <Col xs={12} md={4} lg={3} className="mb-2">
+                        <div className="job-detail-input-container">
+                          <strong>Emty Cont. Off-Load Date.&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            type="datetime-local"
+                            id={`emptyContainerOffLoadDate${index}`}
+                            name={`container_nos[${index}].emptyContainerOffLoadDate`}
+                            value={container.emptyContainerOffLoadDate}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
+            </Row>
 
                     <Row>
                       <Col>

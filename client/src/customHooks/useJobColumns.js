@@ -425,8 +425,27 @@ function useJobColumns() {
             <div>
               <strong>PCV :</strong> {pcv_date || "N/A"} <br />
               <strong>OOC :</strong> {out_of_charge || "N/A"} <br />
-              <strong>Delivery :</strong> {delivery_date || "N/A"} <br />
-              <strong>EmptyOff:</strong> {emptyContainerOffLoadDate ? emptyContainerOffLoadDate.slice(0, 10) : "N/A"} <br />
+              <strong>Delivery :</strong> {container_nos.length > 0
+                ? container_nos.map((container, id) => (
+                    <React.Fragment key={id}>
+                      {container.delivery_date
+                        ? container.delivery_date.slice(0, 10)
+                        : "N/A"}{" "}
+                      <br />
+                    </React.Fragment>
+                  ))
+                : "N/A"} <br />
+              <strong>EmptyOff:</strong> 
+              {container_nos.length > 0
+                ? container_nos.map((container, id) => (
+                    <React.Fragment key={id}>
+                      {container.emptyContainerOffLoadDate
+                        ? container.emptyContainerOffLoadDate.slice(0, 10)
+                        : "N/A"}{" "}
+                      <br />
+                    </React.Fragment>
+                  ))
+                : "N/A"} <br />
             </div>
           </div>
           

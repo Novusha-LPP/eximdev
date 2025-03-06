@@ -21,60 +21,99 @@ const router = express.Router();
 
 router.get("/api/get-free-days", async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 100;
+    // Extract and validate query parameters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 100;
     const search = req.query.search || "";
+    const importer = req.query.importer ? decodeURIComponent(req.query.importer).trim() : "";
+    const selectedICD = req.query.selectedICD ? decodeURIComponent(req.query.selectedICD).trim() : "";
+
+    if (page < 1 || limit < 1) {
+      return res.status(400).json({ message: "Invalid pagination parameters" });
+    }
+
     const skip = (page - 1) * limit;
 
-    const searchQuery = search ? buildSearchQuery(search) : {};
+    // Build search query
+    const searchQuery = search
+      ? {
+          $or: [
+            { job_no: { $regex: search, $options: "i" } },
+            { importer: { $regex: search, $options: "i" } },
+            { awb_bl_no: { $regex: search, $options: "i" } },
+            { shipping_line_airline: { $regex: search, $options: "i" } },
+            { vessel_flight: { $regex: search, $options: "i" } },
+            { voyage_no: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
 
-    // Fetch jobs with the updated query logic
-    const jobs = await JobModel.find(
-      {
-        $and: [
-          { status: { $regex: /^pending$/i } },
-          {
-            detailed_status: {
-              $in: [
-                "Discharged",
-                "Gateway IGM Filed",
-                "Estimated Time of Arrival",
-              ],
-            },
-          },
-          {
-            $or: [
-              { is_free_time_updated: { $exists: false } }, // Field doesn't exist
-              { is_free_time_updated: false }, // Field exists and is false
+    // Define job filtering criteria
+    const baseQuery = {
+      $and: [
+        { status: { $regex: /^pending$/i } },
+        {
+          detailed_status: {
+            $in: [
+              "Discharged",
+              "Gateway IGM Filed",
+              "Estimated Time of Arrival",
             ],
           },
-          searchQuery,
-        ],
-      },
-      "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type"
-    );
+        },
+        {
+          $or: [
+            { is_free_time_updated: { $exists: false } }, // Field doesn't exist
+            { is_free_time_updated: false }, // Field exists and is false
+          ],
+        },
+        searchQuery,
+      ],
+    };
 
+    // ✅ Apply importer filter if provided
+    if (importer && importer !== "Select Importer") {
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${importer}$`, "i") } });
+    }
+
+    // ✅ Apply ICD Code filter if provided
+    if (selectedICD && selectedICD !== "Select ICD") {
+      baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
+    }
+
+    // Fetch jobs based on the query
+    const jobs = await JobModel.find(baseQuery)
+      .select(
+        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type"
+      )
+      .lean();
+
+    // Define sorting order based on `detailed_status`
     const rankOrder = [
       "Discharged",
       "Gateway IGM Filed",
       "Estimated Time of Arrival",
     ];
 
-    const groupedJobs = rankOrder.flatMap((status) =>
+    // Sort jobs according to predefined `detailed_status` order
+    const sortedJobs = rankOrder.flatMap((status) =>
       jobs.filter((job) => job.detailed_status === status)
     );
 
-    const paginatedJobs = groupedJobs.slice(skip, skip + limit);
+    // Apply pagination
+    const totalJobs = sortedJobs.length;
+    const paginatedJobs = sortedJobs.slice(skip, skip + limit);
 
-    res.status(200).send({
-      totalJobs: groupedJobs.length,
-      totalPages: Math.ceil(groupedJobs.length / limit),
+    // ✅ If no jobs are found (even with an importer or ICD filter), return an empty list instead of an error
+    res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limit),
       currentPage: page,
       jobs: paginatedJobs,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "Internal Server Error" });
+    console.error("Error fetching free days jobs:", error);
+    res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 });
 

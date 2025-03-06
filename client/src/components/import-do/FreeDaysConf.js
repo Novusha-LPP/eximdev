@@ -1,5 +1,5 @@
 // FreeDaysConf.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import {
   InputAdornment,
   Pagination,
   Typography,
+  MenuItem,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
@@ -19,6 +20,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 
 const FreeDaysConf = () => {
+  const [selectedICD, setSelectedICD] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [years, setYears] = useState([]);
+  const [selectedImporter, setSelectedImporter] = useState("");
+  const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total pages
@@ -31,34 +37,158 @@ const FreeDaysConf = () => {
   const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
   const [freeTimeValue, setFreeTimeValue] = useState(""); // Track the value being edited
   const [currentPageBeforeEdit, setCurrentPageBeforeEdit] = useState(1);
-  // Fetch jobs with pagination
-  const fetchJobs = async (page = 1, searchQuery = "") => {
-    setLoading(true);
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-free-days`,
-        {
-          params: { page, limit, search: searchQuery }, // Pass page, limit, and search query
-        }
-      );
-      const { jobs = [], totalJobs = 0, totalPages = 1 } = res.data;
-      setRows(jobs);
-      setTotalJobs(totalJobs);
-      setTotalPages(totalPages);
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-      setRows([]);
-      setTotalJobs(0);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
+
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYear) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+        );
+        setImporters(res.data);
+        setSelectedImporter("Select Importer");
+      }
     }
+    getImporterList();
+  }, [selectedYear]);
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYear) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+        );
+        setImporters(res.data);
+        setSelectedImporter("Select Importer");
+      }
+    }
+    getImporterList();
+  }, [selectedYear]);
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
+
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
   };
 
-  // Fetch jobs when page or debounced search query changes
+  const importerNames = [
+    { label: "Select Importer" },
+    ...getUniqueImporterNames(importers),
+  ];
+
   useEffect(() => {
-    fetchJobs(page, debouncedSearchQuery);
-  }, [page, debouncedSearchQuery]);
+    if (!selectedImporter) {
+      setSelectedImporter("Select Importer");
+    }
+  }, [importerNames]);
+
+  useEffect(() => {
+    async function getYears() {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-years`
+        );
+        const filteredYears = res.data.filter((year) => year !== null);
+        setYears(filteredYears);
+
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+        const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
+        const currentTwoDigits = String(currentYear).slice(-2);
+        const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+
+        let defaultYearPair =
+          currentMonth >= 4
+            ? `${currentTwoDigits}-${nextTwoDigits}`
+            : `${prevTwoDigits}-${currentTwoDigits}`;
+
+        if (!selectedYear && filteredYears.length > 0) {
+          setSelectedYear(
+            filteredYears.includes(defaultYearPair)
+              ? defaultYearPair
+              : filteredYears[0]
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching years:", error);
+      }
+    }
+    getYears();
+  }, [selectedYear, setSelectedYear]);
+
+  // Fetch jobs with pagination
+  const fetchJobs = useCallback(
+    async (
+      currentPage,
+      currentSearchQuery,
+      currentYear,
+      currentICD,
+      selectedImporter
+    ) => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-free-days`,
+          {
+            params: {
+              page: currentPage,
+              limit,
+              search: currentSearchQuery,
+              year: currentYear,
+              selectedICD: currentICD,
+              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+            },
+          }
+        );
+
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+        } = res.data;
+
+        setRows(jobs);
+        setTotalPages(totalPages);
+        setPage(returnedPage); // Ensure the page state stays in sync
+        setTotalJobs(totalJobs);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setRows([]); // Reset data on failure
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [limit] // Dependencies (limit is included if it changes)
+  );
+
+  // Fetch jobs when dependencies change
+  useEffect(() => {
+    fetchJobs(
+      page,
+      debouncedSearchQuery,
+      selectedYear,
+      selectedICD,
+      selectedImporter
+    );
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedYear,
+    selectedICD,
+    selectedImporter,
+    fetchJobs,
+  ]);
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
@@ -335,7 +465,7 @@ const FreeDaysConf = () => {
       <div
         style={{
           display: "flex",
-          justifyContent: "end",
+          justifyContent: "space-between",
           alignItems: "center",
           width: "100%",
         }}
@@ -347,6 +477,55 @@ const FreeDaysConf = () => {
         >
           Job Count: {totalJobs}
         </Typography>
+
+        <TextField
+          fullWidth
+          select
+          size="small"
+          value={selectedImporter || ""}
+          onChange={(e) => setSelectedImporter(e.target.value)}
+          label="Select Importer"
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {importerNames.map((option, index) => (
+            <MenuItem key={`importer-${index}`} value={option.label}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {years.map((year, index) => (
+            <MenuItem key={`year-${year}-${index}`} value={year}>
+              {year}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        {/* ICD Code Filter */}
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="ICD Code"
+          value={selectedICD}
+          onChange={(e) => {
+            setSelectedICD(e.target.value); // Update the selected ICD code
+            setPage(1); // Reset to the first page when the filter changes
+          }}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="">All ICDs</MenuItem>
+          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+        </TextField>
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"

@@ -19,53 +19,80 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-do-billing", async (req, res) => {
   try {
-    // Search and Pagination
-    const search = req.query.search || "";
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 100;
-    const skip = (page - 1) * limit;
+    // Extract and validate query parameters
+    const { page = 1, limit = 100, search = "", importer, selectedICD } = req.query;
 
-    // Primary conditions
-    const primaryConditions = [
-      { status: { $regex: /^pending$/i } },
-      { delivery_date: { $exists: true, $ne: "" } },
-      {
-        $or: [
-          { bill_document_sent_to_accounts: { $exists: false } },
-          { bill_document_sent_to_accounts: "" },
-        ],
-      }, // Exclude jobs with bill_document_sent_to_accounts set
-    ];
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
 
-    // Add search conditions if search term is provided
-    if (search) {
-      primaryConditions.push(buildSearchQuery(search));
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      return res.status(400).json({ message: "Invalid page number" });
+    }
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      return res.status(400).json({ message: "Invalid limit value" });
     }
 
-    // Query to find jobs matching the combined conditions
-    const jobs = await JobModel.find(
-      { $and: primaryConditions },
-      "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type"
-    )
-      .skip(skip)
-      .limit(limit);
+    const skip = (pageNumber - 1) * limitNumber;
 
-    // Get total count for pagination
-    const totalJobs = await JobModel.countDocuments({
-      $and: primaryConditions,
-    });
+    // Decode and trim query parameters
+    const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedICD = selectedICD ? decodeURIComponent(selectedICD).trim() : "";
 
-    // Send paginated response
-    res.status(200).send({
+    // **Step 1: Define query conditions**
+    const baseQuery = {
+      $and: [
+        { status: { $regex: /^pending$/i } },
+        { delivery_date: { $exists: true, $ne: "" } },
+        {
+          $or: [
+            { bill_document_sent_to_accounts: { $exists: false } },
+            { bill_document_sent_to_accounts: "" },
+          ],
+        }, // Exclude jobs where bill_document_sent_to_accounts is set
+      ],
+    };
+
+    // ✅ Apply search filter if provided
+    if (search) {
+      baseQuery.$and.push(buildSearchQuery(search));
+    }
+
+    // ✅ If importer is selected, filter by importer
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    // ✅ If selectedICD is provided, filter by ICD Code
+    if (decodedICD && decodedICD !== "Select ICD") {
+      baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+    }
+
+    // **Step 2: Fetch jobs after applying filters**
+    const allJobs = await JobModel.find(baseQuery)
+      .select(
+        "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type"
+      )
+      .lean();
+
+    // **Step 3: Apply Pagination**
+    const totalJobs = allJobs.length;
+    const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
+
+    // ✅ Return paginated response
+    res.status(200).json({
       totalJobs,
-      totalPages: Math.ceil(totalJobs / limit),
-      currentPage: page,
-      jobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).send({ error: "Internal Server Error" });
+    console.error("Error in /api/get-do-billing:", error.stack || error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 });
+
 
 export default router;

@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useCallback } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -11,7 +11,9 @@ import {
   IconButton,
   Typography,
   Pagination,
+  Autocomplete,
   InputAdornment,
+  Box,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
@@ -22,35 +24,57 @@ import {
 import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { useNavigate } from "react-router-dom";
+import { useImportersContext } from "../../contexts/importersContext";
 
 function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYear, setSelectedYear } = useContext(SelectedYearContext);
   const [detailedStatus, setDetailedStatus] = useState("all");
-  const [searchQuery, setSearchQuery] = useState(""); // State for search query
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query state
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const columns = useJobColumns(detailedStatus);
-
-  const {
-    rows,
-    total,
-    totalPages,
-    currentPage,
-    loading,
-    handlePageChange,
-    fetchJobs,
-  } = useFetchJobList(
-    detailedStatus,
-    selectedYear,
-    props.status,
-    debouncedSearchQuery // Use the debounced search query
-  );
+  const { importers } = useImportersContext();
+  const [selectedImporter, setSelectedImporter] = useState("");
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
+
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  };
+
+  const importerNames = [
+    { label: "Select Importer" },
+    ...getUniqueImporterNames(importers),
+  ];
+
+  useEffect(() => {
+    if (!selectedImporter) {
+      setSelectedImporter("Select Importer");
+    }
+  }, [importerNames]);
+
+  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs } =
+    useFetchJobList(
+      detailedStatus,
+      selectedYear,
+      props.status,
+      debouncedSearchQuery,
+      selectedImporter
+    );
 
   useEffect(() => {
     async function getYears() {
@@ -61,32 +85,23 @@ function JobList(props) {
         const filteredYears = res.data.filter((year) => year !== null);
         setYears(filteredYears);
 
-        // Determine the current financial year
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
-        const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
-        const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
         const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
+        const currentTwoDigits = String(currentYear).slice(-2);
+        const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
 
-        let defaultYearPair;
+        let defaultYearPair =
+          currentMonth >= 4
+            ? `${currentTwoDigits}-${nextTwoDigits}`
+            : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        // Check if the current date falls within the financial year
-        if (currentMonth >= 4) {
-          // From April of the current year to March of the next year
-          defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
-        } else {
-          // From January to March, previous financial year
-          defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
-        }
-
-        // Set the default year pair only if the user hasn't already selected one
         if (!selectedYear && filteredYears.length > 0) {
-          if (filteredYears.includes(defaultYearPair)) {
-            setSelectedYear(defaultYearPair);
-          } else {
-            setSelectedYear(filteredYears[0]); // Fallback to the first available year
-          }
+          setSelectedYear(
+            filteredYears.includes(defaultYearPair)
+              ? defaultYearPair
+              : filteredYears[0]
+          );
         }
       } catch (error) {
         console.error("Error fetching years:", error);
@@ -96,24 +111,15 @@ function JobList(props) {
   }, [selectedYear, setSelectedYear]);
 
   useEffect(() => {
-    console.log("Selected Year:", selectedYear);
-    console.log("Available Years:", years);
-  }, [selectedYear, years]);
-
-  // Debounce the search query with useEffect
-  useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery); // Update the debounced search query after delay
-    }, 500); // 500ms delay
-
-    return () => {
-      clearTimeout(handler); // Clear timeout if the component unmounts or query changes
-    };
-  }, [searchQuery]); // Run when searchQuery changes
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const table = useMaterialReactTable({
     columns,
-    data: rows,
+    data: rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` })),
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,
@@ -159,14 +165,30 @@ function JobList(props) {
         </Typography>
 
         <TextField
+          fullWidth
+          select
+          size="small"
+          value={selectedImporter || ""}
+          onChange={(e) => setSelectedImporter(e.target.value)}
+          label="Select Importer"
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          {importerNames.map((option, index) => (
+            <MenuItem key={`importer-${index}`} value={option.label}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
           select
           size="small"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
-          {years.map((year) => (
-            <MenuItem key={year} value={year}>
+          {years.map((year, index) => (
+            <MenuItem key={`year-${year}-${index}`} value={year}>
               {year}
             </MenuItem>
           ))}
@@ -179,8 +201,11 @@ function JobList(props) {
           onChange={(e) => setDetailedStatus(e.target.value)}
           sx={{ width: "300px" }}
         >
-          {detailedStatusOptions.map((option) => (
-            <MenuItem key={option.id} value={option.value}>
+          {detailedStatusOptions.map((option, index) => (
+            <MenuItem
+              key={`status-${option.id || option.value || index}`}
+              value={option.value}
+            >
               {option.name}
             </MenuItem>
           ))}
@@ -219,12 +244,11 @@ function JobList(props) {
         page={currentPage}
         onChange={(event, page) => handlePageChange(page)}
         color="primary"
-        sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}
+        sx={{ mt: 2, display: "flex", justifyContent: "center" }}
       />
 
       <SelectImporterModal
         open={open}
-        handleOpen={handleOpen}
         handleClose={handleClose}
         status={props.status}
         detailedStatus={detailedStatus}

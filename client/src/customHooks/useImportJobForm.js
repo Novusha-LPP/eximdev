@@ -233,25 +233,28 @@ const useImportJobForm = () => {
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-imp-man`,
           payload
         );
-
-        // Show success alert or details
+      
+        // Show success alert
         alert(
-          `Job successfully created! \nResponse: ${JSON.stringify(
-            response.data
-          )}`
+          `✅ Job successfully created! \nJob No: ${response.data.job?.job_no}`
         );
-
+      
         // Reset the form after successful submission
         resetForm();
         formik.resetForm();
       } catch (error) {
-        console.error("Error creating job", error);
-
-        if (error.response && error.response.status === 400) {
-          alert("Missing importer or custom_house fields.");
-        } else {
-          alert("Failed to create job. Please try again.");
+        console.log("❌ Error creating job:", error);
+      
+        let errorMessage = "Failed to create job. Please try again.";
+      
+        if (error.response) {
+          // Extract error message from API response
+          errorMessage = error.response.data?.message || `Error: ${error.response.status}`;
+        } else if (error.message) {
+          errorMessage = error.message;
         }
+      
+        alert(`❌ ${errorMessage}`); // Show alert with the exact error message
       }
     },
   });

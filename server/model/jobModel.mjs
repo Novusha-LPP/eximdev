@@ -60,10 +60,11 @@ const jobSchema = new mongoose.Schema({
   fristCheck: { type: String, trim: true },
   job_net_weight: { type: String, trim: true },
   priorityJob: { type: String, trim: true, default: "Normal" },
-  emptyContainerOffLoadDate: { type: String, trim: true },
   unit_1: { type: String, trim: true },
   gateway_igm: { type: String, trim: true },
   gateway_igm_date: { type: String, trim: true },
+  hss: { type: String, trim: true, default: "No" },
+  sailer_name: { type: String, trim: true },
   igm_no: { type: String, trim: true },
   igm_date: { type: String, trim: true },
   loading_port: { type: String, trim: true },
@@ -108,6 +109,11 @@ const jobSchema = new mongoose.Schema({
       required_do_validity_upto: { type: String, trim: true },
       seal_number: { type: String, trim: true },
       container_rail_out_date: {type: String, trim: true},
+      emptyContainerOffLoadDate: { type: String, trim: true },
+      delivery_date: {
+        type: String,
+        trim: true,
+      },
       do_revalidation: [
         {
           do_revalidation_upto: { type: String },
@@ -205,10 +211,10 @@ const jobSchema = new mongoose.Schema({
     trim: true,
   },
   do_validity: { type: String, trim: true },
-  delivery_date: {
-    type: String,
-    trim: true,
-  },
+  // delivery_date: {
+  //   type: String,
+  //   trim: true,
+  // },
   containers_arrived_on_same_date: Boolean,
   // *******
   remarks: { type: String, trim: true },

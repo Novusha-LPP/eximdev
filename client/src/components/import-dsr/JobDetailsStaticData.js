@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 
 function JobDetailsStaticData(props) {
+  console.log("hss", props.data)
   if (props.data) {
     const inv_value = (props.data.cif_amount / props.data.exrate).toFixed(2);
     var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
@@ -458,6 +459,16 @@ function JobDetailsStaticData(props) {
         <Col xs={12} lg={3}>
           <strong>Net Weight (KGS):&nbsp;</strong>
           <span className="non-editable-text">{props.data.job_net_weight}</span>
+        </Col>
+      </Row>
+      <Row className="job-detail-row">
+        <Col xs={12} lg={5}>
+          <strong>HSS:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.hss}</span>
+        </Col>
+        <Col xs={12} lg={5}>
+          <strong>Sailer Name:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.sailer_name}</span>
         </Col>
       </Row>
     </div>

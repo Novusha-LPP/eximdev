@@ -40,37 +40,52 @@ const getSelectedFields = (status) =>
   `${defaultFields} ${additionalFieldsByStatus[status] || ""}`.trim();
 
 // Generate search query
+const escapeRegex = (string) => {
+  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"); // Escaping special regex characters
+};
+
 const buildSearchQuery = (search) => ({
   $or: [
-    { job_no: { $regex: search, $options: "i" } },
-    { type_of_b_e: { $regex: search, $options: "i" } },
-    { supplier_exporter: { $regex: search, $options: "i" } },
-    { consignment_type: { $regex: search, $options: "i" } },
-    { importer: { $regex: search, $options: "i" } },
-    { custom_house: { $regex: search, $options: "i" } },
-    { awb_bl_no: { $regex: search, $options: "i" } },
-    { vessel_berthing: { $regex: search, $options: "i" } },
-    { gateway_igm_date: { $regex: search, $options: "i" } },
-    { discharge_date: { $regex: search, $options: "i" } },
-    { be_no: { $regex: search, $options: "i" } },
-    { be_date: { $regex: search, $options: "i" } },
-    { loading_port: { $regex: search, $options: "i" } },
-    { port_of_reporting: { $regex: search, $options: "i" } },
-    { "container_nos.container_number": { $regex: search, $options: "i" } },
-    { "container_nos.arrival_date": { $regex: search, $options: "i" } },
-    { "container_nos.detention_from": { $regex: search, $options: "i" } },
+    { job_no: { $regex: escapeRegex(search), $options: "i" } },
+    { type_of_b_e: { $regex: escapeRegex(search), $options: "i" } },
+    { supplier_exporter: { $regex: escapeRegex(search), $options: "i" } },
+    { consignment_type: { $regex: escapeRegex(search), $options: "i" } },
+    { importer: { $regex: escapeRegex(search), $options: "i" } },
+    { custom_house: { $regex: escapeRegex(search), $options: "i" } },
+    { awb_bl_no: { $regex: escapeRegex(search), $options: "i" } },
+    { vessel_berthing: { $regex: escapeRegex(search), $options: "i" } },
+    { gateway_igm_date: { $regex: escapeRegex(search), $options: "i" } },
+    { discharge_date: { $regex: escapeRegex(search), $options: "i" } },
+    { be_no: { $regex: escapeRegex(search), $options: "i" } },
+    { be_date: { $regex: escapeRegex(search), $options: "i" } },
+    { loading_port: { $regex: escapeRegex(search), $options: "i" } },
+    { port_of_reporting: { $regex: escapeRegex(search), $options: "i" } },
+    { "container_nos.container_number": { $regex: escapeRegex(search), $options: "i" } },
+    { "container_nos.arrival_date": { $regex: escapeRegex(search), $options: "i" } },
+    { "container_nos.detention_from": { $regex: escapeRegex(search), $options: "i" } },
   ],
 });
 
+
 // API to fetch jobs with pagination, sorting, and search
-router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
+router.get("/api/:year/jobs/:status/:detailedStatus/:importer", async (req, res) => {
   try {
-    const { year, status, detailedStatus } = req.params;
+    const { year, status, detailedStatus, importer } = req.params;
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    // Base query to filter by year
+    // Base query with year filter
     const query = { year };
+
+    // Function to escape special characters in regex
+    const escapeRegex = (string) => {
+      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"); // Escaping special characters for MongoDB regex
+    };
+
+    // Handle importer filtering with proper escaping
+    if (importer && importer.toLowerCase() !== "all") {
+      query.importer = { $regex: `^${escapeRegex(importer)}$`, $options: "i" };
+    }
 
     // Handle case-insensitive status filtering and bill_date conditions
     const statusLower = status.toLowerCase();
@@ -178,5 +193,6 @@ router.get("/api/:year/jobs/:status/:detailedStatus", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 export default router;

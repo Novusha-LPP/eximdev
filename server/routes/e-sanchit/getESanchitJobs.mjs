@@ -19,8 +19,11 @@ const buildSearchQuery = (search) => ({
 });
 
 router.get("/api/get-esanchit-jobs", async (req, res) => {
-  // Extract query parameters with default values
-  const { page = 1, limit = 100, search = "" } = req.query;
+  // Extract and decode query parameters
+  const { page = 1, limit = 100, search = "", importer } = req.query;
+
+  // Decode `importer` (in case it's URL encoded as `%20` for spaces)
+  const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
@@ -34,19 +37,19 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
   }
 
   try {
-    // Calculate the number of documents to skip for pagination
+    // Calculate pagination skip value
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Build the search query if a search term is provided
+    // Build search query if provided
     const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Construct the base query
+    // Construct base query
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
         { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
         { job_no: { $ne: null } },
-        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
+        { out_of_charge: { $eq: "" } },
         {
           $or: [
             { esanchit_completed_date_time: { $exists: false } },
@@ -59,43 +62,47 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       ],
     };
 
-    // First, fetch ALL matching documents (so we can custom-sort them):
+    // ✅ Apply Importer Filter (ensure spaces are handled correctly)
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+    }
+
+    // 🔍 Debugging - Log the query to verify filtering
+    console.log("Final Query:", JSON.stringify(baseQuery, null, 2));
+
+    // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
         "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
       )
       .sort({ gateway_igm_date: 1 });
-    // You can keep this initial sort if you want gateway_igm_date ascending within ties.
 
-    // Now do a custom in-memory sort based on priority/detailed_status
-    // in the exact order you mentioned:
-    // 1) High Priority
-    // 2) Priority
-    // 3) Discharged
-    // 4) Gateway IGM Filed
-    // 5) The rest
+    // Custom sorting
     const rankedJobs = allJobs.sort((a, b) => {
       const rank = (job) => {
         if (job.priorityJob === "High Priority") return 1;
         if (job.priorityJob === "Priority") return 2;
         if (job.detailed_status === "Discharged") return 3;
         if (job.detailed_status === "Gateway IGM Filed") return 4;
-        // anything else
         return 5;
       };
       return rank(a) - rank(b);
     });
 
-    // Now apply pagination on the sorted array
-    const totalJobs = rankedJobs.length; // total number of matched documents
+    // Pagination
+    const totalJobs = rankedJobs.length;
     const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
 
-    // If no jobs found in this paginated slice, return 404
+    // Handle case where no jobs match the query
     if (!paginatedJobs || paginatedJobs.length === 0) {
-      return res.status(404).json({ message: "Data not found" });
+      return res.status(200).json({ 
+        totalJobs: 0,
+        totalPages: 1,
+        currentPage: pageNumber,
+        jobs: [] // Return an empty array instead of 404
+      });
     }
-
-    // Send the response with pagination and job data
+    // Send response
     return res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),

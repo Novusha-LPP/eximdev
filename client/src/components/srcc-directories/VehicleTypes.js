@@ -132,10 +132,14 @@ const VehicleTypes = () => {
 
     try {
       const formattedData = {
-        vehicleType: vehicleType.trim(),
-        shortName: shortName.trim(),
-        loadCapacity: loadCapacity.trim(),
-        engineCapacity: engineCapacity.trim(),
+        vehicleType: vehicleType?.trim() || "",
+        shortName: shortName?.trim() || "",
+        loadCapacity:
+          typeof loadCapacity === "string" ? loadCapacity.trim() : loadCapacity,
+        engineCapacity:
+          typeof engineCapacity === "string"
+            ? engineCapacity.trim()
+            : engineCapacity,
         cargoTypeAllowed,
         CommodityCarry,
       };
@@ -269,6 +273,7 @@ const VehicleTypes = () => {
                     required
                   />
                   <TextField
+                    type="number"
                     name="loadCapacity"
                     label="Load Capacity"
                     value={values.loadCapacity}
@@ -278,6 +283,7 @@ const VehicleTypes = () => {
                     required
                   />
                   <TextField
+                    type="number"
                     name="engineCapacity"
                     label="Engine Capacity"
                     value={values.engineCapacity}

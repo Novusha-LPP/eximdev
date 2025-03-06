@@ -10,7 +10,6 @@ import {
   Switch,
   Checkbox,
 } from "@mui/material";
-import axios from "axios";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";

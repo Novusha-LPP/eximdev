@@ -550,6 +550,10 @@ function useFetchJobDetails(
           container.seal_number === undefined ? "" : container.seal_number,
           container_rail_out_date:
           container.container_rail_out_date === undefined ? "": container.container_rail_out_date,
+          delivery_date:
+          container.delivery_date === undefined ? "": container.delivery_date,
+          emptyContainerOffLoadDate:
+          container.emptyContainerOffLoadDate === undefined ? "": container.emptyContainerOffLoadDate,
         weighment_slip_images:
           container.weighment_slip_images === undefined
             ? []

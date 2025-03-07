@@ -38,6 +38,7 @@ const useImportJobForm = () => {
   // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
   const [importer, setImporter] = useState("");
+  const [importerURL, setImporterURL] = useState("");
   const [shipping_line_airline, setShippingLineAirline] = useState("");
   const [branchSrNo, setBranchSrNo] = useState("");
   const [adCode, setAdCode] = useState("");
@@ -107,6 +108,15 @@ const useImportJobForm = () => {
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
+
+  useEffect(() => {
+    if (importer) {
+      const formattedImporter = importer.replace(/\s+/g, "_");
+      setImporterURL(formattedImporter);
+      console.log("Updated importerURL:", formattedImporter); // Log the updated value
+    }
+  }, [importer]); 
+  
 
   // Fetch job numbers dynamically
   // Fetch job details dynamically
@@ -195,6 +205,7 @@ const useImportJobForm = () => {
           year, // <-- MANDATORY for backend
           custom_house,
           importer,
+          importerURL,
           shipping_line_airline,
           branchSrNo,
           adCode,
@@ -377,6 +388,7 @@ const useImportJobForm = () => {
     custom_house,
     setCustomHouse,
     importer,
+    importerURL,
     setImporter,
     shipping_line_airline,
     setShippingLineAirline,

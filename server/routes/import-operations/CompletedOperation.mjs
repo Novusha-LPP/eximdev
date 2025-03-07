@@ -8,7 +8,7 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
   try {
     // Extract parameters
     const { username } = req.params;
-    const { page = 1, limit = 100, search = "", selectedICD, importer } = req.query;
+    const { page = 1, limit = 100, search = "", selectedICD, importer, year } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -83,8 +83,10 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
         importerCondition, // ✅ Importer Filter
         searchQuery, // ✅ Search Query
         { completed_operation_date: { $exists: true, $ne: "", $ne: null } },
+        year ? { year: year } : {}, // ✅ Add year filter only if provided
       ],
     };
+    
 
     // **Step 6: Fetch Data with Pagination**
     const allJobs = await JobModel.find(baseQuery)

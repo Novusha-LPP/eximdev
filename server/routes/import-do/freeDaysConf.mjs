@@ -18,7 +18,6 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
-
 router.get("/api/get-free-days", async (req, res) => {
   try {
     // Extract and validate query parameters
@@ -27,6 +26,7 @@ router.get("/api/get-free-days", async (req, res) => {
     const search = req.query.search || "";
     const importer = req.query.importer ? decodeURIComponent(req.query.importer).trim() : "";
     const selectedICD = req.query.selectedICD ? decodeURIComponent(req.query.selectedICD).trim() : "";
+    const selectedYear = req.query.year ? req.query.year.trim() : ""; // ✅ Extract and trim year
 
     if (page < 1 || limit < 1) {
       return res.status(400).json({ message: "Invalid pagination parameters" });
@@ -71,20 +71,28 @@ router.get("/api/get-free-days", async (req, res) => {
       ],
     };
 
-    // ✅ Apply importer filter if provided
+    // ✅ Apply Year Filter if provided
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
+
+    // ✅ Apply Importer Filter if provided
     if (importer && importer !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${importer}$`, "i") } });
     }
 
-    // ✅ Apply ICD Code filter if provided
+    // ✅ Apply ICD Code Filter if provided
     if (selectedICD && selectedICD !== "Select ICD") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
     }
 
+    // 🔍 Debugging - Log the query to verify filtering
+    console.log("Final Query:", JSON.stringify(baseQuery, null, 2));
+
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type"
+        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year"
       )
       .lean();
 
@@ -116,6 +124,7 @@ router.get("/api/get-free-days", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 });
+
 
 // PATCH API that updates only the free_time
 router.patch("/api/update-free-time/:id", async (req, res) => {

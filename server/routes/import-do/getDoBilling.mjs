@@ -20,10 +20,11 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-billing", async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.trim() : ""; // ✅ Keep year as a string
 
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
@@ -51,6 +52,10 @@ router.get("/api/get-do-billing", async (req, res) => {
         }, // Exclude jobs where bill_document_sent_to_accounts is set
       ],
     };
+
+    if (selectedYear){
+      baseQuery.$and.push({ year: selectedYear });
+    }
 
     // ✅ Apply search filter if provided
     if (search) {

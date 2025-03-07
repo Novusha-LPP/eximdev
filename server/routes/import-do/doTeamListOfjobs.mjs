@@ -6,10 +6,11 @@ const router = express.Router();
 router.get("/api/do-team-list-of-jobs", async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.trim() : ""; // ✅ Keep year as a string
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
     }
@@ -67,6 +68,11 @@ router.get("/api/do-team-list-of-jobs", async (req, res) => {
       ],
     };
 
+     // ✅ Apply Year Filter if Provided
+     if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear }); // Match year as a string
+    }
+
     // ✅ If importer is selected, add it to the query
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
@@ -108,10 +114,5 @@ router.get("/api/do-team-list-of-jobs", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 });
-
-
-
-
-
 
 export default router;

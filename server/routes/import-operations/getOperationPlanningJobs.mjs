@@ -155,7 +155,8 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         customHouseCondition,
         baseConditions,
         statusExtraCondition,
-        ...searchQuery, // Merge search queries properly
+        ...searchQuery,
+        year ? { year: year } : {}, // Add year filter only if provided
       ],
     };
 

@@ -121,7 +121,7 @@ function ESanchit() {
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
-    async (currentPage, currentSearchQuery, selectedImporter) => {
+    async (currentPage, currentSearchQuery, selectedImporter, selectedYear) => {
       setLoading(true);
       try {
         const res = await axios.get(
@@ -131,38 +131,34 @@ function ESanchit() {
               page: currentPage,
               limit,
               search: currentSearchQuery,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              importer: selectedImporter?.trim() || "",
+              year: selectedYear || "", // ✅ Ensure year is sent
             },
           }
         );
-
-        const {
-          totalJobs,
-          totalPages,
-          currentPage: returnedPage,
-          jobs,
-        } = res.data;
-
+  
+        const { totalJobs, totalPages, currentPage: returnedPage, jobs } = res.data;
+  
         setRows(jobs);
         setTotalPages(totalPages);
         setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
-        setRows([]); // Reset rows if an error occurs
+        setRows([]);
         setTotalPages(1);
       } finally {
         setLoading(false);
       }
     },
-    [limit, selectedImporter] // Dependency array remains the same
+    [limit, selectedImporter, selectedYear] // ✅ Add selectedYear as a dependency
   );
-
-  // Fetch jobs when page or debounced search query changes
+  
+  // ✅ Fetch jobs when `selectedYear` changes
   useEffect(() => {
-    fetchJobs(page, debouncedSearchQuery, selectedImporter);
-  }, [page, debouncedSearchQuery, fetchJobs]);
-
+    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
+  }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]); 
+  
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {

@@ -108,7 +108,7 @@ function Documentation() {
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
-    async (currentPage, currentSearchQuery, selectedImporter) => {
+    async (currentPage, currentSearchQuery, selectedImporter, selectedYear) => {
       setLoading(true);
       try {
         const res = await axios.get(
@@ -118,18 +118,14 @@ function Documentation() {
               page: currentPage,
               limit,
               search: currentSearchQuery,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              importer: selectedImporter?.trim() || "",
+              year: selectedYear || "", // ✅ Send year to backend
             },
           }
         );
-
-        const {
-          totalJobs,
-          totalPages,
-          currentPage: returnedPage,
-          jobs,
-        } = res.data;
-
+  
+        const { totalJobs, totalPages, currentPage: returnedPage, jobs } = res.data;
+  
         setRows(jobs);
         setTotalPages(totalPages);
         setPage(returnedPage);
@@ -142,12 +138,15 @@ function Documentation() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter] // Dependency array remains the same
+    [limit, selectedImporter, selectedYear] // ✅ Add selectedYear as a dependency
   );
+  
   // Fetch jobs when page or debounced search query changes
   useEffect(() => {
-    fetchJobs(page, debouncedSearchQuery, selectedImporter);
-  }, [page, debouncedSearchQuery, fetchJobs]);
+    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
+  }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]); 
+  // ✅ Added selectedYear as a dependency
+  
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
     const handler = setTimeout(() => {

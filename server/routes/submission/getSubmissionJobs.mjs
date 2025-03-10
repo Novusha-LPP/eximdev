@@ -19,11 +19,13 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-submission-jobs", async (req, res) => {
   try {
     // Extract query parameters
-    const { page = 1, limit = 10, search = "", importer = "", icd_code = "" } = req.query;
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year } = req.query;
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.trim() : ""; // ✅ Keep year as a string
+
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
     }
@@ -65,6 +67,11 @@ router.get("/api/get-submission-jobs", async (req, res) => {
         searchQuery, // Apply search filters
       ],
     };
+
+    // ✅ Apply Year Filter if Provided
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear }); // Match year as a string
+    }
 
     // ✅ Apply Importer Filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
@@ -110,6 +117,5 @@ router.get("/api/get-submission-jobs", async (req, res) => {
     });
   }
 });
-
 
 export default router;

@@ -18,7 +18,6 @@ import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { examinationPlaningStatus } from "./../../assets/data/examinationPlaningStatus";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 
@@ -27,7 +26,6 @@ function ImportOperations() {
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
-  const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("all");
@@ -90,19 +88,39 @@ function ImportOperations() {
 
   // Fetch available years for filtering
   useEffect(() => {
-    const fetchYears = async () => {
+    async function getYears() {
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-years`
         );
-        setYears(res.data.filter((year) => year !== null)); // Filter valid years
-        setSelectedYear(res.data[0]); // Default to the first year
+        const filteredYears = res.data.filter((year) => year !== null);
+        setYears(filteredYears);
+
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+        const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
+        const currentTwoDigits = String(currentYear).slice(-2);
+        const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+
+        let defaultYearPair =
+          currentMonth >= 4
+            ? `${currentTwoDigits}-${nextTwoDigits}`
+            : `${prevTwoDigits}-${currentTwoDigits}`;
+
+        if (!selectedYear && filteredYears.length > 0) {
+          setSelectedYear(
+            filteredYears.includes(defaultYearPair)
+              ? defaultYearPair
+              : filteredYears[0]
+          );
+        }
       } catch (error) {
         console.error("Error fetching years:", error);
       }
-    };
-    fetchYears();
-  }, []);
+    }
+    getYears();
+  }, [selectedYear, setSelectedYear]);
+
 
   const fetchJobs = useCallback(
     async (
@@ -113,7 +131,6 @@ function ImportOperations() {
       currentStatus,
       selectedImporter
     ) => {
-      setLoading(true);
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
@@ -145,9 +162,7 @@ function ImportOperations() {
         console.error("Error fetching data:", error);
         setRows([]); // Reset data on failure
         setTotalPages(1);
-      } finally {
-        setLoading(false);
-      }
+      } 
     },
     [limit] // Dependencies (limit is included if it changes)
   );

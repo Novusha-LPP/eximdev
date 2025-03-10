@@ -140,6 +140,7 @@ function JobList(props) {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+     sx: { textAlign: "center"},
     }),
     muiTableHeadCellProps: {
       sx: {

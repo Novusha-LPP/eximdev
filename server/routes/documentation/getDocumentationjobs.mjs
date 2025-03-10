@@ -19,7 +19,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-jobs", async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer } = req.query;
+    const { page = 1, limit = 10, search = "", importer, year } = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -46,26 +46,35 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     ];
 
     // Build the base query
-    const baseQuery = {
-      $and: [
-        { status: { $regex: /^pending$/i } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }, // Exclude "cancelled"
-        { job_no: { $ne: null } }, // Ensure job_no is not null
-        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
-        {
-          detailed_status: {
-            $in: statusOrder,
-          },
-        },
-        {
-          $or: [
-            { documentation_completed_date_time: { $exists: false } },
-            { documentation_completed_date_time: "" },
-          ],
-        },
-        searchQuery,
+// Build the base query
+const baseQuery = {
+  $and: [
+    { status: { $regex: /^pending$/i } },
+    { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }, // Exclude "cancelled"
+    { job_no: { $ne: null } }, // Ensure job_no is not null
+    { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
+    {
+      detailed_status: {
+        $in: statusOrder,
+      },
+    },
+    {
+      $or: [
+        { documentation_completed_date_time: { $exists: false } },
+        { documentation_completed_date_time: "" },
       ],
-    };
+    },
+    searchQuery,
+  ],
+};
+
+// ✅ Add Year Filter if provided
+// ✅ Ensure year is correctly formatted before applying the filter
+if (year && year !== "Select Year") {
+  baseQuery.$and.push({ year: { $regex: new RegExp(`^${year}$`, "i") } }); 
+  // Uses regex for partial match (if year is stored as a string like "24-25")
+}
+
 
     // ✅ Apply Importer Filter (similar to E-Sanchit API)
     if (decodedImporter && decodedImporter !== "Select Importer") {
@@ -106,9 +115,17 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
 
     // If no jobs found, return 404 (similar to E-Sanchit)
-    if (!paginatedJobs || paginatedJobs.length === 0) {
-      return res.status(404).json({ message: "Data not found" });
-    }
+    // If no jobs found, return an empty response instead of 404
+if (!paginatedJobs || paginatedJobs.length === 0) {
+  return res.status(200).json({
+    totalJobs: 0,
+    totalPages: 1,
+    currentPage: pageNumber,
+    jobs: [], // ✅ Return an empty array instead of 404
+    message: "No data found for the selected filters",
+  });
+}
+
 
     res.status(200).json({
       totalJobs,

@@ -140,15 +140,18 @@ function JobDetails() {
     const anyContainerArrivalDate = container_nos?.some(
       (container) => container.arrival_date
     );
-      const containerRailOutDate = container_nos?.some(
+      const containerRailOutDate = container_nos?.every(
         (container) => container.container_rail_out_date
+      );
+      const emptyContainerOffLoadDate = container_nos?.every(
+        (container) => container.emptyContainerOffLoadDate
       );
 
     if (
       billOfEntryNo &&
       anyContainerArrivalDate &&
       outOfChargeDate &&
-      deliveryDate
+      emptyContainerOffLoadDate
     ) {
       formik.setFieldValue("detailed_status", "Billing Pending");
     } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
@@ -3335,7 +3338,7 @@ function JobDetails() {
                       </Col>
               <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
-                          <strong>Emty Cont. Off-Load Date.&nbsp;</strong>
+                          <strong>Empty Cont. Off-Load Date.&nbsp;</strong>
                           <TextField
                             fullWidth
                             size="small"

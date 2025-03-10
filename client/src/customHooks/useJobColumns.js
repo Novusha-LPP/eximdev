@@ -368,7 +368,7 @@ function useJobColumns() {
           );
         },
       },
-      {
+      { 
         accessorKey: "dates",
         header: "Dates",
         size: 350,

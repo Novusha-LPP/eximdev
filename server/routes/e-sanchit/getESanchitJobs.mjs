@@ -20,7 +20,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-esanchit-jobs", async (req, res) => {
   // Extract and decode query parameters
-  const { page = 1, limit = 100, search = "", importer } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year } = req.query;
 
   // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -28,6 +28,8 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? parseInt(year, 10) : null; // ✅ Convert year to number
+
 
   if (isNaN(pageNumber) || pageNumber < 1) {
     return res.status(400).json({ message: "Invalid page number" });
@@ -62,6 +64,12 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       ],
     };
 
+
+     // ✅ Apply Year Filter if Provided
+     if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
+    
     // ✅ Apply Importer Filter (ensure spaces are handled correctly)
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });

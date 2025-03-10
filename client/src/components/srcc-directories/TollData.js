@@ -16,44 +16,60 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import useVehicleTypes from "../../customHooks/Transport/useVehicleTypes";
 
-// Validation schema with Yup
+// ----------------------
+// Validation schema
+// ----------------------
 const validationSchema = Yup.object({
   tollBoothName: Yup.string().required("Toll Booth Name is required"),
-  vehicleType: Yup.string().required("Vehicle Type is required"),
   fastagClassId: Yup.string().required("Fastag Class ID is required"),
   singleAmount: Yup.number()
     .typeError("Single Amount must be a number")
-    .required("Single Amount is required")
     .min(0, "Cannot be negative"),
   returnAmount: Yup.number()
     .typeError("Return Amount must be a number")
-    .required("Return Amount is required")
     .min(0, "Cannot be negative"),
   secondPassTollBooth: Yup.string(),
+  // Added vehicleType as an array
+  vehicleType: Yup.array()
+    .of(Yup.string())
+    .min(1, "At least one Driving Vehicle Type is required"),
 });
 
 const TollData = () => {
   const [tollItems, setTollItems] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
+
   const [formData, setFormData] = useState({
     tollBoothName: "",
-    vehicleType: "",
     fastagClassId: "",
     singleAmount: "",
     returnAmount: "",
     secondPassTollBooth: "",
+    vehicleType: [], // Multi-select field
   });
 
-  const API_URL = process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+  // Adjust the base URL as needed
+  const API_URL =
+    process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
+  const { vehicleTypes, loading, error } = useVehicleTypes(API_URL);
+
+  // -------------------
   // Fetch all toll data
+  // -------------------
   const fetchTollData = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-toll-data`);
@@ -67,36 +83,42 @@ const TollData = () => {
     fetchTollData();
   }, []);
 
+  // -------------------
   // Handle Add
+  // -------------------
   const handleAdd = () => {
     setModalMode("add");
     setFormData({
       tollBoothName: "",
-      vehicleType: "",
       fastagClassId: "",
       singleAmount: "",
       returnAmount: "",
       secondPassTollBooth: "",
+      vehicleType: [],
     });
     setOpenModal(true);
   };
 
+  // -------------------
   // Handle Edit
+  // -------------------
   const handleEdit = (item) => {
     setModalMode("edit");
     setFormData({
-      _id: item._id, // for updates only, not displayed in form
+      _id: item._id || "",
       tollBoothName: item.tollBoothName || "",
-      vehicleType: item.vehicleType || "",
       fastagClassId: item.fastagClassId || "",
-      singleAmount: item.singleAmount || "",
-      returnAmount: item.returnAmount || "",
+      singleAmount: item.singleAmount?.toString() || "",
+      returnAmount: item.returnAmount?.toString() || "",
       secondPassTollBooth: item.secondPassTollBooth || "",
+      vehicleType: item.vehicleType || [],
     });
     setOpenModal(true);
   };
 
+  // -------------------
   // Handle Delete
+  // -------------------
   const handleDelete = async (item) => {
     if (
       window.confirm(
@@ -112,14 +134,16 @@ const TollData = () => {
     }
   };
 
-  // Handle Save (Add/Edit)
+  // -------------------
+  // Handle Save
+  // -------------------
   const handleSave = async (values) => {
     const { _id, ...restValues } = values;
+
     const formattedData = {
       ...restValues,
-      // Example of trimming strings, if desired:
+      // Example of trimming strings if needed
       tollBoothName: restValues.tollBoothName.trim(),
-      vehicleType: restValues.vehicleType.trim(),
       fastagClassId: restValues.fastagClassId.trim(),
       secondPassTollBooth: restValues.secondPassTollBooth.trim(),
       singleAmount: Number(restValues.singleAmount),
@@ -130,20 +154,26 @@ const TollData = () => {
       let response;
       if (modalMode === "add") {
         response = await axios.post(`${API_URL}/add-toll-data`, formattedData);
-        responseHandler(response, "added");
       } else {
         response = await axios.put(
           `${API_URL}/update-toll-data/${_id}`,
           formattedData
         );
-        responseHandler(response, "updated");
       }
+      responseHandler(response, modalMode === "add" ? "added" : "updated");
     } catch (error) {
       console.error("❌ Error saving toll data:", error);
-      alert(`Failed to save toll data: ${error.response?.data?.error || "Server error"}`);
+      alert(
+        `Failed to save toll data: ${
+          error.response?.data?.error || "Server error"
+        }`
+      );
     }
   };
 
+  // -------------------
+  // Response Handler
+  // -------------------
   const responseHandler = (response, action) => {
     if (response.status === 200 || response.status === 201) {
       alert(`Toll data ${action} successfully!`);
@@ -154,6 +184,9 @@ const TollData = () => {
     }
   };
 
+  // -------------------
+  // Render
+  // -------------------
   return (
     <Box>
       <Box sx={{ mb: 2 }}>
@@ -168,7 +201,7 @@ const TollData = () => {
           <TableHead>
             <TableRow>
               <TableCell>Toll Booth Name</TableCell>
-              <TableCell>Vehicle Type</TableCell>
+              <TableCell>Driving Vehicle Types</TableCell>
               <TableCell>Fastag Class ID</TableCell>
               <TableCell>Single Amount</TableCell>
               <TableCell>Return Amount</TableCell>
@@ -180,7 +213,12 @@ const TollData = () => {
             {tollItems.map((item) => (
               <TableRow key={item._id}>
                 <TableCell>{item.tollBoothName}</TableCell>
-                <TableCell>{item.vehicleType}</TableCell>
+                {/* Display vehicleType as comma-separated */}
+                <TableCell>
+                  {Array.isArray(item.vehicleType)
+                    ? item.vehicleType.join(", ")
+                    : ""}
+                </TableCell>
                 <TableCell>{item.fastagClassId}</TableCell>
                 <TableCell>{item.singleAmount}</TableCell>
                 <TableCell>{item.returnAmount}</TableCell>
@@ -236,22 +274,48 @@ const TollData = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    error={touched.tollBoothName && Boolean(errors.tollBoothName)}
+                    error={
+                      touched.tollBoothName && Boolean(errors.tollBoothName)
+                    }
                     helperText={touched.tollBoothName && errors.tollBoothName}
                   />
 
-                  {/* Vehicle Type */}
-                  <TextField
-                    name="vehicleType"
-                    label="Vehicle Type"
-                    value={values.vehicleType}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
+                  {/* Driving Vehicle Types (Multi-Select) */}
+                  <FormControl
                     fullWidth
                     required
-                    error={touched.vehicleType && Boolean(errors.vehicleType)}
-                    helperText={touched.vehicleType && errors.vehicleType}
-                  />
+                    error={
+                      touched.vehicleType &&
+                      Boolean(errors.vehicleType)
+                    }
+                  >
+                    <InputLabel>Vehicle Types</InputLabel>
+                    <Select
+                      multiple
+                      name="vehicleType"
+                      value={values.vehicleType || []}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      // Show the labels for whichever values are selected
+                      renderValue={(selected) =>
+                        vehicleTypes
+                          .filter((v) => selected.includes(v.value))
+                          .map((v) => v.label)
+                          .join(", ")
+                      }
+                    >
+                      {vehicleTypes.map((v) => (
+                        <MenuItem key={v.value} value={v.value}>
+                          <Checkbox
+                            checked={values.vehicleType.includes(
+                              v.value
+                            )}
+                          />
+                          {v.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
                   {/* Fastag Class ID */}
                   <TextField
@@ -262,7 +326,9 @@ const TollData = () => {
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    error={touched.fastagClassId && Boolean(errors.fastagClassId)}
+                    error={
+                      touched.fastagClassId && Boolean(errors.fastagClassId)
+                    }
                     helperText={touched.fastagClassId && errors.fastagClassId}
                   />
 
@@ -275,7 +341,6 @@ const TollData = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    required
                     error={touched.singleAmount && Boolean(errors.singleAmount)}
                     helperText={touched.singleAmount && errors.singleAmount}
                   />
@@ -289,7 +354,6 @@ const TollData = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    required
                     error={touched.returnAmount && Boolean(errors.returnAmount)}
                     helperText={touched.returnAmount && errors.returnAmount}
                   />
@@ -328,4 +392,3 @@ const TollData = () => {
 };
 
 export default TollData;
- 

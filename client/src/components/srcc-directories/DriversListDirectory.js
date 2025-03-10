@@ -22,6 +22,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Checkbox,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -414,7 +415,6 @@ const DriversListDirectory = () => {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
-                      
                         rows={2}
                         required
                       />
@@ -454,10 +454,22 @@ const DriversListDirectory = () => {
                         value={values.drivingVehicleTypes}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        label="Driving Vehicle Types"
+                        renderValue={(selected) =>
+                          vehicleTypes
+                            .filter((vehicle) =>
+                              selected.includes(vehicle.value)
+                            )
+                            .map((vehicle) => vehicle.label)
+                            .join(", ")
+                        }
                       >
                         {vehicleTypes.map((vehicle) => (
                           <MenuItem key={vehicle.value} value={vehicle.value}>
+                            <Checkbox
+                              checked={values.drivingVehicleTypes.includes(
+                                vehicle.value
+                              )}
+                            />
                             {vehicle.label}
                           </MenuItem>
                         ))}
@@ -469,6 +481,7 @@ const DriversListDirectory = () => {
                         variant="caption"
                       />
                     </FormControl>
+
                     <Box sx={{ mb: 2 }}>
                       <TextField
                         name="remarks"
@@ -477,7 +490,6 @@ const DriversListDirectory = () => {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
-                        
                         rows={2}
                       />
                       <ErrorMessage
@@ -519,7 +531,6 @@ const DriversListDirectory = () => {
                                   onChange={handleChange}
                                   onBlur={handleBlur}
                                   fullWidth
-                                  
                                   rows={2}
                                   required
                                   sx={{ mb: 1 }}

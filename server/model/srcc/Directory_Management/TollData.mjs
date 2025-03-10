@@ -7,11 +7,13 @@ const TollDataSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    vehicleType: {
-      type: String, // or reference an ObjectId if needed
-      required: true,
-      trim: true,
-    },
+    vehicleType: [
+      {
+        type: String, // or reference an ObjectId if needed
+        required: true,
+        trim: true,
+      },
+    ],
     fastagClassId: {
       type: String,
       required: true,
@@ -19,11 +21,9 @@ const TollDataSchema = new mongoose.Schema(
     },
     singleAmount: {
       type: Number,
-      required: true,
     },
     returnAmount: {
       type: Number,
-      required: true,
     },
     secondPassTollBooth: {
       type: String,

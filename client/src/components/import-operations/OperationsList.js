@@ -15,8 +15,8 @@ import {
 } from "material-react-table";
 import { UserContext } from "../../contexts/UserContext";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 function OperationsList() {
@@ -33,6 +33,7 @@ function OperationsList() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+    const location = useLocation();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const limit = 100;
 
@@ -189,6 +190,19 @@ function OperationsList() {
     selectedImporter,
     fetchJobs,
   ]);
+
+   // Handle search input with debounce
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        setDebouncedSearchQuery(searchQuery);
+      }, 500); // 500ms debounce delay
+      return () => clearTimeout(handler);
+    }, [searchQuery]);
+    useEffect(() => {
+      if (location.state?.searchQuery) {
+        setSearchQuery(location.state.searchQuery);
+      }
+    }, [location.state?.searchQuery]);
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
@@ -399,7 +413,7 @@ function OperationsList() {
 
         return (
           <div style={{ textAlign: "left" }}>
-            {/* Render the "Sticker" link or fallback text */}
+            {/* Render the "Sticker" link or fallback text
             {stickerLink ? (
               <div style={{ marginBottom: "5px" }}>
                 <a
@@ -419,7 +433,7 @@ function OperationsList() {
               <div style={{ marginBottom: "5px" }}>
                 <span style={{ color: "gray" }}>No Sticker </span>
               </div>
-            )}
+            )} */}
 
             {/* Render the "Checklist" link or fallback text */}
             {checklistLink ? (

@@ -76,6 +76,9 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
           { importer: { $regex: search, $options: "i" } },
           { be_no: { $regex: search, $options: "i" } },
           { custom_house: { $regex: search, $options: "i" } },
+          {
+            "container_nos.container_number": { $regex: search, $options: "i" },
+          },
         ],
       };
     }

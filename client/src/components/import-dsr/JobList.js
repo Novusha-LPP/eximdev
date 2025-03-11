@@ -85,6 +85,8 @@ function JobList(props) {
         const filteredYears = res.data.filter((year) => year !== null);
         setYears(filteredYears);
 
+      
+
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().getMonth() + 1;
         const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
@@ -108,8 +110,7 @@ function JobList(props) {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
-
+  }, [selectedYear, setSelectedYear]); 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -182,7 +183,7 @@ function JobList(props) {
         </TextField>
 
         <TextField
-          select
+          select defaultValue={years[0]}
           size="small"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}

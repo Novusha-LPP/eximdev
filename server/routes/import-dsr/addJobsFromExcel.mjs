@@ -56,7 +56,7 @@ router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
 // Route to add a new job
 router.post("/api/jobs/add-job-imp-man", async (req, res) => {
   try {
-    const { container_nos, importer, awb_bl_no, custom_house } = req.body;
+    const { container_nos, importer, awb_bl_no, custom_house, year } = req.body;
 
     // ✅ Validate required fields
     if (!importer || !custom_house) {
@@ -90,7 +90,7 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     }
 
     // ✅ Generate new job_no
-    const lastJob = await JobModel.findOne({}, { job_no: 1 }).sort({ job_no: -1 }).exec();
+    const lastJob = await JobModel.findOne({year}, { job_no: 1 }).sort({ job_no: -1 }).exec();
     const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
     const totalDigits = lastJob?.job_no?.length || 5;
     const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");

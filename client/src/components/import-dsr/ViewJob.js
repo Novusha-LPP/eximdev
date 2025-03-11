@@ -123,7 +123,10 @@ function JobDetails() {
     setTabValue,
     setFileSnackbar
   );
-
+  const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
+    useState(false);
+  // Use emptyContainerOffLoadDate elsewhere in your code
+  console.log("Empty Container Offload Date:", emptyContainerOffLoadDate);
   // Helper function to update the `detailed_status` based on form values
   const updateDetailedStatus = () => {
     const {
@@ -140,12 +143,13 @@ function JobDetails() {
     const anyContainerArrivalDate = container_nos?.some(
       (container) => container.arrival_date
     );
-      const containerRailOutDate = container_nos?.every(
-        (container) => container.container_rail_out_date
-      );
-      const emptyContainerOffLoadDate = container_nos?.every(
-        (container) => container.emptyContainerOffLoadDate
-      );
+    const containerRailOutDate = container_nos?.every(
+      (container) => container.container_rail_out_date
+    );
+    const emptyContainerOffLoadDate = container_nos?.every(
+      (container) => container.emptyContainerOffLoadDate
+    );
+    setEmptyContainerOffLoadDate(emptyContainerOffLoadDate);
 
     if (
       billOfEntryNo &&
@@ -905,6 +909,7 @@ function JobDetails() {
                         e.target.value
                       )
                     } // Update formik value
+                    disabled={!emptyContainerOffLoadDate} // Set disabled based on the condition
                     InputLabelProps={{
                       shrink: true,
                     }}
@@ -1128,25 +1133,25 @@ function JobDetails() {
               </Col>
 
               <Col xs={12} lg={4}>
-  <div
-    className="job-detail-input-container"
-    style={{ justifyContent: "flex-start" }}
-  >
-    {/* Sailer Name Field */}
-    <strong>Sailer Name:&nbsp;</strong>
-    <TextField
-      fullWidth
-      size="small"
-      variant="outlined"
-      id="sailer_name"
-      name="sailer_name"
-      value={formik.values.sailer_name || ""}
-      onChange={formik.handleChange}
-      style={{ marginTop: "10px" }}
-      placeholder="Enter Sailer Name"
-    />
-  </div>
-</Col>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Sailer Name Field */}
+                  <strong>Sailer Name:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="sailer_name"
+                    name="sailer_name"
+                    value={formik.values.sailer_name || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter Sailer Name"
+                  />
+                </div>
+              </Col>
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -2403,7 +2408,7 @@ function JobDetails() {
                 >
                   <strong>DO Revalidation:&nbsp;</strong>
                   <Checkbox
-                    value={formik.values.do_revalidation}
+                    value={formik.values.do_revalidatioFn}
                     checked={formik.values.do_revalidation}
                     onChange={(e) => {
                       const isChecked = e.target.checked;
@@ -2942,7 +2947,7 @@ function JobDetails() {
                       padding: "30px",
                     }}
                   >
-                    <Row >
+                    <Row>
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <h6 style={{ marginBottom: 0 }}>
                           <strong>
@@ -3320,7 +3325,13 @@ function JobDetails() {
                       </Col>
                     </Row>
 
-                      <Row style={{ marginTop: "20px",  displayflex: "flex", alignItems: "baseline" }}>
+                    <Row
+                      style={{
+                        marginTop: "20px",
+                        displayflex: "flex",
+                        alignItems: "baseline",
+                      }}
+                    >
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Delivery Date:&nbsp;</strong>
@@ -3336,7 +3347,7 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
-              <Col xs={12} md={4} lg={3} className="mb-2">
+                      <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Empty Cont. Off-Load Date.&nbsp;</strong>
                           <TextField
@@ -3351,7 +3362,7 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
-            </Row>
+                    </Row>
 
                     <Row>
                       <Col>

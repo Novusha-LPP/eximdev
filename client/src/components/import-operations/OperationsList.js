@@ -51,18 +51,6 @@ function OperationsList() {
     }
     getImporterList();
   }, [selectedYear]);
-  React.useEffect(() => {
-    async function getImporterList() {
-      if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
-        );
-        setImporters(res.data);
-        setSelectedImporter("Select Importer");
-      }
-    }
-    getImporterList();
-  }, [selectedYear]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -138,7 +126,7 @@ function OperationsList() {
       setLoading(true);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
+          `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`,
           {
             params: {
               page: currentPage,

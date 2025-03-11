@@ -8,7 +8,14 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
   try {
     // Extract parameters
     const { username } = req.params;
-    const { page = 1, limit = 100, search = "", selectedICD, importer, year } = req.query;
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      selectedICD,
+      importer,
+      year,
+    } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -31,7 +38,9 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
     let customHouseCondition = {};
     switch (username) {
       case "majhar_khan":
-        customHouseCondition = { custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] } };
+        customHouseCondition = {
+          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
+        };
         break;
       case "parasmal_marvadi":
         customHouseCondition = { custom_house: "AIR CARGO" };
@@ -53,7 +62,9 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
 
     // **Step 2: Apply Selected ICD Filter**
     if (selectedICD && selectedICD !== "Select ICD") {
-      customHouseCondition = { custom_house: new RegExp(`^${selectedICD}$`, "i") };
+      customHouseCondition = {
+        custom_house: new RegExp(`^${selectedICD}$`, "i"),
+      };
     }
 
     // **Step 3: Apply Importer Filter**
@@ -71,22 +82,29 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
           { importer: { $regex: search, $options: "i" } },
           { custom_house: { $regex: search, $options: "i" } },
           { be_no: { $regex: search, $options: "i" } },
-          { "container_nos.container_number": { $regex: search, $options: "i" } },
+          {
+            "container_nos.container_number": { $regex: search, $options: "i" },
+          },
         ],
       };
     }
-
     // **Step 5: Build Final Query**
     const baseQuery = {
       $and: [
         customHouseCondition,
         importerCondition, // ✅ Importer Filter
         searchQuery, // ✅ Search Query
-        { completed_operation_date: { $exists: true, $ne: "", $ne: null } },
+        {
+          completed_operation_date: { $nin: [null, ""] },
+          be_no: { $nin: [null, ""], $not: /cancelled/i },
+          be_date: { $nin: [null, ""] },
+          container_nos: {
+            $elemMatch: { arrival_date: { $exists: true, $ne: null, $ne: "" } },
+          },
+        },
         year ? { year: year } : {}, // ✅ Add year filter only if provided
       ],
     };
-    
 
     // **Step 6: Fetch Data with Pagination**
     const allJobs = await JobModel.find(baseQuery)

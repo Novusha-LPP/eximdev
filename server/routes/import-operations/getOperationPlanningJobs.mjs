@@ -39,7 +39,9 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     let customHouseCondition = {};
     switch (username) {
       case "majhar_khan":
-        customHouseCondition = { custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] } };
+        customHouseCondition = {
+          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
+        };
         break;
       case "parasmal_marvadi":
         customHouseCondition = { custom_house: "AIR CARGO" };
@@ -88,6 +90,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     let baseConditions = {
       status: "Pending",
       be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+      be_date: { $nin: [null, ""] },
       container_nos: {
         $elemMatch: { arrival_date: { $exists: true, $ne: null, $ne: "" } },
       },
@@ -160,7 +163,10 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ],
     };
 
-    console.log("Filter Conditions:", JSON.stringify(filterConditions, null, 2));
+    console.log(
+      "Filter Conditions:",
+      JSON.stringify(filterConditions, null, 2)
+    );
 
     // **Fetch total job count**
     const totalJobs = await JobModel.countDocuments(filterConditions);
@@ -182,8 +188,11 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     const otherJobs = [];
 
     jobs.forEach((job) => {
-      const { out_of_charge, examination_planning_date, be_no, container_nos } = job;
-      const anyContainerArrivalDate = container_nos?.some((container) => container.arrival_date);
+      const { out_of_charge, examination_planning_date, be_no, container_nos } =
+        job;
+      const anyContainerArrivalDate = container_nos?.some(
+        (container) => container.arrival_date
+      );
       let row_color = "";
       if (out_of_charge) {
         row_color = "bg-green";
@@ -200,7 +209,12 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     });
 
     // **Concatenate jobs in order**
-    const groupedJobs = [...greenJobs, ...orangeJobs, ...yellowJobs, ...otherJobs];
+    const groupedJobs = [
+      ...greenJobs,
+      ...orangeJobs,
+      ...yellowJobs,
+      ...otherJobs,
+    ];
 
     // **Paginate grouped jobs**
     const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
@@ -214,9 +228,10 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching jobs:", error);
-    res.status(500).send({ message: "Internal Server Error", error: error.message });
+    res
+      .status(500)
+      .send({ message: "Internal Server Error", error: error.message });
   }
 });
-
 
 export default router;

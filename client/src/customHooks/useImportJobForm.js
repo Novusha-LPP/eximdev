@@ -113,7 +113,6 @@ const useImportJobForm = () => {
     if (importer) {
       const formattedImporter = importer.replace(/\s+/g, "_");
       setImporterURL(formattedImporter);
-      console.log("Updated importerURL:", formattedImporter); // Log the updated value
     }
   }, [importer]); 
   
@@ -136,7 +135,7 @@ const useImportJobForm = () => {
   //
   // Reset form function
   const resetForm = () => {
-    setYear(defaultYearPair);
+    // setYear(defaultYearPair);
     setCustomHouse("");
     setImporter("");
     setShippingLineAirline("");

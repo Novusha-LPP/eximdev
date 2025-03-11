@@ -55,7 +55,7 @@ const VehicleRegistration = () => {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [depots, setDepots] = useState([]);
-  const [drivers, setDrivers] = useState([]);
+  const [drivers, setDrivers] = useState([]); // dynamically fetched by type
 
   const [modalMode, setModalMode] = useState("add");
   const [openModal, setOpenModal] = useState(false);
@@ -72,15 +72,13 @@ const VehicleRegistration = () => {
     vehicleManufacturingDetails: "",
   });
 
-  // Adjust these URLs to match your actual endpoints.
+  // Adjust this URL to match your actual endpoints.
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  // --------------------------
-  // Fetchers for each dropdown
-  // --------------------------
-
-  // 1. Vehicle Registrations
+  // ---------------------------
+  // 1. Fetch existing vehicles
+  // ---------------------------
   const fetchVehicles = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-registration`);
@@ -90,54 +88,64 @@ const VehicleRegistration = () => {
     }
   };
 
-  // 2. Vehicle Types
+  // ----------------------------------------
+  // 2. Fetch vehicle types for Type dropdown
+  // ----------------------------------------
   const fetchVehicleTypes = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-type`);
-      const list = response.data.data || [];
-      setVehicleTypes(list);
+      setVehicleTypes(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching vehicle types:", error);
     }
   };
 
-  // 3. Depot Names (Ports)
+  // ---------------------------------------
+  // 3. Fetch Depots for Depot Name dropdown
+  // ---------------------------------------
   const fetchDepots = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-port-types`);
-      const list = response.data.data || [];
-      setDepots(list);
+      setDepots(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching port/depot data:", error);
     }
   };
 
-  // 4. Drivers
-  const fetchDrivers = async () => {
+  // --------------------------------------------------------
+  // 4. Fetch drivers (filtered by vehicle "type") on demand
+  // --------------------------------------------------------
+  const fetchDriversByType = async (selectedType) => {
     try {
-      const response = await axios.get(`${API_URL}/all-drivers`);
-      const list = response.data.data || response.data || [];
-      // Adjust if your API returns data in a different shape
-      setDrivers(list);
+      if (!selectedType) {
+        setDrivers([]);
+        return;
+      }
+
+      // Fetch available drivers for the selected type
+      const response = await axios.get(
+        `${API_URL}/available-drivers/${selectedType}`
+      );
+      setDrivers(response.data); // Populate dropdown with drivers
     } catch (error) {
-      console.error("❌ Error fetching drivers:", error);
+      console.error("❌ Error fetching available drivers:", error);
+      setDrivers([]); // Clear the dropdown if an error occurs
     }
   };
 
-  // -----------------
-  // useEffect
-  // -----------------
+  // -----------------------------
+  // useEffect: initial fetch calls
+  // -----------------------------
   useEffect(() => {
     fetchVehicles();
     fetchVehicleTypes();
     fetchDepots();
-    fetchDrivers();
+    // We do NOT fetch all drivers initially, we only do it after user selects a "type".
   }, []);
 
-  // -----------------
+  // ---------------
   // CRUD Handlers
-  // -----------------
-
+  // ---------------
   const handleAdd = () => {
     setModalMode("add");
     setFormData({
@@ -151,13 +159,14 @@ const VehicleRegistration = () => {
       purchase: "",
       vehicleManufacturingDetails: "",
     });
+    setDrivers([]); // Clear driver list whenever adding anew
     setOpenModal(true);
   };
 
   const handleEdit = (vehicle) => {
     setModalMode("edit");
     setFormData({
-      _id: vehicle._id, // Used only for updates
+      _id: vehicle._id,
       registrationName: vehicle.registrationName || "",
       type: vehicle.type || "",
       shortName: vehicle.shortName || "",
@@ -165,12 +174,15 @@ const VehicleRegistration = () => {
       initialOdometer: vehicle.initialOdometer || "",
       loadCapacity: vehicle.loadCapacity || "",
       driver: vehicle.driver || "",
-      // Convert to a string or DayJS date so DatePicker can handle it
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString()
         : "",
       vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",
     });
+    // If the vehicle already has a type, fetch the relevant drivers
+    if (vehicle.type) {
+      fetchDriversByType(vehicle.type);
+    }
     setOpenModal(true);
   };
 
@@ -208,6 +220,8 @@ const VehicleRegistration = () => {
       purchase: new Date(restValues.purchase).toISOString(),
     };
 
+    console.log("Formatted data to send:", formattedData); // Add this line
+
     try {
       let response;
       if (modalMode === "add") {
@@ -243,9 +257,9 @@ const VehicleRegistration = () => {
     }
   };
 
-  // -----------------
-  // Render
-  // -----------------
+  // -------------
+  // RENDER
+  // -------------
   return (
     <Box>
       {/* Add Button */}
@@ -360,14 +374,20 @@ const VehicleRegistration = () => {
                     }
                   />
 
-                  {/* Type Dropdown */}
+                  {/* Type Dropdown (triggers driver fetch) */}
                   <FormControl fullWidth required>
                     <InputLabel>Type</InputLabel>
                     <Select
                       name="type"
                       label="Type"
                       value={values.type}
-                      onChange={handleChange}
+                      onChange={async (event) => {
+                        handleChange(event);
+                        // Once user picks a type, fetch corresponding drivers:
+                        await fetchDriversByType(event.target.value);
+                        // Also clear any previously selected driver if type changes:
+                        setFieldValue("driver", "");
+                      }}
                       onBlur={handleBlur}
                       error={touched.type && Boolean(errors.type)}
                     >
@@ -442,24 +462,26 @@ const VehicleRegistration = () => {
                     helperText={touched.loadCapacity && errors.loadCapacity}
                   />
 
-                  {/* Driver Dropdown */}
-                  <FormControl fullWidth required>
-                    <InputLabel>Driver</InputLabel>
-                    <Select
-                      name="driver"
-                      label="Driver"
-                      value={values.driver}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.driver && Boolean(errors.driver)}
-                    >
-                      {drivers.map((dr) => (
-                        <MenuItem key={dr._id} value={dr.name}>
-                          {dr.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  {/* Driver Dropdown (only show if 'type' is selected) */}
+                  {values.type && (
+                    <FormControl fullWidth required>
+                      <InputLabel>Driver</InputLabel>
+                      <Select
+                        name="driver"
+                        label="Driver"
+                        value={values.driver}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={touched.driver && Boolean(errors.driver)}
+                      >
+                        {drivers.map((dr) => (
+                          <MenuItem key={dr._id} value={dr.name}>
+                            {dr.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
 
                   {/* Purchase Date (Date Picker) */}
                   <LocalizationProvider dateAdapter={AdapterDayjs}>

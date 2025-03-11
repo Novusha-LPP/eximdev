@@ -138,4 +138,39 @@ router.delete("/api/delete-driver/:id", async (req, res) => {
   }
 });
 
+// New GET route to retrieve drivers by typerouter.get("/api/drivers-by-type/:type", async (req, res) => {
+router.get("/api/available-drivers/:type", async (req, res) => {
+  const { type } = req.params;
+
+  if (!type) {
+    return res.status(400).json({ message: "Type parameter is required" });
+  }
+
+  try {
+    // Log the type received for debugging
+    console.log("Received type:", type);
+
+    // Use regex to match the drivingVehicleTypes field for the selected type
+    const drivers = await DriverType.find({
+      drivingVehicleTypes: { $regex: type, $options: "i" }, // Case-insensitive regex match
+      isAssigned: false, // Ensure driver is not assigned
+    });
+
+    // Log available drivers for debugging
+  
+    if (drivers.length === 0) {
+      return res
+        .status(404)
+        .json({ message: `No available drivers for type: ${type}` });
+    }
+
+    return res.status(200).json(drivers);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error fetching available drivers",
+      error: error.message,
+    });
+  }
+});
+
 export default router;

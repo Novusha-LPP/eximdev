@@ -1,5 +1,6 @@
 import express from "express";
 import VehicleRegistration from "../../../model/srcc/Directory_Management/VehicleRegistration.mjs";
+import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
 
 const router = express.Router();
 
@@ -18,6 +19,24 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
   } = req.body;
 
   try {
+    // Log the received data for debugging
+    console.log("Received vehicle registration data:", req.body);
+
+    // Check if all required fields are present
+    if (
+      !registrationName ||
+      !type ||
+      !shortName ||
+      !depotName ||
+      !initialOdometer ||
+      !loadCapacity ||
+      !driver ||
+      !purchase ||
+      !vehicleManufacturingDetails
+    ) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     // Check if a vehicle with the same registrationName already exists
     const existingRegistration = await VehicleRegistration.findOne({
       registrationName,
@@ -40,6 +59,13 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       purchase,
       vehicleManufacturingDetails,
     });
+
+    // Mark the driver as assigned
+    await DriverType.findOneAndUpdate(
+      { name: driver },
+      { isAssigned: true },
+      { new: true }
+    );
 
     res.status(201).json({
       message: "Vehicle registration added successfully",
@@ -78,6 +104,7 @@ router.get("/api/get-vehicle-registration/:id", async (req, res) => {
 });
 
 // UPDATE a Vehicle Registration
+// UPDATE a Vehicle Registration
 router.put("/api/update-vehicle-registration/:id", async (req, res) => {
   const { id } = req.params;
   const {
@@ -87,7 +114,7 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     depotName,
     initialOdometer,
     loadCapacity,
-    driver,
+    driver, // New driver
     purchase,
     vehicleManufacturingDetails,
   } = req.body;
@@ -99,11 +126,41 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
       _id: { $ne: id },
     });
     if (existingRegistration) {
-      return res
-        .status(400)
-        .json({ error: "Vehicle registration already exists" });
+      return res.status(400).json({ error: "Vehicle registration already exists" });
     }
 
+    // Find the existing vehicle registration to check previous driver
+    const currentRegistration = await VehicleRegistration.findById(id);
+    if (!currentRegistration) {
+      return res.status(404).json({ error: "Vehicle registration not found" });
+    }
+
+    const previousDriver = currentRegistration.driver;
+
+    // If driver is changed, unassign the old driver and assign the new one
+    if (previousDriver !== driver) {
+      // Unassign previous driver
+      await DriverType.findOneAndUpdate(
+        { name: previousDriver },
+        { isAssigned: false }
+      );
+
+      // Check if new driver is already assigned
+      const assignedDriver = await DriverType.findOne({
+        name: driver,
+        isAssigned: true,
+      });
+      if (assignedDriver) {
+        return res.status(400).json({
+          error: `Driver ${driver} is already assigned to another vehicle.`,
+        });
+      }
+
+      // Assign new driver
+      await DriverType.findOneAndUpdate({ name: driver }, { isAssigned: true });
+    }
+
+    // Update vehicle registration
     const updatedRegistration = await VehicleRegistration.findByIdAndUpdate(
       id,
       {
@@ -120,10 +177,6 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
       { new: true }
     );
 
-    if (!updatedRegistration) {
-      return res.status(404).json({ error: "Vehicle registration not found" });
-    }
-
     res.status(200).json({
       message: "Vehicle registration updated successfully",
       data: updatedRegistration,
@@ -134,6 +187,8 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
   }
 });
 
+
+// DELETE a Vehicle Registration
 // DELETE a Vehicle Registration
 router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
   const { id } = req.params;
@@ -142,6 +197,17 @@ router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
     if (!deletedRegistration) {
       return res.status(404).json({ error: "Vehicle registration not found" });
     }
+
+    // Unassign the driver associated with this vehicle
+    const driver = deletedRegistration.driver;
+    if (driver) {
+      await DriverType.findOneAndUpdate(
+        { name: driver },
+        { isAssigned: false },
+        { new: true }
+      );
+    }
+
     res.status(200).json({
       message: "Vehicle registration deleted successfully",
       data: deletedRegistration,

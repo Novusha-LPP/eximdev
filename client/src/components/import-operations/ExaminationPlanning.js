@@ -28,7 +28,6 @@ function ImportOperations() {
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
-  const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("all");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -127,7 +126,6 @@ function ImportOperations() {
       currentSearchQuery,
       currentYear,
       currentICD,
-      currentStatus,
       selectedImporter
     ) => {
       try {
@@ -140,7 +138,6 @@ function ImportOperations() {
               search: currentSearchQuery,
               year: currentYear,
               selectedICD: currentICD,
-              detailedStatusExPlan: currentStatus, // Ensure parameter name matches backend
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
             },
           }
@@ -173,7 +170,6 @@ function ImportOperations() {
       debouncedSearchQuery,
       selectedYear,
       selectedICD,
-      detailedStatusExPlan,
       selectedImporter
     );
   }, [
@@ -181,7 +177,6 @@ function ImportOperations() {
     debouncedSearchQuery,
     selectedYear,
     selectedICD,
-    detailedStatusExPlan,
     selectedImporter,
     fetchJobs,
   ]);
@@ -406,7 +401,7 @@ function ImportOperations() {
         const pcvDate = formatDate(row.original?.pcv_date);
         const outOfCharge = formatDate(row.original?.out_of_charge);
         const examinationPlanningDate = formatDate(
-          row.original?.examination_planning_date
+          row.original?.examination_date
         );
         const fristCheck = formatDate(row.original?.fristCheck);
 

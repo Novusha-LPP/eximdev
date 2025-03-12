@@ -684,7 +684,12 @@ function ViewOperationsJob() {
                             }}
                           >
                             <strong>Weight Excess/Shortage:&nbsp;</strong>
-                            {container.weight_shortage}
+                            {container.physical_weight &&
+                            container.tare_weight ? (
+                              <>{container.weight_shortage || ""}</>
+                            ) : (
+                              ""
+                            )}
                           </div>
                         </Col>
                       </Row>
@@ -962,6 +967,7 @@ function ViewOperationsJob() {
                         formik.setFieldValue("completed_operation_date", ""); // Clear date if unchecked
                       }
                     }}
+                    disabled={!formik.values.out_of_charge} // Disable if outOfCharge is not set
                   />
                   {formik.values.completed_operation_date && (
                     <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
@@ -1009,6 +1015,7 @@ function ViewOperationsJob() {
                           formik.setFieldValue("completed_operation_date", "");
                         }
                       }}
+                      disabled={!formik.values.out_of_charge} // Disable if outOfCharge is not set
                       InputLabelProps={{
                         shrink: true,
                       }}

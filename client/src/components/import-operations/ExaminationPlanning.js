@@ -121,7 +121,6 @@ function ImportOperations() {
     getYears();
   }, [selectedYear, setSelectedYear]);
 
-
   const fetchJobs = useCallback(
     async (
       currentPage,
@@ -162,7 +161,7 @@ function ImportOperations() {
         console.error("Error fetching data:", error);
         setRows([]); // Reset data on failure
         setTotalPages(1);
-      } 
+      }
     },
     [limit] // Dependencies (limit is included if it changes)
   );
@@ -540,28 +539,6 @@ function ImportOperations() {
 
         return (
           <div style={{ textAlign: "left" }}>
-            {/* Render the "Sticker" link or fallback text */}
-            {stickerLink ? (
-              <div style={{ marginBottom: "5px" }}>
-                <a
-                  href={stickerLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "blue",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Sticker
-                </a>
-              </div>
-            ) : (
-              <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>No Sticker </span>
-              </div>
-            )}
-
             {/* Render the "Checklist" link or fallback text */}
             {checklistLink ? (
               <div style={{ marginBottom: "5px" }}>

@@ -420,6 +420,13 @@ function ImportOperations() {
                 ))
               : "N/A"}
 
+            {/* First Check Date */}
+            <Tooltip title="First Check Date" arrow>
+              <strong>FC: </strong>
+            </Tooltip>
+            {fristCheck}
+            <br />
+
             {/* Examination Planning Date */}
             <Tooltip title="Examination Planning Date" arrow>
               <strong>Ex.Plan: </strong>
@@ -439,13 +446,6 @@ function ImportOperations() {
               <strong>OOC: </strong>
             </Tooltip>
             {outOfCharge}
-            <br />
-
-            {/* First Check Date */}
-            <Tooltip title="First Check Date" arrow>
-              <strong>FC: </strong>
-            </Tooltip>
-            {fristCheck}
             <br />
           </div>
         );

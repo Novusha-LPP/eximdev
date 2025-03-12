@@ -27,6 +27,7 @@ export const viewMasterList = [
   "Toll Data",
   "Advance To Driver",
   "shipping Line",
+  "Organisation",
   // "Organisation",
   // "Ply Rating",
   // "Repair Type",

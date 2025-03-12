@@ -28,8 +28,7 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
-  const selectedYear = year ? parseInt(year, 10) : null; // ✅ Convert year to number
-
+  const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
 
   if (isNaN(pageNumber) || pageNumber < 1) {
     return res.status(400).json({ message: "Invalid page number" });
@@ -64,15 +63,16 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       ],
     };
 
-
-     // ✅ Apply Year Filter if Provided
-     if (selectedYear) {
+    // ✅ Apply Year Filter if Provided
+    if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
-    
+
     // ✅ Apply Importer Filter (ensure spaces are handled correctly)
     if (decodedImporter && decodedImporter !== "Select Importer") {
-      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
     }
 
     // 🔍 Debugging - Log the query to verify filtering
@@ -103,11 +103,11 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
 
     // Handle case where no jobs match the query
     if (!paginatedJobs || paginatedJobs.length === 0) {
-      return res.status(200).json({ 
+      return res.status(200).json({
         totalJobs: 0,
         totalPages: 1,
         currentPage: pageNumber,
-        jobs: [] // Return an empty array instead of 404
+        jobs: [], // Return an empty array instead of 404
       });
     }
     // Send response

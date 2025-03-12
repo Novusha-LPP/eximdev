@@ -125,8 +125,6 @@ function JobDetails() {
   );
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
-  // Use emptyContainerOffLoadDate elsewhere in your code
-  console.log("Empty Container Offload Date:", emptyContainerOffLoadDate);
   // Helper function to update the `detailed_status` based on form values
   const updateDetailedStatus = () => {
     const {
@@ -3283,7 +3281,12 @@ function JobDetails() {
                           }}
                         >
                           <strong>Weight Excess/Shortage:&nbsp;</strong>
-                          {container.weight_shortage}
+                          {container.container_gross_weight &&
+                          container.container_gross_weight !== "0" ? (
+                            <>{container.weight_shortage || ""}</>
+                          ) : (
+                            ""
+                          )}
                         </div>
                       </Col>
 

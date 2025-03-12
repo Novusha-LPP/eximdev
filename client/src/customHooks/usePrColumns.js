@@ -200,9 +200,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             handleInputChange(event, row.index, cell.column.id)
           }
         >
-          {truckTypes.map((type, id) => (
-            <MenuItem id={id} value={type}>
-              {type}
+          {/* Ensure truckTypes is an array before mapping */}
+          {(Array.isArray(truckTypes) ? truckTypes : []).map((type, id) => (
+            <MenuItem key={id} value={type.vehicleType}>
+              {type.vehicleType}
             </MenuItem>
           ))}
         </TextField>

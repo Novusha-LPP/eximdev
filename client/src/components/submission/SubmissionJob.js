@@ -459,9 +459,9 @@ const SubmissionJob = () => {
 
                   <br />
 
-                  <Row>
-                    {/* Job Sticker Upload Section */}
-                    <Col xs={12} lg={4}>
+                  {/* <Row> */}
+                  {/* Job Sticker Upload Section */}
+                  {/* <Col xs={12} lg={4}>
                       <div>
                         <FileUpload
                           label="Job Sticker Upload"
@@ -486,10 +486,10 @@ const SubmissionJob = () => {
                           readOnly={false}
                         />
                       </div>
-                    </Col>
+                    </Col> */}
 
-                    {/* Job Sticker Date and Time Section */}
-                    <Col xs={12} lg={4}>
+                  {/* Job Sticker Date and Time Section */}
+                  {/* <Col xs={12} lg={4}>
                       <div>
                         <FormControlLabel
                           control={
@@ -561,8 +561,8 @@ const SubmissionJob = () => {
                           />
                         </div>
                       )}
-                    </Col>
-                  </Row>
+                    </Col> */}
+                  {/* </Row> */}
                 </div>
 
                 <div className="job-details-container">

@@ -66,13 +66,15 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     // ✅ Check for duplicate container numbers **only if container_nos is provided and not empty**
     if (container_nos && container_nos.length > 1) {
       const existingContainer = await JobModel.findOne({
-        "container_nos.container_number": { $in: container_nos.map(c => c.container_number) }
+        "container_nos.container_number": {
+          $in: container_nos.map((c) => c.container_number),
+        },
       });
 
       if (existingContainer) {
         return res.status(400).json({
           message: `Duplicate container number found: ${container_nos
-            .map(c => c.container_number)
+            .map((c) => c.container_number)
             .join(", ")}`,
         });
       }
@@ -90,7 +92,9 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     }
 
     // ✅ Generate new job_no
-    const lastJob = await JobModel.findOne({year}, { job_no: 1 }).sort({ job_no: -1 }).exec();
+    const lastJob = await JobModel.findOne({ year }, { job_no: 1 })
+      .sort({ job_no: -1 })
+      .exec();
     const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
     const totalDigits = lastJob?.job_no?.length || 5;
     const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
@@ -102,20 +106,29 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     await newJob.save();
 
     // ✅ Update last job update date
-    await LastJobsDate.findOneAndUpdate({}, { lastUpdatedOn: new Date() }, { upsert: true, new: true });
+    await LastJobsDate.findOneAndUpdate(
+      {},
+      { lastUpdatedOn: new Date() },
+      { upsert: true, new: true }
+    );
 
     res.status(201).json({
       message: "Job successfully created.",
-      job: { job_no: newJob.job_no, custom_house: newJob.custom_house, importer: newJob.importer }
+      job: {
+        job_no: newJob.job_no,
+        custom_house: newJob.custom_house,
+        importer: newJob.importer,
+      },
     });
   } catch (error) {
     console.error("Error adding job:", error);
-    
+
     // ✅ Return proper error messages
-    res.status(500).json({ message: error.message || "Internal server error." });
+    res
+      .status(500)
+      .json({ message: error.message || "Internal server error." });
   }
 });
-
 
 router.post("/api/jobs/add-job", async (req, res) => {
   const jsonData = req.body;
@@ -324,8 +337,8 @@ function determineDetailedStatus(job) {
     rail_out_date,
     gateway_igm_date,
     vessel_berthing,
-    delivery_date,
-    emptyContainerOffLoadDate,
+    // delivery_date,
+    // emptyContainerOffLoadDate,
   } = job;
 
   // Validate date using a stricter check
@@ -338,6 +351,10 @@ function determineDetailedStatus(job) {
   // Check if any container has an arrival date
   const anyContainerArrivalDate = container_nos?.some((container) =>
     isValidDate(container.arrival_date)
+  );
+
+  const emptyContainerOffLoadDate = container_nos?.every(
+    (container) => container.emptyContainerOffLoadDate
   );
 
   const validOutOfChargeDate = isValidDate(out_of_charge);

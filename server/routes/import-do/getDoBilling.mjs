@@ -20,7 +20,14 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-billing", async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      importer,
+      selectedICD,
+      year,
+    } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -37,23 +44,25 @@ router.get("/api/get-do-billing", async (req, res) => {
 
     // Decode and trim query parameters
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
-    const decodedICD = selectedICD ? decodeURIComponent(selectedICD).trim() : "";
+    const decodedICD = selectedICD
+      ? decodeURIComponent(selectedICD).trim()
+      : "";
 
     // **Step 1: Define query conditions**
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
-        { delivery_date: { $exists: true, $ne: "" } },
         {
           $or: [
             { bill_document_sent_to_accounts: { $exists: false } },
             { bill_document_sent_to_accounts: "" },
           ],
         }, // Exclude jobs where bill_document_sent_to_accounts is set
+        { detailed_status: { $regex: /^Billing Pending$/i } }, // New condition for detail_status
       ],
     };
 
-    if (selectedYear){
+    if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
 
@@ -64,12 +73,16 @@ router.get("/api/get-do-billing", async (req, res) => {
 
     // ✅ If importer is selected, filter by importer
     if (decodedImporter && decodedImporter !== "Select Importer") {
-      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
     }
 
     // ✅ If selectedICD is provided, filter by ICD Code
     if (decodedICD && decodedICD !== "Select ICD") {
-      baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+      baseQuery.$and.push({
+        custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
+      });
     }
 
     // **Step 2: Fetch jobs after applying filters**
@@ -98,6 +111,5 @@ router.get("/api/get-do-billing", async (req, res) => {
     });
   }
 });
-
 
 export default router;

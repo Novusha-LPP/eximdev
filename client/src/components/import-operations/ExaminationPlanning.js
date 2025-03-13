@@ -401,7 +401,7 @@ function ImportOperations() {
         const pcvDate = formatDate(row.original?.pcv_date);
         const outOfCharge = formatDate(row.original?.out_of_charge);
         const examinationPlanningDate = formatDate(
-          row.original?.examination_date
+          row.original?.examination_planning_date
         );
         const fristCheck = formatDate(row.original?.fristCheck);
 

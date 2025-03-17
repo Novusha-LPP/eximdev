@@ -53,9 +53,19 @@ const branchSchema = Yup.object().shape({
 const organisationSchema = Yup.object().shape({
   name: Yup.string().required("Name is required"),
   alias: Yup.string(),
-  type: Yup.string()
-    .oneOf(["Consignor", "Consignee", "Services", "Agent", "Carrier", "Global"])
-    .required("Type is required"),
+  type: Yup.array()
+    .of(
+      Yup.string().oneOf([
+        "Consignor",
+        "Consignee",
+        "Services",
+        "Agent",
+        "Carrier",
+        "Global",
+      ])
+    )
+    .min(1, "At least one type is required"),
+
   binNo: Yup.string(),
   cinNo: Yup.string(),
   cstNo: Yup.string(),
@@ -66,7 +76,9 @@ const organisationSchema = Yup.object().shape({
   gstin: Yup.string(),
   panNo: Yup.string(),
   ieCodeNo: Yup.string(),
-  branches: Yup.array().of(branchSchema),
+  branches: Yup.array()
+    .of(branchSchema)
+    .min(1, "At least one branch is required"),
 });
 
 // ---------------------- Main Component ----------------------
@@ -78,7 +90,7 @@ const Organisation = () => {
   const [initialValues, setInitialValues] = useState({
     name: "",
     alias: "",
-    type: "",
+    type: [],
     binNo: "",
     cinNo: "",
     cstNo: "",
@@ -89,7 +101,23 @@ const Organisation = () => {
     gstin: "",
     panNo: "",
     ieCodeNo: "",
-    branches: [],
+    branches: [
+      {
+        branchName: "Head Office",
+        address: "",
+        country: "",
+        state: "",
+        city: "",
+        postalCode: "",
+        telephoneNo: "",
+        fax: "",
+        website: "",
+        emailAddress: "",
+        taxableType: "Standard",
+        addresses: [],
+        contacts: [],
+      },
+    ],
   });
 
   const API_URL =
@@ -115,7 +143,7 @@ const Organisation = () => {
     setInitialValues({
       name: "",
       alias: "",
-      type: "",
+      type: [],
       binNo: "",
       cinNo: "",
       cstNo: "",
@@ -137,7 +165,7 @@ const Organisation = () => {
       _id: org._id,
       name: org.name || "",
       alias: org.alias || "",
-      type: org.type || "",
+      type: org.type || [],
       binNo: org.binNo || "",
       cinNo: org.cinNo || "",
       cstNo: org.cstNo || "",
@@ -336,18 +364,25 @@ const Organisation = () => {
                       <FormControl fullWidth required>
                         <InputLabel>Type</InputLabel>
                         <Select
+                          multiple
                           name="type"
-                          label="Type"
-                          value={values.type}
-                          onChange={handleChange}
+                          value={values.type} // ✅ Must be an array
+                          onChange={(event) => {
+                            handleChange({
+                              target: {
+                                name: "type",
+                                value: event.target.value,
+                              },
+                            });
+                          }}
                           onBlur={handleBlur}
                           error={touched.type && Boolean(errors.type)}
+                          renderValue={(selected) => selected.join(", ")} // ✅ Display selected values
                         >
                           {[
                             "Consignor",
                             "Consignee",
                             "Services",
-                            "Agent",
                             "Carrier",
                             "Global",
                           ].map((option) => (
@@ -358,7 +393,13 @@ const Organisation = () => {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                  </Grid>
+
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Registration & Tax IDs
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
                       <TextField
                         fullWidth
                         label="GSTIN"
@@ -370,12 +411,6 @@ const Organisation = () => {
                         helperText={touched.gstin && errors.gstin}
                       />
                     </Grid>
-                  </Grid>
-
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    Registration & Tax IDs
-                  </Typography>
-                  <Grid container spacing={2}>
                     <Grid item xs={6}>
                       <TextField
                         fullWidth
@@ -477,7 +512,9 @@ const Organisation = () => {
                           fontWeight="bold"
                           sx={{ mt: 3 }}
                         >
-                          Branch Details
+                          Branch Details{" "}
+                          {values.branches.length === 0 &&
+                            "(At least one branch is required)"}
                         </Typography>
 
                         {values.branches &&
@@ -591,6 +628,7 @@ const Organisation = () => {
                                 </Grid>
                                 <Grid item xs={12} md={6}>
                                   <TextField
+                                    required
                                     fullWidth
                                     label="Telephone No."
                                     name={`branches.${i}.telephoneNo`}

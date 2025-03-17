@@ -30,8 +30,8 @@ export default function SelectImporterModal(props) {
   const [importerData, setImporterData] = React.useState([]);
   const [selectedImporter, setSelectedImporter] = React.useState("");
   const [checked, setChecked] = React.useState(false);
+  const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
-  // Function to remove duplicates and map data with unique keys
   const getUniqueImporterNames = (importerData) => {
     const uniqueImporters = new Set();
     return importerData
@@ -51,7 +51,6 @@ export default function SelectImporterModal(props) {
       });
   };
 
-  // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYear) {
@@ -60,7 +59,6 @@ export default function SelectImporterModal(props) {
         );
         setImporterData(res.data);
         setImporters(res.data);
-        // Check if importerData is not empty before setting the selectedImporter
         if (res.data.length > 0) {
           setSelectedImporter(res.data[0].importer);
         }
@@ -69,18 +67,28 @@ export default function SelectImporterModal(props) {
     getImporterList();
   }, [selectedYear]);
 
-  // Set selected importer on autocomplete onChange
   const handleImporterChange = (event, newValue) => {
     setSelectedImporter(newValue?.label || null);
   };
 
+  const handleYearChange = (event) => {
+    const year = event.target.value;
+    setSelectedApiYears((prevYears) =>
+      prevYears.includes(year)
+        ? prevYears.filter((y) => y !== year)
+        : [...prevYears, year]
+    );
+  };
+
   const importerNames = getUniqueImporterNames(importerData);
+
   const handleReportDownload = async () => {
-    if (selectedImporter !== "") {
+    if (selectedImporter !== "" && selectedApiYears.length > 0) {
+      const yearString = selectedApiYears.join(",");
       const res = await axios.get(
         `${
           process.env.REACT_APP_API_STRING
-        }/download-report/${selectedYear}/${selectedImporter
+        }/download-report/${yearString}/${selectedImporter
           .toLowerCase()
           .replace(/\s+/g, "_")
           .replace(/[^\w]+/g, "")
@@ -97,14 +105,15 @@ export default function SelectImporterModal(props) {
     }
   };
 
-  
-
   const handleDownloadAll = async () => {
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/download-report/${selectedYear}/${props.status}`
-    );
+    if (selectedApiYears.length > 0) {
+      const yearString = selectedApiYears.join(",");
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}`
+      );
 
-    downloadAllReport(res.data, props.status, props.detailedStatus);
+      downloadAllReport(res.data, props.status, props.detailedStatus);
+    }
   };
 
   return (
@@ -126,18 +135,37 @@ export default function SelectImporterModal(props) {
               control={
                 <Checkbox
                   checked={checked}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setChecked(true);
-                    } else {
-                      setChecked(false);
-                    }
-                  }}
+                  onChange={(e) => setChecked(e.target.checked)}
                 />
               }
               label="Download all importers"
             />
           </FormGroup>
+
+          <br />
+
+          <div>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  value="24-25"
+                  checked={selectedApiYears.includes("24-25")}
+                  onChange={handleYearChange}
+                />
+              }
+              label="24-25"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  value="25-26"
+                  checked={selectedApiYears.includes("25-26")}
+                  onChange={handleYearChange}
+                />
+              }
+              label="25-26"
+            />
+          </div>
 
           <br />
           {!checked && (

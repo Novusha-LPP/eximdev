@@ -592,8 +592,7 @@ const SubmissionJob = () => {
                                 }
                               }}
                               disabled={
-                                !values.verified_checklist_upload_date_and_time ||
-                                !values.job_sticker_upload_date_and_time
+                                !values.verified_checklist_upload_date_and_time
                               } // Disable if conditions are not met
                             />
                           }
@@ -644,8 +643,7 @@ const SubmissionJob = () => {
                               shrink: true,
                             }}
                             disabled={
-                              !values.verified_checklist_upload_date_and_time ||
-                              !values.job_sticker_upload_date_and_time
+                              !values.verified_checklist_upload_date_and_time
                             } // Ensure input is disabled when necessary
                           />
                           <ErrorMessage

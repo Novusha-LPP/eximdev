@@ -24,8 +24,9 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     limit = 100,
     search = "",
     selectedICD = "",
+    importer = "", // NEW: Capture importer from query params
+    detailedStatusExPlan = "all",
     year,
-    importer = "",
   } = req.query;
 
   try {
@@ -34,7 +35,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    // Define the custom house condition based on username
+    // **Define the custom house condition based on username**
     let customHouseCondition = {};
     switch (username) {
       case "majhar_khan":
@@ -50,9 +51,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         customHouseCondition = { custom_house: "ICD KHODIYAR" };
         break;
       case "gaurav_singh":
-        customHouseCondition = {
-          custom_house: { $in: ["HAZIRA", "BARODA"] },
-        };
+        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
         break;
       case "akshay_rajput":
         customHouseCondition = { custom_house: "ICD VARNAMA" };
@@ -62,25 +61,18 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         break;
     }
 
-    // If selectedICD is provided, override the custom house condition.
-    if (selectedICD) {
+    // **Override with selected ICD if provided**
+    if (selectedICD && selectedICD !== "All") {
       customHouseCondition = { custom_house: selectedICD };
-    }
-
-    // Importer condition
-    let importerCondition = {};
-    if (importer && importer !== "Select Importer") {
-      importerCondition = { importer: new RegExp(`^${importer}$`, "i") };
     }
 
     const skip = (page - 1) * limit;
     const searchQuery = search ? buildSearchQuery(search) : {};
 
-    // Base conditions (common for all jobs)
+    // **Base conditions for job filtering**
     let baseConditions = {
       status: "Pending",
       be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-      // examination_planning_date: { $exists: true, $ne: null, $ne: "" },
       container_nos: {
         $elemMatch: { arrival_date: { $exists: true, $ne: null, $ne: "" } },
       },
@@ -90,29 +82,83 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ],
     };
 
-    // Add year filter condition if the year is provided
-    if (year) {
-      baseConditions.year = year;
+    // **Importer filter (NEW)**
+    let importerCondition = {};
+    if (importer && importer !== "Select Importer") {
+      importerCondition = { importer: importer };
     }
 
-    // Combine all conditions into one query
+    // **Detailed Status Filter**
+    let statusExtraCondition = {};
+    if (detailedStatusExPlan === "Arrival") {
+      statusExtraCondition = {
+        $and: [
+          { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+          {
+            $or: [
+              { out_of_charge: { $exists: false } },
+              { out_of_charge: "" },
+              { out_of_charge: false },
+            ],
+          },
+        ],
+      };
+    } else if (detailedStatusExPlan === "Ex. Planning") {
+      statusExtraCondition = {
+        examination_planning_date: { $exists: true, $nin: ["", null] },
+        $and: [
+          { $or: [{ pcv_date: { $exists: false } }, { pcv_date: "" }] },
+          {
+            $or: [
+              { out_of_charge: { $exists: false } },
+              { out_of_charge: "" },
+              { out_of_charge: false },
+            ],
+          },
+        ],
+      };
+    } else if (detailedStatusExPlan === "PCV") {
+      statusExtraCondition = {
+        pcv_date: { $exists: true, $nin: ["", null] },
+        $or: [
+          { out_of_charge: { $exists: false } },
+          { out_of_charge: "" },
+          { out_of_charge: false },
+        ],
+      };
+    } else if (detailedStatusExPlan === "OOC") {
+      statusExtraCondition = {
+        out_of_charge: { $exists: true, $nin: ["", null] },
+      };
+    } else if (detailedStatusExPlan === "Do Completed") {
+      statusExtraCondition = {
+        do_completed: { $exists: true, $nin: ["", null] },
+      };
+    } else if (detailedStatusExPlan === "Frist Check") {
+      statusExtraCondition = {
+        fristCheck: { $exists: true, $nin: ["", null] },
+      };
+    }
+
+    // **Final Query: Merge All Conditions**
     const baseQuery = {
       $and: [
         customHouseCondition,
-        importerCondition,
         baseConditions,
-        searchQuery, // Properly include the search query here
+        statusExtraCondition,
+        searchQuery,
+        importerCondition, // NEW: Ensure importer filtering is applied
       ],
     };
 
-    // Fetch jobs using the combined query
+    // **Fetch Jobs**
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,
     });
 
     const totalJobs = jobs.length;
 
-    // Add row color based on conditions and group jobs (existing logic)
+    // **Grouping jobs based on row colors**
     const greenJobs = [];
     const orangeJobs = [];
     const yellowJobs = [];
@@ -125,6 +171,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
         (container) => container.arrival_date
       );
       let row_color = "";
+
       if (out_of_charge) {
         row_color = "bg-green";
         greenJobs.push({ ...job._doc, row_color });
@@ -139,7 +186,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       }
     });
 
-    // Concatenate grouped jobs in the desired order
+    // **Concatenating grouped jobs in the desired order**
     const groupedJobs = [
       ...greenJobs,
       ...orangeJobs,
@@ -147,7 +194,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ...otherJobs,
     ];
 
-    // Paginate grouped jobs
+    // **Paginate grouped jobs**
     const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
 
     res.status(200).send({
@@ -161,5 +208,6 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     res.status(500).send({ message: "Error fetching jobs" });
   }
 });
+
 
 export default router;

@@ -468,7 +468,6 @@ function useFetchJobDetails(
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
           do_completed: values.do_completed,
-          
         }
       );
 
@@ -548,12 +547,16 @@ function useFetchJobDetails(
         size: container.size === undefined ? "20" : container.size,
         seal_number:
           container.seal_number === undefined ? "" : container.seal_number,
-          container_rail_out_date:
-          container.container_rail_out_date === undefined ? "": container.container_rail_out_date,
-          delivery_date:
-          container.delivery_date === undefined ? "": container.delivery_date,
-          emptyContainerOffLoadDate:
-          container.emptyContainerOffLoadDate === undefined ? "": container.emptyContainerOffLoadDate,
+        container_rail_out_date:
+          container.container_rail_out_date === undefined
+            ? ""
+            : container.container_rail_out_date,
+        delivery_date:
+          container.delivery_date === undefined ? "" : container.delivery_date,
+        emptyContainerOffLoadDate:
+          container.emptyContainerOffLoadDate === undefined
+            ? ""
+            : container.emptyContainerOffLoadDate,
         weighment_slip_images:
           container.weighment_slip_images === undefined
             ? []
@@ -605,11 +608,28 @@ function useFetchJobDetails(
             ? ""
             : container.container_gross_weight,
         weight_shortage:
-          container.weight_shortage === undefined
-            ? ""
-            : container.weight_shortage,
+          container.physical_weight &&
+          container.container_gross_weight &&
+          container.actual_weight &&
+          container.tare_weight &&
+          container.physical_weight !== "0" &&
+          container.container_gross_weight !== "0" &&
+          container.actual_weight !== "0" &&
+          container.tare_weight !== "0"
+            ? container.weight_shortage
+            : "",
+
         weight_excess:
-          container.weight_excess === undefined ? "" : container.weight_excess,
+          container.physical_weight &&
+          container.container_gross_weight &&
+          container.actual_weight &&
+          container.tare_weight &&
+          container.physical_weight !== "0" &&
+          container.container_gross_weight !== "0" &&
+          container.actual_weight !== "0" &&
+          container.tare_weight !== "0"
+            ? container.weight_excess
+            : "",
         transporter:
           container.transporter === undefined ? "" : container.transporter,
       }));
@@ -675,10 +695,8 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
-        hss:
-          data.hss === undefined ? "" : data.hss,
-          sailer_name:
-          data.sailer_name === undefined ? "" : data.sailer_name,
+        hss: data.hss === undefined ? "" : data.hss,
+        sailer_name: data.sailer_name === undefined ? "" : data.sailer_name,
         fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
         priorityJob:
           data.priorityJob === undefined ? "Normal" : data.priorityJob,

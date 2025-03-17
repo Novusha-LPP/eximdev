@@ -401,7 +401,7 @@ function ImportOperations() {
         const pcvDate = formatDate(row.original?.pcv_date);
         const outOfCharge = formatDate(row.original?.out_of_charge);
         const examinationPlanningDate = formatDate(
-          row.original?.examination_date
+          row.original?.examination_planning_date
         );
         const fristCheck = formatDate(row.original?.fristCheck);
 
@@ -419,6 +419,13 @@ function ImportOperations() {
                   </React.Fragment>
                 ))
               : "N/A"}
+
+            {/* First Check Date */}
+            <Tooltip title="First Check Date" arrow>
+              <strong>FC: </strong>
+            </Tooltip>
+            {fristCheck}
+            <br />
 
             {/* Examination Planning Date */}
             <Tooltip title="Examination Planning Date" arrow>
@@ -439,13 +446,6 @@ function ImportOperations() {
               <strong>OOC: </strong>
             </Tooltip>
             {outOfCharge}
-            <br />
-
-            {/* First Check Date */}
-            <Tooltip title="First Check Date" arrow>
-              <strong>FC: </strong>
-            </Tooltip>
-            {fristCheck}
             <br />
           </div>
         );

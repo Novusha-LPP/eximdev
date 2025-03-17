@@ -63,7 +63,8 @@ const validationSchema = Yup.object({
   //   "Driving Vehicle Types are required"
   // ),
   remarks: Yup.string(),
-  photoUpload: Yup.array().min(1, "At least one photo is required"),
+  // photoUpload: Yup.array().min(1, "At least one photo is required"),
+  photoUpload: Yup.array(),
   licenseUpload: Yup.array().min(
     1,
     "At least one license document is required"

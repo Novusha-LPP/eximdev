@@ -21,16 +21,19 @@ import {
   Select,
   MenuItem,
   Checkbox,
+  Typography,
+  Autocomplete,
 } from "@mui/material";
+
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import useVehicleTypes from "../../customHooks/Transport/useVehicleTypes";
 
-// ----------------------
-// Validation schema
-// ----------------------
+// -----------------------------------------------------------
+// Validation Schema
+// -----------------------------------------------------------
 const validationSchema = Yup.object({
   tollBoothName: Yup.string().required("Toll Booth Name is required"),
   fastagClassId: Yup.string().required("Fastag Class ID is required"),
@@ -41,35 +44,44 @@ const validationSchema = Yup.object({
     .typeError("Return Amount must be a number")
     .min(0, "Cannot be negative"),
   secondPassTollBooth: Yup.string(),
-  // Added vehicleType as an array
   vehicleType: Yup.array()
-    .of(Yup.string())
-    .min(1, "At least one Driving Vehicle Type is required"),
+    .of(
+      Yup.object({
+        name: Yup.string().required("Vehicle name is required"),
+        shortName: Yup.string().required("Short name is required"),
+        GVW: Yup.number() // Ensuring GVW (Load Capacity) is a number
+          .typeError("GVW must be a number")
+          .min(1, "GVW must be greater than zero"),
+      })
+    )
+    .min(1, "At least one vehicle type is required"),
 });
 
 const TollData = () => {
+  // ---------------------------------------------------------
+  // State
+  // ---------------------------------------------------------
   const [tollItems, setTollItems] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
 
+  // This formData is used to populate Formik's initialValues
   const [formData, setFormData] = useState({
     tollBoothName: "",
     fastagClassId: "",
     singleAmount: "",
     returnAmount: "",
     secondPassTollBooth: "",
-    vehicleType: [], // Multi-select field
+    vehicleType: [],
   });
 
-  // Adjust the base URL as needed
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+  const { vehicleTypes } = useVehicleTypes(API_URL);
 
-  const { vehicleTypes, loading, error } = useVehicleTypes(API_URL);
-
-  // -------------------
-  // Fetch all toll data
-  // -------------------
+  // ---------------------------------------------------------
+  // Fetch Toll Data
+  // ---------------------------------------------------------
   const fetchTollData = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-toll-data`);
@@ -83,9 +95,14 @@ const TollData = () => {
     fetchTollData();
   }, []);
 
-  // -------------------
-  // Handle Add
-  // -------------------
+  // ---------------------------------------------------------
+  // Derive possible second pass names from tollItems
+  // ---------------------------------------------------------
+  const tollBoothNames = tollItems.map((item) => item.tollBoothName);
+
+  // ---------------------------------------------------------
+  // Handlers: Add, Edit, Delete
+  // ---------------------------------------------------------
   const handleAdd = () => {
     setModalMode("add");
     setFormData({
@@ -99,9 +116,6 @@ const TollData = () => {
     setOpenModal(true);
   };
 
-  // -------------------
-  // Handle Edit
-  // -------------------
   const handleEdit = (item) => {
     setModalMode("edit");
     setFormData({
@@ -116,38 +130,40 @@ const TollData = () => {
     setOpenModal(true);
   };
 
-  // -------------------
-  // Handle Delete
-  // -------------------
   const handleDelete = async (item) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete toll booth: ${item.tollBoothName}?`
-      )
-    ) {
-      try {
-        await axios.delete(`${API_URL}/delete-toll-data/${item._id}`);
-        fetchTollData();
-      } catch (error) {
-        console.error("❌ Error deleting toll data:", error);
-      }
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete toll booth: ${item.tollBoothName}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await axios.delete(`${API_URL}/delete-toll-data/${item._id}`);
+      // Re-fetch or remove locally
+      fetchTollData();
+    } catch (error) {
+      console.error("❌ Error deleting toll data:", error);
     }
   };
 
-  // -------------------
+  // ---------------------------------------------------------
   // Handle Save
-  // -------------------
+  // ---------------------------------------------------------
   const handleSave = async (values) => {
     const { _id, ...restValues } = values;
 
+    // Format data as required by backend
     const formattedData = {
       ...restValues,
-      // Example of trimming strings if needed
       tollBoothName: restValues.tollBoothName.trim(),
       fastagClassId: restValues.fastagClassId.trim(),
-      secondPassTollBooth: restValues.secondPassTollBooth.trim(),
+      secondPassTollBooth: restValues.secondPassTollBooth?.trim() || "",
       singleAmount: Number(restValues.singleAmount),
       returnAmount: Number(restValues.returnAmount),
+      vehicleType: restValues.vehicleType.map((v) => ({
+        name: v.name,
+        shortName: v.shortName,
+        GVW: Number(v.loadCapacity || v.GVW), // handle both loadCapacity & GVW
+      })),
     };
 
     try {
@@ -171,9 +187,9 @@ const TollData = () => {
     }
   };
 
-  // -------------------
+  // ---------------------------------------------------------
   // Response Handler
-  // -------------------
+  // ---------------------------------------------------------
   const responseHandler = (response, action) => {
     if (response.status === 200 || response.status === 201) {
       alert(`Toll data ${action} successfully!`);
@@ -184,9 +200,9 @@ const TollData = () => {
     }
   };
 
-  // -------------------
+  // ---------------------------------------------------------
   // Render
-  // -------------------
+  // ---------------------------------------------------------
   return (
     <Box>
       <Box sx={{ mb: 2 }}>
@@ -201,7 +217,7 @@ const TollData = () => {
           <TableHead>
             <TableRow>
               <TableCell>Toll Booth Name</TableCell>
-              <TableCell>Driving Vehicle Types</TableCell>
+              <TableCell>Vehicle Types-(GVW)</TableCell>
               <TableCell>Fastag Class ID</TableCell>
               <TableCell>Single Amount</TableCell>
               <TableCell>Return Amount</TableCell>
@@ -216,7 +232,9 @@ const TollData = () => {
                 {/* Display vehicleType as comma-separated */}
                 <TableCell>
                   {Array.isArray(item.vehicleType)
-                    ? item.vehicleType.join(", ")
+                    ? item.vehicleType
+                        .map((v) => `${v.name} (${v.shortName}, GVW: ${v.GVW})`)
+                        .join(", ")
                     : ""}
                 </TableCell>
                 <TableCell>{item.fastagClassId}</TableCell>
@@ -247,7 +265,6 @@ const TollData = () => {
         <DialogTitle>
           {modalMode === "add" ? "Add New Toll Data" : "Edit Toll Data"}
         </DialogTitle>
-
         <DialogContent>
           <Formik
             initialValues={formData}
@@ -255,7 +272,14 @@ const TollData = () => {
             onSubmit={handleSave}
             enableReinitialize
           >
-            {({ values, handleChange, handleBlur, errors, touched }) => (
+            {({
+              values,
+              handleChange,
+              handleBlur,
+              errors,
+              touched,
+              setFieldValue,
+            }) => (
               <Form>
                 <Box
                   sx={{
@@ -280,42 +304,59 @@ const TollData = () => {
                     helperText={touched.tollBoothName && errors.tollBoothName}
                   />
 
-                  {/* Driving Vehicle Types (Multi-Select) */}
-                  <FormControl
-                    fullWidth
-                    required
-                    error={
-                      touched.vehicleType &&
-                      Boolean(errors.vehicleType)
-                    }
-                  >
+                  {/* Vehicle Types (Multi-Select) */}
+                  <FormControl fullWidth required>
                     <InputLabel>Vehicle Types</InputLabel>
                     <Select
                       multiple
                       name="vehicleType"
-                      value={values.vehicleType || []}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      // Show the labels for whichever values are selected
+                      label="Vehicle Types"
+                      value={values.vehicleType.map((v) => v.shortName)} // Use shortName for selection
+                      onChange={(e) => {
+                        const selectedShortNames = e.target.value;
+                        const selectedVehicles = vehicleTypes.filter((v) =>
+                          selectedShortNames.includes(v.shortName)
+                        );
+                        setFieldValue("vehicleType", selectedVehicles);
+                      }}
                       renderValue={(selected) =>
-                        vehicleTypes
-                          .filter((v) => selected.includes(v.value))
-                          .map((v) => v.label)
+                        selected
+                          .map((shortName) => {
+                            const vehicle = vehicleTypes.find(
+                              (v) => v.shortName === shortName
+                            );
+                            return vehicle ? vehicle.name : "";
+                          })
                           .join(", ")
                       }
                     >
                       {vehicleTypes.map((v) => (
-                        <MenuItem key={v.value} value={v.value}>
+                        <MenuItem key={v.shortName} value={v.shortName}>
                           <Checkbox
-                            checked={values.vehicleType.includes(
-                              v.value
+                            checked={values.vehicleType.some(
+                              (vt) => vt.shortName === v.shortName
                             )}
                           />
-                          {v.label}
+                          {v.name} ({v.shortName}, GVW: {v.loadCapacity})
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
+
+                  {/* Display selected vehicle details */}
+                  {values.vehicleType?.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      {values.vehicleType.map((selectedType) => (
+                        <Typography
+                          key={selectedType.shortName}
+                          variant="body2"
+                        >
+                          {selectedType.name} ({selectedType.shortName}) – GVW:{" "}
+                          {selectedType.loadCapacity}
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
 
                   {/* Fastag Class ID */}
                   <TextField
@@ -358,22 +399,32 @@ const TollData = () => {
                     helperText={touched.returnAmount && errors.returnAmount}
                   />
 
-                  {/* Second Pass Toll Booth */}
-                  <TextField
-                    name="secondPassTollBooth"
-                    label="Second Pass Toll Booth"
-                    value={values.secondPassTollBooth}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    error={
-                      touched.secondPassTollBooth &&
-                      Boolean(errors.secondPassTollBooth)
-                    }
-                    helperText={
-                      touched.secondPassTollBooth && errors.secondPassTollBooth
-                    }
-                  />
+                  {/* Second Pass Toll Booth (Autocomplete) */}
+                  <FormControl fullWidth>
+                    <Autocomplete
+                      options={tollBoothNames}
+                      value={values.secondPassTollBooth || ""}
+                      onChange={(event, newValue) => {
+                        setFieldValue("secondPassTollBooth", newValue || "");
+                      }}
+                      onBlur={handleBlur}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          name="secondPassTollBooth"
+                          label="Second Pass Toll Booth"
+                          error={
+                            touched.secondPassTollBooth &&
+                            Boolean(errors.secondPassTollBooth)
+                          }
+                          helperText={
+                            touched.secondPassTollBooth &&
+                            errors.secondPassTollBooth
+                          }
+                        />
+                      )}
+                    />
+                  </FormControl>
 
                   <DialogActions>
                     <Button onClick={() => setOpenModal(false)}>Cancel</Button>

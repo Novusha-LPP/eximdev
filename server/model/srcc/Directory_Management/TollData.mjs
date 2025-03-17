@@ -9,9 +9,9 @@ const TollDataSchema = new mongoose.Schema(
     },
     vehicleType: [
       {
-        type: String, // or reference an ObjectId if needed
-        required: true,
-        trim: true,
+        name: { type: String, required: true, trim: true }, // Full name of vehicle
+        shortName: { type: String, required: true, trim: true }, // Short name (code)
+        GVW: { type: String, required: true, trim: true }, // Gross Vehicle Weight
       },
     ],
     fastagClassId: {

@@ -10,10 +10,14 @@ const useVehicleTypes = (API_URL) => {
     const fetchVehicleTypes = async () => {
       try {
         const response = await axios.get(`${API_URL}/get-vehicle-type`);
+        console.log(response.data);
         setVehicleTypes(
           response.data.data.map((item) => ({
             label: `${item.vehicleType} - ${item.shortName}`,
-            value: item.vehicleType,
+            value: item.shortName, // Store shortName for selection
+            name: item.vehicleType, // Full vehicle name
+            shortName: item.shortName, // Short name
+            loadCapacity: item.loadCapacity, // Corrected from loadCapacity to GVW
           }))
         );
         setLoading(false);

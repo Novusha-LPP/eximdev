@@ -53,7 +53,6 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     "INVOICE VALUE AND UNIT PRICE",
     "BL NUMBER AND DATE",
     "COMMODITY",
-
     "NET WEIGHT",
     "PORT",
     "ARRIVAL DATE",

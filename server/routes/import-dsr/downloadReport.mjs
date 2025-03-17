@@ -21,32 +21,41 @@ const parseDate = (dateStr) => {
 };
 
 router.get(
-  "/api/download-report/:year/:importerURL/:status",
+  "/api/download-report/:years/:importerURL/:status",
   async (req, res) => {
     try {
-      const { year, importerURL, status } = req.params;
-      console.log(year, importerURL, status);
+      let { years, importerURL, status } = req.params;
 
-      // Create a query object with year and importerURL criteria
+      console.log(years, importerURL, status);
+
+      // Convert years into an array (e.g., "24-25,25-26" => ["24-25", "25-26"])
+      let yearArray = years.split(",");
+
+      // MongoDB query to match any year in the list
       const query = {
-        year,
+        year: { $in: yearArray },
         importerURL,
         status,
       };
 
-      // Query the database based on the criteria in the query object
       let jobs = await JobModel.find(query);
+
       // Filter out jobs with `detailed_status` as "Billing Pending"
       jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
-      // Sort jobs based on `detailed_status` rank and additional conditions
+
+      // Sort by Year first, then by Status Rank, and finally by Date
       jobs.sort((a, b) => {
-        // First, sort by `detailed_status` rank
+        // Sort by year (24-25 first, then 25-26)
+        if (a.year !== b.year) {
+          return a.year.localeCompare(b.year);
+        }
+
+        // Sort by detailed status rank
         const rankA = statusRank[a.detailed_status]?.rank || Infinity;
         const rankB = statusRank[b.detailed_status]?.rank || Infinity;
-
         if (rankA !== rankB) return rankA - rankB;
 
-        // Secondary sorting within the same `detailed_status` group
+        // Sort by date within the same status
         const field = statusRank[a.detailed_status]?.field;
         if (field) {
           const dateA = parseDate(a[field] || a.container_nos?.[0]?.[field]);
@@ -56,19 +65,10 @@ router.get(
           if (dateB) return 1;
         }
 
-        // Tertiary sorting by `be_no` availability
+        // Handle `be_no` availability
         const aHasBeNo = a.be_no && a.be_no.trim() !== "";
         const bHasBeNo = b.be_no && b.be_no.trim() !== "";
 
-        if (!aHasBeNo && !bHasBeNo) {
-          const vesselDateA = parseDate(a.vessel_berthing);
-          const vesselDateB = parseDate(b.vessel_berthing);
-          if (vesselDateA && vesselDateB) return vesselDateA - vesselDateB;
-          if (vesselDateA) return -1;
-          if (vesselDateB) return 1;
-        }
-
-        // If one has `be_no` and the other doesn't, prioritize the one with `be_no`
         if (aHasBeNo && !bHasBeNo) return -1;
         if (!aHasBeNo && bHasBeNo) return 1;
 

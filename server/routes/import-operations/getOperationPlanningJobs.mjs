@@ -134,7 +134,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       statusExtraCondition = {
         do_completed: { $exists: true, $nin: ["", null] },
       };
-    } else if (detailedStatusExPlan === "Frist Check") {
+    } else if (detailedStatusExPlan === "FC") {
       statusExtraCondition = {
         fristCheck: { $exists: true, $nin: ["", null] },
       };
@@ -208,6 +208,5 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     res.status(500).send({ message: "Error fetching jobs" });
   }
 });
-
 
 export default router;

@@ -28,6 +28,7 @@ import { useFormik } from "formik";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import useImportJobForm from "../../customHooks/useImportJobForm.js";
+import axios from "axios";
 
 const ImportCreateJob = () => {
   const {
@@ -126,47 +127,92 @@ const ImportCreateJob = () => {
     jobDetails,
     setJobDetails,
     setYear,
-    year
+    year,
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
+   const [selectedImporter, setSelectedImporter] = useState("");
+    const [importers, setImporters] = useState("");
 
-    useEffect(() => {
-      // Determine the current date
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
-      const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
-      const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0"); // Last two digits of next year
-      const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0"); // Last two digits of previous year
-  
-      let defaultYearPair;
-  
-      // Determine the financial year
-      if (currentMonth >= 4) {
-        // From April of the current year to March of the next year
-        defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+
+     React.useEffect(() => {
+       async function getImporterList() {
+         if (selectedYear) {
+           const res = await axios.get(
+             `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+           );
+           setImporters(res.data);
+           setSelectedImporter("Select Importer");
+         }
+       }
+       getImporterList();
+     }, [selectedYear]);
+     // Function to build the search query (not needed on client-side, handled by server)
+     // Keeping it in case you want to extend client-side filtering
+
+     const getUniqueImporterNames = (importerData) => {
+       if (!importerData || !Array.isArray(importerData)) return [];
+       const uniqueImporters = new Set();
+       return importerData
+         .filter((importer) => {
+           if (uniqueImporters.has(importer.importer)) return false;
+           uniqueImporters.add(importer.importer);
+           return true;
+         })
+         .map((importer, index) => ({
+           label: importer.importer,
+           key: `${importer.importer}-${index}`,
+         }));
+     };
+
+     const importerNames = [
+       { label: "Select Importer" },
+       ...getUniqueImporterNames(importers),
+     ];
+
+     useEffect(() => {
+       if (!selectedImporter) {
+         setSelectedImporter("Select Importer");
+       }
+     }, [importerNames]);
+
+
+  useEffect(() => {
+    // Determine the current date
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentTwoDigits = String(currentYear).slice(-2); // Last two digits of current year
+    const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0"); // Last two digits of next year
+    const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0"); // Last two digits of previous year
+
+    let defaultYearPair;
+
+    // Determine the financial year
+    if (currentMonth >= 4) {
+      // From April of the current year to March of the next year
+      defaultYearPair = `${currentTwoDigits}-${nextTwoDigits}`;
+    } else {
+      // From January to March, use the previous financial year
+      defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
+    }
+
+    // Set default year pair if not already selected
+    if (!selectedYear) {
+      if (years.includes(defaultYearPair)) {
+        setSelectedYear(defaultYearPair);
       } else {
-        // From January to March, use the previous financial year
-        defaultYearPair = `${prevTwoDigits}-${currentTwoDigits}`;
+        setSelectedYear(years[0]);
       }
-  
-      // Set default year pair if not already selected
-      if (!selectedYear) {
-        if (years.includes(defaultYearPair)) {
-          setSelectedYear(defaultYearPair);
-        } else {
-          setSelectedYear(years[0]);
-        }
-      }
-    }, [selectedYear, setSelectedYear]);
-  
-useEffect(() => {
-  setYear(selectedYear);
-},[selectedYear]);
+    }
+  }, [selectedYear, setSelectedYear]);
+
+  useEffect(() => {
+    setYear(selectedYear);
+  }, [selectedYear]);
 
   const clearanceOptionsMapping = {
     Home: [
@@ -186,18 +232,18 @@ useEffect(() => {
       </Typography>
 
       <TextField
-                select
-                size="small"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                sx={{ width: "200px", marginRight: "20px" }}
-              >
-                {years.map((year, index) => (
-                  <MenuItem key={`year-${year}-${index}`} value={year}>
-                    {year}
-                  </MenuItem>
-                ))}
-              </TextField>
+        select
+        size="small"
+        value={selectedYear}
+        onChange={(e) => setSelectedYear(e.target.value)}
+        sx={{ width: "200px", marginRight: "20px" }}
+      >
+        {years.map((year, index) => (
+          <MenuItem key={`year-${year}-${index}`} value={year}>
+            {year}
+          </MenuItem>
+        ))}
+      </TextField>
 
       <Grid
         container
@@ -233,16 +279,16 @@ useEffect(() => {
           </Typography>
           <Autocomplete
             freeSolo
-            options={importerOptions}
-            value={importer}
-            onInputChange={(event, newValue) => setImporter(newValue)}
+            options={importerNames.map((option) => option.label)}
+            value={importer || ""} // Controlled value
+            onInputChange={(event, newValue) => setImporter(newValue)} // Handles input change
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
                 size="small"
-                helperText="Start typing to see suggestions"
                 fullWidth
+                helperText="Start typing to see suggestions"
               />
             )}
           />

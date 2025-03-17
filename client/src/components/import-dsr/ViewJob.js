@@ -1135,18 +1135,18 @@ function JobDetails() {
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
-                  {/* Sailer Name Field */}
-                  <strong>Sailer Name:&nbsp;</strong>
+                  {/* Seller Name Field */}
+                  <strong>Seller Name:&nbsp;</strong>
                   <TextField
                     fullWidth
                     size="small"
                     variant="outlined"
-                    id="sailer_name"
-                    name="sailer_name"
-                    value={formik.values.sailer_name || ""}
+                    id="Seller_name"
+                    name="Seller_name"
+                    value={formik.values.Seller_name || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    placeholder="Enter Sailer Name"
+                    placeholder="Enter Seller Name"
                   />
                 </div>
               </Col>
@@ -1931,7 +1931,7 @@ function JobDetails() {
                 style={{ display: "flex", alignItems: "center" }}
               >
                 <Typography variant="body1" sx={{ mr: 1 }}>
-                  Frist check
+                  First Check
                 </Typography>
                 <Switch
                   checked={Boolean(formik.values.fristCheck)}

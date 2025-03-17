@@ -28,6 +28,7 @@ function ImportOperations() {
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
+  const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -125,6 +126,7 @@ function ImportOperations() {
       currentPage,
       currentSearchQuery,
       currentYear,
+      currentStatus,
       currentICD,
       selectedImporter
     ) => {
@@ -137,6 +139,7 @@ function ImportOperations() {
               limit,
               search: currentSearchQuery,
               year: currentYear,
+              detailedStatusExPlan: currentStatus, // Ensure parameter name matches backend
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
             },
@@ -169,6 +172,7 @@ function ImportOperations() {
       page,
       debouncedSearchQuery,
       selectedYear,
+      detailedStatusExPlan,
       selectedICD,
       selectedImporter
     );
@@ -176,6 +180,7 @@ function ImportOperations() {
     page,
     debouncedSearchQuery,
     selectedYear,
+    detailedStatusExPlan,
     selectedICD,
     selectedImporter,
     fetchJobs,
@@ -704,7 +709,7 @@ function ImportOperations() {
           size="small"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "150px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
             <MenuItem key={`year-${year}-${index}`} value={year}>
@@ -730,6 +735,26 @@ function ImportOperations() {
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
+
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="Select Status Ex-Planning"
+          value={detailedStatusExPlan}
+          onChange={(e) => {
+            setDetailedStatusExPlan(e.target.value); // Update the selected ICD code
+            setPage(1); // Reset to the first page when the filter changes
+          }}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="All"> Select Status Ex-Planning</MenuItem>
+          <MenuItem value="Arrival">Arrival</MenuItem>
+          <MenuItem value="FC">FC  </MenuItem>
+          <MenuItem value="Ex. Planning">Ex. Planning</MenuItem>
+          <MenuItem value="OOC">OOC</MenuItem>
+          <MenuItem value="Do Completed">Do Completed</MenuItem>
+        </TextField>
         {/* Search Bar */}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
@@ -737,7 +762,7 @@ function ImportOperations() {
           variant="outlined"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+          sx={{ width: "250px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
     ),

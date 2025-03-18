@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   Box,
   IconButton,
@@ -8,6 +8,7 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
+import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
@@ -17,7 +18,7 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
 
   // Ensure `images` is always an array for backward compatibility
   const imageArray = Array.isArray(images) ? images : images ? [images] : [];
-
+  const { user } = useContext(UserContext);
   // Function to extract the file name from the URL
   const extractFileName = (url) => {
     try {
@@ -30,14 +31,19 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
   };
 
   const handleDeleteClick = (index) => {
-    setDeleteIndex(index);
-    setOpenDeleteDialog(true);
+     if (user.role === "Admin") {
+       setDeleteIndex(index);
+       setOpenDeleteDialog(true);
+     } else {
+       alert("You do not have permission to delete images.");
+     }
   };
 
   const confirmDelete = () => {
     onDeleteImage(deleteIndex);
     setOpenDeleteDialog(false);
-  };
+};
+
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>

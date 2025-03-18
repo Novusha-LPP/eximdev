@@ -148,21 +148,25 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "container_type"),
       Cell: ({ cell, row }) => (
-        <TextField
-          select
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={containerTypes}
+          getOptionLabel={(option) => option.container_type || ""} // ✅ Get container_type field
+          value={
+            containerTypes.find(
+              (type) => type.container_type === rows[row.index]?.container_type
+            ) || null
           }
-        >
-          {containerTypes.map((type, id) => (
-            <MenuItem key={id} value={type}>
-              {type}
-            </MenuItem>
-          ))}
-        </TextField>
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue?.container_type || "" } },
+              row.index,
+              cell.column.id
+            )
+          }
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
       ),
     },
     {
@@ -196,9 +200,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             handleInputChange(event, row.index, cell.column.id)
           }
         >
-          {truckTypes.map((type, id) => (
-            <MenuItem id={id} value={type}>
-              {type}
+          {/* Ensure truckTypes is an array before mapping */}
+          {(Array.isArray(truckTypes) ? truckTypes : []).map((type, id) => (
+            <MenuItem key={id} value={type.vehicleType}>
+              {type.vehicleType}
             </MenuItem>
           ))}
         </TextField>

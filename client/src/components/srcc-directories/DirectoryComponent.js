@@ -3,6 +3,16 @@ import { Box } from "@mui/material";
 import UnitMeasurementDirectory from "./UnitMeasurementDirectory";
 import ContainerTypeDirectory from "./ContainerTypeDirectory";
 import LocationDirectory from "./LocationDirectory";
+import StateDistrictDirectory from "./StateDistrictDirectory";
+import PortsCfsYardDirectory from "./PortsCfsYardDirectory";
+import Commodity from "./Commodity";
+import VehicleTypes from "./VehicleTypes";
+import Drivers from "./DriversListDirectory";
+import VehicleRegistration from "./VehicleRegistration";
+import TollData from "./TollData";
+import AdvanceToDriver from "./AdvanceToDriver";
+import ShippingLine from "./ShippingLine";
+import Organisation from "./Organisation";
 
 function DirectoryComponent({ directoryType }) {
   console.log("Selected Directory Type:", directoryType); // Debugging log
@@ -15,6 +25,26 @@ function DirectoryComponent({ directoryType }) {
         return <ContainerTypeDirectory />;
       case "Location": // ✅ Added Location Directory
         return <LocationDirectory />;
+      case "State District": // ✅ Added State District Directory
+        return <StateDistrictDirectory />;
+      case "Ports/CFS/Yard Directory": // ✅ Added State District Directory
+        return <PortsCfsYardDirectory />;
+      case "Commodity": // ✅ Added Commoditys Directory
+        return <Commodity />;
+      case "Vehicle Types": // ✅ Added Commoditys Directory
+        return <VehicleTypes />;
+      case "Drivers": // ✅ Added Commoditys Directory
+        return <Drivers />;
+      case "Vehicle Registration": // ✅ Added Commoditys Directory
+        return <VehicleRegistration />;
+      case "Toll Data": // ✅ Added Commoditys Directory
+        return <TollData />;
+      case "Advance To Driver": // ✅ Added Commoditys Directory
+        return <AdvanceToDriver />;
+      case "shipping Line": // ✅ Added Commoditys Directory
+        return <ShippingLine />;
+      case "Organisation": // ✅ Added Commoditys Directory
+        return <Organisation />;
       default:
         console.log("No matching directory found for:", directoryType);
         return null;

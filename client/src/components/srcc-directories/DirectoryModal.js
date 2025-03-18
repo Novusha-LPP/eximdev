@@ -11,6 +11,7 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
+  Chip,
 } from "@mui/material";
 import axios from "axios";
 
@@ -33,7 +34,7 @@ function DirectoryModal({
       setFormData(editData);
     } else {
       const initialData = fields.reduce((acc, field) => {
-        acc[field.name] = "";
+        acc[field.name] = field.type === "multi-select" ? [] : "";
         return acc;
       }, {});
       setFormData(initialData);
@@ -110,14 +111,20 @@ function DirectoryModal({
     const { name, value } = e.target;
 
     // ✅ Ensure Postal Code is Only 6 Digits
-    if (name === "postal_code") {
-      if (!/^\d{0,6}$/.test(value)) return;
-    }
+    if (name === "postal_code" && !/^\d{0,6}$/.test(value)) return;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    // ✅ Handle Multi-Select for Districts
+    if (name === "districts") {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: typeof value === "string" ? value.split(",") : value, // Convert to array
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // ✅ Handle Form Submission
@@ -136,7 +143,7 @@ function DirectoryModal({
     // ✅ Reset Form Data After Submission
     setFormData(
       fields.reduce((acc, field) => {
-        acc[field.name] = "";
+        acc[field.name] = field.type === "multi-select" ? [] : "";
         return acc;
       }, {})
     );
@@ -166,6 +173,32 @@ function DirectoryModal({
                     <MenuItem value="" disabled>
                       {field.label}
                     </MenuItem>
+                    {field.options.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : field.type === "multi-select" ? (
+                <FormControl fullWidth key={field.name}>
+                  <InputLabel id={`${field.name}-label`} shrink>
+                    {field.label}
+                  </InputLabel>
+                  <Select
+                    labelId={`${field.name}-label`}
+                    name={field.name}
+                    multiple
+                    value={formData[field.name] || []}
+                    onChange={handleChange}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} />
+                        ))}
+                      </Box>
+                    )}
+                  >
                     {field.options.map((option) => (
                       <MenuItem key={option} value={option}>
                         {option}

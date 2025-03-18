@@ -12,7 +12,6 @@ function ImporterWiseDetails() {
 
   const [data, setData] = useState([]);
 
-  console.log("data", data)
   // Function to remove duplicates and map data with unique keys
   const getUniqueImporterNames = (importerData) => {
     const uniqueImporters = new Set();

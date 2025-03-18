@@ -12,6 +12,7 @@ import {
   TextField,
   Pagination,
   Typography,
+  Autocomplete
 } from "@mui/material";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
@@ -52,7 +53,7 @@ function ImportOperations() {
           `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
         );
         setImporters(res.data);
-        setSelectedImporter("Select Importer");
+        // setSelectedImporter("Select Importer");
       }
     }
     getImporterList();
@@ -76,15 +77,8 @@ function ImportOperations() {
   };
 
   const importerNames = [
-    { label: "Select Importer" },
     ...getUniqueImporterNames(importers),
   ];
-
-  useEffect(() => {
-    if (!selectedImporter) {
-      setSelectedImporter("Select Importer");
-    }
-  }, [importerNames]);
 
   // Fetch available years for filtering
   useEffect(() => {
@@ -688,28 +682,29 @@ function ImportOperations() {
           Job Count: {totalJobs}
         </Typography>
 
-        <TextField
-          fullWidth
-          select
-          size="small"
-          value={selectedImporter || ""}
-          onChange={(e) => setSelectedImporter(e.target.value)}
-          label="Select Importer"
+        <Autocomplete
           sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {importerNames.map((option, index) => (
-            <MenuItem key={`importer-${index}`} value={option.label}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          freeSolo
+          options={importerNames.map((option) => option.label)}
+          value={selectedImporter || ""} // Controlled value
+          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer" // Placeholder text
+            />
+          )}
+        />
 
         <TextField
           select
           size="small"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
-          sx={{ width: "150px", marginRight: "20px" }}
+          sx={{ width: "100px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
             <MenuItem key={`year-${year}-${index}`} value={year}>
@@ -750,7 +745,7 @@ function ImportOperations() {
         >
           <MenuItem value="All"> Select Status Ex-Planning</MenuItem>
           <MenuItem value="Arrival">Arrival</MenuItem>
-          <MenuItem value="FC">FC  </MenuItem>
+          <MenuItem value="FC">FC </MenuItem>
           <MenuItem value="Ex. Planning">Ex. Planning</MenuItem>
           <MenuItem value="OOC">OOC</MenuItem>
           <MenuItem value="Do Completed">Do Completed</MenuItem>

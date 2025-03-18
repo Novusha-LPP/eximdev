@@ -14,6 +14,7 @@ import {
   Pagination,
   Typography,
   MenuItem,
+  Autocomplete,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -83,19 +84,6 @@ function List() {
           `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
         );
         setImporters(res.data);
-        setSelectedImporter("Select Importer");
-      }
-    }
-    getImporterList();
-  }, [selectedYear]);
-  React.useEffect(() => {
-    async function getImporterList() {
-      if (selectedYear) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
-        );
-        setImporters(res.data);
-        setSelectedImporter("Select Importer");
       }
     }
     getImporterList();
@@ -119,15 +107,8 @@ function List() {
   };
 
   const importerNames = [
-    { label: "Select Importer" },
     ...getUniqueImporterNames(importers),
   ];
-
-  useEffect(() => {
-    if (!selectedImporter) {
-      setSelectedImporter("Select Importer");
-    }
-  }, [importerNames]);
 
   useEffect(() => {
     async function getYears() {
@@ -476,24 +457,25 @@ function List() {
         >
           Job Count: {totalJobs}
         </Typography>
-    
+
         {/* Importer Filter */}
-        <TextField
-          fullWidth
-          select
-          size="small"
-          value={selectedImporter || ""}
-          onChange={(e) => setSelectedImporter(e.target.value)}
-          label="Select Importer"
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {importerNames.map((option, index) => (
-            <MenuItem key={`importer-${index}`} value={option.label}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
-    
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={importerNames.map((option) => option.label)}
+          value={selectedImporter || ""} // Controlled value
+          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer" // Placeholder text
+            />
+          )}
+        />
+
         {/* Year Filter */}
         <TextField
           select
@@ -508,7 +490,7 @@ function List() {
             </MenuItem>
           ))}
         </TextField>
-    
+
         {/* ICD Code Filter */}
         <TextField
           select
@@ -533,7 +515,7 @@ function List() {
             </MenuItem>
           ))}
         </TextField>
-    
+
         {/* Search Field */}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
@@ -554,7 +536,6 @@ function List() {
         />
       </div>
     ),
-    
   });
 
   return (

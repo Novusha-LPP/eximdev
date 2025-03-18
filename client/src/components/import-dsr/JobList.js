@@ -57,15 +57,14 @@ function JobList(props) {
   };
 
   const importerNames = [
-    { label: "Select Importer" },
     ...getUniqueImporterNames(importers),
   ];
 
-  useEffect(() => {
-    if (!selectedImporter) {
-      setSelectedImporter("Select Importer");
-    }
-  }, [importerNames]);
+  // useEffect(() => {
+  //   if (!selectedImporter) {
+  //     setSelectedImporter("Select Importer");
+  //   }
+  // }, [importerNames]);
 
   const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs } =
     useFetchJobList(
@@ -141,7 +140,7 @@ function JobList(props) {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
-     sx: { textAlign: "center"},
+      sx: { textAlign: "center" },
     }),
     muiTableHeadCellProps: {
       sx: {
@@ -166,28 +165,30 @@ function JobList(props) {
           {props.status} Jobs: {total}
         </Typography>
 
-        <TextField
-          fullWidth
-          select
-          size="small"
-          value={selectedImporter || ""}
-          onChange={(e) => setSelectedImporter(e.target.value)}
-          label="Select Importer"
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {importerNames.map((option, index) => (
-            <MenuItem key={`importer-${index}`} value={option.label}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={importerNames.map((option) => option.label)}
+          value={selectedImporter || ""} // Controlled value
+          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer" // Placeholder text
+            />
+          )}
+        />
 
         <TextField
-          select defaultValue={years[0]}
+          select
+          defaultValue={years[0]}
           size="small"
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "100px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
             <MenuItem key={`year-${year}-${index}`} value={year}>

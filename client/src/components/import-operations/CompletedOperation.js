@@ -12,6 +12,7 @@ import {
   TextField,
   Pagination,
   Typography,
+  Autocomplete,
 } from "@mui/material";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
@@ -50,7 +51,6 @@ function CompletedOperations() {
           `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
         );
         setImporters(res.data);
-        setSelectedImporter("Select Importer");
       }
     }
     getImporterList();
@@ -74,15 +74,8 @@ function CompletedOperations() {
   };
 
   const importerNames = [
-    { label: "Select Importer" },
     ...getUniqueImporterNames(importers),
   ];
-
-  useEffect(() => {
-    if (!selectedImporter) {
-      setSelectedImporter("Select Importer");
-    }
-  }, [importerNames]);
 
   // Fetch available years for filtering
   useEffect(() => {
@@ -454,21 +447,22 @@ function CompletedOperations() {
           Job Count: {totalJobs}
         </Typography>
 
-        <TextField
-          fullWidth
-          select
-          size="small"
-          value={selectedImporter || ""}
-          onChange={(e) => setSelectedImporter(e.target.value)}
-          label="Select Importer"
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {importerNames.map((option, index) => (
-            <MenuItem key={`importer-${index}`} value={option.label}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={importerNames.map((option) => option.label)}
+          value={selectedImporter || ""} // Controlled value
+          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer" // Placeholder text
+            />
+          )}
+        />
 
         <TextField
           select

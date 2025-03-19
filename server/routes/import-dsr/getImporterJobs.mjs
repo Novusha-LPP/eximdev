@@ -13,27 +13,25 @@ function formatImporter(importer) {
 }
 
 // ✅ Index creation to ensure efficient querying (run this only once or during startup)
-async function ensureIndexes() {
-  try {
-    await JobModel.createIndexes([
-      { year: 1 },
-      { importerURL: 1 },
-      { status: 1 },
-    ]);
-    console.log("Indexes ensured successfully.");
-  } catch (error) {
-    console.error("Error creating indexes:", error);
-  }
-}
-ensureIndexes();
+// async function ensureIndexes() {
+//   try {
+//     await JobModel.createIndexes([
+//       { year: 1 },
+//       { importerURL: 1 },
+//       { status: 1 },
+//     ]);
+//     console.log("Indexes ensured successfully.");
+//   } catch (error) {
+//     console.error("Error creating indexes:", error);
+//   }
+// }
+// ensureIndexes();
 
 // ✅ API Endpoint to get job counts for an importer
 router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
   try {
     const { year, importerURL } = req.params;
     const formattedImporter = formatImporter(importerURL);
-
-    console.time("Job Count Aggregation");
 
     // 🚀 Aggregation to count jobs efficiently
     const jobCounts = await JobModel.aggregate([

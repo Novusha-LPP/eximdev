@@ -81,9 +81,6 @@ if (year && year !== "Select Year") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
     }
 
-    // 🔍 Debugging - Log the query to verify filtering
-    console.log("Final Query:", JSON.stringify(baseQuery, null, 2));
-
     // Fetch jobs from the database
     const allJobs = await JobModel.find(baseQuery)
       .select(

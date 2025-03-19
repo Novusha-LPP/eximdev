@@ -75,9 +75,6 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       });
     }
 
-    // 🔍 Debugging - Log the query to verify filtering
-    console.log("Final Query:", JSON.stringify(baseQuery, null, 2));
-
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(

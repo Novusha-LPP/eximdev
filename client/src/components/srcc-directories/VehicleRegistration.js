@@ -491,6 +491,7 @@ const VehicleRegistration = () => {
                       onChange={(val) =>
                         setFieldValue("purchase", val ? val.toISOString() : "")
                       }
+                      maxDate={dayjs()} // Restricts to today and past dates only
                       renderInput={(params) => (
                         <TextField
                           {...params}

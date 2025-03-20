@@ -58,8 +58,6 @@ router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
       },
     ]).allowDiskUse(true); // ✅ Enable disk use for large data
 
-    console.timeEnd("Job Count Aggregation");
-
     // ✅ Prepare response array
     const responseArray =
       jobCounts.length > 0

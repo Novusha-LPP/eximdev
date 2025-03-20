@@ -86,9 +86,6 @@ router.get("/api/get-free-days", async (req, res) => {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
     }
 
-    // 🔍 Debugging - Log the query to verify filtering
-    console.log("Final Query:", JSON.stringify(baseQuery, null, 2));
-
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(

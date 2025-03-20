@@ -286,21 +286,29 @@ function ESanchit() {
         accessorKey: "Doc",
         header: "Docs",
         enableSorting: false,
-        size: 150,
+        size: 300,
         Cell: ({ cell }) => {
           const { cth_documents, all_documents } = cell.row.original;
 
           return (
-            <div style={{ textAlign: "left" }}>
-              {" "}
-              {/* Ensure all content aligns to the left */}
-              {/* Render CTH Documents with URLs */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "5px" }}
+            >
+              {/* Loop through CTH Documents and display IRN beside the respective document */}
               {cth_documents
-                ?.filter((doc) => doc.url && doc.url.length > 0) // Only include documents with a URL
+                ?.filter((doc) => doc.url && doc.url.length > 0)
                 .map((doc) => (
-                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                  <div
+                    key={doc._id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                    }}
+                  >
+                    {/* Document Link */}
                     <a
-                      href={doc.url[0]} // Use the first URL in the array
+                      href={doc.url[0]}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -311,9 +319,17 @@ function ESanchit() {
                     >
                       {doc.document_name}
                     </a>
+
+                    {/* IRN beside its respective document */}
+                    {doc.irn && (
+                      <span>
+                        { - doc.irn}
+                      </span>
+                    )}
                   </div>
                 ))}
-              {/* Render All Documents */}
+
+              {/* Loop through All Documents */}
               {all_documents?.map((docUrl, index) => (
                 <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
                   <a

@@ -78,7 +78,7 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn"
       )
       .sort({ gateway_igm_date: 1 });
 

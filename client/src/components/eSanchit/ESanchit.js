@@ -286,66 +286,90 @@ function ESanchit() {
         accessorKey: "Doc",
         header: "Docs",
         enableSorting: false,
-        size: 300,
+        size: 400,
         Cell: ({ cell }) => {
           const { cth_documents, all_documents } = cell.row.original;
 
           return (
             <div
-              style={{ display: "flex", flexDirection: "column", gap: "5px" }}
+              style={{
+                display: "flex",
+                justifyContent: "flex-start",
+                width: "100%",
+              }}
             >
-              {/* Loop through CTH Documents and display IRN beside the respective document */}
-              {cth_documents
-                ?.filter((doc) => doc.url && doc.url.length > 0)
-                .map((doc) => (
-                  <div
-                    key={doc._id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                    }}
-                  >
-                    {/* Document Link */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  justifyContent: "flex-start",
+                  flexWrap: "wrap",
+                  gap: "5px",
+                  width: "100%", // Ensure it takes full width
+                }}
+              >
+                {/* Loop through CTH Documents and display IRN beside the respective document */}
+                {cth_documents
+                  ?.filter((doc) => doc.url && doc.url.length > 0)
+                  .map((doc) => (
+                    <div
+                      key={doc._id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between", // Pushes IRN to the right
+                        width: "100%",
+                      }}
+                    >
+                      {/* Document Link */}
+                      <a
+                        href={doc.url[0]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "blue",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                          flex: "1", // Takes remaining space
+                        }}
+                      >
+                        {doc.document_name}
+                      </a>
+
+                      {/* IRN aligned to the right */}
+                      {doc.irn && (
+                        <span
+                          style={{
+                            fontWeight: "bold",
+                            textAlign: "right",
+                            minWidth: "100px", // Ensures alignment
+                          }}
+                        >
+                          {doc.irn}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+
+                {/* Loop through All Documents */}
+                {all_documents?.map((docUrl, index) => (
+                  <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
                     <a
-                      href={doc.url[0]}
+                      href={docUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        color: "blue",
+                        color: "green",
                         textDecoration: "underline",
                         cursor: "pointer",
                       }}
                     >
-                      {doc.document_name}
+                      Doc{index + 1}
                     </a>
-
-                    {/* IRN beside its respective document */}
-                    {doc.irn && (
-                      <span>
-                        { - doc.irn}
-                      </span>
-                    )}
                   </div>
                 ))}
-
-              {/* Loop through All Documents */}
-              {all_documents?.map((docUrl, index) => (
-                <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={docUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "green",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Doc{index + 1}
-                  </a>
-                </div>
-              ))}
+              </div>
             </div>
           );
         },

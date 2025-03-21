@@ -86,8 +86,10 @@ import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
 import getDocs from "./routes/e-sanchit/getDocs.mjs";
 import getESanchitJobs from "./routes/e-sanchit/getESanchitJobs.mjs";
+import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJobs.mjs";
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
+
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -343,6 +345,7 @@ if (cluster.isPrimary) {
       app.use(getCthDocs);
       app.use(getDocs);
       app.use(getESanchitJobs);
+      app.use(getESanchitCompletedJobs);
       app.use(getJobDetail);
       app.use(updateESanchitJob);
 

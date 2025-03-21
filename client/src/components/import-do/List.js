@@ -296,19 +296,98 @@ function List() {
 
     {
       accessorKey: "be_no", // Keeping this for sorting if needed
-      header: "BE No, IGM Details",
+      header: "Bill Of Entry & IGM Details",
       enableSorting: false,
-      size: 200,
+      size: 300,
       Cell: ({ cell }) => {
-        const { be_no, igm_date, gateway_igm_date, gateway_igm } =
-          cell.row.original;
+        const {
+          be_no,
+          igm_date,
+          igm_no,
+          be_date,
+          gateway_igm_date,
+          gateway_igm,
+        } = cell.row.original;
         return (
           <div>
-            <strong>BE No:</strong> {be_no || "N/A"} <br />
-            <strong>IGM Date:</strong> {igm_date || "N/A"} <br />
-            <strong>Gateway IGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <strong>BE No:</strong> {be_no || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+              onClick={(event) => {
+                handleCopy(event, cell?.getValue()?.toString());
+              }}
+            >
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
             <br />
-            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}
+            <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+              onClick={(event) => {
+                handleCopy(event, cell?.getValue()?.toString());
+              }}
+            >
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+              onClick={(event) => {
+                handleCopy(event, cell?.getValue()?.toString());
+              }}
+            >
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+              onClick={(event) => {
+                handleCopy(event, cell?.getValue()?.toString());
+              }}
+            >
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+              onClick={(event) => {
+                handleCopy(event, cell?.getValue()?.toString());
+              }}
+            >
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>IGM Date:</strong> {igm_date || "N/A"}
+            <IconButton
+              size="small"
+              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+              onClick={(event) => {
+                handleCopy(event, cell?.getValue()?.toString());
+              }}
+            >
+              <abbr title="Copy Party Name">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
           </div>
         );
       },

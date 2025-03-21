@@ -39,34 +39,51 @@ router.get("/api/do-team-list-of-jobs", async (req, res) => {
       : {};
 
     // Base query conditions (without importer or ICD filter)
-    const baseQuery = {
-      $and: [
-        { job_no: { $ne: null } },
-        { be_no: { $exists: true, $ne: "" } },
-        {
-          $or: [
-            { shipping_line_bond_completed_date: { $exists: false } },
-            { shipping_line_bond_completed_date: "" },
-          ],
+const baseQuery = {
+  $and: [
+    { job_no: { $ne: null } },
+    { be_no: { $exists: true, $ne: "" } },
+    {
+      be_no: {
+        $not: {
+          $regex: "^cancelled$",
+          $options: "i", // Case-insensitive
         },
-        {
-          $or: [
-            { shipping_line_kyc_completed_date: { $exists: false } },
-            { shipping_line_kyc_completed_date: "" },
-          ],
-        },
-        {
-          $or: [
-            { shipping_line_invoice_received_date: { $exists: false } },
-            { shipping_line_invoice_received_date: "" },
-          ],
-        },
-        {
-          $or: [{ bill_date: { $exists: false } }, { bill_date: "" }],
-        },
-        searchQuery,
+      },
+    },
+    {
+      $or: [
+        { shipping_line_bond_completed_date: { $exists: false } },
+        { shipping_line_bond_completed_date: "" },
       ],
-    };
+    },
+    {
+      $or: [
+        { shipping_line_kyc_completed_date: { $exists: false } },
+        { shipping_line_kyc_completed_date: "" },
+      ],
+    },
+    {
+      $or: [
+        { shipping_line_invoice_received_date: { $exists: false } },
+        { shipping_line_invoice_received_date: "" },
+      ],
+    },
+    {
+      $or: [{ bill_date: { $exists: false } }, { bill_date: "" }],
+    },
+    {
+      $or: [
+        { do_planning_date: { $exists: false } }, // Does not exist
+        { do_planning_date: "" }, // Is an empty string
+        { do_planning_date: null }, // Is explicitly null
+      ],
+    },
+    searchQuery,
+  ],
+};
+
+
 
      // ✅ Apply Year Filter if Provided
      if (selectedYear) {
@@ -86,7 +103,7 @@ router.get("/api/do-team-list-of-jobs", async (req, res) => {
     // 🔍 **Step 1: Fetch Jobs After Applying Filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date checklist processed_be_attachment"
+        "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment"
       )
       .lean();
 

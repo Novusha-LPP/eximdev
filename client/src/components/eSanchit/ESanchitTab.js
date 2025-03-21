@@ -1,10 +1,9 @@
 import * as React from "react";
 import { Tabs, Tab, Box } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
-import OperationsList from "./OperationsList";
-import ExaminationPlanning from "./ExaminationPlanning";
-import CompletedOperation from "./CompletedOperation";
 import useTabs from "../../customHooks/useTabs";
+import ESanchit from "./ESanchit.js";
+import ESanchitCompleted from "./ESanchitCompleted.js";
 
 // Create a context to share tab state between components
 export const TabContext = React.createContext({
@@ -13,7 +12,7 @@ export const TabContext = React.createContext({
   navigate: () => {},
 });
 
-function ImportOperations() {
+function DocumentationTab() {
   const location = useLocation();
   const navigate = useNavigate();
   const { a11yProps, CustomTabPanel } = useTabs();
@@ -46,8 +45,7 @@ function ImportOperations() {
       navigate,
     }),
     [value, navigate]
-  );
-  console.log(contextValue);
+    );
 
   return (
     <TabContext.Provider value={contextValue}>
@@ -57,23 +55,19 @@ function ImportOperations() {
           <Tabs
             value={value}
             onChange={handleChange}
-            aria-label="Operations Tabs"
+            aria-label="ESanchit Tabs"
           >
-            <Tab label="List" {...a11yProps(0)} />
-            <Tab label="Examination Planning" {...a11yProps(1)} />
-            <Tab label="Completed Operation" {...a11yProps(2)} />
+            <Tab label="ESanchit" {...a11yProps(0)} />
+            {/* <Tab label="ESanchit Completed" {...a11yProps(1)} /> */}
           </Tabs>
         </Box>
 
         {/* Tab Panels */}
         <CustomTabPanel value={value} index={0}>
-          <OperationsList />
+          <ESanchit />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={1}>
-          <ExaminationPlanning />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={2}>
-          <CompletedOperation />
+          <ESanchitCompleted />
         </CustomTabPanel>
       </Box>
     </TabContext.Provider>
@@ -81,4 +75,4 @@ function ImportOperations() {
 }
 
 // Memoized for performance optimization
-export default React.memo(ImportOperations);
+export default React.memo(DocumentationTab);

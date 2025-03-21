@@ -1,4 +1,3 @@
-// ESanchit.jsx
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
@@ -15,9 +14,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 
-function ESanchit() {
+function ESanchitCompleted() {
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
@@ -106,7 +104,7 @@ function ESanchit() {
       setLoading(true);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`,
+          `${process.env.REACT_APP_API_STRING}/get-esanchit-completed-jobs`,
           {
             params: {
               page: currentPage,
@@ -286,7 +284,7 @@ function ESanchit() {
         accessorKey: "Doc",
         header: "Doc - IRN Details",
         enableSorting: false,
-        size: 400,
+        size: 300,
         Cell: ({ cell }) => {
           const { cth_documents, all_documents } = cell.row.original;
 
@@ -320,7 +318,7 @@ function ESanchit() {
                       marginBottom: "5px",
                     }}
                   >
-                    {serialNumber++}. {doc.document_name} - {doc.irn}
+                    {serialNumber++}. {doc.document_name} -{doc.irn}
                   </a>
                 ))}
 
@@ -341,6 +339,52 @@ function ESanchit() {
                   {serialNumber++}. Document
                 </a>
               ))}
+            </div>
+          );
+        },
+      },
+
+      {
+        accessorKey: "IRN",
+        header: "IRN Details",
+        enableSorting: false,
+        size: 200,
+        Cell: ({ cell }) => {
+          const { cth_documents } = cell.row.original;
+
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                justifyContent: "flex-start",
+                gap: "5px",
+                width: "100%",
+              }}
+            >
+              {/* Loop through each document and display serial number with IRN or "Nil" */}
+              {cth_documents?.map((doc, index) => {
+                const isValidIRN =
+                  !isNaN(Number(doc.irn)) &&
+                  doc.irn !== null &&
+                  doc.irn !== undefined &&
+                  doc.irn !== "";
+                return (
+                  <span
+                    key={doc._id}
+                    style={{
+                      fontWeight: "bold",
+                      color: isValidIRN ? "black" : "red",
+                      textAlign: "left",
+                      width: "100%",
+                      marginBottom: "5px",
+                    }}
+                  >
+                    {index + 1}. {isValidIRN ? doc.irn : "Nill"}
+                  </span>
+                );
+              })}
             </div>
           );
         },
@@ -480,4 +524,5 @@ function ESanchit() {
   );
 }
 
-export default React.memo(ESanchit);
+export default React.memo(ESanchitCompleted);
+

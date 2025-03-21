@@ -44,7 +44,6 @@ function ImportDO() {
   );
 
   // Debugging context value
-  console.log("TabContext Value:", contextValue);
 
   return (
     <TabContext.Provider value={contextValue}>

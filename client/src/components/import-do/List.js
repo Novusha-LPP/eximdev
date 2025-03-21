@@ -238,7 +238,7 @@ function List() {
       Cell: ({ cell }) => {
         const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
           cell.row.original;
-        
+
         return (
           <div
             style={{
@@ -295,24 +295,72 @@ function List() {
     },
 
     {
-      accessorKey: "shipping_line_airline",
-      header: "Shipping Line",
+      accessorKey: "be_no", // Keeping this for sorting if needed
+      header: "BE No, IGM Details",
       enableSorting: false,
       size: 200,
+      Cell: ({ cell }) => {
+        const { be_no, igm_date, gateway_igm_date, gateway_igm } =
+          cell.row.original;
+        return (
+          <div>
+            <strong>BE No:</strong> {be_no || "N/A"} <br />
+            <strong>IGM Date:</strong> {igm_date || "N/A"} <br />
+            <strong>Gateway IGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <br />
+            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}
+          </div>
+        );
+      },
     },
+
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
       size: 200,
-      Cell: ({ row }) => (
-        <BLNumberCell
-          blNumber={row.original.awb_bl_no}
-          portOfReporting={row.original.port_of_reporting}
-          shippingLine={row.original.shipping_line_airline}
-          containerNos={row.original.container_nos}
-        />
-      ),
+      Cell: ({ row }) => {
+        const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
+        const voyageNo = row.original.voyage_no?.toString() || "N/A";
+
+        return (
+          <React.Fragment>
+            <BLNumberCell
+              blNumber={row.original.awb_bl_no}
+              portOfReporting={row.original.port_of_reporting}
+              shippingLine={row.original.shipping_line_airline}
+              containerNos={row.original.container_nos}
+            />
+
+            <div>
+              {vesselFlight}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, vesselFlight)}
+              >
+                <abbr title="Copy Vessel">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+
+            <div>
+              {voyageNo}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, voyageNo)}
+              >
+                <abbr title="Copy Voyage Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+          </React.Fragment>
+        );
+      },
     },
+
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
@@ -347,49 +395,180 @@ function List() {
         );
       },
     },
+    // {
+    //   accessorKey: "vessel_and_voyage",
+    //   header: "Vessel & Voyage No",
+    //   enableSorting: false,
+    //   size: 200,
+    //   Cell: ({ row }) => {
+    //     const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
+    //     const voyageNo = row.original.voyage_no?.toString() || "N/A";
+
+    //     const handleCopy = (event, text) => {
+    //       event.stopPropagation();
+    //       navigator.clipboard.writeText(text);
+    //       alert(`${text} copied to clipboard!`);
+    //     };
+
+    //     return (
+    //       <React.Fragment>
+    //         <div>
+    //           {vesselFlight}
+    //           <IconButton
+    //             size="small"
+    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+    //             onClick={(event) => handleCopy(event, vesselFlight)}
+    //           >
+    //             <abbr title="Copy Vessel">
+    //               <ContentCopyIcon fontSize="inherit" />
+    //             </abbr>
+    //           </IconButton>
+    //         </div>
+
+    //         <div>
+    //           {voyageNo}
+    //           <IconButton
+    //             size="small"
+    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+    //             onClick={(event) => handleCopy(event, voyageNo)}
+    //           >
+    //             <abbr title="Copy Voyage Number">
+    //               <ContentCopyIcon fontSize="inherit" />
+    //             </abbr>
+    //           </IconButton>
+    //         </div>
+    //       </React.Fragment>
+    //     );
+    //   },
+    // },
+
     {
-      accessorKey: "vessel_and_voyage",
-      header: "Vessel & Voyage No",
+      accessorKey: "be_no", // Keeping this for sorting if needed
+      header: "BE No, IGM Details",
       enableSorting: false,
       size: 200,
-      Cell: ({ row }) => {
-        const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
-        const voyageNo = row.original.voyage_no?.toString() || "N/A";
+      Cell: ({ cell }) => {
+        const { be_no, igm_date, gateway_igm_date, gateway_igm } =
+          cell.row.original;
+        return (
+          <div>
+            <strong>BE No:</strong> {be_no || "N/A"} <br />
+            <strong>IGM Date:</strong> {igm_date || "N/A"} <br />
+            <strong>Gateway IGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <br />
+            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}
+          </div>
+        );
+      },
+    },
 
-        const handleCopy = (event, text) => {
-          event.stopPropagation();
-          navigator.clipboard.writeText(text);
-          alert(`${text} copied to clipboard!`);
+    {
+      accessorKey: "Doc",
+      header: "Docs",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => {
+        const { processed_be_attachment, cth_documents, checklist } =
+          cell.row.original;
+
+        // Helper function to safely get the first link if it's an array or a string
+        const getFirstLink = (input) => {
+          if (Array.isArray(input)) {
+            return input.length > 0 ? input[0] : null;
+          }
+          return input || null;
         };
 
-        return (
-          <React.Fragment>
-            <div>
-              {vesselFlight}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, vesselFlight)}
-              >
-                <abbr title="Copy Vessel">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+        const checklistLink = getFirstLink(checklist);
+        const processed_be_attachmentLink = getFirstLink(
+          processed_be_attachment
+        );
 
-            <div>
-              {voyageNo}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, voyageNo)}
-              >
-                <abbr title="Copy Voyage Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
-          </React.Fragment>
+        return (
+          <div style={{ textAlign: "left" }}>
+            {/* Render the "Checklist" link or fallback text */}
+            {checklistLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={checklistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Checklist
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>No Checklist </span>
+              </div>
+            )}
+            {processed_be_attachmentLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={processed_be_attachmentLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Processed Copy of BE no.
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>
+                  {" "}
+                  Processed Copy of BE no.{" "}
+                </span>
+              </div>
+            )}
+
+            {/* Render CTH Documents (showing actual URL) */}
+            {cth_documents &&
+            cth_documents.some(
+              (doc) =>
+                doc.url &&
+                doc.url.length > 0 &&
+                doc.document_name === "Pre-Shipment Inspection Certificate"
+            ) ? (
+              cth_documents
+                .filter(
+                  (doc) =>
+                    doc.url &&
+                    doc.url.length > 0 &&
+                    doc.document_name === "Pre-Shipment Inspection Certificate"
+                )
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))
+            ) : (
+              <span style={{ color: "gray" }}>
+                {" "}
+                No Pre-Shipment Inspection Certificate{" "}
+              </span>
+            )}
+          </div>
         );
       },
     },

@@ -108,6 +108,7 @@ const BLNumberCell = ({
           </a>
         </abbr>
       </div>
+      <div>{shippingLine}</div>
     </>
   );
 };

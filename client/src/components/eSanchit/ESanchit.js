@@ -286,7 +286,7 @@ function ESanchit() {
         accessorKey: "Doc",
         header: "Docs",
         enableSorting: false,
-        size: 400,
+        size: 300,
         Cell: ({ cell }) => {
           const { cth_documents, all_documents } = cell.row.original;
 
@@ -294,82 +294,94 @@ function ESanchit() {
             <div
               style={{
                 display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
                 justifyContent: "flex-start",
+                gap: "5px",
                 width: "100%",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  justifyContent: "flex-start",
-                  flexWrap: "wrap",
-                  gap: "5px",
-                  width: "100%", // Ensure it takes full width
-                }}
-              >
-                {/* Loop through CTH Documents and display IRN beside the respective document */}
-                {cth_documents
-                  ?.filter((doc) => doc.url && doc.url.length > 0)
-                  .map((doc) => (
-                    <div
-                      key={doc._id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between", // Pushes IRN to the right
-                        width: "100%",
-                      }}
-                    >
-                      {/* Document Link */}
-                      <a
-                        href={doc.url[0]}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: "blue",
-                          textDecoration: "underline",
-                          cursor: "pointer",
-                          flex: "1", // Takes remaining space
-                        }}
-                      >
-                        {doc.document_name}
-                      </a>
-
-                      {/* IRN aligned to the right */}
-                      {doc.irn && (
-                        <span
-                          style={{
-                            fontWeight: "bold",
-                            textAlign: "right",
-                            minWidth: "100px", // Ensures alignment
-                          }}
-                        >
-                          {doc.irn}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-
-                {/* Loop through All Documents */}
-                {all_documents?.map((docUrl, index) => (
-                  <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
-                    <a
-                      href={docUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "green",
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Doc{index + 1}
-                    </a>
-                  </div>
+              {/* Loop through CTH Documents and display document name */}
+              {cth_documents
+                ?.filter((doc) => doc.url && doc.url.length > 0)
+                .map((doc) => (
+                  <a
+                    key={doc._id}
+                    href={doc.url[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginBottom: "5px",
+                    }}
+                  >
+                    {doc.document_name}
+                  </a>
                 ))}
-              </div>
+
+              {/* Loop through All Documents */}
+              {all_documents?.map((docUrl, index) => (
+                <a
+                  key={`doc-${index}`}
+                  href={docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "green",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    marginBottom: "5px",
+                  }}
+                >
+                  Doc{index + 1}
+                </a>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "IRN",
+        header: "IRN Details",
+        enableSorting: false,
+        size: 200,
+        Cell: ({ cell }) => {
+          const { cth_documents } = cell.row.original;
+
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start", // Ensures all IRNs align to the left
+                justifyContent: "flex-start",
+                gap: "5px",
+                width: "100%", // Takes the full width of the cell
+              }}
+            >
+              {/* Loop through each document and display IRN or "Nil" */}
+              {cth_documents?.map((doc) => {
+                const isValidIRN =
+                  !isNaN(Number(doc.irn)) &&
+                  doc.irn !== null &&
+                  doc.irn !== undefined &&
+                  doc.irn !== "";
+                return (
+                  <span
+                    key={doc._id}
+                    style={{
+                      fontWeight: "bold",
+                      color: isValidIRN ? "black" : "red",
+                      textAlign: "left", // Ensures text itself is aligned to the left
+                      width: "100%", // Occupies full width to avoid centering
+                    }}
+                  >
+                    {isValidIRN ? doc.irn : "Nill"}
+                  </span>
+                );
+              })}
             </div>
           );
         },

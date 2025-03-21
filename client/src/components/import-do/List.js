@@ -731,28 +731,22 @@ function List() {
 
         {/* ICD Code Filter */}
         <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
-          }}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {[
-            { key: "all", label: "All ICDs" },
-            { key: "sanand", label: "ICD SANAND" },
-            { key: "khodiyar", label: "ICD KHODIYAR" },
-            { key: "sachana", label: "ICD SACHANA" },
-          ].map((icd) => (
-            <MenuItem key={`icd-${icd.key}`} value={icd.label}>
-              {icd.label}
-            </MenuItem>
-          ))}
-        </TextField>
+                 select
+                 size="small"
+                 variant="outlined"
+                 label="ICD Code"
+                 value={selectedICD}
+                 onChange={(e) => {
+                   setSelectedICD(e.target.value); // Update the selected ICD code
+                   setPage(1); // Reset to the first page when the filter changes
+                 }}
+                 sx={{ width: "200px", marginRight: "20px" }}
+               >
+                 <MenuItem value="">All ICDs</MenuItem>
+                 <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+                 <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+                 <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+               </TextField>
 
         {/* Search Field */}
         <TextField

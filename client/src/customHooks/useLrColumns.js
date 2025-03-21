@@ -106,15 +106,30 @@ function useLrColumns(props) {
       />
     );
   };
+  // useEffect(() => {
+  //   async function getTruckNo() {
+  //     const res = await axios(
+  //       `${process.env.REACT_APP_API_STRING}/get-vehicles`
+  //     );
+  //     setTruckNos(res.data);
+  //   }
+
+  //   getTruckNo();
+  // }, []);
+
   useEffect(() => {
-    async function getTruckNo() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-vehicles`
-      );
-      setTruckNos(res.data);
+    async function getVehicleTypes() {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-vehicle-type`
+        );
+        setTruckNos(response.data.data || []);
+      } catch (error) {
+        console.error("Error fetching vehicle types:", error);
+      }
     }
 
-    getTruckNo();
+    getVehicleTypes();
   }, []);
 
   async function getData() {
@@ -430,16 +445,20 @@ function useLrColumns(props) {
           select
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
+          value={cell.getValue() || ""}
+          onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
         >
-          {props.truckTypes?.map((type) => (
-            <MenuItem key={type} value={type}>
-              {type}
-            </MenuItem>
-          ))}
+          {Array.isArray(truckNos) && truckNos.length > 0 ? (
+            truckNos.map((vehicle) => (
+              <MenuItem key={vehicle._id} value={vehicle.vehicleType}>
+                {vehicle.vehicleType}
+              </MenuItem>
+            ))
+          ) : (
+            <MenuItem disabled>No vehicle types available</MenuItem>
+          )}
         </TextField>
       ),
     },

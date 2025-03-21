@@ -18,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-esanchit-jobs", async (req, res) => {
+router.get("/api/get-esanchit-completed-jobs", async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year } = req.query;
 
@@ -51,13 +51,9 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
         { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
         { job_no: { $ne: null } },
         { out_of_charge: { $eq: "" } },
+        // Only include documents where esanchit_completed_date_time is not null or empty
         {
-          $or: [
-            { esanchit_completed_date_time: { $exists: false } },
-            { esanchit_completed_date_time: "" },
-            { esanchit_completed_date_time: null },
-            { "cth_documents.document_check_date": "" },
-          ],
+          esanchit_completed_date_time: { $exists: true, $ne: "" },
         },
         searchQuery,
       ],
@@ -121,40 +117,40 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
-  const { job_no, year } = req.params;
-  const { cth_documents, queries, esanchit_completed_date_time } = req.body;
+// router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
+//   const { job_no, year } = req.params;
+//   const { cth_documents, queries, esanchit_completed_date_time } = req.body;
 
-  try {
-    // Find the job by job_no and year
-    const job = await JobModel.findOne({ job_no, year });
+//   try {
+//     // Find the job by job_no and year
+//     const job = await JobModel.findOne({ job_no, year });
 
-    if (!job) {
-      return res.status(404).json({ message: "Job not found" });
-    }
+//     if (!job) {
+//       return res.status(404).json({ message: "Job not found" });
+//     }
 
-    // Update fields only if provided
-    if (cth_documents) {
-      job.cth_documents = cth_documents;
-    }
+//     // Update fields only if provided
+//     if (cth_documents) {
+//       job.cth_documents = cth_documents;
+//     }
 
-    if (queries) {
-      job.eSachitQueries = queries;
-    }
+//     if (queries) {
+//       job.eSachitQueries = queries;
+//     }
 
-    // Update esanchit_completed_date_time only if it exists in the request
-    if (esanchit_completed_date_time !== undefined) {
-      job.esanchit_completed_date_time = esanchit_completed_date_time || ""; // Set to null if cleared
-    }
+//     // Update esanchit_completed_date_time only if it exists in the request
+//     if (esanchit_completed_date_time !== undefined) {
+//       job.esanchit_completed_date_time = esanchit_completed_date_time || ""; // Set to null if cleared
+//     }
 
-    // Save the updated job
-    await job.save();
+//     // Save the updated job
+//     await job.save();
 
-    res.status(200).json({ message: "Job updated successfully", job });
-  } catch (err) {
-    console.error("Error updating job:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
+//     res.status(200).json({ message: "Job updated successfully", job });
+//   } catch (err) {
+//     console.error("Error updating job:", err);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// });
 
 export default router;

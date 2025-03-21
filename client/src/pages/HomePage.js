@@ -31,6 +31,8 @@ import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
 // E-Sanchit
 import ESanchit from "../components/eSanchit/ESanchit.js";
+import ESanchitTab from "../components/eSanchit/ESanchitTab.js";
+
 import ViewESanchitJob from "../components/eSanchit/ViewESanchitJob.js";
 // Exit Feedback
 import ExitInterview from "../components/exit-interview/ExitInterview.js";
@@ -44,6 +46,7 @@ import ImportDSR from "../components/import-dsr/ImportDSR.js";
 import ViewJob from "../components/import-dsr/ViewJob.js";
 // Import Operations
 import ImportOperations from "../components/import-operations/ImportOperations.js";
+import DocumentationTab from "../components/documentation/DocumentationTab.js";
 import ViewOperationsJob from "../components/import-operations/ViewOperationsJob.js";
 import OperationListJob from "../components/import-operations/OperationListJob.js";
 
@@ -149,7 +152,7 @@ function HomePage() {
             />
 
             {/* Documentation */}
-            <Route path="/documentation" element={<Documentation />} />
+            <Route path="documentation" element={<DocumentationTab />} />
             <Route
               path="/documentationJob/view-job/:job_no/:year"
               element={<DocumentationJob />}
@@ -173,7 +176,7 @@ function HomePage() {
             />
 
             {/* ESanchit */}
-            <Route path="/e-sanchit" element={<ESanchit />} />
+            <Route path="/e-sanchit" element={<ESanchitTab />} />
             <Route
               path="/esanchit-job/:job_no/:year"
               element={<ViewESanchitJob />}

@@ -443,26 +443,6 @@ function List() {
     // },
 
     {
-      accessorKey: "be_no", // Keeping this for sorting if needed
-      header: "BE No, IGM Details",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell }) => {
-        const { be_no, igm_date, gateway_igm_date, gateway_igm } =
-          cell.row.original;
-        return (
-          <div>
-            <strong>BE No:</strong> {be_no || "N/A"} <br />
-            <strong>IGM Date:</strong> {igm_date || "N/A"} <br />
-            <strong>Gateway IGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <br />
-            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}
-          </div>
-        );
-      },
-    },
-
-    {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,

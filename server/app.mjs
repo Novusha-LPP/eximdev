@@ -90,7 +90,6 @@ import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJob
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
 
-
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
 import assignRole from "./routes/home/assignRole.mjs";
@@ -234,6 +233,7 @@ const MONGODB_URI =
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
 
+console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
 // console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 if (cluster.isPrimary) {

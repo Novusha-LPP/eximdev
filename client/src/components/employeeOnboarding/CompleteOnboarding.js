@@ -12,7 +12,6 @@ function CompleteOnboarding() {
   const { user } = useContext(UserContext);
   const [fileSnackbar, setFileSnackbar] = useState(false);
 
-  // console.log(abc);
   const formik = useFormik({
     initialValues: {
       skill: "",

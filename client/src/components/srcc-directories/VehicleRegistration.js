@@ -20,13 +20,15 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Grid,
 } from "@mui/material";
+import Autocomplete from "@mui/material/Autocomplete";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
-// For the date picker
+// Date Picker
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -49,36 +51,48 @@ const validationSchema = Yup.object({
   vehicleManufacturingDetails: Yup.string().required(
     "Manufacturing Details are required"
   ),
+  // Optionally validate these new fields if you need them required:
+  // defaultMeasurement: Yup.string().required("Default Measurement is required"),
+  // odometerUnit: Yup.string().required("Measurement is required"),
 });
 
 const VehicleRegistration = () => {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [depots, setDepots] = useState([]);
-  const [drivers, setDrivers] = useState([]); // dynamically fetched by type
+  const [drivers, setDrivers] = useState([]); // Dynamically fetched by "type"
+  const [lengthUnits, setLengthUnits] = useState([]);
+  const [unitMeasurements, setUnitMeasurements] = useState([]);
 
   const [modalMode, setModalMode] = useState("add");
   const [openModal, setOpenModal] = useState(false);
 
+  // Two separate fields for the three-column row:
+  // - defaultMeasurement: simpler subset of “common” units
+  // - odometerUnit: entire “Lengths” category
   const [formData, setFormData] = useState({
     registrationName: "",
     type: "",
     shortName: "",
     depotName: "",
     initialOdometer: "",
+    defaultMeasurement: "km", // or empty, your call
+    odometerUnit: "",
     loadCapacity: "",
     driver: "",
     purchase: "",
     vehicleManufacturingDetails: "",
   });
 
+  // Hard-coded smaller set of common default measurements,
+  // or define your own subset. You can remove or change as needed.
+  const defaultMeasurements = ["km", "cm", "mm", "m"];
+
   // Adjust this URL to match your actual endpoints.
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  // ---------------------------
   // 1. Fetch existing vehicles
-  // ---------------------------
   const fetchVehicles = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-registration`);
@@ -88,9 +102,7 @@ const VehicleRegistration = () => {
     }
   };
 
-  // ----------------------------------------
   // 2. Fetch vehicle types for Type dropdown
-  // ----------------------------------------
   const fetchVehicleTypes = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-type`);
@@ -100,9 +112,7 @@ const VehicleRegistration = () => {
     }
   };
 
-  // ---------------------------------------
   // 3. Fetch Depots for Depot Name dropdown
-  // ---------------------------------------
   const fetchDepots = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-port-types`);
@@ -112,40 +122,48 @@ const VehicleRegistration = () => {
     }
   };
 
-  // --------------------------------------------------------
   // 4. Fetch drivers (filtered by vehicle "type") on demand
-  // --------------------------------------------------------
   const fetchDriversByType = async (selectedType) => {
     try {
       if (!selectedType) {
         setDrivers([]);
         return;
       }
-
-      // Fetch available drivers for the selected type
       const response = await axios.get(
         `${API_URL}/available-drivers/${selectedType}`
       );
-      setDrivers(response.data); // Populate dropdown with drivers
+      setDrivers(response.data || []);
     } catch (error) {
       console.error("❌ Error fetching available drivers:", error);
-      setDrivers([]); // Clear the dropdown if an error occurs
+      setDrivers([]);
     }
   };
 
-  // -----------------------------
+  // 5. Fetch UnitMeasurements & set length units
+  const fetchUnitMeasurements = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/get-unit-measurements`);
+      setUnitMeasurements(response.data);
+      const lengthCategory = response.data.find(
+        (item) => item.name === "Lengths"
+      );
+      if (lengthCategory) {
+        setLengthUnits(lengthCategory.measurements);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching unit measurements:", error);
+    }
+  };
+
   // useEffect: initial fetch calls
-  // -----------------------------
   useEffect(() => {
     fetchVehicles();
     fetchVehicleTypes();
     fetchDepots();
-    // We do NOT fetch all drivers initially, we only do it after user selects a "type".
+    fetchUnitMeasurements();
   }, []);
 
-  // ---------------
   // CRUD Handlers
-  // ---------------
   const handleAdd = () => {
     setModalMode("add");
     setFormData({
@@ -154,12 +172,14 @@ const VehicleRegistration = () => {
       shortName: "",
       depotName: "",
       initialOdometer: "",
+      defaultMeasurement: "km", // pick whichever default you want
+      odometerUnit: lengthUnits[0]?.symbol || "", // fallback if available
       loadCapacity: "",
       driver: "",
       purchase: "",
       vehicleManufacturingDetails: "",
     });
-    setDrivers([]); // Clear driver list whenever adding anew
+    setDrivers([]);
     setOpenModal(true);
   };
 
@@ -172,6 +192,8 @@ const VehicleRegistration = () => {
       shortName: vehicle.shortName || "",
       depotName: vehicle.depotName || "",
       initialOdometer: vehicle.initialOdometer || "",
+      defaultMeasurement: vehicle.defaultMeasurement || "km",
+      odometerUnit: vehicle.odometerUnit || lengthUnits[0]?.symbol || "",
       loadCapacity: vehicle.loadCapacity || "",
       driver: vehicle.driver || "",
       purchase: vehicle.purchase
@@ -220,7 +242,7 @@ const VehicleRegistration = () => {
       purchase: new Date(restValues.purchase).toISOString(),
     };
 
-    console.log("Formatted data to send:", formattedData); // Add this line
+    console.log("Formatted data to send:", formattedData);
 
     try {
       let response;
@@ -257,9 +279,7 @@ const VehicleRegistration = () => {
     }
   };
 
-  // -------------
   // RENDER
-  // -------------
   return (
     <Box>
       {/* Add Button */}
@@ -431,23 +451,68 @@ const VehicleRegistration = () => {
                     </Select>
                   </FormControl>
 
-                  {/* Initial Odometer */}
-                  <TextField
-                    name="initialOdometer"
-                    label="Initial Odometer"
-                    type="number"
-                    value={values.initialOdometer}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={
-                      touched.initialOdometer && Boolean(errors.initialOdometer)
-                    }
-                    helperText={
-                      touched.initialOdometer && errors.initialOdometer
-                    }
-                  />
+                  {/* 3-Column Odometer Row */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <TextField
+                        name="initialOdometer"
+                        label="Initial Odometer"
+                        type="number"
+                        value={values.initialOdometer}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        required
+                        error={
+                          touched.initialOdometer &&
+                          Boolean(errors.initialOdometer)
+                        }
+                        helperText={
+                          touched.initialOdometer && errors.initialOdometer
+                        }
+                      />
+                    </Grid>
+
+                    <Grid item xs={4}>
+                      {/* Default Measurement dropdown */}
+                      <FormControl fullWidth>
+                        <InputLabel>Default Measurement</InputLabel>
+                        <Select
+                          name="defaultMeasurement"
+                          label="Default Measurement"
+                          value={values.defaultMeasurement || ""}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                        >
+                          {defaultMeasurements.map((dm) => (
+                            <MenuItem key={dm} value={dm}>
+                              {dm}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={4}>
+                      {/* All measurements from 'Lengths' category */}
+                      <FormControl fullWidth>
+                        <InputLabel>All Measurements</InputLabel>
+                        <Select
+                          name="odometerUnit"
+                          label="All Measurements"
+                          value={values.odometerUnit || ""}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                        >
+                          {lengthUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {`${u.unit} (${u.symbol})`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
 
                   {/* Load Capacity */}
                   <TextField

@@ -22,7 +22,6 @@ import {
   MenuItem,
   Grid,
 } from "@mui/material";
-import Autocomplete from "@mui/material/Autocomplete";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
@@ -51,44 +50,56 @@ const validationSchema = Yup.object({
   vehicleManufacturingDetails: Yup.string().required(
     "Manufacturing Details are required"
   ),
-  // Optionally validate these new fields if you need them required:
-  // defaultMeasurement: Yup.string().required("Default Measurement is required"),
-  // odometerUnit: Yup.string().required("Measurement is required"),
+  // Now explicitly require these for form + Mongoose:
+  odometerUnit: Yup.string().required("Unit is required"),
+  loadCapacityUnit: Yup.string().required("Unit is required"),
 });
 
 const VehicleRegistration = () => {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [depots, setDepots] = useState([]);
-  const [drivers, setDrivers] = useState([]); // Dynamically fetched by "type"
+  const [drivers, setDrivers] = useState([]);
   const [lengthUnits, setLengthUnits] = useState([]);
+  const [weightUnits, setWeightUnits] = useState([]);
   const [unitMeasurements, setUnitMeasurements] = useState([]);
+
+  // Toggles for "More..." logic
+  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [showAllWeightUnits, setShowAllWeightUnits] = useState(false);
 
   const [modalMode, setModalMode] = useState("add");
   const [openModal, setOpenModal] = useState(false);
 
-  // Two separate fields for the three-column row:
-  // - defaultMeasurement: simpler subset of “common” units
-  // - odometerUnit: entire “Lengths” category
+  // Default form data (Formik will override these with initialValues if set differently)
   const [formData, setFormData] = useState({
     registrationName: "",
     type: "",
     shortName: "",
     depotName: "",
     initialOdometer: "",
-    defaultMeasurement: "km", // or empty, your call
     odometerUnit: "",
     loadCapacity: "",
+    loadCapacityUnit: "",
     driver: "",
     purchase: "",
     vehicleManufacturingDetails: "",
   });
 
-  // Hard-coded smaller set of common default measurements,
-  // or define your own subset. You can remove or change as needed.
-  const defaultMeasurements = ["km", "cm", "mm", "m"];
+  // Hard-coded subsets for default usage
+  const defaultMeasurements = [
+    { unit: "kilometer", symbol: "km" },
+    { unit: "centimeter", symbol: "cm" },
+    { unit: "millimeter", symbol: "mm" },
+    { unit: "meter", symbol: "m" },
+  ];
+  const defaultWeightMeasurements = [
+    { unit: "kilogram", symbol: "kg" },
+    { unit: "gram", symbol: "g" },
+    { unit: "tonne", symbol: "t" },
+  ];
 
-  // Adjust this URL to match your actual endpoints.
+  // Adjust this URL to match your actual endpoints
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
@@ -112,17 +123,17 @@ const VehicleRegistration = () => {
     }
   };
 
-  // 3. Fetch Depots for Depot Name dropdown
+  // 3. Fetch Depots
   const fetchDepots = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-port-types`);
       setDepots(response.data.data || []);
     } catch (error) {
-      console.error("❌ Error fetching port/depot data:", error);
+      console.error("❌ Error fetching depots:", error);
     }
   };
 
-  // 4. Fetch drivers (filtered by vehicle "type") on demand
+  // 4. Fetch drivers by selected vehicle type
   const fetchDriversByType = async (selectedType) => {
     try {
       if (!selectedType) {
@@ -139,16 +150,24 @@ const VehicleRegistration = () => {
     }
   };
 
-  // 5. Fetch UnitMeasurements & set length units
+  // 5. Fetch UnitMeasurements
   const fetchUnitMeasurements = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
       setUnitMeasurements(response.data);
+
       const lengthCategory = response.data.find(
         (item) => item.name === "Lengths"
       );
       if (lengthCategory) {
         setLengthUnits(lengthCategory.measurements);
+      }
+
+      const weightCategory = response.data.find(
+        (item) => item.name === "Weight"
+      );
+      if (weightCategory) {
+        setWeightUnits(weightCategory.measurements);
       }
     } catch (error) {
       console.error("❌ Error fetching unit measurements:", error);
@@ -166,25 +185,36 @@ const VehicleRegistration = () => {
   // CRUD Handlers
   const handleAdd = () => {
     setModalMode("add");
+
+    // Provide meaningful defaults
     setFormData({
       registrationName: "",
       type: "",
       shortName: "",
       depotName: "",
       initialOdometer: "",
-      defaultMeasurement: "km", // pick whichever default you want
-      odometerUnit: lengthUnits[0]?.symbol || "", // fallback if available
+      // Default to "km" for odometerUnit
+      odometerUnit: "km",
       loadCapacity: "",
+      // Default to "kg" for loadCapacityUnit
+      loadCapacityUnit: "kg",
       driver: "",
       purchase: "",
       vehicleManufacturingDetails: "",
     });
+
+    // Clear old driver list
     setDrivers([]);
+    // Make sure toggles are reset
+    setShowAllUnits(false);
+    setShowAllWeightUnits(false);
+
     setOpenModal(true);
   };
 
   const handleEdit = (vehicle) => {
     setModalMode("edit");
+
     setFormData({
       _id: vehicle._id,
       registrationName: vehicle.registrationName || "",
@@ -192,19 +222,24 @@ const VehicleRegistration = () => {
       shortName: vehicle.shortName || "",
       depotName: vehicle.depotName || "",
       initialOdometer: vehicle.initialOdometer || "",
-      defaultMeasurement: vehicle.defaultMeasurement || "km",
-      odometerUnit: vehicle.odometerUnit || lengthUnits[0]?.symbol || "",
+      odometerUnit: vehicle.odometerUnit || "km",
       loadCapacity: vehicle.loadCapacity || "",
+      loadCapacityUnit: vehicle.loadCapacityUnit || "kg",
       driver: vehicle.driver || "",
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString()
         : "",
       vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",
     });
-    // If the vehicle already has a type, fetch the relevant drivers
+
     if (vehicle.type) {
       fetchDriversByType(vehicle.type);
     }
+
+    // Reset toggles
+    setShowAllUnits(false);
+    setShowAllWeightUnits(false);
+
     setOpenModal(true);
   };
 
@@ -226,6 +261,8 @@ const VehicleRegistration = () => {
   };
 
   const handleSave = async (values) => {
+    console.log("🚀 Final values before saving:", values);
+
     const { _id, ...restValues } = values;
 
     // Format data before sending
@@ -239,10 +276,10 @@ const VehicleRegistration = () => {
       driver: restValues.driver.trim(),
       vehicleManufacturingDetails:
         restValues.vehicleManufacturingDetails.trim(),
-      purchase: new Date(restValues.purchase).toISOString(),
+      purchase: restValues.purchase
+        ? new Date(restValues.purchase).toISOString()
+        : "",
     };
-
-    console.log("Formatted data to send:", formattedData);
 
     try {
       let response;
@@ -405,7 +442,7 @@ const VehicleRegistration = () => {
                         handleChange(event);
                         // Once user picks a type, fetch corresponding drivers:
                         await fetchDriversByType(event.target.value);
-                        // Also clear any previously selected driver if type changes:
+                        // Clear any previously selected driver if type changes:
                         setFieldValue("driver", "");
                       }}
                       onBlur={handleBlur}
@@ -451,9 +488,9 @@ const VehicleRegistration = () => {
                     </Select>
                   </FormControl>
 
-                  {/* 3-Column Odometer Row */}
+                  {/* Odometer row */}
                   <Grid container spacing={2}>
-                    <Grid item xs={4}>
+                    <Grid item xs={6}>
                       <TextField
                         name="initialOdometer"
                         label="Initial Odometer"
@@ -473,59 +510,118 @@ const VehicleRegistration = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={4}>
-                      {/* Default Measurement dropdown */}
-                      <FormControl fullWidth>
-                        <InputLabel>Default Measurement</InputLabel>
-                        <Select
-                          name="defaultMeasurement"
-                          label="Default Measurement"
-                          value={values.defaultMeasurement || ""}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                        >
-                          {defaultMeasurements.map((dm) => (
-                            <MenuItem key={dm} value={dm}>
-                              {dm}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    <Grid item xs={4}>
-                      {/* All measurements from 'Lengths' category */}
-                      <FormControl fullWidth>
-                        <InputLabel>All Measurements</InputLabel>
+                    <Grid item xs={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Unit</InputLabel>
                         <Select
                           name="odometerUnit"
-                          label="All Measurements"
+                          label="Unit"
                           value={values.odometerUnit || ""}
-                          onChange={handleChange}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            if (selected === "__more__") {
+                              setShowAllUnits(true);
+                            } else {
+                              setShowAllUnits(false);
+                              setFieldValue("odometerUnit", selected);
+                            }
+                          }}
                           onBlur={handleBlur}
+                          error={
+                            touched.odometerUnit && Boolean(errors.odometerUnit)
+                          }
                         >
-                          {lengthUnits.map((u) => (
-                            <MenuItem key={u._id} value={u.symbol}>
-                              {`${u.unit} (${u.symbol})`}
+                          {/* Default units */}
+                          {defaultMeasurements.map((dm) => (
+                            <MenuItem key={dm.symbol} value={dm.symbol}>
+                              {dm.unit} ({dm.symbol})
                             </MenuItem>
                           ))}
+
+                          {/* Only show 'More...' if not expanded */}
+                          {!showAllUnits && (
+                            <MenuItem value="__more__">
+                              <em>More...</em>
+                            </MenuItem>
+                          )}
+
+                          {/* All length units from API if 'More...' */}
+                          {showAllUnits &&
+                            lengthUnits.map((u) => (
+                              <MenuItem key={u._id} value={u.symbol}>
+                                {u.unit} ({u.symbol})
+                              </MenuItem>
+                            ))}
                         </Select>
                       </FormControl>
                     </Grid>
                   </Grid>
 
-                  {/* Load Capacity */}
-                  <TextField
-                    name="loadCapacity"
-                    label="Load Capacity"
-                    value={values.loadCapacity}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.loadCapacity && Boolean(errors.loadCapacity)}
-                    helperText={touched.loadCapacity && errors.loadCapacity}
-                  />
+                  {/* Load Capacity row */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        name="loadCapacity"
+                        label="Load Capacity"
+                        value={values.loadCapacity}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        required
+                        error={
+                          touched.loadCapacity && Boolean(errors.loadCapacity)
+                        }
+                        helperText={touched.loadCapacity && errors.loadCapacity}
+                      />
+                    </Grid>
+
+                    <Grid item xs={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Unit</InputLabel>
+                        <Select
+                          name="loadCapacityUnit"
+                          label="Unit"
+                          value={values.loadCapacityUnit || ""}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            if (selected === "__more_weight__") {
+                              setShowAllWeightUnits(true);
+                            } else {
+                              setShowAllWeightUnits(false);
+                              setFieldValue("loadCapacityUnit", selected);
+                            }
+                          }}
+                          onBlur={handleBlur}
+                          error={
+                            touched.loadCapacityUnit &&
+                            Boolean(errors.loadCapacityUnit)
+                          }
+                        >
+                          {/* Default weight units */}
+                          {defaultWeightMeasurements.map((dm) => (
+                            <MenuItem key={dm.symbol} value={dm.symbol}>
+                              {dm.unit} ({dm.symbol})
+                            </MenuItem>
+                          ))}
+
+                          {/* Only show 'More...' if not expanded */}
+                          {!showAllWeightUnits && (
+                            <MenuItem value="__more_weight__">
+                              <em>More...</em>
+                            </MenuItem>
+                          )}
+
+                          {/* All weight units from API if 'More...' */}
+                          {showAllWeightUnits &&
+                            weightUnits.map((u) => (
+                              <MenuItem key={u._id} value={u.symbol}>
+                                {u.unit} ({u.symbol})
+                              </MenuItem>
+                            ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
 
                   {/* Driver Dropdown (only show if 'type' is selected) */}
                   {values.type && (
@@ -556,7 +652,7 @@ const VehicleRegistration = () => {
                       onChange={(val) =>
                         setFieldValue("purchase", val ? val.toISOString() : "")
                       }
-                      maxDate={dayjs()} // Restricts to today and past dates only
+                      maxDate={dayjs()} // only allows today or earlier
                       renderInput={(params) => (
                         <TextField
                           {...params}

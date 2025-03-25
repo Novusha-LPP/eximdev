@@ -26,7 +26,17 @@ const VehicleRegistrationSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    odometerUnit: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     loadCapacity: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    loadCapacityUnit: {
       type: String,
       required: true,
       trim: true,

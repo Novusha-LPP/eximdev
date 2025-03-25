@@ -138,9 +138,13 @@ function Documentation() {
   );
   
   // Fetch jobs when page or debounced search query changes
-  useEffect(() => {
-    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
-  }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]); 
+ useEffect(() => {
+   if (selectedYear) {
+     // Ensure year is available before calling API
+     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
+   }
+ }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]);
+
   // ✅ Added selectedYear as a dependency
   
   // Debounce search input to avoid excessive API calls

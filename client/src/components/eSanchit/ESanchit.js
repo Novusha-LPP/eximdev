@@ -16,8 +16,11 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
+import { TabContext } from "../eSanchit/ESanchitTab.js";
+
 
 function ESanchit() {
+  const { currentTab } = useContext(TabContext); // Access context
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
@@ -62,9 +65,7 @@ function ESanchit() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -117,9 +118,14 @@ function ESanchit() {
             },
           }
         );
-  
-        const { totalJobs, totalPages, currentPage: returnedPage, jobs } = res.data;
-  
+
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+        } = res.data;
+
         setRows(jobs);
         setTotalPages(totalPages);
         setPage(returnedPage);
@@ -134,12 +140,14 @@ function ESanchit() {
     },
     [limit, selectedImporter, selectedYear] // ✅ Add selectedYear as a dependency
   );
-  
-  // ✅ Fetch jobs when `selectedYear` changes
-  useEffect(() => {
-    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
-  }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]); 
-  
+
+ useEffect(() => {
+   if (selectedYear) {
+     // Ensure year is available before calling API
+     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
+   }
+ }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]);
+
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -325,9 +333,9 @@ function ESanchit() {
                 ))}
 
               {/* Loop through All Documents with serial number */}
-              {all_documents?.map((docUrl) => (
+              {all_documents?.map((docUrl, index) => (
                 <a
-                  key={docUrl}
+                  key={`${docUrl}-${index}`} // Ensures uniqueness
                   href={docUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -338,7 +346,7 @@ function ESanchit() {
                     marginBottom: "5px",
                   }}
                 >
-                  {serialNumber++}. Document
+                  {index + 1}. Document
                 </a>
               ))}
             </div>

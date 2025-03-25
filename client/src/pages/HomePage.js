@@ -59,7 +59,7 @@ import OutwardRegister from "../components/outward-register/OutwardRegister.js";
 import OutwardRegisterDetails from "../components/outward-register/OutwardRegisterDetails.js";
 import AppbarComponent from "../components/home/AppbarComponent.js";
 import DrawerComponent from "../components/home/DrawerComponent.js";
-// LR Report
+// LR Operations
 import LrReport from "../components/lr-report/LrReport.js";
 // SRCC Directories
 import SrccDirectories from "../components/srcc-directories/SrccDirectories.js";
@@ -223,7 +223,7 @@ function HomePage() {
               element={<OutwardRegisterDetails />}
             />
 
-            {/* LR Report */}
+            {/* LR Operations */}
             <Route path="/lr-report" element={<LrReport />} />
             {/* Screens */}
             <Route path="/screen1" element={<Screen1 />} />

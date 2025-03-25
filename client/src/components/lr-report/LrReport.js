@@ -25,7 +25,7 @@ function SRCC() {
           >
             <Tab label="Full Truck Load" {...a11yProps(0)} key={0} />,
             <Tab label="Less Than Truck Load" {...a11yProps(1)} key={1} />,
-            <Tab label="DSR" {...a11yProps(2)} key={2} />,
+            <Tab label="Tracking" {...a11yProps(2)} key={2} />,
           </Tabs>
         </Box>
         <Box>

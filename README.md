@@ -1,4 +1,3 @@
-
 # AlVision Exim Client Application
 
 ## Description
@@ -17,6 +16,7 @@ AlVision Exim is a comprehensive application designed to streamline export-impor
 ## Modules
 
 1. **Import Daily Status Report (DSR)**
+
    - **Functionality**: Upload Excel sheets manually or automatically process them from email attachments. Update and manage data as required.
    - **DSR Dashboard**: Features a selection tag to choose the financial year for displaying data, defaulting to the current year. Displays total, completed, pending, and cancelled jobs. After selecting an importer, their specific job stats are shown in a donut chart.
    - **Importer Selection**: Another tab allows selection of an importer to display a list of all jobs with the selected status, presented in tables using MUI DataGrid.
@@ -34,7 +34,7 @@ AlVision Exim is a comprehensive application designed to streamline export-impor
 8. Customer KYC
 9. Inward Register
 10. Outward Register
-11. LR Report
+11. LR Operations
 12. Tyre maintenance
 
 ## Installation

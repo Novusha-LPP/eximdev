@@ -14,7 +14,7 @@ const buildSearchQuery = (search) => ({
     { type_of_b_e: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
-    // Add more fields as needed for search
+    // Add more fields as needed for search!
   ],
 });
 
@@ -61,7 +61,10 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
         },
         searchQuery,
       ],
+
+      
     };
+    
 
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {

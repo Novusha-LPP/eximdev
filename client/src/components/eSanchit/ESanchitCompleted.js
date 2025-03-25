@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
+import { TabContext } from "../eSanchit/ESanchitTab.js";
 import {
   TextField,
   InputAdornment,
@@ -16,6 +17,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 function ESanchitCompleted() {
+  const { currentTab } = useContext(TabContext); // Access context
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
@@ -28,8 +30,8 @@ function ESanchitCompleted() {
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
   const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState("");
-
+  const [importers, setImporters] = useState(""); 
+  
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
@@ -60,9 +62,7 @@ function ESanchitCompleted() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -115,9 +115,14 @@ function ESanchitCompleted() {
             },
           }
         );
-  
-        const { totalJobs, totalPages, currentPage: returnedPage, jobs } = res.data;
-  
+
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+        } = res.data;
+
         setRows(jobs);
         setTotalPages(totalPages);
         setPage(returnedPage);
@@ -132,12 +137,15 @@ function ESanchitCompleted() {
     },
     [limit, selectedImporter, selectedYear] // ✅ Add selectedYear as a dependency
   );
-  
+
   // ✅ Fetch jobs when `selectedYear` changes
-  useEffect(() => {
+useEffect(() => {
+  if (selectedYear) {
+    // Ensure year is available before calling API
     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
-  }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]); 
-  
+  }
+}, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]);
+
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -213,7 +221,11 @@ function ESanchitCompleted() {
 
           return (
             <div
-              onClick={() => navigate(`/esanchit-job/${job_no}/${year}`)}
+              onClick={() =>
+                navigate(`/esanchit-job/${job_no}/${year}`, {
+                  state: { currentTab: 1 },
+                })
+              }
               style={{
                 cursor: "pointer",
                 color: "blue",
@@ -339,52 +351,6 @@ function ESanchitCompleted() {
                   {serialNumber++}. Document
                 </a>
               ))}
-            </div>
-          );
-        },
-      },
-
-      {
-        accessorKey: "IRN",
-        header: "IRN Details",
-        enableSorting: false,
-        size: 200,
-        Cell: ({ cell }) => {
-          const { cth_documents } = cell.row.original;
-
-          return (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                justifyContent: "flex-start",
-                gap: "5px",
-                width: "100%",
-              }}
-            >
-              {/* Loop through each document and display serial number with IRN or "Nil" */}
-              {cth_documents?.map((doc, index) => {
-                const isValidIRN =
-                  !isNaN(Number(doc.irn)) &&
-                  doc.irn !== null &&
-                  doc.irn !== undefined &&
-                  doc.irn !== "";
-                return (
-                  <span
-                    key={doc._id}
-                    style={{
-                      fontWeight: "bold",
-                      color: isValidIRN ? "black" : "red",
-                      textAlign: "left",
-                      width: "100%",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {index + 1}. {isValidIRN ? doc.irn : "Nill"}
-                  </span>
-                );
-              })}
             </div>
           );
         },

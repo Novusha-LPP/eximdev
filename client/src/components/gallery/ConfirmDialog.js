@@ -1,23 +1,3 @@
-// import React from "react";
-// import { Dialog, DialogActions, DialogContent, DialogTitle, Button } from "@mui/material";
-
-// const ConfirmDialog = ({ open, handleClose, handleConfirm, message }) => (
-//   <Dialog open={open} onClose={handleClose} aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
-//     <DialogTitle id="confirm-dialog-title">{"Confirm Action"}</DialogTitle>
-//     <DialogContent>{message}</DialogContent>
-//     <DialogActions>
-//       <Button onClick={handleClose} color="primary">
-//         Cancel
-//       </Button>
-//       <Button onClick={handleConfirm} color="primary" autoFocus>
-//         Confirm
-//       </Button>
-//     </DialogActions>
-//   </Dialog>
-// );
-
-// export default ConfirmDialog;
-
 import React from "react";
 import {
   Dialog,
@@ -36,6 +16,7 @@ const ConfirmDialog = ({
   isEdit = false, // Flag to determine edit mode
   editValues = {},
   onEditChange = () => {},
+  readOnly = false, // New prop to make it read-only
 }) => (
   <Dialog
     open={open}
@@ -58,6 +39,7 @@ const ConfirmDialog = ({
               onEditChange({ ...editValues, document_name: e.target.value })
             }
             variant="outlined"
+            disabled={readOnly} // Disable field if readOnly
           />
           <TextField
             fullWidth
@@ -68,6 +50,7 @@ const ConfirmDialog = ({
               onEditChange({ ...editValues, document_code: e.target.value })
             }
             variant="outlined"
+            disabled={readOnly} // Disable field if readOnly
           />
         </>
       ) : (
@@ -78,7 +61,12 @@ const ConfirmDialog = ({
       <Button onClick={handleClose} color="primary">
         Cancel
       </Button>
-      <Button onClick={handleConfirm} color="primary" autoFocus>
+      <Button
+        onClick={handleConfirm}
+        color="primary"
+        autoFocus
+        disabled={readOnly}
+      >
         {isEdit ? "Save" : "Confirm"}
       </Button>
     </DialogActions>

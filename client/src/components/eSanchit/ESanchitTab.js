@@ -12,6 +12,8 @@ export const TabContext = React.createContext({
   navigate: () => {},
 });
 
+
+
 function DocumentationTab() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -58,7 +60,7 @@ function DocumentationTab() {
             aria-label="ESanchit Tabs"
           >
             <Tab label="ESanchit" {...a11yProps(0)} />
-            {/* <Tab label="ESanchit Completed" {...a11yProps(1)} /> */}
+            <Tab label="ESanchit Completed" {...a11yProps(1)} />
           </Tabs>
         </Box>
 

@@ -89,19 +89,6 @@ const VehicleRegistration = () => {
     vehicleManufacturingDetails: "",
   });
 
-  // Hard-coded subsets for default usage
-  const defaultMeasurements = [
-    { unit: "kilometer", symbol: "km" },
-    { unit: "centimeter", symbol: "cm" },
-    { unit: "millimeter", symbol: "mm" },
-    { unit: "meter", symbol: "m" },
-  ];
-  const defaultWeightMeasurements = [
-    { unit: "kilogram", symbol: "kg" },
-    { unit: "gram", symbol: "g" },
-    { unit: "tonne", symbol: "t" },
-  ];
-
   // Adjust this URL to match your actual endpoints
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
@@ -441,6 +428,7 @@ const VehicleRegistration = () => {
                   />
 
                   {/* Type Dropdown (triggers driver fetch) */}
+                  {/* Type Dropdown (triggers driver fetch and auto-populates load capacity) */}
                   <FormControl fullWidth required>
                     <InputLabel>Type</InputLabel>
                     <Select
@@ -448,9 +436,22 @@ const VehicleRegistration = () => {
                       label="Type"
                       value={values.type}
                       onChange={async (event) => {
+                        const selectedType = event.target.value;
+                        // Update the type field first
                         handleChange(event);
-                        await fetchDriversByType(event.target.value);
+                        // Fetch available drivers for the selected type
+                        await fetchDriversByType(selectedType);
+                        // Clear any previously selected driver if type changes
                         setFieldValue("driver", "");
+
+                        // Auto-populate loadCapacity based on the selected vehicle type
+                        const foundType = vehicleTypes.find(
+                          (v) => v.vehicleType === selectedType
+                        );
+                        if (foundType && foundType.loadCapacity) {
+                          // Set loadCapacity as an object with value and unit
+                          setFieldValue("loadCapacity", foundType.loadCapacity);
+                        }
                       }}
                       onBlur={handleBlur}
                       error={touched.type && Boolean(errors.type)}
@@ -541,7 +542,6 @@ const VehicleRegistration = () => {
                       </FormControl>
                     </Grid>
                   </Grid>
-
                   {/* Load Capacity row */}
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
@@ -588,7 +588,6 @@ const VehicleRegistration = () => {
                       </FormControl>
                     </Grid>
                   </Grid>
-
                   {/* Driver Dropdown (only show if 'type' is selected) */}
                   {values.type && (
                     <FormControl fullWidth required>

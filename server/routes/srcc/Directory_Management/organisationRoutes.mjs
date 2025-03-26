@@ -41,6 +41,30 @@ router.get("/api/organisations/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+// SEARCH (autocomplete-friendly)
+router.get("/api/organisations/search", async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query || query.trim() === "") {
+      return res.status(400).json({ error: "Query parameter is required" });
+    }
+
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const safeQuery = escapeRegex(query);
+
+    const results = await Organisation.find({
+      name: { $regex: safeQuery, $options: "i" },
+    })
+      .limit(20)
+      .select("_id name");
+
+    res.status(200).json({ data: results });
+  } catch (error) {
+    console.error("Error searching organisations:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // UPDATE
 router.put("/api/organisations/:id", async (req, res) => {

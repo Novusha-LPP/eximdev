@@ -12,7 +12,9 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
     shortName,
     depotName,
     initialOdometer,
+    odometerUnit, // <-- add this
     loadCapacity,
+    loadCapacityUnit, // <-- add this
     driver,
     purchase,
     vehicleManufacturingDetails,
@@ -29,7 +31,9 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       !shortName ||
       !depotName ||
       !initialOdometer ||
+      !odometerUnit || // <-- add check
       !loadCapacity ||
+      !loadCapacityUnit || // <-- add check
       !driver ||
       !purchase ||
       !vehicleManufacturingDetails
@@ -54,7 +58,9 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       shortName,
       depotName,
       initialOdometer,
+      odometerUnit, // <-- added
       loadCapacity,
+      loadCapacityUnit, // <-- added
       driver,
       purchase,
       vehicleManufacturingDetails,
@@ -113,8 +119,10 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     shortName,
     depotName,
     initialOdometer,
+    odometerUnit,
     loadCapacity,
-    driver, // New driver
+    loadCapacityUnit,
+    driver,
     purchase,
     vehicleManufacturingDetails,
   } = req.body;
@@ -126,7 +134,9 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
       _id: { $ne: id },
     });
     if (existingRegistration) {
-      return res.status(400).json({ error: "Vehicle registration already exists" });
+      return res
+        .status(400)
+        .json({ error: "Vehicle registration already exists" });
     }
 
     // Find the existing vehicle registration to check previous driver
@@ -169,7 +179,9 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
         shortName,
         depotName,
         initialOdometer,
+        odometerUnit, // <-- add
         loadCapacity,
+        loadCapacityUnit, // <-- add
         driver,
         purchase,
         vehicleManufacturingDetails,
@@ -186,7 +198,6 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 // DELETE a Vehicle Registration
 // DELETE a Vehicle Registration

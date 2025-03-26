@@ -1,130 +1,105 @@
+// routes/vehicleTypeRoutes.js
 import express from "express";
 import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
 
 const router = express.Router();
 
-router.post("/api/add-vehicle-type", async (req, res) => {
-  const {
-    vehicleType,
-    shortName,
-    loadCapacity,
-    engineCapacity,
-    cargoTypeAllowed,
-    CommodityCarry,
-  } = req.body;
-
+// Add Vehicle Type
+router.post("/api/vehicle-types", async (req, res) => {
   try {
+    const { vehicleType } = req.body;
     const existingVehicle = await VehicleType.findOne({ vehicleType });
+
     if (existingVehicle) {
-      return res.status(400).json({ error: "Vehicle type already exists" });
+      return res.status(409).json({ error: "Vehicle type already exists." });
     }
 
-    const newVehicle = await VehicleType.create({
-      vehicleType,
-      shortName,
-      loadCapacity,
-      engineCapacity,
-      cargoTypeAllowed,
-      CommodityCarry,
-    });
-
+    const newVehicle = await VehicleType.create(req.body);
     res.status(201).json({
-      message: "Vehicle Type added successfully",
+      message: "Vehicle type added successfully.",
       data: newVehicle,
     });
   } catch (error) {
-    console.error("Error adding vehicle:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error adding vehicle type:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
-router.get("/api/get-vehicle-type", async (req, res) => {
+// Get All Vehicle Types
+router.get("/api/vehicle-types", async (req, res) => {
   try {
     const vehicles = await VehicleType.find();
     res.status(200).json({ data: vehicles });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error fetching vehicle types:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
-router.get("/api/get-vehicle-type/:id", async (req, res) => {
-  const { id } = req.params;
+// Get Vehicle Type by ID
+router.get("/api/vehicle-types/:id", async (req, res) => {
   try {
-    const vehicle = await VehicleType.findById(id);
+    const vehicle = await VehicleType.findById(req.params.id);
     if (!vehicle) {
-      return res.status(404).json({ error: "Vehicle not found" });
+      return res.status(404).json({ error: "Vehicle type not found." });
     }
     res.status(200).json({ data: vehicle });
   } catch (error) {
-    console.error("Error fetching vehicle:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error fetching vehicle type:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
-router.put("/api/update-vehicle-type/:id", async (req, res) => {
-  const { id } = req.params;
-  const {
-    vehicleType,
-    shortName,
-    loadCapacity,
-    engineCapacity,
-    cargoTypeAllowed,
-    CommodityCarry,
-  } = req.body;
-
+// Update Vehicle Type by ID
+router.put("/api/vehicle-types/:id", async (req, res) => {
   try {
-    // Check if another vehicle has the same `vehicleType`
-    const existingVehicle = await VehicleType.findOne({
+    const { vehicleType } = req.body;
+
+    const duplicateVehicle = await VehicleType.findOne({
       vehicleType,
-      _id: { $ne: id },
+      _id: { $ne: req.params.id },
     });
 
-    if (existingVehicle) {
-      return res.status(400).json({ error: "Vehicle type already exists" });
+    if (duplicateVehicle) {
+      return res.status(409).json({ error: "Vehicle type already exists." });
     }
 
     const updatedVehicle = await VehicleType.findByIdAndUpdate(
-      id,
-      {
-        vehicleType,
-        shortName,
-        loadCapacity,
-        engineCapacity,
-        cargoTypeAllowed,
-        CommodityCarry,
-      },
+      req.params.id,
+      req.body,
       { new: true }
     );
 
     if (!updatedVehicle) {
-      return res.status(404).json({ error: "Vehicle not found" });
+      return res.status(404).json({ error: "Vehicle type not found." });
     }
 
     res.status(200).json({
-      message: "Vehicle updated successfully",
+      message: "Vehicle type updated successfully.",
       data: updatedVehicle,
     });
   } catch (error) {
-    console.error("Error updating vehicle:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error updating vehicle type:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
-router.delete("/api/delete-vehicle-type/:id", async (req, res) => {
-  const { id } = req.params;
+// Delete Vehicle Type by ID
+router.delete("/api/vehicle-types/:id", async (req, res) => {
   try {
-    const deletedVehicle = await VehicleType.findByIdAndDelete(id);
+    const deletedVehicle = await VehicleType.findByIdAndDelete(req.params.id);
+
     if (!deletedVehicle) {
-      return res.status(404).json({ error: "Vehicle not found" });
+      return res.status(404).json({ error: "Vehicle type not found." });
     }
+
     res.status(200).json({
-      message: "Vehicle deleted successfully",
+      message: "Vehicle type deleted successfully.",
       data: deletedVehicle,
     });
   } catch (error) {
-    console.error("Error deleting vehicle:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error deleting vehicle type:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 

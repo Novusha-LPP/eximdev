@@ -20,13 +20,14 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Grid,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
-// For the date picker
+// Date Picker
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -38,10 +39,18 @@ const validationSchema = Yup.object({
   type: Yup.string().required("Type is required"),
   shortName: Yup.string().required("Short Name is required"),
   depotName: Yup.string().required("Depot Name is required"),
-  initialOdometer: Yup.number()
-    .required("Initial Odometer is required")
-    .min(0, "Odometer must be a positive number"),
-  loadCapacity: Yup.string().required("Load Capacity is required"),
+  initialOdometer: Yup.object({
+    value: Yup.number()
+      .required("Initial Odometer is required")
+      .min(0, "Odometer must be a positive number"),
+    unit: Yup.string().required("Odometer unit is required"),
+  }),
+  loadCapacity: Yup.object({
+    value: Yup.number()
+      .required("Load Capacity is required")
+      .min(0, "Load Capacity must be a positive number"),
+    unit: Yup.string().required("Load Capacity unit is required"),
+  }),
   driver: Yup.string().required("Driver name is required"),
   purchase: Yup.date()
     .typeError("Please select a valid date")
@@ -55,30 +64,36 @@ const VehicleRegistration = () => {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [depots, setDepots] = useState([]);
-  const [drivers, setDrivers] = useState([]); // dynamically fetched by type
+  const [drivers, setDrivers] = useState([]);
+  const [lengthUnits, setLengthUnits] = useState([]);
+  const [weightUnits, setWeightUnits] = useState([]);
+  const [unitMeasurements, setUnitMeasurements] = useState([]);
+
+  // Toggles for "More..." logic
+  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [showAllWeightUnits, setShowAllWeightUnits] = useState(false);
 
   const [modalMode, setModalMode] = useState("add");
   const [openModal, setOpenModal] = useState(false);
 
+  // Default form data (Formik will override these with initialValues if set differently)
   const [formData, setFormData] = useState({
     registrationName: "",
     type: "",
     shortName: "",
     depotName: "",
-    initialOdometer: "",
-    loadCapacity: "",
+    initialOdometer: { value: "", unit: "" },
+    loadCapacity: { value: "", unit: "" },
     driver: "",
     purchase: "",
     vehicleManufacturingDetails: "",
   });
 
-  // Adjust this URL to match your actual endpoints.
+  // Adjust this URL to match your actual endpoints
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  // ---------------------------
   // 1. Fetch existing vehicles
-  // ---------------------------
   const fetchVehicles = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-registration`);
@@ -88,83 +103,108 @@ const VehicleRegistration = () => {
     }
   };
 
-  // ----------------------------------------
   // 2. Fetch vehicle types for Type dropdown
-  // ----------------------------------------
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`${API_URL}/get-vehicle-type`);
+      const response = await axios.get(`${API_URL}/vehicle-types`);
       setVehicleTypes(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching vehicle types:", error);
     }
   };
 
-  // ---------------------------------------
-  // 3. Fetch Depots for Depot Name dropdown
-  // ---------------------------------------
+  // 3. Fetch Depots
   const fetchDepots = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-port-types`);
       setDepots(response.data.data || []);
     } catch (error) {
-      console.error("❌ Error fetching port/depot data:", error);
+      console.error("❌ Error fetching depots:", error);
     }
   };
 
-  // --------------------------------------------------------
-  // 4. Fetch drivers (filtered by vehicle "type") on demand
-  // --------------------------------------------------------
+  // 4. Fetch drivers by selected vehicle type
   const fetchDriversByType = async (selectedType) => {
     try {
       if (!selectedType) {
         setDrivers([]);
         return;
       }
-
-      // Fetch available drivers for the selected type
       const response = await axios.get(
         `${API_URL}/available-drivers/${selectedType}`
       );
-      setDrivers(response.data); // Populate dropdown with drivers
+      setDrivers(response.data || []);
     } catch (error) {
       console.error("❌ Error fetching available drivers:", error);
-      setDrivers([]); // Clear the dropdown if an error occurs
+      setDrivers([]);
     }
   };
 
-  // -----------------------------
+  // 5. Fetch UnitMeasurements
+  const fetchUnitMeasurements = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/get-unit-measurements`);
+      setUnitMeasurements(response.data);
+
+      const lengthCategory = response.data.find(
+        (item) => item.name === "Lengths"
+      );
+      if (lengthCategory) {
+        setLengthUnits(lengthCategory.measurements);
+      }
+
+      const weightCategory = response.data.find(
+        (item) => item.name === "Weight"
+      );
+      if (weightCategory) {
+        setWeightUnits(weightCategory.measurements);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching unit measurements:", error);
+    }
+  };
+
   // useEffect: initial fetch calls
-  // -----------------------------
   useEffect(() => {
     fetchVehicles();
     fetchVehicleTypes();
     fetchDepots();
-    // We do NOT fetch all drivers initially, we only do it after user selects a "type".
+    fetchUnitMeasurements();
   }, []);
 
-  // ---------------
   // CRUD Handlers
-  // ---------------
   const handleAdd = () => {
     setModalMode("add");
+
+    // Provide meaningful defaults
     setFormData({
       registrationName: "",
       type: "",
       shortName: "",
       depotName: "",
       initialOdometer: "",
+      // Default to "km" for odometerUnit
+      odometerUnit: "km",
       loadCapacity: "",
+      // Default to "kg" for loadCapacityUnit
+      loadCapacityUnit: "kg",
       driver: "",
       purchase: "",
       vehicleManufacturingDetails: "",
     });
-    setDrivers([]); // Clear driver list whenever adding anew
+
+    // Clear old driver list
+    setDrivers([]);
+    // Make sure toggles are reset
+    setShowAllUnits(false);
+    setShowAllWeightUnits(false);
+
     setOpenModal(true);
   };
 
   const handleEdit = (vehicle) => {
     setModalMode("edit");
+
     setFormData({
       _id: vehicle._id,
       registrationName: vehicle.registrationName || "",
@@ -172,17 +212,24 @@ const VehicleRegistration = () => {
       shortName: vehicle.shortName || "",
       depotName: vehicle.depotName || "",
       initialOdometer: vehicle.initialOdometer || "",
+      odometerUnit: vehicle.odometerUnit || "km",
       loadCapacity: vehicle.loadCapacity || "",
+      loadCapacityUnit: vehicle.loadCapacityUnit || "kg",
       driver: vehicle.driver || "",
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString()
         : "",
       vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",
     });
-    // If the vehicle already has a type, fetch the relevant drivers
+
     if (vehicle.type) {
       fetchDriversByType(vehicle.type);
     }
+
+    // Reset toggles
+    setShowAllUnits(false);
+    setShowAllWeightUnits(false);
+
     setOpenModal(true);
   };
 
@@ -204,6 +251,8 @@ const VehicleRegistration = () => {
   };
 
   const handleSave = async (values) => {
+    console.log("🚀 Final values before saving:", values);
+
     const { _id, ...restValues } = values;
 
     // Format data before sending
@@ -213,14 +262,22 @@ const VehicleRegistration = () => {
       type: restValues.type.trim(),
       shortName: restValues.shortName.trim(),
       depotName: restValues.depotName.trim(),
-      loadCapacity: restValues.loadCapacity.trim(),
+      // Here initialOdometer and loadCapacity are objects:
+      initialOdometer: {
+        value: restValues.initialOdometer.value,
+        unit: restValues.initialOdometer.unit,
+      },
+      loadCapacity: {
+        value: restValues.loadCapacity.value,
+        unit: restValues.loadCapacity.unit,
+      },
       driver: restValues.driver.trim(),
       vehicleManufacturingDetails:
         restValues.vehicleManufacturingDetails.trim(),
-      purchase: new Date(restValues.purchase).toISOString(),
+      purchase: restValues.purchase
+        ? new Date(restValues.purchase).toISOString()
+        : "",
     };
-
-    console.log("Formatted data to send:", formattedData); // Add this line
 
     try {
       let response;
@@ -257,9 +314,7 @@ const VehicleRegistration = () => {
     }
   };
 
-  // -------------
   // RENDER
-  // -------------
   return (
     <Box>
       {/* Add Button */}
@@ -278,8 +333,7 @@ const VehicleRegistration = () => {
               <TableCell>Type</TableCell>
               <TableCell>Short Name</TableCell>
               <TableCell>Depot Name</TableCell>
-              <TableCell>Initial Odometer</TableCell>
-              <TableCell>Load Capacity</TableCell>
+
               <TableCell>Driver</TableCell>
               <TableCell>Purchase Date</TableCell>
               <TableCell>Manufacturing Details</TableCell>
@@ -293,8 +347,7 @@ const VehicleRegistration = () => {
                 <TableCell>{vehicle.type}</TableCell>
                 <TableCell>{vehicle.shortName}</TableCell>
                 <TableCell>{vehicle.depotName}</TableCell>
-                <TableCell>{vehicle.initialOdometer}</TableCell>
-                <TableCell>{vehicle.loadCapacity}</TableCell>
+
                 <TableCell>{vehicle.driver}</TableCell>
                 <TableCell>
                   {vehicle.purchase
@@ -375,6 +428,7 @@ const VehicleRegistration = () => {
                   />
 
                   {/* Type Dropdown (triggers driver fetch) */}
+                  {/* Type Dropdown (triggers driver fetch and auto-populates load capacity) */}
                   <FormControl fullWidth required>
                     <InputLabel>Type</InputLabel>
                     <Select
@@ -382,11 +436,22 @@ const VehicleRegistration = () => {
                       label="Type"
                       value={values.type}
                       onChange={async (event) => {
+                        const selectedType = event.target.value;
+                        // Update the type field first
                         handleChange(event);
-                        // Once user picks a type, fetch corresponding drivers:
-                        await fetchDriversByType(event.target.value);
-                        // Also clear any previously selected driver if type changes:
+                        // Fetch available drivers for the selected type
+                        await fetchDriversByType(selectedType);
+                        // Clear any previously selected driver if type changes
                         setFieldValue("driver", "");
+
+                        // Auto-populate loadCapacity based on the selected vehicle type
+                        const foundType = vehicleTypes.find(
+                          (v) => v.vehicleType === selectedType
+                        );
+                        if (foundType && foundType.loadCapacity) {
+                          // Set loadCapacity as an object with value and unit
+                          setFieldValue("loadCapacity", foundType.loadCapacity);
+                        }
                       }}
                       onBlur={handleBlur}
                       error={touched.type && Boolean(errors.type)}
@@ -431,37 +496,98 @@ const VehicleRegistration = () => {
                     </Select>
                   </FormControl>
 
-                  {/* Initial Odometer */}
-                  <TextField
-                    name="initialOdometer"
-                    label="Initial Odometer"
-                    type="number"
-                    value={values.initialOdometer}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={
-                      touched.initialOdometer && Boolean(errors.initialOdometer)
-                    }
-                    helperText={
-                      touched.initialOdometer && errors.initialOdometer
-                    }
-                  />
+                  {/* Odometer row */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        name="initialOdometer.value"
+                        label="Initial Odometer"
+                        type="number"
+                        value={values.initialOdometer.value}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        required
+                        error={
+                          touched.initialOdometer?.value &&
+                          Boolean(errors.initialOdometer?.value)
+                        }
+                        helperText={
+                          touched.initialOdometer?.value &&
+                          errors.initialOdometer?.value
+                        }
+                      />
+                    </Grid>
 
-                  {/* Load Capacity */}
-                  <TextField
-                    name="loadCapacity"
-                    label="Load Capacity"
-                    value={values.loadCapacity}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.loadCapacity && Boolean(errors.loadCapacity)}
-                    helperText={touched.loadCapacity && errors.loadCapacity}
-                  />
+                    <Grid item xs={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Unit</InputLabel>
+                        <Select
+                          name="initialOdometer.unit"
+                          label="Unit"
+                          value={values.initialOdometer.unit || ""}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          error={
+                            touched.initialOdometer?.unit &&
+                            Boolean(errors.initialOdometer?.unit)
+                          }
+                        >
+                          {lengthUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {u.unit} ({u.symbol})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                  {/* Load Capacity row */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        name="loadCapacity.value"
+                        label="Load Capacity"
+                        type="number"
+                        value={values.loadCapacity.value}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        required
+                        error={
+                          touched.loadCapacity?.value &&
+                          Boolean(errors.loadCapacity?.value)
+                        }
+                        helperText={
+                          touched.loadCapacity?.value &&
+                          errors.loadCapacity?.value
+                        }
+                      />
+                    </Grid>
 
+                    <Grid item xs={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Unit</InputLabel>
+                        <Select
+                          name="loadCapacity.unit"
+                          label="Unit"
+                          value={values.loadCapacity.unit || ""}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          error={
+                            touched.loadCapacity?.unit &&
+                            Boolean(errors.loadCapacity?.unit)
+                          }
+                        >
+                          {weightUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {u.unit} ({u.symbol})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
                   {/* Driver Dropdown (only show if 'type' is selected) */}
                   {values.type && (
                     <FormControl fullWidth required>
@@ -491,7 +617,7 @@ const VehicleRegistration = () => {
                       onChange={(val) =>
                         setFieldValue("purchase", val ? val.toISOString() : "")
                       }
-                      maxDate={dayjs()} // Restricts to today and past dates only
+                      maxDate={dayjs()} // only allows today or earlier
                       renderInput={(params) => (
                         <TextField
                           {...params}

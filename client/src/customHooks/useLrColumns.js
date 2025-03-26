@@ -121,7 +121,7 @@ function useLrColumns(props) {
     async function getVehicleTypes() {
       try {
         const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-vehicle-type`
+          `${process.env.REACT_APP_API_STRING}/vehicle-types`
         );
         setTruckNos(response.data.data || []);
       } catch (error) {

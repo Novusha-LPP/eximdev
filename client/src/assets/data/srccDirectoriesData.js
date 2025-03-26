@@ -78,7 +78,7 @@ export const directoryFields = {
       label: "Postal Code * (Enter correct PIN to auto-fill other details)",
       type: "text",
     },
-    { name: "city", label: "City", type: "text", disabled: true },
+    { name: "city", label: "Taluka", type: "text", disabled: true },
     { name: "district", label: "District", type: "text", disabled: true },
     { name: "state", label: "State", type: "text", disabled: true },
     { name: "country", label: "Country", type: "text", disabled: true },

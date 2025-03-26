@@ -29,20 +29,22 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Field, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
+import Autocomplete from "@mui/material/Autocomplete";
 
 // Validation schema with Yup
 const validationSchema = Yup.object({
+  // organization: Yup.string().required("Organization is required"),
   name: Yup.string().required("Port Name is required"),
   icd_code: Yup.string()
     .required("ICD Code is required")
     .matches(/^\S*$/, "ICD Code must not contain spaces"),
   state: Yup.string().required("State is required"),
   country: Yup.string().required("Country is required"),
-  contactPersonName: Yup.string().required("Contact Person Name is required"),
-  contactPersonEmail: Yup.string()
-    .email("Invalid email format")
-    .required("Contact Person Email is required"),
-  contactPersonPhone: Yup.string().required("Contact Person Phone is required"),
+  // contactPersonName: Yup.string().required("Contact Person Name is required"),
+  // contactPersonEmail: Yup.string()
+  // .email("Invalid email format")
+  // .required("Contact Person Email is required"),
+  // contactPersonPhone: Yup.string().required("Contact Person Phone is required"),
   active: Yup.boolean().required("Active status is required"),
   type: Yup.string().required("Port Type is required"),
 });
@@ -51,7 +53,10 @@ function PortsCfsYardDirectory() {
   const [portsData, setPortsData] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
+  const [orgOptions, setOrgOptions] = useState([]);
+
   const [formData, setFormData] = useState({
+    organization: "",
     name: "",
     icd_code: "",
     state: "",
@@ -86,6 +91,7 @@ function PortsCfsYardDirectory() {
   const handleAdd = () => {
     setModalMode("add");
     setFormData({
+      organization: "",
       name: "",
       icd_code: "",
       state: "",
@@ -102,6 +108,7 @@ function PortsCfsYardDirectory() {
   const handleEdit = (port) => {
     setModalMode("edit");
     setFormData({
+      organization: port.organization || "",
       name: port.name,
       icd_code: port.icd_code,
       state: port.state,
@@ -134,6 +141,7 @@ function PortsCfsYardDirectory() {
     try {
       const formattedData = {
         ...values,
+        organization: values.organization.trim(),
         icd_code: values.icd_code.trim(),
         name: values.name.trim(),
         state: values.state.trim(),
@@ -192,8 +200,8 @@ function PortsCfsYardDirectory() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Port Name</TableCell>
-              <TableCell>ICD Code</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Code</TableCell>
               <TableCell>State</TableCell>
               <TableCell>Country</TableCell>
               <TableCell>Active</TableCell>
@@ -249,12 +257,60 @@ function PortsCfsYardDirectory() {
             validationSchema={validationSchema}
             onSubmit={handleSave}
           >
-            {({ values, handleChange, handleBlur, errors, touched }) => (
+            {({
+              values,
+              handleChange,
+              handleBlur,
+              errors,
+              touched,
+              setFieldValue,
+            }) => (
               <Form>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <Autocomplete
+                    options={orgOptions}
+                    getOptionLabel={(option) => option.name || ""}
+                    filterOptions={(x) => x} // disable built-in filtering
+                    onInputChange={async (e, value) => {
+                      if (value.length < 2) return;
+                      try {
+                        const res = await axios.get(
+                          `${API_URL}/organisations/search?query=${value}`
+                        );
+                        setOrgOptions(res.data.data || []);
+                      } catch (err) {
+                        console.error("❌ Error searching organizations:", err);
+                      }
+                    }}
+                    onChange={(event, newValue) => {
+                      setFieldValue(
+                        "organization",
+                        newValue ? newValue.name : ""
+                      );
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Organization"
+                        name="organization"
+                        fullWidth
+                        onBlur={handleBlur}
+                        error={
+                          touched.organization && Boolean(errors.organization)
+                        }
+                        helperText={touched.organization && errors.organization}
+                      />
+                    )}
+                    value={
+                      orgOptions.find(
+                        (opt) => opt.name === values.organization
+                      ) || null
+                    }
+                  />
+
                   <TextField
                     name="name"
-                    label="Port Name"
+                    label="Name"
                     value={values.name}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -265,7 +321,7 @@ function PortsCfsYardDirectory() {
                   />
                   <TextField
                     name="icd_code"
-                    label="ICD Code"
+                    label="Code"
                     value={values.icd_code}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -340,13 +396,13 @@ function PortsCfsYardDirectory() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    error={
-                      touched.contactPersonName &&
-                      Boolean(errors.contactPersonName)
-                    }
-                    helperText={
-                      touched.contactPersonName && errors.contactPersonName
-                    }
+                    // error={
+                    //   touched.contactPersonName &&
+                    //   Boolean(errors.contactPersonName)
+                    // }
+                    // helperText={
+                    //   touched.contactPersonName && errors.contactPersonName
+                    // }
                   />
                   <TextField
                     name="contactPersonEmail"
@@ -355,13 +411,13 @@ function PortsCfsYardDirectory() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    error={
-                      touched.contactPersonEmail &&
-                      Boolean(errors.contactPersonEmail)
-                    }
-                    helperText={
-                      touched.contactPersonEmail && errors.contactPersonEmail
-                    }
+                    // error={
+                    //   touched.contactPersonEmail &&
+                    //   Boolean(errors.contactPersonEmail)
+                    // }
+                    // helperText={
+                    //   touched.contactPersonEmail && errors.contactPersonEmail
+                    // }
                   />
                   <TextField
                     name="contactPersonPhone"
@@ -370,13 +426,13 @@ function PortsCfsYardDirectory() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    error={
-                      touched.contactPersonPhone &&
-                      Boolean(errors.contactPersonPhone)
-                    }
-                    helperText={
-                      touched.contactPersonPhone && errors.contactPersonPhone
-                    }
+                    // error={
+                    //   touched.contactPersonPhone &&
+                    //   Boolean(errors.contactPersonPhone)
+                    // }
+                    // helperText={
+                    //   touched.contactPersonPhone && errors.contactPersonPhone
+                    // }
                   />
                   <DialogActions>
                     <Button onClick={() => setOpenModal(false)}>Cancel</Button>

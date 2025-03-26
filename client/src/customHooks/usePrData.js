@@ -32,7 +32,7 @@ function usePrData() {
 
     const getTruckTypes = async () => {
       const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-vehicle-type`
+        `${process.env.REACT_APP_API_STRING}/vehicle-types`
       );
       setTruckTypes(res.data);
     };

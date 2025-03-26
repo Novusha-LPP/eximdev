@@ -39,10 +39,18 @@ const validationSchema = Yup.object({
   type: Yup.string().required("Type is required"),
   shortName: Yup.string().required("Short Name is required"),
   depotName: Yup.string().required("Depot Name is required"),
-  initialOdometer: Yup.number()
-    .required("Initial Odometer is required")
-    .min(0, "Odometer must be a positive number"),
-  loadCapacity: Yup.string().required("Load Capacity is required"),
+  initialOdometer: Yup.object({
+    value: Yup.number()
+      .required("Initial Odometer is required")
+      .min(0, "Odometer must be a positive number"),
+    unit: Yup.string().required("Odometer unit is required"),
+  }),
+  loadCapacity: Yup.object({
+    value: Yup.number()
+      .required("Load Capacity is required")
+      .min(0, "Load Capacity must be a positive number"),
+    unit: Yup.string().required("Load Capacity unit is required"),
+  }),
   driver: Yup.string().required("Driver name is required"),
   purchase: Yup.date()
     .typeError("Please select a valid date")
@@ -50,9 +58,6 @@ const validationSchema = Yup.object({
   vehicleManufacturingDetails: Yup.string().required(
     "Manufacturing Details are required"
   ),
-  // Now explicitly require these for form + Mongoose:
-  odometerUnit: Yup.string().required("Unit is required"),
-  loadCapacityUnit: Yup.string().required("Unit is required"),
 });
 
 const VehicleRegistration = () => {
@@ -77,10 +82,8 @@ const VehicleRegistration = () => {
     type: "",
     shortName: "",
     depotName: "",
-    initialOdometer: "",
-    odometerUnit: "",
-    loadCapacity: "",
-    loadCapacityUnit: "",
+    initialOdometer: { value: "", unit: "" },
+    loadCapacity: { value: "", unit: "" },
     driver: "",
     purchase: "",
     vehicleManufacturingDetails: "",
@@ -116,7 +119,7 @@ const VehicleRegistration = () => {
   // 2. Fetch vehicle types for Type dropdown
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`${API_URL}/get-vehicle-type`);
+      const response = await axios.get(`${API_URL}/vehicle-types`);
       setVehicleTypes(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching vehicle types:", error);
@@ -272,7 +275,15 @@ const VehicleRegistration = () => {
       type: restValues.type.trim(),
       shortName: restValues.shortName.trim(),
       depotName: restValues.depotName.trim(),
-      loadCapacity: restValues.loadCapacity.trim(),
+      // Here initialOdometer and loadCapacity are objects:
+      initialOdometer: {
+        value: restValues.initialOdometer.value,
+        unit: restValues.initialOdometer.unit,
+      },
+      loadCapacity: {
+        value: restValues.loadCapacity.value,
+        unit: restValues.loadCapacity.unit,
+      },
       driver: restValues.driver.trim(),
       vehicleManufacturingDetails:
         restValues.vehicleManufacturingDetails.trim(),
@@ -335,8 +346,7 @@ const VehicleRegistration = () => {
               <TableCell>Type</TableCell>
               <TableCell>Short Name</TableCell>
               <TableCell>Depot Name</TableCell>
-              <TableCell>Initial Odometer</TableCell>
-              <TableCell>Load Capacity</TableCell>
+
               <TableCell>Driver</TableCell>
               <TableCell>Purchase Date</TableCell>
               <TableCell>Manufacturing Details</TableCell>
@@ -350,8 +360,7 @@ const VehicleRegistration = () => {
                 <TableCell>{vehicle.type}</TableCell>
                 <TableCell>{vehicle.shortName}</TableCell>
                 <TableCell>{vehicle.depotName}</TableCell>
-                <TableCell>{vehicle.initialOdometer}</TableCell>
-                <TableCell>{vehicle.loadCapacity}</TableCell>
+
                 <TableCell>{vehicle.driver}</TableCell>
                 <TableCell>
                   {vehicle.purchase
@@ -440,9 +449,7 @@ const VehicleRegistration = () => {
                       value={values.type}
                       onChange={async (event) => {
                         handleChange(event);
-                        // Once user picks a type, fetch corresponding drivers:
                         await fetchDriversByType(event.target.value);
-                        // Clear any previously selected driver if type changes:
                         setFieldValue("driver", "");
                       }}
                       onBlur={handleBlur}
@@ -492,20 +499,21 @@ const VehicleRegistration = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
                       <TextField
-                        name="initialOdometer"
+                        name="initialOdometer.value"
                         label="Initial Odometer"
                         type="number"
-                        value={values.initialOdometer}
+                        value={values.initialOdometer.value}
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
                         required
                         error={
-                          touched.initialOdometer &&
-                          Boolean(errors.initialOdometer)
+                          touched.initialOdometer?.value &&
+                          Boolean(errors.initialOdometer?.value)
                         }
                         helperText={
-                          touched.initialOdometer && errors.initialOdometer
+                          touched.initialOdometer?.value &&
+                          errors.initialOdometer?.value
                         }
                       />
                     </Grid>
@@ -514,44 +522,21 @@ const VehicleRegistration = () => {
                       <FormControl fullWidth required>
                         <InputLabel>Unit</InputLabel>
                         <Select
-                          name="odometerUnit"
+                          name="initialOdometer.unit"
                           label="Unit"
-                          value={values.odometerUnit || ""}
-                          onChange={(e) => {
-                            const selected = e.target.value;
-                            if (selected === "__more__") {
-                              setShowAllUnits(true);
-                            } else {
-                              setShowAllUnits(false);
-                              setFieldValue("odometerUnit", selected);
-                            }
-                          }}
+                          value={values.initialOdometer.unit || ""}
+                          onChange={handleChange}
                           onBlur={handleBlur}
                           error={
-                            touched.odometerUnit && Boolean(errors.odometerUnit)
+                            touched.initialOdometer?.unit &&
+                            Boolean(errors.initialOdometer?.unit)
                           }
                         >
-                          {/* Default units */}
-                          {defaultMeasurements.map((dm) => (
-                            <MenuItem key={dm.symbol} value={dm.symbol}>
-                              {dm.unit} ({dm.symbol})
+                          {lengthUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {u.unit} ({u.symbol})
                             </MenuItem>
                           ))}
-
-                          {/* Only show 'More...' if not expanded */}
-                          {!showAllUnits && (
-                            <MenuItem value="__more__">
-                              <em>More...</em>
-                            </MenuItem>
-                          )}
-
-                          {/* All length units from API if 'More...' */}
-                          {showAllUnits &&
-                            lengthUnits.map((u) => (
-                              <MenuItem key={u._id} value={u.symbol}>
-                                {u.unit} ({u.symbol})
-                              </MenuItem>
-                            ))}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -561,17 +546,22 @@ const VehicleRegistration = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
                       <TextField
-                        name="loadCapacity"
+                        name="loadCapacity.value"
                         label="Load Capacity"
-                        value={values.loadCapacity}
+                        type="number"
+                        value={values.loadCapacity.value}
                         onChange={handleChange}
                         onBlur={handleBlur}
                         fullWidth
                         required
                         error={
-                          touched.loadCapacity && Boolean(errors.loadCapacity)
+                          touched.loadCapacity?.value &&
+                          Boolean(errors.loadCapacity?.value)
                         }
-                        helperText={touched.loadCapacity && errors.loadCapacity}
+                        helperText={
+                          touched.loadCapacity?.value &&
+                          errors.loadCapacity?.value
+                        }
                       />
                     </Grid>
 
@@ -579,45 +569,21 @@ const VehicleRegistration = () => {
                       <FormControl fullWidth required>
                         <InputLabel>Unit</InputLabel>
                         <Select
-                          name="loadCapacityUnit"
+                          name="loadCapacity.unit"
                           label="Unit"
-                          value={values.loadCapacityUnit || ""}
-                          onChange={(e) => {
-                            const selected = e.target.value;
-                            if (selected === "__more_weight__") {
-                              setShowAllWeightUnits(true);
-                            } else {
-                              setShowAllWeightUnits(false);
-                              setFieldValue("loadCapacityUnit", selected);
-                            }
-                          }}
+                          value={values.loadCapacity.unit || ""}
+                          onChange={handleChange}
                           onBlur={handleBlur}
                           error={
-                            touched.loadCapacityUnit &&
-                            Boolean(errors.loadCapacityUnit)
+                            touched.loadCapacity?.unit &&
+                            Boolean(errors.loadCapacity?.unit)
                           }
                         >
-                          {/* Default weight units */}
-                          {defaultWeightMeasurements.map((dm) => (
-                            <MenuItem key={dm.symbol} value={dm.symbol}>
-                              {dm.unit} ({dm.symbol})
+                          {weightUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {u.unit} ({u.symbol})
                             </MenuItem>
                           ))}
-
-                          {/* Only show 'More...' if not expanded */}
-                          {!showAllWeightUnits && (
-                            <MenuItem value="__more_weight__">
-                              <em>More...</em>
-                            </MenuItem>
-                          )}
-
-                          {/* All weight units from API if 'More...' */}
-                          {showAllWeightUnits &&
-                            weightUnits.map((u) => (
-                              <MenuItem key={u._id} value={u.symbol}>
-                                {u.unit} ({u.symbol})
-                              </MenuItem>
-                            ))}
                         </Select>
                       </FormControl>
                     </Grid>

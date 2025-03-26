@@ -24,7 +24,7 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/exit-feedback");
     case "e-Sanchit":
       return navigate("/e-sanchit");
-    case "LR Report":
+    case "LR Operations":
       return navigate("/lr-report");
     case "Tyre Maintenance":
       return navigate("/tyre-maintenance");

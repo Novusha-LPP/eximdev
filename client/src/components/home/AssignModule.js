@@ -17,7 +17,7 @@ const allModules = [
   "Import - Operations",
   "Import - Add",
   "Export",
-  "LR Report",
+  "LR Operations",
   "Accounts",
   "Employee Onboarding",
   "Employee KYC",

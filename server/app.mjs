@@ -153,7 +153,7 @@ import updateOutwardRegister from "./routes/outward-register/updateOutwardRegist
 import addExitInterview from "./routes/exit-interview/addExitInterview.mjs";
 import ViewExitInterviews from "./routes/exit-interview/viewExitInterviews.mjs";
 
-// LR Report
+// LR Operations
 import getPrData from "./routes/lr/getPrData.mjs";
 import updatePr from "./routes/lr/updatePr.mjs";
 import deletePr from "./routes/lr/deletePr.mjs";
@@ -412,7 +412,7 @@ if (cluster.isPrimary) {
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
 
-      // LR Report
+      // LR Operations
       app.use(getPrData);
       app.use(updatePr);
       app.use(deletePr);

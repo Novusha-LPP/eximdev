@@ -10,7 +10,7 @@ export const moduleCategories = {
   "Import - Add": "Import",
   "Import - DO": "Import",
   "e-Sanchit": "Import",
-  "LR Report": "SRCC",
+  "LR Operations": "SRCC",
   "Inward Register": "Inward and Outward Register",
   "Outward Register": "Inward and Outward Register",
   "Exit Feedback": "HR & Management",

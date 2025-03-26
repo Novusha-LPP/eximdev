@@ -50,7 +50,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
 const baseQuery = {
   $and: [
     { status: { $regex: /^pending$/i } },
-    { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }, // Exclude "cancelled"
+    { be_no: { $in: [null, ""] } }, // Exclude "cancelled"
     { job_no: { $ne: null } }, // Ensure job_no is not null
     { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
     {

@@ -200,7 +200,7 @@ function PortsCfsYardDirectory() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Port Name</TableCell>
+              <TableCell>Name</TableCell>
               <TableCell>Code</TableCell>
               <TableCell>State</TableCell>
               <TableCell>Country</TableCell>
@@ -310,7 +310,7 @@ function PortsCfsYardDirectory() {
 
                   <TextField
                     name="name"
-                    label="Port Name"
+                    label="Name"
                     value={values.name}
                     onChange={handleChange}
                     onBlur={handleBlur}

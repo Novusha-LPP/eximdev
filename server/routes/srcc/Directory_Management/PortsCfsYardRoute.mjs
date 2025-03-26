@@ -6,6 +6,7 @@ const router = express.Router();
 // CREATE a new PortCFSYard
 router.post("/api/add-port-type", async (req, res) => {
   const {
+    organization,
     name,
     icd_code,
     state,
@@ -32,6 +33,7 @@ router.post("/api/add-port-type", async (req, res) => {
 
     // Create a new PortICDcode entry
     const newICDCode = await PortICDcode.create({
+      organization,
       name,
       icd_code,
       state,
@@ -86,6 +88,7 @@ router.get("/api/get-port-type/:icd_code", async (req, res) => {
 router.put("/api/update-port-type/:icd_code", async (req, res) => {
   const { icd_code } = req.params;
   const {
+    organization,
     name,
     state,
     country,
@@ -100,6 +103,7 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
     const updatedPort = await PortICDcode.findOneAndUpdate(
       { icd_code },
       {
+        organization,
         name,
         state,
         country,

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const PortsCfsYardSchema = new mongoose.Schema(
   {
+    organization: { type: String,  trim: true }, // ✅ Newly added field
     name: { type: String, required: true, trim: true },
     icd_code: { type: String, required: true, trim: true },
     state: { type: String, required: true, trim: true },
@@ -10,11 +11,11 @@ const PortsCfsYardSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["Air custodian", "CFS", "Ports", "Empty yard", "ICD", "Terminal"],
-      required: true, // Make sure it's always required
+      required: true,
     },
-    contactPersonName: { type: String, required: true, trim: true },
-    contactPersonEmail: { type: String, required: true, trim: true },
-    contactPersonPhone: { type: String, required: true, trim: true },
+    contactPersonName: { type: String, trim: true },
+    contactPersonEmail: { type: String, trim: true },
+    contactPersonPhone: { type: String, trim: true },
   },
   { timestamps: true }
 );

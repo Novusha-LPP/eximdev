@@ -275,7 +275,7 @@ function PortsCfsYardDirectory() {
                       if (value.length < 2) return;
                       try {
                         const res = await axios.get(
-                          `${API_URL}/organisations/search?query=${value}`
+                          `${API_URL}/organisations/autocomplete?query=${value}`
                         );
                         setOrgOptions(res.data.data || []);
                       } catch (err) {

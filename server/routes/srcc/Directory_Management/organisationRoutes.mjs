@@ -1,22 +1,46 @@
 import express from "express";
-import Organisation from "../../../model/srcc/Directory_Management/Organisation.mjs"; // Adjust path as needed
+import Organisation from "../../../model/srcc/Directory_Management/Organisation.mjs";
 
 const router = express.Router();
 
-// CREATE
+// ------------------ AUTOCOMPLETE (GET) ------------------
+router.get("/api/organisations/autocomplete", async (req, res) => {
+  try {
+    const q = req.query.q || "";
+
+    const organisations = await Organisation.find(
+      { name: { $regex: q, $options: "i" } },
+      { name: 1 } // Only return name field
+    )
+      .limit(10)
+      .lean();
+
+    if (!organisations.length) {
+      return res.status(404).json({ error: "Organisation not found" });
+    }
+
+    res.status(200).json({ data: organisations });
+  } catch (error) {
+    console.error("Error fetching organisations:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ------------------ CREATE (POST) ------------------
 router.post("/api/organisations", async (req, res) => {
   try {
     const newOrg = await Organisation.create(req.body);
-    res
-      .status(201)
-      .json({ message: "Organisation added successfully", data: newOrg });
+    res.status(201).json({
+      message: "Organisation added successfully",
+      data: newOrg,
+    });
   } catch (error) {
     console.error("Error creating Organisation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// READ ALL
+// ------------------ READ ALL (GET) ------------------
 router.get("/api/organisations", async (req, res) => {
   try {
     const orgs = await Organisation.find();
@@ -27,7 +51,7 @@ router.get("/api/organisations", async (req, res) => {
   }
 });
 
-// READ ONE
+// ------------------ READ ONE (GET) ------------------
 router.get("/api/organisations/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -41,32 +65,8 @@ router.get("/api/organisations/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-// SEARCH (autocomplete-friendly)
-router.get("/api/organisations/search", async (req, res) => {
-  try {
-    const { query } = req.query;
 
-    if (!query || query.trim() === "") {
-      return res.status(400).json({ error: "Query parameter is required" });
-    }
-
-    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const safeQuery = escapeRegex(query);
-
-    const results = await Organisation.find({
-      name: { $regex: safeQuery, $options: "i" },
-    })
-      .limit(20)
-      .select("_id name");
-
-    res.status(200).json({ data: results });
-  } catch (error) {
-    console.error("Error searching organisations:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// UPDATE
+// ------------------ UPDATE (PUT) ------------------
 router.put("/api/organisations/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -86,7 +86,7 @@ router.put("/api/organisations/:id", async (req, res) => {
   }
 });
 
-// DELETE
+// ------------------ DELETE (DELETE) ------------------
 router.delete("/api/organisations/:id", async (req, res) => {
   try {
     const { id } = req.params;

@@ -9,8 +9,6 @@ const router = express.Router();
  * @desc Create a new location
  */
 router.post("/api/add-location", async (req, res) => {
-  
-
   const { name, postal_code, city, district, state, country } = req.body;
 
   try {
@@ -40,6 +38,21 @@ router.post("/api/add-location", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.get("/api/location-names", async (req, res) => {
+  try {
+    // Get only the "name" field from each document
+    const locations = await Location.find({}, "name");
+
+    // Extract the name field into a plain array of strings
+    const nameArray = locations.map((loc) => loc.name);
+
+    res.status(200).json(nameArray); // Send array: ["loc1", "loc2", ...]
+  } catch (error) {
+    console.error("❌ Error fetching location names:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

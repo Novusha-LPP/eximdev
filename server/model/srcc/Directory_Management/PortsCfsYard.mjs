@@ -2,12 +2,23 @@ import mongoose from "mongoose";
 
 const PortsCfsYardSchema = new mongoose.Schema(
   {
-    organization: { type: String,  trim: true }, // ✅ Newly added field
+    organisation: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Organisation",
+        required: true,
+      },
+      name: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+    },
     name: { type: String, required: true, trim: true },
     icd_code: { type: String, required: true, trim: true },
     state: { type: String, required: true, trim: true },
     country: { type: String, required: true, trim: true },
-    active: { type: Boolean, default: true }, // Default value to true (active)
+    active: { type: Boolean, default: true },
     type: {
       type: String,
       enum: ["Air custodian", "CFS", "Ports", "Empty yard", "ICD", "Terminal"],

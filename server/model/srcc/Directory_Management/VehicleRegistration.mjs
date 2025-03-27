@@ -33,8 +33,16 @@ const VehicleRegistrationSchema = new mongoose.Schema(
       unit: { type: String, required: true, trim: true },
     },
     driver: {
-      type: String,
-      trim: true,
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "DriverType", // Make sure your Driver model is named this
+        required: true,
+      },
+      name: {
+        type: String,
+        required: true,
+        trim: true,
+      },
     },
     purchase: {
       type: Date,

@@ -51,7 +51,11 @@ const validationSchema = Yup.object({
       .min(0, "Load Capacity must be a positive number"),
     unit: Yup.string().required("Load Capacity unit is required"),
   }),
-  driver: Yup.string().required("Driver name is required"),
+  driver: Yup.object({
+    _id: Yup.string().required("Driver ID is required"),
+    name: Yup.string().required("Driver name is required"),
+  }).required("Driver is required"),
+
   purchase: Yup.date()
     .typeError("Please select a valid date")
     .required("Purchase date is required"),
@@ -84,7 +88,8 @@ const VehicleRegistration = () => {
     depotName: "",
     initialOdometer: { value: "", unit: "" },
     loadCapacity: { value: "", unit: "" },
-    driver: "",
+    driver: { _id: "", name: "" },
+
     purchase: "",
     vehicleManufacturingDetails: "",
   });
@@ -215,7 +220,8 @@ const VehicleRegistration = () => {
       odometerUnit: vehicle.odometerUnit || "km",
       loadCapacity: vehicle.loadCapacity || "",
       loadCapacityUnit: vehicle.loadCapacityUnit || "kg",
-      driver: vehicle.driver || "",
+      driver: vehicle.driver || { _id: "", name: "" },
+
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString()
         : "",
@@ -271,7 +277,8 @@ const VehicleRegistration = () => {
         value: restValues.loadCapacity.value,
         unit: restValues.loadCapacity.unit,
       },
-      driver: restValues.driver.trim(),
+      driver: restValues.driver,
+
       vehicleManufacturingDetails:
         restValues.vehicleManufacturingDetails.trim(),
       purchase: restValues.purchase
@@ -348,7 +355,8 @@ const VehicleRegistration = () => {
                 <TableCell>{vehicle.shortName}</TableCell>
                 <TableCell>{vehicle.depotName}</TableCell>
 
-                <TableCell>{vehicle.driver}</TableCell>
+                <TableCell>{vehicle.driver?.name}</TableCell>
+
                 <TableCell>
                   {vehicle.purchase
                     ? new Date(vehicle.purchase).toDateString()
@@ -593,15 +601,24 @@ const VehicleRegistration = () => {
                     <FormControl fullWidth required>
                       <InputLabel>Driver</InputLabel>
                       <Select
-                        name="driver"
+                        name="driver._id"
                         label="Driver"
-                        value={values.driver}
-                        onChange={handleChange}
+                        value={values.driver?._id || ""}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          const selectedDriver = drivers.find(
+                            (d) => d._id === selectedId
+                          );
+                          setFieldValue(
+                            "driver",
+                            selectedDriver || { _id: "", name: "" }
+                          );
+                        }}
                         onBlur={handleBlur}
-                        error={touched.driver && Boolean(errors.driver)}
+                        error={touched.driver && Boolean(errors.driver?._id)}
                       >
                         {drivers.map((dr) => (
-                          <MenuItem key={dr._id} value={dr.name}>
+                          <MenuItem key={dr._id} value={dr._id}>
                             {dr.name}
                           </MenuItem>
                         ))}

@@ -6,7 +6,7 @@ const router = express.Router();
 // CREATE a new PortCFSYard
 router.post("/api/add-port-type", async (req, res) => {
   const {
-    organization,
+    organisation, // expects { _id, name }
     name,
     icd_code,
     state,
@@ -23,7 +23,12 @@ router.post("/api/add-port-type", async (req, res) => {
       return res.status(400).json({ error: "ICD code is required" });
     }
 
-    // Check if the ICD code already exists
+    if (!organisation || !organisation._id || !organisation.name) {
+      return res
+        .status(400)
+        .json({ error: "Organisation (_id and name) is required" });
+    }
+
     const existingICDCode = await PortICDcode.findOne({ icd_code });
     if (existingICDCode) {
       return res
@@ -31,9 +36,8 @@ router.post("/api/add-port-type", async (req, res) => {
         .json({ error: "Ports/CFS/Yard with this ICD code already exists" });
     }
 
-    // Create a new PortICDcode entry
     const newICDCode = await PortICDcode.create({
-      organization,
+      organisation,
       name,
       icd_code,
       state,
@@ -50,23 +54,23 @@ router.post("/api/add-port-type", async (req, res) => {
       data: newICDCode,
     });
   } catch (error) {
-    console.error(error); // For debugging purposes
+    console.error("Error adding Port Type:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// READ all PortCFSYard entries
+// READ all
 router.get("/api/get-port-types", async (req, res) => {
   try {
     const ports = await PortICDcode.find();
     res.status(200).json({ data: ports });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching Ports:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// READ a single PortCFSYard entry by icd_code
+// READ one by ICD code
 router.get("/api/get-port-type/:icd_code", async (req, res) => {
   const { icd_code } = req.params;
 
@@ -79,16 +83,16 @@ router.get("/api/get-port-type/:icd_code", async (req, res) => {
 
     res.status(200).json({ data: port });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching Port:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// UPDATE an existing PortCFSYard entry by icd_code
+// UPDATE by ICD code
 router.put("/api/update-port-type/:icd_code", async (req, res) => {
   const { icd_code } = req.params;
   const {
-    organization,
+    organisation,
     name,
     state,
     country,
@@ -100,10 +104,16 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
   } = req.body;
 
   try {
+    if (!organisation || !organisation._id || !organisation.name) {
+      return res
+        .status(400)
+        .json({ error: "Organisation (_id and name) is required" });
+    }
+
     const updatedPort = await PortICDcode.findOneAndUpdate(
       { icd_code },
       {
-        organization,
+        organisation,
         name,
         state,
         country,
@@ -113,7 +123,7 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
         contactPersonEmail,
         contactPersonPhone,
       },
-      { new: true } // Return the updated document
+      { new: true }
     );
 
     if (!updatedPort) {
@@ -125,12 +135,12 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
       data: updatedPort,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error updating Port:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// DELETE a PortCFSYard entry by icd_code
+// DELETE by ICD code
 router.delete("/api/delete-port-type/:icd_code", async (req, res) => {
   const { icd_code } = req.params;
 
@@ -146,7 +156,7 @@ router.delete("/api/delete-port-type/:icd_code", async (req, res) => {
       data: deletedPort,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error deleting Port:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

@@ -28,6 +28,8 @@ export const viewMasterList = [
   "Advance To Driver",
   "shipping Line",
   "Organisation",
+  "Unit Conversion",
+  "Country Code"
   // "Organisation",
   // "Ply Rating",
   // "Repair Type",

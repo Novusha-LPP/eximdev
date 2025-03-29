@@ -282,7 +282,104 @@ function BillingSheet() {
       enableSorting: false,
       size: 300,
     },
+
+    {
+      accessorKey: "Doc",
+      header: "Docs",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => {
+        const {
+          shipping_line_invoice_imgs = [],
+          concor_invoice_and_receipt_copy = [],
+          ooc_copies = [],
+          cth_documents = [],
+        } = cell.row.original;
+
+        // Helper function to safely extract links from arrays
+        const getLinks = (input) => {
+          return Array.isArray(input) && input.length > 0 ? input : [];
+        };
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {/* Shipping Line Invoice Received */}
+            {shipping_line_invoice_imgs.length > 0 ? (
+              shipping_line_invoice_imgs.map((doc, index) => (
+                <div key={index} style={{ marginBottom: "5px" }}>
+                  <a
+                    href={doc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Shipping Line Invoice {index + 1}
+                  </a>
+                </div>
+              ))
+            ) : (
+              <div style={{ marginBottom: "5px", color: "gray" }}>
+                No Shipping Line Invoice
+              </div>
+            )}
+
+            {/* Concor Invoice and Receipt Copy */}
+            {concor_invoice_and_receipt_copy.length > 0 ? (
+              concor_invoice_and_receipt_copy.map((doc, index) => (
+                <div key={index} style={{ marginBottom: "5px" }}>
+                  <a
+                    href={doc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Concor Invoice {index + 1}
+                  </a>
+                </div>
+              ))
+            ) : (
+              <div style={{ marginBottom: "5px", color: "gray" }}>
+                No Concor Invoice
+              </div>
+            )}
+
+            {/* OOC Copies */}
+            {ooc_copies.length > 0 ? (
+              ooc_copies.map((doc, index) => (
+                <div key={index} style={{ marginBottom: "5px" }}>
+                  <a
+                    href={doc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    OOC Copy {index + 1}
+                  </a>
+                </div>
+              ))
+            ) : (
+              <div style={{ marginBottom: "5px", color: "gray" }}>
+                No OOC Copies
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
   ];
+  
 
   const table = useMaterialReactTable({
     columns,

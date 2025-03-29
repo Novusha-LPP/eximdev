@@ -465,7 +465,19 @@ function useJobColumns() {
 
           const beDate = formatDate(rawBeDate);
           const location = getCustomHouseLocation(customHouse);
+          const {
+            processed_be_attachment = [],
+            ooc_copies = [],
+            gate_pass_copies = [],
+          } = cell.row.original;
 
+          const getFirstLink = (input) => {
+            if (Array.isArray(input)) {
+              return input.length > 0 ? input[0] : null;
+            }
+            return input || null;
+          };
+ const processed_be_attachmentLink = getFirstLink(processed_be_attachment);
           return (
             <React.Fragment>
               {beNumber && (
@@ -477,38 +489,86 @@ function useJobColumns() {
                   >
                     {beNumber}
                   </a>
-
                   {beDate}
                 </React.Fragment>
               )}
+
+              <div style={{ marginTop: "10px" }}>
+                {processed_be_attachmentLink ? (
+                  <div style={{ marginBottom: "5px" }}>
+                    <a
+                      href={processed_be_attachmentLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Processed Copy of BOE.
+                    </a>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: "5px" }}>
+                    <span style={{ color: "gray" }}>
+                      {" "}
+                      Processed Copy of BOE.{" "}
+                    </span>
+                  </div>
+                )}
+
+                {/* OOC Copies */}
+                {ooc_copies.length > 0 ? (
+                  ooc_copies.map((doc, index) => (
+                    <div key={index} style={{ marginTop: "5px" }}>
+                      <a
+                        href={doc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "blue",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                        }}
+                      >
+                        OOC Copy {index + 1}
+                      </a>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ marginBottom: "5px", color: "gray" }}>
+                    No OOC Copies
+                  </div>
+                )}
+                {/* Concor Invoice and Receipt Copy */}
+                {gate_pass_copies.length > 0 ? (
+                  gate_pass_copies.map((doc, index) => (
+                    <div key={index} style={{ marginBottom: "5px" }}>
+                      <a
+                        href={doc}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "blue",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Gate Pass {index + 1}
+                      </a>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ marginBottom: "5px", color: "gray" }}>
+                    No Gate Pass
+                  </div>
+                )}
+              </div>
             </React.Fragment>
           );
         },
       },
-      // {
-      //   accessorKey: "Port",
-      //   header: "Port",
-      //   size: 150,
-      //   Cell: ({ cell }) => {
-      //     const { loading_port, port_of_reporting } = cell.row.original;
-
-      //     // Remove the codes from the port names if they are in the format "(CODE) PortName"
-      //     const cleanLoadingPort = loading_port
-      //       ? loading_port.replace(/\(.*?\)\s*/, "")
-      //       : "N/A";
-      //     const cleanPortOfReporting = port_of_reporting
-      //       ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-      //       : "N/A";
-
-      //     return (
-      //       <div>
-      //         <strong>LO :</strong> {cleanLoadingPort} <br />
-      //         <strong>POD :</strong> {cleanPortOfReporting} <br />
-      //       </div>
-      //     );
-      //   },
-      // },
-
       {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",

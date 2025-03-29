@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { MaterialReactTable } from "material-react-table";
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+} from "material-react-table";
 import useTableConfig from "../../customHooks/useTableConfig";
+import { useNavigate } from "react-router-dom";
 
 function ViewOnboardings() {
   const [data, setData] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function getData() {
@@ -54,7 +59,13 @@ function ViewOnboardings() {
       size: 160,
 
       Cell: ({ cell }) =>
-        cell.getValue() ? <a href={`${cell.getValue()}`}>View</a> : "NA",
+        cell.getValue() ? (
+          <a href={cell.getValue()} target="_blank" rel="noopener noreferrer">
+            View
+          </a>
+        ) : (
+          "NA"
+        ),
     },
     {
       accessorKey: "resume",

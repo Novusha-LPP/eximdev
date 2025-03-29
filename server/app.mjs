@@ -200,6 +200,8 @@ import getTyreBrand from "./routes/srcc-directories/getTyreBrand.mjs";
 import getDriverDetails from "./routes/srcc-directories/getDriverDetails.mjs";
 import getLocationMaster from "./routes/srcc-directories/getLocationMaster.mjs";
 import getSrccOrganisations from "./routes/srcc-directories/getSrccOrganisations.mjs";
+import UnitConversion from "./routes/srcc/Directory_Management/unitConvirsionRoutes.mjs";
+import CountryCode from "./routes/srcc/Directory_Management/countryCodeRoutes.js";
 // sr_cel
 import srCel from "./routes/srcc/sr_cel/srCel.mjs";
 
@@ -460,6 +462,8 @@ if (cluster.isPrimary) {
       app.use(getDriverDetails);
       app.use(getLocationMaster);
       app.use(getSrccOrganisations);
+      app.use(UnitConversion);
+      app.use(CountryCode);
       // sr cel
       app.use(srCel);
 

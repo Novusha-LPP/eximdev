@@ -13,6 +13,8 @@ import TollData from "./TollData";
 import AdvanceToDriver from "./AdvanceToDriver";
 import ShippingLine from "./ShippingLine";
 import Organisation from "./Organisation";
+import UnitConversion from "./unitConversion";
+import CountryCode from "./ContryCode";
 
 function DirectoryComponent({ directoryType }) {
   console.log("Selected Directory Type:", directoryType); // Debugging log
@@ -45,6 +47,10 @@ function DirectoryComponent({ directoryType }) {
         return <ShippingLine />;
       case "Organisation": // ✅ Added Commoditys Directory
         return <Organisation />;
+      case "Unit Conversion": // ✅ Added Commoditys Directory
+        return <UnitConversion />;
+      case "Country Code": // ✅ Added Commoditys Directory
+        return <CountryCode />;
       default:
         console.log("No matching directory found for:", directoryType);
         return null;

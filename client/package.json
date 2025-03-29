@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "homepage": "./",
-  
   "dependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
@@ -20,7 +19,7 @@
     "@testing-library/user-event": "^13.5.0",
     "apexcharts": "^3.49.1",
     "aws-sdk": "^2.1475.0",
-    "axios": "^1.7.2",
+    "axios": "^1.8.4",
     "bootstrap": "^5.3.3",
     "browser-image-compression": "^2.0.2",
     "exceljs": "^4.4.0",

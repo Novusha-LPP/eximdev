@@ -18,6 +18,7 @@ import compression from "compression";
 import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 Sentry.init({
@@ -38,6 +39,8 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import verifySessionRoutes from "./routes/verifysession.mjs";
+import logout from "./routes/logout.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -252,8 +255,22 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(cors());
 
+  app.use(
+    cors({
+      origin: "http://localhost:3000", // Specify your frontend URL
+      credentials: true, // Allow credentials
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "Access-Control-Allow-Credentials",
+        "Cookie",
+      ],
+    })
+  );
+
+  app.use(cookieParser());
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);
@@ -298,6 +315,8 @@ if (cluster.isPrimary) {
       app.use(getUserData);
       app.use(getYears);
       app.use(login);
+      app.use(verifySessionRoutes);
+      app.use(logout);
 
       // Accounts
       app.use(addAdani);
@@ -390,29 +409,29 @@ if (cluster.isPrimary) {
       app.use(viewDSR);
       // app.use(ImportCreateJob);
 
-      // Import Operations
+      //* Import Operations
       app.use(getOperationPlanningJobs);
       app.use(completedOperation);
       app.use(updateOperationsJob);
       app.use(getOperationPlanningList);
 
-      // Inward Register
+      //* Inward Register
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
       app.use(getInwardRegisters);
       app.use(handleStatus);
 
-      // Outward Register
+      //* Outward Register
       app.use(addOutwardRegister);
       app.use(getOutwardRegisters);
       app.use(getOutwardRegisterDetails);
       app.use(updateOutwardRegister);
 
-      // Exit Feedback
+      //* Exit Feedback
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
 
-      // LR Operations
+      //* LR Operations
       app.use(getPrData);
       app.use(updatePr);
       app.use(deletePr);

@@ -26,7 +26,7 @@ function useTableConfig(rows, columns, url) {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
+    muiTableBodyRowProps: ({ row, url }) => ({
       onClick: async () => {
         // Log the entire row data
         // console.log("Clicked Row Data:", row.original);
@@ -41,7 +41,8 @@ function useTableConfig(rows, columns, url) {
           // console.log("Detailed User Data:", response.data);
 
           // Navigate to the detailed view
-          navigate(`/onboarding/${row.original._id}`);
+          // navigate(`/onboarding/${row.original._id}`);
+          navigate(`/${url}/${row.original._id}`);
         } catch (error) {
           console.error("Error fetching user details:", error);
         }

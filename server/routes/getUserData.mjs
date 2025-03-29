@@ -7,7 +7,7 @@ router.get("/api/get-user-data/:username", async (req, res) => {
   const { username } = req.params;
 
   try {
-    const user = await UserModel.findOne({ username });
+    const user = await UserModel.findOne({ username }).select("-password");
 
     if (!user) {
       return res.status(200).json({ message: "User not found" });

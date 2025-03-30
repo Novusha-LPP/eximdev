@@ -237,6 +237,12 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
+const CLIENT_URI =
+  process.env.NODE_ENV === "production"
+    ? process.env.PROD_CLIENT_URI
+    : process.env.NODE_ENV === "server"
+    ? process.env.SERVER_CLIENT_URI
+    : process.env.DEV_CLIENT_URI;
 
 //console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
@@ -259,7 +265,7 @@ if (cluster.isPrimary) {
 
   app.use(
     cors({
-      origin: "http://localhost:3000", // Specify your frontend URL
+      origin: CLIENT_URI, // Specify your frontend URL
       credentials: true, // Allow credentials
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: [

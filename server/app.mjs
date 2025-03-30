@@ -263,18 +263,15 @@ if (cluster.isPrimary) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
+  console.log(CLIENT_URI);
+  const allowedOrigins = [CLIENT_URI, "http://localhost:3000"];
 
   app.use(
     cors({
-      origin: CLIENT_URI, // Specify your frontend URL
-      credentials: true, // Allow credentials
+      origin: allowedOrigins,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "Access-Control-Allow-Credentials",
-        "Cookie",
-      ],
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
     })
   );
   app.options("*", cors());

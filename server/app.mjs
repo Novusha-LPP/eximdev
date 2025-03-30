@@ -276,6 +276,7 @@ if (cluster.isPrimary) {
       ],
     })
   );
+  app.options("*", cors());
 
   app.use(cookieParser());
   app.use(compression({ level: 9 }));

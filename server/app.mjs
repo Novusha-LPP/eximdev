@@ -263,17 +263,32 @@ if (cluster.isPrimary) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
-  console.log(CLIENT_URI);
-  const allowedOrigins = [CLIENT_URI, "http://localhost:3000"];
+
+  const allowedOrigins = [
+    "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+    "http://localhost:3000",
+  ];
 
   app.use(
     cors({
-      origin: allowedOrigins,
+      origin: function (origin, callback) {
+        if (!origin) return callback(null, true); // allow non-browser requests
+        const allowedOrigins = [
+          "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+          "http://localhost:3000",
+        ];
+        if (allowedOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
     })
   );
+
   app.options("*", cors());
 
   app.use(compression({ level: 9 }));

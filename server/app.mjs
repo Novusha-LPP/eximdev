@@ -262,6 +262,7 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
 
   app.use(
     cors({
@@ -278,7 +279,6 @@ if (cluster.isPrimary) {
   );
   app.options("*", cors());
 
-  app.use(cookieParser());
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);

@@ -4,12 +4,43 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
-import axios from "axios";
+
+function getCookieValue(cookieName) {
+  const cookies = document.cookie.split(";");
+  for (let i = 0; i < cookies.length; i++) {
+    const cookie = cookies[i].trim();
+    // Check if this cookie starts with the name we want
+    if (cookie.startsWith(cookieName + "=")) {
+      // Return the value part (after the '=')
+      return decodeURIComponent(cookie.substring(cookieName.length + 1));
+    }
+  }
+  return null; // Cookie not found
+}
 
 function App() {
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("exim_user"))
-  );
+  // const [user, setUser] = useState(
+  //   JSON.parse(localStorage.getItem("exim_user"))
+  // );
+
+  const [user, setUser] = useState(() => {
+    // 1. Get the raw cookie value (e.g. a JSON string like {"username":"John","role":"admin"})
+    const cookieValue = getCookieValue("exim_user");
+
+    if (!cookieValue) {
+      // If the cookie doesn’t exist, return null (logged out)
+      return null;
+    }
+
+    // 2. Attempt to parse it as JSON
+    try {
+      return JSON.parse(cookieValue);
+    } catch (error) {
+      console.error("Failed to parse exim_user cookie:", error);
+      return null;
+    }
+  });
+
   const navigate = useNavigate();
 
   useEffect(() => {

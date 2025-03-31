@@ -189,29 +189,23 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       accessorKey: "type_of_vehicle",
       header: "Type of Vehicle",
       enableSorting: false,
-      size: calculateColumnWidth(rows, "type_of_vehicle"),
+      size: 200,
       Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          options={Array.isArray(truckTypes) ? truckTypes : []}
-          getOptionLabel={(option) => option.vehicleType || ""}
-          value={
-            Array.isArray(truckTypes)
-              ? truckTypes.find(
-                  (type) =>
-                    type.vehicleType === rows[row.index]?.type_of_vehicle
-                ) || null
-              : null
+        <TextField
+          select
+          sx={{ width: "100%" }}
+          size="small"
+          value={cell.getValue() || ""}
+          onChange={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
           }
-          onChange={(_, newValue) =>
-            handleInputChange(
-              { target: { value: newValue?.vehicleType || "" } },
-              row.index,
-              cell.column.id
-            )
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
+        >
+          {truckTypes?.map((type) => (
+            <MenuItem key={type} value={type}>
+              {type}
+            </MenuItem>
+          ))}
+        </TextField>
       ),
     },
     {

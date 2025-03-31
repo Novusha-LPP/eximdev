@@ -9,8 +9,11 @@ function usePrData() {
 
   useEffect(() => {
     async function fetchData() {
+      // const res = await axios.get(
+      //   `${process.env.REACT_APP_API_STRING}/get-organisations`
+      // );
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-organisations`
+        `${process.env.REACT_APP_API_STRING}/organisations/names`
       );
 
       setOrganisations(res.data);
@@ -25,16 +28,21 @@ function usePrData() {
 
     async function getLocationMasters() {
       const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-locations`
+        `${process.env.REACT_APP_API_STRING}/location-names`
       );
       setLocations(res.data);
     }
 
     const getTruckTypes = async () => {
-      const res = await axios(
+      const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/vehicle-types`
       );
-      setTruckTypes(res.data);
+
+      // Extract just the vehicleType field from each object
+      const vehicleTypeArray = res.data.data.map((item) => item.vehicleType);
+      console.log(vehicleTypeArray);
+      // Now your truckTypes state is just an array of strings
+      setTruckTypes(vehicleTypeArray);
     };
 
     fetchData();

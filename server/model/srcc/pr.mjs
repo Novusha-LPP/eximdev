@@ -7,6 +7,9 @@ const PrDataSchema = new mongoose.Schema({
   pr_date: {
     type: String,
   },
+  import_export: {
+    type: String,
+  },
   branch: {
     type: String,
   },
@@ -100,6 +103,9 @@ const PrDataSchema = new mongoose.Schema({
         type: String,
       },
       driver_phone: {
+        type: String,
+      },
+      eWay_bill: {
         type: String,
       },
       sr_cel_no: {

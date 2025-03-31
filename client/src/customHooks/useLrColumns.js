@@ -258,13 +258,18 @@ function useLrColumns(props) {
       enableSorting: false,
       enableGrouping: false,
       size: 50,
-      Cell: ({ row }) => (
-        <Checkbox
-          style={{ padding: 0 }}
-          disabled={!row.original.tr_no} // Disable checkbox if tr_no is not present
-          onChange={() => handleCheckboxChange(row.original)}
-        />
-      ),
+      Cell: ({ row }) => {
+        const hasTrNo = !!row.original.tr_no;
+        const isEwayValid = /^\d{12}$/.test(row.original.eWay_bill);
+
+        return (
+          <Checkbox
+            style={{ padding: 0 }}
+            disabled={!(hasTrNo && isEwayValid)} // ✅ Only enabled if BOTH are true
+            onChange={() => handleCheckboxChange(row.original)}
+          />
+        );
+      },
     },
     {
       accessorKey: "delete",
@@ -285,7 +290,7 @@ function useLrColumns(props) {
     },
     {
       accessorKey: "tr_no",
-      header: "TR No",
+      header: "LR No",
       enableSorting: false,
       size: 100,
     },
@@ -634,6 +639,24 @@ function useLrColumns(props) {
           Track Location
         </Button>
       ),
+    },
+    {
+      accessorKey: "eWay_bill",
+      header: "E-Way Bill",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ cell, row }) => {
+        return (
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            defaultValue={cell.getValue()}
+            onBlur={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+          />
+        );
+      },
     },
     {
       accessorKey: "action",

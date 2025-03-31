@@ -23,7 +23,9 @@ import {
   FormControl,
   InputLabel,
   Grid,
+  Autocomplete,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -45,6 +47,12 @@ const validationSchema = Yup.object({
     .required("Engine Capacity is required")
     .min(0, "Cannot be negative"),
   engineCapacityUnit: Yup.string().required("Engine Capacity Unit is required"),
+  cargoTypeAllowed: Yup.array()
+    .min(1, "At least one cargo type must be selected")
+    .required("Cargo type is required"),
+  CommodityCarry: Yup.array()
+    .min(1, "At least one commodity must be selected")
+    .required("Commodity carry is required"),
 });
 
 const VehicleTypes = () => {
@@ -471,54 +479,89 @@ const VehicleTypes = () => {
 
                   {/* Cargo Type Allowed */}
                   <FormControl fullWidth>
-                    <InputLabel>Cargo Type Allowed</InputLabel>
-                    <Select
+                    <Autocomplete
                       multiple
-                      name="cargoTypeAllowed"
-                      value={values.cargoTypeAllowed}
-                      onChange={handleChange}
-                      renderValue={(selected) => selected.join(", ")}
-                    >
-                      {["Package", "LiquidBulk", "Bulk", "Container"].map(
-                        (type) => (
-                          <MenuItem key={type} value={type}>
-                            <Checkbox
-                              checked={values.cargoTypeAllowed.includes(type)}
-                            />
-                            <ListItemText primary={type} />
-                          </MenuItem>
-                        )
+                      id="cargo-type-allowed"
+                      options={["Package", "LiquidBulk", "Bulk", "Container"]}
+                      disableCloseOnSelect
+                      getOptionLabel={(option) => option}
+                      value={values.cargoTypeAllowed || []}
+                      onChange={(event, newValue) => {
+                        setFieldValue("cargoTypeAllowed", newValue);
+                      }}
+                      renderOption={(props, option, { selected }) => (
+                        <li {...props}>
+                          <Checkbox
+                            style={{ marginRight: 8 }}
+                            checked={selected}
+                          />
+                          {option}
+                        </li>
                       )}
-                    </Select>
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Cargo Type Allowed"
+                          name="cargoTypeAllowed"
+                          fullWidth
+                          error={
+                            touched.cargoTypeAllowed &&
+                            Boolean(errors.cargoTypeAllowed)
+                          }
+                          helperText={
+                            touched.cargoTypeAllowed && errors.cargoTypeAllowed
+                          }
+                        />
+                      )}
+                    />
                   </FormControl>
 
                   {/* Commodity Carry */}
                   <FormControl fullWidth>
-                    <InputLabel>Commodity Carry</InputLabel>
-                    <Select
+                    <Autocomplete
                       multiple
-                      name="CommodityCarry"
-                      value={values.CommodityCarry}
-                      onChange={handleChange}
-                      renderValue={(selected) => selected.join(", ")}
-                    >
-                      {loading ? (
-                        <MenuItem disabled>Loading...</MenuItem>
-                      ) : error ? (
-                        <MenuItem disabled>Error loading commodities</MenuItem>
-                      ) : (
-                        commodities.map((option) => (
-                          <MenuItem key={option.value} value={option.value}>
-                            <Checkbox
-                              checked={values.CommodityCarry.includes(
-                                option.value
-                              )}
-                            />
-                            <ListItemText primary={option.label} />
-                          </MenuItem>
-                        ))
+                      id="commodity-carry"
+                      options={commodities}
+                      getOptionLabel={(option) => option.label}
+                      getOptionDisabled={() => loading || !!error}
+                      disableCloseOnSelect
+                      value={
+                        commodities.filter((c) =>
+                          values.CommodityCarry?.includes(c.value)
+                        ) || []
+                      }
+                      onChange={(event, newValue) => {
+                        const selectedValues = newValue.map(
+                          (item) => item.value
+                        );
+                        setFieldValue("CommodityCarry", selectedValues);
+                      }}
+                      loading={loading}
+                      renderOption={(props, option, { selected }) => (
+                        <li {...props}>
+                          <Checkbox
+                            checked={selected}
+                            style={{ marginRight: 8 }}
+                          />
+                          {option.label}
+                        </li>
                       )}
-                    </Select>
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Commodity Carry"
+                          name="CommodityCarry"
+                          fullWidth
+                          error={
+                            touched.CommodityCarry &&
+                            Boolean(errors.CommodityCarry)
+                          }
+                          helperText={
+                            touched.CommodityCarry && errors.CommodityCarry
+                          }
+                        />
+                      )}
+                    />
                   </FormControl>
                 </Box>
 

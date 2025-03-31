@@ -4,17 +4,22 @@ import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
 
 const router = express.Router();
 
+// Function to validate vehicle number format (MH12XX1234 or mh12xx1234)
+const isValidVehicleNumber = (vehicleNumber) => {
+  const regex = /^[A-Za-z]{2}[0-9]{2}[A-Za-z]{2}[0-9]{4}$/;
+  return regex.test(vehicleNumber);
+};
+
 // CREATE a Vehicle Registration
 router.post("/api/add-vehicle-registration", async (req, res) => {
   const {
+    vehicleNumber,
     registrationName,
     type,
     shortName,
     depotName,
     initialOdometer,
-    odometerUnit, // <-- add this
     loadCapacity,
-    loadCapacityUnit, // <-- add this
     driver,
     purchase,
     vehicleManufacturingDetails,
@@ -24,6 +29,13 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
     // Log the received data for debugging
     console.log("Received vehicle registration data:", req.body);
 
+    // Check if vehicle number is valid
+    if (!vehicleNumber || !isValidVehicleNumber(vehicleNumber)) {
+      return res.status(400).json({
+        error: "Invalid vehicle number format. Should be like MH12XX1234.",
+      });
+    }
+
     // Check if all required fields are present
     if (
       !registrationName ||
@@ -31,36 +43,42 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       !shortName ||
       !depotName ||
       !initialOdometer ||
-      !odometerUnit || // <-- add check
+      !initialOdometer.value ||
+      !initialOdometer.unit ||
       !loadCapacity ||
-      !loadCapacityUnit || // <-- add check
+      !loadCapacity.value ||
+      !loadCapacity.unit ||
       !driver ||
-      !purchase ||
+      !driver._id ||
+      !driver.name ||
+      !driver.phoneNumber ||
       !vehicleManufacturingDetails
     ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Check if a vehicle with the same registrationName already exists
+    // Check if a vehicle with the same registrationName or vehicleNumber already exists
     const existingRegistration = await VehicleRegistration.findOne({
-      registrationName,
+      $or: [{ registrationName }, { vehicleNumber }],
     });
+
     if (existingRegistration) {
       return res
         .status(400)
-        .json({ error: "Vehicle registration already exists" });
+        .json({
+          error: "Vehicle registration or vehicle number already exists",
+        });
     }
 
     // Create new vehicle registration
     const newRegistration = await VehicleRegistration.create({
+      vehicleNumber,
       registrationName,
       type,
       shortName,
       depotName,
       initialOdometer,
-      odometerUnit, // <-- added
       loadCapacity,
-      loadCapacityUnit, // <-- added
       driver,
       purchase,
       vehicleManufacturingDetails,
@@ -110,33 +128,43 @@ router.get("/api/get-vehicle-registration/:id", async (req, res) => {
 });
 
 // UPDATE a Vehicle Registration
-// UPDATE a Vehicle Registration
 router.put("/api/update-vehicle-registration/:id", async (req, res) => {
   const { id } = req.params;
   const {
+    vehicleNumber,
     registrationName,
     type,
     shortName,
     depotName,
     initialOdometer,
-    odometerUnit,
     loadCapacity,
-    loadCapacityUnit,
     driver,
     purchase,
     vehicleManufacturingDetails,
   } = req.body;
 
   try {
-    // Check if another registration has the same registrationName
+    // Check if vehicle number is valid
+    if (vehicleNumber && !isValidVehicleNumber(vehicleNumber)) {
+      return res.status(400).json({
+        error: "Invalid vehicle number format. Should be like MH12XX1234.",
+      });
+    }
+
+    // Check if another registration has the same registrationName or vehicleNumber
     const existingRegistration = await VehicleRegistration.findOne({
-      registrationName,
-      _id: { $ne: id },
+      $or: [
+        { registrationName, _id: { $ne: id } },
+        { vehicleNumber, _id: { $ne: id } },
+      ],
     });
+
     if (existingRegistration) {
       return res
         .status(400)
-        .json({ error: "Vehicle registration already exists" });
+        .json({
+          error: "Vehicle registration or vehicle number already exists",
+        });
     }
 
     // Find the existing vehicle registration to check previous driver
@@ -148,7 +176,7 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     const previousDriver = currentRegistration.driver;
 
     // If driver is changed, unassign the old driver and assign the new one
-    if (previousDriver._id !== driver._id) {
+    if (driver && previousDriver._id.toString() !== driver._id.toString()) {
       await DriverType.findOneAndUpdate(
         { _id: previousDriver._id },
         { isAssigned: false }
@@ -175,14 +203,13 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     const updatedRegistration = await VehicleRegistration.findByIdAndUpdate(
       id,
       {
+        vehicleNumber,
         registrationName,
         type,
         shortName,
         depotName,
         initialOdometer,
-        odometerUnit, // <-- add
         loadCapacity,
-        loadCapacityUnit, // <-- add
         driver,
         purchase,
         vehicleManufacturingDetails,
@@ -201,7 +228,6 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
 });
 
 // DELETE a Vehicle Registration
-// DELETE a Vehicle Registration
 router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -218,7 +244,6 @@ router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
         { isAssigned: false },
         { new: true }
       );
-      
     }
 
     res.status(200).json({

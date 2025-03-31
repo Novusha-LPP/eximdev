@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const VehicleRegistrationSchema = new mongoose.Schema(
   {
+    vehicleNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     registrationName: {
       type: String,
       required: true,
@@ -43,6 +48,8 @@ const VehicleRegistrationSchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
+
+      phoneNumber: { type: String, required: true, trim: true },
     },
     purchase: {
       type: Date,

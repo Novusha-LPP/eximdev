@@ -14,32 +14,32 @@ function SRCC() {
     setValue(newValue);
   };
 
+  const tabsConfig = [
+    { label: "Full Truck Load", component: <FullTruckLoad /> },
+    { label: "Less Than Truck Load", component: <LessThanTruckLoad /> },
+    { label: "Tracking", component: <DSR /> },
+  ];
+
   return (
     <Box sx={{ width: "100%" }}>
-      <>
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Tabs
-            value={value}
-            onChange={handleChange}
-            aria-label="basic tabs example"
-          >
-            <Tab label="Full Truck Load" {...a11yProps(0)} key={0} />,
-            <Tab label="Less Than Truck Load" {...a11yProps(1)} key={1} />,
-            <Tab label="Tracking" {...a11yProps(2)} key={2} />,
-          </Tabs>
-        </Box>
-        <Box>
-          <CustomTabPanel value={value} index={0}>
-            <FullTruckLoad />
+      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <Tabs
+          value={value}
+          onChange={handleChange}
+          aria-label="basic tabs example"
+        >
+          {tabsConfig.map((tab, index) => (
+            <Tab label={tab.label} {...a11yProps(index)} key={index} />
+          ))}
+        </Tabs>
+      </Box>
+      <Box>
+        {tabsConfig.map((tab, index) => (
+          <CustomTabPanel value={value} index={index} key={index}>
+            {tab.component}
           </CustomTabPanel>
-          <CustomTabPanel value={value} index={1}>
-            <LessThanTruckLoad />
-          </CustomTabPanel>
-          <CustomTabPanel value={value} index={2}>
-            <DSR />
-          </CustomTabPanel>
-        </Box>
-      </>
+        ))}
+      </Box>
     </Box>
   );
 }

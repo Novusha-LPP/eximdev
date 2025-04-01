@@ -22,10 +22,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   }, []);
 
   const handleInputChange = (event, rowIndex, columnId) => {
-    const localDateTimeString = event.target.value; // "2025-03-31T23:59"
+    
     // Convert to JS Date, which automatically interprets "YYYY-MM-DDTHH:mm"
-    const dateObj = new Date(localDateTimeString);
-    console.log(dateObj.toISOString()); // "2025-03-31T23:59:00.000Z"
+  
+   
     const { value } = event.target;
     setRows((prevRows) => {
       const newRows = [...prevRows];

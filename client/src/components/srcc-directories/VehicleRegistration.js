@@ -134,14 +134,16 @@ const VehicleRegistration = () => {
   };
 
   // 4. Fetch drivers by selected vehicle type
-  const fetchDriversByType = async (selectedType) => {
+  const fetchDriversByType = async (selectedTypeId) => {
     try {
+      const selectedType = vehicleTypes.find((v) => v._id === selectedTypeId);
       if (!selectedType) {
-        setDrivers([]);
+        console.error("❌ Selected type not found in vehicleTypes");
         return;
       }
+
       const response = await axios.get(
-        `${API_URL}/available-drivers/${selectedType}`
+        `${API_URL}/available-drivers/${selectedType.vehicleType}` // Pass the vehicleType string
       );
       setDrivers(response.data || []);
     } catch (error) {
@@ -302,12 +304,16 @@ const VehicleRegistration = () => {
         responseHandler(response, "updated");
       }
     } catch (error) {
-      console.error("❌ Error saving vehicle:", error);
-      alert(
-        `Failed to save vehicle: ${
-          error.response?.data?.error || "Server error"
-        }`
-      );
+      if (error.response?.status === 400 && error.response?.data?.error) {
+        alert(`Error: ${error.response.data.error}`);
+      } else {
+        console.error("❌ Error saving vehicle:", error);
+        alert(
+          `Failed to save vehicle: ${
+            error.response?.data?.error || "Server error"
+          }`
+        );
+      }
     }
   };
 
@@ -352,8 +358,8 @@ const VehicleRegistration = () => {
               <TableRow key={vehicle._id}>
                 <TableCell>{vehicle.vehicleNumber}</TableCell>
                 <TableCell>{vehicle.registrationName}</TableCell>
-                <TableCell>{vehicle.type}</TableCell>
-                <TableCell>{vehicle.shortName}</TableCell>
+                <TableCell>{vehicle.type?.vehicleType}</TableCell>
+                <TableCell>{vehicle.type?.shortName}</TableCell>
                 <TableCell>{vehicle.depotName}</TableCell>
                 <TableCell>{vehicle.driver?.name}</TableCell>
                 <TableCell>
@@ -455,31 +461,20 @@ const VehicleRegistration = () => {
                     <Select
                       name="type"
                       label="Type"
-                      value={values.type}
+                      value={values.type} // This will now be the ObjectId
                       onChange={async (event) => {
-                        const selectedType = event.target.value;
-                        // Update the type field first
-                        handleChange(event);
-                        // Fetch available drivers for the selected type
-                        await fetchDriversByType(selectedType);
-                        // Clear any previously selected driver if type changes
-                        setFieldValue("driver", { _id: "", name: "" });
+                        const selectedTypeId = event.target.value;
+                        setFieldValue("type", selectedTypeId);
 
-                        // Auto-populate loadCapacity based on the selected vehicle type
-                        const foundType = vehicleTypes.find(
-                          (v) => v.vehicleType === selectedType
-                        );
-                        if (foundType && foundType.loadCapacity) {
-                          // Set loadCapacity as an object with value and unit
-                          setFieldValue("loadCapacity", foundType.loadCapacity);
-                        }
+                        // Fetch available drivers for the selected type
+                        await fetchDriversByType(selectedTypeId);
                       }}
                       onBlur={handleBlur}
                       error={touched.type && Boolean(errors.type)}
                     >
                       {vehicleTypes.map((v) => (
-                        <MenuItem key={v._id} value={v.vehicleType}>
-                          {v.vehicleType}
+                        <MenuItem key={v._id} value={v._id}>
+                          {v.vehicleType} ({v.shortName})
                         </MenuItem>
                       ))}
                     </Select>

@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose"; // Add this line
 import VehicleRegistration from "../../../model/srcc/Directory_Management/VehicleRegistration.mjs";
 import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
 
@@ -15,7 +16,7 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
   const {
     vehicleNumber,
     registrationName,
-    type,
+    type, // Should be an ObjectId
     shortName,
     depotName,
     initialOdometer,
@@ -26,51 +27,11 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
   } = req.body;
 
   try {
-    // Log the received data for debugging
-    console.log("Received vehicle registration data:", req.body);
-
-    // Check if vehicle number is valid
-    if (!vehicleNumber || !isValidVehicleNumber(vehicleNumber)) {
-      return res.status(400).json({
-        error: "Invalid vehicle number format. Should be like MH12XX1234.",
-      });
+    // Validate type as ObjectId
+    if (!mongoose.Types.ObjectId.isValid(type)) {
+      return res.status(400).json({ error: "Invalid vehicle type ID" });
     }
 
-    // Check if all required fields are present
-    if (
-      !registrationName ||
-      !type ||
-      !shortName ||
-      !depotName ||
-      !initialOdometer ||
-      !initialOdometer.value ||
-      !initialOdometer.unit ||
-      !loadCapacity ||
-      !loadCapacity.value ||
-      !loadCapacity.unit ||
-      !driver ||
-      !driver._id ||
-      !driver.name ||
-      !driver.phoneNumber ||
-      !vehicleManufacturingDetails
-    ) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    // Check if a vehicle with the same registrationName or vehicleNumber already exists
-    const existingRegistration = await VehicleRegistration.findOne({
-      $or: [{ registrationName }, { vehicleNumber }],
-    });
-
-    if (existingRegistration) {
-      return res
-        .status(400)
-        .json({
-          error: "Vehicle registration or vehicle number already exists",
-        });
-    }
-
-    // Create new vehicle registration
     const newRegistration = await VehicleRegistration.create({
       vehicleNumber,
       registrationName,
@@ -84,19 +45,75 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       vehicleManufacturingDetails,
     });
 
-    // Mark the driver as assigned
-    await DriverType.findOneAndUpdate(
-      { _id: driver._id },
-      { isAssigned: true },
-      { new: true }
-    );
-
     res.status(201).json({
       message: "Vehicle registration added successfully",
       data: newRegistration,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        error: `Duplicate key error: ${Object.keys(error.keyValue).join(
+          ", "
+        )} already exists.`,
+      });
+    }
     console.error("Error adding vehicle registration:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// UPDATE a Vehicle Registration
+router.put("/api/update-vehicle-registration/:id", async (req, res) => {
+  const { id } = req.params;
+  const {
+    vehicleNumber,
+    registrationName,
+    type, // Should be an ObjectId
+    shortName,
+    depotName,
+    initialOdometer,
+    loadCapacity,
+    driver,
+    purchase,
+    vehicleManufacturingDetails,
+  } = req.body;
+
+  try {
+    // Validate type as ObjectId
+    if (!mongoose.Types.ObjectId.isValid(type)) {
+      return res.status(400).json({ error: "Invalid vehicle type ID" });
+    }
+
+    const updatedRegistration = await VehicleRegistration.findByIdAndUpdate(
+      id,
+      {
+        vehicleNumber,
+        registrationName,
+        type,
+        shortName,
+        depotName,
+        initialOdometer,
+        loadCapacity,
+        driver,
+        purchase,
+        vehicleManufacturingDetails,
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      message: "Vehicle registration updated successfully",
+      data: updatedRegistration,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        error: `Duplicate key error: ${Object.keys(error.keyValue).join(
+          ", "
+        )} already exists.`,
+      });
+    }
+    console.error("Error updating vehicle registration:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -104,7 +121,7 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
 // READ all Vehicle Registrations
 router.get("/api/get-vehicle-registration", async (req, res) => {
   try {
-    const registrations = await VehicleRegistration.find();
+    const registrations = await VehicleRegistration.find().populate("type");
     res.status(200).json({ data: registrations });
   } catch (error) {
     console.error("Error fetching vehicle registrations:", error);
@@ -116,7 +133,9 @@ router.get("/api/get-vehicle-registration", async (req, res) => {
 router.get("/api/get-vehicle-registration/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const registration = await VehicleRegistration.findById(id);
+    const registration = await VehicleRegistration.findById(id).populate(
+      "type"
+    );
     if (!registration) {
       return res.status(404).json({ error: "Vehicle registration not found" });
     }
@@ -160,11 +179,9 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     });
 
     if (existingRegistration) {
-      return res
-        .status(400)
-        .json({
-          error: "Vehicle registration or vehicle number already exists",
-        });
+      return res.status(400).json({
+        error: "Vehicle registration or vehicle number already exists",
+      });
     }
 
     // Find the existing vehicle registration to check previous driver

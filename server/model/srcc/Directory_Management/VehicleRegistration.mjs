@@ -13,9 +13,9 @@ const VehicleRegistrationSchema = new mongoose.Schema(
       trim: true,
     },
     type: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VehicleType", // Reference to the VehicleType model
       required: true,
-      trim: true,
     },
     shortName: {
       type: String,

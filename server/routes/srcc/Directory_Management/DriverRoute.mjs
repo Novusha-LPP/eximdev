@@ -147,17 +147,15 @@ router.get("/api/available-drivers/:type", async (req, res) => {
   }
 
   try {
-    // Log the type received for debugging
-    console.log("Received type:", type);
+    console.log("Received type:", type); // Log the type for debugging
 
-    // Use regex to match the drivingVehicleTypes field for the selected type
     const drivers = await DriverType.find({
       drivingVehicleTypes: { $regex: type, $options: "i" }, // Case-insensitive regex match
       isAssigned: false, // Ensure driver is not assigned
     });
 
-    // Log available drivers for debugging
-  
+    console.log("Available drivers:", drivers); // Log the query results
+
     if (drivers.length === 0) {
       return res
         .status(404)
@@ -166,11 +164,11 @@ router.get("/api/available-drivers/:type", async (req, res) => {
 
     return res.status(200).json(drivers);
   } catch (error) {
+    console.error("Error fetching available drivers:", error);
     return res.status(500).json({
       message: "Error fetching available drivers",
       error: error.message,
     });
   }
 });
-
 export default router;

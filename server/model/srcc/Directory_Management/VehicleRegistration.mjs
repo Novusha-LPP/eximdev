@@ -58,6 +58,10 @@ const VehicleRegistrationSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    isOccupied: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

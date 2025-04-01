@@ -302,6 +302,7 @@ router.get("/api/vehicles", async (req, res) => {
     }
 
     const drivers = filteredVehicles.map((vehicle) => ({
+      vehicleNumber_id: vehicle._id,
       vehicleNumber: vehicle.vehicleNumber,
       driverName: vehicle.driver.name,
       driverPhone: vehicle.driver.phoneNumber,
@@ -311,6 +312,38 @@ router.get("/api/vehicles", async (req, res) => {
   } catch (error) {
     console.error("Error fetching vehicles:", error);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PATCH API to update isOccupied value
+router.patch("/api/update-vehicle-occupied/:id", async (req, res) => {
+  const { id } = req.params;
+  const { isOccupied } = req.body;
+
+  try {
+    if (typeof isOccupied !== "boolean") {
+      return res
+        .status(400)
+        .json({ error: "isOccupied must be a boolean value" });
+    }
+
+    const updatedRegistration = await VehicleRegistration.findByIdAndUpdate(
+      id,
+      { isOccupied },
+      { new: true }
+    );
+
+    if (!updatedRegistration) {
+      return res.status(404).json({ error: "Vehicle registration not found" });
+    }
+
+    res.status(200).json({
+      message: "isOccupied value updated successfully",
+      data: updatedRegistration,
+    });
+  } catch (error) {
+    console.error("Error updating isOccupied value:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

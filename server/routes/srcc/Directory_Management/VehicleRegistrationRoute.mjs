@@ -273,4 +273,45 @@ router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
   }
 });
 
+router.get("/api/vehicles", async (req, res) => {
+  console.log("GET /vehicles hit"); // Debugging log
+  try {
+    const { type_of_vehicle } = req.query;
+    console.log("Received type_of_vehicle:", type_of_vehicle); // Debugging log
+
+    if (!type_of_vehicle) {
+      return res.status(400).json({ message: "type_of_vehicle is required" });
+    }
+
+    const vehicles = await VehicleRegistration.find()
+      .populate("type")
+      .populate("driver._id")
+      .lean();
+    console.log("Fetched vehicles:", vehicles); // Debugging log
+
+    const filteredVehicles = vehicles.filter(
+      (vehicle) => vehicle.type?.vehicleType === type_of_vehicle
+    );
+
+    console.log("Filtered Vehicles:", filteredVehicles); // Debugging log
+
+    if (filteredVehicles.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No vehicles found for this type." });
+    }
+
+    const drivers = filteredVehicles.map((vehicle) => ({
+      vehicleNumber: vehicle.vehicleNumber,
+      driverName: vehicle.driver.name,
+      driverPhone: vehicle.driver.phoneNumber,
+    }));
+
+    res.status(200).json({ drivers });
+  } catch (error) {
+    console.error("Error fetching vehicles:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 export default router;

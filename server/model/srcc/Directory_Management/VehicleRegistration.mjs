@@ -48,7 +48,6 @@ const VehicleRegistrationSchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
-
       phoneNumber: { type: String, required: true, trim: true },
     },
     purchase: {

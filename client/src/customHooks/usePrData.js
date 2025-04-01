@@ -40,7 +40,7 @@ function usePrData() {
 
       // Extract just the vehicleType field from each object
       const vehicleTypeArray = res.data.data.map((item) => item.vehicleType);
-      console.log(vehicleTypeArray);
+
       // Now your truckTypes state is just an array of strings
       setTruckTypes(vehicleTypeArray);
     };

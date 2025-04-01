@@ -355,7 +355,9 @@ const TollData = () => {
                           variant="body2"
                         >
                           {selectedType.name} ({selectedType.shortName}) – GVW:{" "}
-                          {selectedType.loadCapacity}
+                          {selectedType.loadCapacity
+                            ? `${selectedType.loadCapacity.value} ${selectedType.loadCapacity.unit}`
+                            : "N/A"}
                         </Typography>
                       ))}
                     </Box>

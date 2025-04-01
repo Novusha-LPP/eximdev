@@ -144,6 +144,55 @@ function useLrColumns(props) {
     getData();
     // eslint-disable-next-line
   }, [props.prData, props.pr_no]);
+  useEffect(() => {
+    async function getData() {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/get-trs`,
+        { pr_no: props.pr_no }
+      );
+
+      // After setting the rows, we need to initialize vehicle data for each row
+      const loadedRows = res.data;
+      setRows(loadedRows);
+
+      // For each row that has "Own" vehicle and a type_of_vehicle, load the available vehicles
+      loadedRows.forEach((row, index) => {
+        if (row.own_hired === "Own" && row.type_of_vehicle) {
+          loadVehiclesForRow(row.type_of_vehicle, index);
+        }
+      });
+    }
+
+    getData();
+    // eslint-disable-next-line
+  }, [props.prData, props.pr_no]);
+
+  // Add this new function to load vehicles for existing rows
+  const loadVehiclesForRow = async (vehicleType, rowIndex) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${vehicleType}`
+      );
+
+      if (response.data && response.data.drivers) {
+        setRows((prevRows) => {
+          const newRows = [...prevRows];
+
+          // Store the complete drivers array
+          newRows[rowIndex].availableDrivers = response.data.drivers;
+
+          // Store vehicle numbers for the dropdown
+          newRows[rowIndex].availableVehicles = response.data.drivers.map(
+            (driver) => driver.vehicleNumber
+          );
+
+          return newRows;
+        });
+      }
+    } catch (error) {
+      console.error("Error loading vehicles for row:", error);
+    }
+  };
   const handleLocationClick = async (asset) => {
     console.log(asset);
     try {
@@ -184,6 +233,7 @@ function useLrColumns(props) {
         newRows[rowIndex].driver_name = "";
         newRows[rowIndex].driver_phone = "";
         newRows[rowIndex].availableVehicles = [];
+        newRows[rowIndex].availableDrivers = [];
       }
       // If the type of vehicle is selected, handle differently based on Own/Hired
       else if (columnId === "type_of_vehicle") {
@@ -198,7 +248,7 @@ function useLrColumns(props) {
         columnId === "vehicle_no" &&
         newRows[rowIndex].own_hired === "Own"
       ) {
-        // Find the driver info from the availableVehicles array we stored when fetching vehicles
+        // Find the driver info from the availableDrivers array we stored when fetching vehicles
         if (
           newRows[rowIndex].availableDrivers &&
           newRows[rowIndex].availableDrivers.length > 0
@@ -220,7 +270,6 @@ function useLrColumns(props) {
       return newRows;
     });
   };
-
   const handleDelete = async (tr_no, container_number) => {
     // Show confirmation dialog
     const confirmDelete = window.confirm(
@@ -264,21 +313,21 @@ function useLrColumns(props) {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${type_of_vehicle}`
       );
-  
+
       if (response.data && response.data.drivers) {
         // Store the complete drivers array for later use
         newRows[rowIndex].availableDrivers = response.data.drivers;
-        
+
         // Also store just the vehicle numbers for the dropdown
         newRows[rowIndex].availableVehicles = response.data.drivers.map(
           (driver) => driver.vehicleNumber
         );
-  
+
         // Reset vehicle number and driver details when type changes
         newRows[rowIndex].vehicle_no = "";
         newRows[rowIndex].driver_name = "";
         newRows[rowIndex].driver_phone = "";
-  
+
         setRows([...newRows]); // Important to create a new array to trigger re-render
       }
     } catch (error) {
@@ -584,28 +633,40 @@ function useLrColumns(props) {
       Cell: ({ cell, row }) => {
         // Different input field based on Own/Hired
         if (row.original.own_hired === "Own") {
-          // For Own vehicles, show dropdown with vehicles fetched from API
+          // Current saved value
+          const savedValue = cell.getValue() || "";
+
+          // Check if we have available vehicles loaded
+          const hasAvailableVehicles =
+            rows[row.index]?.availableVehicles?.length > 0;
+
+          // If we have a saved value but no available vehicles yet, we need to show the saved value anyway
+          const menuItems = hasAvailableVehicles
+            ? rows[row.index].availableVehicles.map((vehicleNo) => (
+                <MenuItem key={vehicleNo} value={vehicleNo}>
+                  {vehicleNo}
+                </MenuItem>
+              ))
+            : savedValue
+            ? [
+                <MenuItem key={savedValue} value={savedValue}>
+                  {savedValue}
+                </MenuItem>,
+              ]
+            : [<MenuItem disabled>Select vehicle type first</MenuItem>];
+
           return (
             <TextField
               select
               sx={{ width: "100%" }}
               size="small"
-              value={cell.getValue() || ""}
+              value={savedValue}
               onChange={(event) =>
                 handleInputChange(event, row.index, cell.column.id)
               }
               disabled={!row.original.type_of_vehicle} // Disable until vehicle type is selected
             >
-              {rows[row.index]?.availableVehicles?.length > 0 ? (
-                // Show vehicles fetched based on selected type
-                rows[row.index].availableVehicles.map((vehicleNo) => (
-                  <MenuItem key={vehicleNo} value={vehicleNo}>
-                    {vehicleNo}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem disabled>Select vehicle type first</MenuItem>
-              )}
+              {menuItems}
             </TextField>
           );
         } else {

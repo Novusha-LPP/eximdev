@@ -4,6 +4,7 @@ export const moduleCategories = {
   "Employee KYC": "HR & Management",
   "Customer KYC": "Customer KYC",
   "Import - DSR": "Import",
+  Customer: "Customer",
   Documentation: "Import",
   Submission: "Import",
   "Import - Operations": "Import",

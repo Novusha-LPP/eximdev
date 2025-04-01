@@ -95,6 +95,7 @@ function useJobColumns() {
           const {
             job_no,
             year,
+            job_date,
             type_of_b_e,
             consignment_type,
             vessel_berthing,
@@ -207,8 +208,10 @@ function useJobColumns() {
                 backgroundColor: bgColor,
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+              {job_no} <br />
+              {job_date}
+              <br />00
+              {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
               <br />
             </div>
           );

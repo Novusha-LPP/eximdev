@@ -65,7 +65,7 @@ function CJobDetails() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
-  console.log("8888888888888888888888");
+  // console.log("8888888888888888888888");
   const {
     data,
     detentionFrom,
@@ -668,19 +668,17 @@ function CJobDetails() {
                   <strong>Status:&nbsp;</strong>
                   <TextField
                     fullWidth
-                    select
                     size="small"
                     margin="normal"
                     variant="outlined"
                     id="status"
                     name="status"
                     value={formik.values.status || ""}
-                    onChange={formik.handleChange}
-                  >
-                    <MenuItem value="Pending">Pending</MenuItem>
-                    <MenuItem value="Completed">Completed</MenuItem>
-                    <MenuItem value="Cancelled">Cancelled</MenuItem>
-                  </TextField>
+                    disabled={true}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                  />
                 </div>
               </Col>
               <Col xs={12} lg={4}>
@@ -724,6 +722,10 @@ function CJobDetails() {
                     name="vessel_berthing"
                     value={formik.values.vessel_berthing || ""}
                     onChange={formik.handleChange}
+                    // disabled={true}
+                    InputProps={{
+                      readOnly: true,
+                    }}
                   />
                 </div>
               </Col>
@@ -740,6 +742,10 @@ function CJobDetails() {
                     name="gateway_igm_date"
                     value={formik.values.gateway_igm_date || ""}
                     onChange={formik.handleChange}
+                    //disabled={true}
+                    InputProps={{
+                      readOnly: true,
+                    }}
                   />
                 </div>
               </Col>
@@ -756,6 +762,10 @@ function CJobDetails() {
                     name="discharge_date"
                     value={formik.values.discharge_date || ""}
                     onChange={formik.handleChange}
+                    // disabled={true}
+                    InputProps={{
+                      readOnly: true,
+                    }}
                   />
                 </div>
               </Col>
@@ -848,6 +858,10 @@ function CJobDetails() {
                     name="hss"
                     value={formik.values.hss || "No"}
                     onChange={formik.handleChange}
+                    // disabled={true}
+                    InputProps={{
+                      readOnly: true,
+                    }}
                     style={{ marginTop: "10px" }}
                   >
                     <MenuItem value="Yes">Yes</MenuItem>
@@ -871,6 +885,10 @@ function CJobDetails() {
                     name="Seller_name"
                     value={formik.values.Seller_name || ""}
                     onChange={formik.handleChange}
+                    // disabled={true}
+                    InputProps={{
+                      readOnly: true,
+                    }}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter Seller Name"
                   />
@@ -893,6 +911,9 @@ function CJobDetails() {
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     // disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                    InputProps={{
+                      readOnly: true,
+                    }}
                   >
                     {options?.map((option, id) => (
                       <MenuItem key={id} value={option}>
@@ -914,7 +935,6 @@ function CJobDetails() {
                   style={{ justifyContent: "flex-start" }}
                 >
                   <strong>Priority :&nbsp;</strong>
-
                   <RadioGroup
                     row
                     name="priorityJob"
@@ -924,7 +944,7 @@ function CJobDetails() {
                   >
                     <FormControlLabel
                       value="normal"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled />}
                       label="Normal"
                       sx={{
                         color: "green",
@@ -933,7 +953,7 @@ function CJobDetails() {
                     />
                     <FormControlLabel
                       value="Priority"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled />}
                       label="Priority"
                       sx={{
                         color: "orange",
@@ -942,7 +962,7 @@ function CJobDetails() {
                     />
                     <FormControlLabel
                       value="High Priority"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled />}
                       label="High Priority"
                       sx={{
                         color: "red",
@@ -972,21 +992,13 @@ function CJobDetails() {
                   >
                     <FormControlLabel
                       value="Transaction"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled />}
                       label="Transaction"
-                      // sx={{
-                      //   color: "green",
-                      //   "& .MuiSvgIcon-root": { color: "green" },
-                      // }}
                     />
                     <FormControlLabel
                       value="Deferred"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled />}
                       label="Deferred"
-                      // sx={{
-                      //   color: "orange",
-                      //   "& .MuiSvgIcon-root": { color: "orange" },
-                      // }}
                     />
                   </RadioGroup>
                 </div>
@@ -1003,24 +1015,12 @@ function CJobDetails() {
                     margin="normal"
                     variant="outlined"
                     type="datetime-local"
-                    id="do_revalidation_date"
-                    name="do_revalidation_date"
-                    value={
-                      formik.values.fta_Benefit_date_time
-                        ? formik.values.fta_Benefit_date_time
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      if (newValue) {
-                        formik.setFieldValue("fta_Benefit_date_time", newValue);
-                      } else {
-                        formik.setFieldValue("fta_Benefit_date_time", "");
-                      }
-                    }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
+                    id="fta_Benefit_date_time"
+                    name="fta_Benefit_date_time"
+                    value={formik.values.fta_Benefit_date_time || ""}
+                    InputProps={{ readOnly: true }}
+                    disabled
+                    InputLabelProps={{ shrink: true }}
                   />
                 </div>
               </Col>
@@ -1037,10 +1037,12 @@ function CJobDetails() {
                     id="description"
                     name="description"
                     value={formik.values.description || ""}
-                    onChange={formik.handleChange}
+                    InputProps={{ readOnly: true }}
+                    disabled
                   />
                 </div>
               </Col>
+
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1055,12 +1057,13 @@ function CJobDetails() {
                     id="cth_no"
                     name="cth_no"
                     value={formik.values.cth_no || ""}
-                    onChange={formik.handleChange}
+                    InputProps={{ readOnly: true }}
+                    disabled
                     InputLabelProps={{ shrink: true }}
                   />
                 </div>
               </Col>
-              {/* BE Type Selection */}
+
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1075,8 +1078,7 @@ function CJobDetails() {
                     margin="normal"
                     name="type_of_b_e"
                     value={formik.values.type_of_b_e || ""}
-                    onChange={formik.handleChange}
-                    displayempty="true"
+                    disabled
                   >
                     <MenuItem value="" disabled>
                       Select BE Type
@@ -1090,6 +1092,8 @@ function CJobDetails() {
                 </div>
               </Col>
             </Row>
+
+            {/* Clearance under start */}
             {/* Clearance under start */}
             <Row style={{ marginTop: "20px" }}>
               {/* Clearance Under Selection */}
@@ -1106,15 +1110,7 @@ function CJobDetails() {
                     variant="outlined"
                     name="clearanceValue"
                     value={formik.values.clearanceValue || ""}
-                    onChange={(e) => {
-                      if (canChangeClearance()) {
-                        formik.setFieldValue("clearanceValue", e.target.value);
-                      } else {
-                        alert(
-                          "Please clear Ex-Bond details before changing Clearance Under."
-                        );
-                      }
-                    }}
+                    disabled
                   >
                     <MenuItem value="" disabled>
                       Select Clearance Type
@@ -1128,34 +1124,9 @@ function CJobDetails() {
                 </div>
               </Col>
 
-              {/* Scheme Selection */}
-              {/* <Col xs={12} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="Scheme:"
-                  name="scheme"
-                  value={formik.values.scheme}
-                  onChange={formik.handleChange}
-                  style={{ marginBottom: "16px" }}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select Scheme
-                  </MenuItem>
-                  {schemeOptions.map((schemeOption, index) => (
-                    <MenuItem key={index} value={schemeOption}>
-                      {schemeOption}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Col> */}
-
-              {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
-              <Col xs={12} lg={4}>
-                {formik.values.type_of_b_e === "Ex-Bond" && (
+              {/* Ex-Bond Details (read-only) */}
+              {formik.values.type_of_b_e === "Ex-Bond" && (
+                <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
@@ -1168,25 +1139,23 @@ function CJobDetails() {
                       variant="outlined"
                       name="exBondValue"
                       value={formik.values.exBondValue || ""}
-                      onChange={formik.handleChange}
+                      disabled
                     >
                       <MenuItem value="" disabled>
                         Select In-Bond Type
                       </MenuItem>
-                      {/* Static "Other" option */}
                       <MenuItem value="other">Other</MenuItem>
-                      {/* Dynamic Job Details from API */}
                       {jobDetails.map((job) => (
-                        <MenuItem key={job.job_no} value={job.job_no}>
-                          {`${job.job_no} - ${job.importer}`}
-                        </MenuItem>
+                        <MenuItem
+                          key={job.job_no}
+                          value={job.job_no}
+                        >{`${job.job_no} - ${job.importer}`}</MenuItem>
                       ))}
                     </TextField>
                   </div>
-                )}
-              </Col>
+                </Col>
+              )}
 
-              {/* Additional BE Details if the "other" option is selected */}
               {formik.values.exBondValue === "other" && (
                 <>
                   <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
@@ -1201,7 +1170,8 @@ function CJobDetails() {
                         variant="outlined"
                         name="in_bond_be_no"
                         value={formik.values.in_bond_be_no || ""}
-                        onChange={formik.handleChange}
+                        InputProps={{ readOnly: true }}
+                        disabled
                       />
                     </div>
                   </Col>
@@ -1216,48 +1186,29 @@ function CJobDetails() {
                         fullWidth
                         size="small"
                         variant="outlined"
-                        label="InBond BE Date"
                         type="date"
                         InputLabelProps={{ shrink: true }}
                         name="in_bond_be_date"
                         value={formik.values.in_bond_be_date || ""}
-                        onChange={formik.handleChange}
+                        InputProps={{ readOnly: true }}
+                        disabled
                       />
                     </div>
                   </Col>
 
                   <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
-                    <FileUpload
-                      label="Upload InBond BE Copy"
-                      bucketPath="ex_be_copy_documents"
-                      onFilesUploaded={(newFiles) =>
-                        formik.setFieldValue("in_bond_ooc_copies", [
-                          ...formik.values.in_bond_ooc_copies,
-                          ...newFiles,
-                        ])
-                      }
-                      multiple
-                    />
                     <ImagePreview
                       images={formik.values.in_bond_ooc_copies || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [
-                          ...formik.values.in_bond_ooc_copies,
-                        ];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue(
-                          "in_bond_ooc_copies",
-                          updatedFiles
-                        );
-                      }}
+                      readOnly
                     />
                   </Col>
                 </>
               )}
+
+              {/* Ex-Bond matched job details */}
               {formik.values.exBondValue !== "other" &&
                 formik.values.exBondValue !== "" &&
                 (() => {
-                  // Find the matching job based on job_no
                   const matchedJob = jobDetails.find(
                     (job) => job.job_no === formik.values.exBondValue
                   );
@@ -1275,7 +1226,7 @@ function CJobDetails() {
                       <Col xs={12} lg={4} style={{ marginTop: "20px" }}>
                         <strong>OOC copy:</strong>
                         <ImagePreview
-                          images={matchedJob.ooc_copies || []} // Corrected optional chaining syntax
+                          images={matchedJob.ooc_copies || []}
                           readOnly
                         />
                       </Col>
@@ -1286,25 +1237,9 @@ function CJobDetails() {
                     </Col>
                   );
                 })()}
-
-              <Col xs={12} lg={4} style={{ marginTop: "30px" }}>
-                {formik.values.type_of_b_e === "Ex-Bond" && (
-                  <Row>
-                    <Col xs={12}>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={resetOtherDetails}
-                      >
-                        Reset Ex-Bond Details
-                      </Button>
-                    </Col>
-                  </Row>
-                )}
-              </Col>
             </Row>
-            {/* Clearance under end */}
-            {/* total weight start */}
+
+            {/* Total weight (read-only) */}
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
                 <div
@@ -1320,8 +1255,8 @@ function CJobDetails() {
                     id="gross_weight"
                     name="gross_weight"
                     value={formik.values.gross_weight || ""}
-                    onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
+                    InputProps={{ readOnly: true }}
+                    disabled
                   />
                 </div>
               </Col>
@@ -1339,8 +1274,8 @@ function CJobDetails() {
                     id="job_net_weight"
                     name="job_net_weight"
                     value={formik.values.job_net_weight || ""}
-                    onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
+                    InputProps={{ readOnly: true }}
+                    disabled
                   />
                 </div>
               </Col>
@@ -1362,7 +1297,7 @@ function CJobDetails() {
                     id="be_no"
                     name="be_no"
                     value={formik.values.be_no || ""}
-                    onChange={formik.handleChange}
+                    InputProps={{ readOnly: true }}
                     InputLabelProps={{ shrink: true }}
                   />
                 </div>
@@ -1382,7 +1317,7 @@ function CJobDetails() {
                     id="be_date"
                     name="be_date"
                     value={formik.values.be_date || ""}
-                    onChange={formik.handleChange}
+                    InputProps={{ readOnly: true }}
                     InputLabelProps={{ shrink: true }}
                   />
                 </div>
@@ -1399,32 +1334,36 @@ function CJobDetails() {
                     id="assessment_date"
                     name="assessment_date"
                     value={formik.values.assessment_date}
-                    onChange={formik.handleChange}
+                    InputProps={{ readOnly: true }}
                   />
                 </div>
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Checklist"
-                  bucketPath="checklist"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.checklist || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("checklist", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-
-                <ImagePreview
-                  images={formik.values.checklist || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.checklist];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("checklist", updatedFiles);
-                  }}
-                />
+                <div className="file-display-container">
+                  <strong>Checklist:&nbsp;</strong>
+                  <div className="file-list">
+                    {(formik.values.checklist || []).map((file, index) => (
+                      <div key={index} className="file-item">
+                        {file.name || `File ${index + 1}`}
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="primary"
+                          // onClick={() => handleViewFile(file)}
+                          style={{ marginLeft: "5px" }}
+                        >
+                          View
+                        </Button>
+                      </div>
+                    ))}
+                    {(!formik.values.checklist ||
+                      formik.values.checklist.length === 0) && (
+                      <div className="no-files">No files uploaded</div>
+                    )}
+                  </div>
+                </div>
               </Col>
 
               <CJobStickerPDF
@@ -1454,103 +1393,69 @@ function CJobDetails() {
                 }}
                 data={data}
               />
-              {/* <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Job Sticker Upload"
-                  bucketPath="job-sticker"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles =
-                      formik.values.job_sticker_upload || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                  multiple={true}
-                />
 
-                <ImagePreview
-                  images={formik.values.job_sticker_upload || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.job_sticker_upload];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                />
-              </Col> */}
               <Col xs={12} lg={4}>
-                {/* Only show FileUpload if there's NO PDF in the array */}
-
-                <div
-                  style={{
-                    display: "flex", // puts items in a row
-                    alignItems: "center", // vertically center items
-                    gap: "10px", // space between items
-                    marginBottom: "10px", // optional spacing below
-                  }}
-                >
+                <div className="file-display-container">
+                  <strong>Job Sticker:&nbsp;</strong>
                   <Button
                     variant="primary"
-                    onClick={handleGenerate}
+                    // onClick={() => handleView()}
                     style={{
-                      padding: "10px 20px",
-                      fontSize: "16px",
-                      borderRadius: "6px",
-                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                      padding: "5px 10px",
+                      fontSize: "14px",
+                      borderRadius: "4px",
+                      marginLeft: "10px",
                     }}
                   >
-                    Generate Job Sticker
+                    View Job Sticker
                   </Button>
-
-                  <FileUpload
-                    label="Job Sticker Upload"
-                    bucketPath="job-sticker"
-                    onFilesUploaded={(newFiles) => {
-                      const existingFiles =
-                        formik.values.job_sticker_upload || [];
-                      const updatedFiles = [...existingFiles, ...newFiles];
-                      formik.setFieldValue("job_sticker_upload", updatedFiles);
-                    }}
-                    multiple={true}
-                  />
+                  <div className="file-list">
+                    {(formik.values.job_sticker_upload || []).map(
+                      (file, index) => (
+                        <div key={index} className="file-item">
+                          {file.name || `File ${index + 1}`}
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="primary"
+                            // onClick={() => handleViewFile(file)}
+                            style={{ marginLeft: "5px" }}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
-
-                <ImagePreview
-                  images={formik.values.job_sticker_upload || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.job_sticker_upload];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                />
               </Col>
 
               <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Processed BE Copy"
-                  bucketPath="processed_be_attachment"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles =
-                      formik.values.processed_be_attachment || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue(
-                      "processed_be_attachment",
-                      updatedFiles
-                    );
-                  }}
-                  multiple={true}
-                />
-                <ImagePreview
-                  images={formik.values.processed_be_attachment || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [
-                      ...formik.values.processed_be_attachment,
-                    ];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue(
-                      "processed_be_attachment",
-                      updatedFiles
-                    );
-                  }}
-                />
+                <div className="file-display-container">
+                  <strong>Processed BE Copy:&nbsp;</strong>
+                  <div className="file-list">
+                    {(formik.values.processed_be_attachment || []).map(
+                      (file, index) => (
+                        <div key={index} className="file-item">
+                          {file.name || `File ${index + 1}`}
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="primary"
+                            // onClick={() => handleViewFile(file)}
+                            style={{ marginLeft: "5px" }}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      )
+                    )}
+                    {(!formik.values.processed_be_attachment ||
+                      formik.values.processed_be_attachment.length === 0) && (
+                      <div className="no-files">No files uploaded</div>
+                    )}
+                  </div>
+                </div>
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
@@ -1560,31 +1465,7 @@ function CJobDetails() {
                   style={{ justifyContent: "flex-start" }}
                 >
                   <strong>Examination Planning Date:&nbsp;</strong>
-                  <Checkbox
-                    value={formik.values.examinationPlanning}
-                    checked={formik.values.examinationPlanning}
-                    onChange={(e) => {
-                      const isChecked = e.target.checked;
-                      if (isChecked) {
-                        // Set current date-time when checked, adjusted to local timezone
-                        const currentDateTime = new Date(
-                          Date.now() - new Date().getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16);
-                        formik.setFieldValue("examinationPlanning", true);
-                        formik.setFieldValue(
-                          "examination_planning_date",
-                          currentDateTime
-                        );
-                      } else {
-                        // Clear values when unchecked
-                        formik.setFieldValue("examinationPlanning", false);
-                        formik.setFieldValue("examination_planning_date", "");
-                      }
-                    }}
-                  />
-                  {formik.values.examination_planning_date && (
+                  {formik.values.examination_planning_date ? (
                     <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
                       {new Date(
                         formik.values.examination_planning_date
@@ -1593,49 +1474,11 @@ function CJobDetails() {
                         hour12: true,
                       })}
                     </span>
+                  ) : (
+                    <span>Not planned</span>
                   )}
                 </div>
               </Col>
-              {user.role === "Admin" && (
-                <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    <strong>Examination Planning Date:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      type="datetime-local"
-                      id="examination_planning_date"
-                      name="examination_planning_date"
-                      value={
-                        formik.values.examination_planning_date
-                          ? formik.values.examination_planning_date
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        if (newValue) {
-                          formik.setFieldValue("examinationPlanning", true);
-                          formik.setFieldValue(
-                            "examination_planning_date",
-                            newValue
-                          );
-                        } else {
-                          formik.setFieldValue("examinationPlanning", false);
-                          formik.setFieldValue("examination_planning_date", "");
-                        }
-                      }}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                    />
-                  </div>
-                </Col>
-              )}
               <Col
                 xs={12}
                 lg={4}
@@ -1644,24 +1487,32 @@ function CJobDetails() {
                 <Typography variant="body1" sx={{ mr: 1 }}>
                   First Check
                 </Typography>
-                <Switch
-                  checked={Boolean(formik.values.fristCheck)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
-                      const currentDateTime = new Date(
-                        Date.now() - new Date().getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      formik.setFieldValue("fristCheck", currentDateTime);
-                    } else {
-                      formik.setFieldValue("fristCheck", "");
-                    }
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "40px",
+                    height: "20px",
+                    backgroundColor: formik.values.fristCheck
+                      ? "#1976d2"
+                      : "#e0e0e0",
+                    borderRadius: "10px",
+                    position: "relative",
                   }}
-                  name="fristCheck"
-                  color="primary"
-                />
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      display: "block",
+                      width: "16px",
+                      height: "16px",
+                      backgroundColor: "white",
+                      borderRadius: "50%",
+                      top: "2px",
+                      left: formik.values.fristCheck ? "22px" : "2px",
+                      transition: "left 0.3s",
+                    }}
+                  ></span>
+                </span>
                 {formik.values.fristCheck && (
                   <>
                     <Typography variant="body1" sx={{ color: "green", ml: 1 }}>

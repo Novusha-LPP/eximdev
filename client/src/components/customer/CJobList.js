@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import "../../styles/job-list.scss";
-import useJobColumns from "../../customHooks/useJobColumns";
+import useCustomerJobList from "../../customHooks/useCustomerJobList";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import useFetchJobsData from "../../customHooks/useFetchJobsData";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
@@ -34,7 +34,7 @@ function CJobList(props) {
   const [detailedStatus, setDetailedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const columns = useJobColumns(detailedStatus);
+  const columns = useCustomerJobList(detailedStatus);
   const { importers } = useImportersContext();
   const [userData, setUserData] = useState(null);
   const [username, setUsername] = useState(null);

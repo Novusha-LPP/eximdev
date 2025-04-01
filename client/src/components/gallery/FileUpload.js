@@ -1,17 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import { Button, CircularProgress } from "@mui/material";
+import { UserContext } from "../../contexts/UserContext";
 
 const FileUpload = ({
   label,
   onFilesUploaded,
   bucketPath,
   multiple = true,
-  acceptedFileTypes = [], // Allow all file types by default
+  acceptedFileTypes = [],
+  readOnly = false, // Default to false
 }) => {
   const [uploading, setUploading] = useState(false);
+   const { user } = useContext(UserContext);
 
   const handleFileUpload = async (event) => {
+    if (readOnly) return; // Prevent upload if readOnly is true
+
     const files = event.target.files;
     const uploadedFiles = [];
 
@@ -33,16 +38,21 @@ const FileUpload = ({
       <Button
         variant="contained"
         component="label"
-        style={{ backgroundColor: "#1c1e22", color: "#fff" }}
+        style={{
+          backgroundColor: readOnly ? "#ccc" : "#1c1e22",
+          color: "#fff",
+          cursor: readOnly ? "not-allowed" : "pointer",
+        }}
+        disabled={readOnly || uploading} // Disable button when readOnly
       >
         {label}
         <input
           type="file"
           hidden
           multiple={multiple}
-          accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""} // Allow all files
+          accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
           onChange={handleFileUpload}
-          disabled={uploading}
+          disabled={readOnly || uploading} // Disable input when readOnly
         />
       </Button>
       {uploading && (
@@ -51,6 +61,7 @@ const FileUpload = ({
     </div>
   );
 };
+
 
 
 export default FileUpload;

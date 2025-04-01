@@ -157,13 +157,16 @@ function OperationsList() {
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYear,
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYear) {
+       fetchJobs(
+         page,
+         debouncedSearchQuery,
+         selectedYear,
+         selectedICD,
+         selectedImporter
+       );
+    }
+   
   }, [
     page,
     debouncedSearchQuery,

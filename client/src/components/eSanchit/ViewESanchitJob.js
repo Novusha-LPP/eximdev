@@ -18,6 +18,8 @@ import ImagePreview from "../../components/gallery/ImagePreview.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog";
 import { useFormik } from "formik";
 import { UserContext } from "../../contexts/UserContext";
+import { TabContext } from "../eSanchit/ESanchitTab.js";
+import { useLocation } from "react-router-dom";
 
 const cth_Dropdown = [
   { document_name: "Certificate of Origin", document_code: "861000" },
@@ -35,6 +37,7 @@ const cth_Dropdown = [
   { document_name: "Certificate of Analysis", document_code: "001000" },
 ];
 function ViewESanchitJob() {
+  const routeLocation = useLocation()
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [data, setData] = useState({ cth_documents: [] });
@@ -47,7 +50,15 @@ function ViewESanchitJob() {
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const isTrue = routeLocation.state?.currentTab || false;
 
+ const isAdmin = user.role === "Admin"; // Check if user is an Admin
+ const isDisabled = (!isAdmin && isTrue === 1);
+
+  
+
+  console.log(isDisabled);
+  console.log(isTrue === 1);
   // Fetch data
   useEffect(() => {
     async function getData() {
@@ -159,11 +170,14 @@ function ViewESanchitJob() {
   // Check if all Approved checkboxes are true
   // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
   const areAllApproved = () => {
-    return formik.values.cth_documents.every(
-      (doc) =>
-        !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
-        !!doc.irn && // IRN is a non-empty string
-        doc.irn.trim() !== "" // IRN is not just whitespace
+    return (
+      !isDisabled &&
+      formik.values.cth_documents.every(
+        (doc) =>
+          !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
+          !!doc.irn && // IRN is a non-empty string
+          doc.irn.trim() !== "" // IRN is not just whitespace
+      )
     );
   };
 
@@ -290,6 +304,7 @@ function ViewESanchitJob() {
                           setFileSnackbar(true);
                         }}
                         multiple={true}
+                        readOnly={isDisabled}
                       />
                       <ImagePreview
                         images={document.url || []}
@@ -303,6 +318,7 @@ function ViewESanchitJob() {
                             updatedDocuments
                           );
                         }}
+                        readOnly={isDisabled}
                       />
                       <div
                         style={{
@@ -311,22 +327,29 @@ function ViewESanchitJob() {
                           right: "10px",
                         }}
                       >
-                        <span
-                          style={{
-                            cursor: "pointer",
-                            marginRight: "10px",
-                            color: "#007bff",
-                          }}
-                          onClick={() => handleOpenDialog(document, true)}
-                        >
-                          <i className="fas fa-edit" title="Edit"></i>
-                        </span>
-                        <span
-                          style={{ cursor: "pointer", color: "#dc3545" }}
-                          onClick={() => handleOpenDialog(document, false)}
-                        >
-                          <i className="fas fa-trash-alt" title="Delete"></i>
-                        </span>
+                        {!isDisabled && (
+                          <>
+                            <span
+                              style={{
+                                cursor: "pointer",
+                                marginRight: "10px",
+                                color: "#007bff",
+                              }}
+                              onClick={() => handleOpenDialog(document, true)}
+                            >
+                              <i className="fas fa-edit" title="Edit"></i>
+                            </span>
+                            <span
+                              style={{ cursor: "pointer", color: "#dc3545" }}
+                              onClick={() => handleOpenDialog(document, false)}
+                            >
+                              <i
+                                className="fas fa-trash-alt"
+                                title="Delete"
+                              ></i>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </Col>
 
@@ -339,6 +362,7 @@ function ViewESanchitJob() {
                         value={formik.values.cth_documents[index]?.irn || ""}
                         onChange={formik.handleChange}
                         fullWidth
+                        disabled={isDisabled}
                       />
                     </Col>
 
@@ -371,6 +395,7 @@ function ViewESanchitJob() {
                               updatedDocuments
                             );
                           }}
+                          disabled={isDisabled}
                         />
                         <strong>Approved Date</strong>
                         {formik.values.cth_documents[index]
@@ -413,6 +438,7 @@ function ViewESanchitJob() {
                           InputLabelProps={{
                             shrink: true,
                           }}
+                          disabled={isDisabled}
                         />
                       )}
                     </Col>
@@ -426,6 +452,7 @@ function ViewESanchitJob() {
                     <FormControl fullWidth size="small">
                       <InputLabel shrink={true}>Select Document</InputLabel>
                       <Select
+                        disabled={isDisabled}
                         value={selectedDocument}
                         onChange={(e) => {
                           setSelectedDocument(e.target.value);
@@ -598,13 +625,16 @@ function ViewESanchitJob() {
               </Row>
             </div>
 
-            <button
-              className="btn sticky-btn"
-              style={{ float: "right", margin: "20px" }}
-              type="submit"
-            >
-              Submit
-            </button>
+            {!isDisabled && (
+              <button
+                className="btn sticky-btn"
+                style={{ float: "right", margin: "20px" }}
+                type="submit"
+              >
+                Submit
+              </button>
+            )}
+
             {/* <ConfirmDialog
               open={dialogOpen}
               handleClose={() => setDialogOpen(false)}

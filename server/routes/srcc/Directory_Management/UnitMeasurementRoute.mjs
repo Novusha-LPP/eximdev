@@ -5,11 +5,10 @@ const router = express.Router();
 
 /**
  * @route POST /api/add-unit-measurement
- * @desc Create a new unit measurement
+ * @desc Create a new unit measurement category with measurements
  */
 router.post("/api/add-unit-measurement", async (req, res) => {
-  const { name, symbol, unit_type, decimal_places } = req.body;
-  
+  const { name, measurements } = req.body;
 
   try {
     const existingUnit = await UnitMeasurement.findOne({ name });
@@ -17,12 +16,7 @@ router.post("/api/add-unit-measurement", async (req, res) => {
       return res.status(400).json({ error: "Unit measurement already exists" });
     }
 
-    const newUnit = await UnitMeasurement.create({
-      name,
-      symbol,
-      unit_type,
-      decimal_places,
-    });
+    const newUnit = await UnitMeasurement.create({ name, measurements });
     res
       .status(201)
       .json({ message: "Unit Measurement added successfully", data: newUnit });
@@ -34,7 +28,7 @@ router.post("/api/add-unit-measurement", async (req, res) => {
 
 /**
  * @route GET /api/get-unit-measurements
- * @desc Retrieve all unit measurements
+ * @desc Retrieve all unit measurement categories
  */
 router.get("/api/get-unit-measurements", async (req, res) => {
   try {
@@ -65,11 +59,11 @@ router.get("/api/get-unit-measurement/:id", async (req, res) => {
 
 /**
  * @route PUT /api/update-unit-measurement/:id
- * @desc Update an existing unit measurement
+ * @desc Update a unit measurement category and its measurements
  */
 router.put("/api/update-unit-measurement/:id", async (req, res) => {
   try {
-    const { name, symbol, unit_type, decimal_places } = req.body;
+    const { name, measurements } = req.body;
 
     const existingUnit = await UnitMeasurement.findOne({
       name,
@@ -78,14 +72,12 @@ router.put("/api/update-unit-measurement/:id", async (req, res) => {
     if (existingUnit) {
       return res
         .status(400)
-        .json({
-          error: "Unit measurement with this name already exists",
-        });
+        .json({ error: "Unit measurement with this name already exists" });
     }
 
     const updatedUnit = await UnitMeasurement.findByIdAndUpdate(
       req.params.id,
-      { name, symbol, unit_type, decimal_places },
+      { name, measurements },
       { new: true, runValidators: true }
     );
 
@@ -93,12 +85,10 @@ router.put("/api/update-unit-measurement/:id", async (req, res) => {
       return res.status(404).json({ error: "Unit measurement not found" });
     }
 
-    res
-      .status(200)
-      .json({
-        message: "Unit measurement updated successfully",
-        data: updatedUnit,
-      });
+    res.status(200).json({
+      message: "Unit measurement updated successfully",
+      data: updatedUnit,
+    });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -107,7 +97,7 @@ router.put("/api/update-unit-measurement/:id", async (req, res) => {
 
 /**
  * @route DELETE /api/delete-unit-measurement/:id
- * @desc Delete a unit measurement
+ * @desc Delete a unit measurement category
  */
 router.delete("/api/delete-unit-measurement/:id", async (req, res) => {
   try {

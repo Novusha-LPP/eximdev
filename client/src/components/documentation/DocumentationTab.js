@@ -58,7 +58,7 @@ function DocumentationTab() {
             aria-label="Documentation Tabs"
           >
             <Tab label="Documentation" {...a11yProps(0)} />
-            {/* <Tab label="Documentation Completed" {...a11yProps(1)} /> */}
+            <Tab label="Documentation Completed" {...a11yProps(1)} />
           </Tabs>
         </Box>
 

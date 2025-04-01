@@ -11,17 +11,33 @@ import {
   TableHead,
   TableRow,
   IconButton,
+  Typography,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import DirectoryModal from "./DirectoryModal";
-import { directoryFields } from "../../assets/data/srccDirectoriesData";
 
 function UnitMeasurementDirectory() {
   const [units, setUnits] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [editData, setEditData] = useState(null);
+  const [formData, setFormData] = useState({ name: "", measurements: [] });
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [newMeasurement, setNewMeasurement] = useState({
+    unit: "",
+    symbol: "",
+    decimal_places: 2,
+  });
+  const [editingMeasurementIndex, setEditingMeasurementIndex] = useState(null);
+  const [errors, setErrors] = useState({});
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
@@ -41,14 +57,19 @@ function UnitMeasurementDirectory() {
 
   const handleAdd = () => {
     setModalMode("add");
-    setEditData(null);
+    setFormData({ name: "", measurements: [] });
     setOpenModal(true);
+    setSelectedUnit(null);
+    setErrors({});
   };
 
   const handleEdit = (unit) => {
     setModalMode("edit");
+    setFormData({ name: unit.name, measurements: unit.measurements });
     setEditData(unit);
     setOpenModal(true);
+    setSelectedUnit(unit);
+    setErrors({});
   };
 
   const handleDelete = async (id) => {
@@ -64,7 +85,15 @@ function UnitMeasurementDirectory() {
     }
   };
 
-  const handleSave = async (formData) => {
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
+      setErrors({ name: "Category name is required" });
+      return;
+    }
+    if (formData.measurements.length === 0) {
+      setErrors({ measurements: "At least one measurement is required" });
+      return;
+    }
     try {
       if (modalMode === "add") {
         await axios.post(`${API_URL}/add-unit-measurement`, formData);
@@ -82,6 +111,53 @@ function UnitMeasurementDirectory() {
     }
   };
 
+  const handleAddMeasurement = () => {
+    const { unit, symbol, decimal_places } = newMeasurement;
+    if (!unit.trim() || !symbol.trim() || decimal_places === "") {
+      setErrors({ newMeasurement: "All measurement fields are required" });
+      return;
+    }
+    if (editingMeasurementIndex !== null) {
+      const updated = [...formData.measurements];
+      updated[editingMeasurementIndex] = newMeasurement;
+      setFormData({ ...formData, measurements: updated });
+      setEditingMeasurementIndex(null);
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        measurements: [...prev.measurements, newMeasurement],
+      }));
+    }
+    setNewMeasurement({ unit: "", symbol: "", decimal_places: 2 });
+    setErrors({});
+  };
+
+  const handleEditMeasurement = (index) => {
+    setNewMeasurement(formData.measurements[index]);
+    setEditingMeasurementIndex(index);
+  };
+
+  const handleDeleteMeasurement = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      measurements: prev.measurements.filter((_, i) => i !== index),
+    }));
+    if (editingMeasurementIndex === index) {
+      setNewMeasurement({ unit: "", symbol: "", decimal_places: 2 });
+      setEditingMeasurementIndex(null);
+    }
+  };
+
+  const handleFieldChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors({ ...errors, [e.target.name]: "" });
+  };
+
+  const handleMeasurementFieldChange = (e) => {
+    setNewMeasurement({ ...newMeasurement, [e.target.name]: e.target.value });
+    setErrors({ ...errors, newMeasurement: "" });
+  };
+
   return (
     <Box>
       <Box sx={{ mb: 2 }}>
@@ -94,20 +170,20 @@ function UnitMeasurementDirectory() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Code</TableCell>
-              <TableCell>Unit Type</TableCell>
-              <TableCell>Decimal Places</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>
+                <strong>Category Name</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Actions</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {units.map((unit) => (
               <TableRow key={unit._id}>
-                <TableCell>{unit.name}</TableCell>
-                <TableCell>{unit.symbol}</TableCell>
-                <TableCell>{unit.unit_type}</TableCell>
-                <TableCell>{unit.decimal_places}</TableCell>
+                <TableCell>
+                  <Button onClick={() => handleEdit(unit)}>{unit.name}</Button>
+                </TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(unit)} color="primary">
                     <EditIcon />
@@ -125,15 +201,105 @@ function UnitMeasurementDirectory() {
         </Table>
       </TableContainer>
 
-      <DirectoryModal
+      {/* Modal */}
+      <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
-        mode={modalMode}
-        directoryType="Unit Measurement"
-        editData={editData}
-        onSave={handleSave}
-        fields={directoryFields["Unit Measurement"]}
-      />
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          {modalMode === "add" ? "Add" : "Edit"} Unit Measurement
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            margin="dense"
+            label="Category Name"
+            name="name"
+            value={formData.name}
+            onChange={handleFieldChange}
+            error={!!errors.name}
+            helperText={errors.name}
+          />
+
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Measurements
+          </Typography>
+          {errors.measurements && (
+            <Typography color="error" variant="body2">
+              {errors.measurements}
+            </Typography>
+          )}
+          <List dense>
+            {formData.measurements.map((m, index) => (
+              <ListItem
+                key={index}
+                secondaryAction={
+                  <>
+                    <IconButton
+                      edge="end"
+                      color="primary"
+                      onClick={() => handleEditMeasurement(index)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      edge="end"
+                      color="error"
+                      onClick={() => handleDeleteMeasurement(index)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </>
+                }
+              >
+                <ListItemText
+                  primary={`${m.unit} (${m.symbol})`}
+                  secondary={`Decimal Places: ${m.decimal_places}`}
+                />
+              </ListItem>
+            ))}
+          </List>
+
+          <Box display="flex" gap={2} mt={2}>
+            <TextField
+              label="Unit"
+              name="unit"
+              value={newMeasurement.unit}
+              onChange={handleMeasurementFieldChange}
+            />
+            <TextField
+              label="Symbol"
+              name="symbol"
+              value={newMeasurement.symbol}
+              onChange={handleMeasurementFieldChange}
+            />
+            <TextField
+              label="Decimal Places"
+              name="decimal_places"
+              type="number"
+              value={newMeasurement.decimal_places}
+              onChange={handleMeasurementFieldChange}
+            />
+            <Button onClick={handleAddMeasurement} variant="outlined">
+              {editingMeasurementIndex !== null ? "Update" : "Add"}
+            </Button>
+          </Box>
+          {errors.newMeasurement && (
+            <Typography color="error" variant="body2" mt={1}>
+              {errors.newMeasurement}
+            </Typography>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpenModal(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

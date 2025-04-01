@@ -14,8 +14,10 @@ import { Checkbox } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 const DocumentationJob = () => {
+    const routeLocation = useLocation()
   const { job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
@@ -30,6 +32,14 @@ const DocumentationJob = () => {
       return url; // Fallback to original URL
     }
   };
+    const isTrue = routeLocation.state?.currentTab || false;
+
+  const isAdmin = user.role === "Admin"; // Check if user is an Admin
+  const isDisabled = (!isAdmin && isTrue === 1);
+
+  
+
+
 
   useEffect(() => {
     fetchJobDetails();
@@ -241,6 +251,7 @@ const DocumentationJob = () => {
                   <FormControlLabel
                     control={
                       <Checkbox
+                        disabled={isDisabled}
                         checked={!!data.documentation_completed_date_time}
                         onChange={handleCheckboxChange}
                       />
@@ -261,6 +272,7 @@ const DocumentationJob = () => {
                 {user?.role === "Admin" && (
                   <Col xs={12} md={6}>
                     <TextField
+                      disabled={isDisabled}
                       type="datetime-local"
                       fullWidth
                       size="small"
@@ -280,13 +292,15 @@ const DocumentationJob = () => {
               </Row>
             </div>
 
-            <button
-              className="btn"
-              type="submit"
-              style={{ float: "right", marginTop: "20px" }}
-            >
-              Submit
-            </button>
+            {!isDisabled && (
+              <button
+                className="btn sticky-btn"
+                style={{ float: "right", margin: "20px" }}
+                type="submit"
+              >
+                Submit
+              </button>
+            )}
           </form>
         </>
       ) : (

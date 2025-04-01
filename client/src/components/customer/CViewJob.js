@@ -2,7 +2,7 @@ import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
 // import { uploadFileToS3 } from "../../utils/awsFileUpload";
-import JobStickerPDF from "../import-dsr/JobStickerPDF";
+import CJobStickerPDF from "../customer/CJobStickerPDF";
 import {
   IconButton,
   TextField,
@@ -22,8 +22,8 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import AWS from "aws-sdk";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
-import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
-import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
+import CJobDetailsStaticData from "../customer/CJobDetailsStaticData";
+import CJobDetailsRowHeading from "../customer/CJobDetailsRowHeading";
 import FormGroup from "@mui/material/FormGroup";
 import { TabValueContext } from "../../contexts/TabValueContext";
 import { handleGrossWeightChange } from "../../utils/handleNetWeightChange";
@@ -52,10 +52,7 @@ function CJobDetails() {
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const bl_no_ref = useRef();
-  // const checklistRef = useRef();
-  // const processedBeAttachmentRef = useRef();
-  // const oocCopyRef = useRef();
-  // const gatePassCopyRef = useRef();
+
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
   const pdfRef = useRef(null);
@@ -63,59 +60,35 @@ function CJobDetails() {
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  // const [dialogOpen, setDialogOpen] = useState(false);
-  // const [currentDocument, setCurrentDocument] = useState(null);
-  // Modal visibility state
-  // Loading state for downloading
-  // const [isDownloading, setIsDownloading] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
-
+  console.log("8888888888888888888888");
   const {
     data,
     detentionFrom,
     formik,
     cthDocuments,
     setCthDocuments,
-    // handleFileChange,
-    // selectedDocuments,
-    // setSelectedDocuments,
-    // handleDocumentChange,
-    // handleAddDocument,
-    // handleRemoveDocument,
+
     newDocumentName,
     setNewDocumentName,
     setNewDocumentCode,
     newDocumentCode,
-    // canEditOrDelete,
+
     cth_Dropdown,
-    // filterDocuments,
+
     selectedDocument,
     setSelectedDocument,
-    // clearanceOptionsMapping,
+
     jobDetails,
-    // setJobDetails,
-    // type_of_b_e,
-    // setTypeOfBE,
-    // clearanceValue,
-    // setClearanceValue,
-    // scheme,
-    // setScheme,
-    // exBondValue,
-    // setExBondValue,
-    // be_no,
-    // setBeNo,
-    // be_date,
-    // setBeDate,
-    // ooc_copies,
-    // setOocCopies,
+
     beTypeOptions,
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
-    // schemeOptions,
   } = useFetchJobDetails(
     params,
     checked,
@@ -125,7 +98,7 @@ function CJobDetails() {
   );
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
-  // Helper function to update the `detailed_status` based on form values
+
   const updateDetailedStatus = () => {
     const {
       vessel_berthing: eta,
@@ -180,7 +153,6 @@ function CJobDetails() {
     }
   };
 
-  // // Trigger the `updateDetailedStatus` function when form values change
   useEffect(() => {
     updateDetailedStatus();
   }, [
@@ -198,28 +170,6 @@ function CJobDetails() {
     formik.values.delivery_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
-
-  // const handleRadioChange = (event) => {
-  //   const selectedValue = event.target.value;
-
-  //   if (selectedValue === "clear") {
-  //     setSelectedRegNo("");
-  //     formik.setFieldValue("sims_reg_no", "");
-  //     formik.setFieldValue("pims_reg_no", "");
-  //     formik.setFieldValue("nfmims_reg_no", "");
-  //     formik.setFieldValue("sims_date", "");
-  //     formik.setFieldValue("pims_date", "");
-  //     formik.setFieldValue("nfmims_date", "");
-  //   } else {
-  //     setSelectedRegNo(selectedValue);
-  //     formik.setFieldValue("sims_reg_no", "");
-  //     formik.setFieldValue("pims_reg_no", "");
-  //     formik.setFieldValue("nfmims_reg_no", "");
-  //     formik.setFieldValue("sims_date", "");
-  //     formik.setFieldValue("pims_date", "");
-  //     formik.setFieldValue("nfmims_date", "");
-  //   }
-  // };
 
   const handleBlStatusChange = (event) => {
     const selectedValue = event.target.value;
@@ -366,48 +316,6 @@ function CJobDetails() {
   const handleGenerate = () => {
     pdfRef.current?.generatePdf();
   };
-  // const handleOpenDialog = (doc, action) => {
-  //   setCurrentDocument(doc);
-  //   setActionType(action);
-  //   setDialogOpen(true);
-  // };
-
-  // const handleCloseDialog = () => {
-  //   setDialogOpen(false);
-  //   setCurrentDocument(null);
-  //   setActionType("");
-  // };
-
-  // const handleConfirmDialog = () => {
-  //   if (actionType === "delete") {
-  //     setCthDocuments((prevDocs) =>
-  //       prevDocs.filter((doc) => doc !== currentDocument)
-  //     );
-  //   } else if (actionType === "edit") {
-  //     const newName = prompt(
-  //       "Enter new document name:",
-  //       currentDocument.document_name
-  //     );
-  //     const newCode = prompt(
-  //       "Enter new document code:",
-  //       currentDocument.document_code
-  //     );
-
-  //     if (newName && newCode) {
-  //       setCthDocuments((prevDocs) =>
-  //         prevDocs.map((doc) =>
-  //           doc === currentDocument
-  //             ? { ...doc, document_name: newName, document_code: newCode }
-  //             : doc
-  //         )
-  //       );
-  //     }
-  //   }
-  //   handleCloseDialog();
-  // };
-  /**
-   * Handle PDF generation and download
-   */
 
   const handleOpenDialog = (doc, isEdit = false) => {
     setCurrentDocument(doc);
@@ -445,167 +353,6 @@ function CJobDetails() {
 
     handleCloseDialog();
   };
-
-  //
-  // Ref to JobStickerPDF component
-  // const jobStickerRef = useRef();
-
-  // Modal visibility state
-  // const [showModal, setShowModal] = useState(false);
-
-  // Loading state for uploading
-  // const [isUploading, setIsUploading] = useState(false);
-
-  // Open modal
-  // Inside ParentComponent.jsx or ViewJob.js
-  // const handleOpenModal = () => {
-  //   console.log("Opening modal with jobData:", formik.values.job_no);
-  //   setShowModal(true);
-  // };
-
-  // Close modal
-  // const handleCloseModal = () => setShowModal(false);
-
-  // Handle PDF generation and upload on Confirm
-  // const handleConfirm = async () => {
-  //   setIsUploading(true);
-  //   try {
-  //     if (jobStickerRef.current) {
-  //       // Generate PDF as Blob
-  //       const pdfBlob = await jobStickerRef.current.generatePdf();
-
-  //       // Upload the PDF Blob
-  //       const uploadedFile = await uploadPdf(
-  //         pdfBlob,
-  //         `job-sticker/${formik.values.jobId}.pdf`
-  //       );
-
-  //       // Update Formik's job_sticker_upload with the uploaded file info
-  //       const existingFiles = formik.values.job_sticker_upload || [];
-  //       const updatedFiles = [...existingFiles, uploadedFile];
-  //       formik.setFieldValue("job_sticker_upload", updatedFiles);
-
-  //       alert("PDF uploaded successfully!");
-
-  //       // Optionally, handle further actions like form submission
-  //       // formik.handleSubmit();
-
-  //       // Close the modal
-  //       handleCloseModal();
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating or uploading PDF:", error);
-  //     alert(
-  //       "An error occurred while generating or uploading the PDF. Please try again."
-  //     );
-  //   }
-  //   setIsUploading(false);
-  // };
-
-  // const handleDownload = async () => {
-  //   setIsDownloading(true);
-  //   try {
-  //     if (jobStickerRef.current) {
-
-  //       // Generate PDF as Blob
-  //       const pdfBlob = await jobStickerRef.current.generatePdf();
-  //       // Check if Blob was generated successfully
-  //       if (!pdfBlob) {
-  //         throw new Error("PDF Blob is undefined");
-  //       }
-
-  //       // Create a download link
-  //       const url = window.URL.createObjectURL(pdfBlob);
-  //       const link = document.createElement("a");
-  //       link.href = url;
-  //       link.setAttribute(
-  //         "download",
-  //         `Job_Sticker_${formik.values.job_no}.pdf`
-  //       );
-  //       document.body.appendChild(link);
-  //       link.click();
-  //       link.parentNode.removeChild(link);
-
-  //       // Release the object URL
-  //       window.URL.revokeObjectURL(url);
-  //       console.log("PDF downloaded successfully.");
-  //     } else {
-  //       throw new Error("JobStickerPDF ref is not defined");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating or downloading PDF:", error);
-  //     alert(
-  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
-  //     );
-  //   }
-  //   setIsDownloading(false);
-  // };
-
-  // const handleDownload = async () => {
-  //   setIsDownloading(true);
-  //   try {
-  //     if (jobStickerRef.current) {
-  //       // Generate PDF as Blob without passing arguments
-  //       const pdfBlob = await jobStickerRef.current.generatePdf();
-
-  //       // Check if Blob was generated successfully
-  //       if (!pdfBlob) {
-  //         throw new Error("PDF Blob is undefined");
-  //       }
-
-  //       // Create a download link
-  //       const url = window.URL.createObjectURL(pdfBlob);
-  //       const link = document.createElement("a");
-  //       link.href = url;
-  //       link.setAttribute(
-  //         "download",
-  //         `Job_Sticker_${formik.values.job_no}.pdf`
-  //       );
-  //       document.body.appendChild(link);
-  //       link.click();
-  //       link.parentNode.removeChild(link);
-
-  //       // Release the object URL
-  //       window.URL.revokeObjectURL(url);
-  //       console.log("PDF downloaded successfully.");
-  //     } else {
-  //       throw new Error("JobStickerPDF ref is not defined");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating or downloading PDF:", error);
-  //     alert(
-  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
-  //     );
-  //   }
-  //   setIsDownloading(false);
-  // };
-
-  /**
-   * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
-   * @param {Blob} blob - The PDF blob to upload.
-   * @param {string} filePath - The desired file path or name in storage.
-   * @returns {Promise<Object>} - An object containing uploaded file's details.
-   */
-  // const uploadPdf = async (blob, filePath) => {
-  //   // Assuming uploadFileToS3 is a utility function you've defined
-  //   // that uploads a file to AWS S3 and returns the file URL.
-
-  //   // Example implementation:
-  //   // const result = await uploadFileToS3(blob, filePath);
-  //   // return { url: result.Location, name: result.Key };
-
-  //   // Replace the below mock implementation with your actual upload logic
-  //   try {
-  //     const result = await uploadFileToS3(blob, filePath);
-  //     return {
-  //       name: result.Key, // Assuming Key is the file name/path in S3
-  //       url: result.Location, // URL of the uploaded file
-  //       size: blob.size,
-  //     };
-  //   } catch (error) {
-  //     throw new Error("Upload failed");
-  //   }
-  // };
   function subtractOneDay(dateString) {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -621,7 +368,7 @@ function CJobDetails() {
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
           {/* Importer info start*/}
-          <JobDetailsStaticData
+          <CJobDetailsStaticData
             data={data}
             params={params}
             bl_no_ref={bl_no_ref}
@@ -632,7 +379,7 @@ function CJobDetails() {
           {/* Importer info End*/}
           {/* completion status start*/}
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Completion Status" />
+            <CJobDetailsRowHeading heading="Completion Status" />
 
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={3}>
@@ -939,43 +686,22 @@ function CJobDetails() {
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Detailed Status:&nbsp;</strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="detailed_status"
-                    name="detailed_status"
-                    value={formik.values.detailed_status || ""}
-                    onChange={formik.handleChange}
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      mt: 1,
+                      mb: 1,
+                      p: 1,
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      backgroundColor: "#f9f9f9",
+                      minHeight: "40px",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
                   >
-                    <MenuItem value="ETA Date Pending">
-                      ETA Date Pending
-                    </MenuItem>
-                    <MenuItem value="Estimated Time of Arrival">
-                      Estimated Time of Arrival
-                    </MenuItem>
-                    <MenuItem value="Gateway IGM Filed">
-                      Gateway IGM Filed
-                    </MenuItem>
-                    <MenuItem value="Discharged">Discharged</MenuItem>
-                    <MenuItem value="Rail Out">Rail Out</MenuItem>
-                    <MenuItem value="BE Noted, Arrival Pending">
-                      BE Noted, Arrival Pending
-                    </MenuItem>
-                    <MenuItem value="BE Noted, Clearance Pending">
-                      BE Noted, Clearance Pending
-                    </MenuItem>
-                    <MenuItem value="PCV Done, Duty Payment Pending">
-                      PCV Done, Duty Payment Pending
-                    </MenuItem>
-                    <MenuItem value="Custom Clearance Completed">
-                      Cus.Clearance Completed, delivery pending
-                    </MenuItem>
-
-                    <MenuItem value="Billing Pending">Billing Pending</MenuItem>
-                  </TextField>
+                    {formik.values.detailed_status || "—"}
+                  </Typography>
                 </div>
               </Col>
             </Row>
@@ -983,7 +709,7 @@ function CJobDetails() {
           {/* completion status end  */}
           {/* Tracking status start*/}
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Tracking Status" />
+            <CJobDetailsRowHeading heading="Tracking Status" />
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -1700,23 +1426,8 @@ function CJobDetails() {
                   }}
                 />
               </Col>
-              {/* <Col xs={12} lg={4}>
-                <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                  <Button
-                    variant="primary"
-                    onClick={handleGenerate}
-                    style={{
-                      padding: "10px 20px",
-                      fontSize: "16px",
-                      borderRadius: "6px",
-                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                    }}
-                  >
-                    Generate Job Sticker
-                  </Button>
-                </div>
-              </Col> */}
-              <JobStickerPDF
+
+              <CJobStickerPDF
                 ref={pdfRef}
                 jobData={{
                   job_no: formik.values.job_no,
@@ -2618,7 +2329,7 @@ function CJobDetails() {
 
           {/* document section */}
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Documents" />
+            <CJobDetailsRowHeading heading="Documents" />
             <br />
 
             {/* CTH Documents Section */}
@@ -2804,7 +2515,7 @@ function CJobDetails() {
           </div>
           {/* test232423242 */}
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="All Documents" />
+            <CJobDetailsRowHeading heading="All Documents" />
             <br />
             <Col xs={6}>
               <FileUpload
@@ -2831,7 +2542,7 @@ function CJobDetails() {
 
           {/* Queries status start  */}
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Queries" />
+            <CJobDetailsRowHeading heading="Queries" />
             <br />
             {formik.values.do_queries.length > 0 &&
               formik.values.do_queries.map((item, id) => (
@@ -2921,7 +2632,7 @@ function CJobDetails() {
           {/* Queries status end  */}
 
           <div className="job-details-container">
-            <JobDetailsRowHeading heading="Container Details" />
+            <CJobDetailsRowHeading heading="Container Details" />
             {/* {formik.values.status !== "" && 
               formik.values.container_nos?.map((container, index) => {
                 return ( */}
@@ -3245,22 +2956,6 @@ function CJobDetails() {
                           />
                         </div>
                       </Col>
-                      {/* <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Weight as per Document:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            key={index}
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            id={`net_weight_${index}`}
-                            name={`container_nos[${index}].net_weight`}
-                            value={container.net_weight}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col> */}
                     </Row>
 
                     <Row>
@@ -3525,7 +3220,7 @@ function CJobDetails() {
           <Modal.Title>Review and Download Job Sticker</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <JobStickerPDF
+          <CCCJobStickerPDF
             ref={jobStickerRef}
             jobData={{
               job_no: formik.values.job_no,

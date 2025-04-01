@@ -5,6 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
+import { getUser } from "../utils/cookie";
+
+const user = getUser();
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
@@ -86,7 +89,7 @@ function useJobColumns() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No  ",
         size: 150,
         Cell: ({ cell }) => {
           const {
@@ -190,7 +193,14 @@ function useJobColumns() {
 
           return (
             <div
-              onClick={() => navigate(`/job/${job_no}/${year}`)}
+              onClick={() => {
+                console.log(user?.role);
+                if (user?.role == "Customer") {
+                  navigate(`/cjob/${job_no}/${year}`);
+                } else {
+                  navigate(`/job/${job_no}/${year}`);
+                }
+              }}
               style={{
                 cursor: "pointer",
                 color: textColor,
@@ -223,16 +233,16 @@ function useJobColumns() {
           const supplier_exporter = row?.original?.supplier_exporter || "";
           const gross_weight = row?.original?.gross_weight || "";
           const job_net_weight = row?.original?.job_net_weight || "";
-            const  loading_port = row?.original.loading_port ||  "";
-            const port_of_reporting = row?.original.port_of_reporting ||  "";
+          const loading_port = row?.original.loading_port || "";
+          const port_of_reporting = row?.original.port_of_reporting || "";
 
-            // Remove the codes from the port names if they are in the format "(CODE) PortName"
+          // Remove the codes from the port names if they are in the format "(CODE) PortName"
           const cleanLoadingPort = loading_port
-          ? loading_port.replace(/\(.*?\)\s*/, "")
-          : "N/A";
-        const cleanPortOfReporting = port_of_reporting
-          ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-          : "N/A";
+            ? loading_port.replace(/\(.*?\)\s*/, "")
+            : "N/A";
+          const cleanPortOfReporting = port_of_reporting
+            ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+            : "N/A";
 
           const containerFirst =
             row?.original?.container_nos?.[0]?.container_number || "";
@@ -359,16 +369,16 @@ function useJobColumns() {
                     <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
                   </Tooltip>
                   <div>
-              <strong>LO :</strong> {cleanLoadingPort} <br />
-              <strong>POD :</strong> {cleanPortOfReporting} <br />
-            </div>
+                    <strong>LO :</strong> {cleanLoadingPort} <br />
+                    <strong>POD :</strong> {cleanPortOfReporting} <br />
+                  </div>
                 </React.Fragment>
               )}
             </React.Fragment>
           );
         },
       },
-      { 
+      {
         accessorKey: "dates",
         header: "Dates",
         size: 350,
@@ -387,69 +397,70 @@ function useJobColumns() {
 
           return (
             <div style={{ display: "flex", gap: "20px" }}>
-            {/* Left Section */}
-            <div>
-              <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
-              <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
-              <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
-              <strong>Rail-out :</strong>
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.container_rail_out_date
-                        ? container.container_rail_out_date.slice(0, 10)
-                        : "N/A"}{" "}
-                      <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"}
-              <strong>Arrival :</strong>
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.arrival_date || "N/A"} <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"}
-              <strong>Detention.F. :</strong>
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.detention_from || "N/A"} <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"}
+              {/* Left Section */}
+              <div>
+                <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
+                <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
+                <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
+                <strong>Rail-out :</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.container_rail_out_date
+                          ? container.container_rail_out_date.slice(0, 10)
+                          : "N/A"}{" "}
+                        <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}
+                <strong>Arrival :</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.arrival_date || "N/A"} <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}
+                <strong>Detention.F. :</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.detention_from || "N/A"} <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}
+              </div>
+
+              {/* Right Section */}
+              <div>
+                <strong>PCV :</strong> {pcv_date || "N/A"} <br />
+                <strong>OOC :</strong> {out_of_charge || "N/A"} <br />
+                <strong>Delivery :</strong>{" "}
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.delivery_date
+                          ? container.delivery_date.slice(0, 10)
+                          : "N/A"}{" "}
+                        <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}{" "}
+                <br />
+                <strong>EmptyOff:</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.emptyContainerOffLoadDate
+                          ? container.emptyContainerOffLoadDate.slice(0, 10)
+                          : "N/A"}{" "}
+                        <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}{" "}
+                <br />
+              </div>
             </div>
-          
-            {/* Right Section */}
-            <div>
-              <strong>PCV :</strong> {pcv_date || "N/A"} <br />
-              <strong>OOC :</strong> {out_of_charge || "N/A"} <br />
-              <strong>Delivery :</strong> {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.delivery_date
-                        ? container.delivery_date.slice(0, 10)
-                        : "N/A"}{" "}
-                      <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"} <br />
-              <strong>EmptyOff:</strong> 
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.emptyContainerOffLoadDate
-                        ? container.emptyContainerOffLoadDate.slice(0, 10)
-                        : "N/A"}{" "}
-                      <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"} <br />
-            </div>
-          </div>
-          
-          
           );
         },
       },

@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
-import useFetchJobList from "../../customHooks/useFetchJobList";
+import useFetchJobsData from "../../customHooks/useFetchJobsData";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
 import {
@@ -12,6 +12,9 @@ import {
   Typography,
   Pagination,
   InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
@@ -23,6 +26,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./CSelectImporterModal";
 import { useNavigate } from "react-router-dom";
 import { useImportersContext } from "../../contexts/importersContext";
+import { getUser } from "../../utils/cookie";
 
 function CJobList(props) {
   const [years, setYears] = useState([]);
@@ -35,49 +39,46 @@ function CJobList(props) {
   const [userData, setUserData] = useState(null);
   const [username, setUsername] = useState(null);
   const [selectedImporter, setSelectedImporter] = useState(null);
+  const [assignedImporters, setAssignedImporters] = useState([]);
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
 
+  // Only get username from cookie
   useEffect(() => {
-    const storedUser = localStorage.getItem("exim_user");
-
-    try {
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUsername(parsedUser.username);
-
-        if (
-          parsedUser.assigned_importer_name &&
-          parsedUser.assigned_importer_name.length > 0
-        ) {
-          setSelectedImporter(parsedUser.assigned_importer_name[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Error parsing user from localStorage:", error);
-      setUserData(null);
-      setSelectedImporter(null);
+    const user = getUser();
+    if (user && user.username) {
+      setUsername(user.username);
     }
   }, []);
 
-  // Fetch user data on component mount
+  // Fetch user data including assigned importer from API only
   useEffect(() => {
     async function fetchUserData() {
+      if (!username) {
+        return;
+      }
+
       try {
         const response = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-user-data/${username}`
         );
-
         setUserData(response.data);
 
-        // Set default selected importer from user data
+        // Store all assigned importers
         if (
           response.data.assigned_importer_name &&
           response.data.assigned_importer_name.length > 0
         ) {
+          // console.log(
+          //   "Setting assignedImporters from API:",
+          //   response.data.assigned_importer_name
+          // );
+          setAssignedImporters(response.data.assigned_importer_name);
+
+          // Set the first one as selected by default
           setSelectedImporter(response.data.assigned_importer_name[0]);
         }
       } catch (error) {
@@ -85,16 +86,35 @@ function CJobList(props) {
       }
     }
     fetchUserData();
-  }, []);
+  }, [username]); // Only depend on username
 
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs } =
-    useFetchJobList(
-      detailedStatus,
-      selectedYear,
-      props.status,
-      debouncedSearchQuery,
-      selectedImporter
-    );
+  // Track dependencies for job fetching
+  useEffect(() => {
+    if (selectedImporter) {
+      // console.log("Fetching jobs with importer:", selectedImporter);
+    }
+  }, [
+    selectedImporter,
+    detailedStatus,
+    selectedYear,
+    props.status,
+    debouncedSearchQuery,
+  ]);
+
+  const {
+    rows,
+    total,
+    totalPages,
+    currentPage,
+    handlePageChange,
+    fetchJobsData,
+  } = useFetchJobsData(
+    detailedStatus,
+    selectedYear,
+    props.status,
+    debouncedSearchQuery,
+    selectedImporter
+  );
 
   useEffect(() => {
     async function getYears() {
@@ -117,24 +137,25 @@ function CJobList(props) {
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
         if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
-            filteredYears.includes(defaultYearPair)
-              ? defaultYearPair
-              : filteredYears[0]
-          );
+          const yearToSet = filteredYears.includes(defaultYearPair)
+            ? defaultYearPair
+            : filteredYears[0];
+          setSelectedYear(yearToSet);
         }
       } catch (error) {
         console.error("Error fetching years:", error);
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, []); // No dependencies to prevent resets
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 500);
-    return () => clearTimeout(handler);
+    return () => {
+      clearTimeout(handler);
+    };
   }, [searchQuery]);
 
   const table = useMaterialReactTable({
@@ -190,7 +211,9 @@ function CJobList(props) {
           defaultValue={years[0]}
           size="small"
           value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          onChange={(e) => {
+            setSelectedYear(e.target.value);
+          }}
           sx={{ width: "100px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
@@ -200,11 +223,40 @@ function CJobList(props) {
           ))}
         </TextField>
 
+        {/* New Importer Dropdown - only shows if multiple importers */}
+        {assignedImporters.length > 1 && (
+          <FormControl
+            sx={{ width: "150px", marginRight: "20px" }}
+            size="small"
+          >
+            <InputLabel id="importer-select-label">Importer</InputLabel>
+            <Select
+              labelId="importer-select-label"
+              value={selectedImporter}
+              label="Importer"
+              onChange={(e) => {
+                setSelectedImporter(e.target.value);
+              }}
+            >
+              {assignedImporters.map((importer, index) => (
+                <MenuItem
+                  key={`importer-${importer}-${index}`}
+                  value={importer}
+                >
+                  {importer}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+
         <TextField
           select
           size="small"
           value={detailedStatus}
-          onChange={(e) => setDetailedStatus(e.target.value)}
+          onChange={(e) => {
+            setDetailedStatus(e.target.value);
+          }}
           sx={{ width: "300px" }}
         >
           {detailedStatusOptions.map((option, index) => (
@@ -222,11 +274,17 @@ function CJobList(props) {
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+          }}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs(1)}>
+                <IconButton
+                  onClick={() => {
+                    fetchJobsData(1);
+                  }}
+                >
                   <SearchIcon />
                 </IconButton>
               </InputAdornment>
@@ -234,7 +292,11 @@ function CJobList(props) {
           }}
           sx={{ width: "300px", marginRight: "20px" }}
         />
-        <IconButton onClick={handleOpen}>
+        <IconButton
+          onClick={() => {
+            handleOpen();
+          }}
+        >
           <DownloadIcon />
         </IconButton>
       </div>
@@ -248,14 +310,18 @@ function CJobList(props) {
       <Pagination
         count={totalPages}
         page={currentPage}
-        onChange={(event, page) => handlePageChange(page)}
+        onChange={(event, page) => {
+          handlePageChange(page);
+        }}
         color="primary"
         sx={{ mt: 2, display: "flex", justifyContent: "center" }}
       />
 
       <SelectImporterModal
         open={open}
-        handleClose={handleClose}
+        handleClose={() => {
+          handleClose();
+        }}
         status={props.status}
         detailedStatus={detailedStatus}
       />

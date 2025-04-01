@@ -43,6 +43,7 @@ function useLrColumns(props) {
   const [srcelOptions, setSrcelOptions] = useState([]);
   const [openLocationDialog, setOpenLocationDialog] = useState(false);
   const [locationData, setLocationData] = useState(null);
+  const [isUpdatingOccupancy, setIsUpdatingOccupancy] = useState(false);
   console.log(`locationData`, locationData);
   // console.log(truckNos);
   // console.log(`srCelNos`, srCelNos);
@@ -167,32 +168,32 @@ function useLrColumns(props) {
     // eslint-disable-next-line
   }, [props.prData, props.pr_no]);
 
-  // Add this new function to load vehicles for existing rows
-  const loadVehiclesForRow = async (vehicleType, rowIndex) => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${vehicleType}`
-      );
+  // // Add this new function to load vehicles for existing rows
+  // const loadVehiclesForRow = async (vehicleType, rowIndex) => {
+  //   try {
+  //     const response = await axios.get(
+  //       `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${vehicleType}`
+  //     );
 
-      if (response.data && response.data.drivers) {
-        setRows((prevRows) => {
-          const newRows = [...prevRows];
+  //     if (response.data && response.data.drivers) {
+  //       setRows((prevRows) => {
+  //         const newRows = [...prevRows];
 
-          // Store the complete drivers array
-          newRows[rowIndex].availableDrivers = response.data.drivers;
+  //         // Store the complete drivers array
+  //         newRows[rowIndex].availableDrivers = response.data.drivers;
 
-          // Store vehicle numbers for the dropdown
-          newRows[rowIndex].availableVehicles = response.data.drivers.map(
-            (driver) => driver.vehicleNumber
-          );
+  //         // Store vehicle numbers for the dropdown
+  //         newRows[rowIndex].availableVehicles = response.data.drivers.map(
+  //           (driver) => driver.vehicleNumber
+  //         );
 
-          return newRows;
-        });
-      }
-    } catch (error) {
-      console.error("Error loading vehicles for row:", error);
-    }
-  };
+  //         return newRows;
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading vehicles for row:", error);
+  //   }
+  // };
   const handleLocationClick = async (asset) => {
     console.log(asset);
     try {
@@ -307,7 +308,59 @@ function useLrColumns(props) {
     );
     setFilteredTruckNos(filtered);
   };
-  // Improved fetchVehiclesByType function with better error handling
+
+  // Add this function to handle the occupancy toggle
+  const handleOccupancyToggle = async (
+    vehicleId,
+    currentOccupiedState,
+    rowIndex
+  ) => {
+    try {
+      setIsUpdatingOccupancy(true);
+
+      // Make the API call to update the vehicle's occupied status
+      const response = await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-vehicle-occupied/${vehicleId}`,
+        {
+          isOccupied: !currentOccupiedState,
+        }
+      );
+
+      if (response.data && response.status === 200) {
+        // Update the local state to reflect the change
+        setRows((prevRows) => {
+          const newRows = [...prevRows];
+          newRows[rowIndex].isOccupied = !currentOccupiedState;
+          return newRows;
+        });
+
+        // Refresh the available vehicles for all rows to update dropdowns
+        refreshAvailableVehicles();
+
+        // Show success message
+        alert("Vehicle status updated successfully");
+      } else {
+        alert("Failed to update vehicle status");
+      }
+    } catch (error) {
+      console.error("Error updating vehicle occupancy:", error);
+      alert("Error updating vehicle status");
+    } finally {
+      setIsUpdatingOccupancy(false);
+    }
+  };
+
+  // Function to refresh available vehicles data for all rows
+  const refreshAvailableVehicles = async () => {
+    // For each row with a selected vehicle type, refresh the available vehicles
+    rows.forEach((row, index) => {
+      if (row.own_hired === "Own" && row.type_of_vehicle) {
+        loadVehiclesForRow(row.type_of_vehicle, index);
+      }
+    });
+  };
+
+  // Update the fetchVehiclesByType function to filter out occupied vehicles
   const fetchVehiclesByType = async (type_of_vehicle, newRows, rowIndex) => {
     try {
       const response = await axios.get(
@@ -315,13 +368,27 @@ function useLrColumns(props) {
       );
 
       if (response.data && response.data.drivers) {
-        // Store the complete drivers array for later use
-        newRows[rowIndex].availableDrivers = response.data.drivers;
+        // Filter out vehicles that are occupied
+        const availableDrivers = response.data.drivers.filter(
+          (driver) => !driver.isOccupied
+        );
 
-        // Also store just the vehicle numbers for the dropdown
-        newRows[rowIndex].availableVehicles = response.data.drivers.map(
+        // Store the complete filtered drivers array
+        newRows[rowIndex].availableDrivers = availableDrivers;
+
+        // Store vehicle numbers for the dropdown
+        newRows[rowIndex].availableVehicles = availableDrivers.map(
           (driver) => driver.vehicleNumber
         );
+
+        // Store the vehicle IDs for updating occupancy
+        newRows[rowIndex].vehicleIds = {};
+        response.data.drivers.forEach((driver) => {
+          newRows[rowIndex].vehicleIds[driver.vehicleNumber] = {
+            id: driver.vehicleNumber_id,
+            isOccupied: driver.isOccupied || false,
+          };
+        });
 
         // Reset vehicle number and driver details when type changes
         newRows[rowIndex].vehicle_no = "";
@@ -332,10 +399,70 @@ function useLrColumns(props) {
       }
     } catch (error) {
       console.error("Error fetching vehicles by type:", error);
-      // Show error to user
       alert("Failed to fetch vehicles of this type");
       newRows[rowIndex].availableVehicles = [];
       newRows[rowIndex].availableDrivers = [];
+    }
+  };
+
+  // Similarly update the loadVehiclesForRow function to handle occupied vehicles
+  const loadVehiclesForRow = async (vehicleType, rowIndex) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${vehicleType}`
+      );
+
+      if (response.data && response.data.drivers) {
+        setRows((prevRows) => {
+          const newRows = [...prevRows];
+
+          // Store all drivers data first (including occupied ones)
+          const allDrivers = response.data.drivers;
+
+          // Create a map of vehicle IDs and their occupancy status
+          newRows[rowIndex].vehicleIds = {};
+          allDrivers.forEach((driver) => {
+            newRows[rowIndex].vehicleIds[driver.vehicleNumber] = {
+              id: driver.vehicleNumber_id,
+              isOccupied: driver.isOccupied || false,
+            };
+          });
+
+          // Filter out vehicles that are occupied for the dropdown
+          const availableDrivers = allDrivers.filter(
+            (driver) => !driver.isOccupied
+          );
+
+          // Store the complete filtered drivers array
+          newRows[rowIndex].availableDrivers = availableDrivers;
+
+          // Store vehicle numbers for the dropdown
+          newRows[rowIndex].availableVehicles = availableDrivers.map(
+            (driver) => driver.vehicleNumber
+          );
+
+          // Special case: if the row already has a vehicle number selected,
+          // we need to make sure it appears in the dropdown even if occupied
+          const currentVehicle = newRows[rowIndex].vehicle_no;
+          if (
+            currentVehicle &&
+            !newRows[rowIndex].availableVehicles.includes(currentVehicle)
+          ) {
+            const matchingDriver = allDrivers.find(
+              (d) => d.vehicleNumber === currentVehicle
+            );
+            if (matchingDriver) {
+              // Add the currently selected vehicle to available vehicles
+              newRows[rowIndex].availableVehicles.push(currentVehicle);
+              newRows[rowIndex].availableDrivers.push(matchingDriver);
+            }
+          }
+
+          return newRows;
+        });
+      }
+    } catch (error) {
+      console.error("Error loading vehicles for row:", error);
     }
   };
 
@@ -838,6 +965,41 @@ function useLrColumns(props) {
             onBlur={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "isOccupied",
+      header: "On Trip",
+      enableSorting: false,
+      size: 80,
+      Cell: ({ row }) => {
+        // Only show checkbox for Own vehicles with a selected vehicle number
+        const isOwnVehicle = row.original.own_hired === "Own";
+        const vehicleNo = row.original.vehicle_no;
+
+        if (!isOwnVehicle || !vehicleNo) {
+          return null;
+        }
+
+        // Get the vehicle ID and occupancy status from the stored map
+        const vehicleInfo = rows[row.index]?.vehicleIds?.[vehicleNo];
+        console.log(vehicleInfo?.isOccupied);
+        const vehicleId = vehicleInfo?.id;
+        const isOccupied = vehicleInfo?.isOccupied || false;
+
+        if (!vehicleId) {
+          return null;
+        }
+
+        return (
+          <Checkbox
+            checked={isOccupied}
+            onChange={() =>
+              handleOccupancyToggle(vehicleId, isOccupied, row.index)
+            }
+            disabled={isUpdatingOccupancy}
           />
         );
       },

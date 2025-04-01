@@ -108,6 +108,9 @@ const PrDataSchema = new mongoose.Schema({
       eWay_bill: {
         type: String,
       },
+      isOccupied: {
+        type: Boolean,
+      },
       sr_cel_no: {
         type: String,
       },

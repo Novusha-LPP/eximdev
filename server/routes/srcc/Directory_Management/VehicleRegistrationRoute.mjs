@@ -303,6 +303,7 @@ router.get("/api/vehicles", async (req, res) => {
 
     const drivers = filteredVehicles.map((vehicle) => ({
       vehicleNumber_id: vehicle._id,
+      isOccupied: vehicle.isOccupied,
       vehicleNumber: vehicle.vehicleNumber,
       driverName: vehicle.driver.name,
       driverPhone: vehicle.driver.phoneNumber,

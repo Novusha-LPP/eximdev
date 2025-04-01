@@ -16,6 +16,7 @@ router.post("/api/update-container", async (req, res) => {
       goods_delivery,
       own_hired,
       eWay_bill,
+      isOccupied,
       type_of_vehicle,
       driver_name,
       driver_phone,
@@ -74,6 +75,7 @@ router.post("/api/update-container", async (req, res) => {
         containerWithoutNumber.goods_delivery = goods_delivery;
         containerWithoutNumber.own_hired = own_hired;
         containerWithoutNumber.eWay_bill = eWay_bill;
+        containerWithoutNumber.isOccupied = isOccupied;
         containerWithoutNumber.type_of_vehicle = type_of_vehicle;
         containerWithoutNumber.driver_name = driver_name;
         containerWithoutNumber.driver_phone = driver_phone;
@@ -95,6 +97,7 @@ router.post("/api/update-container", async (req, res) => {
           goods_delivery,
           own_hired,
           eWay_bill,
+          isOccupied,
           type_of_vehicle,
           driver_name,
           driver_phone,
@@ -127,6 +130,7 @@ router.post("/api/update-container", async (req, res) => {
       matchingContainer.goods_delivery = goods_delivery;
       matchingContainer.own_hired = own_hired;
       matchingContainer.eWay_bill = eWay_bill;
+      matchingContainer.isOccupied = isOccupied;
       matchingContainer.type_of_vehicle = type_of_vehicle;
       matchingContainer.driver_name = driver_name;
       matchingContainer.driver_phone = driver_phone;

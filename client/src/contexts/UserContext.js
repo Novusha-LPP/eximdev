@@ -29,7 +29,7 @@ export const UserProvider = ({ children }) => {
             },
           }
         );
-        // localStorage.setItem("exim_user", JSON.stringify(response.data));
+        localStorage.setItem("exim_user", JSON.stringify(response.data));
         setUser(response.data);
       } catch (error) {
         console.error("Authentication check failed:", error.message);

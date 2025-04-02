@@ -50,6 +50,23 @@ router.get("/api/organisations", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+// GET /api/organisations/names
+router.get("/api/organisations/names", async (req, res) => {
+  try {
+    // 1) Query your Organisation collection to retrieve only the "name" field.
+    //    Mongoose will return an array of docs with just "_id" and "name".
+    const orgs = await Organisation.find({}, "name");
+
+    // 2) Map the docs to an array of just the name strings.
+    const nameList = orgs.map((org) => org.name);
+
+    // 3) Send back the array of names as JSON
+    res.status(200).json(nameList);
+  } catch (error) {
+    console.error("Error fetching organisation names:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // ------------------ READ ONE (GET) ------------------
 router.get("/api/organisations/:id", async (req, res) => {

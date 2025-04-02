@@ -18,6 +18,7 @@ import compression from "compression";
 import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 Sentry.init({
@@ -38,6 +39,8 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import verifySessionRoutes from "./routes/verifysession.mjs";
+import logout from "./routes/logout.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -82,6 +85,7 @@ import viewAllKycs from "./routes/employee-kyc/viewAllKycs.mjs";
 import onboardEmployee from "./routes/employee-onboarding/onboardEmployee.mjs";
 import completeOnboarding from "./routes/employee-onboarding/completeOnboarding.mjs";
 import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
+import viewOnboarding from "./routes/employee-onboarding/viewOnboardings.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -90,7 +94,6 @@ import getESanchitJobs from "./routes/e-sanchit/getESanchitJobs.mjs";
 import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJobs.mjs";
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
-
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -236,9 +239,16 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
+const CLIENT_URI =
+  process.env.NODE_ENV === "production"
+    ? process.env.PROD_CLIENT_URI
+    : process.env.NODE_ENV === "server"
+    ? process.env.SERVER_CLIENT_URI
+    : process.env.DEV_CLIENT_URI;
 
+//console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
-// console.log(`hello check first re baba***************** ${MONGODB_URI}`);
+
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -254,7 +264,34 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(cors());
+  app.use(cookieParser());
+
+  const allowedOrigins = [
+    "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+    "http://localhost:3000",
+  ];
+
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        if (!origin) return callback(null, true); // allow non-browser requests
+        const allowedOrigins = [
+          "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+          "http://localhost:3000",
+        ];
+        if (allowedOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
+    })
+  );
+
+  app.options("*", cors());
 
   app.use(compression({ level: 9 }));
 
@@ -300,6 +337,8 @@ if (cluster.isPrimary) {
       app.use(getUserData);
       app.use(getYears);
       app.use(login);
+      app.use(verifySessionRoutes);
+      app.use(logout);
 
       // Accounts
       app.use(addAdani);
@@ -344,6 +383,7 @@ if (cluster.isPrimary) {
       app.use(onboardEmployee);
       app.use(completeOnboarding);
       app.use(viewOnboardings);
+      app.use(viewOnboarding);
 
       // E-Sanchit
       app.use(getCthDocs);
@@ -392,29 +432,29 @@ if (cluster.isPrimary) {
       app.use(viewDSR);
       // app.use(ImportCreateJob);
 
-      // Import Operations
+      //* Import Operations
       app.use(getOperationPlanningJobs);
       app.use(completedOperation);
       app.use(updateOperationsJob);
       app.use(getOperationPlanningList);
 
-      // Inward Register
+      //* Inward Register
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
       app.use(getInwardRegisters);
       app.use(handleStatus);
 
-      // Outward Register
+      //* Outward Register
       app.use(addOutwardRegister);
       app.use(getOutwardRegisters);
       app.use(getOutwardRegisterDetails);
       app.use(updateOutwardRegister);
 
-      // Exit Feedback
+      //* Exit Feedback
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
 
-      // LR Operations
+      //* LR Operations
       app.use(getPrData);
       app.use(updatePr);
       app.use(deletePr);

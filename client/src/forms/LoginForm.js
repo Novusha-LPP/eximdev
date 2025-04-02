@@ -39,7 +39,9 @@ function LoginPage() {
         const user = res.data;
 
         console.log(user);
-        // Update user context
+        // Update user context with the returned data
+
+        localStorage.setItem("exim_user", JSON.stringify(user));
         setUser(user);
 
         // Check if user role is "customer" and navigate accordingly

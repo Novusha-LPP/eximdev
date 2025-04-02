@@ -29,6 +29,7 @@ const allModules = [
   "e-Sanchit",
   "Tyre Maintenance",
   "SRCC Directories",
+  "Directories",
   "Documentation",
   "Submission",
   "RTO",

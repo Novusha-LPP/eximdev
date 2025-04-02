@@ -268,6 +268,7 @@ if (cluster.isPrimary) {
 
   const allowedOrigins = [
     "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+    "http://eximit.s3-website.ap-south-1.amazonaws.com",
     "http://localhost:3000",
   ];
 
@@ -285,7 +286,7 @@ if (cluster.isPrimary) {
           callback(new Error("Not allowed by CORS"));
         }
       },
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
     })

@@ -36,14 +36,21 @@ function LoginPage() {
       );
       console.log(res);
       if (res.status === 200) {
-        // Store token in localStorage
         const user = res.data;
 
         console.log(user);
-        // Update user context with the returned data
+        // Update user context
         setUser(user);
-        navigate("/customer");
-        // Reset form
+
+        // Check if user role is "customer" and navigate accordingly
+        if (user.role === "Customer") {
+          console.log(user.role);
+          navigate("/customer");
+        } else {
+          navigate("/"); // Redirect to home for other roles
+        }
+
+        // Reset form fields
         setUsername("");
         setPassword("");
       }

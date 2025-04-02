@@ -17,6 +17,7 @@ export const moduleCategories = {
   "Exit Feedback": "HR & Management",
   "Tyre Maintenance": "SRCC",
   "SRCC Directories": "SRCC",
+  "Directories": "Directories Mgt.",
   "SR CEL": "SRCC",
   RTO: "SRCC",
   Export: "Export",

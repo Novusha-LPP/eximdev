@@ -45,12 +45,12 @@ function LoginPage() {
         setUser(user);
 
         // Check if user role is "customer" and navigate accordingly
-        if (user.role === "Customer") {
-          console.log(user.role);
-          navigate("/customer");
-        } else {
-          navigate("/"); // Redirect to home for other roles
-        }
+        // if (user.role === "Customer") {
+        //   console.log(user.role);
+        //   navigate("/customer");
+        // } else {
+        //   navigate("/"); // Redirect to home for other roles
+        // }
 
         // Reset form fields
         setUsername("");

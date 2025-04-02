@@ -24,7 +24,7 @@ router.post("/api/handle-status", async (req, res) => {
     if (updatedDocument) {
       res.status(200).send({ message: "Updated successfully" });
     } else {
-      console.log("No document found with the provided ID.");
+     
       res.status(404).send("Document not found");
     }
   } catch (error) {

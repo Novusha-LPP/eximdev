@@ -1,8 +1,7 @@
 import axios from "axios";
 
 export const handleSaveLr = async (row, props) => {
-  console.log("Save row:", row);
-  console.log("Props:", props);
+  
   const errors = [];
 
   if (!row.container_number || row.container_number.trim() === "") {
@@ -78,7 +77,7 @@ export const handleSaveLr = async (row, props) => {
           sr_cel_locked: true,
         }
       );
-      console.log("SR CEL Locked successfully");
+      
     } catch (error) {
       console.error("Error locking SR CEL:", error);
       return; // Stop further execution if there's an error

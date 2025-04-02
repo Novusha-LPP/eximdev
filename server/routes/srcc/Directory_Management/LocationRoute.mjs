@@ -64,7 +64,7 @@ router.get("/api/location-names", async (req, res) => {
 router.get("/api/get-location", async (req, res) => {
   try {
     const locations = await Location.find();
-    // console.log("✅ Sending Locations:", locations);
+   
     res.status(200).json(locations);
   } catch (error) {
     console.error("❌ Error fetching locations:", error);

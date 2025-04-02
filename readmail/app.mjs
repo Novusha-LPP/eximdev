@@ -355,7 +355,7 @@ const startMailListener = async () => {
       setTimeout(startMailListener, 10000); // Retry after 10 seconds
     });
 
-    console.log("IMAP listener started");
+   
   } catch (error) {
     console.error("Error connecting to IMAP server:", error);
     setTimeout(startMailListener, 10000); // Retry after 10 seconds

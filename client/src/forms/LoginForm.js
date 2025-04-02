@@ -32,7 +32,7 @@ function LoginPage() {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/login`,
         { username, password },
-        { withCredentials: "include" } // Important for cookie handling
+        { withCredentials: true } // Important for cookie handling
       );
       console.log(res);
       if (res.status === 200) {
@@ -42,7 +42,7 @@ function LoginPage() {
         console.log(user);
         // Update user context with the returned data
 
-        localStorage.setItem("exim_user", JSON.stringify(user));
+        //localStorage.setItem("exim_user", JSON.stringify(user));
         setUser(user);
         navigate("/customer");
         // Reset form

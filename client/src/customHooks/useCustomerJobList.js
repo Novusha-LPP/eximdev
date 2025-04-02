@@ -1,10 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { IconButton, TextField } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+
 import { useNavigate } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
-import Tooltip from "@mui/material/Tooltip";
+
 import { getUser } from "../utils/cookie";
 
 const user = getUser();

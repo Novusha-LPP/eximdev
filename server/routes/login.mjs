@@ -28,8 +28,8 @@ router.post("/api/login", async (req, res) => {
           console.log(token, userResponse);
           res.cookie("exim_token", token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: false,
+            sameSite: "lax",
             maxAge: 24 * 60 * 60 * 1000,
           });
           res.cookie(
@@ -42,7 +42,7 @@ router.post("/api/login", async (req, res) => {
             }),
             {
               httpOnly: false,
-              secure: process.env.NODE_ENV === "production",
+              secure: false,
               maxAge: 24 * 60 * 60 * 1000,
             }
           );

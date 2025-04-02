@@ -43,6 +43,7 @@ function useLrColumns(props) {
   const [srcelOptions, setSrcelOptions] = useState([]);
   const [openLocationDialog, setOpenLocationDialog] = useState(false);
   const [locationData, setLocationData] = useState(null);
+  const [isUpdatingOccupancy, setIsUpdatingOccupancy] = useState(false);
   console.log(`locationData`, locationData);
   // console.log(truckNos);
   // console.log(`srCelNos`, srCelNos);
@@ -144,6 +145,55 @@ function useLrColumns(props) {
     getData();
     // eslint-disable-next-line
   }, [props.prData, props.pr_no]);
+  useEffect(() => {
+    async function getData() {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/get-trs`,
+        { pr_no: props.pr_no }
+      );
+
+      // After setting the rows, we need to initialize vehicle data for each row
+      const loadedRows = res.data;
+      setRows(loadedRows);
+
+      // For each row that has "Own" vehicle and a type_of_vehicle, load the available vehicles
+      loadedRows.forEach((row, index) => {
+        if (row.own_hired === "Own" && row.type_of_vehicle) {
+          loadVehiclesForRow(row.type_of_vehicle, index);
+        }
+      });
+    }
+
+    getData();
+    // eslint-disable-next-line
+  }, [props.prData, props.pr_no]);
+
+  // // Add this new function to load vehicles for existing rows
+  // const loadVehiclesForRow = async (vehicleType, rowIndex) => {
+  //   try {
+  //     const response = await axios.get(
+  //       `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${vehicleType}`
+  //     );
+
+  //     if (response.data && response.data.drivers) {
+  //       setRows((prevRows) => {
+  //         const newRows = [...prevRows];
+
+  //         // Store the complete drivers array
+  //         newRows[rowIndex].availableDrivers = response.data.drivers;
+
+  //         // Store vehicle numbers for the dropdown
+  //         newRows[rowIndex].availableVehicles = response.data.drivers.map(
+  //           (driver) => driver.vehicleNumber
+  //         );
+
+  //         return newRows;
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading vehicles for row:", error);
+  //   }
+  // };
   const handleLocationClick = async (asset) => {
     console.log(asset);
     try {
@@ -176,22 +226,51 @@ function useLrColumns(props) {
       const newRows = [...prevRows];
       newRows[rowIndex][columnId] = value;
 
-      // If the vehicle type is "Own" and type of vehicle is selected, filter the truck nos
-      if (
-        columnId === "type_of_vehicle" &&
+      // Handle different column changes
+      if (columnId === "own_hired") {
+        // Reset related fields when changing between Own/Hired
+        newRows[rowIndex].type_of_vehicle = "";
+        newRows[rowIndex].vehicle_no = "";
+        newRows[rowIndex].driver_name = "";
+        newRows[rowIndex].driver_phone = "";
+        newRows[rowIndex].availableVehicles = [];
+        newRows[rowIndex].availableDrivers = [];
+      }
+      // If the type of vehicle is selected, handle differently based on Own/Hired
+      else if (columnId === "type_of_vehicle") {
+        if (newRows[rowIndex].own_hired === "Own") {
+          // For Own vehicles, fetch vehicle numbers from API
+          fetchVehiclesByType(value, newRows, rowIndex);
+        }
+        // For Hired, we'll just keep the text field empty
+      }
+      // If vehicle number is selected (for Own vehicles)
+      else if (
+        columnId === "vehicle_no" &&
         newRows[rowIndex].own_hired === "Own"
       ) {
-        filterTruckNos(value);
+        // Find the driver info from the availableDrivers array we stored when fetching vehicles
+        if (
+          newRows[rowIndex].availableDrivers &&
+          newRows[rowIndex].availableDrivers.length > 0
+        ) {
+          const selectedDriver = newRows[rowIndex].availableDrivers.find(
+            (driver) => driver.vehicleNumber === value
+          );
+
+          if (selectedDriver) {
+            newRows[rowIndex].driver_name = selectedDriver.driverName || "";
+            newRows[rowIndex].driver_phone = selectedDriver.driverPhone || "";
+          } else {
+            newRows[rowIndex].driver_name = "";
+            newRows[rowIndex].driver_phone = "";
+          }
+        }
       }
 
-      // If the vehicle type is "Own" and vehicle no is selected, populate the driver details
-      if (columnId === "vehicle_no" && newRows[rowIndex].own_hired === "Own") {
-        populateDriverDetails(newRows, rowIndex, value);
-      }
       return newRows;
     });
   };
-
   const handleDelete = async (tr_no, container_number) => {
     // Show confirmation dialog
     const confirmDelete = window.confirm(
@@ -230,23 +309,229 @@ function useLrColumns(props) {
     setFilteredTruckNos(filtered);
   };
 
+  // Add this function to handle the occupancy toggle
+  const handleOccupancyToggle = async (
+    vehicleId,
+    currentOccupiedState,
+    rowIndex
+  ) => {
+    try {
+      setIsUpdatingOccupancy(true);
+
+      // Make the API call to update the vehicle's occupied status
+      const response = await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-vehicle-occupied/${vehicleId}`,
+        {
+          isOccupied: !currentOccupiedState,
+        }
+      );
+
+      if (response.data && response.status === 200) {
+        // Update the local state to reflect the change
+        setRows((prevRows) => {
+          const newRows = [...prevRows];
+          newRows[rowIndex].isOccupied = !currentOccupiedState;
+          return newRows;
+        });
+
+        // Refresh the available vehicles for all rows to update dropdowns
+        refreshAvailableVehicles();
+
+        // Show success message
+        alert("Vehicle status updated successfully");
+      } else {
+        alert("Failed to update vehicle status");
+      }
+    } catch (error) {
+      console.error("Error updating vehicle occupancy:", error);
+      alert("Error updating vehicle status");
+    } finally {
+      setIsUpdatingOccupancy(false);
+    }
+  };
+
+  // Function to refresh available vehicles data for all rows
+  const refreshAvailableVehicles = async () => {
+    // For each row with a selected vehicle type, refresh the available vehicles
+    rows.forEach((row, index) => {
+      if (row.own_hired === "Own" && row.type_of_vehicle) {
+        loadVehiclesForRow(row.type_of_vehicle, index);
+      }
+    });
+  };
+
+  // Update the fetchVehiclesByType function to filter out occupied vehicles
+  const fetchVehiclesByType = async (type_of_vehicle, newRows, rowIndex) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${type_of_vehicle}`
+      );
+
+      if (response.data && response.data.drivers) {
+        // Filter out vehicles that are occupied
+        const availableDrivers = response.data.drivers.filter(
+          (driver) => !driver.isOccupied
+        );
+
+        // Store the complete filtered drivers array
+        newRows[rowIndex].availableDrivers = availableDrivers;
+
+        // Store vehicle numbers for the dropdown
+        newRows[rowIndex].availableVehicles = availableDrivers.map(
+          (driver) => driver.vehicleNumber
+        );
+
+        // Store the vehicle IDs for updating occupancy
+        newRows[rowIndex].vehicleIds = {};
+        response.data.drivers.forEach((driver) => {
+          newRows[rowIndex].vehicleIds[driver.vehicleNumber] = {
+            id: driver.vehicleNumber_id,
+            isOccupied: driver.isOccupied || false,
+          };
+        });
+
+        // Reset vehicle number and driver details when type changes
+        newRows[rowIndex].vehicle_no = "";
+        newRows[rowIndex].driver_name = "";
+        newRows[rowIndex].driver_phone = "";
+
+        setRows([...newRows]); // Important to create a new array to trigger re-render
+      }
+    } catch (error) {
+      console.error("Error fetching vehicles by type:", error);
+      alert("Failed to fetch vehicles of this type");
+      newRows[rowIndex].availableVehicles = [];
+      newRows[rowIndex].availableDrivers = [];
+    }
+  };
+
+  // Similarly update the loadVehiclesForRow function to handle occupied vehicles
+  const loadVehiclesForRow = async (vehicleType, rowIndex) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/vehicles?type_of_vehicle=${vehicleType}`
+      );
+
+      if (response.data && response.data.drivers) {
+        setRows((prevRows) => {
+          const newRows = [...prevRows];
+
+          // Store all drivers data first (including occupied ones)
+          const allDrivers = response.data.drivers;
+
+          // Create a map of vehicle IDs and their occupancy status
+          newRows[rowIndex].vehicleIds = {};
+          allDrivers.forEach((driver) => {
+            newRows[rowIndex].vehicleIds[driver.vehicleNumber] = {
+              id: driver.vehicleNumber_id,
+              isOccupied: driver.isOccupied || false,
+            };
+          });
+
+          // Filter out vehicles that are occupied for the dropdown
+          const availableDrivers = allDrivers.filter(
+            (driver) => !driver.isOccupied
+          );
+
+          // Store the complete filtered drivers array
+          newRows[rowIndex].availableDrivers = availableDrivers;
+
+          // Store vehicle numbers for the dropdown
+          newRows[rowIndex].availableVehicles = availableDrivers.map(
+            (driver) => driver.vehicleNumber
+          );
+
+          // Special case: if the row already has a vehicle number selected,
+          // we need to make sure it appears in the dropdown even if occupied
+          const currentVehicle = newRows[rowIndex].vehicle_no;
+          if (
+            currentVehicle &&
+            !newRows[rowIndex].availableVehicles.includes(currentVehicle)
+          ) {
+            const matchingDriver = allDrivers.find(
+              (d) => d.vehicleNumber === currentVehicle
+            );
+            if (matchingDriver) {
+              // Add the currently selected vehicle to available vehicles
+              newRows[rowIndex].availableVehicles.push(currentVehicle);
+              newRows[rowIndex].availableDrivers.push(matchingDriver);
+            }
+          }
+
+          return newRows;
+        });
+      }
+    } catch (error) {
+      console.error("Error loading vehicles for row:", error);
+    }
+  };
+
+  // Enhanced populateDriverDetails with better error handling
   const populateDriverDetails = (newRows, rowIndex, vehicleNo) => {
-    const selectedTruck = truckNos.find(
-      (truck) => truck.truck_no === vehicleNo
-    );
+    if (!vehicleNo) {
+      newRows[rowIndex].driver_name = "";
+      newRows[rowIndex].driver_phone = "";
+      return;
+    }
 
-    if (selectedTruck?.drivers?.length > 0) {
-      const lastDriver =
-        selectedTruck.drivers[selectedTruck.drivers?.length - 1];
+    // First check if we have available vehicles data in the row
+    if (newRows[rowIndex].availableVehicles?.length > 0) {
+      // Find the driver data from API response stored in availableVehicles
+      const driverData = truckNos.find(
+        (truck) => truck.vehicleNumber === vehicleNo
+      );
 
-      newRows[rowIndex].driver_name = lastDriver.driver_name;
-      newRows[rowIndex].driver_phone = lastDriver.driver_phone;
+      if (driverData) {
+        newRows[rowIndex].driver_name = driverData.driverName || "";
+        newRows[rowIndex].driver_phone = driverData.driverPhone || "";
+      } else {
+        newRows[rowIndex].driver_name = "";
+        newRows[rowIndex].driver_phone = "";
+      }
     } else {
+      // Fallback to fetching the driver data if availableVehicles is not populated
+      fetchDriverDetailsByVehicle(vehicleNo, newRows, rowIndex);
+    }
+  };
+  // New function to fetch driver details by vehicle number if needed
+  const fetchDriverDetailsByVehicle = async (vehicleNo, newRows, rowIndex) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/vehicle-details?vehicle_no=${vehicleNo}`
+      );
+
+      if (response.data && response.data.driver) {
+        newRows[rowIndex].driver_name = response.data.driver.driverName || "";
+        newRows[rowIndex].driver_phone = response.data.driver.driverPhone || "";
+      } else {
+        newRows[rowIndex].driver_name = "";
+        newRows[rowIndex].driver_phone = "";
+      }
+
+      setRows([...newRows]); // Important to create a new array to trigger re-render
+    } catch (error) {
+      console.error("Error fetching driver details:", error);
       newRows[rowIndex].driver_name = "";
       newRows[rowIndex].driver_phone = "";
     }
-    setRows(newRows); // Update the state to reflect changes in the UI
   };
+  // const populateDriverDetails = (newRows, rowIndex, vehicleNo) => {
+  //   const selectedTruck = truckNos.find(
+  //     (truck) => truck.truck_no === vehicleNo
+  //   );
+
+  //   if (selectedTruck?.drivers?.length > 0) {
+  //     const lastDriver =
+  //       selectedTruck.drivers[selectedTruck.drivers?.length - 1];
+
+  //     newRows[rowIndex].driver_name = lastDriver.driver_name;
+  //     newRows[rowIndex].driver_phone = lastDriver.driver_phone;
+  //   } else {
+  //     newRows[rowIndex].driver_name = "";
+  //     newRows[rowIndex].driver_phone = "";
+  //   }
+  //   setRows(newRows); // Update the state to reflect changes in the UI
+  // };
 
   const handleCloseLocationDialog = () => {
     setOpenLocationDialog(false);
@@ -258,13 +543,18 @@ function useLrColumns(props) {
       enableSorting: false,
       enableGrouping: false,
       size: 50,
-      Cell: ({ row }) => (
-        <Checkbox
-          style={{ padding: 0 }}
-          disabled={!row.original.tr_no} // Disable checkbox if tr_no is not present
-          onChange={() => handleCheckboxChange(row.original)}
-        />
-      ),
+      Cell: ({ row }) => {
+        const hasTrNo = !!row.original.tr_no;
+        const isEwayValid = /^\d{12}$/.test(row.original.eWay_bill);
+
+        return (
+          <Checkbox
+            style={{ padding: 0 }}
+            disabled={!(hasTrNo && isEwayValid)} // ✅ Only enabled if BOTH are true
+            onChange={() => handleCheckboxChange(row.original)}
+          />
+        );
+      },
     },
     {
       accessorKey: "delete",
@@ -285,7 +575,7 @@ function useLrColumns(props) {
     },
     {
       accessorKey: "tr_no",
-      header: "TR No",
+      header: "LR No",
       enableSorting: false,
       size: 100,
     },
@@ -467,102 +757,128 @@ function useLrColumns(props) {
       header: "Vehicle No",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) =>
-        // If it is our own truck, show the dropdown with truck nos
-        row.original.own_hired === "Own" ? (
-          <TextField
-            select
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          >
-            {filteredTruckNos?.map((type) => (
-              <MenuItem key={type.truck_no} value={type.truck_no}>
-                {type.truck_no}
-              </MenuItem>
-            ))}
-            {filteredTruckNos.length > 0
-              ? filteredTruckNos?.map((type) => (
-                  <MenuItem key={type.truck_no} value={type.truck_no}>
-                    {type.truck_no}
-                  </MenuItem>
-                ))
-              : truckNos?.map((type) => (
-                  <MenuItem key={type.truck_no} value={type.truck_no}>
-                    {type.truck_no}
-                  </MenuItem>
-                ))}
-          </TextField>
-        ) : (
-          // If it is not our own truck, show the text field
-          <TextField
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          />
-        ),
+      Cell: ({ cell, row }) => {
+        // Different input field based on Own/Hired
+        if (row.original.own_hired === "Own") {
+          // Current saved value
+          const savedValue = cell.getValue() || "";
+
+          // Check if we have available vehicles loaded
+          const hasAvailableVehicles =
+            rows[row.index]?.availableVehicles?.length > 0;
+
+          // If we have a saved value but no available vehicles yet, we need to show the saved value anyway
+          const menuItems = hasAvailableVehicles
+            ? rows[row.index].availableVehicles.map((vehicleNo) => (
+                <MenuItem key={vehicleNo} value={vehicleNo}>
+                  {vehicleNo}
+                </MenuItem>
+              ))
+            : savedValue
+            ? [
+                <MenuItem key={savedValue} value={savedValue}>
+                  {savedValue}
+                </MenuItem>,
+              ]
+            : [<MenuItem disabled>Select vehicle type first</MenuItem>];
+
+          return (
+            <TextField
+              select
+              sx={{ width: "100%" }}
+              size="small"
+              value={savedValue}
+              onChange={(event) =>
+                handleInputChange(event, row.index, cell.column.id)
+              }
+              disabled={!row.original.type_of_vehicle} // Disable until vehicle type is selected
+            >
+              {menuItems}
+            </TextField>
+          );
+        } else {
+          // For Hired vehicles, show text input field
+          return (
+            <TextField
+              sx={{ width: "100%" }}
+              size="small"
+              value={cell.getValue() || ""}
+              onChange={(event) =>
+                handleInputChange(event, row.index, cell.column.id)
+              }
+              placeholder="Enter vehicle number"
+            />
+          );
+        }
+      },
     },
+
+    // Updated driver name column
     {
       accessorKey: "driver_name",
       header: "Driver Name",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) =>
-        // If it is our own truck, update the driver name with data from selected truck no
-        row.original.own_hired === "Own" ? (
-          <TextField
-            sx={{ width: "100%" }}
-            size="small"
-            value={rows[row.index]?.driver_name || ""}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          />
-        ) : (
-          // If it is not our own truck, show the text field
-          <TextField
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          />
-        ),
+      Cell: ({ cell, row }) => {
+        if (row.original.own_hired === "Own") {
+          // For Own vehicles, show auto-filled value
+          return (
+            <TextField
+              sx={{ width: "100%" }}
+              size="small"
+              value={cell.getValue() || ""}
+              disabled={true} // Read-only for Own vehicles
+            />
+          );
+        } else {
+          // For Hired vehicles, show editable text field
+          return (
+            <TextField
+              sx={{ width: "100%" }}
+              size="small"
+              value={cell.getValue() || ""}
+              onChange={(event) =>
+                handleInputChange(event, row.index, cell.column.id)
+              }
+              placeholder="Enter driver name"
+            />
+          );
+        }
+      },
     },
+
+    // Updated driver phone column
     {
       accessorKey: "driver_phone",
       header: "Driver Phone",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) =>
-        // If it is our own truck, update the driver phone with data from selected truck no
-        row.original.own_hired === "Own" ? (
-          <TextField
-            sx={{ width: "100%" }}
-            size="small"
-            value={rows[row.index]?.driver_phone || ""}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          />
-        ) : (
-          // If it is not our own truck, show the text field
-          <TextField
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          />
-        ),
+      Cell: ({ cell, row }) => {
+        if (row.original.own_hired === "Own") {
+          // For Own vehicles, show auto-filled value
+          return (
+            <TextField
+              sx={{ width: "100%" }}
+              size="small"
+              value={cell.getValue() || ""}
+              disabled={true} // Read-only for Own vehicles
+            />
+          );
+        } else {
+          // For Hired vehicles, show editable text field
+          return (
+            <TextField
+              sx={{ width: "100%" }}
+              size="small"
+              value={cell.getValue() || ""}
+              onChange={(event) =>
+                handleInputChange(event, row.index, cell.column.id)
+              }
+              placeholder="Enter driver phone"
+            />
+          );
+        }
+      },
     },
 
     {
@@ -634,6 +950,59 @@ function useLrColumns(props) {
           Track Location
         </Button>
       ),
+    },
+    {
+      accessorKey: "eWay_bill",
+      header: "E-Way Bill",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ cell, row }) => {
+        return (
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            defaultValue={cell.getValue()}
+            onBlur={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "isOccupied",
+      header: "On Trip",
+      enableSorting: false,
+      size: 80,
+      Cell: ({ row }) => {
+        // Only show checkbox for Own vehicles with a selected vehicle number
+        const isOwnVehicle = row.original.own_hired === "Own";
+        const vehicleNo = row.original.vehicle_no;
+
+        if (!isOwnVehicle || !vehicleNo) {
+          return null;
+        }
+
+        // Get the vehicle ID and occupancy status from the stored map
+        const vehicleInfo = rows[row.index]?.vehicleIds?.[vehicleNo];
+        console.log(vehicleInfo?.isOccupied);
+        const vehicleId = vehicleInfo?.id;
+        const isOccupied = vehicleInfo?.isOccupied || false;
+
+        if (!vehicleId) {
+          return null;
+        }
+
+        return (
+          <Checkbox
+            checked={isOccupied}
+            onChange={() =>
+              handleOccupancyToggle(vehicleId, isOccupied, row.index)
+            }
+            disabled={isUpdatingOccupancy}
+          />
+        );
+      },
     },
     {
       accessorKey: "action",

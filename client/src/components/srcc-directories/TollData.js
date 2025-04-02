@@ -22,6 +22,7 @@ import {
   MenuItem,
   Checkbox,
   Typography,
+  ListItemText,
   Autocomplete,
 } from "@mui/material";
 
@@ -337,7 +338,9 @@ const TollData = () => {
                               (vt) => vt.shortName === v.shortName
                             )}
                           />
-                          {v.name} ({v.shortName}, GVW: {v.loadCapacity})
+                          <ListItemText
+                            primary={`${v.name} (${v.shortName}, GVW: ${v.loadCapacity})`}
+                          />
                         </MenuItem>
                       ))}
                     </Select>
@@ -352,7 +355,9 @@ const TollData = () => {
                           variant="body2"
                         >
                           {selectedType.name} ({selectedType.shortName}) – GVW:{" "}
-                          {selectedType.loadCapacity}
+                          {selectedType.loadCapacity
+                            ? `${selectedType.loadCapacity.value} ${selectedType.loadCapacity.unit}`
+                            : "N/A"}
                         </Typography>
                       ))}
                     </Box>

@@ -167,7 +167,15 @@ const ContainerTypeDirectory = () => {
       fetchContainerTypes(); // Refresh list after save
       setOpenModal(false);
     } catch (error) {
-      console.error("Error saving container type:", error);
+      if (
+        error.response &&
+        error.response.data?.error ===
+          "Container type with this ISO code already exists"
+      ) {
+        alert("Error: Container type with this ISO code already exists.");
+      } else {
+        console.error("Error saving container type:", error);
+      }
     }
   };
 

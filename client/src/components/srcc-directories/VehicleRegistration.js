@@ -35,6 +35,12 @@ import dayjs from "dayjs";
 
 // Validation schema with Yup
 const validationSchema = Yup.object({
+  vehicleNumber: Yup.string()
+    .required("Vehicle Number is required")
+    .matches(
+      /^[A-Za-z]{2}[0-9]{2}[A-Za-z]{2}[0-9]{4}$/,
+      "Vehicle number must be in format MH12XX1234"
+    ),
   registrationName: Yup.string().required("Registration Name is required"),
   type: Yup.string().required("Type is required"),
   shortName: Yup.string().required("Short Name is required"),
@@ -55,7 +61,6 @@ const validationSchema = Yup.object({
     _id: Yup.string().required("Driver ID is required"),
     name: Yup.string().required("Driver name is required"),
   }).required("Driver is required"),
-
   purchase: Yup.date()
     .typeError("Please select a valid date")
     .required("Purchase date is required"),
@@ -82,6 +87,7 @@ const VehicleRegistration = () => {
 
   // Default form data (Formik will override these with initialValues if set differently)
   const [formData, setFormData] = useState({
+    vehicleNumber: "",
     registrationName: "",
     type: "",
     shortName: "",
@@ -89,7 +95,6 @@ const VehicleRegistration = () => {
     initialOdometer: { value: "", unit: "" },
     loadCapacity: { value: "", unit: "" },
     driver: { _id: "", name: "" },
-
     purchase: "",
     vehicleManufacturingDetails: "",
   });
@@ -129,14 +134,16 @@ const VehicleRegistration = () => {
   };
 
   // 4. Fetch drivers by selected vehicle type
-  const fetchDriversByType = async (selectedType) => {
+  const fetchDriversByType = async (selectedTypeId) => {
     try {
+      const selectedType = vehicleTypes.find((v) => v._id === selectedTypeId);
       if (!selectedType) {
-        setDrivers([]);
+        console.error("❌ Selected type not found in vehicleTypes");
         return;
       }
+
       const response = await axios.get(
-        `${API_URL}/available-drivers/${selectedType}`
+        `${API_URL}/available-drivers/${selectedType.vehicleType}` // Pass the vehicleType string
       );
       setDrivers(response.data || []);
     } catch (error) {
@@ -183,17 +190,14 @@ const VehicleRegistration = () => {
 
     // Provide meaningful defaults
     setFormData({
+      vehicleNumber: "",
       registrationName: "",
       type: "",
       shortName: "",
       depotName: "",
-      initialOdometer: "",
-      // Default to "km" for odometerUnit
-      odometerUnit: "km",
-      loadCapacity: "",
-      // Default to "kg" for loadCapacityUnit
-      loadCapacityUnit: "kg",
-      driver: "",
+      initialOdometer: { value: "", unit: "km" },
+      loadCapacity: { value: "", unit: "kg" },
+      driver: { _id: "", name: "" },
       purchase: "",
       vehicleManufacturingDetails: "",
     });
@@ -212,16 +216,14 @@ const VehicleRegistration = () => {
 
     setFormData({
       _id: vehicle._id,
+      vehicleNumber: vehicle.vehicleNumber || "",
       registrationName: vehicle.registrationName || "",
       type: vehicle.type || "",
       shortName: vehicle.shortName || "",
       depotName: vehicle.depotName || "",
-      initialOdometer: vehicle.initialOdometer || "",
-      odometerUnit: vehicle.odometerUnit || "km",
-      loadCapacity: vehicle.loadCapacity || "",
-      loadCapacityUnit: vehicle.loadCapacityUnit || "kg",
+      initialOdometer: vehicle.initialOdometer || { value: "", unit: "km" },
+      loadCapacity: vehicle.loadCapacity || { value: "", unit: "kg" },
       driver: vehicle.driver || { _id: "", name: "" },
-
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString()
         : "",
@@ -264,11 +266,12 @@ const VehicleRegistration = () => {
     // Format data before sending
     const formattedData = {
       ...restValues,
+      vehicleNumber: restValues.vehicleNumber.trim(),
       registrationName: restValues.registrationName.trim(),
       type: restValues.type.trim(),
       shortName: restValues.shortName.trim(),
       depotName: restValues.depotName.trim(),
-      // Here initialOdometer and loadCapacity are objects:
+      // initialOdometer and loadCapacity are already objects
       initialOdometer: {
         value: restValues.initialOdometer.value,
         unit: restValues.initialOdometer.unit,
@@ -278,7 +281,6 @@ const VehicleRegistration = () => {
         unit: restValues.loadCapacity.unit,
       },
       driver: restValues.driver,
-
       vehicleManufacturingDetails:
         restValues.vehicleManufacturingDetails.trim(),
       purchase: restValues.purchase
@@ -302,12 +304,16 @@ const VehicleRegistration = () => {
         responseHandler(response, "updated");
       }
     } catch (error) {
-      console.error("❌ Error saving vehicle:", error);
-      alert(
-        `Failed to save vehicle: ${
-          error.response?.data?.error || "Server error"
-        }`
-      );
+      if (error.response?.status === 400 && error.response?.data?.error) {
+        alert(`Error: ${error.response.data.error}`);
+      } else {
+        console.error("❌ Error saving vehicle:", error);
+        alert(
+          `Failed to save vehicle: ${
+            error.response?.data?.error || "Server error"
+          }`
+        );
+      }
     }
   };
 
@@ -336,11 +342,11 @@ const VehicleRegistration = () => {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell>Vehicle Number</TableCell>
               <TableCell>Registration Name</TableCell>
               <TableCell>Type</TableCell>
               <TableCell>Short Name</TableCell>
               <TableCell>Depot Name</TableCell>
-
               <TableCell>Driver</TableCell>
               <TableCell>Purchase Date</TableCell>
               <TableCell>Manufacturing Details</TableCell>
@@ -350,13 +356,12 @@ const VehicleRegistration = () => {
           <TableBody>
             {vehicles.map((vehicle) => (
               <TableRow key={vehicle._id}>
+                <TableCell>{vehicle.vehicleNumber}</TableCell>
                 <TableCell>{vehicle.registrationName}</TableCell>
-                <TableCell>{vehicle.type}</TableCell>
-                <TableCell>{vehicle.shortName}</TableCell>
+                <TableCell>{vehicle.type?.vehicleType}</TableCell>
+                <TableCell>{vehicle.type?.shortName}</TableCell>
                 <TableCell>{vehicle.depotName}</TableCell>
-
                 <TableCell>{vehicle.driver?.name}</TableCell>
-
                 <TableCell>
                   {vehicle.purchase
                     ? new Date(vehicle.purchase).toDateString()
@@ -417,6 +422,21 @@ const VehicleRegistration = () => {
                     mt: 2,
                   }}
                 >
+                  {/* Vehicle Number */}
+                  <TextField
+                    name="vehicleNumber"
+                    label="Vehicle Number (e.g., MH12AB1234)"
+                    value={values.vehicleNumber}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    fullWidth
+                    required
+                    error={
+                      touched.vehicleNumber && Boolean(errors.vehicleNumber)
+                    }
+                    helperText={touched.vehicleNumber && errors.vehicleNumber}
+                  />
+
                   {/* Registration Name */}
                   <TextField
                     name="registrationName"
@@ -435,38 +455,26 @@ const VehicleRegistration = () => {
                     }
                   />
 
-                  {/* Type Dropdown (triggers driver fetch) */}
                   {/* Type Dropdown (triggers driver fetch and auto-populates load capacity) */}
                   <FormControl fullWidth required>
                     <InputLabel>Type</InputLabel>
                     <Select
                       name="type"
                       label="Type"
-                      value={values.type}
+                      value={values.type} // This will now be the ObjectId
                       onChange={async (event) => {
-                        const selectedType = event.target.value;
-                        // Update the type field first
-                        handleChange(event);
-                        // Fetch available drivers for the selected type
-                        await fetchDriversByType(selectedType);
-                        // Clear any previously selected driver if type changes
-                        setFieldValue("driver", "");
+                        const selectedTypeId = event.target.value;
+                        setFieldValue("type", selectedTypeId);
 
-                        // Auto-populate loadCapacity based on the selected vehicle type
-                        const foundType = vehicleTypes.find(
-                          (v) => v.vehicleType === selectedType
-                        );
-                        if (foundType && foundType.loadCapacity) {
-                          // Set loadCapacity as an object with value and unit
-                          setFieldValue("loadCapacity", foundType.loadCapacity);
-                        }
+                        // Fetch available drivers for the selected type
+                        await fetchDriversByType(selectedTypeId);
                       }}
                       onBlur={handleBlur}
                       error={touched.type && Boolean(errors.type)}
                     >
                       {vehicleTypes.map((v) => (
-                        <MenuItem key={v._id} value={v.vehicleType}>
-                          {v.vehicleType}
+                        <MenuItem key={v._id} value={v._id}>
+                          {v.vehicleType} ({v.shortName})
                         </MenuItem>
                       ))}
                     </Select>

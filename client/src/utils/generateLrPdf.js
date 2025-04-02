@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import logo from "../assets/images/srcc.png";
 import axios from "axios";
+import dayjs from "dayjs";
 
 export const generateLrPdf = async (data, lrData) => {
   console.log(lrData);
@@ -83,7 +84,10 @@ export const generateLrPdf = async (data, lrData) => {
     const vehicleNoText = `Vehicle Number: ${item.vehicle_no}`;
     const driverNameText = `Driver Name: ${item.driver_name}`;
     const driverPhoneText = `Driver Phone: ${item.driver_phone}`;
-    const doText = `DO Validity: ${lrData.do_validity}`;
+    const doText = `DO Validity: ${dayjs(lrData.do_validity).format(
+      "DD/MM/YYYY, hh:mm A"
+    )}`;
+
     const gstText = "GST: 24ANGPR7652E1ZV";
 
     pdf.setFontSize(12);

@@ -42,7 +42,7 @@ function LoginPage() {
         console.log(user);
         // Update user context with the returned data
         setUser(user);
-        navigate("/");
+        navigate("/customer");
         // Reset form
         setUsername("");
         setPassword("");

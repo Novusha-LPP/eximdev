@@ -204,7 +204,7 @@ function HomePage() {
 
             {/* Customer DSR  */}
             <Route path="/customer" element={<CImportDSR />} />
-            <Route path="/job/:job_no/:selected_year" element={<CViewJob />} />
+            <Route path="/cjob/:job_no/:selected_year" element={<CViewJob />} />
 
             {/* Import Operations */}
             <Route path="/import-operations" element={<ImportOperations />} />

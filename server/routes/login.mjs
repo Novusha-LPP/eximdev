@@ -57,6 +57,45 @@ router.post("/api/login", async (req, res) => {
         console.error("Error in bcrypt callback:", err);
         return res.status(500).json({ message: "Something went wrong" });
       }
+
+      if (passwordResult) {
+        // Generate JWT token
+        const token = generateToken(user);
+
+        // Sanitize user data
+        const userResponse = sanitizeUserData(user);
+
+        // Set secure, httpOnly cookies
+        res.cookie("exim_token", token, {
+          httpOnly: true,
+          // secure: process.env.NODE_ENV === "production", // use HTTPS only in production
+          sameSite: "lax", // protect against CSRF
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        });
+
+        // Set user data cookie (without sensitive information)
+        res.cookie(
+          "exim_user",
+          JSON.stringify({
+            username: user.username,
+            role: user.role,
+            first_name: user.first_name,
+            last_name: user.last_name,
+          }),
+          {
+            httpOnly: false, // this cookie can be read by client-side JS
+            // secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+          }
+        );
+
+        return res.status(200).json(userResponse);
+      } else {
+        return res
+          .status(400)
+          .json({ message: "Username or password didn't match" });
+      }
     });
   } catch (err) {
     console.error(err);

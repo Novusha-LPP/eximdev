@@ -28,8 +28,8 @@ router.post("/api/login", async (req, res) => {
           console.log(token, userResponse);
           res.cookie("exim_token", token, {
             httpOnly: true,
-            // secure: process.env.NODE_ENV === "production", // Secure only for main production
-            sameSite: "none", // Lax for testing, strict for production
+            secure: false,
+            sameSite: "Lax", // Lax for testing, strict for production
             maxAge: 24 * 60 * 60 * 1000,
           });
           res.cookie(
@@ -42,8 +42,8 @@ router.post("/api/login", async (req, res) => {
             }),
             {
               httpOnly: false,
-              // secure: process.env.NODE_ENV === "production", // Secure only for main production
-              sameSite: "none", // Lax for testing, strict for production
+              secure: false, // use HTTPS only in production
+              sameSite: "Lax", // Lax for testing, strict for production
               maxAge: 24 * 60 * 60 * 1000,
             }
           );
@@ -68,8 +68,8 @@ router.post("/api/login", async (req, res) => {
         // Set secure, httpOnly cookies
         res.cookie("exim_token", token, {
           httpOnly: true,
-          // secure: process.env.NODE_ENV === "production", // use HTTPS only in production
-          sameSite: "lax", // protect against CSRF
+          secure: false, // use true in production with HTTPS
+          sameSite: "Lax", // protect against CSRF
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
         });
 
@@ -84,8 +84,8 @@ router.post("/api/login", async (req, res) => {
           }),
           {
             httpOnly: false, // this cookie can be read by client-side JS
-            // secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            secure:false, // use true in production with HTTPS
+            sameSite: "Lax",
             maxAge: 24 * 60 * 60 * 1000, // 24 hours
           }
         );

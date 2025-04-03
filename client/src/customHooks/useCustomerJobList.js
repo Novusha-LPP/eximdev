@@ -86,7 +86,7 @@ function useCustomerJobList() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No  ",
+        header: "Job No & Job Date",
         size: 150,
         Cell: ({ cell }) => {
           const {
@@ -248,11 +248,11 @@ function useCustomerJobList() {
         },
       },
 
-      {
-        accessorKey: "importer",
-        header: "Importer",
-        size: 200,
-      },
+      // {
+      //   accessorKey: "importer",
+      //   header: "Importer",
+      //   size: 200,
+      // },
 
       {
         accessorKey: "supplier_exporter",
@@ -261,7 +261,7 @@ function useCustomerJobList() {
       },
       {
         accessorKey: "invoice_number",
-        header: "Invoice Number",
+        header: "Invoice Number & Invoice Date",
         size: 150,
         Cell: ({ cell }) => {
           const invoiceNumber = cell.row.original.invoice_number || "";
@@ -432,7 +432,7 @@ function useCustomerJobList() {
       },
       {
         accessorKey: "container_numbers",
-        header: "Container Numbers and Size",
+        header: "Container Numbers & Size",
         size: 200,
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
@@ -486,7 +486,7 @@ function useCustomerJobList() {
       },
       {
         accessorKey: "be_no",
-        header: "BE Number and Date",
+        header: "BE Number & Date",
         size: 150, // Adjusted size to fit both BE Number and Date
         Cell: ({ cell }) => {
           const beNumber = cell?.getValue()?.toString();

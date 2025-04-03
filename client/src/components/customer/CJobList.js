@@ -27,6 +27,7 @@ import SelectImporterModal from "./CSelectImporterModal";
 import { useNavigate } from "react-router-dom";
 import { useImportersContext } from "../../contexts/importersContext";
 import { getUser } from "../../utils/cookie";
+import { UserContext } from "../../contexts/UserContext";
 
 function CJobList(props) {
   const [years, setYears] = useState([]);
@@ -45,6 +46,8 @@ function CJobList(props) {
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  console.log(user);
 
   // Only get username from cookie
   useEffect(() => {
@@ -63,7 +66,7 @@ function CJobList(props) {
 
       try {
         const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-user-data/${username}`
+          `${process.env.REACT_APP_API_STRING}/get-user-data/${user.username}`
         );
         setUserData(response.data);
 

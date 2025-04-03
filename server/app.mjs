@@ -236,6 +236,14 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
+    
+// const CLIENT_URI =
+//   process.env.NODE_ENV === "production"
+//     ? process.env.PROD_CLIENT_URI
+//     : process.env.NODE_ENV === "server"
+//     ? process.env.SERVER_CLIENT_URI
+//     : process.env.DEV_CLIENT_URI;
+    
 
 const numOfCPU = os.availableParallelism();
 // console.log(`hello check first re baba***************** ${MONGODB_URI}`);
@@ -254,7 +262,9 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(cors());
+
+  app.use(cors())
+  // app.use(cors({ origin: CLIENT_URI, credentials: true }));
 
   app.use(compression({ level: 9 }));
 
@@ -491,6 +501,9 @@ if (cluster.isPrimary) {
       app.use(getTyreDetails);
       app.use(getTruckDetails);
 
+      // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
+
+      
       app.listen(9000, () => {
         console.log(`BE started at port 9000`);
       });

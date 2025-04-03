@@ -47,7 +47,6 @@ function ImportOperations() {
     }),
     [value, navigate]
   );
-  console.log(contextValue);
 
   return (
     <TabContext.Provider value={contextValue}>

@@ -21,9 +21,10 @@ import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
+import { YearContext } from "../../contexts/yearContext.js";
 
 function ImportOperations() {
-  const [selectedYear, setSelectedYear] = useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
@@ -48,16 +49,16 @@ function ImportOperations() {
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
         // setSelectedImporter("Select Importer");
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -101,8 +102,8 @@ function ImportOperations() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          selectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -113,7 +114,7 @@ function ImportOperations() {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   const fetchJobs = useCallback(
     async (
@@ -165,7 +166,7 @@ function ImportOperations() {
     fetchJobs(
       page,
       debouncedSearchQuery,
-      selectedYear,
+      selectedYearState,
       detailedStatusExPlan,
       selectedICD,
       selectedImporter
@@ -173,7 +174,7 @@ function ImportOperations() {
   }, [
     page,
     debouncedSearchQuery,
-    selectedYear,
+    selectedYearState,
     detailedStatusExPlan,
     selectedICD,
     selectedImporter,
@@ -703,8 +704,8 @@ function ImportOperations() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "100px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

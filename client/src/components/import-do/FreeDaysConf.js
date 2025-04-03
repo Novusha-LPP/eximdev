@@ -19,10 +19,12 @@ import SearchIcon from "@mui/icons-material/Search";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
+import { useContext } from "react";
+import { YearContext } from "../../contexts/yearContext.js";
 
 const FreeDaysConf = () => {
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [selectedICD, setSelectedICD] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
@@ -41,15 +43,15 @@ const FreeDaysConf = () => {
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -93,8 +95,8 @@ const FreeDaysConf = () => {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -105,7 +107,7 @@ const FreeDaysConf = () => {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination
   const fetchJobs = useCallback(
@@ -159,14 +161,14 @@ const FreeDaysConf = () => {
     fetchJobs(
       page,
       debouncedSearchQuery,
-      selectedYear,
+      selectedYearState,
       selectedICD,
       selectedImporter
     );
   }, [
     page,
     debouncedSearchQuery,
-    selectedYear,
+    selectedYearState,
     selectedICD,
     selectedImporter,
     fetchJobs,
@@ -590,8 +592,8 @@ const FreeDaysConf = () => {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

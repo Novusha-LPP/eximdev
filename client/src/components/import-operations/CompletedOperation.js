@@ -19,9 +19,10 @@ import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { YearContext } from "../../contexts/yearContext.js";
 
 function CompletedOperations() {
-  const [selectedYear, setSelectedYear] = useState("");
+   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
@@ -46,15 +47,15 @@ function CompletedOperations() {
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -98,8 +99,8 @@ function CompletedOperations() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -110,7 +111,7 @@ function CompletedOperations() {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   // Fetch rows data
   const fetchRows = async (
@@ -150,11 +151,17 @@ function CompletedOperations() {
     fetchRows(
       page,
       debouncedSearchQuery,
-      selectedYear,
+      selectedYearState,
       selectedICD,
       selectedImporter
     );
-  }, [page, debouncedSearchQuery, selectedYear, selectedICD, selectedImporter]);
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedYearState,
+    selectedICD,
+    selectedImporter,
+  ]);
 
   useEffect(() => {
     if (location.state?.searchQuery) {
@@ -467,8 +474,8 @@ function CompletedOperations() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

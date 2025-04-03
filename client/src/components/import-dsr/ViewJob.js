@@ -635,6 +635,10 @@ const updateDetailedStatus = () => {
     return `${year}-${month}-${day}`; // Fixed template literal syntax
   }
 
+  const ExBondflag = formik.values.type_of_b_e === "Ex-Bond" 
+  const LCLFlag = formik.values.consignment_type === "LCL" 
+
+
   return (
     <>
       {data !== null && (
@@ -1016,6 +1020,7 @@ const updateDetailedStatus = () => {
                     id="vessel_berthing"
                     name="vessel_berthing"
                     value={formik.values.vessel_berthing || ""}
+                    disabled={ExBondflag} // Disable if the user is not Admin
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1032,6 +1037,7 @@ const updateDetailedStatus = () => {
                     id="gateway_igm_date"
                     name="gateway_igm_date"
                     value={formik.values.gateway_igm_date || ""}
+                    disabled={ExBondflag}
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1047,6 +1053,7 @@ const updateDetailedStatus = () => {
                     type="date"
                     id="discharge_date"
                     name="discharge_date"
+                    disabled={ExBondflag}
                     value={formik.values.discharge_date || ""}
                     onChange={formik.handleChange}
                   />
@@ -1448,7 +1455,7 @@ const updateDetailedStatus = () => {
 
               {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
               <Col xs={12} lg={4}>
-                {formik.values.type_of_b_e === "Ex-Bond" && (
+                {ExBondflag && (
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
@@ -1581,7 +1588,7 @@ const updateDetailedStatus = () => {
                 })()}
 
               <Col xs={12} lg={4} style={{ marginTop: "30px" }}>
-                {formik.values.type_of_b_e === "Ex-Bond" && (
+                {ExBondflag && (
                   <Row>
                     <Col xs={12}>
                       <Button
@@ -3039,6 +3046,7 @@ const updateDetailedStatus = () => {
                             id={`container_rail_out_date${index}`}
                             name={`container_nos[${index}].container_rail_out_date`}
                             value={container.container_rail_out_date}
+                            disabled={LCLFlag || ExBondflag} // Disable if the user is not Admin
                             onChange={formik.handleChange}
                           />
                         </div>
@@ -3064,7 +3072,8 @@ const updateDetailedStatus = () => {
                               variant="outlined"
                               type="date"
                               id={`arrival_date_${index}`}
-                              name={`container_nos[${index}].arrival_date`}
+                                name={`container_nos[${index}].arrival_date`}
+                                disabled={ExBondflag}
                               value={container.arrival_date}
                               onChange={formik.handleChange}
                             />
@@ -3381,7 +3390,8 @@ const updateDetailedStatus = () => {
                             type="datetime-local"
                             id={`emptyContainerOffLoadDate${index}`}
                             name={`container_nos[${index}].emptyContainerOffLoadDate`}
-                             value={formatDateForInput(container.emptyContainerOffLoadDate)}
+                            value={formatDateForInput(container.emptyContainerOffLoadDate)}
+                            disabled={LCLFlag} // Disable if the user is not Admin
                             onChange={formik.handleChange}
                           />
                         </div>

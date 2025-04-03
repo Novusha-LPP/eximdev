@@ -23,26 +23,24 @@ const EditableDateCell = ({ cell }) => {
     out_of_charge,
   });
 
-  const [containers, setContainers] = useState([...container_nos]); // State for containers
-  const [editable, setEditable] = useState(null);
-  const [refresh, setRefresh] = useState(false); // Force re-render
-
   const formatDateForInput = (date) => {
     if (!date) return "";
     if (date.length === 10) return `${date}T00:00`; // If only date, add default time
     return date.replace(" ", "T"); // Convert space to "T" if needed
   };
 
+  const [containers, setContainers] = useState([...container_nos]); // State for containers
+  const [editable, setEditable] = useState(null);
+  const [refresh, setRefresh] = useState(false); // Force re-render
   const handleDateChange = (field, value, index = null) => {
     if (index !== null) {
       // Update container_nos state immutably
       const updatedContainers = containers.map((container, i) =>
         i === index ? { ...container, [field]: value } : container
       );
-
+  
       setContainers(updatedContainers); // Update state immediately for frontend
-      setRefresh((prev) => !prev); // Force re-render
-
+  
       // Send PATCH request to update the backend
       axios
         .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
@@ -50,12 +48,13 @@ const EditableDateCell = ({ cell }) => {
         })
         .then(() => {
           setEditable(null);
+          setRefresh((prev) => !prev); // Force re-render
         })
         .catch((err) => console.error("Error Updating:", err));
     } else {
       // Update normal dates
       setDates((prev) => ({ ...prev, [field]: value }));
-
+  
       axios
         .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           [field]: value,
@@ -67,6 +66,7 @@ const EditableDateCell = ({ cell }) => {
         .catch((err) => console.error("Error Updating:", err));
     }
   };
+  
 
   return (
     <div style={{ display: "flex", gap: "20px" }} key={refresh}>
@@ -125,7 +125,7 @@ const EditableDateCell = ({ cell }) => {
         {type_of_b_e !== "Ex-Bond" && consignment_type !== "LCL" && (
           <>
             <strong>Rail-out :</strong>
-            {containers.map((container, id) => (
+            {container_nos.map((container, id) => (
               <div key={id}>
                 {container.container_rail_out_date?.slice(0, 10) || "N/A"}{" "}
                 <FaCalendarAlt
@@ -135,9 +135,7 @@ const EditableDateCell = ({ cell }) => {
                 {editable === `rail_out_${id}` && (
                   <input
                     type="date"
-                    value={formatDateForInput(
-                      container.container_rail_out_date || ""
-                    )}
+                    value={formatDateForInput(container.container_rail_out_date || "")}
                     onChange={(e) =>
                       handleDateChange(
                         "container_rail_out_date",
@@ -155,7 +153,7 @@ const EditableDateCell = ({ cell }) => {
         {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
           <>
             <strong>Detention.F. :</strong>
-            {containers.map((container, id) => (
+            {container_nos.map((container, id) => (
               <div key={id}>
                 {container.detention_from
                   ? container.detention_from.slice(0, 10)
@@ -170,9 +168,8 @@ const EditableDateCell = ({ cell }) => {
                     value={container.detention_from || ""}
                     onChange={(e) =>
                       handleDateChange(
-                        `detention_from`,
-                        e.target.value,
-                        id
+                        `container_nos.${id}.detention_from`,
+                        e.target.value
                       )
                     }
                   />
@@ -182,28 +179,27 @@ const EditableDateCell = ({ cell }) => {
             <br />
           </>
         )}
-
         {type_of_b_e !== "Ex-Bond" && (
           <>
             <strong>Arrival :</strong>
-            {containers.map((container, id) => (
-              <div key={container.container_number || id}>
-                {container.arrival_date?.slice(0, 10) || "N/A"}{" "}
-                <FaCalendarAlt
-                  style={styles.icon}
-                  onClick={() => setEditable(`arrival_date_${id}`)}
-                />
-                {editable === `arrival_date_${id}` && (
-                  <input
-                    type="date"
-                    value={container.arrival_date || ""}
-                    onChange={(e) =>
-                      handleDateChange("arrival_date", e.target.value, id)
-                    }
-                  />
-                )}
-              </div>
-            ))}
+            {container_nos.map((container, id) => (
+  <div key={container.container_number || id}>
+    {container.arrival_date?.slice(0, 10) || "N/A"}{" "}
+    <FaCalendarAlt
+      style={styles.icon}
+      onClick={() => setEditable(`arrival_date_${id}`)}
+    />
+    {editable === `arrival_date_${id}` && (
+      <input
+        type="date"
+        value={container.arrival_date || ""}
+        onChange={(e) =>
+          handleDateChange("arrival_date", e.target.value, id)
+        }
+      />
+    )}
+  </div>
+))}
           </>
         )}
       </div>
@@ -237,7 +233,7 @@ const EditableDateCell = ({ cell }) => {
         )}
         <br />
         <strong>Delivery :</strong>
-        {containers.map((container, id) => (
+        {container_nos.map((container, id) => (
           <div key={id}>
             {container.delivery_date?.slice(0, 10) || "N/A"}{" "}
             <FaCalendarAlt
@@ -258,7 +254,7 @@ const EditableDateCell = ({ cell }) => {
         {consignment_type !== "LCL" && (
           <>
             <strong>EmptyOff:</strong>
-            {containers.map((container, id) => (
+            {container_nos.map((container, id) => (
               <div key={id}>
                 {container.emptyContainerOffLoadDate?.slice(0, 10) || "N/A"}{" "}
                 <FaCalendarAlt

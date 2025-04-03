@@ -257,6 +257,11 @@ const updateDetailedStatus = () => {
     }
   };
 
+  const formatDateForInput = (date) => {
+    if (!date) return "";
+    if (date.length === 10) return `${date}T00:00`; // If only date, add default time
+    return date.replace(" ", "T"); // Convert space to "T" if needed
+  };
   const handleWeighmentSlip = async (e, container_number, fileType) => {
     if (e.target.files.length === 0) {
       alert("No file selected");
@@ -3351,7 +3356,9 @@ const updateDetailedStatus = () => {
                     >
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
-                          <strong>Delivery Date:&nbsp;</strong>
+                          <strong>
+                            Delivery Date:&nbsp;{container.delivery_date}
+                          </strong>
                           <TextField
                             fullWidth
                             size="small"
@@ -3359,7 +3366,7 @@ const updateDetailedStatus = () => {
                             type="datetime-local"
                             id={`delivery_date${index}`}
                             name={`container_nos[${index}].delivery_date`}
-                            value={container.delivery_date}
+                            value={formatDateForInput(container.delivery_date)}
                             onChange={formik.handleChange}
                           />
                         </div>
@@ -3374,7 +3381,7 @@ const updateDetailedStatus = () => {
                             type="datetime-local"
                             id={`emptyContainerOffLoadDate${index}`}
                             name={`container_nos[${index}].emptyContainerOffLoadDate`}
-                            value={container.emptyContainerOffLoadDate}
+                             value={formatDateForInput(container.emptyContainerOffLoadDate)}
                             onChange={formik.handleChange}
                           />
                         </div>

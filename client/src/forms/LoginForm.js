@@ -34,33 +34,36 @@ function LoginPage() {
         { username, password },
         { withCredentials: true } // Important for cookie handling
       );
-      console.log(res);
+
+      console.log("Full response:", res);
+
       if (res.status === 200) {
-        const user = res.data;
+        const userData = res.data;
+        console.log("User data received:", userData);
 
-        console.log(user);
-        // Update user context with the returned data
+        // Store user in context
+        setUser(userData);
 
-        //localStorage.setItem("exim_user", JSON.stringify(user));
-        setUser(user);
-
-        // Check if user role is "customer" and navigate accordingly
-        // if (user.role === "Customer") {
-        //   console.log(user.role);
-        //   navigate("/customer");
-        // } else {
-        //   navigate("/"); // Redirect to home for other roles
-        // }
+        // Navigate based on role (uncomment when ready)
+        if (userData.role === "Customer") {
+          console.log("Navigating customer to customer dashboard");
+          navigate("/customer");
+        } else {
+          console.log("Navigating user to home");
+          navigate("/");
+        }
 
         // Reset form fields
         setUsername("");
         setPassword("");
       }
     } catch (error) {
+      console.error("Login error:", error);
+
       if (error.response) {
         switch (error.response.status) {
           case 400:
-            setLoginError(error.response.data.message);
+            setLoginError(error.response.data.message || "Invalid request");
             break;
           case 401:
             setLoginError("Invalid credentials");
@@ -69,10 +72,16 @@ function LoginPage() {
             setLoginError("Server error. Please try again later.");
             break;
           default:
-            setLoginError("An unexpected error occurred");
+            setLoginError(
+              `Error: ${
+                error.response.data.message || "An unexpected error occurred"
+              }`
+            );
         }
-      } else {
+      } else if (error.request) {
         setLoginError("Network error. Please check your connection.");
+      } else {
+        setLoginError("An error occurred while setting up the request.");
       }
     } finally {
       setIsSubmitting(false);

@@ -73,6 +73,11 @@ function JobDetails() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
 
+  const formatDateTime = (date) => {
+  return date ? new Date(date).toISOString().slice(0, 16) : "";
+};
+
+
   const {
     data,
     detentionFrom,
@@ -125,60 +130,69 @@ function JobDetails() {
   );
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
+  const [deleveryDate, setDeliveryDate] =
+    useState(false);
   // Helper function to update the `detailed_status` based on form values
-  const updateDetailedStatus = () => {
-    const {
-      vessel_berthing: eta,
-      gateway_igm_date: gatewayIGMDate,
-      discharge_date: dischargeDate,
-      out_of_charge: outOfChargeDate,
-      emptyContainerOffLoadDate: deliveryDate,
-      pcv_date: pcvDate,
-      container_nos,
-    } = formik.values;
+const updateDetailedStatus = () => {
+  const {
+    vessel_berthing: eta,
+    gateway_igm_date: gatewayIGMDate,
+    discharge_date: dischargeDate,
+    out_of_charge: outOfChargeDate,
+    pcv_date: pcvDate,
+    container_nos,
+    type_of_b_e,
+    consignment_type,
+  } = formik.values;
 
-    const billOfEntryNo = formik.values.be_no || data?.be_no;
-    const anyContainerArrivalDate = container_nos?.some(
-      (container) => container.arrival_date
-    );
-    const containerRailOutDate = container_nos?.every(
-      (container) => container.container_rail_out_date
-    );
-    const emptyContainerOffLoadDate = container_nos?.every(
-      (container) => container.emptyContainerOffLoadDate
-    );
-    setEmptyContainerOffLoadDate(emptyContainerOffLoadDate);
+  const billOfEntryNo = formik.values.be_no || data?.be_no;
+  const anyContainerArrivalDate = container_nos?.some(
+    (container) => container.arrival_date
+  );
+  const containerRailOutDate = container_nos?.every(
+    (container) => container.container_rail_out_date
+  );
+  const emptyContainerOffLoadDate = container_nos?.every(
+    (container) => container.emptyContainerOffLoadDate
+  );
+  setEmptyContainerOffLoadDate(emptyContainerOffLoadDate);
 
-    if (
-      billOfEntryNo &&
-      anyContainerArrivalDate &&
-      outOfChargeDate &&
-      emptyContainerOffLoadDate
-    ) {
-      formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
-      formik.setFieldValue("detailed_status", "Custom Clearance Completed");
-    } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
-      formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
-    } else if (billOfEntryNo && anyContainerArrivalDate) {
-      formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
-    } else if (billOfEntryNo) {
-      formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-    } else if (containerRailOutDate) {
-      formik.setFieldValue("detailed_status", "Rail Out");
-    } else if (dischargeDate) {
-      formik.setFieldValue("detailed_status", "Discharged");
-    } else if (gatewayIGMDate) {
-      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
-    } else if (eta === "" || eta === "Invalid Date") {
-      formik.setFieldValue("detailed_status", "ETA Date Pending");
-    } else if (eta) {
-      console.log(eta);
-      formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
-    } else {
-      console.log("No conditions met");
-    }
-  };
+  const deliveryDate = container_nos?.every(
+    (container) => container.delivery_date
+  );
+  setDeliveryDate(deliveryDate);
+
+  // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
+  const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+  if (
+    billOfEntryNo &&
+    anyContainerArrivalDate &&
+    outOfChargeDate &&
+    (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)
+  ) {
+    formik.setFieldValue("detailed_status", "Billing Pending");
+  } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
+    formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+  } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
+    formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+  } else if (billOfEntryNo && anyContainerArrivalDate) {
+    formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+  } else if (billOfEntryNo) {
+    formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+  } else if (containerRailOutDate) {
+    formik.setFieldValue("detailed_status", "Rail Out");
+  } else if (dischargeDate) {
+    formik.setFieldValue("detailed_status", "Discharged");
+  } else if (gatewayIGMDate) {
+    formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+  } else if (eta === "" || eta === "Invalid Date") {
+    formik.setFieldValue("detailed_status", "ETA Date Pending");
+  } else if (eta) {
+    formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
+  } else {
+
+  }
+};
 
   // // Trigger the `updateDetailedStatus` function when form values change
   useEffect(() => {
@@ -299,7 +313,7 @@ function JobDetails() {
         setFileSnackbar(false);
       }, 3000);
     } catch (err) {
-      console.error("Error uploading files:", err);
+
     }
   };
 
@@ -2497,22 +2511,22 @@ function JobDetails() {
                     margin="normal"
                     variant="outlined"
                     type="datetime-local"
-                    id="document_received_date"
-                    name="document_received_date"
+                    id="do_completed"
+                    name="do_completed"
                     value={
-                      formik.values.document_received_date
-                        ? formik.values.document_received_date
-                        : ""
+                    formatDateTime(  formik.values.do_completed
+                        ? formik.values.do_completed
+                        : "")
                     }
                     onChange={(e) => {
                       const newValue = e.target.value;
                       if (newValue) {
                         formik.setFieldValue(
-                          "document_received_date",
+                          "do_completed",
                           newValue
                         );
                       } else {
-                        formik.setFieldValue("document_received_date", "");
+                        formik.setFieldValue("do_completed", "");
                       }
                     }}
                     InputLabelProps={{

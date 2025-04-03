@@ -195,4 +195,27 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:importer", async (req, res)
 });
 
 
+// PATCH API to update job dates
+router.patch("/api/jobs/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body; // Contains updated fields
+
+    // Find the job and update only the provided fields
+    const updatedJob = await JobModel.findByIdAndUpdate(id, updateData, {
+      new: true, // Return updated document
+      runValidators: true, // Ensure validation
+    });
+
+    if (!updatedJob) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    res.status(200).json(updatedJob);
+  } catch (error) {
+    console.error("Error updating job:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 export default router;

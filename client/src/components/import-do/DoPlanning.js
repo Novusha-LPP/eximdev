@@ -18,6 +18,9 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
+import { useContext } from "react";
+import { YearContext } from "../../contexts/yearContext.js";
+
 function DoPlanning() {
    const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
@@ -38,18 +41,19 @@ function DoPlanning() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
  
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
@@ -93,45 +97,45 @@ function DoPlanning() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
-            filteredYears.includes(defaultYearPair)
-              ? defaultYearPair
-              : filteredYears[0]
-          );
+        if (!selectedYearState && filteredYears.length > 0) {
+          const newYear = filteredYears.includes(defaultYearPair)
+            ? defaultYearPair
+            : filteredYears[0];
+
+          setSelectedYearState(newYear); // ✅ Persist the selected year
         }
       } catch (error) {
         console.error("Error fetching years:", error);
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYear]);
 
-  const handleCopy = (event, text) => {
-    event.stopPropagation();
-    if (
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => console.log("Text copied to clipboard:", text))
-        .catch((err) => console.error("Failed to copy:", err));
-    } else {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
-      } catch (err) {
-        console.error("Fallback copy failed:", err);
-      }
-      document.body.removeChild(textArea);
-    }
-  };
+ const handleCopy = (event, text) => {
+   event.stopPropagation();
+   if (!text || text === "N/A") return; // Prevent copying empty values
+   if (
+     navigator.clipboard &&
+     typeof navigator.clipboard.writeText === "function"
+   ) {
+     navigator.clipboard
+       .writeText(text)
+       .then(() => console.log("Copied:", text))
+       .catch((err) => console.error("Copy failed:", err));
+   } else {
+     const textArea = document.createElement("textarea");
+     textArea.value = text;
+     document.body.appendChild(textArea);
+     textArea.select();
+     try {
+       document.execCommand("copy");
+       console.log("Copied (fallback):", text);
+     } catch (err) {
+       console.error("Fallback failed:", err);
+     }
+     document.body.removeChild(textArea);
+   }
+ };
 
   // Fetch jobs with pagination and search
   // Fetch jobs with pagination
@@ -186,14 +190,14 @@ function DoPlanning() {
     fetchJobs(
       page,
       debouncedSearchQuery,
-      selectedYear,
+      selectedYearState,
       selectedICD,
       selectedImporter
     );
   }, [
     page,
     debouncedSearchQuery,
-    selectedYear,
+    selectedYearState,
     selectedICD,
     selectedImporter,
     fetchJobs,
@@ -308,94 +312,69 @@ function DoPlanning() {
     //   },
     // },
 
-  {
-  accessorKey: "be_no", // Keeping this for sorting if needed
+{
+  accessorKey: "be_no_igm_details",
   header: "Bill Of Entry & IGM Details",
   enableSorting: false,
   size: 300,
   Cell: ({ cell }) => {
-    const { be_no, igm_date, igm_no, be_date, gateway_igm_date, gateway_igm } =
-      cell.row.original;
+    const {
+      be_no,
+      igm_date,
+      igm_no,
+      be_date,
+      gateway_igm_date,
+      gateway_igm,
+    } = cell.row.original;
+
     return (
       <div>
         <strong>BE No:</strong> {be_no || "N/A"}{" "}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => {
-            handleCopy(event, cell?.getValue()?.toString());
-          }}
-        >
-          <abbr title="Copy Party Name">
+        <IconButton size="small" onClick={(event) => handleCopy(event, be_no)}>
+          <abbr title="Copy BE No">
             <ContentCopyIcon fontSize="inherit" />
           </abbr>
         </IconButton>
         <br />
+
         <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => {
-            handleCopy(event, cell?.getValue()?.toString());
-          }}
-        >
-          <abbr title="Copy Party Name">
+        <IconButton size="small" onClick={(event) => handleCopy(event, be_date)}>
+          <abbr title="Copy BE Date">
             <ContentCopyIcon fontSize="inherit" />
           </abbr>
         </IconButton>
         <br />
+
         <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => {
-            handleCopy(event, cell?.getValue()?.toString());
-          }}
-        >
-          <abbr title="Copy Party Name">
+        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm)}>
+          <abbr title="Copy GIGM">
             <ContentCopyIcon fontSize="inherit" />
           </abbr>
         </IconButton>
         <br />
+
         <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => {
-            handleCopy(event, cell?.getValue()?.toString());
-          }}
-        >
-          <abbr title="Copy Party Name">
+        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm_date)}>
+          <abbr title="Copy GIGM Date">
             <ContentCopyIcon fontSize="inherit" />
           </abbr>
         </IconButton>
         <br />
+
         <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => {
-            handleCopy(event, cell?.getValue()?.toString());
-          }}
-        >
-          <abbr title="Copy Party Name">
+        <IconButton size="small" onClick={(event) => handleCopy(event, igm_no)}>
+          <abbr title="Copy IGM No">
             <ContentCopyIcon fontSize="inherit" />
           </abbr>
         </IconButton>
         <br />
-        <strong>IGM Date:</strong> {igm_date || "N/A"}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => {
-            handleCopy(event, cell?.getValue()?.toString());
-          }}
-        >
-          <abbr title="Copy Party Name">
+
+        <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, igm_date)}>
+          <abbr title="Copy IGM Date">
             <ContentCopyIcon fontSize="inherit" />
           </abbr>
         </IconButton>
-        <br />
       </div>
     );
   },
@@ -780,8 +759,8 @@ function DoPlanning() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

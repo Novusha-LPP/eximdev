@@ -241,7 +241,6 @@ function useFetchJobDetails(
         );
 
         // Fetched CTH documents with URLs merged from data.cth_documents if they exist
-        console.log(Array.isArray(cthRes.data));
         const fetchedCthDocuments =
           Array.isArray(cthRes.data) &&
           cthRes.data.map((cthDoc) => {
@@ -336,6 +335,7 @@ function useFetchJobDetails(
       rail_out_date: "",
       remarks: "",
       description: "",
+      consignment_type: "",
       sims_reg_no: "",
       pims_reg_no: "",
       nfmims_reg_no: "",
@@ -410,6 +410,7 @@ function useFetchJobDetails(
           rail_out_date: values.rail_out_date,
           remarks: values.remarks,
           description: values.description,
+          consignment_type: values.consignment_type,
           sims_reg_no: values.sims_reg_no,
           pims_reg_no: values.pims_reg_no,
           nfmims_reg_no: values.nfmims_reg_no,
@@ -684,6 +685,8 @@ function useFetchJobDetails(
         rail_out_date:
           data.rail_out_date === undefined ? "" : data.rail_out_date,
         description: data.description === undefined ? "" : data.description,
+        consignment_type:
+          data.consignment_type === undefined ? "" : data.consignment_type,
         sims_reg_no: data.sims_reg_no === undefined ? "" : data.sims_reg_no,
         pims_reg_no: data.pims_reg_no === undefined ? "" : data.pims_reg_no,
         nfmims_reg_no:

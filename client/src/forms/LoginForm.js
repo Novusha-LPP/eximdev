@@ -44,7 +44,7 @@ function LoginPage() {
 
         //localStorage.setItem("exim_user", JSON.stringify(user));
         setUser(user);
-        navigate("/customer");
+        navigate("/");
         // Reset form
         setUsername("");
         setPassword("");

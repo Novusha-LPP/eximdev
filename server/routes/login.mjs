@@ -22,7 +22,33 @@ router.post("/api/login", async (req, res) => {
           return res.status(500).json({ message: "Something went wrong" });
         }
 
-        if (!passwordResult) {
+        if (passwordResult) {
+          const token = generateToken(user);
+          const userResponse = sanitizeUserData(user);
+          console.log(token, userResponse);
+          res.cookie("exim_token", token, {
+            httpOnly: true,
+            secure: false,
+            sameSite: "Lax", // Lax for testing, strict for production
+            maxAge: 24 * 60 * 60 * 1000,
+          });
+          res.cookie(
+            "exim_user",
+            JSON.stringify({
+              username: user.username,
+              role: user.role,
+              first_name: user.first_name,
+              last_name: user.last_name,
+            }),
+            {
+              httpOnly: false,
+              secure: false, // use HTTPS only in production
+              sameSite: "Lax", // Lax for testing, strict for production
+              maxAge: 24 * 60 * 60 * 1000,
+            }
+          );
+          return res.status(200).json(userResponse);
+        } else {
           return res
             .status(401)
             .json({ message: "Username or password didn't match" });
@@ -41,8 +67,8 @@ router.post("/api/login", async (req, res) => {
         // Set secure, httpOnly cookies
         res.cookie("exim_token", token, {
           httpOnly: true,
-          sameSite: "none", // "lax" for production, "none" for cross-domain development
-          secure: true, // Always use secure cookies when sameSite is "none"
+          secure: false, // use true in production with HTTPS
+          sameSite: "Lax", // protect against CSRF
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
         });
 
@@ -57,8 +83,8 @@ router.post("/api/login", async (req, res) => {
           }),
           {
             httpOnly: false, // this cookie can be read by client-side JS
-            sameSite: "none", // "lax" for production, "none" for cross-domain development
-            secure: true, // Always use secure cookies when sameSite is "none"
+            secure:false, // use true in production with HTTPS
+            sameSite: "Lax",
             maxAge: 24 * 60 * 60 * 1000, // 24 hours
           }
         );

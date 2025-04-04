@@ -368,7 +368,7 @@ function determineDetailedStatus(job) {
   const validVesselBerthing = isValidDate(vessel_berthing);
 
   // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
-  const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+  const isExBondOrLCL = type_of_b_e === "Ex-Bond";
 
   if (
     be_no &&

@@ -36,6 +36,7 @@ const allModules = [
   "Screen2",
   "Screen3",
   "Screen4",
+  "Import Billing"
   // "Screen5",
   // "Screen6",
 ];

@@ -22,6 +22,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   }, []);
 
   const handleInputChange = (event, rowIndex, columnId) => {
+    
+    // Convert to JS Date, which automatically interprets "YYYY-MM-DDTHH:mm"
+  
+   
     const { value } = event.target;
     setRows((prevRows) => {
       const newRows = [...prevRows];
@@ -64,16 +68,42 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       ),
     },
     {
-      accessorKey: "pr_no",
-      header: "PR No",
+      accessorKey: "import_export",
+      header: "Import/Export",
       enableSorting: false,
       size: 150,
-    },
-    {
-      accessorKey: "pr_date",
-      header: "PR Date",
-      enableSorting: false,
-      size: 100,
+      // Cell: ({ cell, row }) =>
+      //   !row.original.pr_no ? (
+      //     <TextField
+      //       select
+      //       sx={{ width: "100%" }}
+      //       size="small"
+      //       defaultValue={cell.getValue()}
+      //       onBlur={(event) =>
+      //         handleInputChange(event, row.index, cell.column.id)
+      //       }
+      //     >
+      //       <MenuItem value="Import">Import</MenuItem>
+      //       <MenuItem value="Export">Export</MenuItem>
+      //     </TextField>
+      //   ) : (
+      //     // If PR number is not empty, do not allow user to update branch
+      //     cell.getValue()
+      //   ),
+      Cell: ({ cell, row }) => (
+        <TextField
+          select
+          sx={{ width: "100%" }}
+          size="small"
+          defaultValue={cell.getValue()}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        >
+          <MenuItem value="Import">Import</MenuItem>
+          <MenuItem value="Export">Export</MenuItem>
+        </TextField>
+      ),
     },
     {
       accessorKey: "branch",
@@ -103,6 +133,49 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           // If PR number is not empty, do not allow user to update branch
           cell.getValue()
         ),
+    },
+    {
+      accessorKey: "container_count",
+      header: "Container Count",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "container_count"),
+      Cell: ({ cell, row }) => (
+        <TextField
+          sx={{ width: "100%" }}
+          size="small"
+          defaultValue={cell.getValue()}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        />
+      ),
+    },
+    {
+      accessorKey: "container_type",
+      header: "Container Type",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "container_type"),
+      Cell: ({ cell, row }) => (
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={containerTypes}
+          getOptionLabel={(option) => option.container_type || ""} // ✅ Get container_type field
+          value={
+            containerTypes.find(
+              (type) => type.container_type === rows[row.index]?.container_type
+            ) || null
+          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue?.container_type || "" } },
+              row.index,
+              cell.column.id
+            )
+          }
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
+      ),
     },
     {
       accessorKey: "consignor",
@@ -143,94 +216,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       ),
     },
     {
-      accessorKey: "container_type",
-      header: "Container Type",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "container_type"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={containerTypes}
-          getOptionLabel={(option) => option.container_type || ""} // ✅ Get container_type field
-          value={
-            containerTypes.find(
-              (type) => type.container_type === rows[row.index]?.container_type
-            ) || null
-          }
-          onChange={(_, newValue) =>
-            handleInputChange(
-              { target: { value: newValue?.container_type || "" } },
-              row.index,
-              cell.column.id
-            )
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
-    },
-    {
-      accessorKey: "container_count",
-      header: "Container Count",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "container_count"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
-    },
-    {
-      accessorKey: "type_of_vehicle",
-      header: "Type of Vehicle",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "type_of_vehicle"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          options={Array.isArray(truckTypes) ? truckTypes : []}
-          getOptionLabel={(option) => option.vehicleType || ""}
-          value={
-            Array.isArray(truckTypes)
-              ? truckTypes.find(
-                  (type) =>
-                    type.vehicleType === rows[row.index]?.type_of_vehicle
-                ) || null
-              : null
-          }
-          onChange={(_, newValue) =>
-            handleInputChange(
-              { target: { value: newValue?.vehicleType || "" } },
-              row.index,
-              cell.column.id
-            )
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
-    },
-    {
-      accessorKey: "description",
-      header: "Description",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "description"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
-    },
-    {
       accessorKey: "shipping_line",
       header: "Shipping Line",
       enableSorting: false,
@@ -246,110 +231,54 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         />
       ),
     },
-    {
-      accessorKey: "container_loading",
-      header: "Container Loading",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "container_loading"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={locations}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.container_loading || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
-    },
-    {
-      accessorKey: "container_offloading",
-      header: "Container Offloading",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "container_offloading"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={locations}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.container_offloading || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
-    },
+
     {
       accessorKey: "do_validity",
       header: "DO Validity",
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          type="date"
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
+      Cell: ({ cell, row }) => {
+        // 1) Get the raw value from the cell (could be "2024-08-14" or "2024-08-14T12:30", etc.)
+        const rawValue = cell.getValue() || "";
+
+        // 2) If it’s strictly YYYY-MM-DD with no time, append "T23:59"
+        let initialValue = rawValue;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+          initialValue += "T23:59";
+        }
+
+        // 3) Use local state to store the date+time string
+        const [value, setValue] = React.useState(initialValue);
+
+        // 4) On blur, if user only picks date, append "T23:59" again
+        const handleBlur = (event) => {
+          let newValue = event.target.value; // e.g. "2025-03-31T14:45" or "2025-03-31"
+          if (newValue && newValue.length === 10) {
+            newValue += "T23:59";
           }
-        />
-      ),
+          setValue(newValue);
+
+          // Update your row data with the new string
+          handleInputChange(
+            { ...event, target: { ...event.target, value: newValue } },
+            row.index,
+            cell.column.id
+          );
+        };
+
+        return (
+          <TextField
+            type="datetime-local"
+            sx={{ width: "100%" }}
+            size="small"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={handleBlur}
+          />
+        );
+      },
     },
-    {
-      accessorKey: "instructions",
-      header: "Instructions",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "instructions"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
-    },
-    {
-      accessorKey: "document_no",
-      header: "Document No",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "document_no"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
-    },
-    {
-      accessorKey: "document_date",
-      header: "Document Date",
-      enableSorting: false,
-      size: calculateColumnWidth(rows, "document_date"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          type="date"
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
-    },
+
     {
       accessorKey: "goods_pickup",
       header: "Goods Pickup",
@@ -388,6 +317,145 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         />
       ),
     },
+    {
+      accessorKey: "container_offloading",
+      header: "Container Offloading",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "container_offloading"),
+      Cell: ({ cell, row }) => (
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={locations}
+          getOptionLabel={(option) => option}
+          value={rows[row.index]?.container_offloading || null}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
+      ),
+    },
+    {
+      accessorKey: "container_loading",
+      header: "Container Loading",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "container_loading"),
+      Cell: ({ cell, row }) => (
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={locations}
+          getOptionLabel={(option) => option}
+          value={rows[row.index]?.container_loading || null}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
+      ),
+    },
+    {
+      accessorKey: "type_of_vehicle",
+      header: "Type of Vehicle",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ cell, row }) => (
+        <TextField
+          select
+          sx={{ width: "100%" }}
+          size="small"
+          value={cell.getValue() || ""}
+          onChange={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        >
+          {truckTypes?.map((type) => (
+            <MenuItem key={type} value={type}>
+              {type}
+            </MenuItem>
+          ))}
+        </TextField>
+      ),
+    },
+    {
+      accessorKey: "document_no",
+      header: "Document No",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "document_no"),
+      Cell: ({ cell, row }) => (
+        <TextField
+          sx={{ width: "100%" }}
+          size="small"
+          defaultValue={cell.getValue()}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        />
+      ),
+    },
+    {
+      accessorKey: "document_date",
+      header: "Document Date",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "document_date"),
+      Cell: ({ cell, row }) => (
+        <TextField
+          type="date"
+          sx={{ width: "100%" }}
+          size="small"
+          defaultValue={cell.getValue()}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        />
+      ),
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "description"),
+      Cell: ({ cell, row }) => (
+        <TextField
+          sx={{ width: "100%" }}
+          size="small"
+          defaultValue={cell.getValue()}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        />
+      ),
+    },
+    {
+      accessorKey: "instructions",
+      header: "Instructions",
+      enableSorting: false,
+      size: calculateColumnWidth(rows, "instructions"),
+      Cell: ({ cell, row }) => (
+        <TextField
+          sx={{ width: "100%" }}
+          size="small"
+          defaultValue={cell.getValue()}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+        />
+      ),
+    },
+    {
+      accessorKey: "pr_no",
+      header: "PR No",
+      enableSorting: false,
+      size: 150,
+    },
+    {
+      accessorKey: "pr_date",
+      header: "PR Date",
+      enableSorting: false,
+      size: 100,
+    },
+
     {
       accessorKey: "action",
       header: "Save",

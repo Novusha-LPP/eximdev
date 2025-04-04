@@ -22,6 +22,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Autocomplete,
   Checkbox,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
@@ -59,9 +60,10 @@ const validationSchema = Yup.object({
     .matches(/^\d{10}$/, "Phone Number must be exactly 10 digits")
     .required("Phone Number is required"),
   residentialAddress: Yup.string().required("Residential Address is required"),
-  // drivingVehicleTypes: Yup.string().required(
-  //   "Driving Vehicle Types are required"
-  // ),
+  drivingVehicleTypes: Yup.array()
+    .min(1, "Select at least one vehicle type")
+    .required("Driving vehicle types are required"),
+
   remarks: Yup.string(),
   // photoUpload: Yup.array().min(1, "At least one photo is required"),
   photoUpload: Yup.array(),
@@ -283,7 +285,7 @@ const DriversListDirectory = () => {
             onSubmit={handleSave}
             enableReinitialize={true}
           >
-            {({ values, handleChange, handleBlur, setFieldValue }) => (
+            {({ values, handleChange, handleBlur, setFieldValue, errors, touched }) => (
               <Form>
                 <Grid container spacing={2}>
                   {/* Left Column: Text & Date Fields */}
@@ -444,42 +446,46 @@ const DriversListDirectory = () => {
                       />
                     </Box> */}
                     <FormControl fullWidth sx={{ mb: 2 }} required>
-                      <InputLabel id="drivingVehicleTypes-label">
-                        Driving Vehicle Types
-                      </InputLabel>
-                      <Select
+                      <Autocomplete
                         multiple
-                        labelId="drivingVehicleTypes-label"
                         id="drivingVehicleTypes"
-                        name="drivingVehicleTypes"
-                        value={values.drivingVehicleTypes}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        renderValue={(selected) =>
-                          vehicleTypes
-                            .filter((vehicle) =>
-                              selected.includes(vehicle.name)
-                            )
-                            .map((vehicle) => vehicle.label)
-                            .join(", ")
+                        options={vehicleTypes}
+                        disableCloseOnSelect
+                        getOptionLabel={(option) => option.label}
+                        value={
+                          vehicleTypes.filter((v) =>
+                            values.drivingVehicleTypes?.includes(v.name)
+                          ) || []
                         }
-                      >
-                        {vehicleTypes.map((vehicle) => (
-                          <MenuItem key={vehicle.name} value={vehicle.name}>
+                        onChange={(event, newValue) => {
+                          const selectedNames = newValue.map((v) => v.name);
+                          setFieldValue("drivingVehicleTypes", selectedNames);
+                        }}
+                        renderOption={(props, option, { selected }) => (
+                          <li {...props}>
                             <Checkbox
-                              checked={values.drivingVehicleTypes.includes(
-                                vehicle.name
-                              )}
+                              style={{ marginRight: 8 }}
+                              checked={selected}
                             />
-                            {vehicle.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      <ErrorMessage
-                        name="drivingVehicleTypes"
-                        component={Typography}
-                        color="error"
-                        variant="caption"
+                            {option.label}
+                          </li>
+                        )}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Driving Vehicle Types"
+                            name="drivingVehicleTypes"
+                            fullWidth
+                            error={
+                              touched.drivingVehicleTypes &&
+                              Boolean(errors.drivingVehicleTypes)
+                            }
+                            helperText={
+                              touched.drivingVehicleTypes &&
+                              errors.drivingVehicleTypes
+                            }
+                          />
+                        )}
                       />
                     </FormControl>
 

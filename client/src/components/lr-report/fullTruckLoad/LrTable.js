@@ -55,6 +55,8 @@ function LrTable(props) {
         goods_pickup: "",
         goods_delivery: "",
         own_hired: "",
+        eWay_bill: "",
+        isOccupied: "",
         type_of_vehicle: "",
         vehicle_no: "",
         driver_name: "",

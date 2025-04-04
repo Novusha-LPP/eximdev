@@ -39,7 +39,10 @@ export const handleSaveLr = async (row, props) => {
   if (row.net_weight && (isNaN(row.net_weight) || row.net_weight <= 0)) {
     errors.push("Net weight must be a positive number.");
   }
-  if (row.container_gross_weight && (isNaN(row.container_gross_weight) || row.container_gross_weight <= 0)) {
+  if (
+    row.container_gross_weight &&
+    (isNaN(row.container_gross_weight) || row.container_gross_weight <= 0)
+  ) {
     errors.push("Gross weight must be a positive number.");
   }
   // Validate driver phone number
@@ -48,6 +51,11 @@ export const handleSaveLr = async (row, props) => {
     errors.push(
       "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
     );
+  }
+  
+  const eWaybillRegex = /^\d{12}$/;
+  if (row.eWay_bill && !eWaybillRegex.test(row.eWay_bill)) {
+    errors.push("E-Way Bill number must be exactly 12 digits.");
   }
 
   const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;

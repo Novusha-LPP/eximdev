@@ -9,6 +9,18 @@ import { handleSavePr } from "../utils/handleSavePr";
 
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
+  const [shippingLines, setShippingLines] = useState([]);
+
+  const fetchShippingLines = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-shipping-line`
+      );
+      setShippingLines(response.data.data.map((item) => item.name) || []);
+    } catch (error) {
+      console.error("❌ Error fetching shipping lines:", error);
+    }
+  };
 
   async function getPrData() {
     const res = await axios.get(
@@ -19,13 +31,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
   useEffect(() => {
     getPrData();
+    fetchShippingLines();
   }, []);
 
   const handleInputChange = (event, rowIndex, columnId) => {
-    
-    // Convert to JS Date, which automatically interprets "YYYY-MM-DDTHH:mm"
-  
-   
     const { value } = event.target;
     setRows((prevRows) => {
       const newRows = [...prevRows];
@@ -35,13 +44,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   };
 
   const handleDeletePr = async (pr_no) => {
-    // Show confirmation dialog
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this PR?"
     );
 
     if (confirmDelete) {
-      // If user confirms deletion, proceed with deletion
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/delete-pr`,
         {
@@ -72,24 +79,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Import/Export",
       enableSorting: false,
       size: 150,
-      // Cell: ({ cell, row }) =>
-      //   !row.original.pr_no ? (
-      //     <TextField
-      //       select
-      //       sx={{ width: "100%" }}
-      //       size="small"
-      //       defaultValue={cell.getValue()}
-      //       onBlur={(event) =>
-      //         handleInputChange(event, row.index, cell.column.id)
-      //       }
-      //     >
-      //       <MenuItem value="Import">Import</MenuItem>
-      //       <MenuItem value="Export">Export</MenuItem>
-      //     </TextField>
-      //   ) : (
-      //     // If PR number is not empty, do not allow user to update branch
-      //     cell.getValue()
-      //   ),
       Cell: ({ cell, row }) => (
         <TextField
           select
@@ -111,7 +100,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 150,
       Cell: ({ cell, row }) =>
-        // If PR number is empty, show dropdown menu for branch
         !row.original.pr_no ? (
           <TextField
             select
@@ -130,7 +118,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             <MenuItem value="BARODA">BARODA</MenuItem>
           </TextField>
         ) : (
-          // If PR number is not empty, do not allow user to update branch
           cell.getValue()
         ),
     },
@@ -160,7 +147,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           fullWidth
           disablePortal={false}
           options={containerTypes}
-          getOptionLabel={(option) => option.container_type || ""} // ✅ Get container_type field
+          getOptionLabel={(option) => option.container_type || ""}
           value={
             containerTypes.find(
               (type) => type.container_type === rows[row.index]?.container_type
@@ -221,44 +208,41 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "shipping_line"),
       Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={shippingLines}
+          getOptionLabel={(option) => option}
+          value={rows[row.index]?.shipping_line || null}
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
           }
+          renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
     },
-
     {
       accessorKey: "do_validity",
       header: "DO Validity",
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
       Cell: ({ cell, row }) => {
-        // 1) Get the raw value from the cell (could be "2024-08-14" or "2024-08-14T12:30", etc.)
         const rawValue = cell.getValue() || "";
-
-        // 2) If it’s strictly YYYY-MM-DD with no time, append "T23:59"
         let initialValue = rawValue;
         if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
           initialValue += "T23:59";
         }
-
-        // 3) Use local state to store the date+time string
         const [value, setValue] = React.useState(initialValue);
-
-        // 4) On blur, if user only picks date, append "T23:59" again
         const handleBlur = (event) => {
-          let newValue = event.target.value; // e.g. "2025-03-31T14:45" or "2025-03-31"
+          let newValue = event.target.value;
           if (newValue && newValue.length === 10) {
             newValue += "T23:59";
           }
           setValue(newValue);
-
-          // Update your row data with the new string
           handleInputChange(
             { ...event, target: { ...event.target, value: newValue } },
             row.index,
@@ -278,7 +262,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         );
       },
     },
-
     {
       accessorKey: "goods_pickup",
       header: "Goods Pickup",
@@ -455,7 +438,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
     },
-
     {
       accessorKey: "action",
       header: "Save",

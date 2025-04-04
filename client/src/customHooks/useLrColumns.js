@@ -1014,11 +1014,9 @@ function useLrColumns(props) {
 
         return (
           <IconButton
-            onClick={() => {
-              handleSaveLr(row.original, props);
-              setTimeout(() => {
-                fetchSrcelOptions();
-              }, 2000);
+            onClick={async () => {
+              await handleSaveLr(row.original, props);
+              await getData(); // Refresh rows after saving
             }}
             disabled={statusValue === "Successful Collection of SR-CEL Lock"}
           >

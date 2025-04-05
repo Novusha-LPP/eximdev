@@ -151,10 +151,6 @@ const EditableDateCell = ({ cell }) => {
             {containers.map((container, id) => (
               <div key={id}>
                 {container.detention_from?.slice(0, 10) || "N/A"}{" "}
-                <FaCalendarAlt
-                  style={styles.icon}
-                  onClick={() => setEditable(`detention_from_${id}`)}
-                />
                 {editable === `detention_from_${id}` && (
                   <input
                     type="date"

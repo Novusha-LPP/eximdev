@@ -24,6 +24,7 @@ import {
   Select,
   MenuItem,
   InputLabel,
+  Checkbox,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -63,6 +64,7 @@ function PortsCfsYardDirectory() {
     contactPersonName: "",
     contactPersonEmail: "",
     contactPersonPhone: "",
+    isBranch: false,
   });
   const [existingPorts, setExistingPorts] = useState([]);
 
@@ -97,6 +99,7 @@ function PortsCfsYardDirectory() {
       contactPersonName: "",
       contactPersonEmail: "",
       contactPersonPhone: "",
+      isBranch: false,
     });
     setOpenModal(true);
   };
@@ -114,6 +117,7 @@ function PortsCfsYardDirectory() {
       contactPersonName: port.contactPersonName,
       contactPersonEmail: port.contactPersonEmail,
       contactPersonPhone: port.contactPersonPhone,
+      isBranch: port.isBranch,
     });
     setOpenModal(true);
   };
@@ -201,6 +205,7 @@ function PortsCfsYardDirectory() {
               <TableCell>Contact Person</TableCell>
               <TableCell>Contact Email</TableCell>
               <TableCell>Contact Phone</TableCell>
+              <TableCell>Is Branch</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -216,6 +221,7 @@ function PortsCfsYardDirectory() {
                 <TableCell>{port.contactPersonName}</TableCell>
                 <TableCell>{port.contactPersonEmail}</TableCell>
                 <TableCell>{port.contactPersonPhone}</TableCell>
+                <TableCell>{port.isBranch ? "Yes" : "No"}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(port)} color="primary">
                     <EditIcon />
@@ -422,6 +428,17 @@ function PortsCfsYardDirectory() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isBranch"
+                        checked={values.isBranch}
+                        onChange={handleChange}
+                      />
+                    }
+                    label="Is Branch"
                   />
 
                   <DialogActions>

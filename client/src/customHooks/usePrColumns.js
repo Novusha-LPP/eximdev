@@ -16,7 +16,12 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-shipping-line`
       );
-      setShippingLines(response.data.data.map((item) => item.name) || []);
+      setShippingLines(
+        response.data.data.map((item) => ({
+          code: item.code || "",
+          name: item.name || "",
+        }))
+      );
     } catch (error) {
       console.error("❌ Error fetching shipping lines:", error);
     }
@@ -212,11 +217,15 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           fullWidth
           disablePortal={false}
           options={shippingLines}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.shipping_line || null}
+          getOptionLabel={(option) => option.name}
+          value={
+            shippingLines.find(
+              (line) => line.code === rows[row.index]?.shipping_line
+            ) || null
+          }
           onChange={(_, newValue) =>
             handleInputChange(
-              { target: { value: newValue || "" } },
+              { target: { value: newValue?.code || "" } },
               row.index,
               cell.column.id
             )

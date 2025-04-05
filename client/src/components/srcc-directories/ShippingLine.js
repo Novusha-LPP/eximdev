@@ -25,6 +25,7 @@ import * as Yup from "yup";
 
 const validationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
+  code: Yup.string().required("Code is required"),
   organization: Yup.object({
     _id: Yup.string().required("Organization ID is required"),
     name: Yup.string().required("Organization name is required"),
@@ -38,6 +39,7 @@ const ShippingLine = () => {
   const [modalMode, setModalMode] = useState("add");
   const [formData, setFormData] = useState({
     name: "",
+    code: "",
     organization: { _id: "", name: "" },
   });
 
@@ -59,7 +61,7 @@ const ShippingLine = () => {
 
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ name: "", organization: { _id: "", name: "" } });
+    setFormData({ name: "", code: "", organization: { _id: "", name: "" } });
     setOpenModal(true);
   };
 
@@ -68,6 +70,7 @@ const ShippingLine = () => {
     setFormData({
       _id: line._id,
       name: line.name || "",
+      code: line.code || "",
       organization: line.organisation || { _id: "", name: "" },
     });
     setOpenModal(true);
@@ -137,6 +140,7 @@ const ShippingLine = () => {
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
+              <TableCell>Code</TableCell>
               <TableCell>Organisation</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
@@ -145,6 +149,7 @@ const ShippingLine = () => {
             {shippingLines.map((line) => (
               <TableRow key={line._id}>
                 <TableCell>{line.name}</TableCell>
+                <TableCell>{line.code}</TableCell>
                 <TableCell>{line.organisation?.name || "-"}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(line)} color="primary">
@@ -203,6 +208,18 @@ const ShippingLine = () => {
                     required
                     error={touched.name && Boolean(errors.name)}
                     helperText={touched.name && errors.name}
+                  />
+
+                  <TextField
+                    name="code"
+                    label="Shipping Line Code"
+                    value={values.code}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    fullWidth
+                    required
+                    error={touched.code && Boolean(errors.code)}
+                    helperText={touched.code && errors.code}
                   />
 
                   <Autocomplete

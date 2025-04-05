@@ -76,9 +76,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     },
     {
       accessorKey: "import_export",
-      header: "Import/Export",
+      header: "Imp/Exp",
       enableSorting: false,
-      size: 150,
+      size: 100,
       Cell: ({ cell, row }) => (
         <TextField
           select

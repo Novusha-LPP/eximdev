@@ -6,13 +6,17 @@ const router = express.Router();
 // CREATE: Add new Shipping Line
 router.post("/api/add-shipping-line", async (req, res) => {
   try {
-    const { name, organisation } = req.body;
+    const { name, organisation, code } = req.body;
 
     if (!organisation || !organisation._id || !organisation.name) {
       return res.status(400).json({ error: "Organisation info is required" });
     }
 
-    const newLine = await ShippingLine.create({ name, organisation });
+    if (!code) {
+      return res.status(400).json({ error: "Code is required" });
+    }
+
+    const newLine = await ShippingLine.create({ name, organisation, code });
     res.status(201).json({
       message: "Shipping line added successfully",
       data: newLine,
@@ -55,16 +59,20 @@ router.get("/api/get-shipping-line/:id", async (req, res) => {
 // UPDATE
 router.put("/api/update-shipping-line/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, organisation } = req.body;
+  const { name, organisation, code } = req.body;
 
   try {
     if (!organisation || !organisation._id || !organisation.name) {
       return res.status(400).json({ error: "Organisation info is required" });
     }
 
+    if (!code) {
+      return res.status(400).json({ error: "Code is required" });
+    }
+
     const updatedLine = await ShippingLine.findByIdAndUpdate(
       id,
-      { name, organisation },
+      { name, organisation, code },
       { new: true }
     );
 

@@ -8,33 +8,42 @@ const Screen1 = () => {
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    const SSE_URL = `${process.env.REACT_APP_API_STRING}/sse/job-overview/24-25`;
+    // Replace with your actual WebSocket URL
+    const socket = new WebSocket('http://localhost:9000');
 
-    const eventSource = new EventSource(SSE_URL);
-
-    eventSource.onopen = () => {
-      console.log("SSE connection opened successfully.");
+    socket.onopen = () => {
+      console.log("✅ WebSocket connected");
+      setConnectionStatus("Connected");
+      // Send year filter, if needed by backend
+      socket.send(JSON.stringify({ type: "subscribe", year: "24-25" }));
     };
 
-    eventSource.onmessage = (event) => {
+    socket.onmessage = (event) => {
       try {
-        const parsedData = JSON.parse(event.data);
-        setJobCounts(parsedData);
-        setLoading(false);
+        const message = JSON.parse(event.data);
+        if (message.type === "update" || message.type === "init") {
+          setJobCounts(message.data);
+          setLoading(false);
+        }
       } catch (err) {
-        console.error("Error parsing SSE data:", err);
+        console.error("Error parsing WebSocket message:", err);
         setError("Error parsing server data.");
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.error("SSE Error Occurred:", err);
-      setError("Connection lost. Retrying...");
-      setTimeout(() => window.location.reload(), 5000);
+    socket.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      setError("WebSocket connection error.");
+      setConnectionStatus("Disconnected");
+    };
+
+    socket.onclose = () => {
+      console.warn("WebSocket disconnected");
+      setConnectionStatus("Disconnected");
     };
 
     return () => {
-      eventSource.close();
+      socket.close();
     };
   }, []);
 
@@ -68,7 +77,7 @@ const Screen1 = () => {
     <div className="screen-container">
       <h1 className="heading">Today's Job Status</h1>
       <div className="screen">
-        {statusFields.slice(0, 6).map((field, index) => (
+        {statusFields.map((field, index) => (
           <div className="box" key={index}>
             <p className="title">{field.title}</p>
             <p className="count">{jobCounts[field.key] || 0}</p>

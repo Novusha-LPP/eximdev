@@ -40,7 +40,7 @@ export const generateLrPdf = async (data, lrData) => {
       console.error("Error fetching address:", error);
     }
   }
-
+ 
   await getAddress();
 
   // Loop through each item in the data array
@@ -208,7 +208,7 @@ export const generateLrPdf = async (data, lrData) => {
       [
         `${item.container_number} (${lrData.container_type})`,
         item.seal_no,
-        item.description,
+        lrData.description,
         "As Agreed",
       ],
     ];

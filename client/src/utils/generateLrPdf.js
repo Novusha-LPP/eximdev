@@ -40,7 +40,7 @@ export const generateLrPdf = async (data, lrData) => {
       console.error("Error fetching address:", error);
     }
   }
- 
+
   await getAddress();
 
   // Loop through each item in the data array
@@ -256,7 +256,7 @@ export const generateLrPdf = async (data, lrData) => {
     const liabilityTextY = checkboxY + 30;
     pdf.text(liabilityText, 40, liabilityTextY, null, null, "left");
     pdf.setFontSize(12);
-    pdf.text(vehicleNoText, 40, textY + 45, null, null, "left");
+    // pdf.text(vehicleNoText, 40, textY + 45, null, null, "left");
     pdf.rect(180, liabilityTextY - 10, checkboxSize, checkboxSize);
     pdf.text("Consignor", 195, liabilityTextY);
     pdf.rect(265, liabilityTextY - 10, checkboxSize, checkboxSize);
@@ -264,7 +264,7 @@ export const generateLrPdf = async (data, lrData) => {
     pdf.rect(345, liabilityTextY - 10, checkboxSize, checkboxSize);
     pdf.text("Transporter", 360, liabilityTextY);
 
-    const footerStartY = liabilityTextY + 120;
+    const footerStartY = liabilityTextY + 150;
 
     // Footer
     const footerImgData = logo;
@@ -280,6 +280,12 @@ export const generateLrPdf = async (data, lrData) => {
 
     // Draw the horizontal line
     pdf.line(40, lineY, pdf.internal.pageSize.getWidth() - 40, lineY);
+
+    // Add E-Way Bill Number above the "Authorized Signatory" box
+    const eWayBillText = `E-Way Bill Number: ${item.eWay_bill || "N/A"}`;
+    pdf.setFontSize(12);
+    pdf.setTextColor("#000000");
+    pdf.text(eWayBillText, 40, lineY - 100, null, null, "left");
 
     // Authorised Signatory
     pdf.setDrawColor(0); // Set border color to black

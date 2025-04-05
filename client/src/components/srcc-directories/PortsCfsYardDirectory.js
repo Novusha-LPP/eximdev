@@ -355,7 +355,7 @@ function PortsCfsYardDirectory() {
                     helperText={touched.country && errors.country}
                   />
 
-                  <FormControl component="fieldset">
+                  {/* <FormControl component="fieldset">
                     <FormLabel component="legend">Active</FormLabel>
                     <RadioGroup
                       row
@@ -375,6 +375,51 @@ function PortsCfsYardDirectory() {
                       />
                     </RadioGroup>
                   </FormControl>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        name="isBranch"
+                        checked={values.isBranch}
+                        onChange={handleChange}
+                      />
+                    }
+                    label="Is Branch"
+                  /> */}
+                  <Box display="flex" alignItems="center" gap={4}>
+                    <FormControl component="fieldset">
+                      <FormLabel component="legend">Active</FormLabel>
+                      <RadioGroup
+                        row
+                        name="active"
+                        value={values.active}
+                        onChange={handleChange}
+                      >
+                        <FormControlLabel
+                          value={true}
+                          control={<Radio sx={{ color: "green" }} />}
+                          label="Active"
+                        />
+                        <FormControlLabel
+                          value={false}
+                          control={<Radio />}
+                          label="Inactive"
+                        />
+                      </RadioGroup>
+                    </FormControl>
+                    <FormControl component="fieldset">
+                      <FormLabel component="legend">Is Branch</FormLabel>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            name="isBranch"
+                            checked={values.isBranch}
+                            onChange={handleChange}
+                          />
+                        }
+                        label="Is Branch"
+                      />
+                    </FormControl>
+                  </Box>
 
                   <FormControl fullWidth>
                     <Autocomplete
@@ -428,17 +473,6 @@ function PortsCfsYardDirectory() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                  />
-
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        name="isBranch"
-                        checked={values.isBranch}
-                        onChange={handleChange}
-                      />
-                    }
-                    label="Is Branch"
                   />
 
                   <DialogActions>

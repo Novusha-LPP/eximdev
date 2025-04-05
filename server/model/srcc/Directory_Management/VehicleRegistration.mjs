@@ -2,15 +2,20 @@ import mongoose from "mongoose";
 
 const VehicleRegistrationSchema = new mongoose.Schema(
   {
+    vehicleNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     registrationName: {
       type: String,
       required: true,
       trim: true,
     },
     type: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VehicleType", // Reference to the VehicleType model
       required: true,
-      trim: true,
     },
     shortName: {
       type: String,
@@ -43,6 +48,7 @@ const VehicleRegistrationSchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
+      phoneNumber: { type: String, required: true, trim: true },
     },
     purchase: {
       type: Date,
@@ -51,6 +57,10 @@ const VehicleRegistrationSchema = new mongoose.Schema(
     vehicleManufacturingDetails: {
       type: String,
       trim: true,
+    },
+    isOccupied: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

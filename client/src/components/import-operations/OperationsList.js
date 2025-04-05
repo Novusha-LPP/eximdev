@@ -20,10 +20,13 @@ import SearchIcon from "@mui/icons-material/Search";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
+import { useContext } from "react";
+import { YearContext } from "../../contexts/yearContext.js";
+
 function OperationsList() {
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = React.useState([]);
-  const [selectedYear, setSelectedYear] = React.useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
   const [loading, setLoading] = useState(false); // Loading state
@@ -42,15 +45,15 @@ function OperationsList() {
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -94,8 +97,8 @@ function OperationsList() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -106,7 +109,7 @@ function OperationsList() {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination
   const fetchJobs = useCallback(
@@ -157,20 +160,19 @@ function OperationsList() {
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    if (selectedYear) {
-       fetchJobs(
-         page,
-         debouncedSearchQuery,
-         selectedYear,
-         selectedICD,
-         selectedImporter
-       );
+    if (selectedYearState) {
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter
+      );
     }
-   
   }, [
     page,
     debouncedSearchQuery,
-    selectedYear,
+    selectedYearState,
     selectedICD,
     selectedImporter,
     fetchJobs,
@@ -584,8 +586,8 @@ function OperationsList() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

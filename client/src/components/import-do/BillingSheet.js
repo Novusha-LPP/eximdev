@@ -17,10 +17,13 @@ import {
   MenuItem,
   Autocomplete,
 } from "@mui/material";
+import { useContext } from "react";
+import { YearContext } from "../../contexts/yearContext.js";
 
 function BillingSheet() {
+   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
     const [selectedICD, setSelectedICD] = useState("");
-    const [selectedYear, setSelectedYear] = useState("");
+
     const [years, setYears] = useState([]);
     const [selectedImporter, setSelectedImporter] = useState("");
     const [importers, setImporters] = useState(null);
@@ -81,15 +84,15 @@ function BillingSheet() {
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -132,8 +135,8 @@ function BillingSheet() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -144,7 +147,7 @@ function BillingSheet() {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   
   // Fetch jobs based on search query and pagination
@@ -201,14 +204,14 @@ function BillingSheet() {
     fetchJobs(
       page,
       debouncedSearchQuery,
-      selectedYear,
+      selectedYearState,
       selectedICD,
       selectedImporter
     );
   }, [
     page,
     debouncedSearchQuery,
-    selectedYear,
+    selectedYearState,
     selectedICD,
     selectedImporter,
     fetchJobs,
@@ -437,8 +440,8 @@ function BillingSheet() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

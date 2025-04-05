@@ -23,23 +23,39 @@ import {
 } from "material-react-table";
 import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
-import { useNavigate } from "react-router-dom";
 import { useImportersContext } from "../../contexts/importersContext";
+import { YearContext } from "../../contexts/yearContext.js";
+import { useNavigate } from "react-router-dom";
+
 
 function JobList(props) {
   const [years, setYears] = useState([]);
-  const { selectedYear, setSelectedYear } = useContext(SelectedYearContext);
+ const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [detailedStatus, setDetailedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const columns = useJobColumns(detailedStatus);
-  const { importers } = useImportersContext();
   const [selectedImporter, setSelectedImporter] = useState("");
+    const [importers, setImporters] = useState("");
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYearState) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+        );
+        setImporters(res.data);
+      }
+    }
+    getImporterList();
+  }, [selectedYearState]);
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -56,9 +72,7 @@ function JobList(props) {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   // useEffect(() => {
   //   if (!selectedImporter) {
@@ -69,7 +83,7 @@ function JobList(props) {
   const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs } =
     useFetchJobList(
       detailedStatus,
-      selectedYear,
+      selectedYearState,
       props.status,
       debouncedSearchQuery,
       selectedImporter
@@ -84,8 +98,6 @@ function JobList(props) {
         const filteredYears = res.data.filter((year) => year !== null);
         setYears(filteredYears);
 
-      
-
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().getMonth() + 1;
         const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
@@ -97,8 +109,8 @@ function JobList(props) {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -109,7 +121,7 @@ function JobList(props) {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]); 
+  }, [selectedYearState, setSelectedYearState]); 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -186,8 +198,8 @@ function JobList(props) {
           select
           defaultValue={years[0]}
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "100px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

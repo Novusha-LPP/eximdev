@@ -7,6 +7,7 @@ const router = express.Router();
 router.post("/api/update-pr", async (req, res) => {
   const {
     pr_no,
+    import_export,
     branch,
     type_of_vehicle,
     goods_pickup,
@@ -86,6 +87,7 @@ router.post("/api/update-pr", async (req, res) => {
       // No change in container_count, update other fields if needed
       else {
         prDataToUpdate.set({
+          import_export,
           branch,
           type_of_vehicle,
           goods_pickup,
@@ -178,6 +180,7 @@ router.post("/api/update-pr", async (req, res) => {
       const newPrData = new PrData({
         pr_date: new Date().toLocaleDateString("en-GB"),
         pr_no: newPrNo,
+        import_export: req.body.import_export,
         branch: req.body.branch,
         consignor: req.body.consignor,
         consignee: req.body.consignee,

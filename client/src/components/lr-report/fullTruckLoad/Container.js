@@ -11,6 +11,7 @@ import usePrData from "../../../customHooks/usePrData";
 
 function Container() {
   const { organisations, containerTypes, locations, truckTypes } = usePrData();
+
   const { rows, setRows, columns } = usePrColumns(
     organisations,
     containerTypes,

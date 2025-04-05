@@ -17,11 +17,12 @@ import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { TabContext } from "../eSanchit/ESanchitTab.js";
+import { YearContext } from "../../contexts/yearContext.js";
 
 
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
-  const [selectedYear, setSelectedYear] = useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -38,15 +39,15 @@ function ESanchit() {
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -87,8 +88,8 @@ function ESanchit() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -99,11 +100,16 @@ function ESanchit() {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
-    async (currentPage, currentSearchQuery, selectedImporter, selectedYear) => {
+    async (
+      currentPage,
+      currentSearchQuery,
+      selectedImporter,
+      selectedYearState
+    ) => {
       setLoading(true);
       try {
         const res = await axios.get(
@@ -114,7 +120,7 @@ function ESanchit() {
               limit,
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
-              year: selectedYear || "", // ✅ Ensure year is sent
+              year: selectedYearState || "", // ✅ Ensure year is sent
             },
           }
         );
@@ -138,15 +144,21 @@ function ESanchit() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYear] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
   );
 
  useEffect(() => {
-   if (selectedYear) {
+   if (selectedYearState) {
      // Ensure year is available before calling API
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
+     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
    }
- }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]);
+ }, [
+   page,
+   debouncedSearchQuery,
+   selectedImporter,
+   selectedYearState,
+   fetchJobs,
+ ]);
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
@@ -432,8 +444,8 @@ function ESanchit() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

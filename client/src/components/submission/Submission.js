@@ -17,9 +17,11 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
+import { useContext } from "react";
+import { YearContext } from "../../contexts/yearContext.js";
 
 function Submission() {
-  const [selectedYear, setSelectedYear] = useState("");
+ const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
@@ -37,16 +39,15 @@ function Submission() {
 
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
         setImporters(res.data);
-      
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -95,8 +96,8 @@ function Submission() {
             ? `${currentTwoDigits}-${nextTwoDigits}`
             : `${prevTwoDigits}-${currentTwoDigits}`;
 
-        if (!selectedYear && filteredYears.length > 0) {
-          setSelectedYear(
+        if (!selectedYearState && filteredYears.length > 0) {
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -107,11 +108,16 @@ function Submission() {
       }
     }
     getYears();
-  }, [selectedYear, setSelectedYear]);
+  }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
-    async (currentPage, currentSearchQuery, selectedImporter, selectedYear) => {
+    async (
+      currentPage,
+      currentSearchQuery,
+      selectedImporter,
+      selectedYearState
+    ) => {
       setLoading(true);
       try {
         const res = await axios.get(
@@ -120,7 +126,7 @@ function Submission() {
             params: {
               page: currentPage,
               limit,
-              year: selectedYear || "", // ✅ Ensure year is sent
+              year: selectedYearState || "", // ✅ Ensure year is sent
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
             },
@@ -146,13 +152,19 @@ function Submission() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter,  selectedYear] // Dependency array remains the same
+    [limit, selectedImporter, selectedYearState] // Dependency array remains the same
   );
 
   // Fetch jobs when page or debounced search query changes
    useEffect(() => {
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYear);
-   }, [page, debouncedSearchQuery, selectedImporter, selectedYear, fetchJobs]); 
+     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+   }, [
+     page,
+     debouncedSearchQuery,
+     selectedImporter,
+     selectedYearState,
+     fetchJobs,
+   ]); 
   // Debounce search input
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -416,8 +428,8 @@ function Submission() {
         <TextField
           select
           size="small"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          value={selectedYearState}
+          onChange={(e) => setSelectedYearState(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (

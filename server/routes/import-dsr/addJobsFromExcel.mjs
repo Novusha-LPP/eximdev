@@ -337,8 +337,8 @@ function determineDetailedStatus(job) {
     rail_out_date,
     gateway_igm_date,
     vessel_berthing,
-    // delivery_date,
-    // emptyContainerOffLoadDate,
+    type_of_b_e,
+    consignment_type,
   } = job;
 
   // Validate date using a stricter check
@@ -353,8 +353,11 @@ function determineDetailedStatus(job) {
     isValidDate(container.arrival_date)
   );
 
-  const emptyContainerOffLoadDate = container_nos?.every(
-    (container) => container.emptyContainerOffLoadDate
+  const emptyContainerOffLoadDate = container_nos?.every((container) =>
+    isValidDate(container.emptyContainerOffLoadDate)
+  );
+  const delivery_date = container_nos?.every((container) =>
+    isValidDate(container.delivery_date)
   );
 
   const validOutOfChargeDate = isValidDate(out_of_charge);
@@ -363,13 +366,15 @@ function determineDetailedStatus(job) {
   const validRailOutDate = isValidDate(rail_out_date);
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
-  const validDeliveryDate = isValidDate(emptyContainerOffLoadDate);
+
+  // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
+  const isExBondOrLCL = type_of_b_e === "Ex-Bond";
 
   if (
     be_no &&
     anyContainerArrivalDate &&
     validOutOfChargeDate &&
-    validDeliveryDate
+    (isExBondOrLCL ? delivery_date : emptyContainerOffLoadDate)
   ) {
     return "Billing Pending";
   } else if (be_no && anyContainerArrivalDate && validOutOfChargeDate) {

@@ -371,21 +371,30 @@ function PortsCfsYardDirectory() {
                   </FormControl>
 
                   <FormControl fullWidth>
-                    <InputLabel>Port Type</InputLabel>
-                    <Select
-                      name="type"
-                      value={values.type}
-                      onChange={handleChange}
-                      fullWidth
-                      required
-                    >
-                      <MenuItem value="Air custodian">Air custodian</MenuItem>
-                      <MenuItem value="CFS">CFS</MenuItem>
-                      <MenuItem value="Ports">Ports</MenuItem>
-                      <MenuItem value="Empty yard">Empty yard</MenuItem>
-                      <MenuItem value="ICD">ICD</MenuItem>
-                      <MenuItem value="Terminal">Terminal</MenuItem>
-                    </Select>
+                    <Autocomplete
+                      id="port-type"
+                      options={[
+                        "Air custodian",
+                        "CFS",
+                        "Ports",
+                        "Empty yard",
+                        "ICD",
+                        "Terminal",
+                      ]}
+                      value={values.type || null}
+                      onChange={(event, newValue) => {
+                        setFieldValue("type", newValue);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Port Type"
+                          name="type"
+                          required
+                          fullWidth
+                        />
+                      )}
+                    />
                   </FormControl>
 
                   <TextField

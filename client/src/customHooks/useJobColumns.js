@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
+import EditableDateCell from "../components/gallery/EditableDateCell";
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
@@ -207,7 +208,7 @@ function useJobColumns() {
       {
         accessorKey: "importer",
         header: "Importer",
-        size: 200,
+        size: 150,
       },
 
       {
@@ -223,16 +224,16 @@ function useJobColumns() {
           const supplier_exporter = row?.original?.supplier_exporter || "";
           const gross_weight = row?.original?.gross_weight || "";
           const job_net_weight = row?.original?.job_net_weight || "";
-            const  loading_port = row?.original.loading_port ||  "";
-            const port_of_reporting = row?.original.port_of_reporting ||  "";
+          const loading_port = row?.original.loading_port || "";
+          const port_of_reporting = row?.original.port_of_reporting || "";
 
-            // Remove the codes from the port names if they are in the format "(CODE) PortName"
+          // Remove the codes from the port names if they are in the format "(CODE) PortName"
           const cleanLoadingPort = loading_port
-          ? loading_port.replace(/\(.*?\)\s*/, "")
-          : "N/A";
-        const cleanPortOfReporting = port_of_reporting
-          ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-          : "N/A";
+            ? loading_port.replace(/\(.*?\)\s*/, "")
+            : "N/A";
+          const cleanPortOfReporting = port_of_reporting
+            ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+            : "N/A";
 
           const containerFirst =
             row?.original?.container_nos?.[0]?.container_number || "";
@@ -359,110 +360,31 @@ function useJobColumns() {
                     <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
                   </Tooltip>
                   <div>
-              <strong>LO :</strong> {cleanLoadingPort} <br />
-              <strong>POD :</strong> {cleanPortOfReporting} <br />
-            </div>
+                    <strong>LO :</strong> {cleanLoadingPort} <br />
+                    <strong>POD :</strong> {cleanPortOfReporting} <br />
+                  </div>
                 </React.Fragment>
               )}
             </React.Fragment>
           );
         },
       },
-      { 
-        accessorKey: "dates",
-        header: "Dates",
-        size: 350,
-        Cell: ({ cell }) => {
-          const {
-            vessel_berthing,
-            gateway_igm_date,
-            discharge_date,
-            rail_out_date,
-            pcv_date,
-            out_of_charge,
-            delivery_date,
-            emptyContainerOffLoadDate,
-            container_nos = [],
-          } = cell.row.original;
+    {
+  accessorKey: "dates",
+  header: "Dates",
+  size: 470,
+  Cell: EditableDateCell,
+},
 
-          return (
-            <div style={{ display: "flex", gap: "20px" }}>
-            {/* Left Section */}
-            <div>
-              <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
-              <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
-              <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
-              <strong>Rail-out :</strong>
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.container_rail_out_date
-                        ? container.container_rail_out_date.slice(0, 10)
-                        : "N/A"}{" "}
-                      <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"}
-              <strong>Arrival :</strong>
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.arrival_date || "N/A"} <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"}
-              <strong>Detention.F. :</strong>
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.detention_from || "N/A"} <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"}
-            </div>
-          
-            {/* Right Section */}
-            <div>
-              <strong>PCV :</strong> {pcv_date || "N/A"} <br />
-              <strong>OOC :</strong> {out_of_charge || "N/A"} <br />
-              <strong>Delivery :</strong> {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.delivery_date
-                        ? container.delivery_date.slice(0, 10)
-                        : "N/A"}{" "}
-                      <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"} <br />
-              <strong>EmptyOff:</strong> 
-              {container_nos.length > 0
-                ? container_nos.map((container, id) => (
-                    <React.Fragment key={id}>
-                      {container.emptyContainerOffLoadDate
-                        ? container.emptyContainerOffLoadDate.slice(0, 10)
-                        : "N/A"}{" "}
-                      <br />
-                    </React.Fragment>
-                  ))
-                : "N/A"} <br />
-            </div>
-          </div>
-          
-          
-          );
-        },
-      },
 
       {
         accessorKey: "be_no",
         header: "BE Number and Date",
-        size: 150, // Adjusted size to fit both BE Number and Date
+        size: 200,
         Cell: ({ cell }) => {
           const beNumber = cell?.getValue()?.toString();
           const rawBeDate = cell.row.original.be_date;
           const customHouse = cell.row.original.custom_house;
-
           const beDate = formatDate(rawBeDate);
           const location = getCustomHouseLocation(customHouse);
           const {
@@ -477,95 +399,105 @@ function useJobColumns() {
             }
             return input || null;
           };
- const processed_be_attachmentLink = getFirstLink(processed_be_attachment);
+
+          const processed_be_attachmentLink = getFirstLink(
+            processed_be_attachment
+          );
+
           return (
-            <React.Fragment>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                textAlign: "center",
+              }}
+            >
               {beNumber && (
-                <React.Fragment>
+                <div>
                   <a
                     href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    style={{
+                      display: "block",
+                      fontWeight: "bold",
+                      marginBottom: "5px",
+                    }}
                   >
                     {beNumber}
                   </a>
-                  {beDate}
-                </React.Fragment>
+                  <div>{beDate}</div>
+                </div>
               )}
 
               <div style={{ marginTop: "10px" }}>
                 {processed_be_attachmentLink ? (
-                  <div style={{ marginBottom: "5px" }}>
-                    <a
-                      href={processed_be_attachmentLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "blue",
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Processed Copy of BOE.
-                    </a>
-                  </div>
+                  <a
+                    href={processed_be_attachmentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Processed Copy of BOE.
+                  </a>
                 ) : (
-                  <div style={{ marginBottom: "5px" }}>
-                    <span style={{ color: "gray" }}>
-                      {" "}
-                      Processed Copy of BOE.{" "}
-                    </span>
-                  </div>
-                )}
-
-                {/* OOC Copies */}
-                {ooc_copies.length > 0 ? (
-                  ooc_copies.map((doc, index) => (
-                    <div key={index} style={{ marginTop: "5px" }}>
-                      <a
-                        href={doc}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: "blue",
-                          textDecoration: "underline",
-                          cursor: "pointer",
-                        }}
-                      >
-                        OOC Copy {index + 1}
-                      </a>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ marginBottom: "5px", color: "gray" }}>
-                    No OOC Copies
-                  </div>
-                )}
-                {/* Concor Invoice and Receipt Copy */}
-                {gate_pass_copies.length > 0 ? (
-                  gate_pass_copies.map((doc, index) => (
-                    <div key={index} style={{ marginBottom: "5px" }}>
-                      <a
-                        href={doc}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: "blue",
-                          textDecoration: "underline",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Gate Pass {index + 1}
-                      </a>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ marginBottom: "5px", color: "gray" }}>
-                    No Gate Pass
-                  </div>
+                  <span style={{ color: "gray" }}>Processed Copy of BOE.</span>
                 )}
               </div>
-            </React.Fragment>
+
+              {/* OOC Copies */}
+              {ooc_copies.length > 0 ? (
+                ooc_copies.map((doc, index) => (
+                  <a
+                    key={index}
+                    href={doc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginTop: "5px",
+                    }}
+                  >
+                    OOC Copy {index + 1}
+                  </a>
+                ))
+              ) : (
+                <div style={{ color: "gray", marginTop: "5px" }}>
+                  No OOC Copies
+                </div>
+              )}
+
+              {/* Gate Pass Copies */}
+              {gate_pass_copies.length > 0 ? (
+                gate_pass_copies.map((doc, index) => (
+                  <a
+                    key={index}
+                    href={doc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "blue",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginTop: "5px",
+                    }}
+                  >
+                    Gate Pass {index + 1}
+                  </a>
+                ))
+              ) : ( 
+                <div style={{ color: "gray", marginTop: "5px" }}>
+                  No Gate Pass
+                </div>
+              )}
+            </div>
           );
         },
       },

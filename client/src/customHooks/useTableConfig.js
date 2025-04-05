@@ -25,10 +25,10 @@ function useTableConfig(rows, columns, url) {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      onClick: () => navigate(`/${url}/${row.original._id}`), // Navigate on row click
-      style: { cursor: "pointer" }, // Change cursor to pointer on hover
-    }),
+    // muiTableBodyRowProps: ({ row }) => ({
+    //   onClick: () => navigate(`/${url}/${row.original._id}`), // Navigate on row click
+    //   style: { cursor: "pointer" }, // Change cursor to pointer on hover
+    // }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

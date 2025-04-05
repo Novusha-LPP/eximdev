@@ -38,9 +38,10 @@ const validationSchema = Yup.object({
   vehicleNumber: Yup.string()
     .required("Vehicle Number is required")
     .matches(
-      /^[A-Za-z]{2}[0-9]{2}[A-Za-z]{2}[0-9]{4}$/,
-      "Vehicle number must be in format MH12XX1234"
+      /^[A-Za-z]{2}[0-9]{2}[A-Za-z]{1,2}[0-9]{4}$/,
+      "Vehicle number must be in format MH12V1234 or MH12VV1234"
     ),
+
   registrationName: Yup.string().required("Registration Name is required"),
   type: Yup.string().required("Type is required"),
   shortName: Yup.string().required("Short Name is required"),

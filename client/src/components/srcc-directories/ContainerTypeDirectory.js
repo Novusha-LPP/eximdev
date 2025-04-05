@@ -328,66 +328,11 @@ const ContainerTypeDirectory = () => {
                 <Box sx={{ mt: 2, mb: 1 }}>
                   <strong>Outer Dimension (Length x Breadth x Height)</strong>
                 </Box>
-                {/* <TextField
-                  name="outer_dimension.length"
-                  label="Length"
-                  fullWidth
-                  margin="normal"
-                  type="number"
-                  value={values.outer_dimension.length}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={
-                    touched.outer_dimension?.length &&
-                    Boolean(errors.outer_dimension?.length)
-                  }
-                  helperText={
-                    touched.outer_dimension?.length &&
-                    errors.outer_dimension?.length
-                  }
-                />
-                <TextField
-                  name="outer_dimension.breadth"
-                  label="Breadth"
-                  fullWidth
-                  margin="normal"
-                  type="number"
-                  value={values.outer_dimension.breadth}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={
-                    touched.outer_dimension?.breadth &&
-                    Boolean(errors.outer_dimension?.breadth)
-                  }
-                  helperText={
-                    touched.outer_dimension?.breadth &&
-                    errors.outer_dimension?.breadth
-                  }
-                />
-                <TextField
-                  name="outer_dimension.height"
-                  label="Height"
-                  fullWidth
-                  margin="normal"
-                  type="number"
-                  value={values.outer_dimension.height}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={
-                    touched.outer_dimension?.height &&
-                    Boolean(errors.outer_dimension?.height)
-                  }
-                  helperText={
-                    touched.outer_dimension?.height &&
-                    errors.outer_dimension?.height
-                  }
-                /> */}
-
                 <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                  <Grid item xs={3}>
                     <TextField
                       name="outer_dimension.length"
-                      label="Length"
+                      label="Length (L)"
                       type="number"
                       fullWidth
                       value={values.outer_dimension.length}
@@ -403,10 +348,10 @@ const ContainerTypeDirectory = () => {
                       }
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid item xs={3}>
                     <TextField
                       name="outer_dimension.breadth"
-                      label="Breadth"
+                      label="Breadth (B)"
                       type="number"
                       fullWidth
                       value={values.outer_dimension.breadth}
@@ -422,10 +367,10 @@ const ContainerTypeDirectory = () => {
                       }
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid item xs={3}>
                     <TextField
                       name="outer_dimension.height"
-                      label="Height"
+                      label="Height (H)"
                       type="number"
                       fullWidth
                       value={values.outer_dimension.height}
@@ -441,36 +386,39 @@ const ContainerTypeDirectory = () => {
                       }
                     />
                   </Grid>
+                  <Grid item xs={3}>
+                    <FormControl
+                      fullWidth
+                      error={
+                        touched.outer_dimension?.unit &&
+                        Boolean(errors.outer_dimension?.unit)
+                      }
+                    >
+                      <InputLabel>Unit</InputLabel>
+                      <Select
+                        name="outer_dimension.unit"
+                        value={values.outer_dimension.unit}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        label="Unit"
+                      >
+                        {lengthUnits.map((u) => (
+                          <MenuItem key={u._id} value={u.symbol}>
+                            {u.unit} ({u.symbol})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {touched.outer_dimension?.unit &&
+                        errors.outer_dimension?.unit && (
+                          <Box
+                            sx={{ color: "red", fontSize: "0.75rem", ml: 2 }}
+                          >
+                            {errors.outer_dimension.unit}
+                          </Box>
+                        )}
+                    </FormControl>
+                  </Grid>
                 </Grid>
-                <FormControl
-                  fullWidth
-                  margin="normal"
-                  error={
-                    touched.outer_dimension?.unit &&
-                    Boolean(errors.outer_dimension?.unit)
-                  }
-                >
-                  <InputLabel>Length Unit</InputLabel>
-                  <Select
-                    name="outer_dimension.unit"
-                    value={values.outer_dimension.unit}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    label="Length Unit"
-                  >
-                    {lengthUnits.map((u) => (
-                      <MenuItem key={u._id} value={u.symbol}>
-                        {u.unit} ({u.symbol})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {touched.outer_dimension?.unit &&
-                    errors.outer_dimension?.unit && (
-                      <Box sx={{ color: "red", fontSize: "0.75rem", ml: 2 }}>
-                        {errors.outer_dimension.unit}
-                      </Box>
-                    )}
-                </FormControl>
 
                 {/*  */}
                 {/*  */}

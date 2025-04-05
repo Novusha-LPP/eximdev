@@ -10,6 +10,7 @@ import { handleSavePr } from "../utils/handleSavePr";
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
   const [shippingLines, setShippingLines] = useState([]);
+  const [branchOptions, setBranchOptions] = useState([]);
 
   const fetchShippingLines = async () => {
     try {
@@ -27,6 +28,24 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     }
   };
 
+  const fetchBranchOptions = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-port-types`
+      );
+      setBranchOptions(
+        response.data.data
+          .filter((item) => item.isBranch) // Only include items where isBranch is true
+          .map((item) => ({
+            label: item.icd_code,
+            value: item.icd_code,
+          }))
+      );
+    } catch (error) {
+      console.error("❌ Error fetching branch options:", error);
+    }
+  };
+
   async function getPrData() {
     const res = await axios.get(
       `${process.env.REACT_APP_API_STRING}/get-pr-data/all`
@@ -37,6 +56,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   useEffect(() => {
     getPrData();
     fetchShippingLines();
+    fetchBranchOptions();
   }, []);
 
   const handleInputChange = (event, rowIndex, columnId) => {
@@ -104,27 +124,27 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Branch",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell, row }) =>
-        !row.original.pr_no ? (
-          <TextField
-            select
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          >
-            <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-            <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-            <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-            <MenuItem value="HAZIRA">HAZIRA</MenuItem>
-            <MenuItem value="MUNDRA PORT">MUNDRA PORT</MenuItem>
-            <MenuItem value="BARODA">BARODA</MenuItem>
-          </TextField>
-        ) : (
-          cell.getValue()
-        ),
+      Cell: ({ cell, row }) => (
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={branchOptions}
+          getOptionLabel={(option) => option.label || ""}
+          value={
+            branchOptions.find(
+              (option) => option.value === rows[row.index]?.branch
+            ) || null
+          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue?.value || "" } },
+              row.index,
+              cell.column.id
+            )
+          }
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
+      ),
     },
     {
       accessorKey: "container_count",

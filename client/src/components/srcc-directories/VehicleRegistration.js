@@ -146,7 +146,14 @@ const VehicleRegistration = () => {
       const response = await axios.get(
         `${API_URL}/available-drivers/${selectedType.vehicleType}` // Pass the vehicleType string
       );
-      setDrivers(response.data || []);
+
+      // Filter out drivers already assigned to existing vehicles
+      const assignedDriverIds = vehicles.map((vehicle) => vehicle.driver?._id);
+      const availableDrivers = response.data.filter(
+        (driver) => !assignedDriverIds.includes(driver._id)
+      );
+
+      setDrivers(availableDrivers);
     } catch (error) {
       console.error("❌ Error fetching available drivers:", error);
       setDrivers([]);
@@ -212,27 +219,27 @@ const VehicleRegistration = () => {
     setOpenModal(true);
   };
 
-  const handleEdit = (vehicle) => {
+  const handleEdit = async (vehicle) => {
     setModalMode("edit");
 
     setFormData({
       _id: vehicle._id,
       vehicleNumber: vehicle.vehicleNumber || "",
       registrationName: vehicle.registrationName || "",
-      type: vehicle.type || "",
+      type: vehicle.type?._id || "", // Ensure type is set to the ObjectId
       shortName: vehicle.shortName || "",
       depotName: vehicle.depotName || "",
       initialOdometer: vehicle.initialOdometer || { value: "", unit: "km" },
       loadCapacity: vehicle.loadCapacity || { value: "", unit: "kg" },
-      driver: vehicle.driver || { _id: "", name: "" },
+      driver: vehicle.driver || { _id: "", name: "" }, // Ensure driver is set correctly
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString()
         : "",
       vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",
     });
 
-    if (vehicle.type) {
-      fetchDriversByType(vehicle.type);
+    if (vehicle.type?._id) {
+      await fetchDriversByType(vehicle.type._id); // Fetch drivers for the selected type
     }
 
     // Reset toggles

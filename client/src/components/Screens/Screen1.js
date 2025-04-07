@@ -9,18 +9,23 @@ const Screen1 = () => {
 
   useEffect(() => {
     // Replace with your actual WebSocket URL
-    const socket = new WebSocket('http://localhost:9000');
+    const socket = new WebSocket('ws://localhost:9000');
 
     socket.onopen = () => {
       console.log("✅ WebSocket connected");
       setConnectionStatus("Connected");
       // Send year filter, if needed by backend
-      socket.send(JSON.stringify({ type: "subscribe", year: "24-25" }));
+      socket.send(JSON.stringify({ year: "24-25" }));
+
+      const payload = { year: "24-25" };
+      console.log("📤 Sending:", payload);
+      socket.send(JSON.stringify(payload));
     };
 
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        console.log()
         if (message.type === "update" || message.type === "init") {
           setJobCounts(message.data);
           setLoading(false);

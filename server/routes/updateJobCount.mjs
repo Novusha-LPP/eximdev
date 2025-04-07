@@ -24,9 +24,7 @@ const todayYearDate = new Date().toISOString().split("T")[0]; // Current date in
 // const todayYearDate = "2024-11-14"; // Current date in YYYY-MM-DD
 // Function to fetch job overview data using MongoDB aggregation
 const fetchJobOverviewData = async (year) => {
-  // console.log("Year Parameter:", year);
-  
-  // console.log(todayYearDate);
+
   try {
     const pipeline = [
       { $match: { year: year.toString() } }, // Filter for the provided year

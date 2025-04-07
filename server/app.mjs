@@ -19,7 +19,7 @@ import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
 import http from 'http';
-import { setupJobOverviewWebSocket } from './server.mjs';
+import { setupJobOverviewWebSocket } from './setupJobOverviewWebSocket.mjs';
 
 dotenv.config();
 

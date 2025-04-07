@@ -4,13 +4,18 @@ import PrData from "../../model/srcc/pr.mjs";
 const router = express.Router();
 
 router.post("/api/update-srcc-dsr", async (req, res) => {
-  const { tr_no, status } = req.body; // Get tr_no and status from the request body
+  const { tr_no, status, lr_completed } = req.body; // Get tr_no, status, and lr_completed from the request body
 
   try {
-    // Update the status field in the container with the matching tr_no
+    // Update the status and lr_completed fields in the container with the matching tr_no
+    const updateFields = { "containers.$.status": status };
+    if (lr_completed !== undefined) {
+      updateFields["containers.$.lr_completed"] = lr_completed;
+    }
+
     const updatedDocument = await PrData.findOneAndUpdate(
       { "containers.tr_no": tr_no }, // Find the document with the matching tr_no
-      { $set: { "containers.$.status": status } }, // Update the status in the matched container
+      { $set: updateFields }, // Update the fields in the matched container
       { new: true } // Return the updated document
     );
 

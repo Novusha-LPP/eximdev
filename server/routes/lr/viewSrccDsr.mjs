@@ -30,8 +30,10 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
   };
 
   const allContainers = extractRelevantData(data);
-  // Send only those jobs which have tr_no available
-  const trs = allContainers.filter((container) => container.tr_no);
+  // Send only those jobs which have tr_no available and lr_completed is not true
+  const trs = allContainers.filter(
+    (container) => container.tr_no && !container.lr_completed
+  );
   res.status(200).json(trs);
 });
 

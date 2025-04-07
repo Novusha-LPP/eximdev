@@ -124,27 +124,30 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Branch",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={branchOptions}
-          getOptionLabel={(option) => option.label || ""}
-          value={
-            branchOptions.find(
-              (option) => option.value === rows[row.index]?.branch
-            ) || null
-          }
-          onChange={(_, newValue) =>
-            handleInputChange(
-              { target: { value: newValue?.value || "" } },
-              row.index,
-              cell.column.id
-            )
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
+      Cell: ({ cell, row }) =>
+        !row.original.pr_no ? (
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={branchOptions}
+            getOptionLabel={(option) => option.label || ""}
+            value={
+              branchOptions.find(
+                (option) => option.value === rows[row.index]?.branch
+              ) || null
+            }
+            onChange={(_, newValue) =>
+              handleInputChange(
+                { target: { value: newValue?.value || "" } },
+                row.index,
+                cell.column.id
+              )
+            }
+            renderInput={(params) => <TextField {...params} size="small" />}
+          />
+        ) : (
+          cell.getValue()
+        ),
     },
     {
       accessorKey: "container_count",

@@ -31,12 +31,17 @@ const EditableDateCell = ({ cell }) => {
 
   // 📦 Reset data when row changes
   useEffect(() => {
-    setDates({ vessel_berthing, gateway_igm_date, discharge_date, pcv_date, out_of_charge });
+    setDates({
+      vessel_berthing,
+      gateway_igm_date,
+      discharge_date,
+      pcv_date,
+      out_of_charge,
+    });
     setContainers([...container_nos]);
     setLocalStatus(detailed_status); // <-- Add this
     setEditable(null);
   }, [cell.row.original]);
-  
 
   const updateDetailedStatus = useCallback(async () => {
     const eta = dates.vessel_berthing;
@@ -44,16 +49,21 @@ const EditableDateCell = ({ cell }) => {
     const dischargeDate = dates.discharge_date;
     const outOfChargeDate = dates.out_of_charge;
     const pcvDate = dates.pcv_date;
-  
+
     const billOfEntryNo = be_no;
-    const anyContainerArrivalDate = containers.some(c => c.arrival_date);
-    const containerRailOutDate = containers.every(c => c.container_rail_out_date);
-    const emptyContainerOffLoadDate = containers.every(c => c.emptyContainerOffLoadDate);
-    const deliveryDate = containers.every(c => c.delivery_date);
-    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-  
+    const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
+    const containerRailOutDate = containers.every(
+      (c) => c.container_rail_out_date
+    );
+    const emptyContainerOffLoadDate = containers.every(
+      (c) => c.emptyContainerOffLoadDate
+    );
+    const deliveryDate = containers.every((c) => c.delivery_date);
+    const isExBondOrLCL =
+      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+
     let newStatus = "";
-  
+
     if (
       billOfEntryNo &&
       anyContainerArrivalDate &&
@@ -80,32 +90,37 @@ const EditableDateCell = ({ cell }) => {
     } else if (eta) {
       newStatus = "Estimated Time of Arrival";
     }
-  
-    if (newStatus && newStatus !== localStatus){
+
+    if (newStatus && newStatus !== localStatus) {
       cell.row.original.detailed_status = newStatus;
       try {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
         });
-        setLocalStatus(newStatus); // <-- Add this        
-      } catch (err) {
-
-      }
+        setLocalStatus(newStatus); // <-- Add this
+      } catch (err) {}
     } else {
     }
-}, [dates, containers, be_no, consignment_type, type_of_b_e, localStatus, _id]);
+  }, [
+    dates,
+    containers,
+    be_no,
+    consignment_type,
+    type_of_b_e,
+    localStatus,
+    _id,
+  ]);
 
-useEffect(() => {
-  updateDetailedStatus();
-}, [
-  dates.vessel_berthing,
-  dates.gateway_igm_date,
-  dates.discharge_date,
-  dates.out_of_charge,
-  dates.pcv_date,
-  containers, // watches for any change in container-level dates
-]);
-
+  useEffect(() => {
+    updateDetailedStatus();
+  }, [
+    dates.vessel_berthing,
+    dates.gateway_igm_date,
+    dates.discharge_date,
+    dates.out_of_charge,
+    dates.pcv_date,
+    containers, // watches for any change in container-level dates
+  ]);
 
   // 📅 Handle date change and immediately call status updater
   const handleDateChange = (field, value, index = null) => {
@@ -118,39 +133,37 @@ useEffect(() => {
       setContainers(updatedContainers);
 
       axios
-      .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        container_nos: updatedContainers,
-      })
-      .then(() => {
-        setEditable(null);
-    
-        // 🔄 Use updated values directly, not stale ones
-        updateDetailedStatus();
-      })
-      .catch((err) => console.error("Error Updating:", err));
-        } else {
+        .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          container_nos: updatedContainers,
+        })
+        .then(() => {
+          setEditable(null);
+
+          // 🔄 Use updated values directly, not stale ones
+          updateDetailedStatus();
+        })
+        .catch((err) => console.error("Error Updating:", err));
+    } else {
       setDates((prev) => {
         const newDates = { ...prev, [field]: value };
-      
+
         axios
           .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
             [field]: value,
           })
           .then(() => {
             setEditable(null);
-      
+
             // ✅ Trigger status update with the freshest values
             updateDetailedStatus();
           })
           .catch((err) => console.error("Error Updating:", err));
-      
+
         return newDates;
       });
-      
     }
   };
 
-  
   return (
     <div style={{ display: "flex", gap: "20px" }}>
       {/* Left Section */}
@@ -234,25 +247,6 @@ useEffect(() => {
           </>
         )}
 
-        {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
-          <>
-            <strong>Detention.F. :</strong>
-            {containers.map((container, id) => (
-              <div key={id}>
-                {container.detention_from?.slice(0, 10) || "N/A"}{" "}
-                {editable === `detention_from_${id}` && (
-                  <input
-                    type="date"
-                    value={container.detention_from || ""}
-                    onChange={(e) =>
-                      handleDateChange("detention_from", e.target.value, id)
-                    }
-                  />
-                )}
-              </div>
-            ))}
-          </>
-        )}
         {type_of_b_e !== "Ex-Bond" && (
           <>
             {containers.map((container, id) => (
@@ -269,6 +263,25 @@ useEffect(() => {
                     value={container.arrival_date || ""}
                     onChange={(e) =>
                       handleDateChange("arrival_date", e.target.value, id)
+                    }
+                  />
+                )}
+              </div>
+            ))}
+          </>
+        )}
+        {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
+          <>
+            <strong>Detention.F. :</strong>
+            {containers.map((container, id) => (
+              <div key={id}>
+                {container.detention_from?.slice(0, 10) || "N/A"}{" "}
+                {editable === `detention_from_${id}` && (
+                  <input
+                    type="date"
+                    value={container.detention_from || ""}
+                    onChange={(e) =>
+                      handleDateChange("detention_from", e.target.value, id)
                     }
                   />
                 )}

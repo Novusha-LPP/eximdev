@@ -53,28 +53,32 @@ function useLrColumns(props) {
   }, []);
   const fetchSrcelOptions = async () => {
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_STRING}/get-all-srcel`
+      const response = await axios.get(
+        `${
+          process.env.REACT_APP_API_STRING || "http://localhost:9000/api"
+        }/elock/get-elocks`
       );
-      const data = await response.json();
-      console.log(`data`, data);
+      const data = response.data.data.map((elock) => ({
+        label: elock.ElockCode, // Use ElockCode as the label
+        value: elock._id, // Use _id as the value
+        ...elock, // Include all other elock properties
+      }));
       setSrcelOptions(data);
     } catch (error) {
-      console.error("Error fetching sr_cel options:", error);
+      console.error("Error fetching Elocks:", error);
     }
   };
   const SrCelDropdown = ({ options, onSelect, defaultValue, rowIndex }) => {
     return (
       <Autocomplete
-        options={options.filter((option) => !option.sr_cel_locked)}
-        getOptionLabel={(option) => option.sr_cel_no}
+        options={options}
+        getOptionLabel={(option) => option.label || ""}
         renderInput={(params) => <TextField {...params} size="small" />}
         onChange={(event, newValue) => {
-          console.log(`newValue`, newValue?._id);
           onSelect(
             {
               target: {
-                value: newValue ? newValue.sr_cel_no : null,
+                value: newValue ? newValue.label : null,
               },
             },
             rowIndex,
@@ -92,7 +96,7 @@ function useLrColumns(props) {
           onSelect(
             {
               target: {
-                value: newValue ? newValue._id : null,
+                value: newValue ? newValue.value : null,
               },
             },
             rowIndex,
@@ -100,7 +104,7 @@ function useLrColumns(props) {
           );
         }}
         defaultValue={
-          options.find((option) => option.sr_cel_no === defaultValue) || null
+          options.find((option) => option.label === defaultValue) || null
         }
         size="small"
         fullWidth
@@ -969,41 +973,41 @@ function useLrColumns(props) {
         );
       },
     },
-    {
-      accessorKey: "isOccupied",
-      header: "On Trip",
-      enableSorting: false,
-      size: 80,
-      Cell: ({ row }) => {
-        // Only show checkbox for Own vehicles with a selected vehicle number
-        const isOwnVehicle = row.original.own_hired === "Own";
-        const vehicleNo = row.original.vehicle_no;
+    // {
+    //   accessorKey: "isOccupied",
+    //   header: "On Trip",
+    //   enableSorting: false,
+    //   size: 80,
+    //   Cell: ({ row }) => {
+    //     // Only show checkbox for Own vehicles with a selected vehicle number
+    //     const isOwnVehicle = row.original.own_hired === "Own";
+    //     const vehicleNo = row.original.vehicle_no;
 
-        if (!isOwnVehicle || !vehicleNo) {
-          return null;
-        }
+    //     if (!isOwnVehicle || !vehicleNo) {
+    //       return null;
+    //     }
 
-        // Get the vehicle ID and occupancy status from the stored map
-        const vehicleInfo = rows[row.index]?.vehicleIds?.[vehicleNo];
-        console.log(vehicleInfo?.isOccupied);
-        const vehicleId = vehicleInfo?.id;
-        const isOccupied = vehicleInfo?.isOccupied || false;
+    //     // Get the vehicle ID and occupancy status from the stored map
+    //     const vehicleInfo = rows[row.index]?.vehicleIds?.[vehicleNo];
+    //     console.log(vehicleInfo?.isOccupied);
+    //     const vehicleId = vehicleInfo?.id;
+    //     const isOccupied = vehicleInfo?.isOccupied || false;
 
-        if (!vehicleId) {
-          return null;
-        }
+    //     if (!vehicleId) {
+    //       return null;
+    //     }
 
-        return (
-          <Checkbox
-            checked={isOccupied}
-            onChange={() =>
-              handleOccupancyToggle(vehicleId, isOccupied, row.index)
-            }
-            disabled={isUpdatingOccupancy}
-          />
-        );
-      },
-    },
+    //     return (
+    //       <Checkbox
+    //         checked={isOccupied}
+    //         onChange={() =>
+    //           handleOccupancyToggle(vehicleId, isOccupied, row.index)
+    //         }
+    //         disabled={isUpdatingOccupancy}
+    //       />
+    //     );
+    //   },
+    // },
     {
       accessorKey: "action",
       header: "Save",

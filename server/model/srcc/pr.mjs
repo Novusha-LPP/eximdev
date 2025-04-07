@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Elock from "./Directory_Management/Elock.mjs";
 
 const PrDataSchema = new mongoose.Schema({
   pr_no: {
@@ -120,6 +121,10 @@ const PrDataSchema = new mongoose.Schema({
       sr_cel_id: {
         type: String,
       },
+      elock:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: Elock,
+      },  
       status: {
         type: String,
       },

@@ -12,37 +12,37 @@ export function setupJobOverviewWebSocket(server) {
     ws.on('message', async (message) => {
       try {
         const payload = JSON.parse(message);
+        if (typeof payload !== 'object' || !payload.year) {
+          throw new Error("Invalid payload structure");
+        }
+
         const year = payload.year;
-
-        if (!year) return;
-
         connections.set(ws, { year });
 
-        // Send initial data
         const data = await fetchJobOverviewData(year);
         ws.send(JSON.stringify({ type: 'init', data }));
-
       } catch (err) {
         console.error('WebSocket message error:', err);
         ws.send(JSON.stringify({ type: 'error', error: 'Invalid message format or data' }));
       }
     });
 
+    // Periodic updates
     const intervalId = setInterval(async () => {
-      for (const [client, meta] of connections.entries()) {
-        if (client.readyState === ws.OPEN && meta.year) {
-          try {
-            const data = await fetchJobOverviewData(meta.year);
-            client.send(JSON.stringify({ type: 'update', data }));
-          } catch (err) {
-            console.error('Error sending update:', err);
-          }
+      const meta = connections.get(ws);
+      if (ws.readyState === ws.OPEN && meta?.year) {
+        try {
+          const data = await fetchJobOverviewData(meta.year);
+          ws.send(JSON.stringify({ type: 'update', data }));
+        } catch (err) {
+          console.error('Error sending update:', err);
         }
       }
-    }, 10000); // 10 sec update interval
+    }, 10000);
 
     ws.on('close', () => {
       console.log('❌ WebSocket client disconnected');
+      clearInterval(intervalId);
       connections.delete(ws);
     });
   });

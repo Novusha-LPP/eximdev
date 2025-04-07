@@ -31,7 +31,7 @@ Sentry.init({
 });
 
 // SSE
-import updateJobCount from "./routes/updateJobCount.mjs";
+// import updateJobCount from "./routes/updateJobCount.mjs";
 
 // Import routes
 import getAllUsers from "./routes/getAllUsers.mjs";
@@ -305,7 +305,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-      app.use(updateJobCount);
+      // app.use(updateJobCount);
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);
@@ -511,9 +511,6 @@ if (cluster.isPrimary) {
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);
   
-
-      
-      const PORT = process.env.PORT || 3000;
       server.listen(9000, () => {
         console.log(`🟢 Server listening on http://localhost:${9000}`);
       });

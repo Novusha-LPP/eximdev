@@ -7,50 +7,51 @@ const Screen1 = () => {
   const [error, setError] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
+
   useEffect(() => {
-    // Replace with your actual WebSocket URL
-    const socket = new WebSocket('ws://localhost:9000');
-
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL}`;
+  
+    const socket = new WebSocket(SOCKET_URL);
+  
     socket.onopen = () => {
-      console.log("✅ WebSocket connected");
       setConnectionStatus("Connected");
-      // Send year filter, if needed by backend
       socket.send(JSON.stringify({ year: "24-25" }));
-
-      const payload = { year: "24-25" };
-      console.log("📤 Sending:", payload);
-      socket.send(JSON.stringify(payload));
     };
-
+  
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log()
-        if (message.type === "update" || message.type === "init") {
-          setJobCounts(message.data);
+  
+        if (message.type === "init" || message.type === "update") {
+          setJobCounts(message.data || {});
+          setError(null); // ✅ Clear previous error
           setLoading(false);
+        } else if (message.type === "error") {
+          setError(message.error || "Server error");
         }
       } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
+        console.error("❌ Error parsing WebSocket message:", err);
         setError("Error parsing server data.");
       }
     };
-
+  
     socket.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      setError("WebSocket connection error.");
-      setConnectionStatus("Disconnected");
+      // Optionally only show error if socket isn't open
+      if (socket.readyState !== WebSocket.OPEN) {
+        setError("WebSocket connection error.");
+        setConnectionStatus("Error");
+      }
     };
-
+  
     socket.onclose = () => {
-      console.warn("WebSocket disconnected");
       setConnectionStatus("Disconnected");
     };
-
-    return () => {
+  
+   return () => {
       socket.close();
-    };
+    }; 
   }, []);
+  
 
   if (loading) {
     return (

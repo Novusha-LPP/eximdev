@@ -18,6 +18,9 @@ import compression from "compression";
 import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
+import http from 'http';
+import { setupJobOverviewWebSocket } from './setupJobOverviewWebSocket.mjs';
+
 dotenv.config();
 
 Sentry.init({
@@ -28,7 +31,7 @@ Sentry.init({
 });
 
 // SSE
-import updateJobCount from "./routes/updateJobCount.mjs";
+// import updateJobCount from "./routes/updateJobCount.mjs";
 
 // Import routes
 import getAllUsers from "./routes/getAllUsers.mjs";
@@ -302,7 +305,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-      app.use(updateJobCount);
+      // app.use(updateJobCount);
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);
@@ -504,11 +507,21 @@ if (cluster.isPrimary) {
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
       
-      app.listen(9000, () => {
-        console.log(`BE started at port 9000`);
+      // Initialize WebSocket logic
+      const server = http.createServer(app);
+      setupJobOverviewWebSocket(server);
+  
+      server.listen(9000, () => {
+        console.log(`🟢 Server listening on http://localhost:${9000}`);
       });
     })
     .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
+  
+   
+    // server.listen(9000, () => {
+    //   console.log(`🟢 Server listening on http://localhost:${9000}`);
+    // }) .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
+
 
   process.on("SIGINT", async () => {
     await mongoose.connection.close();

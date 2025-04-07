@@ -7,36 +7,51 @@ const Screen1 = () => {
   const [error, setError] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
+
   useEffect(() => {
-    const SSE_URL = `${process.env.REACT_APP_API_STRING}/sse/job-overview/24-25`;
-
-    const eventSource = new EventSource(SSE_URL);
-
-    eventSource.onopen = () => {
-      console.log("SSE connection opened successfully.");
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL}`;
+  
+    const socket = new WebSocket(SOCKET_URL);
+  
+    socket.onopen = () => {
+      setConnectionStatus("Connected");
+      socket.send(JSON.stringify({ year: "24-25" }));
     };
-
-    eventSource.onmessage = (event) => {
+  
+    socket.onmessage = (event) => {
       try {
-        const parsedData = JSON.parse(event.data);
-        setJobCounts(parsedData);
-        setLoading(false);
+        const message = JSON.parse(event.data);
+  
+        if (message.type === "init" || message.type === "update") {
+          setJobCounts(message.data || {});
+          setError(null); // ✅ Clear previous error
+          setLoading(false);
+        } else if (message.type === "error") {
+          setError(message.error || "Server error");
+        }
       } catch (err) {
-        console.error("Error parsing SSE data:", err);
+        console.error("❌ Error parsing WebSocket message:", err);
         setError("Error parsing server data.");
       }
     };
-
-    eventSource.onerror = (err) => {
-      console.error("SSE Error Occurred:", err);
-      setError("Connection lost. Retrying...");
-      setTimeout(() => window.location.reload(), 5000);
+  
+    socket.onerror = (err) => {
+      // Optionally only show error if socket isn't open
+      if (socket.readyState !== WebSocket.OPEN) {
+        setError("WebSocket connection error.");
+        setConnectionStatus("Error");
+      }
     };
-
-    return () => {
-      eventSource.close();
+  
+    socket.onclose = () => {
+      setConnectionStatus("Disconnected");
     };
+  
+   return () => {
+      socket.close();
+    }; 
   }, []);
+  
 
   if (loading) {
     return (
@@ -68,7 +83,7 @@ const Screen1 = () => {
     <div className="screen-container">
       <h1 className="heading">Today's Job Status</h1>
       <div className="screen">
-        {statusFields.slice(0, 6).map((field, index) => (
+        {statusFields.map((field, index) => (
           <div className="box" key={index}>
             <p className="title">{field.title}</p>
             <p className="count">{jobCounts[field.key] || 0}</p>

@@ -91,7 +91,6 @@ import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJob
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
 
-
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
 import assignRole from "./routes/home/assignRole.mjs";
@@ -204,6 +203,7 @@ import UnitConversion from "./routes/srcc/Directory_Management/unitConvirsionRou
 import CountryCode from "./routes/srcc/Directory_Management/countryCodeRoutes.js";
 // sr_cel
 import srCel from "./routes/srcc/sr_cel/srCel.mjs";
+import elock from "./routes/srcc/Directory_Management/ElockRoute.mjs";
 
 // Submission
 import getSubmissionJobs from "./routes/submission/getSubmissionJobs.mjs";
@@ -236,14 +236,13 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
-    
+
 // const CLIENT_URI =
 //   process.env.NODE_ENV === "production"
 //     ? process.env.PROD_CLIENT_URI
 //     : process.env.NODE_ENV === "server"
 //     ? process.env.SERVER_CLIENT_URI
 //     : process.env.DEV_CLIENT_URI;
-    
 
 const numOfCPU = os.availableParallelism();
 // console.log(`hello check first re baba***************** ${MONGODB_URI}`);
@@ -263,7 +262,7 @@ if (cluster.isPrimary) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  app.use(cors())
+  app.use(cors());
   // app.use(cors({ origin: CLIENT_URI, credentials: true }));
 
   app.use(compression({ level: 9 }));
@@ -476,6 +475,7 @@ if (cluster.isPrimary) {
       app.use(CountryCode);
       // sr cel
       app.use(srCel);
+      app.use(elock);
 
       // Submission
       app.use(updateSubmissionJob);
@@ -503,7 +503,6 @@ if (cluster.isPrimary) {
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
-      
       app.listen(9000, () => {
         console.log(`BE started at port 9000`);
       });

@@ -52,15 +52,6 @@ const EditableDateCell = ({ cell }) => {
     const deliveryDate = containers.every(c => c.delivery_date);
     const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
   
-    console.log("🧪 Debug Info:");
-    console.log("✔️ be_no:", billOfEntryNo);
-    console.log("✔️ arrival_date exists:", anyContainerArrivalDate);
-    console.log("✔️ out_of_charge:", outOfChargeDate);
-    console.log("✔️ emptyContainerOffLoadDate:", emptyContainerOffLoadDate);
-    console.log("✔️ deliveryDate:", deliveryDate);
-    console.log("✔️ isExBondOrLCL:", isExBondOrLCL);
-    console.log("✔️ current detailed_status:", detailed_status);
-  
     let newStatus = "";
   
     if (
@@ -91,7 +82,6 @@ const EditableDateCell = ({ cell }) => {
     }
   
     if (newStatus && newStatus !== localStatus){
-      console.log("📦 Updating detailed_status to:", newStatus);
       cell.row.original.detailed_status = newStatus;
       try {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
@@ -99,10 +89,9 @@ const EditableDateCell = ({ cell }) => {
         });
         setLocalStatus(newStatus); // <-- Add this        
       } catch (err) {
-        console.error("❌ Failed to update detailed_status:", err);
+
       }
     } else {
-      console.log("ℹ️ No change in status detected.");
     }
 }, [dates, containers, be_no, consignment_type, type_of_b_e, localStatus, _id]);
 
@@ -140,7 +129,6 @@ useEffect(() => {
       })
       .catch((err) => console.error("Error Updating:", err));
         } else {
-      const updatedDates = { ...dates, [field]: value };
       setDates((prev) => {
         const newDates = { ...prev, [field]: value };
       

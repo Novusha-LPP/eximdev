@@ -4,10 +4,10 @@ import Elock from "../../../model/srcc/Directory_Management/Elock.mjs";
 const router = express.Router();
 
 // Create a new Elock
-router.post("/api/create-elock", async (req, res) => {
+router.post("/api/elock/create-elock", async (req, res) => {
   try {
-    const { FAssetID, FAgentGUID, AssetGUID } = req.body;
-    const newElock = new Elock({ FAssetID, FAgentGUID, AssetGUID });
+    const { FAssetID, FAgentGUID, AssetGUID, ElockCode } = req.body;
+    const newElock = new Elock({ FAssetID, FAgentGUID, AssetGUID, ElockCode });
     await newElock.save();
     res
       .status(201)
@@ -52,10 +52,10 @@ router.get("/api/elock/get-elock/:id", async (req, res) => {
 router.put("/api/elock/update-elock/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { FAssetID, FAgentGUID, AssetGUID } = req.body;
+    const { FAssetID, FAgentGUID, AssetGUID, ElockCode } = req.body;
     const updatedElock = await Elock.findByIdAndUpdate(
       id,
-      { FAssetID, FAgentGUID, AssetGUID },
+      { FAssetID, FAgentGUID, AssetGUID, ElockCode },
       { new: true }
     );
     if (!updatedElock) {

@@ -26,6 +26,7 @@ const validationSchema = Yup.object({
   FAssetID: Yup.string().required("FAssetID is required"),
   FAgentGUID: Yup.string().required("FAgentGUID is required"),
   AssetGUID: Yup.string().required("AssetGUID is required"),
+  ElockCode: Yup.string().required("ElockCode is required"),
 });
 
 const Elock = () => {
@@ -36,6 +37,7 @@ const Elock = () => {
     FAssetID: "",
     FAgentGUID: "",
     AssetGUID: "",
+    ElockCode: "",
   });
 
   const API_URL =
@@ -56,7 +58,7 @@ const Elock = () => {
 
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ FAssetID: "", FAgentGUID: "", AssetGUID: "" });
+    setFormData({ FAssetID: "", FAgentGUID: "", AssetGUID: "", ElockCode: "" });
     setOpenModal(true);
   };
 
@@ -67,6 +69,7 @@ const Elock = () => {
       FAssetID: elock.FAssetID || "",
       FAgentGUID: elock.FAgentGUID || "",
       AssetGUID: elock.AssetGUID || "",
+      ElockCode: elock.ElockCode || "",
     });
     setOpenModal(true);
   };
@@ -129,6 +132,7 @@ const Elock = () => {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell>ElockCode</TableCell>
               <TableCell>FAssetID</TableCell>
               <TableCell>FAgentGUID</TableCell>
               <TableCell>AssetGUID</TableCell>
@@ -138,6 +142,7 @@ const Elock = () => {
           <TableBody>
             {elocks.map((elock) => (
               <TableRow key={elock._id}>
+                <TableCell>{elock.ElockCode}</TableCell>
                 <TableCell>{elock.FAssetID}</TableCell>
                 <TableCell>{elock.FAgentGUID}</TableCell>
                 <TableCell>{elock.AssetGUID}</TableCell>
@@ -215,6 +220,18 @@ const Elock = () => {
                     required
                     error={touched.AssetGUID && Boolean(errors.AssetGUID)}
                     helperText={touched.AssetGUID && errors.AssetGUID}
+                  />
+
+                  <TextField
+                    name="ElockCode"
+                    label="ElockCode"
+                    value={values.ElockCode}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    fullWidth
+                    required
+                    error={touched.ElockCode && Boolean(errors.ElockCode)}
+                    helperText={touched.ElockCode && errors.ElockCode}
                   />
 
                   <DialogActions>

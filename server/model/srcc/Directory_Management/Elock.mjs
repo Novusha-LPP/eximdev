@@ -20,6 +20,12 @@ const ElockSchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
+    ElockCode: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+    },
   },
   { timestamps: true }
 );

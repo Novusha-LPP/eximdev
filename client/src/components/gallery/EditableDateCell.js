@@ -92,6 +92,7 @@ const EditableDateCell = ({ cell }) => {
   
     if (newStatus && newStatus !== localStatus){
       console.log("📦 Updating detailed_status to:", newStatus);
+      cell.row.original.detailed_status = newStatus;
       try {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,

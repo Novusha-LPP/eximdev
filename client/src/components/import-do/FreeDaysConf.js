@@ -410,6 +410,116 @@ const FreeDaysConf = () => {
         );
       },
     },
+    {
+      accessorKey: "Doc",
+      header: "Docs",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => {
+        const { processed_be_attachment, cth_documents, checklist } =
+          cell.row.original;
+
+        // Helper function to safely get the first link if it's an array or a string
+        const getFirstLink = (input) => {
+          if (Array.isArray(input)) {
+            return input.length > 0 ? input[0] : null;
+          }
+          return input || null;
+        };
+
+        const checklistLink = getFirstLink(checklist);
+        const processed_be_attachmentLink = getFirstLink(
+          processed_be_attachment
+        );
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {/* Render the "Checklist" link or fallback text */}
+            {checklistLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={checklistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Checklist
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>No Checklist </span>
+              </div>
+            )}
+            {processed_be_attachmentLink ? (
+              <div style={{ marginBottom: "5px" }}>
+                <a
+                  href={processed_be_attachmentLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  Processed Copy of BE no.
+                </a>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}>
+                  {" "}
+                  Processed Copy of BE no.{" "}
+                </span>
+              </div>
+            )}
+
+            {/* Render CTH Documents (showing actual URL) */}
+            {cth_documents &&
+            cth_documents.some(
+              (doc) =>
+                doc.url &&
+                doc.url.length > 0 &&
+                doc.document_name === "Pre-Shipment Inspection Certificate"
+            ) ? (
+              cth_documents
+                .filter(
+                  (doc) =>
+                    doc.url &&
+                    doc.url.length > 0 &&
+                    doc.document_name === "Pre-Shipment Inspection Certificate"
+                )
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))
+            ) : (
+              <span style={{ color: "gray" }}>
+                {" "}
+                No Pre-Shipment Inspection Certificate{" "}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
   ];
 
   const tableConfig = {

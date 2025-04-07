@@ -3,28 +3,31 @@ import CommodityCode from "../../../model/srcc/Directory_Management/Commodity.mj
 
 const router = express.Router();
 
+// Create new commodity
 router.post("/api/add-commodity-type", async (req, res) => {
   const { name, hsn_code, description } = req.body;
 
   try {
-    if (!hsn_code) {
-      return res.status(400).json({ error: "HSN code is required" });
-    }
-
-    // Check if the HSN code already exists
-    const existingHSNCode = await CommodityCode.findOne({ hsn_code });
-    if (existingHSNCode) {
+    if (!name || !description) {
       return res
         .status(400)
-        .json({ error: "Commodity with this HSN code already exists" });
+        .json({ error: "Name and description are required" });
     }
 
-    // Create a new CommodityCode entry
+    // Check uniqueness of name
+    const existingName = await CommodityCode.findOne({ name });
+    if (existingName) {
+      return res
+        .status(400)
+        .json({ error: "Commodity with this name already exists" });
+    }
+
     const newCommodity = await CommodityCode.create({
       name,
-      hsn_code,
+      hsn_code, // optional
       description,
     });
+
     res.status(201).json({
       message: "Commodity Code added successfully",
       data: newCommodity,
@@ -35,6 +38,7 @@ router.post("/api/add-commodity-type", async (req, res) => {
   }
 });
 
+// Get all commodities
 router.get("/api/get-commodity-type", async (req, res) => {
   try {
     const commoditys = await CommodityCode.find();
@@ -45,6 +49,7 @@ router.get("/api/get-commodity-type", async (req, res) => {
   }
 });
 
+// Get commodity by HSN code (optional)
 router.get("/api/get-commodity-type/:hsn_code", async (req, res) => {
   const { hsn_code } = req.params;
   try {
@@ -59,33 +64,36 @@ router.get("/api/get-commodity-type/:hsn_code", async (req, res) => {
   }
 });
 
+// Update commodity
 router.put("/api/update-commodity-type/:id", async (req, res) => {
   const { id } = req.params;
   const { name, description, hsn_code } = req.body;
 
   try {
-    // Ensure HSN code is provided
-    if (!hsn_code) {
-      return res.status(400).json({ error: "HSN code is required" });
+    if (!name || !description) {
+      return res
+        .status(400)
+        .json({ error: "Name and description are required" });
     }
 
-    // Check if the HSN code already exists in another record
-    const existingHSNCode = await CommodityCode.findOne({
-      hsn_code,
+    // Ensure name is unique (excluding the current item)
+    const existingName = await CommodityCode.findOne({
+      name,
       _id: { $ne: id },
     });
 
-    if (existingHSNCode) {
+    if (existingName) {
       return res
         .status(400)
-        .json({ error: "HSN code already exists. Choose a different one." });
+        .json({
+          error: "Commodity name already exists. Use a different name.",
+        });
     }
 
-    // Update the commodity
     const updatedCommodity = await CommodityCode.findByIdAndUpdate(
       id,
       { name, description, hsn_code },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!updatedCommodity) {
@@ -102,7 +110,7 @@ router.put("/api/update-commodity-type/:id", async (req, res) => {
   }
 });
 
-// Delete a commodity using MongoDB _id
+// Delete commodity
 router.delete("/api/delete-commodity-type/:id", async (req, res) => {
   const { id } = req.params;
   try {

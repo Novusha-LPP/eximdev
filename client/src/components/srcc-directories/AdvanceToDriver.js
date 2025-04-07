@@ -128,7 +128,7 @@ const AdvanceToDriver = () => {
   // ---------------
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`${API_URL}/get-vehicle-type`);
+      const response = await axios.get(`${API_URL}/vehicle-types`);
       // Typically response.data might be { data: [...]}
       // Adjust if your API returns a different structure
       const list = response.data.data || [];

@@ -103,7 +103,7 @@ const baseQuery = {
     // 🔍 **Step 1: Fetch Jobs After Applying Filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment"
+        "job_no year awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment "
       )
       .lean();
 

@@ -16,29 +16,34 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Autocomplete,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
-// Validation with Yup
 const validationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
+  organization: Yup.object({
+    _id: Yup.string().required("Organization ID is required"),
+    name: Yup.string().required("Organization name is required"),
+  }).required("Organization is required"),
 });
 
 const ShippingLine = () => {
   const [shippingLines, setShippingLines] = useState([]);
+  const [orgOptions, setOrgOptions] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [formData, setFormData] = useState({
     name: "",
+    organization: { _id: "", name: "" },
   });
 
-  // Adjust your base URL
-  const API_URL = process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+  const API_URL =
+    process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  // Fetch all shipping lines
   const fetchShippingLines = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-shipping-line`);
@@ -52,26 +57,28 @@ const ShippingLine = () => {
     fetchShippingLines();
   }, []);
 
-  // Handle Add
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ name: "" });
+    setFormData({ name: "", organization: { _id: "", name: "" } });
     setOpenModal(true);
   };
 
-  // Handle Edit
   const handleEdit = (line) => {
     setModalMode("edit");
     setFormData({
-      _id: line._id, // store the ID for updating
+      _id: line._id,
       name: line.name || "",
+      organization: line.organisation || { _id: "", name: "" },
     });
     setOpenModal(true);
   };
 
-  // Handle Delete
   const handleDelete = async (line) => {
-    if (window.confirm(`Are you sure you want to delete shipping line: ${line.name}?`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete shipping line: ${line.name}?`
+      )
+    ) {
       try {
         await axios.delete(`${API_URL}/delete-shipping-line/${line._id}`);
         fetchShippingLines();
@@ -81,29 +88,32 @@ const ShippingLine = () => {
     }
   };
 
-  // Handle Save (Add/Edit)
   const handleSave = async (values) => {
-    const { _id, ...restValues } = values;
+    const { _id, organization, ...restValues } = values;
+    const payload = { ...restValues, organisation: organization };
 
     try {
       let response;
       if (modalMode === "add") {
-        response = await axios.post(`${API_URL}/add-shipping-line`, restValues);
+        response = await axios.post(`${API_URL}/add-shipping-line`, payload);
         responseHandler(response, "added");
       } else {
         response = await axios.put(
           `${API_URL}/update-shipping-line/${_id}`,
-          restValues
+          payload
         );
         responseHandler(response, "updated");
       }
     } catch (error) {
       console.error("❌ Error saving shipping line:", error);
-      alert(`Failed to save shipping line: ${error.response?.data?.error || "Server error"}`);
+      alert(
+        `Failed to save shipping line: ${
+          error.response?.data?.error || "Server error"
+        }`
+      );
     }
   };
 
-  // Common success/failure logic
   const responseHandler = (response, action) => {
     if (response.status === 200 || response.status === 201) {
       alert(`Shipping line ${action} successfully!`);
@@ -122,12 +132,12 @@ const ShippingLine = () => {
         </Button>
       </Box>
 
-      {/* Table */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
+              <TableCell>Organisation</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -135,6 +145,7 @@ const ShippingLine = () => {
             {shippingLines.map((line) => (
               <TableRow key={line._id}>
                 <TableCell>{line.name}</TableCell>
+                <TableCell>{line.organisation?.name || "-"}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(line)} color="primary">
                     <EditIcon />
@@ -149,7 +160,6 @@ const ShippingLine = () => {
         </Table>
       </TableContainer>
 
-      {/* Modal for Add/Edit */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -166,13 +176,26 @@ const ShippingLine = () => {
             onSubmit={handleSave}
             enableReinitialize
           >
-            {({ values, handleChange, handleBlur, errors, touched }) => (
+            {({
+              values,
+              handleChange,
+              handleBlur,
+              errors,
+              touched,
+              setFieldValue,
+            }) => (
               <Form>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-                  {/* Name Field */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    mt: 2,
+                  }}
+                >
                   <TextField
                     name="name"
-                    label="Name"
+                    label="Shipping Line Name"
                     value={values.name}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -181,6 +204,48 @@ const ShippingLine = () => {
                     error={touched.name && Boolean(errors.name)}
                     helperText={touched.name && errors.name}
                   />
+
+                  <Autocomplete
+                    options={orgOptions}
+                    getOptionLabel={(option) => option.name || ""}
+                    filterOptions={(x) => x}
+                    onInputChange={async (e, value) => {
+                      if (value.length < 2) return;
+                      try {
+                        const res = await axios.get(
+                          `${API_URL}/organisations/autocomplete?q=${value}`
+                        );
+                        setOrgOptions(res.data.data || []);
+                      } catch (err) {
+                        console.error("❌ Error searching organizations:", err);
+                      }
+                    }}
+                    onChange={(event, newValue) => {
+                      setFieldValue(
+                        "organization",
+                        newValue || { _id: "", name: "" }
+                      );
+                    }}
+                    value={values.organization || null}
+                    isOptionEqualToValue={(option, value) =>
+                      option._id === value._id
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Organization"
+                        name="organization"
+                        onBlur={handleBlur}
+                        error={
+                          touched.organization && Boolean(errors.organization)
+                        }
+                        helperText={
+                          touched.organization && errors.organization?.name
+                        }
+                      />
+                    )}
+                  />
+
                   <DialogActions>
                     <Button onClick={() => setOpenModal(false)}>Cancel</Button>
                     <Button variant="contained" type="submit">

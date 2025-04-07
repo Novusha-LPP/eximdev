@@ -50,9 +50,11 @@ router.get("/api/get-documentation-completed-jobs", async (req, res) => {
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }, // Exclude "cancelled"
+        { be_no: { $in: [null, ""] } }, // ✅ Exclude documents where `be_no` has a value
         { job_no: { $ne: null } }, // Ensure job_no is not null
-        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
+        {
+          out_of_charge_date: { $in: [null, ""] }, // ✅ Exclude if `out_of_charge_date` has any value
+        },
         {
           detailed_status: {
             $in: statusOrder,

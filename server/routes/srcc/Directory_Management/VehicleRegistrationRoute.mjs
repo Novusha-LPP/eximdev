@@ -12,7 +12,9 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
     shortName,
     depotName,
     initialOdometer,
+    odometerUnit, // <-- add this
     loadCapacity,
+    loadCapacityUnit, // <-- add this
     driver,
     purchase,
     vehicleManufacturingDetails,
@@ -29,7 +31,9 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       !shortName ||
       !depotName ||
       !initialOdometer ||
+      !odometerUnit || // <-- add check
       !loadCapacity ||
+      !loadCapacityUnit || // <-- add check
       !driver ||
       !purchase ||
       !vehicleManufacturingDetails
@@ -54,7 +58,9 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       shortName,
       depotName,
       initialOdometer,
+      odometerUnit, // <-- added
       loadCapacity,
+      loadCapacityUnit, // <-- added
       driver,
       purchase,
       vehicleManufacturingDetails,
@@ -62,7 +68,7 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
 
     // Mark the driver as assigned
     await DriverType.findOneAndUpdate(
-      { name: driver },
+      { _id: driver._id },
       { isAssigned: true },
       { new: true }
     );
@@ -113,8 +119,10 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     shortName,
     depotName,
     initialOdometer,
+    odometerUnit,
     loadCapacity,
-    driver, // New driver
+    loadCapacityUnit,
+    driver,
     purchase,
     vehicleManufacturingDetails,
   } = req.body;
@@ -126,7 +134,9 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
       _id: { $ne: id },
     });
     if (existingRegistration) {
-      return res.status(400).json({ error: "Vehicle registration already exists" });
+      return res
+        .status(400)
+        .json({ error: "Vehicle registration already exists" });
     }
 
     // Find the existing vehicle registration to check previous driver
@@ -138,26 +148,27 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
     const previousDriver = currentRegistration.driver;
 
     // If driver is changed, unassign the old driver and assign the new one
-    if (previousDriver !== driver) {
-      // Unassign previous driver
+    if (previousDriver._id !== driver._id) {
       await DriverType.findOneAndUpdate(
-        { name: previousDriver },
+        { _id: previousDriver._id },
         { isAssigned: false }
       );
 
-      // Check if new driver is already assigned
       const assignedDriver = await DriverType.findOne({
-        name: driver,
+        _id: driver._id,
         isAssigned: true,
       });
+
       if (assignedDriver) {
         return res.status(400).json({
-          error: `Driver ${driver} is already assigned to another vehicle.`,
+          error: `Driver ${driver.name} is already assigned to another vehicle.`,
         });
       }
 
-      // Assign new driver
-      await DriverType.findOneAndUpdate({ name: driver }, { isAssigned: true });
+      await DriverType.findOneAndUpdate(
+        { _id: driver._id },
+        { isAssigned: true }
+      );
     }
 
     // Update vehicle registration
@@ -169,7 +180,9 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
         shortName,
         depotName,
         initialOdometer,
+        odometerUnit, // <-- add
         loadCapacity,
+        loadCapacityUnit, // <-- add
         driver,
         purchase,
         vehicleManufacturingDetails,
@@ -187,7 +200,6 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
   }
 });
 
-
 // DELETE a Vehicle Registration
 // DELETE a Vehicle Registration
 router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
@@ -202,10 +214,11 @@ router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
     const driver = deletedRegistration.driver;
     if (driver) {
       await DriverType.findOneAndUpdate(
-        { name: driver },
+        { _id: driver._id },
         { isAssigned: false },
         { new: true }
       );
+      
     }
 
     res.status(200).json({

@@ -22,6 +22,8 @@ import {
   ListItemText,
   FormControl,
   InputLabel,
+  Grid,
+  Typography,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -29,84 +31,142 @@ import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import useCommodities from "../../customHooks/Transport/useCommodities";
 
-// ✅ Validation schema with Yup
+// -----------------------------------------------------
+// Validation schema with Yup
+// -----------------------------------------------------
 const validationSchema = Yup.object({
   vehicleType: Yup.string().required("Vehicle Type is required"),
   shortName: Yup.string().required("Short Name is required"),
-  loadCapacity: Yup.string().required("Load Capacity is required"),
-  engineCapacity: Yup.string().required("Engine Capacity is required"),
+  loadCapacityValue: Yup.number()
+    .required("Load Capacity is required")
+    .min(0, "Cannot be negative"),
+  loadCapacityUnit: Yup.string().required("Load Capacity Unit is required"),
+  engineCapacityValue: Yup.number()
+    .required("Engine Capacity is required")
+    .min(0, "Cannot be negative"),
+  engineCapacityUnit: Yup.string().required("Engine Capacity Unit is required"),
 });
 
 const VehicleTypes = () => {
   const [vehicles, setVehicles] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
+
+  // Form data
   const [formData, setFormData] = useState({
     vehicleType: "",
     shortName: "",
-    loadCapacity: "",
-    engineCapacity: "",
+    loadCapacityValue: "",
+    loadCapacityUnit: "",
+    engineCapacityValue: "",
+    engineCapacityUnit: "",
     cargoTypeAllowed: [],
     CommodityCarry: [],
   });
-  // Example state initialization (inside a functional component)
 
+  // States for units from the API
+  const [loadUnits, setLoadUnits] = useState([]); // from "Weight"
+  const [engineUnits, setEngineUnits] = useState([]); // from "Volumes"
+
+  // Custom hook for fetching commodity data.
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
   const { commodities, loading, error } = useCommodities(API_URL);
 
-  // ✅ Fetch vehicle data from API
+  // -----------------------------------------------------
+  // 1. Fetch existing vehicle types
+  // -----------------------------------------------------
   const fetchVehicles = async () => {
     try {
-      const response = await axios.get(`${API_URL}/get-vehicle-type`);
+      const response = await axios.get(`${API_URL}/vehicle-types`);
       setVehicles(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching vehicles:", error);
     }
   };
 
+  // -----------------------------------------------------
+  // 2. Fetch all unit measurements
+  // -----------------------------------------------------
+  const fetchUnits = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/get-unit-measurements`);
+      // Find "Weight" category for load capacity
+      const weightCategory = response.data.find(
+        (item) => item.name === "Weight"
+      );
+      if (weightCategory) {
+        setLoadUnits(weightCategory.measurements);
+      }
+      // Find "Volumes" category for engine capacity
+      const volumeCategory = response.data.find(
+        (item) => item.name === "Volumes"
+      );
+      if (volumeCategory) {
+        setEngineUnits(volumeCategory.measurements);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching unit measurements:", err);
+    }
+  };
+
+  // -----------------------------------------------------
+  // useEffect: fetch vehicles & units on mount
+  // -----------------------------------------------------
   useEffect(() => {
-    fetchVehicles(); // ✅ Fetch data on mount
+    fetchVehicles();
+    fetchUnits();
   }, []);
 
+  // -----------------------------------------------------
+  // Handler: Add
+  // -----------------------------------------------------
   const handleAdd = () => {
     setModalMode("add");
     setFormData({
       vehicleType: "",
       shortName: "",
-      loadCapacity: "",
-      engineCapacity: "",
+      loadCapacityValue: "",
+      loadCapacityUnit: "",
+      engineCapacityValue: "",
+      engineCapacityUnit: "",
       cargoTypeAllowed: [],
       CommodityCarry: [],
     });
     setOpenModal(true);
   };
 
+  // -----------------------------------------------------
+  // Handler: Edit
+  // -----------------------------------------------------
   const handleEdit = (vehicle) => {
     setModalMode("edit");
     setFormData({
       _id: vehicle._id,
-      vehicleType: vehicle.vehicleType,
-      shortName: vehicle.shortName,
-      loadCapacity: vehicle.loadCapacity,
-      engineCapacity: vehicle.engineCapacity,
+      vehicleType: vehicle.vehicleType || "",
+      shortName: vehicle.shortName || "",
+      loadCapacityValue: vehicle.loadCapacity?.value || "",
+      loadCapacityUnit: vehicle.loadCapacity?.unit || "",
+      engineCapacityValue: vehicle.engineCapacity?.value || "",
+      engineCapacityUnit: vehicle.engineCapacity?.unit || "",
       cargoTypeAllowed: vehicle.cargoTypeAllowed || [],
       CommodityCarry: vehicle.CommodityCarry || [],
     });
     setOpenModal(true);
   };
 
+  // -----------------------------------------------------
+  // Handler: Delete
+  // -----------------------------------------------------
   const handleDelete = async (id) => {
     if (
-      window.confirm(`❗ Are you sure you want to delete this vehicle type?`)
+      window.confirm("❗ Are you sure you want to delete this vehicle type?")
     ) {
       try {
-        const response = await axios.delete(
-          `${API_URL}/delete-vehicle-type/${id}`
-        );
+        const response = await axios.delete(`${API_URL}/vehicle-types/${id}`);
         if (response.status === 200) {
           alert("✅ Vehicle type deleted successfully!");
-          fetchVehicles(); // ✅ Refresh data without page reload
+          fetchVehicles();
         }
       } catch (error) {
         console.error("❌ Error deleting vehicle:", error);
@@ -119,50 +179,54 @@ const VehicleTypes = () => {
     }
   };
 
+  // -----------------------------------------------------
+  // Handler: Save (Add or Edit)
+  // -----------------------------------------------------
   const handleSave = async (values) => {
     const {
       _id,
       vehicleType,
       shortName,
-      loadCapacity,
-      engineCapacity,
+      loadCapacityValue,
+      loadCapacityUnit,
+      engineCapacityValue,
+      engineCapacityUnit,
       cargoTypeAllowed,
       CommodityCarry,
     } = values;
 
+    // Format data to match Node.js schema
+    const formattedData = {
+      vehicleType: vehicleType.trim(),
+      shortName: shortName.trim(),
+      loadCapacity: {
+        value: loadCapacityValue,
+        unit: loadCapacityUnit,
+      },
+      engineCapacity: {
+        value: engineCapacityValue,
+        unit: engineCapacityUnit,
+      },
+      cargoTypeAllowed,
+      CommodityCarry,
+    };
+
     try {
-      const formattedData = {
-        vehicleType: vehicleType?.trim() || "",
-        shortName: shortName?.trim() || "",
-        loadCapacity:
-          typeof loadCapacity === "string" ? loadCapacity.trim() : loadCapacity,
-        engineCapacity:
-          typeof engineCapacity === "string"
-            ? engineCapacity.trim()
-            : engineCapacity,
-        cargoTypeAllowed,
-        CommodityCarry,
-      };
-
       let response;
-
       if (modalMode === "add") {
-        response = await axios.post(
-          `${API_URL}/add-vehicle-type`,
-          formattedData
-        );
+        response = await axios.post(`${API_URL}/vehicle-types`, formattedData);
         alert("✅ Vehicle type added successfully!");
       } else {
         response = await axios.put(
-          `${API_URL}/update-vehicle-type/${_id}`,
+          `${API_URL}/vehicle-types/${_id}`,
           formattedData
         );
         alert("✅ Vehicle type updated successfully!");
       }
 
       if (response.status === 200 || response.status === 201) {
-        setOpenModal(false); // ✅ Close modal
-        fetchVehicles(); // ✅ Refresh data automatically
+        setOpenModal(false);
+        fetchVehicles();
       }
     } catch (error) {
       console.error("❌ Error saving vehicle:", error);
@@ -174,14 +238,19 @@ const VehicleTypes = () => {
     }
   };
 
+  // -----------------------------------------------------
+  // Render
+  // -----------------------------------------------------
   return (
     <Box>
+      {/* Add Button */}
       <Box sx={{ mb: 2 }}>
         <Button variant="contained" onClick={handleAdd}>
           Add Vehicle Type
         </Button>
       </Box>
 
+      {/* Vehicles Table */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -200,13 +269,21 @@ const VehicleTypes = () => {
               <TableRow key={vehicle._id}>
                 <TableCell>{vehicle.vehicleType}</TableCell>
                 <TableCell>{vehicle.shortName}</TableCell>
-                <TableCell>{vehicle.loadCapacity}</TableCell>
-                <TableCell>{vehicle.engineCapacity}</TableCell>
                 <TableCell>
-                  {vehicle.cargoTypeAllowed?.join(", ") || "N/A"}
+                  {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
                 </TableCell>
                 <TableCell>
-                  {vehicle.CommodityCarry?.join(", ") || "N/A"}
+                  {vehicle.engineCapacity?.value} {vehicle.engineCapacity?.unit}
+                </TableCell>
+                <TableCell>
+                  {vehicle.cargoTypeAllowed?.length
+                    ? vehicle.cargoTypeAllowed.join(", ")
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {vehicle.CommodityCarry?.length
+                    ? vehicle.CommodityCarry.join(", ")
+                    : "N/A"}
                 </TableCell>
                 <TableCell>
                   <IconButton
@@ -228,7 +305,7 @@ const VehicleTypes = () => {
         </Table>
       </TableContainer>
 
-      {/* ✅ Formik Modal for Adding & Editing Vehicle Types */}
+      {/* Dialog (Formik Form) */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -242,9 +319,17 @@ const VehicleTypes = () => {
           <Formik
             initialValues={formData}
             validationSchema={validationSchema}
+            enableReinitialize
             onSubmit={handleSave}
           >
-            {({ values, handleChange, handleBlur, errors, touched }) => (
+            {({
+              values,
+              handleChange,
+              handleBlur,
+              errors,
+              touched,
+              setFieldValue,
+            }) => (
               <Form>
                 <Box
                   sx={{
@@ -254,6 +339,7 @@ const VehicleTypes = () => {
                     mt: 2,
                   }}
                 >
+                  {/* Vehicle Type & Short Name */}
                   <TextField
                     name="vehicleType"
                     label="Vehicle Type"
@@ -261,8 +347,10 @@ const VehicleTypes = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    required
+                    error={touched.vehicleType && Boolean(errors.vehicleType)}
+                    helperText={touched.vehicleType && errors.vehicleType}
                   />
+
                   <TextField
                     name="shortName"
                     label="Short Name"
@@ -270,28 +358,118 @@ const VehicleTypes = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    required
+                    error={touched.shortName && Boolean(errors.shortName)}
+                    helperText={touched.shortName && errors.shortName}
                   />
-                  <TextField
-                    type="number"
-                    name="loadCapacity"
-                    label="Load Capacity"
-                    value={values.loadCapacity}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                  />
-                  <TextField
-                    type="number"
-                    name="engineCapacity"
-                    label="Engine Capacity"
-                    value={values.engineCapacity}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                  />
+
+                  {/* Load Capacity Value & Unit */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        type="number"
+                        name="loadCapacityValue"
+                        label="Load Capacity Value"
+                        value={values.loadCapacityValue}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        error={
+                          touched.loadCapacityValue &&
+                          Boolean(errors.loadCapacityValue)
+                        }
+                        helperText={
+                          touched.loadCapacityValue && errors.loadCapacityValue
+                        }
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Load Capacity Unit</InputLabel>
+                        <Select
+                          name="loadCapacityUnit"
+                          label="Load Capacity Unit"
+                          value={values.loadCapacityUnit || ""}
+                          onChange={(e) =>
+                            setFieldValue("loadCapacityUnit", e.target.value)
+                          }
+                          onBlur={handleBlur}
+                        >
+                          <MenuItem value="">
+                            <em>Select Unit</em>
+                          </MenuItem>
+                          {loadUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {u.unit} ({u.symbol})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {touched.loadCapacityUnit &&
+                          errors.loadCapacityUnit && (
+                            <Typography
+                              sx={{ color: "red", fontSize: 12, mt: 0.5 }}
+                            >
+                              {errors.loadCapacityUnit}
+                            </Typography>
+                          )}
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+
+                  {/* Engine Capacity Value & Unit */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        type="number"
+                        name="engineCapacityValue"
+                        label="Engine Capacity Value"
+                        value={values.engineCapacityValue}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        error={
+                          touched.engineCapacityValue &&
+                          Boolean(errors.engineCapacityValue)
+                        }
+                        helperText={
+                          touched.engineCapacityValue &&
+                          errors.engineCapacityValue
+                        }
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Engine Capacity Unit</InputLabel>
+                        <Select
+                          name="engineCapacityUnit"
+                          label="Engine Capacity Unit"
+                          value={values.engineCapacityUnit || ""}
+                          onChange={(e) =>
+                            setFieldValue("engineCapacityUnit", e.target.value)
+                          }
+                          onBlur={handleBlur}
+                        >
+                          <MenuItem value="">
+                            <em>Select Unit</em>
+                          </MenuItem>
+                          {engineUnits.map((u) => (
+                            <MenuItem key={u._id} value={u.symbol}>
+                              {u.unit} ({u.symbol})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {touched.engineCapacityUnit &&
+                          errors.engineCapacityUnit && (
+                            <Typography
+                              sx={{ color: "red", fontSize: 12, mt: 0.5 }}
+                            >
+                              {errors.engineCapacityUnit}
+                            </Typography>
+                          )}
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+
+                  {/* Cargo Type Allowed */}
                   <FormControl fullWidth>
                     <InputLabel>Cargo Type Allowed</InputLabel>
                     <Select
@@ -314,6 +492,7 @@ const VehicleTypes = () => {
                     </Select>
                   </FormControl>
 
+                  {/* Commodity Carry */}
                   <FormControl fullWidth>
                     <InputLabel>Commodity Carry</InputLabel>
                     <Select
@@ -342,7 +521,8 @@ const VehicleTypes = () => {
                     </Select>
                   </FormControl>
                 </Box>
-                <DialogActions>
+
+                <DialogActions sx={{ mt: 2 }}>
                   <Button onClick={() => setOpenModal(false)}>Cancel</Button>
                   <Button variant="contained" type="submit">
                     {modalMode === "add" ? "Add" : "Save"}

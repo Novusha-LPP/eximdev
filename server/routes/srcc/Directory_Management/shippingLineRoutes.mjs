@@ -1,25 +1,24 @@
 import express from "express";
 import ShippingLine from "../../../model/srcc/Directory_Management/ShippingLine.mjs";
-// ^ Adjust path as needed
 
 const router = express.Router();
 
 // CREATE: Add new Shipping Line
 router.post("/api/add-shipping-line", async (req, res) => {
   try {
-    const { name } = req.body;
-    // Optional: Check if name already exists if you have uniqueness requirement
-    // const existingLine = await ShippingLine.findOne({ name });
-    // if (existingLine) return res.status(400).json({ error: "Shipping line already exists" });
+    const { name, organisation } = req.body;
 
-    const newLine = await ShippingLine.create({ name });
+    if (!organisation || !organisation._id || !organisation.name) {
+      return res.status(400).json({ error: "Organisation info is required" });
+    }
+
+    const newLine = await ShippingLine.create({ name, organisation });
     res.status(201).json({
       message: "Shipping line added successfully",
       data: newLine,
     });
   } catch (error) {
     if (error.code === 11000) {
-      // Duplicate key error
       return res.status(400).json({ error: "Shipping line already exists" });
     }
     console.error("Error adding ShippingLine:", error);
@@ -27,7 +26,7 @@ router.post("/api/add-shipping-line", async (req, res) => {
   }
 });
 
-// READ ALL: Get all Shipping Lines
+// READ ALL
 router.get("/api/get-shipping-line", async (req, res) => {
   try {
     const lines = await ShippingLine.find();
@@ -38,7 +37,7 @@ router.get("/api/get-shipping-line", async (req, res) => {
   }
 });
 
-// READ ONE: Get by ID
+// READ ONE
 router.get("/api/get-shipping-line/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -56,16 +55,16 @@ router.get("/api/get-shipping-line/:id", async (req, res) => {
 // UPDATE
 router.put("/api/update-shipping-line/:id", async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const { name, organisation } = req.body;
 
   try {
-    // Optional uniqueness check
-    // const existingLine = await ShippingLine.findOne({ name, _id: { $ne: id } });
-    // if (existingLine) return res.status(400).json({ error: "Shipping line already exists" });
+    if (!organisation || !organisation._id || !organisation.name) {
+      return res.status(400).json({ error: "Organisation info is required" });
+    }
 
     const updatedLine = await ShippingLine.findByIdAndUpdate(
       id,
-      { name },
+      { name, organisation },
       { new: true }
     );
 
@@ -79,7 +78,6 @@ router.put("/api/update-shipping-line/:id", async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      // Duplicate key error
       return res.status(400).json({ error: "Shipping line already exists" });
     }
     console.error("❌ Error updating ShippingLine:", error);

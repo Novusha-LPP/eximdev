@@ -6,7 +6,18 @@ const ShippingLineSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      unique: true, // Uncomment if you want to enforce uniqueness
+      unique: true,
+    },
+    organisation: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Organisation",
+        required: true,
+      },
+      name: {
+        type: String,
+        required: true,
+      },
     },
   },
   { timestamps: true }

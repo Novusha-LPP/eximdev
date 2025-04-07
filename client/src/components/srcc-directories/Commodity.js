@@ -25,9 +25,7 @@ import * as Yup from "yup";
 // Validation schema with Yup
 const validationSchema = Yup.object({
   name: Yup.string().required("Commodity Name is required"),
-  hsn_code: Yup.string()
-    .required("HSN Code is required")
-    .matches(/^\S*$/, "HSN Code must not contain spaces"),
+  hsn_code: Yup.string().matches(/^\S*$/, "HSN Code must not contain spaces"),
   description: Yup.string().required("Description is required"),
 });
 
@@ -104,36 +102,31 @@ const Commoditys = () => {
     const formattedData = {
       name: name.trim(),
       description: description.trim(),
-      hsn_code: hsn_code.trim(),
+      hsn_code: hsn_code?.trim(), // Optional
     };
 
     try {
-      if (modalMode === "add" || modalMode === "edit") {
-        // Check for duplicate HSN Code before submitting
-        const response = await axios.get(`${API_URL}/get-commodity-type`);
+      const response = await axios.get(`${API_URL}/get-commodity-type`);
+      const commodityList = response.data.data || [];
 
-        const commodityList = response.data.data || [];
-        const isHSNExists = commodityList.some(
-          (item) =>
-            item.hsn_code.toLowerCase() ===
-              formattedData.hsn_code.toLowerCase() && item._id !== _id
-        );
+      const isNameExists = commodityList.some(
+        (item) =>
+          item.name.toLowerCase() === formattedData.name.toLowerCase() &&
+          item._id !== _id
+      );
 
-        if (isHSNExists) {
-          alert(`HSN Code "${formattedData.hsn_code}" already exists!`);
-          return;
-        }
+      if (isNameExists) {
+        alert(`Commodity name "${formattedData.name}" already exists!`);
+        return;
       }
 
       if (modalMode === "add") {
-        // Add new commodity
         const response = await axios.post(
           `${API_URL}/add-commodity-type`,
           formattedData
         );
         responseHandler(response, "added");
       } else {
-        // Update existing commodity with the new HSN Code
         const response = await axios.put(
           `${API_URL}/update-commodity-type/${_id}`,
           formattedData
@@ -245,13 +238,11 @@ const Commoditys = () => {
                   />
                   <TextField
                     name="hsn_code"
-                    label="HSN Code"
+                    label="HSN Code (optional)"
                     value={values.hsn_code}
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
-                    required
-                    // disabled={modalMode === "edit"} // 👈 Prevents editing in edit mode
                     error={touched.hsn_code && Boolean(errors.hsn_code)}
                     helperText={touched.hsn_code && errors.hsn_code}
                   />

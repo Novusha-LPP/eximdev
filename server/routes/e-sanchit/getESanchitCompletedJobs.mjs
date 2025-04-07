@@ -45,19 +45,21 @@ router.get("/api/get-esanchit-completed-jobs", async (req, res) => {
     const searchQuery = search ? buildSearchQuery(search) : {};
 
     // Construct base query
-    const baseQuery = {
-      $and: [
-        { status: { $regex: /^pending$/i } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-        { job_no: { $ne: null } },
-        { out_of_charge: { $eq: "" } },
-        // Only include documents where esanchit_completed_date_time is not null or empty
-        {
-          esanchit_completed_date_time: { $exists: true, $ne: "" },
-        },
-        searchQuery,
-      ],
-    };
+   const baseQuery = {
+     $and: [
+       { status: { $regex: /^pending$/i } }, // ✅ Status must be "pending"
+       { be_no: { $in: [null, ""] } },  // ✅ Exclude documents with `be_no` as "cancelled"
+       { job_no: { $ne: null } }, // ✅ Ensure `job_no` is not null
+       {
+         out_of_charge: { $in: [null, ""] }, // ✅ Exclude if `out_of_charge_date` has any value
+       },
+       {
+         esanchit_completed_date_time: { $exists: true, $ne: "" }, // ✅ `esanchit_completed_date_time` must exist and not be empty
+       },
+       searchQuery, // ✅ Apply search filters
+     ],
+   };
+
 
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {

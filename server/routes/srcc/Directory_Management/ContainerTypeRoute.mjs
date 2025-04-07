@@ -16,8 +16,12 @@ router.post("/api/add-container-type", async (req, res) => {
     iso_code,
     teu,
     outer_dimension,
+    cubic_capacity,
     tare_weight,
     payload,
+    is_temp_controlled, // new field
+    is_tank_container, // new field
+    size, // new field
   } = req.body;
 
   try {
@@ -37,8 +41,12 @@ router.post("/api/add-container-type", async (req, res) => {
       iso_code,
       teu,
       outer_dimension,
+      cubic_capacity, // added
       tare_weight,
       payload,
+      is_temp_controlled, // added
+      is_tank_container, // added
+      size, // added
     });
 
     res.status(201).json({
@@ -57,7 +65,7 @@ router.post("/api/add-container-type", async (req, res) => {
  */
 router.get("/api/get-container-types", async (req, res) => {
   try {
-    const containerTypes = await ContainerType.find(); // ✅ Ensure correct response format
+    const containerTypes = await ContainerType.find();
     res.status(200).json(containerTypes);
   } catch (error) {
     console.error("Error fetching container types:", error);
@@ -93,8 +101,12 @@ router.put("/api/update-container-type/:id", async (req, res) => {
       iso_code,
       teu,
       outer_dimension,
+      cubic_capacity,
       tare_weight,
       payload,
+      is_temp_controlled, // new field
+      is_tank_container, // new field
+      size, // new field
     } = req.body;
 
     if (!req.params.id) {
@@ -103,7 +115,18 @@ router.put("/api/update-container-type/:id", async (req, res) => {
 
     const updatedContainer = await ContainerType.findByIdAndUpdate(
       req.params.id,
-      { container_type, iso_code, teu, outer_dimension, tare_weight, payload },
+      {
+        container_type,
+        iso_code,
+        teu,
+        outer_dimension,
+        cubic_capacity, // added
+        tare_weight,
+        payload,
+        is_temp_controlled, // added
+        is_tank_container, // added
+        size, // added
+      },
       { new: true, runValidators: true }
     );
 

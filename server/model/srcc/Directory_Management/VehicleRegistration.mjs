@@ -22,21 +22,29 @@ const VehicleRegistrationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // Updated initialOdometer as an object with value and unit
     initialOdometer: {
-      type: Number,
-      required: true,
+      value: { type: Number, required: true, min: 0 },
+      unit: { type: String, required: true, trim: true },
     },
+    // Updated loadCapacity as an object with value and unit
     loadCapacity: {
-      type: String,
-      required: true,
-      trim: true,
+      value: { type: Number, required: true, min: 0 },
+      unit: { type: String, required: true, trim: true },
     },
     driver: {
-      type: String,
-      trim: true,
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "DriverType", // Make sure your Driver model is named this
+        required: true,
+      },
+      name: {
+        type: String,
+        required: true,
+        trim: true,
+      },
     },
     purchase: {
-      // Adjust type as needed, for instance Date or a reference to another document
       type: Date,
       required: false,
     },

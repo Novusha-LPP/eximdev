@@ -458,17 +458,17 @@ const DriversListDirectory = () => {
                         renderValue={(selected) =>
                           vehicleTypes
                             .filter((vehicle) =>
-                              selected.includes(vehicle.value)
+                              selected.includes(vehicle.name)
                             )
                             .map((vehicle) => vehicle.label)
                             .join(", ")
                         }
                       >
                         {vehicleTypes.map((vehicle) => (
-                          <MenuItem key={vehicle.value} value={vehicle.value}>
+                          <MenuItem key={vehicle.name} value={vehicle.name}>
                             <Checkbox
                               checked={values.drivingVehicleTypes.includes(
-                                vehicle.value
+                                vehicle.name
                               )}
                             />
                             {vehicle.label}

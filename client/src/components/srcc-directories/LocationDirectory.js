@@ -113,7 +113,7 @@ function LocationDirectory() {
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Postal Code</TableCell>
-              <TableCell>City</TableCell>
+              <TableCell>Taluka</TableCell>
               <TableCell>District</TableCell>
               <TableCell>State</TableCell>
               <TableCell>Country</TableCell>

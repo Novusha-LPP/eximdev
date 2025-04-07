@@ -149,18 +149,17 @@ const updateDetailedStatus = () => {
   const anyContainerArrivalDate = container_nos?.some(
     (container) => container.arrival_date
   );
-  const containerRailOutDate = container_nos?.every(
-    (container) => container.container_rail_out_date
-  );
-  const emptyContainerOffLoadDate = container_nos?.every(
-    (container) => container.emptyContainerOffLoadDate
-  );
-  setEmptyContainerOffLoadDate(emptyContainerOffLoadDate);
+  const containerRailOutDate =
+  container_nos?.length > 0 &&
+  container_nos.every((container) => container.container_rail_out_date);
 
-  const deliveryDate = container_nos?.every(
-    (container) => container.delivery_date
-  );
-  setDeliveryDate(deliveryDate);
+  const emptyContainerOffLoadDate =
+  container_nos?.length > 0 &&
+  container_nos.every((container) => container.emptyContainerOffLoadDate);
+
+const deliveryDate =
+  container_nos?.length > 0 &&
+  container_nos.every((container) => container.delivery_date);
 
   // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
   const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";

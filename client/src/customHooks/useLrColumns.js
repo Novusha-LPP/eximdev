@@ -102,6 +102,15 @@ function useLrColumns(props) {
             rowIndex,
             "sr_cel_id"
           );
+          onSelect(
+            {
+              target: {
+                value: newValue ? newValue._id : null, // Save the Elock _id
+              },
+            },
+            rowIndex,
+            "elock"
+          );
         }}
         defaultValue={
           options.find((option) => option.label === defaultValue) || null

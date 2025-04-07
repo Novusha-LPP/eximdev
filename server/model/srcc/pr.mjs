@@ -121,15 +121,28 @@ const PrDataSchema = new mongoose.Schema({
       sr_cel_id: {
         type: String,
       },
-      elock:{
+      elock: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: Elock,
-      },  
+        ref: "Elock", // Reference the Elock model
+      },
       status: {
         type: String,
       },
+      lr_completed: {
+        type: Boolean,
+        default: false, // Default to false
+      },
     },
   ],
+});
+
+// Enable population of the `elock` field
+PrDataSchema.pre("find", function () {
+  this.populate("containers.elock");
+});
+
+PrDataSchema.pre("findOne", function () {
+  this.populate("containers.elock");
 });
 
 const PrData = new mongoose.model("PrData", PrDataSchema);

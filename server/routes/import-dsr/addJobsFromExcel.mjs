@@ -221,6 +221,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
 
             vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
             line_no: lineNoUpdate, // Ensure correct update logic
+            ice_code: iceCodeUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
             status:
               existingJob.status === "Completed"

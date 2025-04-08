@@ -71,7 +71,7 @@ const EditableDateCell = ({ cell }) => {
   
   const deliveryDate =
   containers?.length > 0 &&
-  containers.every((container) => container.delivery_date);
+    containers.every((container) => container.delivery_date);
   
     const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
   

@@ -13,14 +13,15 @@ router.get("/api/lr-job-list", async (req, res) => {
       status?.toLowerCase() === "pending"
         ? {
             $or: [
-              { "containers.lr_completed": { $exists: false } },
-              { "containers.lr_completed": false },
+              { "containers.lr_completed": { $exists: false } }, // Missing field
+              { "containers.lr_completed": false }, // Explicitly false
             ],
           }
-        : { "containers.lr_completed": true };
+        : { "containers.lr_completed": true }; // Explicitly true
 
     const pipeline = [
-      { $match: matchCondition },
+      { $unwind: "$containers" }, // Flatten the containers array
+      { $match: matchCondition }, // Apply the match condition
       {
         $match: {
           $or: [
@@ -30,62 +31,81 @@ router.get("/api/lr-job-list", async (req, res) => {
           ],
         },
       },
-      { $unwind: "$containers" }, // Flatten the containers array
-      { $skip: skip },
-      { $limit: parseInt(limit) },
       {
         $project: {
           pr_no: 1,
           pr_date: 1,
-          import_export: 1,
           branch: 1,
           consignor: 1,
-          consignee: 1,
-          container_type: 1,
           container_count: 1,
-          gross_weight: 1,
-          type_of_vehicle: 1,
           no_of_vehicle: 1,
-          description: 1,
-          shipping_line: 1,
-          container_loading: 1,
-          container_offloading: 1,
-          do_validity: 1,
-          instructions: 1,
-          document_no: 1,
-          document_date: 1,
-          goods_pickup: 1,
-          goods_delivery: 1,
-          status: 1,
-          "container_details.tr_no": "$containers.tr_no",
-          "container_details.container_number": "$containers.container_number",
-          "container_details.seal_no": "$containers.seal_no",
-          "container_details.gross_weight": "$containers.gross_weight",
-          "container_details.tare_weight": "$containers.tare_weight",
-          "container_details.net_weight": "$containers.net_weight",
-          "container_details.goods_pickup": "$containers.goods_pickup",
-          "container_details.goods_delivery": "$containers.goods_delivery",
-          "container_details.own_hired": "$containers.own_hired",
-          "container_details.type_of_vehicle": "$containers.type_of_vehicle",
-          "container_details.vehicle_no": "$containers.vehicle_no",
-          "container_details.driver_name": "$containers.driver_name",
-          "container_details.driver_phone": "$containers.driver_phone",
-          "container_details.eWay_bill": "$containers.eWay_bill",
-          "container_details.isOccupied": "$containers.isOccupied",
-          "container_details.sr_cel_no": "$containers.sr_cel_no",
-          "container_details.sr_cel_FGUID": "$containers.sr_cel_FGUID",
-          "container_details.sr_cel_id": "$containers.sr_cel_id",
-          "container_details.elock": "$containers.elock",
-          "container_details.status": "$containers.status",
-          "container_details.lr_completed": "$containers.lr_completed",
+          "container_details.tr_no": { $ifNull: ["$containers.tr_no", null] },
+          "container_details.container_number": {
+            $ifNull: ["$containers.container_number", null],
+          },
+          "container_details.seal_no": {
+            $ifNull: ["$containers.seal_no", null],
+          },
+          "container_details.gross_weight": {
+            $ifNull: ["$containers.gross_weight", null],
+          },
+          "container_details.tare_weight": {
+            $ifNull: ["$containers.tare_weight", null],
+          },
+          "container_details.net_weight": {
+            $ifNull: ["$containers.net_weight", null],
+          },
+          "container_details.goods_pickup": {
+            $ifNull: ["$containers.goods_pickup", null],
+          },
+          "container_details.goods_delivery": {
+            $ifNull: ["$containers.goods_delivery", null],
+          },
+          "container_details.own_hired": {
+            $ifNull: ["$containers.own_hired", null],
+          },
+          "container_details.type_of_vehicle": {
+            $ifNull: ["$containers.type_of_vehicle", null],
+          },
+          "container_details.vehicle_no": {
+            $ifNull: ["$containers.vehicle_no", null],
+          },
+          "container_details.driver_name": {
+            $ifNull: ["$containers.driver_name", null],
+          },
+          "container_details.driver_phone": {
+            $ifNull: ["$containers.driver_phone", null],
+          },
+          "container_details.eWay_bill": {
+            $ifNull: ["$containers.eWay_bill", null],
+          },
+          "container_details.isOccupied": {
+            $ifNull: ["$containers.isOccupied", false],
+          },
+          "container_details.sr_cel_no": {
+            $ifNull: ["$containers.sr_cel_no", null],
+          },
+          "container_details.sr_cel_FGUID": {
+            $ifNull: ["$containers.sr_cel_FGUID", null],
+          },
+          "container_details.sr_cel_id": {
+            $ifNull: ["$containers.sr_cel_id", null],
+          },
+          "container_details.elock": { $ifNull: ["$containers.elock", null] },
+          "container_details.status": { $ifNull: ["$containers.status", null] },
+          "container_details.lr_completed": {
+            $ifNull: ["$containers.lr_completed", false], // Default to false if missing
+          },
         },
       },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
     ];
 
     const data = await PrData.aggregate(pipeline);
     const total = await PrData.aggregate([
-      { $match: matchCondition },
       { $unwind: "$containers" },
+      { $match: matchCondition },
       { $count: "total" },
     ]);
 

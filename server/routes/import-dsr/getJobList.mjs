@@ -26,7 +26,7 @@ const parseDate = (dateStr) => {
 // Field selection logic
 const defaultFields = `
   job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
-  gateway_igm_date discharge_date detailed_status be_no be_date loading_port 
+  gateway_igm_date discharge_date detailed_status be_no be_date loading_port free_time
   port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity rail_out_date cth_documents payment_method supplier_exporter gross_weight job_net_weight processed_be_attachment ooc_copies gate_pass_copies
 `;
 

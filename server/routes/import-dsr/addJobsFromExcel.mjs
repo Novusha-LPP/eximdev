@@ -155,6 +155,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         unit_price,
         vessel_berthing, // New value from Excel
         line_no,
+        ice_code,
         container_nos, // Assume container data is part of the incoming job data
         hss_name,
         total_inv_value,
@@ -174,6 +175,8 @@ router.post("/api/jobs/add-job", async (req, res) => {
       // Check if the job already exists in the database
       const existingJob = await JobModel.findOne(filter);
       let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+      let lineNoUpdate = existingJob?.line_no || "";
+      let iceCodeUpdate = existingJob?.ice_code || "";
 
       // Only update vessel_berthing if it's empty in the database
       if (
@@ -181,6 +184,20 @@ router.post("/api/jobs/add-job", async (req, res) => {
         (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
       ) {
         vesselBerthingToUpdate = vessel_berthing;
+      }
+      // Only update lineNoUpdate if it's empty in the database
+      if (
+        line_no && // Excel has a valid lineNoUpdate
+        (!lineNoUpdate || lineNoUpdate.trim() === "")
+      ) {
+        lineNoUpdate = line_no;
+      }
+      // Only update iceCodeUpdate if it's empty in the database
+      if (
+        ice_code && // Excel has a valid iceCodeUpdate
+        (!iceCodeUpdate || iceCodeUpdate.trim() === "")
+      ) {
+        iceCodeUpdate = ice_code;
       }
 
       if (existingJob) {
@@ -203,6 +220,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
             ...data,
 
             vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
+            line_no: lineNoUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
             status:
               existingJob.status === "Completed"
@@ -354,10 +372,12 @@ function determineDetailedStatus(job) {
     isValidDate(container.arrival_date)
   );
 
-  const emptyContainerOffLoadDate = container_nos?.every((container) =>
+  const emptyContainerOffLoadDate = container_nos?.length > 0 &&
+    every((container) =>
     isValidDate(container.emptyContainerOffLoadDate)
   );
-  const delivery_date = container_nos?.every((container) =>
+  const delivery_date = container_nos ?.length > 0 &&
+    every((container) =>
     isValidDate(container.delivery_date)
   );
 

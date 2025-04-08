@@ -52,7 +52,7 @@ function PrRegister() {
           [
           <Tab label="Pending" {...a11yProps(0)} key={0} />,
           <Tab label="Completed" {...a11yProps(1)} key={1} />,
-          <Tab label="Cancelled" {...a11yProps(2)} key={2} />
+          {/* <Tab label="Cancelled" {...a11yProps(2)} key={2} /> */}
           ,]
         </Tabs>
       </Box>

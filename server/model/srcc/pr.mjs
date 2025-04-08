@@ -134,6 +134,10 @@ const PrDataSchema = new mongoose.Schema({
       },
     },
   ],
+  status: {
+    type: String,
+  },
+
 });
 
 // Enable population of the `elock` field

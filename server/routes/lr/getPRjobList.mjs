@@ -11,7 +11,7 @@ router.get("/api/pr-job-list", async (req, res) => {
 
     // Build aggregation pipeline based on status
     const matchCondition =
-      status?.toLowerCase() === "pending" // Convert status to lowercase for case-insensitive comparison
+      status?.toLowerCase() === "pending"
         ? {
             $or: [
               { status: { $exists: false } },
@@ -19,7 +19,24 @@ router.get("/api/pr-job-list", async (req, res) => {
               { status: "pending" },
             ],
           }
-        : { status: "completed" };
+        : status?.toLowerCase() === "completed"
+        ? {
+            $expr: {
+              $eq: [
+                { $size: "$containers" },
+                {
+                  $size: {
+                    $filter: {
+                      input: "$containers",
+                      as: "container",
+                      cond: "$$container.lr_completed",
+                    },
+                  },
+                },
+              ],
+            },
+          }
+        : {}; // Default to an empty condition if no valid status is provided
 
     const pipeline = [
       { $match: matchCondition },

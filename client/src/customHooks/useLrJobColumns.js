@@ -145,12 +145,14 @@ const usePrJobColumns = () => {
       header: "TR No",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ cell }) => cell.getValue() || "N/A",
     },
     {
       accessorKey: "container_details.container_number",
       header: "Container Number",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ cell }) => cell.getValue() || "N/A",
     },
     {
       accessorKey: "container_details.seal_no",
@@ -247,6 +249,7 @@ const usePrJobColumns = () => {
       header: "SR Cell ID",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ cell }) => cell.getValue() || "N/A", // Show "N/A" if undefined
     },
     {
       accessorKey: "container_details.elock",

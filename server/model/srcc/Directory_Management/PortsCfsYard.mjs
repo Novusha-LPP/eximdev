@@ -27,6 +27,9 @@ const PortsCfsYardSchema = new mongoose.Schema(
     contactPersonName: { type: String, trim: true },
     contactPersonEmail: { type: String, trim: true },
     contactPersonPhone: { type: String, trim: true },
+    isBranch: { type: Boolean, default: false },
+    prefix: { type: String, trim: true },
+    suffix: { type: String, trim: true },
   },
   { timestamps: true }
 );

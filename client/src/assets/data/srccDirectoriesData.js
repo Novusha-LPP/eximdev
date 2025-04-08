@@ -28,6 +28,7 @@ export const viewMasterList = [
   "Advance To Driver",
   "shipping Line",
   "Organisation",
+  "Elock",
   "Unit Conversion",
   "Country Code"
   // "Organisation",

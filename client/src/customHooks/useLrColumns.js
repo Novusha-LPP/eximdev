@@ -883,7 +883,7 @@ function useLrColumns(props) {
 
     {
       accessorKey: "sr_cel_no",
-      header: "SR CEL No",
+      header: "E-Lock No",
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => (

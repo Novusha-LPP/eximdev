@@ -19,6 +19,12 @@ const ShippingLineSchema = new mongoose.Schema(
         required: true,
       },
     },
+    code: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+    },
   },
   { timestamps: true }
 );

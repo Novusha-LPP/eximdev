@@ -10,15 +10,39 @@ import { handleSavePr } from "../utils/handleSavePr";
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
   const [shippingLines, setShippingLines] = useState([]);
+  const [branchOptions, setBranchOptions] = useState([]);
 
   const fetchShippingLines = async () => {
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-shipping-line`
       );
-      setShippingLines(response.data.data.map((item) => item.name) || []);
+      setShippingLines(
+        response.data.data.map((item) => ({
+          code: item.code || "",
+          name: item.name || "",
+        }))
+      );
     } catch (error) {
       console.error("❌ Error fetching shipping lines:", error);
+    }
+  };
+
+  const fetchBranchOptions = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-port-types`
+      );
+      setBranchOptions(
+        response.data.data
+          .filter((item) => item.isBranch) // Only include items where isBranch is true
+          .map((item) => ({
+            label: item.icd_code,
+            value: item.icd_code,
+          }))
+      );
+    } catch (error) {
+      console.error("❌ Error fetching branch options:", error);
     }
   };
 
@@ -32,6 +56,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   useEffect(() => {
     getPrData();
     fetchShippingLines();
+    fetchBranchOptions();
   }, []);
 
   const handleInputChange = (event, rowIndex, columnId) => {
@@ -76,9 +101,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     },
     {
       accessorKey: "import_export",
-      header: "Import/Export",
+      header: "Imp/Exp",
       enableSorting: false,
-      size: 150,
+      size: 100,
       Cell: ({ cell, row }) => (
         <TextField
           select
@@ -101,22 +126,25 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       size: 150,
       Cell: ({ cell, row }) =>
         !row.original.pr_no ? (
-          <TextField
-            select
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={branchOptions}
+            getOptionLabel={(option) => option.label || ""}
+            value={
+              branchOptions.find(
+                (option) => option.value === rows[row.index]?.branch
+              ) || null
             }
-          >
-            <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-            <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-            <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-            <MenuItem value="HAZIRA">HAZIRA</MenuItem>
-            <MenuItem value="MUNDRA PORT">MUNDRA PORT</MenuItem>
-            <MenuItem value="BARODA">BARODA</MenuItem>
-          </TextField>
+            onChange={(_, newValue) =>
+              handleInputChange(
+                { target: { value: newValue?.value || "" } },
+                row.index,
+                cell.column.id
+              )
+            }
+            renderInput={(params) => <TextField {...params} size="small" />}
+          />
         ) : (
           cell.getValue()
         ),
@@ -212,11 +240,15 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           fullWidth
           disablePortal={false}
           options={shippingLines}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.shipping_line || null}
+          getOptionLabel={(option) => option.name}
+          value={
+            shippingLines.find(
+              (line) => line.code === rows[row.index]?.shipping_line
+            ) || null
+          }
           onChange={(_, newValue) =>
             handleInputChange(
-              { target: { value: newValue || "" } },
+              { target: { value: newValue?.code || "" } },
               row.index,
               cell.column.id
             )

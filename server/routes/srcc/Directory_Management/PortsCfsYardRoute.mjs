@@ -16,6 +16,9 @@ router.post("/api/add-port-type", async (req, res) => {
     contactPersonName,
     contactPersonEmail,
     contactPersonPhone,
+    isBranch, // Add this field
+    prefix,
+    suffix,
   } = req.body;
 
   try {
@@ -47,6 +50,9 @@ router.post("/api/add-port-type", async (req, res) => {
       contactPersonName,
       contactPersonEmail,
       contactPersonPhone,
+      isBranch, // Add this field
+      prefix,
+      suffix,
     });
 
     res.status(201).json({
@@ -101,6 +107,9 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
     contactPersonName,
     contactPersonEmail,
     contactPersonPhone,
+    isBranch, // Add this field
+    prefix,
+    suffix,
   } = req.body;
 
   try {
@@ -122,6 +131,9 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
         contactPersonName,
         contactPersonEmail,
         contactPersonPhone,
+        isBranch, // Add this field
+        prefix,
+        suffix,
       },
       { new: true }
     );

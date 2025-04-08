@@ -12,6 +12,7 @@ import VehicleRegistration from "./VehicleRegistration";
 import TollData from "./TollData";
 import AdvanceToDriver from "./AdvanceToDriver";
 import ShippingLine from "./ShippingLine";
+import Elock from "./Elock";
 import Organisation from "./Organisation";
 import UnitConversion from "./unitConversion";
 import CountryCode from "./ContryCode";
@@ -45,6 +46,8 @@ function DirectoryComponent({ directoryType }) {
         return <AdvanceToDriver />;
       case "shipping Line": // ✅ Added Commoditys Directory
         return <ShippingLine />;
+      case "Elock": // ✅ Added Commoditys Directory
+        return <Elock />;
       case "Organisation": // ✅ Added Commoditys Directory
         return <Organisation />;
       case "Unit Conversion": // ✅ Added Commoditys Directory

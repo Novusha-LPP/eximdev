@@ -24,6 +24,7 @@ import {
   Select,
   MenuItem,
   InputLabel,
+  Checkbox,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -63,6 +64,9 @@ function PortsCfsYardDirectory() {
     contactPersonName: "",
     contactPersonEmail: "",
     contactPersonPhone: "",
+    isBranch: false,
+    prefix: "",
+    suffix: "",
   });
   const [existingPorts, setExistingPorts] = useState([]);
 
@@ -97,6 +101,9 @@ function PortsCfsYardDirectory() {
       contactPersonName: "",
       contactPersonEmail: "",
       contactPersonPhone: "",
+      isBranch: false,
+      prefix: "",
+      suffix: "",
     });
     setOpenModal(true);
   };
@@ -114,6 +121,9 @@ function PortsCfsYardDirectory() {
       contactPersonName: port.contactPersonName,
       contactPersonEmail: port.contactPersonEmail,
       contactPersonPhone: port.contactPersonPhone,
+      isBranch: port.isBranch,
+      prefix: port.prefix || "",
+      suffix: port.suffix || "",
     });
     setOpenModal(true);
   };
@@ -144,6 +154,8 @@ function PortsCfsYardDirectory() {
         contactPersonName: values.contactPersonName.trim(),
         contactPersonEmail: values.contactPersonEmail.trim(),
         contactPersonPhone: values.contactPersonPhone.trim(),
+        prefix: values.isBranch ? values.prefix.trim() : "",
+        suffix: values.isBranch ? values.suffix.trim() : "",
       };
 
       if (
@@ -201,6 +213,7 @@ function PortsCfsYardDirectory() {
               <TableCell>Contact Person</TableCell>
               <TableCell>Contact Email</TableCell>
               <TableCell>Contact Phone</TableCell>
+              <TableCell>Is Branch</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -216,6 +229,7 @@ function PortsCfsYardDirectory() {
                 <TableCell>{port.contactPersonName}</TableCell>
                 <TableCell>{port.contactPersonEmail}</TableCell>
                 <TableCell>{port.contactPersonPhone}</TableCell>
+                <TableCell>{port.isBranch ? "Yes" : "No"}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(port)} color="primary">
                     <EditIcon />
@@ -349,26 +363,61 @@ function PortsCfsYardDirectory() {
                     helperText={touched.country && errors.country}
                   />
 
-                  <FormControl component="fieldset">
-                    <FormLabel component="legend">Active</FormLabel>
-                    <RadioGroup
-                      row
-                      name="active"
-                      value={values.active}
-                      onChange={handleChange}
-                    >
+                  <Box display="flex" alignItems="center" gap={4}>
+                    <FormControl component="fieldset">
+                      <FormLabel component="legend">Active</FormLabel>
+                      <RadioGroup
+                        row
+                        name="active"
+                        value={values.active}
+                        onChange={handleChange}
+                      >
+                        <FormControlLabel
+                          value={true}
+                          control={<Radio sx={{ color: "green" }} />}
+                          label="Active"
+                        />
+                        <FormControlLabel
+                          value={false}
+                          control={<Radio />}
+                          label="Inactive"
+                        />
+                      </RadioGroup>
+                    </FormControl>
+                    <FormControl component="fieldset">
+                      <FormLabel component="legend">Is Branch</FormLabel>
                       <FormControlLabel
-                        value={true}
-                        control={<Radio sx={{ color: "green" }} />}
-                        label="Active"
+                        control={
+                          <Checkbox
+                            name="isBranch"
+                            checked={values.isBranch}
+                            onChange={handleChange}
+                          />
+                        }
+                        label="Is Branch"
                       />
-                      <FormControlLabel
-                        value={false}
-                        control={<Radio />}
-                        label="Inactive"
-                      />
-                    </RadioGroup>
-                  </FormControl>
+                    </FormControl>
+                    {values.isBranch && (
+                      <Box display="flex" gap={2}>
+                        <TextField
+                          name="prefix"
+                          label="Prefix"
+                          value={values.prefix}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          fullWidth
+                        />
+                        <TextField
+                          name="suffix"
+                          label="Suffix"
+                          value={values.suffix}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          fullWidth
+                        />
+                      </Box>
+                    )}
+                  </Box>
 
                   <FormControl fullWidth>
                     <Autocomplete

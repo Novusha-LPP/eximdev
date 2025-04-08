@@ -147,21 +147,25 @@ const EditableDateCell = ({ cell }) => {
 
   // Validate date format
   const validateDate = (dateString) => {
+    // Allow empty string (cleared date is valid)
+    if (!dateString || dateString.trim() === "") return true;
+  
     // Basic date validation
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(dateString)) return false;
-
+  
     const date = new Date(dateString);
-
+  
     // Check if date is valid (not Invalid Date)
     if (isNaN(date.getTime())) return false;
-
+  
     // Check year is reasonable (between 2000 and 2100)
-    const year = parseInt(dateString.substring(0, 4));
+    const year = parseInt(dateString.substring(0, 4), 10);
     if (year < 2000 || year > 2100) return false;
-
+  
     return true;
   };
+  
 
   // Handle date change
   const handleDateInputChange = (e) => {
@@ -192,19 +196,22 @@ const EditableDateCell = ({ cell }) => {
       const updatedContainers = containers.map((container, i) => {
         if (i === index) {
           const updatedContainer = { ...container, [field]: finalValue };
+  
+       // Automatically update detention_from if arrival_date is changed
+if (field === "arrival_date") {
+  if (!finalValue) {
+    // If arrival_date is cleared, also clear detention_from
+    updatedContainer.detention_from = "";
+  } else {
+    const arrival = new Date(finalValue);
+    const freeDays = parseInt(localFreeTime) || 0;
 
-          // Automatically update detention_from if arrival_date is changed
-          if (field === "arrival_date") {
-            const arrival = new Date(finalValue);
-            const freeDays = parseInt(localFreeTime) || 0;
+    const detentionDate = new Date(arrival);
+    detentionDate.setDate(detentionDate.getDate() + freeDays);
 
-            const detentionDate = new Date(arrival);
-            detentionDate.setDate(detentionDate.getDate() + freeDays);
-
-            updatedContainer.detention_from = detentionDate
-              .toISOString()
-              .slice(0, 10);
-          }
+    updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
+  }
+}
 
           return updatedContainer;
         }

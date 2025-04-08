@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Elock from "./Directory_Management/Elock.mjs";
 
 const PrDataSchema = new mongoose.Schema({
   pr_no: {
@@ -120,11 +121,31 @@ const PrDataSchema = new mongoose.Schema({
       sr_cel_id: {
         type: String,
       },
+      elock: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Elock", // Reference the Elock model
+      },
       status: {
         type: String,
       },
+      lr_completed: {
+        type: Boolean,
+        default: false, // Default to false
+      },
     },
   ],
+  status: {
+    type: String,
+  },
+});
+
+// Enable population of the `elock` field
+PrDataSchema.pre("find", function () {
+  this.populate("containers.elock");
+});
+
+PrDataSchema.pre("findOne", function () {
+  this.populate("containers.elock");
 });
 
 const PrData = new mongoose.model("PrData", PrDataSchema);

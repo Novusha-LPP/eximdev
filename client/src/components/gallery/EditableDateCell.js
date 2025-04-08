@@ -62,24 +62,25 @@ const EditableDateCell = ({ cell }) => {
     const dischargeDate = dates.discharge_date;
     const outOfChargeDate = dates.out_of_charge;
     const pcvDate = dates.pcv_date;
-  
-    const billOfEntryNo = be_no;  
-    const anyContainerArrivalDate = containers.some(c => c.arrival_date);
+
+    const billOfEntryNo = be_no;
+    const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
 
     const containerRailOutDate =
-    containers?.length > 0 &&
-    containers.every((container) => container.container_rail_out_date);
-  
-  const emptyContainerOffLoadDate =
-  containers?.length > 0 &&
-  containers.every((container) => container.emptyContainerOffLoadDate);
-  
-  const deliveryDate =
-  containers?.length > 0 &&
-  containers.every((container) => container.delivery_date);
-  
-    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-  
+      containers?.length > 0 &&
+      containers.every((container) => container.container_rail_out_date);
+
+    const emptyContainerOffLoadDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.emptyContainerOffLoadDate);
+
+    const deliveryDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.delivery_date);
+
+    const isExBondOrLCL =
+      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+
     let newStatus = "";
 
     if (
@@ -154,23 +155,22 @@ const EditableDateCell = ({ cell }) => {
   const validateDate = (dateString) => {
     // Allow empty string (cleared date is valid)
     if (!dateString || dateString.trim() === "") return true;
-  
+
     // Basic date validation
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(dateString)) return false;
-  
+
     const date = new Date(dateString);
-  
+
     // Check if date is valid (not Invalid Date)
     if (isNaN(date.getTime())) return false;
-  
+
     // Check year is reasonable (between 2000 and 2100)
     const year = parseInt(dateString.substring(0, 4), 10);
     if (year < 2000 || year > 2100) return false;
-  
+
     return true;
   };
-  
 
   // Handle date change
   const handleDateInputChange = (e) => {
@@ -201,22 +201,24 @@ const EditableDateCell = ({ cell }) => {
       const updatedContainers = containers.map((container, i) => {
         if (i === index) {
           const updatedContainer = { ...container, [field]: finalValue };
-  
-       // Automatically update detention_from if arrival_date is changed
-if (field === "arrival_date") {
-  if (!finalValue) {
-    // If arrival_date is cleared, also clear detention_from
-    updatedContainer.detention_from = "";
-  } else {
-    const arrival = new Date(finalValue);
-    const freeDays = parseInt(localFreeTime) || 0;
 
-    const detentionDate = new Date(arrival);
-    detentionDate.setDate(detentionDate.getDate() + freeDays);
+          // Automatically update detention_from if arrival_date is changed
+          if (field === "arrival_date") {
+            if (!finalValue) {
+              // If arrival_date is cleared, also clear detention_from
+              updatedContainer.detention_from = "";
+            } else {
+              const arrival = new Date(finalValue);
+              const freeDays = parseInt(localFreeTime) || 0;
 
-    updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
-  }
-}
+              const detentionDate = new Date(arrival);
+              detentionDate.setDate(detentionDate.getDate() + freeDays);
+
+              updatedContainer.detention_from = detentionDate
+                .toISOString()
+                .slice(0, 10);
+            }
+          }
 
           return updatedContainer;
         }
@@ -361,6 +363,86 @@ if (field === "arrival_date") {
               </div>
             )}
             <br />
+            <strong>Discharge :</strong> {dates.discharge_date || "N/A"}{" "}
+            <FcCalendar
+              style={styles.icon}
+              onClick={() => handleEditStart("discharge_date")}
+            />
+            {editable === "discharge_date" && (
+              <div>
+                <input
+                  type="date"
+                  value={tempDateValue}
+                  onChange={handleDateInputChange}
+                  style={dateError ? styles.errorInput : {}}
+                />
+                <button
+                  style={styles.submitButton}
+                  onClick={() => handleDateSubmit("discharge_date")}
+                >
+                  ✓
+                </button>
+                <button
+                  style={styles.cancelButton}
+                  onClick={() => setEditable(null)}
+                >
+                  ✕
+                </button>
+                {dateError && <div style={styles.errorText}>{dateError}</div>}
+              </div>
+            )}
+            <br />
+            {type_of_b_e !== "Ex-Bond" && consignment_type !== "LCL" && (
+              <>
+                {/* Container Dates */}
+                {containers.map((container, id) => (
+                  <div key={id}>
+                    <strong>Rail-out :</strong>{" "}
+                    {container.container_rail_out_date
+                      ?.slice(0, 16)
+                      .replace("T", " ") || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() =>
+                        handleEditStart("container_rail_out_date", id)
+                      }
+                    />
+                    {editable === `container_rail_out_date_${id}` && (
+                      <div>
+                        <input
+                          type="date"
+                          value={tempDateValue}
+                          onChange={handleDateInputChange}
+                          style={dateError ? styles.errorInput : {}}
+                        />
+                        <input
+                          type="time"
+                          value={tempTimeValue}
+                          onChange={handleTimeInputChange}
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() =>
+                            handleDateSubmit("container_rail_out_date", id)
+                          }
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && (
+                          <div style={styles.errorText}>{dateError}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
             {type_of_b_e !== "Ex-Bond" && (
               <>
                 {containers.map((container, id) => (
@@ -475,85 +557,6 @@ if (field === "arrival_date") {
                 )}
               </>
             )}
-            <strong>Discharge :</strong> {dates.discharge_date || "N/A"}{" "}
-            <FcCalendar
-              style={styles.icon}
-              onClick={() => handleEditStart("discharge_date")}
-            />
-            {editable === "discharge_date" && (
-              <div>
-                <input
-                  type="date"
-                  value={tempDateValue}
-                  onChange={handleDateInputChange}
-                  style={dateError ? styles.errorInput : {}}
-                />
-                <button
-                  style={styles.submitButton}
-                  onClick={() => handleDateSubmit("discharge_date")}
-                >
-                  ✓
-                </button>
-                <button
-                  style={styles.cancelButton}
-                  onClick={() => setEditable(null)}
-                >
-                  ✕
-                </button>
-                {dateError && <div style={styles.errorText}>{dateError}</div>}
-              </div>
-            )}
-            <br />
-          </>
-        )}
-
-        {type_of_b_e !== "Ex-Bond" && consignment_type !== "LCL" && (
-          <>
-            {/* Container Dates */}
-            {containers.map((container, id) => (
-              <div key={id}>
-                <strong>Rail-out :</strong>{" "}
-                {container.container_rail_out_date
-                  ?.slice(0, 16)
-                  .replace("T", " ") || "N/A"}{" "}
-                <FcCalendar
-                  style={styles.icon}
-                  onClick={() => handleEditStart("container_rail_out_date", id)}
-                />
-                {editable === `container_rail_out_date_${id}` && (
-                  <div>
-                    <input
-                      type="date"
-                      value={tempDateValue}
-                      onChange={handleDateInputChange}
-                      style={dateError ? styles.errorInput : {}}
-                    />
-                    <input
-                      type="time"
-                      value={tempTimeValue}
-                      onChange={handleTimeInputChange}
-                    />
-                    <button
-                      style={styles.submitButton}
-                      onClick={() =>
-                        handleDateSubmit("container_rail_out_date", id)
-                      }
-                    >
-                      ✓
-                    </button>
-                    <button
-                      style={styles.cancelButton}
-                      onClick={() => setEditable(null)}
-                    >
-                      ✕
-                    </button>
-                    {dateError && (
-                      <div style={styles.errorText}>{dateError}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
           </>
         )}
       </div>

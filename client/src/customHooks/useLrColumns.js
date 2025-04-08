@@ -72,13 +72,13 @@ function useLrColumns(props) {
     return (
       <Autocomplete
         options={options}
-        getOptionLabel={(option) => option.label || ""}
+        getOptionLabel={(option) => option.label || "N/A"}
         renderInput={(params) => <TextField {...params} size="small" />}
         onChange={(event, newValue) => {
           onSelect(
             {
               target: {
-                value: newValue ? newValue.label : null,
+                value: newValue ? newValue.label : "N/A",
               },
             },
             rowIndex,
@@ -87,7 +87,7 @@ function useLrColumns(props) {
           onSelect(
             {
               target: {
-                value: newValue ? newValue.FGUID : null,
+                value: newValue ? newValue.FGUID : "N/A",
               },
             },
             rowIndex,
@@ -96,20 +96,11 @@ function useLrColumns(props) {
           onSelect(
             {
               target: {
-                value: newValue ? newValue.value : null,
+                value: newValue ? newValue.value : "N/A",
               },
             },
             rowIndex,
             "sr_cel_id"
-          );
-          onSelect(
-            {
-              target: {
-                value: newValue ? newValue._id : null, // Save the Elock _id
-              },
-            },
-            rowIndex,
-            "elock"
           );
         }}
         defaultValue={

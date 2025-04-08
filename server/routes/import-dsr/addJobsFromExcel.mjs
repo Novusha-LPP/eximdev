@@ -154,6 +154,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         cif_amount,
         unit_price,
         vessel_berthing, // New value from Excel
+        line_no,
         container_nos, // Assume container data is part of the incoming job data
         hss_name,
         total_inv_value,

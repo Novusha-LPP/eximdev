@@ -176,7 +176,7 @@ function PrJobList(props) {
           {props.status} Jobs: {total}
         </Typography>
 
-        <Autocomplete
+        {/* <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
@@ -191,9 +191,9 @@ function PrJobList(props) {
               label="Select Importer" // Placeholder text
             />
           )}
-        />
+        /> */}
 
-        <TextField
+        {/* <TextField
           select
           defaultValue={years[0]}
           size="small"
@@ -206,9 +206,9 @@ function PrJobList(props) {
               {year}
             </MenuItem>
           ))}
-        </TextField>
+        </TextField> */}
 
-        <TextField
+        {/* <TextField
           select
           size="small"
           value={detailedStatus}
@@ -223,9 +223,9 @@ function PrJobList(props) {
               {option.name}
             </MenuItem>
           ))}
-        </TextField>
+        </TextField> */}
 
-        <TextField
+        {/* <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
@@ -241,10 +241,10 @@ function PrJobList(props) {
             ),
           }}
           sx={{ width: "300px", marginRight: "20px" }}
-        />
-        <IconButton onClick={handleOpen}>
+        /> */}
+        {/* <IconButton onClick={handleOpen}>
           <DownloadIcon />
-        </IconButton>
+        </IconButton> */}
       </div>
     ),
   });

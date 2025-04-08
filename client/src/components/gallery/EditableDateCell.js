@@ -3,7 +3,6 @@ import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
 import { TextField, MenuItem } from "@mui/material";
 
-
 const EditableDateCell = ({ cell }) => {
   const {
     _id,
@@ -41,7 +40,13 @@ const EditableDateCell = ({ cell }) => {
 
   // Reset data when row changes
   useEffect(() => {
-    setDates({ vessel_berthing, gateway_igm_date, discharge_date, pcv_date, out_of_charge });
+    setDates({
+      vessel_berthing,
+      gateway_igm_date,
+      discharge_date,
+      pcv_date,
+      out_of_charge,
+    });
     setContainers([...container_nos]);
     setLocalStatus(detailed_status);
     setLocalFreeTime(free_time);
@@ -57,16 +62,21 @@ const EditableDateCell = ({ cell }) => {
     const dischargeDate = dates.discharge_date;
     const outOfChargeDate = dates.out_of_charge;
     const pcvDate = dates.pcv_date;
-  
+
     const billOfEntryNo = be_no;
-    const anyContainerArrivalDate = containers.some(c => c.arrival_date);
-    const containerRailOutDate = containers.every(c => c.container_rail_out_date);
-    const emptyContainerOffLoadDate = containers.every(c => c.emptyContainerOffLoadDate);
-    const deliveryDate = containers.every(c => c.delivery_date);
-    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-  
+    const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
+    const containerRailOutDate = containers.every(
+      (c) => c.container_rail_out_date
+    );
+    const emptyContainerOffLoadDate = containers.every(
+      (c) => c.emptyContainerOffLoadDate
+    );
+    const deliveryDate = containers.every((c) => c.delivery_date);
+    const isExBondOrLCL =
+      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+
     let newStatus = "";
-  
+
     if (
       billOfEntryNo &&
       anyContainerArrivalDate &&
@@ -93,19 +103,27 @@ const EditableDateCell = ({ cell }) => {
     } else if (eta) {
       newStatus = "Estimated Time of Arrival";
     }
-  
-    if (newStatus && newStatus !== localStatus){
+
+    if (newStatus && newStatus !== localStatus) {
       cell.row.original.detailed_status = newStatus;
       try {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
         });
-        setLocalStatus(newStatus);        
+        setLocalStatus(newStatus);
       } catch (err) {
         console.error("Error updating status:", err);
       }
     }
-  }, [dates, containers, be_no, consignment_type, type_of_b_e, localStatus, _id]);
+  }, [
+    dates,
+    containers,
+    be_no,
+    consignment_type,
+    type_of_b_e,
+    localStatus,
+    _id,
+  ]);
 
   useEffect(() => {
     updateDetailedStatus();
@@ -132,16 +150,16 @@ const EditableDateCell = ({ cell }) => {
     // Basic date validation
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(dateString)) return false;
-    
+
     const date = new Date(dateString);
-    
+
     // Check if date is valid (not Invalid Date)
     if (isNaN(date.getTime())) return false;
-    
+
     // Check year is reasonable (between 2000 and 2100)
     const year = parseInt(dateString.substring(0, 4));
     if (year < 2000 || year > 2100) return false;
-    
+
     return true;
   };
 
@@ -162,9 +180,9 @@ const EditableDateCell = ({ cell }) => {
       setDateError("Please enter a valid date");
       return;
     }
-    
+
     let finalValue = tempDateValue;
-    
+
     // Add time component for rail-out if available
     if (field === "container_rail_out_date" && tempTimeValue) {
       finalValue = `${tempDateValue}T${tempTimeValue}`;
@@ -174,25 +192,27 @@ const EditableDateCell = ({ cell }) => {
       const updatedContainers = containers.map((container, i) => {
         if (i === index) {
           const updatedContainer = { ...container, [field]: finalValue };
-  
+
           // Automatically update detention_from if arrival_date is changed
           if (field === "arrival_date") {
             const arrival = new Date(finalValue);
             const freeDays = parseInt(localFreeTime) || 0;
-  
+
             const detentionDate = new Date(arrival);
             detentionDate.setDate(detentionDate.getDate() + freeDays);
-  
-            updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
+
+            updatedContainer.detention_from = detentionDate
+              .toISOString()
+              .slice(0, 10);
           }
-  
+
           return updatedContainer;
         }
         return container;
       });
-  
+
       setContainers(updatedContainers);
-  
+
       axios
         .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
@@ -206,7 +226,7 @@ const EditableDateCell = ({ cell }) => {
       // Handle non-container fields
       setDates((prev) => {
         const newDates = { ...prev, [field]: finalValue };
-  
+
         axios
           .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
             [field]: finalValue,
@@ -216,7 +236,7 @@ const EditableDateCell = ({ cell }) => {
             updateDetailedStatus();
           })
           .catch((err) => console.error("Error Updating:", err));
-  
+
         return newDates;
       });
     }
@@ -225,7 +245,7 @@ const EditableDateCell = ({ cell }) => {
   // Handle free time change
   const handleFreeTimeChange = (value) => {
     setLocalFreeTime(value);
-    
+
     // Update free time in database
     axios
       .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
@@ -233,25 +253,27 @@ const EditableDateCell = ({ cell }) => {
       })
       .then(() => {
         // Update detention dates for all containers based on their arrival dates
-        const updatedContainers = containers.map(container => {
+        const updatedContainers = containers.map((container) => {
           const updatedContainer = { ...container };
-          
+
           if (updatedContainer.arrival_date) {
             const arrival = new Date(updatedContainer.arrival_date);
             const freeDays = parseInt(value) || 0;
-            
+
             const detentionDate = new Date(arrival);
             detentionDate.setDate(detentionDate.getDate() + freeDays);
-            
-            updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
+
+            updatedContainer.detention_from = detentionDate
+              .toISOString()
+              .slice(0, 10);
           }
-          
+
           return updatedContainer;
         });
-        
+
         if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
           setContainers(updatedContainers);
-          
+
           // Update containers in database
           axios
             .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
@@ -282,13 +304,13 @@ const EditableDateCell = ({ cell }) => {
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
                 />
-                <button 
+                <button
                   style={styles.submitButton}
                   onClick={() => handleDateSubmit("vessel_berthing")}
                 >
                   ✓
                 </button>
-                <button 
+                <button
                   style={styles.cancelButton}
                   onClick={() => setEditable(null)}
                 >
@@ -311,13 +333,13 @@ const EditableDateCell = ({ cell }) => {
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
                 />
-                <button 
+                <button
                   style={styles.submitButton}
                   onClick={() => handleDateSubmit("gateway_igm_date")}
                 >
                   ✓
                 </button>
-                <button 
+                <button
                   style={styles.cancelButton}
                   onClick={() => setEditable(null)}
                 >
@@ -327,6 +349,120 @@ const EditableDateCell = ({ cell }) => {
               </div>
             )}
             <br />
+            {type_of_b_e !== "Ex-Bond" && (
+              <>
+                {containers.map((container, id) => (
+                  <div key={id} style={{ marginBottom: "10px" }}>
+                    <strong>Arrival :</strong>{" "}
+                    {container.arrival_date?.slice(0, 10) || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() => handleEditStart("arrival_date", id)}
+                    />
+                    {editable === `arrival_date_${id}` && (
+                      <div>
+                        <input
+                          type="date"
+                          value={tempDateValue}
+                          onChange={handleDateInputChange}
+                          style={dateError ? styles.errorInput : {}}
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() => handleDateSubmit("arrival_date", id)}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && (
+                          <div style={styles.errorText}>{dateError}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Free Time Dropdown - Added below arrival date */}
+                <div style={{ marginBottom: "10px" }}>
+                  <strong>Free time:</strong>{" "}
+                  <div
+                    style={{
+                      display: "inline-block",
+                      minWidth: "80px",
+                      marginLeft: "5px",
+                    }}
+                  >
+                    <TextField
+                      select
+                      size="small"
+                      variant="outlined"
+                      value={localFreeTime || ""}
+                      onChange={(e) => handleFreeTimeChange(e.target.value)}
+                      style={{ minWidth: "80px" }}
+                      SelectProps={{
+                        MenuProps: {
+                          PaperProps: {
+                            style: {
+                              maxHeight: 300,
+                              width: 200,
+                            },
+                          },
+                        },
+                      }}
+                    >
+                      {options.map((option, id) => (
+                        <MenuItem key={id} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </div>
+                </div>
+
+                {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
+                  <>
+                    <strong>Detention.F. :</strong>
+                    {containers.map((container, id) => (
+                      <div key={id}>
+                        {container.detention_from?.slice(0, 10) || "N/A"}{" "}
+                        {editable === `detention_from_${id}` && (
+                          <div>
+                            <input
+                              type="date"
+                              value={tempDateValue}
+                              onChange={handleDateInputChange}
+                              style={dateError ? styles.errorInput : {}}
+                            />
+                            <button
+                              style={styles.submitButton}
+                              onClick={() =>
+                                handleDateSubmit("detention_from", id)
+                              }
+                            >
+                              ✓
+                            </button>
+                            <button
+                              style={styles.cancelButton}
+                              onClick={() => setEditable(null)}
+                            >
+                              ✕
+                            </button>
+                            {dateError && (
+                              <div style={styles.errorText}>{dateError}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
             <strong>Discharge :</strong> {dates.discharge_date || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
@@ -340,13 +476,13 @@ const EditableDateCell = ({ cell }) => {
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
                 />
-                <button 
+                <button
                   style={styles.submitButton}
                   onClick={() => handleDateSubmit("discharge_date")}
                 >
                   ✓
                 </button>
-                <button 
+                <button
                   style={styles.cancelButton}
                   onClick={() => setEditable(null)}
                 >
@@ -365,7 +501,9 @@ const EditableDateCell = ({ cell }) => {
             {containers.map((container, id) => (
               <div key={id}>
                 <strong>Rail-out :</strong>{" "}
-                {container.container_rail_out_date?.slice(0, 16).replace('T', ' ') || "N/A"}{" "}
+                {container.container_rail_out_date
+                  ?.slice(0, 16)
+                  .replace("T", " ") || "N/A"}{" "}
                 <FcCalendar
                   style={styles.icon}
                   onClick={() => handleEditStart("container_rail_out_date", id)}
@@ -383,126 +521,27 @@ const EditableDateCell = ({ cell }) => {
                       value={tempTimeValue}
                       onChange={handleTimeInputChange}
                     />
-                    <button 
+                    <button
                       style={styles.submitButton}
-                      onClick={() => handleDateSubmit("container_rail_out_date", id)}
+                      onClick={() =>
+                        handleDateSubmit("container_rail_out_date", id)
+                      }
                     >
                       ✓
                     </button>
-                    <button 
+                    <button
                       style={styles.cancelButton}
                       onClick={() => setEditable(null)}
                     >
                       ✕
                     </button>
-                    {dateError && <div style={styles.errorText}>{dateError}</div>}
-                  </div>
-                )}
-              </div>
-            ))}
-          </>
-        )}
-
-        {type_of_b_e !== "Ex-Bond" && (
-          <>
-            {containers.map((container, id) => (
-              <div key={id} style={{ marginBottom: "10px" }}>
-                <strong>Arrival :</strong>{" "}
-                {container.arrival_date?.slice(0, 10) || "N/A"}{" "}
-                <FcCalendar
-                  style={styles.icon}
-                  onClick={() => handleEditStart("arrival_date", id)}
-                />
-                {editable === `arrival_date_${id}` && (
-                  <div>
-                    <input
-                      type="date"
-                      value={tempDateValue}
-                      onChange={handleDateInputChange}
-                      style={dateError ? styles.errorInput : {}}
-                    />
-                    <button 
-                      style={styles.submitButton}
-                      onClick={() => handleDateSubmit("arrival_date", id)}
-                    >
-                      ✓
-                    </button>
-                    <button 
-                      style={styles.cancelButton}
-                      onClick={() => setEditable(null)}
-                    >
-                      ✕
-                    </button>
-                    {dateError && <div style={styles.errorText}>{dateError}</div>}
-                  </div>
-                )}
-              </div>
-            ))}
-            
-            {/* Free Time Dropdown - Added below arrival date */}
-            <div style={{ marginBottom: "10px" }}>
-              <strong>Free time:</strong>{" "}
-              <div style={{ display: "inline-block", minWidth: "80px", marginLeft: "5px" }}>
-                <TextField
-                  select
-                  size="small"
-                  variant="outlined"
-                  value={localFreeTime || ""}
-                  onChange={(e) => handleFreeTimeChange(e.target.value)}
-                  style={{ minWidth: "80px" }}
-                  SelectProps={{
-                    MenuProps: {
-                      PaperProps: {
-                        style: {
-                          maxHeight: 300,
-                          width: 200,
-                        },
-                      },
-                    },
-                  }}
-                >
-                  {options.map((option, id) => (
-                    <MenuItem key={id} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </div>
-            </div>
-            
-            {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
-              <>
-                <strong>Detention.F. :</strong>
-                {containers.map((container, id) => (
-                  <div key={id}>
-                    {container.detention_from?.slice(0, 10) || "N/A"}{" "}
-                    {editable === `detention_from_${id}` && (
-                      <div>
-                        <input
-                          type="date"
-                          value={tempDateValue}
-                          onChange={handleDateInputChange}
-                          style={dateError ? styles.errorInput : {}}
-                        />
-                        <button 
-                          style={styles.submitButton}
-                          onClick={() => handleDateSubmit("detention_from", id)}
-                        >
-                          ✓
-                        </button>
-                        <button 
-                          style={styles.cancelButton}
-                          onClick={() => setEditable(null)}
-                        >
-                          ✕
-                        </button>
-                        {dateError && <div style={styles.errorText}>{dateError}</div>}
-                      </div>
+                    {dateError && (
+                      <div style={styles.errorText}>{dateError}</div>
                     )}
                   </div>
-                ))}
-              </>
-            )}
+                )}
+              </div>
+            ))}
           </>
         )}
       </div>
@@ -522,13 +561,13 @@ const EditableDateCell = ({ cell }) => {
               onChange={handleDateInputChange}
               style={dateError ? styles.errorInput : {}}
             />
-            <button 
+            <button
               style={styles.submitButton}
               onClick={() => handleDateSubmit("pcv_date")}
             >
               ✓
             </button>
-            <button 
+            <button
               style={styles.cancelButton}
               onClick={() => setEditable(null)}
             >
@@ -551,13 +590,13 @@ const EditableDateCell = ({ cell }) => {
               onChange={handleDateInputChange}
               style={dateError ? styles.errorInput : {}}
             />
-            <button 
+            <button
               style={styles.submitButton}
               onClick={() => handleDateSubmit("out_of_charge")}
             >
               ✓
             </button>
-            <button 
+            <button
               style={styles.cancelButton}
               onClick={() => setEditable(null)}
             >
@@ -583,13 +622,13 @@ const EditableDateCell = ({ cell }) => {
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
                 />
-                <button 
+                <button
                   style={styles.submitButton}
                   onClick={() => handleDateSubmit("delivery_date", id)}
                 >
                   ✓
                 </button>
-                <button 
+                <button
                   style={styles.cancelButton}
                   onClick={() => setEditable(null)}
                 >
@@ -608,7 +647,9 @@ const EditableDateCell = ({ cell }) => {
                 {container.emptyContainerOffLoadDate?.slice(0, 10) || "N/A"}{" "}
                 <FcCalendar
                   style={styles.icon}
-                  onClick={() => handleEditStart("emptyContainerOffLoadDate", id)}
+                  onClick={() =>
+                    handleEditStart("emptyContainerOffLoadDate", id)
+                  }
                 />
                 {editable === `emptyContainerOffLoadDate_${id}` && (
                   <div>
@@ -618,19 +659,23 @@ const EditableDateCell = ({ cell }) => {
                       onChange={handleDateInputChange}
                       style={dateError ? styles.errorInput : {}}
                     />
-                    <button 
+                    <button
                       style={styles.submitButton}
-                      onClick={() => handleDateSubmit("emptyContainerOffLoadDate", id)}
+                      onClick={() =>
+                        handleDateSubmit("emptyContainerOffLoadDate", id)
+                      }
                     >
                       ✓
                     </button>
-                    <button 
+                    <button
                       style={styles.cancelButton}
                       onClick={() => setEditable(null)}
                     >
                       ✕
                     </button>
-                    {dateError && <div style={styles.errorText}>{dateError}</div>}
+                    {dateError && (
+                      <div style={styles.errorText}>{dateError}</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -674,7 +719,7 @@ const styles = {
     borderRadius: "3px",
     padding: "2px 6px",
     cursor: "pointer",
-  }
+  },
 };
 
 export default EditableDateCell;

@@ -900,61 +900,61 @@ function useLrColumns(props) {
       ),
     },
 
-    {
-      accessorKey: "status",
-      header: "Status",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell, row }) => {
-        const currentValue = cell.getValue();
-        const options = lrContainerPlanningStatus.includes(currentValue)
-          ? lrContainerPlanningStatus
-          : [currentValue, ...lrContainerPlanningStatus];
+    // {
+    //   accessorKey: "status",
+    //   header: "Status",
+    //   enableSorting: false,
+    //   size: 200,
+    //   Cell: ({ cell, row }) => {
+    //     const currentValue = cell.getValue();
+    //     const options = lrContainerPlanningStatus.includes(currentValue)
+    //       ? lrContainerPlanningStatus
+    //       : [currentValue, ...lrContainerPlanningStatus];
 
-        return (
-          <TextField
-            select
-            fullWidth
-            label="Status"
-            size="small"
-            defaultValue={currentValue}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-            disabled={
-              row.original.status === "Successful Collection of SR-CEL Lock"
-            }
-          >
-            {options.map((item) => (
-              <MenuItem key={item} value={item}>
-                {item}
-              </MenuItem>
-            ))}
-          </TextField>
-        );
-      },
-    },
-    {
-      accessorKey: "realtime_location",
-      header: "Realtime Location",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ row }) => (
-        <Button
-          variant="contained"
-          className="btn"
-          color="secondary"
-          onClick={() => handleLocationClick(row.original.sr_cel_FGUID)}
-          startIcon={<LocationOnIcon fontSize="small" color="inherit" />}
-          sx={{ minWidth: "60%", textTransform: "none" }}
-          disabled={
-            row.original.status === "Successful Collection of SR-CEL Lock"
-          }
-        >
-          Track Location
-        </Button>
-      ),
-    },
+    //     return (
+    //       <TextField
+    //         select
+    //         fullWidth
+    //         label="Status"
+    //         size="small"
+    //         defaultValue={currentValue}
+    //         onBlur={(event) =>
+    //           handleInputChange(event, row.index, cell.column.id)
+    //         }
+    //         disabled={
+    //           row.original.status === "Successful Collection of SR-CEL Lock"
+    //         }
+    //       >
+    //         {options.map((item) => (
+    //           <MenuItem key={item} value={item}>
+    //             {item}
+    //           </MenuItem>
+    //         ))}
+    //       </TextField>
+    //     );
+    //   },
+    // },
+    // {
+    //   accessorKey: "realtime_location",
+    //   header: "Realtime Location",
+    //   enableSorting: false,
+    //   size: 200,
+    //   Cell: ({ row }) => (
+    //     <Button
+    //       variant="contained"
+    //       className="btn"
+    //       color="secondary"
+    //       onClick={() => handleLocationClick(row.original.sr_cel_FGUID)}
+    //       startIcon={<LocationOnIcon fontSize="small" color="inherit" />}
+    //       sx={{ minWidth: "60%", textTransform: "none" }}
+    //       disabled={
+    //         row.original.status === "Successful Collection of SR-CEL Lock"
+    //       }
+    //     >
+    //       Track Location
+    //     </Button>
+    //   ),
+    // },
     {
       accessorKey: "eWay_bill",
       header: "E-Way Bill",

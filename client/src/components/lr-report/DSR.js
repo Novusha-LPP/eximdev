@@ -51,13 +51,22 @@ function DSR() {
   };
 
   // Save updated rows to the server
-  const handleSave = async () => {
+  const handleSave = async (updatedRow) => {
     try {
-      await axios.post(
+      const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/update-srcc-dsr`,
-        rows
+        updatedRow
       );
-      alert("Data saved successfully");
+
+      if (res.data && res.data.data) {
+        // Update the specific row in the state with the returned data
+        setRows((prevRows) =>
+          prevRows.map((row) =>
+            row.tr_no === updatedRow.tr_no ? res.data.data : row
+          )
+        );
+        alert("Data saved successfully");
+      }
     } catch (error) {
       console.error("Error saving data:", error);
     }

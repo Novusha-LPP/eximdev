@@ -21,7 +21,9 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
 
     if (updatedDocument) {
       // If a document is updated, return it as a response
-      res.status(200).json({ message: "Updated successfully" });
+      res
+        .status(200)
+        .json({ message: "Updated successfully", data: updatedDocument });
     } else {
       // If no document is found, return an appropriate response
       res.status(404).json({ message: "Document not found" });

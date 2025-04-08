@@ -62,19 +62,24 @@ const EditableDateCell = ({ cell }) => {
     const dischargeDate = dates.discharge_date;
     const outOfChargeDate = dates.out_of_charge;
     const pcvDate = dates.pcv_date;
+  
+    const billOfEntryNo = be_no;  
+    const anyContainerArrivalDate = containers.some(c => c.arrival_date);
 
-    const billOfEntryNo = be_no;
-    const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
-    const containerRailOutDate = containers.every(
-      (c) => c.container_rail_out_date
-    );
-    const emptyContainerOffLoadDate = containers.every(
-      (c) => c.emptyContainerOffLoadDate
-    );
-    const deliveryDate = containers.every((c) => c.delivery_date);
-    const isExBondOrLCL =
-      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-
+    const containerRailOutDate =
+    containers?.length > 0 &&
+    containers.every((container) => container.container_rail_out_date);
+  
+  const emptyContainerOffLoadDate =
+  containers?.length > 0 &&
+  containers.every((container) => container.emptyContainerOffLoadDate);
+  
+  const deliveryDate =
+  containers?.length > 0 &&
+  containers.every((container) => container.delivery_date);
+  
+    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+  
     let newStatus = "";
 
     if (

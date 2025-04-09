@@ -6,10 +6,8 @@ import useTabs from "../../customHooks/useTabs";
 import FullTruckLoad from "./fullTruckLoad/FullTruckLoad";
 import LessThanTruckLoad from "./lessThanTruckLoad/LessThanTruckLoad";
 import DSR from "./DSR";
-import LrRegister from "./LrRegister.js";
-import PrRegister from "./PrRegister.js";
 
-function LrReport() {
+function SRCC() {
   const [value, setValue] = React.useState(0);
   const { a11yProps, CustomTabPanel } = useTabs();
   const handleChange = (event, newValue) => {
@@ -20,8 +18,6 @@ function LrReport() {
     { label: "Full Truck Load", component: <FullTruckLoad /> },
     { label: "Less Than Truck Load", component: <LessThanTruckLoad /> },
     { label: "Tracking", component: <DSR /> },
-    { label: "PR Register", component: <PrRegister /> },
-    { label: "LR Register", component: <LrRegister /> },
   ];
 
   return (
@@ -48,4 +44,4 @@ function LrReport() {
   );
 }
 
-export default React.memo(LrReport);
+export default React.memo(SRCC);

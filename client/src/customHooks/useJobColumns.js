@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
+import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
@@ -377,130 +378,15 @@ function useJobColumns() {
 },
 
 
-      {
-        accessorKey: "be_no",
-        header: "BE Number and Date",
-        size: 200,
-        Cell: ({ cell }) => {
-          const beNumber = cell?.getValue()?.toString();
-          const rawBeDate = cell.row.original.be_date;
-          const customHouse = cell.row.original.custom_house;
-          const beDate = formatDate(rawBeDate);
-          const location = getCustomHouseLocation(customHouse);
-          const {
-            processed_be_attachment = [],
-            ooc_copies = [],
-            gate_pass_copies = [],
-          } = cell.row.original;
 
-          const getFirstLink = (input) => {
-            if (Array.isArray(input)) {
-              return input.length > 0 ? input[0] : null;
-            }
-            return input || null;
-          };
 
-          const processed_be_attachmentLink = getFirstLink(
-            processed_be_attachment
-          );
+{
+  accessorKey: "be_no",
+  header: "BE Number and Date",
+  size: 200,
+  Cell: BENumberCell,
+},
 
-          return (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-              }}
-            >
-              {beNumber && (
-                <div>
-                  <a
-                    href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "block",
-                      fontWeight: "bold",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {beNumber}
-                  </a>
-                  <div>{beDate}</div>
-                </div>
-              )}
-
-              <div style={{ marginTop: "10px" }}>
-                {processed_be_attachmentLink ? (
-                  <a
-                    href={processed_be_attachmentLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Processed Copy of BOE.
-                  </a>
-                ) : (
-                  <span style={{ color: "gray" }}>Processed Copy of BOE.</span>
-                )}
-              </div>
-
-              {/* OOC Copies */}
-              {ooc_copies.length > 0 ? (
-                ooc_copies.map((doc, index) => (
-                  <a
-                    key={index}
-                    href={doc}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      marginTop: "5px",
-                    }}
-                  >
-                    OOC Copy {index + 1}
-                  </a>
-                ))
-              ) : (
-                <div style={{ color: "gray", marginTop: "5px" }}>
-                  No OOC Copies
-                </div>
-              )}
-
-              {/* Gate Pass Copies */}
-              {gate_pass_copies.length > 0 ? (
-                gate_pass_copies.map((doc, index) => (
-                  <a
-                    key={index}
-                    href={doc}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      marginTop: "5px",
-                    }}
-                  >
-                    Gate Pass {index + 1}
-                  </a>
-                ))
-              ) : ( 
-                <div style={{ color: "gray", marginTop: "5px" }}>
-                  No Gate Pass
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
       {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",

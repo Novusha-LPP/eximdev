@@ -67,20 +67,19 @@ const EditableDateCell = ({ cell }) => {
     const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
 
     const containerRailOutDate =
-      containers?.length > 0 &&
-      containers.every((container) => container.container_rail_out_date);
-
-    const emptyContainerOffLoadDate =
-      containers?.length > 0 &&
-      containers.every((container) => container.emptyContainerOffLoadDate);
-
-    const deliveryDate =
-      containers?.length > 0 &&
-      containers.every((container) => container.delivery_date);
-
-    const isExBondOrLCL =
-      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-
+    containers?.length > 0 &&
+    containers.every((container) => container.container_rail_out_date);
+  
+  const emptyContainerOffLoadDate =
+  containers?.length > 0 &&
+  containers.every((container) => container.emptyContainerOffLoadDate);
+  
+  const deliveryDate =
+  containers?.length > 0 &&
+    containers.every((container) => container.delivery_date);
+  
+    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+  
     let newStatus = "";
 
     if (

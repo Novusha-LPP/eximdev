@@ -18,13 +18,9 @@ import compression from "compression";
 import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
-<<<<<<< HEAD
 import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 
-=======
-import cookieParser from "cookie-parser";
->>>>>>> testjeeya
 dotenv.config();
 
 Sentry.init({

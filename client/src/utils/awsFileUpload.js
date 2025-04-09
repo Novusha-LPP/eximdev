@@ -52,54 +52,53 @@ export const handleFileUpload = async (
   }
 };
 
+// utils/awsFileUpload.js
+// utils/awsFileUpload.js
 export const uploadFileToS3 = async (file, folderName) => {
   try {
     // Step 1: Get the pre-signed URL from your backend
-    const response = await fetch(
-      `${process.env.REACT_APP_API_STRING}/upload/get-upload-url`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          folderName,
-        }),
-      }
-    );
+    const response = await fetch(`${process.env.REACT_APP_API_STRING}/upload/get-upload-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: file.type,
+        folderName
+      })
+    });
 
     const data = await response.json();
-
+    
     if (!data.success) {
-      throw new Error(data.message || "Failed to get upload URL");
+      throw new Error(data.message || 'Failed to get upload URL');
     }
 
     // Step 2: Use the pre-signed URL to upload the file directly to S3
     const uploadResponse = await fetch(data.uploadURL, {
-      method: "PUT",
+      method: 'PUT',
       headers: {
-        "Content-Type": file.type,
+        'Content-Type': file.type,
       },
-      body: file,
+      body: file
     });
 
     if (!uploadResponse.ok) {
-      throw new Error("Failed to upload file to S3");
+      throw new Error('Failed to upload file to S3');
     }
 
-    // Step 3: Return the S3 file information
-    // The URL structure will depend on your S3 bucket configuration
+    // Step 3: Return the result in the same format expected by existing code
     const bucketUrl = `https://alvision-exim-images.s3.ap-south-1.amazonaws.com`;
-
+    const location = `${bucketUrl}/${data.key}`;
+    
     return {
-      key: data.key,
-      location: `${bucketUrl}/${data.key}`,
-      bucket: "alvision-exim-images",
+      Key: data.key,
+      Location: location, // Capital 'L' to match the format in your existing code
+      Bucket: 'alvision-exim-images'
     };
   } catch (error) {
-    console.error("Error uploading file:", error);
+    console.error('Error uploading file:', error);
     throw error;
   }
 };

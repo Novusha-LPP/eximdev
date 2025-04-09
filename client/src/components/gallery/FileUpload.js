@@ -9,28 +9,44 @@ const FileUpload = ({
   bucketPath,
   multiple = true,
   acceptedFileTypes = [],
-  readOnly = false, // Default to false
+  readOnly = false,
 }) => {
   const [uploading, setUploading] = useState(false);
-   const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
 
   const handleFileUpload = async (event) => {
     if (readOnly) return; // Prevent upload if readOnly is true
 
     const files = event.target.files;
-    const uploadedFiles = [];
+    if (!files || files.length === 0) return;
 
+    const uploadedFiles = [];
     setUploading(true);
-    for (const file of files) {
-      try {
-        const result = await uploadFileToS3(file, bucketPath);
-        uploadedFiles.push(result.Location);
-      } catch (error) {
-        console.error(`Failed to upload ${file.name}:`, error);
+
+    try {
+      for (const file of files) {
+        try {
+          const result = await uploadFileToS3(file, bucketPath);
+          // Make sure we're using the correct property name (Location with capital L)
+          if (result && result.Location) {
+            uploadedFiles.push(result.Location);
+          } else {
+            console.error("Upload response missing Location:", result);
+          }
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+        }
       }
+
+      // Call the callback function with the uploaded file URLs
+      if (uploadedFiles.length > 0) {
+        onFilesUploaded(uploadedFiles);
+      }
+    } catch (error) {
+      console.error("Error in file upload process:", error);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
-    onFilesUploaded(uploadedFiles);
   };
 
   return (
@@ -43,16 +59,16 @@ const FileUpload = ({
           color: "#fff",
           cursor: readOnly ? "not-allowed" : "pointer",
         }}
-        disabled={readOnly || uploading} // Disable button when readOnly
+        disabled={readOnly || uploading}
       >
-        {label}
+        {uploading ? "Uploading..." : label}
         <input
           type="file"
           hidden
           multiple={multiple}
           accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
           onChange={handleFileUpload}
-          disabled={readOnly || uploading} // Disable input when readOnly
+          disabled={readOnly || uploading}
         />
       </Button>
       {uploading && (
@@ -61,7 +77,5 @@ const FileUpload = ({
     </div>
   );
 };
-
-
 
 export default FileUpload;

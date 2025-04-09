@@ -7,21 +7,24 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Typography,
 } from "@mui/material";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
-const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
+const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
 
   // Ensure `images` is always an array for backward compatibility
   const imageArray = Array.isArray(images) ? images : images ? [images] : [];
   const { user } = useContext(UserContext);
+  
   // Function to extract the file name from the URL
   const extractFileName = (url) => {
     try {
+      if (!url) return "Unknown file";
       const parts = url.split("/");
       return decodeURIComponent(parts[parts.length - 1]);
     } catch (error) {
@@ -31,19 +34,18 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
   };
 
   const handleDeleteClick = (index) => {
-     if (user.role === "Admin") {
-       setDeleteIndex(index);
-       setOpenDeleteDialog(true);
-     } else {
-       alert("You do not have permission to delete images.");
-     }
+    if (user.role === "Admin") {
+      setDeleteIndex(index);
+      setOpenDeleteDialog(true);
+    } else {
+      alert("You do not have permission to delete images.");
+    }
   };
 
   const confirmDelete = () => {
     onDeleteImage(deleteIndex);
     setOpenDeleteDialog(false);
-};
-
+  };
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
@@ -73,6 +75,7 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
                     <IconButton
                       onClick={() => handleDeleteClick(index)}
                       color="error"
+                      size="small"
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -83,7 +86,9 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
           </TableBody>
         </Table>
       ) : (
-        <p>No asset uploaded yet.</p>
+        <Typography variant="body2" color="textSecondary">
+          No assets uploaded yet.
+        </Typography>
       )}
       {!readOnly && (
         <ConfirmDialog
@@ -97,4 +102,4 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
   );
 };
 
-export default ImagePreview ;
+export default ImagePreview;

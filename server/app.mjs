@@ -85,6 +85,7 @@ import viewAllKycs from "./routes/employee-kyc/viewAllKycs.mjs";
 import onboardEmployee from "./routes/employee-onboarding/onboardEmployee.mjs";
 import completeOnboarding from "./routes/employee-onboarding/completeOnboarding.mjs";
 import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
+import viewOnboarding from "./routes/employee-onboarding/viewOnboardings.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -240,15 +241,9 @@ const MONGODB_URI =
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
 
-// const CLIENT_URI =
-//   process.env.NODE_ENV === "production"
-//     ? process.env.PROD_CLIENT_URI
-//     : process.env.NODE_ENV === "server"
-//     ? process.env.SERVER_CLIENT_URI
-//     : process.env.DEV_CLIENT_URI;
-
+//console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
-// console.log(`hello check first re baba***************** ${MONGODB_URI}`);
+
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -373,6 +368,7 @@ if (cluster.isPrimary) {
       app.use(onboardEmployee);
       app.use(completeOnboarding);
       app.use(viewOnboardings);
+      app.use(viewOnboarding);
 
       // E-Sanchit
       app.use(getCthDocs);

@@ -52,20 +52,54 @@ export const handleFileUpload = async (
   }
 };
 
-export const uploadFileToS3 = (file, folderName) => {
-  AWS.config.update({
-    region: "ap-south-1",
-    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-  });
+export const uploadFileToS3 = async (file, folderName) => {
+  try {
+    // Step 1: Get the pre-signed URL from your backend
+    const response = await fetch(
+      `${process.env.REACT_APP_API_STRING}/upload/get-upload-url`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          folderName,
+        }),
+      }
+    );
 
-  const s3 = new AWS.S3();
-  const params = {
-    Bucket: "alvision-exim-images",
-    Key: `${folderName}/${file.name}`,
-    Body: file,
-    ContentType: file.type,
-  };
+    const data = await response.json();
 
-  return s3.upload(params).promise();
+    if (!data.success) {
+      throw new Error(data.message || "Failed to get upload URL");
+    }
+
+    // Step 2: Use the pre-signed URL to upload the file directly to S3
+    const uploadResponse = await fetch(data.uploadURL, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type,
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Failed to upload file to S3");
+    }
+
+    // Step 3: Return the S3 file information
+    // The URL structure will depend on your S3 bucket configuration
+    const bucketUrl = `https://alvision-exim-images.s3.ap-south-1.amazonaws.com`;
+
+    return {
+      key: data.key,
+      location: `${bucketUrl}/${data.key}`,
+      bucket: "alvision-exim-images",
+    };
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    throw error;
+  }
 };

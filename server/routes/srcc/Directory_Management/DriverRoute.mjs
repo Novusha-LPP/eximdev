@@ -147,14 +147,14 @@ router.get("/api/available-drivers/:type", async (req, res) => {
   }
 
   try {
-    console.log("Received type:", type); // Log the type for debugging
+  
 
     const drivers = await DriverType.find({
       drivingVehicleTypes: { $regex: type, $options: "i" }, // Case-insensitive regex match
       isAssigned: false, // Ensure driver is not assigned
     });
 
-    console.log("Available drivers:", drivers); // Log the query results
+    
 
     if (drivers.length === 0) {
       return res

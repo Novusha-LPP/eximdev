@@ -62,7 +62,7 @@ router.get("/api/send-mail", async (req, res) => {
 
     let info = await transporter.sendMail(mailOptions);
 
-    console.log("Message sent: %s", info.messageId);
+    
     res.status(200).send("Email sent successfully");
   } catch (error) {
     console.error("Error sending email:", error);

@@ -13,6 +13,7 @@ import axios from "axios";
 
 const allModules = [
   "Import - DSR",
+  "Customer",
   "Import - DO",
   "Import - Operations",
   "Import - Add",
@@ -28,6 +29,7 @@ const allModules = [
   "e-Sanchit",
   "Tyre Maintenance",
   "SRCC Directories",
+  "Directories",
   "Documentation",
   "Submission",
   "RTO",

@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import logger from "./logger.js";
+import AWS from "aws-sdk";
 
 process.on("uncaughtException", (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, { stack: error.stack });
@@ -19,6 +20,7 @@ import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
 import http from "http";
+import cookieParser from "cookie-parser";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 
 dotenv.config();
@@ -29,6 +31,15 @@ Sentry.init({
   tracesSampleRate: 1.0, // Capture 100% of transactions for tracing
   profilesSampleRate: 1.0, // Capture 100% of transactions for profiling
 });
+
+// Configure AWS with your credentials (keep these on server side only)
+AWS.config.update({
+  region: process.env.AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
+
+const s3 = new AWS.S3();
 
 // SSE
 // import updateJobCount from "./routes/updateJobCount.mjs";
@@ -41,6 +52,8 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import verifySessionRoutes from "./routes/verifysession.mjs";
+import logout from "./routes/logout.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -85,6 +98,7 @@ import viewAllKycs from "./routes/employee-kyc/viewAllKycs.mjs";
 import onboardEmployee from "./routes/employee-onboarding/onboardEmployee.mjs";
 import completeOnboarding from "./routes/employee-onboarding/completeOnboarding.mjs";
 import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
+import viewOnboarding from "./routes/employee-onboarding/viewOnboardings.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -157,6 +171,8 @@ import ViewExitInterviews from "./routes/exit-interview/viewExitInterviews.mjs";
 
 // LR Operations
 import getPrData from "./routes/lr/getPrData.mjs";
+import getPrJobList from "./routes/lr/getPRjobList.mjs";
+import getLrJobList from "./routes/lr/getLRjobList.mjs";
 import updatePr from "./routes/lr/updatePr.mjs";
 import deletePr from "./routes/lr/deletePr.mjs";
 import getOrganisations from "./routes/lr/getOrganisations.mjs";
@@ -232,6 +248,7 @@ import driverAssignment from "./routes/tyre-maintenance/driverAssignment.mjs";
 import getTyreDetails from "./routes/tyre-maintenance/getTyreDetails.mjs";
 import getTruckDetails from "./routes/tyre-maintenance/getTruckDetails.mjs";
 import JobModel from "./model/jobModel.mjs";
+import uploadRouter from "./routes/upload.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -239,16 +256,16 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
+const CLIENT_URI =
+  process.env.NODE_ENV === "production"
+    ? process.env.PROD_CLIENT_URI
+    : process.env.NODE_ENV === "server"
+    ? process.env.SERVER_CLIENT_URI
+    : process.env.DEV_CLIENT_URI;
 
-// const CLIENT_URI =
-//   process.env.NODE_ENV === "production"
-//     ? process.env.PROD_CLIENT_URI
-//     : process.env.NODE_ENV === "server"
-//     ? process.env.SERVER_CLIENT_URI
-//     : process.env.DEV_CLIENT_URI;
-
+//console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
-// console.log(`hello check first re baba***************** ${MONGODB_URI}`);
+
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -264,26 +281,35 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
 
-  app.use(cors());
-  app.use((req, res, next) => {
-    const isBrowserRequest =
-      req.headers["user-agent"] &&
-      req.headers["user-agent"].includes("Mozilla");
+  const allowedOrigins = [
+    "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+    "http://eximit.s3-website.ap-south-1.amazonaws.com",
+    "http://localhost:3000",
+  ];
 
-    // For sensitive routes, block direct browser access
-    if (
-      req.path.startsWith("/api/") &&
-      isBrowserRequest &&
-      !req.xhr &&
-      req.headers.accept.indexOf("html") > -1
-    ) {
-      return res.status(404).send("Not found");
-    }
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        if (!origin) return callback(null, true); // allow non-browser requests
+        const allowedOrigins = [
+          "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+          "http://localhost:3000",
+        ];
+        if (allowedOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
+    })
+  );
 
-    next();
-  });
-  // app.use(cors({ origin: CLIENT_URI, credentials: true }));
+  app.options("*", cors());
 
   app.use(compression({ level: 9 }));
 
@@ -321,6 +347,46 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
+
+      // Route to generate pre-signed URL
+      app.post("/api/upload/get-upload-url", async (req, res) => {
+        try {
+          // Get file info from request
+          const { fileName, fileType, folderName } = req.body;
+
+          if (!fileName || !fileType || !folderName) {
+            return res.status(400).json({
+              success: false,
+              message: "Missing required parameters",
+            });
+          }
+
+          // Set expiration time for the URL (3600 seconds = 1 hour)
+          const s3Params = {
+            Bucket: process.env.S3_BUCKET || "alvision-exim-images",
+            Key: `${folderName}/${fileName}`,
+            ContentType: fileType,
+            Expires: 3600,
+          };
+
+          // Generate the pre-signed URL
+          const uploadURL = s3.getSignedUrl("putObject", s3Params);
+
+          // Return the URL to the client
+          return res.json({
+            success: true,
+            uploadURL,
+            key: `${folderName}/${fileName}`,
+          });
+        } catch (error) {
+          console.error("Error generating pre-signed URL:", error);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to generate upload URL",
+          });
+        }
+      });
+
       // app.use(updateJobCount);
       app.use(getAllUsers);
       app.use(getImporterList);
@@ -329,6 +395,8 @@ if (cluster.isPrimary) {
       app.use(getUserData);
       app.use(getYears);
       app.use(login);
+      app.use(verifySessionRoutes);
+      app.use(logout);
 
       // Accounts
       app.use(addAdani);
@@ -373,6 +441,7 @@ if (cluster.isPrimary) {
       app.use(onboardEmployee);
       app.use(completeOnboarding);
       app.use(viewOnboardings);
+      app.use(viewOnboarding);
 
       // E-Sanchit
       app.use(getCthDocs);
@@ -421,30 +490,32 @@ if (cluster.isPrimary) {
       app.use(viewDSR);
       // app.use(ImportCreateJob);
 
-      // Import Operations
+      //* Import Operations
       app.use(getOperationPlanningJobs);
       app.use(completedOperation);
       app.use(updateOperationsJob);
       app.use(getOperationPlanningList);
 
-      // Inward Register
+      //* Inward Register
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
       app.use(getInwardRegisters);
       app.use(handleStatus);
 
-      // Outward Register
+      //* Outward Register
       app.use(addOutwardRegister);
       app.use(getOutwardRegisters);
       app.use(getOutwardRegisterDetails);
       app.use(updateOutwardRegister);
 
-      // Exit Feedback
+      //* Exit Feedback
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
 
-      // LR Operations
+      //* LR Operations
       app.use(getPrData);
+      app.use(getPrJobList);
+      app.use(getLrJobList);
       app.use(updatePr);
       app.use(deletePr);
       app.use(getContainerTypes);
@@ -520,6 +591,7 @@ if (cluster.isPrimary) {
       app.use(driverAssignment);
       app.use(getTyreDetails);
       app.use(getTruckDetails);
+      app.use("/upload", uploadRouter);
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 

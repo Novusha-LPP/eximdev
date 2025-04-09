@@ -79,6 +79,8 @@ import Screen3 from "../components/Screens/Screen3.js";
 import Screen4 from "../components/Screens/Screen4.js";
 import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
+import CImportDSR from "../components/customer/CImportDSR.js";
+import CViewJob from "../components/customer/CViewJob.js";
 
 const drawerWidth = 60;
 
@@ -199,6 +201,10 @@ function HomePage() {
             {/* Import DSR */}
             <Route path="/import-dsr" element={<ImportDSR />} />
             <Route path="/job/:job_no/:selected_year" element={<ViewJob />} />
+
+            {/* Customer DSR  */}
+            <Route path="/customer" element={<CImportDSR />} />
+            <Route path="/cjob/:job_no/:selected_year" element={<CViewJob />} />
 
             {/* Import Operations */}
             <Route path="/import-operations" element={<ImportOperations />} />

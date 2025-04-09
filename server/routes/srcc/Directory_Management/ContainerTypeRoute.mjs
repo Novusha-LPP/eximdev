@@ -9,7 +9,7 @@ const router = express.Router();
  * @desc Create a new container type
  */
 router.post("/api/add-container-type", async (req, res) => {
-  console.log("Received Data:", req.body);
+
 
   const {
     container_type,

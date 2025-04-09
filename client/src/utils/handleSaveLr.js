@@ -1,8 +1,7 @@
 import axios from "axios";
 
 export const handleSaveLr = async (row, props) => {
-  console.log("Save row:", row);
-  console.log("Props:", props);
+  
   const errors = [];
 
   if (!row.container_number || row.container_number.trim() === "") {
@@ -52,7 +51,7 @@ export const handleSaveLr = async (row, props) => {
       "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
     );
   }
-  
+
   const eWaybillRegex = /^\d{12}$/;
   if (row.eWay_bill && !eWaybillRegex.test(row.eWay_bill)) {
     errors.push("E-Way Bill number must be exactly 12 digits.");
@@ -78,7 +77,7 @@ export const handleSaveLr = async (row, props) => {
           sr_cel_locked: true,
         }
       );
-      console.log("SR CEL Locked successfully");
+      
     } catch (error) {
       console.error("Error locking SR CEL:", error);
       return; // Stop further execution if there's an error
@@ -90,7 +89,7 @@ export const handleSaveLr = async (row, props) => {
   try {
     const res = await axios.post(
       `${process.env.REACT_APP_API_STRING}/update-container`,
-      { ...row, pr_no }
+      { ...row, pr_no: props.pr_no, elock: row.elock } // Include elock field
     );
     alert(res.data.message);
   } catch (error) {

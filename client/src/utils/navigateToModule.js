@@ -6,6 +6,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/employee-kyc");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Customer":
+      return navigate("/customer");
     case "Import - Operations":
       return navigate("/import-operations");
     case "Import - Add":
@@ -28,7 +30,7 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/lr-report");
     case "Tyre Maintenance":
       return navigate("/tyre-maintenance");
-    case "SRCC Directories":
+    case "Directories":
       return navigate("/srcc-directories");
     case "RTO":
       return navigate("/rto");

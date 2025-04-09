@@ -7,7 +7,10 @@ import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
+import { getUser } from "../utils/cookie.js";
 // Custom hook to manage job columns configuration
+
+const user = getUser();
 function useJobColumns() {
   const navigate = useNavigate();
 
@@ -88,12 +91,13 @@ function useJobColumns() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No  ",
         size: 150,
         Cell: ({ cell }) => {
           const {
             job_no,
             year,
+            job_date,
             type_of_b_e,
             consignment_type,
             vessel_berthing,
@@ -192,15 +196,25 @@ function useJobColumns() {
 
           return (
             <div
-              onClick={() => navigate(`/job/${job_no}/${year}`)}
+              onClick={() => {
+                console.log(user?.role);
+                if (user?.role == "Customer") {
+                  navigate(`/cjob/${job_no}/${year}`);
+                } else {
+                  navigate(`/job/${job_no}/${year}`);
+                }
+              }}
               style={{
                 cursor: "pointer",
                 color: textColor,
                 backgroundColor: bgColor,
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+              {job_no} <br />
+              {job_date}
+              <br />
+              00
+              {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
               <br />
             </div>
           );
@@ -370,22 +384,19 @@ function useJobColumns() {
           );
         },
       },
-    {
-  accessorKey: "dates",
-  header: "Dates",
-  size: 470,
-  Cell: EditableDateCell,
-},
+      {
+        accessorKey: "dates",
+        header: "Dates",
+        size: 470,
+        Cell: EditableDateCell,
+      },
 
-
-
-
-{
-  accessorKey: "be_no",
-  header: "BE Number and Date",
-  size: 200,
-  Cell: BENumberCell,
-},
+      {
+        accessorKey: "be_no",
+        header: "BE Number and Date",
+        size: 200,
+        Cell: BENumberCell,
+      },
 
       {
         accessorKey: "container_numbers",

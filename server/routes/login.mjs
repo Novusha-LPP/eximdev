@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import UserModel from "../model/userModel.mjs";
+import { generateToken, sanitizeUserData } from "../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -20,25 +21,34 @@ router.post("/api/login", async (req, res) => {
       }
 
       if (passwordResult) {
-        // Create a new object with only the required fields
-        const userResponse = {
-          username: user.username,
-          role: user.role,
-          modules: user.modules,
-          first_name: user.first_name,
-          middle_name: user.middle_name,
-          last_name: user.last_name,
-          company: user.company,
-          employee_photo: user.employee_photo,
-          designation: user.designation,
-          department: user.department,
-          employment_type: user.employment_type,
-          email: user.email,
-          assigned_importer: user.assigned_importer,
-          assigned_importer_name: user.assigned_importer_name,
-        };
+        // Generate JWT token
+        const token = generateToken(user);
 
-        return res.status(200).json(userResponse);
+        // Sanitize user data
+        const userResponse = sanitizeUserData(user);
+
+        // Set only the user data cookie (without token)
+        res.cookie(
+          "exim_user",
+          JSON.stringify({
+            username: user.username,
+            role: user.role,
+            first_name: user.first_name,
+            last_name: user.last_name,
+          }),
+          {
+            httpOnly: false, // this cookie can be read by client-side JS
+            // secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+          }
+        );
+
+        // Return token in response body instead of cookie
+        return res.status(200).json({
+          ...userResponse,
+          token: token, // Include token in response body
+        });
       } else {
         return res
           .status(400)
@@ -50,5 +60,7 @@ router.post("/api/login", async (req, res) => {
     return res.status(500).json({ message: "Something went wrong" });
   }
 });
+
+// Logout route to clear cookies
 
 export default router;

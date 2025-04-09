@@ -139,6 +139,11 @@ const PrDataSchema = new mongoose.Schema({
   },
 });
 
+// Add a virtual field to check if the job is completed
+PrDataSchema.virtual("isJobCompleted").get(function () {
+  return this.containers.every((container) => container.lr_completed === true);
+});
+
 // Enable population of the `elock` field
 PrDataSchema.pre("find", function () {
   this.populate("containers.elock");

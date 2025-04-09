@@ -9,7 +9,7 @@ const Screen1 = () => {
 
 
   useEffect(() => {
-    const SOCKET_URL = `wss://${process.env.REACT_APP_SOCKET_URL}`;
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL}`;
   
     const socket = new WebSocket(SOCKET_URL);
   

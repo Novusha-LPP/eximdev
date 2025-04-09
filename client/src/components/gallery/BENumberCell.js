@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import FileUpload from "./FileUpload";
 import { FaUpload } from "react-icons/fa";
 import axios from "axios";
@@ -29,6 +29,23 @@ const BENumberCell = ({ cell, onDocumentsUpdated }) => {
     []
   );
 
+
+  // Sync BE Attachments
+useEffect(() => {
+  setProcessedBeFiles(cell.row.original.processed_be_attachment || []);
+}, [cell.row.original.processed_be_attachment]);
+
+// Sync OOC Copies
+useEffect(() => {
+  setOocFiles(cell.row.original.ooc_copies || []);
+}, [cell.row.original.ooc_copies]);
+
+// Sync Gate Pass Copies
+useEffect(() => {
+  setGatePassFiles(cell.row.original.gate_pass_copies || []);
+}, [cell.row.original.gate_pass_copies]);
+  
+  
   const beNumber = cell?.getValue()?.toString();
   const rawBeDate = cell.row.original.be_date;
   const customHouse = cell.row.original.custom_house;

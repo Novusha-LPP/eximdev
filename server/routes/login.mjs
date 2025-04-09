@@ -27,13 +27,11 @@ router.post("/api/login", async (req, res) => {
         // Sanitize user data
         const userResponse = sanitizeUserData(user);
 
-
-
         // Set secure, httpOnly cookies
         res.cookie("exim_token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production", // use HTTPS only in production
-          sameSite: "strict", // protect against CSRF
+          // secure: process.env.NODE_ENV === "production", // use HTTPS only in production
+          sameSite: "lax", // protect against CSRF
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
         });
 
@@ -48,8 +46,8 @@ router.post("/api/login", async (req, res) => {
           }),
           {
             httpOnly: false, // this cookie can be read by client-side JS
-            secure: process.env.NODE_ENV === "production",
-            //sameSite: "strict",
+            // secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
             maxAge: 24 * 60 * 60 * 1000, // 24 hours
           }
         );

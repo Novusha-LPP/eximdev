@@ -58,11 +58,10 @@ function CImportDSR() {
             onChange={handleChange}
             aria-label="basic tabs example"
           >
-            [
-            <Tab label="Dashboard" {...a11yProps(0)} key={0} />,
+            [{/* <Tab label="Dashboard" {...a11yProps(0)} key={0} />, */}
             <Tab label="Jobs" {...a11yProps(2)} key={1} />,
-            <Tab label="View DSR" {...a11yProps(3)} key={2} />
-            <Tab label="New Job" {...a11yProps(4)} key={3} />
+            {/* <Tab label="View DSR" {...a11yProps(3)} key={2} />
+            <Tab label="New Job" {...a11yProps(4)} key={3} /> */}
             ,]
           </Tabs>
         </Box>
@@ -107,18 +106,18 @@ function CImportDSR() {
           )}
         </div>
 
-        <CustomTabPanel value={tabValue} index={0}>
+        {/* <CustomTabPanel value={tabValue} index={0}>
           <Dashboard />
-        </CustomTabPanel>
-        <CustomTabPanel value={tabValue} index={1}>
+        </CustomTabPanel> */}
+        <CustomTabPanel value={tabValue} index={0}>
           <JobTabs />
         </CustomTabPanel>
-        <CustomTabPanel value={tabValue} index={2}>
+        {/* <CustomTabPanel value={tabValue} index={2}>
           <ViewDSR />
         </CustomTabPanel>
         <CustomTabPanel value={tabValue} index={3}>
           <ImportCreateJob />
-        </CustomTabPanel>
+        </CustomTabPanel> */}
       </Box>
       <Snackbar
         open={snackbar}

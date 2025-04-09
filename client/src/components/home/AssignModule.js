@@ -13,7 +13,7 @@ import axios from "axios";
 
 const allModules = [
   "Import - DSR",
-  "Customer Module",
+  "Customer",
   "Import - DO",
   "Import - Operations",
   "Import - Add",

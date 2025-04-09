@@ -19,6 +19,15 @@ export const UserProvider = ({ children }) => {
 
   useEffect(() => {
     const checkAuthentication = async () => {
+      // Only attempt verification if we have a token in cookies
+      const hasSessionCookie = document.cookie.includes("exim_token");
+
+      if (!hasSessionCookie) {
+        console.log("No session cookie found, skipping verification");
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const response = await axios.get(
           `${process.env.REACT_APP_API_STRING}/verify-session`,
@@ -33,8 +42,12 @@ export const UserProvider = ({ children }) => {
         setUser(response.data);
       } catch (error) {
         console.error("Authentication check failed:", error.message);
-        localStorage.removeItem("exim_user");
-        setUser(null);
+        // Don't immediately clear localStorage on failure
+        // Only clear if the server explicitly says the session is invalid
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem("exim_user");
+          setUser(null);
+        }
       } finally {
         setIsLoading(false);
       }

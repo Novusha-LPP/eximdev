@@ -88,12 +88,13 @@ function useJobColumns() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No",
+        header: "Job No  ",
         size: 150,
         Cell: ({ cell }) => {
           const {
             job_no,
             year,
+            job_date,
             type_of_b_e,
             consignment_type,
             vessel_berthing,
@@ -192,15 +193,24 @@ function useJobColumns() {
 
           return (
             <div
-              onClick={() => navigate(`/job/${job_no}/${year}`)}
+              onClick={() => {
+                console.log(user?.role);
+                if (user?.role == "Customer") {
+                  navigate(`/cjob/${job_no}/${year}`);
+                } else {
+                  navigate(`/job/${job_no}/${year}`);
+                }
+              }}
               style={{
                 cursor: "pointer",
                 color: textColor,
                 backgroundColor: bgColor,
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+              {job_no} <br />
+              {job_date}
+              <br />00
+              {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
               <br />
             </div>
           );
@@ -370,6 +380,7 @@ function useJobColumns() {
           );
         },
       },
+<<<<<<< HEAD
     {
   accessorKey: "dates",
   header: "Dates",
@@ -377,6 +388,94 @@ function useJobColumns() {
   Cell: EditableDateCell,
 },
 
+=======
+      {
+        accessorKey: "dates",
+        header: "Dates",
+        size: 350,
+        Cell: ({ cell }) => {
+          const {
+            vessel_berthing,
+            gateway_igm_date,
+            discharge_date,
+            rail_out_date,
+            pcv_date,
+            out_of_charge,
+            delivery_date,
+            emptyContainerOffLoadDate,
+            container_nos = [],
+          } = cell.row.original;
+
+          return (
+            <div style={{ display: "flex", gap: "20px" }}>
+              {/* Left Section */}
+              <div>
+                <strong>ETA :</strong> {vessel_berthing || "N/A"} <br />
+                <strong>GIGM :</strong> {gateway_igm_date || "N/A"} <br />
+                <strong>Discharge :</strong> {discharge_date || "N/A"} <br />
+                <strong>Rail-out :</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.container_rail_out_date
+                          ? container.container_rail_out_date.slice(0, 10)
+                          : "N/A"}{" "}
+                        <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}
+                <strong>Arrival :</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.arrival_date || "N/A"} <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}
+                <strong>Detention.F. :</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.detention_from || "N/A"} <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}
+              </div>
+
+              {/* Right Section */}
+              <div>
+                <strong>PCV :</strong> {pcv_date || "N/A"} <br />
+                <strong>OOC :</strong> {out_of_charge || "N/A"} <br />
+                <strong>Delivery :</strong>{" "}
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.delivery_date
+                          ? container.delivery_date.slice(0, 10)
+                          : "N/A"}{" "}
+                        <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}{" "}
+                <br />
+                <strong>EmptyOff:</strong>
+                {container_nos.length > 0
+                  ? container_nos.map((container, id) => (
+                      <React.Fragment key={id}>
+                        {container.emptyContainerOffLoadDate
+                          ? container.emptyContainerOffLoadDate.slice(0, 10)
+                          : "N/A"}{" "}
+                        <br />
+                      </React.Fragment>
+                    ))
+                  : "N/A"}{" "}
+                <br />
+              </div>
+            </div>
+          );
+        },
+      },
+>>>>>>> origin/apaatkaalin
 
 
 

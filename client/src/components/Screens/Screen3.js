@@ -8,12 +8,13 @@ const Screen3 = () => {
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    const SOCKET_URL = `ws://localhost:9000`; // or use env for production
+    const SOCKET_URL = `wss://${process.env.REACT_APP_SOCKET_URL}`;
+  
     const socket = new WebSocket(SOCKET_URL);
 
     socket.onopen = () => {
       setConnectionStatus("Connected");
-      socket.send(JSON.stringify({ year: "24-25" }));
+      socket.send(JSON.stringify({ year: "25-26" }));
     };
 
     socket.onmessage = (event) => {

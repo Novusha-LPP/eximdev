@@ -244,6 +244,12 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
+const CLIENT_URI =
+  process.env.NODE_ENV === "production"
+    ? process.env.PROD_CLIENT_URI
+    : process.env.NODE_ENV === "server"
+    ? process.env.SERVER_CLIENT_URI
+    : process.env.DEV_CLIENT_URI;
 
 //console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
@@ -263,22 +269,36 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
+
+  const allowedOrigins = [
+    "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+    "http://eximit.s3-website.ap-south-1.amazonaws.com",
+    "http://localhost:3000",
+  ];
 
   app.use(
     cors({
-      origin: "http://localhost:3000", // Specify your frontend URL
-      credentials: true, // Allow credentials
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "Access-Control-Allow-Credentials",
-        "Cookie",
-      ],
+      origin: function (origin, callback) {
+        if (!origin) return callback(null, true); // allow non-browser requests
+        const allowedOrigins = [
+          "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+          "http://localhost:3000",
+        ];
+        if (allowedOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
     })
   );
 
-  app.use(cookieParser());
+  app.options("*", cors());
+
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);

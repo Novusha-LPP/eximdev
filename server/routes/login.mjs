@@ -27,15 +27,7 @@ router.post("/api/login", async (req, res) => {
         // Sanitize user data
         const userResponse = sanitizeUserData(user);
 
-        // Set secure, httpOnly cookies
-        res.cookie("exim_token", token, {
-          httpOnly: true,
-          // secure: process.env.NODE_ENV === "production", // use HTTPS only in production
-          sameSite: "lax", // protect against CSRF
-          maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        });
-
-        // Set user data cookie (without sensitive information)
+        // Set only the user data cookie (without token)
         res.cookie(
           "exim_user",
           JSON.stringify({
@@ -52,7 +44,11 @@ router.post("/api/login", async (req, res) => {
           }
         );
 
-        return res.status(200).json(userResponse);
+        // Return token in response body instead of cookie
+        return res.status(200).json({
+          ...userResponse,
+          token: token, // Include token in response body
+        });
       } else {
         return res
           .status(400)

@@ -27,6 +27,7 @@ import SelectImporterModal from "./CSelectImporterModal";
 import { useNavigate } from "react-router-dom";
 import { useImportersContext } from "../../contexts/importersContext";
 import { getUser } from "../../utils/cookie";
+import { UserContext } from "../../contexts/UserContext";
 
 function CJobList(props) {
   const [years, setYears] = useState([]);
@@ -45,25 +46,28 @@ function CJobList(props) {
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  console.log(user);
+  console.log(assignedImporters);
 
-  // Only get username from cookie
-  useEffect(() => {
-    const user = getUser();
-    if (user && user.username) {
-      setUsername(user.username);
-    }
-  }, []);
+  // // Only get username from cookie
+  // useEffect(() => {
+  //   const user = getUser();
+  //   if (user && user.username) {
+  //     setUsername(user.username);
+  //   }
+  // }, []);
 
   // Fetch user data including assigned importer from API only
   useEffect(() => {
     async function fetchUserData() {
-      if (!username) {
+      if (!user || !user.username) {
         return;
       }
 
       try {
         const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-user-data/${username}`
+          `${process.env.REACT_APP_API_STRING}/get-user/${user.username}`
         );
         setUserData(response.data);
 
@@ -72,10 +76,6 @@ function CJobList(props) {
           response.data.assigned_importer_name &&
           response.data.assigned_importer_name.length > 0
         ) {
-          // console.log(
-          //   "Setting assignedImporters from API:",
-          //   response.data.assigned_importer_name
-          // );
           setAssignedImporters(response.data.assigned_importer_name);
 
           // Set the first one as selected by default
@@ -86,7 +86,7 @@ function CJobList(props) {
       }
     }
     fetchUserData();
-  }, [username]); // Only depend on username
+  }, [user]); // Only depend on username
 
   // Track dependencies for job fetching
   useEffect(() => {
@@ -100,6 +100,8 @@ function CJobList(props) {
     props.status,
     debouncedSearchQuery,
   ]);
+  console.log(user.username);
+  console.log(selectedImporter);
 
   const {
     rows,

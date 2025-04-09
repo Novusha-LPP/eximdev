@@ -20,7 +20,7 @@ function formatImporter(importer) {
 //       { importerURL: 1 },
 //       { status: 1 },
 //     ]);
-//     console.log("Indexes ensured successfully.");
+//    
 //   } catch (error) {
 //     console.error("Error creating indexes:", error);
 //   }

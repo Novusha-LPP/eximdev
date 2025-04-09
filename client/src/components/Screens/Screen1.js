@@ -15,7 +15,7 @@ const Screen1 = () => {
   
     socket.onopen = () => {
       setConnectionStatus("Connected");
-      socket.send(JSON.stringify({ year: "24-25" }));
+      socket.send(JSON.stringify({ year: "25-26" }));
     };
   
     socket.onmessage = (event) => {

@@ -12,6 +12,8 @@ import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
 import { useImportersContext } from "../../contexts/importersContext";
+import { useContext } from "react";
+import { YearContext } from "../../contexts/yearContext.js";
 
 const style = {
   position: "absolute",
@@ -25,51 +27,44 @@ const style = {
 };
 
 export default function SelectImporterModal(props) {
-  const { selectedYear } = React.useContext(SelectedYearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { importers, setImporters } = useImportersContext();
   const [importerData, setImporterData] = React.useState([]);
   const [selectedImporter, setSelectedImporter] = React.useState("");
   const [checked, setChecked] = React.useState(false);
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
-  const getUniqueImporterNames = (importerData) => {
-    const uniqueImporters = new Set();
-    return importerData
-      ?.filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) {
-          return false;
-        } else {
-          uniqueImporters.add(importer.importer);
-          return true;
-        }
-      })
-      .map((importer, index) => {
-        return {
-          label: importer.importer,
-          key: `${importer.importer}-${index}`,
-        };
-      });
-  };
-
+  // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
-      if (selectedYear) {
+      if (selectedYearState) {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
         );
-        setImporterData(res.data);
         setImporters(res.data);
-        if (res.data.length > 0) {
-          setSelectedImporter(res.data[0].importer);
-        }
       }
     }
     getImporterList();
-  }, [selectedYear]);
+  }, [selectedYearState]);
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
 
-  const handleImporterChange = (event, newValue) => {
-    setSelectedImporter(newValue?.label || null);
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
   };
+
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   const handleYearChange = (event) => {
     const year = event.target.value;
@@ -79,8 +74,6 @@ export default function SelectImporterModal(props) {
         : [...prevYears, year]
     );
   };
-
-  const importerNames = getUniqueImporterNames(importerData);
 
   const handleReportDownload = async () => {
     if (selectedImporter !== "" && selectedApiYears.length > 0) {
@@ -170,20 +163,21 @@ export default function SelectImporterModal(props) {
           <br />
           {!checked && (
             <Autocomplete
-              disablePortal
-              fullWidth
-              options={importerNames}
-              getOptionLabel={(option) => option.label}
-              value={
-                importerNames.find(
-                  (option) => option.label === selectedImporter
-                ) || null
-              }
-              onChange={handleImporterChange}
-              renderInput={(params) => (
-                <TextField {...params} size="small" label="Select importer" />
-              )}
-            />
+                     sx={{ width: "300px", marginRight: "20px" }}
+                     freeSolo
+                     options={importerNames.map((option) => option.label)}
+                     value={selectedImporter || ""} // Controlled value
+                     onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+                     renderInput={(params) => (
+                       <TextField
+                         {...params}
+                         variant="outlined"
+                         size="small"
+                         fullWidth
+                         label="Select Importer" // Placeholder text
+                       />
+                     )}
+                   />
           )}
 
           <button

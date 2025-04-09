@@ -27,11 +27,11 @@ function useFetchPrJobList(
       const formattedSearchQuery = searchQuery
         ? encodeURIComponent(searchQuery)
         : "";
-      
+
       console.log(selectedYearState);
 
       // Construct API URL
-      const apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${formattedImporter}?page=${page}&limit=100`;
+      const apiUrl = `${process.env.REACT_APP_API_STRING}/pr-job-list?status=${status}&page=${page}&limit=100`;
 
       const response = await axios.get(apiUrl);
 

@@ -28,6 +28,7 @@ router.post("/api/update-container", async (req, res) => {
       vehicle_no,
       pr_no,
       status,
+      elock, // Add elock field
     } = req.body;
 
     // Get the last TR document
@@ -84,6 +85,7 @@ router.post("/api/update-container", async (req, res) => {
         containerWithoutNumber.vehicle_no = vehicle_no;
         containerWithoutNumber.status = status;
         containerWithoutNumber.tr_no = tr;
+        containerWithoutNumber.elock = elock; // Save the selected Elock reference
 
         // Create and save new Tr document
         await Tr.create({ tr_no: fiveDigitNo.toString() });
@@ -109,6 +111,7 @@ router.post("/api/update-container", async (req, res) => {
           vehicle_no,
           status,
           tr_no: tr,
+          elock, // Save the selected Elock reference
         });
       }
     } else {
@@ -141,6 +144,7 @@ router.post("/api/update-container", async (req, res) => {
       matchingContainer.gross_weight = gross_weight;
       matchingContainer.vehicle_no = vehicle_no;
       matchingContainer.status = status;
+      matchingContainer.elock = elock; // Update the Elock reference
 
       // Check if tr_no is present, if not, update it
       if (!matchingContainer.tr_no) {

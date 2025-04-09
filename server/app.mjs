@@ -157,6 +157,8 @@ import ViewExitInterviews from "./routes/exit-interview/viewExitInterviews.mjs";
 
 // LR Operations
 import getPrData from "./routes/lr/getPrData.mjs";
+import getPrJobList from "./routes/lr/getPRjobList.mjs";
+import getLrJobList from "./routes/lr/getLRjobList.mjs";
 import updatePr from "./routes/lr/updatePr.mjs";
 import deletePr from "./routes/lr/deletePr.mjs";
 import getOrganisations from "./routes/lr/getOrganisations.mjs";
@@ -445,6 +447,8 @@ if (cluster.isPrimary) {
 
       // LR Operations
       app.use(getPrData);
+      app.use(getPrJobList);
+      app.use(getLrJobList);
       app.use(updatePr);
       app.use(deletePr);
       app.use(getContainerTypes);

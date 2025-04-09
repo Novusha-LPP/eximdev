@@ -1,15 +1,15 @@
 import React, { useCallback, useMemo, useState } from "react";
-import FileUpload from "./FileUpload.js";
+import FileUpload from "./FileUpload";
 import { FaUpload } from "react-icons/fa";
+import axios from "axios";
 
-const BENumberCell = ({ 
-  cell, 
-  onDocumentsUpdated // Callback to update parent component's state
-}) => {
+const BENumberCell = ({ cell, onDocumentsUpdated }) => {
   const [activeUpload, setActiveUpload] = useState(null);
+  const [processedBeFiles, setProcessedBeFiles] = useState(cell.row.original.processed_be_attachment || []);
+  const [oocFiles, setOocFiles] = useState(cell.row.original.ooc_copies || []);
+  const [gatePassFiles, setGatePassFiles] = useState(cell.row.original.gate_pass_copies || []);
 
   const formatDate = useCallback((dateStr) => {
-    if (!dateStr) return "";
     const date = new Date(dateStr);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -36,103 +36,63 @@ const BENumberCell = ({
   const location = getCustomHouseLocation(customHouse);
   const rowId = cell.row.original.id || cell.row.id;
 
-  const {
-    processed_be_attachment = [],
-    ooc_copies = [],
-    gate_pass_copies = [],
-  } = cell.row.original;
-
-  const getFirstLink = (input) => {
-    if (Array.isArray(input)) {
-      return input.length > 0 ? input[0] : null;
-    }
-    return input || null;
-  };
-
-  const processed_be_attachmentLink = getFirstLink(processed_be_attachment);
-
-  const handleFilesUploaded = (newFiles, fieldName) => {
-    // Create a copy of the row data
-    const updatedRowData = { ...cell.row.original };
+// Handle file uploads for different document types
+const handleFilesUploaded = async (newFiles, fieldName) => {
+  let updatedFiles;
+  
+  // Determine which state to update based on the field
+  if (fieldName === "processed_be_attachment") {
+    updatedFiles = [...processedBeFiles, ...newFiles];
+    setProcessedBeFiles(updatedFiles);
+  } else if (fieldName === "ooc_copies") {
+    updatedFiles = [...oocFiles, ...newFiles];
+    setOocFiles(updatedFiles);
+  } else if (fieldName === "gate_pass_copies") {
+    updatedFiles = [...gatePassFiles, ...newFiles];
+    setGatePassFiles(updatedFiles);
+  }
+  
+  // Update the database with the complete array
+  try {
+    await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
+      [fieldName]: updatedFiles
+    });
     
-    // Update the specific field with new files
-    const existingFiles = updatedRowData[fieldName] || [];
-    updatedRowData[fieldName] = [...existingFiles, ...newFiles];
-    
-    // Call the parent's callback to update the data
+    // Call parent component's update function if available
     if (onDocumentsUpdated) {
-      onDocumentsUpdated(rowId, fieldName, updatedRowData[fieldName]);
+      onDocumentsUpdated(rowId, fieldName, updatedFiles);
     }
-    
-    // Close upload popup
-    setActiveUpload(null);
-  };
+  } catch (error) {
+    console.error(`Error updating ${fieldName}:`, error);
+    // You might want to show an error message to the user
+  }
+  
+  // Close the upload popup
+  setActiveUpload(null);
+};
 
-  const renderDocumentSection = (title, documents, fieldName) => {
-    const isUploadActive = activeUpload === fieldName;
+  // Component to render the upload button and popup
+  const renderUploadButton = (fieldName, title) => {
+    const isActive = activeUpload === fieldName;
     
     return (
-      <div style={{ marginTop: "10px", position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {documents.length > 0 ? (
-            <a
-              href={documents[0]}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: "blue",
-                textDecoration: "underline",
-                cursor: "pointer",
-                marginRight: "10px"
-              }}
-            >
-              {title}
-            </a>
-          ) : (
-            <span style={{ color: "gray", marginRight: "10px" }}>{title}</span>
-          )}
-          
-          <button
-            type="button"
-            onClick={() => setActiveUpload(isUploadActive ? null : fieldName)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "0",
-              color: "#0066cc"
-            }}
-            title={`Upload ${title}`}
-          >
-            <FaUpload size={14} />
-          </button>
-        </div>
+      <div style={{ position: "relative", display: "inline-block", marginLeft: "10px" }}>
+        <button
+          type="button"
+          onClick={() => setActiveUpload(isActive ? null : fieldName)}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "0",
+            color: "#0066cc"
+          }}
+          title={`Upload ${title}`}
+        >
+          <FaUpload size={14} />
+        </button>
         
-        {/* Additional files if they exist */}
-        {documents.length > 1 && fieldName !== "processed_be_attachment" && (
-          <div style={{ marginTop: "5px" }}>
-            {documents.slice(1).map((doc, index) => (
-              <a
-                key={index}
-                href={doc}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: "blue",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  display: "block",
-                  marginTop: "3px"
-                }}
-              >
-                {fieldName === "ooc_copies" ? `OOC Copy ${index + 2}` : `Gate Pass ${index + 2}`}
-              </a>
-            ))}
-          </div>
-        )}
-        
-        {/* Upload component */}
-        {isUploadActive && (
+        {isActive && (
           <div style={{ 
             position: "absolute", 
             zIndex: 10, 
@@ -141,8 +101,7 @@ const BENumberCell = ({
             padding: "10px", 
             boxShadow: "0px 0px 10px rgba(0,0,0,0.1)",
             borderRadius: "4px",
-            left: "50%",
-            transform: "translateX(-50%)",
+            right: 0,
             marginTop: "5px"
           }}>
             <FileUpload
@@ -169,6 +128,35 @@ const BENumberCell = ({
           </div>
         )}
       </div>
+    );
+  };
+
+  // Render document links with proper indexing
+  const renderDocumentLinks = (documents, baseLabel) => {
+    if (!documents || documents.length === 0) {
+      return <span style={{ color: "gray" }}>No {baseLabel}</span>;
+    }
+
+    return (
+      <>
+        {documents.map((doc, index) => (
+          <a
+            key={index}
+            href={doc}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "blue",
+              textDecoration: "underline",
+              cursor: "pointer",
+              display: "block",
+              marginTop: index === 0 ? 0 : "3px"
+            }}
+          >
+            {baseLabel} {index + 1}
+          </a>
+        ))}
+      </>
     );
   };
 
@@ -200,14 +188,29 @@ const BENumberCell = ({
         </div>
       )}
 
-      {/* Processed BE Attachment */}
-      {renderDocumentSection("Processed Copy of BOE", processed_be_attachment, "processed_be_attachment")}
-      
+      {/* Processed Copy of BOE */}
+      <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
+        <div style={{ flex: 1 }}>
+          {renderDocumentLinks(processedBeFiles, "Processed Copy of BOE")}
+        </div>
+        {renderUploadButton("processed_be_attachment", "BE Copy")}
+      </div>
+
       {/* OOC Copies */}
-      {renderDocumentSection(ooc_copies.length > 0 ? `OOC Copy 1` : "No OOC Copies", ooc_copies, "ooc_copies")}
-      
+      <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
+        <div style={{ flex: 1 }}>
+          {renderDocumentLinks(oocFiles, "OOC Copy")}
+        </div>  
+        {renderUploadButton("ooc_copies", "OOC Copy")}
+      </div>
+
       {/* Gate Pass Copies */}
-      {renderDocumentSection(gate_pass_copies.length > 0 ? `Gate Pass 1` : "No Gate Pass", gate_pass_copies, "gate_pass_copies")}
+      <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
+        <div style={{ flex: 1 }}>
+          {renderDocumentLinks(gatePassFiles, "Gate Pass")}
+        </div>
+        {renderUploadButton("gate_pass_copies", "Gate Pass")}
+      </div>
     </div>
   );
 };

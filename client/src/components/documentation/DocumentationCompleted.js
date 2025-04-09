@@ -119,7 +119,7 @@ function DocumentationCompletedd() {
               page: currentPage,
               limit,
               search: currentSearchQuery,
-              importer: selectedYearState?.trim() || "",
+              importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Send year to backend
             },
           }

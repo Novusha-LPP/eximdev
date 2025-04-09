@@ -18,8 +18,8 @@ import compression from "compression";
 import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
-import http from 'http';
-import { setupJobOverviewWebSocket } from './setupJobOverviewWebSocket.mjs';
+import http from "http";
+import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 
 dotenv.config();
 
@@ -266,6 +266,23 @@ if (cluster.isPrimary) {
   app.use(express.urlencoded({ extended: true }));
 
   app.use(cors());
+  app.use((req, res, next) => {
+    const isBrowserRequest =
+      req.headers["user-agent"] &&
+      req.headers["user-agent"].includes("Mozilla");
+
+    // For sensitive routes, block direct browser access
+    if (
+      req.path.startsWith("/api/") &&
+      isBrowserRequest &&
+      !req.xhr &&
+      req.headers.accept.indexOf("html") > -1
+    ) {
+      return res.status(404).send("Not found");
+    }
+
+    next();
+  });
   // app.use(cors({ origin: CLIENT_URI, credentials: true }));
 
   app.use(compression({ level: 9 }));
@@ -506,22 +523,19 @@ if (cluster.isPrimary) {
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
-      
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);
-  
+
       server.listen(9000, () => {
         console.log(`🟢 Server listening on http://localhost:${9000}`);
       });
     })
     .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
-  
-   
-    // server.listen(9000, () => {
-    //   console.log(`🟢 Server listening on http://localhost:${9000}`);
-    // }) .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
 
+  // server.listen(9000, () => {
+  //   console.log(`🟢 Server listening on http://localhost:${9000}`);
+  // }) .catch((err) => console.log("Error connecting to MongoDB Atlas:", err));
 
   process.on("SIGINT", async () => {
     await mongoose.connection.close();

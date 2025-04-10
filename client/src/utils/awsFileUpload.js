@@ -1,4 +1,10 @@
-import AWS from "aws-sdk";
+import axios from "axios";
+
+// Helper function to determine the correct API base URL
+const getApiBaseUrl = () => {
+  const apiBaseUrl = process.env.REACT_APP_API_STRING || "";
+  return apiBaseUrl;
+};
 
 export const handleFileUpload = async (
   e,
@@ -13,27 +19,17 @@ export const handleFileUpload = async (
   }
 
   try {
-    const s3 = new AWS.S3({
-      accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-      secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-      region: "ap-south-1",
-    });
-
     const uploadedFiles = [];
+    const apiBaseUrl = getApiBaseUrl();
 
     for (let i = 0; i < e.target.files.length; i++) {
       const file = e.target.files[i];
-      const params = {
-        Bucket: "alvision-exim-images",
-        Key: `${folderName}/${file.name}`,
-        Body: file,
-      };
 
-      // Upload the file to S3 and wait for the promise to resolve
-      const data = await s3.upload(params).promise();
+      // Use uploadFileToS3 function to handle the upload
+      const uploadResult = await uploadFileToS3(file, folderName);
 
       // Store the S3 URL in the uploadedFiles array
-      uploadedFiles.push(data.Location);
+      uploadedFiles.push(uploadResult.Location);
     }
 
     // Update formik values with the uploaded file URLs
@@ -48,57 +44,45 @@ export const handleFileUpload = async (
       setFileSnackbar(false);
     }, 3000);
   } catch (err) {
-    console.error("Error uploading files:", err);
+    alert("Failed to upload files. Please try again.");
   }
 };
 
-// utils/awsFileUpload.js
-// utils/awsFileUpload.js
 export const uploadFileToS3 = async (file, folderName) => {
   try {
-    // Step 1: Get the pre-signed URL from your backend
-    const response = await fetch(`${process.env.REACT_APP_API_STRING}/upload/get-upload-url`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileType: file.type,
-        folderName
-      })
+    const apiBaseUrl = getApiBaseUrl();
+    const endpoint = `${apiBaseUrl}/upload/get-upload-url`;
+
+    // Get the pre-signed URL from the backend
+    const presignedUrlResponse = await axios.post(endpoint, {
+      fileName: file.name,
+      fileType: file.type,
+      folderName: folderName,
     });
 
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.message || 'Failed to get upload URL');
+    if (!presignedUrlResponse.data.success) {
+      throw new Error("Failed to get upload URL");
     }
 
-    // Step 2: Use the pre-signed URL to upload the file directly to S3
-    const uploadResponse = await fetch(data.uploadURL, {
-      method: 'PUT',
+    const { uploadURL, key } = presignedUrlResponse.data;
+
+    // Upload the file directly to S3 using the pre-signed URL
+    await axios.put(uploadURL, file, {
       headers: {
-        'Content-Type': file.type,
+        "Content-Type": file.type,
       },
-      body: file
     });
 
-    if (!uploadResponse.ok) {
-      throw new Error('Failed to upload file to S3');
-    }
+    // Return the S3 file location
+    const bucketName = "alvision-exim-images";
+    const region = "ap-south-1";
+    const location = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
 
-    // Step 3: Return the result in the same format expected by existing code
-    const bucketUrl = `https://alvision-exim-images.s3.ap-south-1.amazonaws.com`;
-    const location = `${bucketUrl}/${data.key}`;
-    
     return {
-      Key: data.key,
-      Location: location, // Capital 'L' to match the format in your existing code
-      Bucket: 'alvision-exim-images'
+      Location: location,
+      key,
     };
   } catch (error) {
-    console.error('Error uploading file:', error);
     throw error;
   }
 };

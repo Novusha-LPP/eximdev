@@ -509,12 +509,12 @@ if (cluster.isPrimary) {
 
       
   
-      const isProduction = process.env.NODE_ENV === "production";
-
-      console.log(isProduction, "isProduction");
+      const serverMode = process.env.SERVER_MODE;
+      console.log(serverMode, "serverMode");
+      
       let server;
       
-      if (isProduction) {
+      if (serverMode === "production-secure") {
         const sslOptions = {
           key: fs.readFileSync("/etc/letsencrypt/live/exim.alvision.in/privkey.pem"),
           cert: fs.readFileSync("/etc/letsencrypt/live/exim.alvision.in/fullchain.pem"),
@@ -524,7 +524,7 @@ if (cluster.isPrimary) {
         console.log("🔐 HTTPS server created with SSL certs");
       } else {
         server = http.createServer(app);
-        console.log("🧪 HTTP server created for local/dev");
+        console.log("🧪 HTTP server created for non-secure environments");
       }
       
       setupJobOverviewWebSocket(server);

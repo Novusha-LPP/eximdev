@@ -19,6 +19,7 @@ import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
 import http from 'http';
+import https from 'https';
 import { setupJobOverviewWebSocket } from './setupJobOverviewWebSocket.mjs';
 
 dotenv.config();
@@ -507,10 +508,26 @@ if (cluster.isPrimary) {
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
       
-      // Initialize WebSocket logic
-      const server = http.createServer(app);
-      setupJobOverviewWebSocket(server);
   
+      const isProduction = process.env.NODE_ENV === "production";
+
+      console.log(isProduction, "isProduction");
+      let server;
+      
+      if (isProduction) {
+        const sslOptions = {
+          key: fs.readFileSync("/etc/letsencrypt/live/exim.alvision.in/privkey.pem"),
+          cert: fs.readFileSync("/etc/letsencrypt/live/exim.alvision.in/fullchain.pem"),
+        };
+      
+        server = https.createServer(sslOptions, app);
+        console.log("🔐 HTTPS server created with SSL certs");
+      } else {
+        server = http.createServer(app);
+        console.log("🧪 HTTP server created for local/dev");
+      }
+      
+      setupJobOverviewWebSocket(server);
       server.listen(9000, () => {
         console.log(`🟢 Server listening on http://localhost:${9000}`);
       });

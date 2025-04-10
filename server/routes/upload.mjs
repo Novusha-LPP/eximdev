@@ -29,7 +29,7 @@ router.post("/get-upload-url", async (req, res) => {
     const key = `${folderName}/${timestamp}-${fileName}`;
 
     const s3Params = {
-      Bucket: process.env.S3_BUCKET || "alvision-exim-images",
+      Bucket: process.env.S3_BUCKET,
       Key: key,
       ContentType: fileType,
       Expires: 3600,

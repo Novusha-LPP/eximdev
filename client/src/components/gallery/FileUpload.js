@@ -24,18 +24,16 @@ const FileUpload = ({
     setUploading(true);
 
     try {
-      for (const file of files) {
-        try {
-          const result = await uploadFileToS3(file, bucketPath);
-          // Make sure we're using the correct property name (Location with capital L)
-          if (result && result.Location) {
-            uploadedFiles.push(result.Location);
-          } else {
-            console.error("Upload response missing Location:", result);
-          }
-        } catch (error) {
-          console.error(`Failed to upload ${file.name}:`, error);
-        }
+      // Call the upload utility function
+      const result = await uploadFileToS3(files, bucketPath);
+
+      // Extract file URLs from the uploaded array in the response
+      if (result && result.uploaded && result.uploaded.length > 0) {
+        // Map through the uploaded files to get their locations
+        const fileUrls = result.uploaded.map((file) => file.location);
+        uploadedFiles.push(...fileUrls);
+      } else {
+        console.error("Upload response missing uploaded files data:", result);
       }
 
       // Call the callback function with the uploaded file URLs

@@ -20,6 +20,7 @@ import os from "os";
 import bodyParser from "body-parser";
 import http from 'http';
 import https from 'https';
+import fs from 'fs';
 import { setupJobOverviewWebSocket } from './setupJobOverviewWebSocket.mjs';
 
 dotenv.config();
@@ -519,6 +520,8 @@ if (cluster.isPrimary) {
           key: fs.readFileSync("/etc/letsencrypt/live/exim.alvision.in/privkey.pem"),
           cert: fs.readFileSync("/etc/letsencrypt/live/exim.alvision.in/fullchain.pem"),
         };
+
+        console.log(sslOptions)
       
         server = https.createServer(sslOptions, app);
         console.log("🔐 HTTPS server created with SSL certs");

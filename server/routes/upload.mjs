@@ -27,7 +27,11 @@ const upload = multer({
 router.post(
   "/upload-files",
   cors({
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+      "http://eximit.s3-website.ap-south-1.amazonaws.com",
+    ],
     credentials: true,
   }),
   upload.array("files", 10),

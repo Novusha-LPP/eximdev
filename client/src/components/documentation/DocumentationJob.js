@@ -15,6 +15,8 @@ import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import FileUpload from "../gallery/FileUpload";
+import ImagePreview from "../gallery/ImagePreview";
 
 const DocumentationJob = () => {
     const routeLocation = useLocation()
@@ -241,6 +243,47 @@ const DocumentationJob = () => {
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />
             {renderAllDocuments(data.all_documents)}
+
+            {/* Checklist Upload Section */}
+            <div style={{ marginTop: "20px" }}>
+              <JobDetailsRowHeading heading="Upload Checklist" />
+              <FileUpload
+    bucketPath="checklist"
+    onFilesUploaded={(newFiles) => {
+      const existingFiles = data.checklist || [];
+      const updatedFiles = [...existingFiles, ...newFiles];
+      setData((prevData) => ({
+        ...prevData,
+        checklist: updatedFiles,
+      }));
+    }}
+    multiple={true}
+    style={{
+      padding: "10px 16px",
+      borderRadius: "8px",
+      backgroundColor: "#1976d2", // Material blue
+      color: "#fff",
+      border: "none",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: "bold",
+      textAlign: "center",
+      transition: "background-color 0.3s",
+    }}
+    label="Upload Files"
+  />
+              <ImagePreview
+                images={data.checklist || []}
+                onDeleteImage={(index) => {
+                  const updatedFiles = [...data.checklist];
+                  updatedFiles.splice(index, 1);
+                  setData((prevData) => ({
+                    ...prevData,
+                    checklist: updatedFiles,
+                  }));
+                }}
+              />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit}>

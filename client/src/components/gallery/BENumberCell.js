@@ -2,8 +2,10 @@ import React, { useCallback, useMemo, useState, useEffect } from "react";
 import FileUpload from "./FileUpload";
 import { FaUpload } from "react-icons/fa";
 import axios from "axios";
+import { IconButton } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
-const BENumberCell = ({ cell, onDocumentsUpdated }) => {
+const BENumberCell = ({ cell, onDocumentsUpdated, copyFn}) => {
   const [activeUpload, setActiveUpload] = useState(null);
   const [processedBeFiles, setProcessedBeFiles] = useState(cell.row.original.processed_be_attachment || []);
   const [oocFiles, setOocFiles] = useState(cell.row.original.ooc_copies || []);
@@ -113,10 +115,9 @@ const handleFilesUploaded = async (newFiles, fieldName) => {
           <div style={{ 
             position: "absolute", 
             zIndex: 10, 
-            width: "200px", 
-            background: "white", 
+            width: "100px", 
+            height: "100px",
             padding: "10px", 
-            boxShadow: "0px 0px 10px rgba(0,0,0,0.1)",
             borderRadius: "4px",
             right: 0,
             marginTop: "5px"
@@ -188,8 +189,10 @@ const handleFilesUploaded = async (newFiles, fieldName) => {
       }}
     >
       {beNumber && (
-        <div>
-          <a
+        
+          <div>
+            <div style={{display: 'flex', alignItems: 'center'}}>
+            <a
             href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -201,8 +204,20 @@ const handleFilesUploaded = async (newFiles, fieldName) => {
           >
             {beNumber}
           </a>
-          <div>{beDate}</div>
-        </div>
+                              {/* Copy BL Number */}
+                    <IconButton
+                      size="small"
+                      onClick={(event) => copyFn(event, beNumber)}
+                    >
+                      <abbr title="Copy BL Number">
+                        <ContentCopyIcon fontSize="inherit" />
+                      </abbr>
+                    </IconButton>
+            </div>
+          
+          <span>{beDate}</span>
+          </div>
+      
       )}
 
       {/* Processed Copy of BOE */}

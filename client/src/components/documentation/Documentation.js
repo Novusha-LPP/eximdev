@@ -18,8 +18,6 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // En
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
-import { Cell } from "jspdf-autotable";
-import ChecklistCell from "../gallery/ChecklistCell.js";
 
 function Documentation() {
  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -316,13 +314,6 @@ function Documentation() {
         );
       },
     },
-    {
-      accessorKey: "checklist", 
-      header: "Checklist",
-      enableSorting: false,
-      size: 150,
-      Cell: ChecklistCell
-    }
   ];
 
   const tableConfig = {

@@ -11,16 +11,18 @@ import {
   Typography,
   InputAdornment,
   MenuItem,
-  Autocomplete
+  Autocomplete,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { Cell } from "jspdf-autotable";
+import ChecklistCell from "../gallery/ChecklistCell.js";
 
 function Documentation() {
- const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
@@ -33,8 +35,6 @@ function Documentation() {
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
   const limit = 100; // Number of items per page
-
-  
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -66,9 +66,7 @@ function Documentation() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -148,23 +146,28 @@ function Documentation() {
     },
     [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
   );
-  
+
   // Fetch jobs when page or debounced search query changes
- useEffect(() => {
-   if (selectedYearState) {
-     // Ensure year is available before calling API
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
-   }
- }, [
-   page,
-   debouncedSearchQuery,
-   selectedImporter,
-   selectedYearState,
-   fetchJobs,
- ]);
+  useEffect(() => {
+    if (selectedYearState) {
+      // Ensure year is available before calling API
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState
+      );
+    }
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedImporter,
+    selectedYearState,
+    fetchJobs,
+  ]);
 
   // ✅ Added selectedYear as a dependency
-  
+
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -313,6 +316,13 @@ function Documentation() {
           </div>
         );
       },
+    },
+    {
+      accessorKey: "checklist",
+      header: "Checklist",
+      enableSorting: false,
+      size: 150,
+      Cell: ChecklistCell,
     },
   ];
 

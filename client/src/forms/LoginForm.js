@@ -32,7 +32,7 @@ function LoginPage() {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/login`,
         { username, password },
-        { withCredentials: true } // Important for cookie handling
+        // { withCredentials: true } // Important for cookie handling
       );
       console.log(res);
       if (res.status === 200) {

@@ -281,19 +281,7 @@ if (cluster.isPrimary) {
   const app = express();
   app.use("/api/upload", uploadRouter);
   app.use(bodyParser.json({ limit: "100mb" }));
-  app.use(
-    cors({
-      origin: "http://localhost:3000",
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "Content-Length",
-        "X-Requested-With",
-      ],
-      credentials: true,
-    })
-  );
+  app.use(cors());
 
   // Apply CORS preflight to all routes
   // app.options("*", cors());
@@ -660,5 +648,3 @@ if (cluster.isPrimary) {
     process.exit(0);
   });
 }
-
-

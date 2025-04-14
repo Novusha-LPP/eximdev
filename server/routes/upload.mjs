@@ -9,6 +9,13 @@ const s3 = new AWS.S3({
   region: process.env.AWS_REGION,
   accessKeyId: process.env.AWS_ACCESS_KEY,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+
+  paramValidation: {
+    min: true,
+    defaults: {
+      encodings: ["uri", "header"],
+    },
+  },
 });
 
 // Configure multer to use memory storage
@@ -20,6 +27,17 @@ const upload = multer({
   },
 });
 
+// Add this near the top of your server file to check the credentials
+console.log("AWS credentials check:", {
+  region: process.env.AWS_REGION ? "Set" : "Missing",
+  accessKeyId: process.env.AWS_ACCESS_KEY
+    ? `Set (length: ${process.env.AWS_ACCESS_KEY.length})`
+    : "Missing",
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    ? "Set (first char: " + process.env.AWS_SECRET_ACCESS_KEY[0] + ")"
+    : "Missing",
+  bucket: process.env.S3_BUCKET ? process.env.S3_BUCKET : "Missing",
+});
 // Route for file upload using multer and S3
 // Route for file upload using multer and S3
 router.post(

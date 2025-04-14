@@ -228,7 +228,7 @@ function useJobColumns() {
               </Tooltip>
               <br />
               <Tooltip title="FTA Benefit" arrow>
-                <span>{ftaDisplay}</span>
+                <span>{`FTA Benefit: ${ftaDisplay}`}</span>
               </Tooltip>
             </>
           );

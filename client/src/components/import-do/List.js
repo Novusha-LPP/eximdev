@@ -398,7 +398,7 @@ function List() {
             </div>
 
             <div>
-              {voyageNo}
+             { `Vessel Voyage: ${voyageNo}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -410,7 +410,7 @@ function List() {
               </IconButton>
               </div>
             <div>
-              {line_no}
+            <span>{`Line No: ${line_no}`}</span>
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}

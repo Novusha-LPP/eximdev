@@ -290,7 +290,7 @@ const FreeDaysConf = () => {
       header: "BL Number",
       size: 200,
       Cell: ({ row }) => {
-        const line_no = row.original.line_no.toString() || "N/A";
+        const line_no = row.original.line_no || "N/A";
         return (
           <>
            <BLNumberCell

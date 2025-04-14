@@ -38,6 +38,10 @@ const EditableDateCell = ({ cell }) => {
   // Free time options
   const options = Array.from({ length: 25 }, (_, index) => index);
 
+  const handleCombinedDateTimeChange = (e) => {
+    setTempDateValue(e.target.value);
+  };
+  
   // Reset data when row changes
   useEffect(() => {
     setDates({
@@ -154,23 +158,23 @@ const EditableDateCell = ({ cell }) => {
   const validateDate = (dateString) => {
     // Allow empty string (cleared date is valid)
     if (!dateString || dateString.trim() === "") return true;
-
-    // Basic date validation
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
+  
+    // Regex for datetime-local format: YYYY-MM-DDTHH:mm
+    const regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
     if (!regex.test(dateString)) return false;
-
+  
     const date = new Date(dateString);
-
+  
     // Check if date is valid (not Invalid Date)
     if (isNaN(date.getTime())) return false;
-
+  
     // Check year is reasonable (between 2000 and 2100)
-    const year = parseInt(dateString.substring(0, 4), 10);
+    const year = date.getFullYear();
     if (year < 2000 || year > 2100) return false;
-
+  
     return true;
   };
-
+  
   // Handle date change
   const handleDateInputChange = (e) => {
     setTempDateValue(e.target.value);
@@ -406,38 +410,32 @@ const EditableDateCell = ({ cell }) => {
                         handleEditStart("container_rail_out_date", id)
                       }
                     />
-                    {editable === `container_rail_out_date_${id}` && (
-                      <div>
-                        <input
-                          type="date"
-                          value={tempDateValue}
-                          onChange={handleDateInputChange}
-                          style={dateError ? styles.errorInput : {}}
-                        />
-                        <input
-                          type="time"
-                          value={tempTimeValue}
-                          onChange={handleTimeInputChange}
-                        />
-                        <button
-                          style={styles.submitButton}
-                          onClick={() =>
-                            handleDateSubmit("container_rail_out_date", id)
-                          }
-                        >
-                          ✓
-                        </button>
-                        <button
-                          style={styles.cancelButton}
-                          onClick={() => setEditable(null)}
-                        >
-                          ✕
-                        </button>
-                        {dateError && (
-                          <div style={styles.errorText}>{dateError}</div>
-                        )}
-                      </div>
-                    )}
+                   {editable === `container_rail_out_date_${id}` && (
+  <div>
+    <input
+      type="datetime-local"
+      value={tempDateValue}
+      onChange={handleCombinedDateTimeChange}
+      style={dateError ? styles.errorInput : {}}
+    />
+    <button
+      style={styles.submitButton}
+      onClick={() => handleDateSubmit("container_rail_out_date", id)}
+    >
+      ✓
+    </button>
+    <button
+      style={styles.cancelButton}
+      onClick={() => setEditable(null)}
+    >
+      ✕
+    </button>
+    {dateError && (
+      <div style={styles.errorText}>{dateError}</div>
+    )}
+  </div>
+)}
+
                   </div>
                 ))}
               </>

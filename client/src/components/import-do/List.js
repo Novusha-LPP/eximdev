@@ -373,6 +373,7 @@ function List() {
       Cell: ({ row }) => {
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
+        const line_no = row.original.line_no?.toString() || "N/A";
 
         return (
           <React.Fragment>
@@ -404,6 +405,18 @@ function List() {
                 onClick={(event) => handleCopy(event, voyageNo)}
               >
                 <abbr title="Copy Voyage Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+              </div>
+            <div>
+              {line_no}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, line_no)}
+              >
+                <abbr title="Copy Line Number">
                   <ContentCopyIcon fontSize="inherit" />
                 </abbr>
               </IconButton>

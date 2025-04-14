@@ -379,12 +379,15 @@ function useJobColumns() {
 
 
 
-
 {
   accessorKey: "be_no",
   header: "BE Number and Date",
   size: 200,
-  Cell: BENumberCell,
+  Cell: ({ cell }) => (
+    <BENumberCell 
+      cell={cell} copyFn={handleCopy} 
+    />
+  ),
 },
 
       {

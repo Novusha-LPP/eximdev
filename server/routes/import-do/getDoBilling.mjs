@@ -26,6 +26,7 @@ router.get("/api/get-do-billing", async (req, res) => {
       search = "",
       importer,
       selectedICD,
+      obl_telex_bl,
       year,
     } = req.query;
 
@@ -46,6 +47,10 @@ router.get("/api/get-do-billing", async (req, res) => {
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const decodedICD = selectedICD
       ? decodeURIComponent(selectedICD).trim()
+      : "";
+    
+    const decodedOBL = obl_telex_bl
+      ? decodeURIComponent(obl_telex_bl).trim()
       : "";
 
     // **Step 1: Define query conditions**
@@ -82,6 +87,11 @@ router.get("/api/get-do-billing", async (req, res) => {
     if (decodedICD && decodedICD !== "Select ICD") {
       baseQuery.$and.push({
         custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
+      });
+    }
+    if (decodedOBL && decodedOBL !== "Select OBL") {
+      baseQuery.$and.push({
+        obl_telex_bl: { $regex: new RegExp(`^${decodedOBL}$`, "i") },
       });
     }
 

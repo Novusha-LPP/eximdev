@@ -295,6 +295,8 @@ const FreeDaysConf = () => {
           portOfReporting={row.original.port_of_reporting}
           shippingLine={row.original.shipping_line_airline}
           containerNos={row.original.container_nos}
+          line_no={row.original.line_no?.toString() || "N/A"}
+
         />
       ),
     },

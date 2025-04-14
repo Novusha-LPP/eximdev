@@ -159,10 +159,6 @@ const EditableDateCell = ({ cell }) => {
     // Allow empty string (cleared date is valid)
     if (!dateString || dateString.trim() === "") return true;
   
-    // Regex for datetime-local format: YYYY-MM-DDTHH:mm
-    const regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-    if (!regex.test(dateString)) return false;
-  
     const date = new Date(dateString);
   
     // Check if date is valid (not Invalid Date)

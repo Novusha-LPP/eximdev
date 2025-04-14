@@ -32,7 +32,7 @@ router.post(
       "http://eximdev.s3-website.ap-south-1.amazonaws.com",
       "http://eximit.s3-website.ap-south-1.amazonaws.com",
     ],
-    credentials: true,
+    //cdentials: true,
   }),
   upload.array("files", 10),
   async (req, res) => {

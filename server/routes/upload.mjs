@@ -1,20 +1,16 @@
 import express from "express";
-import AWS from "aws-sdk";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import multer from "multer";
 import cors from "cors";
 
 const router = express.Router();
 
-const s3 = new AWS.S3({
+// Initialize the S3 client with AWS SDK v3
+const s3Client = new S3Client({
   region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-
-  paramValidation: {
-    min: true,
-    defaults: {
-      encodings: ["uri", "header"],
-    },
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
@@ -27,7 +23,7 @@ const upload = multer({
   },
 });
 
-// Add this near the top of your server file to check the credentials
+// Log credential info for debugging
 console.log("AWS credentials check:", {
   region: process.env.AWS_REGION ? "Set" : "Missing",
   accessKeyId: process.env.AWS_ACCESS_KEY
@@ -38,7 +34,7 @@ console.log("AWS credentials check:", {
     : "Missing",
   bucket: process.env.S3_BUCKET ? process.env.S3_BUCKET : "Missing",
 });
-// Route for file upload using multer and S3
+
 // Route for file upload using multer and S3
 router.post(
   "/upload-files",
@@ -110,15 +106,25 @@ router.post(
             })}`
           );
 
-          // Upload file to S3
+          // Upload file to S3 using AWS SDK v3
           console.log(`Starting S3 upload for ${fileName}...`);
-          const uploadResult = await s3.upload(params).promise();
-          console.log(`S3 upload successful: ${JSON.stringify(uploadResult)}`);
+          const command = new PutObjectCommand(params);
+          const uploadResult = await s3Client.send(command);
+
+          // Construct location URL since SDK v3 doesn't return it directly
+          const location = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+          console.log(
+            `S3 upload successful: ${JSON.stringify({
+              ...uploadResult,
+              Location: location,
+              Key: key,
+            })}`
+          );
 
           uploadResults.push({
             originalName: file.originalname,
-            key: uploadResult.Key,
-            location: uploadResult.Location,
+            key: key,
+            location: location,
             size: file.size,
             mimeType: file.mimetype,
           });

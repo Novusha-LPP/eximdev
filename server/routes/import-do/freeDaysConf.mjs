@@ -89,7 +89,7 @@ router.get("/api/get-free-days", async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year, cth_documents checklist processed_be_attachment"
+        "status detailed_status job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year, cth_documents checklist processed_be_attachment line_no"
       )
       .lean();
 

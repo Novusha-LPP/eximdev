@@ -26,7 +26,7 @@ const FileUpload = ({
     try {
       // Call the upload utility function
       const result = await uploadFileToS3(files, bucketPath);
-
+      console.log(bucketPath);
       // Extract file URLs from the uploaded array in the response
       if (result && result.uploaded && result.uploaded.length > 0) {
         // Map through the uploaded files to get their locations
@@ -41,7 +41,11 @@ const FileUpload = ({
         onFilesUploaded(uploadedFiles);
       }
     } catch (error) {
-      console.error("Error in file upload process:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Unknown error occurred";
+      console.error("Error in file upload process:", errorMessage);
     } finally {
       setUploading(false);
     }

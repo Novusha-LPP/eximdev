@@ -51,7 +51,12 @@ export const uploadFileToS3 = async (files, folderName) => {
       errors: responseData.errors || [],
     };
   } catch (error) {
-    console.error("Upload error:", error);
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error("Upload error:", {
+      message: errorMessage,
+      status: error.response?.status,
+      details: error.stack,
+    });
     throw error;
   }
 };

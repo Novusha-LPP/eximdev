@@ -6,44 +6,42 @@ const getApiBaseUrl = () => {
 
 export const uploadFileToS3 = async (files, folderName) => {
   try {
-    // Step 1: Convert files to array if necessary
     const filesArray = Array.isArray(files)
       ? files
       : files instanceof FileList
       ? Array.from(files)
       : [files];
 
-    // Step 2: Prepare FormData object
     const formData = new FormData();
-
-    // Append all files with the key 'files'
     filesArray.forEach((file, index) => {
       formData.append("files", file);
     });
-
-    // Add the folder name
     formData.append("folderName", folderName);
 
-    // Step 3: Determine endpoint URL
     const apiBaseUrl = getApiBaseUrl();
     const endpoint = `${apiBaseUrl}/upload/upload-files`;
 
-    // Step 4: Send the request using fetch
+    console.log("Uploading to:", endpoint);
+    console.log("Files:", filesArray);
+    console.log("Folder name:", folderName);
+
     const uploadResponse = await fetch(endpoint, {
       method: "POST",
       body: formData,
-      credentials: "include", // Include cookies if needed
-      cache: "no-cache", // Bypass service worker cache
+      // credentials: "include", // Enable if cookies are used
+      cache: "no-cache",
     });
 
-    // Step 5: Parse JSON response
     if (!uploadResponse.ok) {
+      console.error("Upload failed with status:", uploadResponse.status);
+      const errorText = await uploadResponse.text();
+      console.error("Server response:", errorText);
       throw new Error(`Server responded with status: ${uploadResponse.status}`);
     }
 
     const responseData = await uploadResponse.json();
+    console.log("Upload response:", responseData);
 
-    // Step 6: Handle success/failure
     if (!responseData.success) {
       throw new Error(responseData.message || "Failed to upload files");
     }
@@ -53,6 +51,7 @@ export const uploadFileToS3 = async (files, folderName) => {
       errors: responseData.errors || [],
     };
   } catch (error) {
+    console.error("Upload error:", error);
     throw error;
   }
 };
@@ -69,42 +68,42 @@ export const handleFileUpload = async (
 ) => {
   if (e.target.files.length === 0) {
     alert("No files selected");
+    console.warn("File input event triggered with no files.");
     return;
   }
 
   try {
-    // Convert FileList to array
     const filesArray = Array.from(e.target.files);
+    console.log("Files selected for upload:", filesArray);
 
-    // Upload all files at once
     const uploadResult = await uploadFileToS3(filesArray, folderName);
 
     if (uploadResult.uploaded.length > 0) {
-      // Extract the locations of successfully uploaded files
       const fileLocations = uploadResult.uploaded.map((file) => file.location);
+      console.log("File locations uploaded:", fileLocations);
 
-      // Update formik values with the uploaded file URLs
       formik.setValues((values) => ({
         ...values,
         [formikKey]: fileLocations,
       }));
 
-      // Show success notification
       setFileSnackbar(true);
       setTimeout(() => {
         setFileSnackbar(false);
       }, 3000);
 
-      // Report any errors
       if (uploadResult.errors.length > 0) {
+        console.warn("Some files failed to upload:", uploadResult.errors);
         alert(
           `${uploadResult.uploaded.length} files uploaded successfully, but ${uploadResult.errors.length} files failed.`
         );
       }
     } else {
+      console.error("No files uploaded. Check server or network issues.");
       alert("No files were uploaded successfully. Please try again.");
     }
   } catch (err) {
+    console.error("Upload exception:", err);
     alert(`Failed to upload files: ${err.message}`);
   }
 };

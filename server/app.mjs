@@ -280,38 +280,28 @@ if (cluster.isPrimary) {
   app.use("/api/upload", uploadRouter);
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(
-    cors({
-      origin: "http://localhost:3000",
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "Content-Length",
-        "X-Requested-With",
-      ],
-      credentials: true,
-    })
+    cors()
   );
 
   // Apply CORS preflight to all routes
-  // app.options("*", cors());
-  app.options("*", (req, res) => {
-    // Set CORS headers directly
-    res.header("Access-Control-Allow-Origin", "http://localhost:3000");
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS"
-    );
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, Content-Length, X-Requested-With"
-    );
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.sendStatus(204); // No content needed for OPTIONS response
-  });
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-  app.use(cookieParser());
+  app.options("*", cors());
+  // app.options("*", (req, res) => {
+  //   // Set CORS headers directly
+  //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  //   res.header(
+  //     "Access-Control-Allow-Methods",
+  //     "GET, POST, PUT, DELETE, OPTIONS"
+  //   );
+  //   res.header(
+  //     "Access-Control-Allow-Headers",
+  //     "Content-Type, Authorization, Content-Length, X-Requested-With"
+  //   );
+  //   res.header("Access-Control-Allow-Credentials", "true");
+  //   res.sendStatus(204); // No content needed for OPTIONS response
+  // });
+  // app.use(express.json());
+  // app.use(express.urlencoded({ extended: true }));
+  // app.use(cookieParser());
 
   const allowedOrigins = [
     "http://eximdev.s3-website.ap-south-1.amazonaws.com",

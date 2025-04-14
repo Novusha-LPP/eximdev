@@ -1,0 +1,13 @@
+services:
+  backend:
+    container_name: exim_backend
+    build: . # Build using the Dockerfile in the current directory
+    ports:
+      - "9000:9000"
+    volumes:
+      - .:/server # Mount the current directory (where docker-compose.yml is) to /server
+      - /server/node_modules # Prevent overwriting node_modules
+    environment:
+      - NODE_ENV=development
+      - DEV_MONGODB_URI=mongodb://127.0.0.1:27017/eximNew
+    command: ["npm", "run", "start"]

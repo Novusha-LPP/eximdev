@@ -31,15 +31,15 @@ function LoginPage() {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/login`,
-        { username, password },
+        { username, password }
         // { withCredentials: true } // Important for cookie handling
       );
-      console.log(res);
+      // console.log(res);
       if (res.status === 200) {
         // Store token in localStorage
         const user = res.data;
 
-        console.log(user);
+        // console.log(user);
         // Update user context with the returned data
 
         //localStorage.setItem("exim_user", JSON.stringify(user));

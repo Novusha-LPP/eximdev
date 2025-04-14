@@ -29,7 +29,7 @@ function App() {
   //   }
   // });
   const [user, setUser] = useState(() => getUser());
-  console.log(user);
+  // console.log(user);
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -373,7 +373,7 @@ function List() {
       Cell: ({ row }) => {
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
-        const line_no = row.original.line_no?.toString() || "N/A";
+        const line_no = row.original.line_no || "N/A";
 
         return (
           <React.Fragment>

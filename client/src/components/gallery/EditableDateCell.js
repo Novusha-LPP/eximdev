@@ -41,7 +41,7 @@ const EditableDateCell = ({ cell }) => {
   const handleCombinedDateTimeChange = (e) => {
     setTempDateValue(e.target.value);
   };
-  
+
   // Reset data when row changes
   useEffect(() => {
     setDates({
@@ -71,19 +71,20 @@ const EditableDateCell = ({ cell }) => {
     const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
 
     const containerRailOutDate =
-    containers?.length > 0 &&
-    containers.every((container) => container.container_rail_out_date);
-  
-  const emptyContainerOffLoadDate =
-  containers?.length > 0 &&
-  containers.every((container) => container.emptyContainerOffLoadDate);
-  
-  const deliveryDate =
-  containers?.length > 0 &&
-    containers.every((container) => container.delivery_date);
-  
-    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-  
+      containers?.length > 0 &&
+      containers.every((container) => container.container_rail_out_date);
+
+    const emptyContainerOffLoadDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.emptyContainerOffLoadDate);
+
+    const deliveryDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.delivery_date);
+
+    const isExBondOrLCL =
+      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+
     let newStatus = "";
 
     if (
@@ -158,19 +159,19 @@ const EditableDateCell = ({ cell }) => {
   const validateDate = (dateString) => {
     // Allow empty string (cleared date is valid)
     if (!dateString || dateString.trim() === "") return true;
-  
+
     const date = new Date(dateString);
-  
+
     // Check if date is valid (not Invalid Date)
     if (isNaN(date.getTime())) return false;
-  
+
     // Check year is reasonable (between 2000 and 2100)
     const year = date.getFullYear();
     if (year < 2000 || year > 2100) return false;
-  
+
     return true;
   };
-  
+
   // Handle date change
   const handleDateInputChange = (e) => {
     setTempDateValue(e.target.value);
@@ -304,7 +305,8 @@ const EditableDateCell = ({ cell }) => {
       <div>
         {type_of_b_e !== "Ex-Bond" && (
           <>
-            <strong>ETA :</strong> {dates.vessel_berthing || "N/A"}{" "}
+            <strong>ETA :</strong>{" "}
+            {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
               onClick={() => handleEditStart("vessel_berthing")}
@@ -312,9 +314,9 @@ const EditableDateCell = ({ cell }) => {
             {editable === "vessel_berthing" && (
               <div>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={tempDateValue}
-                  onChange={handleDateInputChange}
+                  onChange={handleCombinedDateTimeChange}
                   style={dateError ? styles.errorInput : {}}
                 />
                 <button
@@ -333,7 +335,8 @@ const EditableDateCell = ({ cell }) => {
               </div>
             )}
             <br />
-            <strong>GIGM :</strong> {dates.gateway_igm_date || "N/A"}{" "}
+            <strong>GIGM :</strong>{" "}
+            {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
               onClick={() => handleEditStart("gateway_igm_date")}
@@ -341,7 +344,7 @@ const EditableDateCell = ({ cell }) => {
             {editable === "gateway_igm_date" && (
               <div>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={tempDateValue}
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
@@ -362,7 +365,8 @@ const EditableDateCell = ({ cell }) => {
               </div>
             )}
             <br />
-            <strong>Discharge :</strong> {dates.discharge_date || "N/A"}{" "}
+            <strong>Discharge :</strong>{" "}
+            {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
               onClick={() => handleEditStart("discharge_date")}
@@ -370,7 +374,7 @@ const EditableDateCell = ({ cell }) => {
             {editable === "discharge_date" && (
               <div>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={tempDateValue}
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
@@ -406,32 +410,33 @@ const EditableDateCell = ({ cell }) => {
                         handleEditStart("container_rail_out_date", id)
                       }
                     />
-                   {editable === `container_rail_out_date_${id}` && (
-  <div>
-    <input
-      type="datetime-local"
-      value={tempDateValue}
-      onChange={handleCombinedDateTimeChange}
-      style={dateError ? styles.errorInput : {}}
-    />
-    <button
-      style={styles.submitButton}
-      onClick={() => handleDateSubmit("container_rail_out_date", id)}
-    >
-      ✓
-    </button>
-    <button
-      style={styles.cancelButton}
-      onClick={() => setEditable(null)}
-    >
-      ✕
-    </button>
-    {dateError && (
-      <div style={styles.errorText}>{dateError}</div>
-    )}
-  </div>
-)}
-
+                    {editable === `container_rail_out_date_${id}` && (
+                      <div>
+                        <input
+                          type="datetime-local"
+                          value={tempDateValue}
+                          onChange={handleCombinedDateTimeChange}
+                          style={dateError ? styles.errorInput : {}}
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() =>
+                            handleDateSubmit("container_rail_out_date", id)
+                          }
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && (
+                          <div style={styles.errorText}>{dateError}</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </>
@@ -449,7 +454,7 @@ const EditableDateCell = ({ cell }) => {
                     {editable === `arrival_date_${id}` && (
                       <div>
                         <input
-                          type="date"
+                          type="datetime-local"
                           value={tempDateValue}
                           onChange={handleDateInputChange}
                           style={dateError ? styles.errorInput : {}}
@@ -520,7 +525,7 @@ const EditableDateCell = ({ cell }) => {
                         {editable === `detention_from_${id}` && (
                           <div>
                             <input
-                              type="date"
+                              type="datetime-local"
                               value={tempDateValue}
                               onChange={handleDateInputChange}
                               style={dateError ? styles.errorInput : {}}
@@ -556,7 +561,8 @@ const EditableDateCell = ({ cell }) => {
 
       {/* Right Section */}
       <div>
-        <strong>PCV :</strong> {dates.pcv_date || "N/A"}{" "}
+        <strong>PCV :</strong>{" "}
+        {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
           onClick={() => handleEditStart("pcv_date")}
@@ -564,7 +570,7 @@ const EditableDateCell = ({ cell }) => {
         {editable === "pcv_date" && (
           <div>
             <input
-              type="date"
+              type="datetime-local"
               value={tempDateValue}
               onChange={handleDateInputChange}
               style={dateError ? styles.errorInput : {}}
@@ -585,7 +591,8 @@ const EditableDateCell = ({ cell }) => {
           </div>
         )}
         <br />
-        <strong>OOC :</strong> {dates.out_of_charge || "N/A"}{" "}
+        <strong>OOC :</strong>{" "}
+        {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
           onClick={() => handleEditStart("out_of_charge")}
@@ -593,7 +600,7 @@ const EditableDateCell = ({ cell }) => {
         {editable === "out_of_charge" && (
           <div>
             <input
-              type="date"
+              type="datetime-local"
               value={tempDateValue}
               onChange={handleDateInputChange}
               style={dateError ? styles.errorInput : {}}
@@ -625,7 +632,7 @@ const EditableDateCell = ({ cell }) => {
             {editable === `delivery_date_${id}` && (
               <div>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={tempDateValue}
                   onChange={handleDateInputChange}
                   style={dateError ? styles.errorInput : {}}
@@ -662,7 +669,7 @@ const EditableDateCell = ({ cell }) => {
                 {editable === `emptyContainerOffLoadDate_${id}` && (
                   <div>
                     <input
-                      type="date"
+                      type="datetime-local"
                       value={tempDateValue}
                       onChange={handleDateInputChange}
                       style={dateError ? styles.errorInput : {}}

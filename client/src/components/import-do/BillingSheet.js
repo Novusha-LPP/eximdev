@@ -22,7 +22,8 @@ import { YearContext } from "../../contexts/yearContext.js";
 
 function BillingSheet() {
    const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-    const [selectedICD, setSelectedICD] = useState("");
+  const [selectedICD, setSelectedICD] = useState("");
+  const [blValue, setBlValue] = useState("");
 
     const [years, setYears] = useState([]);
     const [selectedImporter, setSelectedImporter] = useState("");
@@ -157,6 +158,7 @@ function BillingSheet() {
       currentSearchQuery,
       currentYear,
       currentICD,
+      OBLvalue,
       selectedImporter
     ) => {
       setLoading(true);
@@ -172,6 +174,7 @@ function BillingSheet() {
               search: currentSearchQuery,
               year: currentYear,
               selectedICD: currentICD,
+              obl_telex_bl: OBLvalue.trim(),
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
             },
           }
@@ -206,6 +209,7 @@ function BillingSheet() {
       debouncedSearchQuery,
       selectedYearState,
       selectedICD,
+      blValue,
       selectedImporter
     );
   }, [
@@ -213,6 +217,7 @@ function BillingSheet() {
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
+    blValue,
     selectedImporter,
     fetchJobs,
   ]);
@@ -275,7 +280,7 @@ function BillingSheet() {
     },
     {
       accessorKey: "obl_telex_bl",
-      header: "OBL Telex BL",
+      header: "BL",
       enableSorting: false,
       size: 180,
     },
@@ -449,6 +454,21 @@ function BillingSheet() {
               {year}
             </MenuItem>
           ))}
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="OBL"
+          value={blValue}
+          onChange={(e) => setBlValue(e.target.value)}
+          sx={{ width: "200px", marginRight: "20px" }}
+        > <MenuItem value="">Select OBL</MenuItem>
+          <MenuItem value="Original Documents">Original Documents</MenuItem>
+          <MenuItem value="Telex">Telex</MenuItem>
+          <MenuItem value="Surrender BL">Surrender BL</MenuItem>
+          <MenuItem value="Waybill">Waybill</MenuItem>
         </TextField>
 
         {/* ICD Code Filter */}

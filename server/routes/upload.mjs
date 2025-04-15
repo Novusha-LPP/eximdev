@@ -1,18 +1,18 @@
 import express from "express";
-import AWS from "aws-sdk";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import multer from "multer";
 import cors from "cors";
 
 const router = express.Router();
 
-// Configure AWS with credentials from environment variables
-AWS.config.update({
+// Initialize the S3 client with AWS SDK v3
+const s3Client = new S3Client({
   region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
-
-const s3 = new AWS.S3();
 
 // Configure multer to use memory storage
 const storage = multer.memoryStorage();
@@ -26,10 +26,7 @@ const upload = multer({
 // Route for file upload using multer and S3
 router.post(
   "/upload-files",
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-  }),
+  cors({ origin: "*" }),
   upload.array("files", 10),
   async (req, res) => {
     try {
@@ -64,13 +61,17 @@ router.post(
             ContentType: file.mimetype,
           };
 
-          // Upload file to S3
-          const uploadResult = await s3.upload(params).promise();
+          // Upload file to S3 using AWS SDK v3
+          const command = new PutObjectCommand(params);
+          const uploadResult = await s3Client.send(command);
+
+          // Construct location URL since SDK v3 doesn't return it directly
+          const location = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 
           uploadResults.push({
             originalName: file.originalname,
-            key: uploadResult.Key,
-            location: uploadResult.Location,
+            key: key,
+            location: location,
             size: file.size,
             mimeType: file.mimetype,
           });

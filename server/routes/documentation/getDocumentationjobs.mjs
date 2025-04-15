@@ -46,45 +46,46 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     ];
 
     // Build the base query
-// Build the base query
-const baseQuery = {
-  $and: [
-    { status: { $regex: /^pending$/i } },
-    { be_no: { $in: [null, ""] } }, // Exclude "cancelled"
-    { job_no: { $ne: null } }, // Ensure job_no is not null
-    { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
-    {
-      detailed_status: {
-        $in: statusOrder,
-      },
-    },
-    {
-      $or: [
-        { documentation_completed_date_time: { $exists: false } },
-        { documentation_completed_date_time: "" },
+    // Build the base query
+    const baseQuery = {
+      $and: [
+        { status: { $regex: /^pending$/i } },
+        { be_no: { $in: [null, ""] } }, // Exclude "cancelled"
+        { job_no: { $ne: null } }, // Ensure job_no is not null
+        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
+        {
+          detailed_status: {
+            $in: statusOrder,
+          },
+        },
+        {
+          $or: [
+            { documentation_completed_date_time: { $exists: false } },
+            { documentation_completed_date_time: "" },
+          ],
+        },
+        searchQuery,
       ],
-    },
-    searchQuery,
-  ],
-};
+    };
 
-// ✅ Add Year Filter if provided
-// ✅ Ensure year is correctly formatted before applying the filter
-if (year && year !== "Select Year") {
-  baseQuery.$and.push({ year: { $regex: new RegExp(`^${year}$`, "i") } }); 
-  // Uses regex for partial match (if year is stored as a string like "24-25")
-}
-
+    // ✅ Add Year Filter if provided
+    // ✅ Ensure year is correctly formatted before applying the filter
+    if (year && year !== "Select Year") {
+      baseQuery.$and.push({ year: { $regex: new RegExp(`^${year}$`, "i") } });
+      // Uses regex for partial match (if year is stored as a string like "24-25")
+    }
 
     // ✅ Apply Importer Filter (similar to E-Sanchit API)
     if (decodedImporter && decodedImporter !== "Select Importer") {
-      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
     }
 
     // Fetch jobs from the database
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status"
+        "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status checklist"
       )
       .lean();
 
@@ -104,7 +105,10 @@ if (year && year !== "Select Year") {
         return priorityDifference; // Sort by priority if different
       }
       // If priorities are the same, sort by `detailed_status`
-      return statusOrder.indexOf(a.detailed_status) - statusOrder.indexOf(b.detailed_status);
+      return (
+        statusOrder.indexOf(a.detailed_status) -
+        statusOrder.indexOf(b.detailed_status)
+      );
     });
 
     // Apply pagination after sorting
@@ -113,16 +117,15 @@ if (year && year !== "Select Year") {
 
     // If no jobs found, return 404 (similar to E-Sanchit)
     // If no jobs found, return an empty response instead of 404
-if (!paginatedJobs || paginatedJobs.length === 0) {
-  return res.status(200).json({
-    totalJobs: 0,
-    totalPages: 1,
-    currentPage: pageNumber,
-    jobs: [], // ✅ Return an empty array instead of 404
-    message: "No data found for the selected filters",
-  });
-}
-
+    if (!paginatedJobs || paginatedJobs.length === 0) {
+      return res.status(200).json({
+        totalJobs: 0,
+        totalPages: 1,
+        currentPage: pageNumber,
+        jobs: [], // ✅ Return an empty array instead of 404
+        message: "No data found for the selected filters",
+      });
+    }
 
     res.status(200).json({
       totalJobs,
@@ -138,7 +141,6 @@ if (!paginatedJobs || paginatedJobs.length === 0) {
     });
   }
 });
-
 
 router.patch("/api/update-documentation-job/:id", async (req, res) => {
   try {

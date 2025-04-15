@@ -11,6 +11,7 @@ const BLNumberCell = ({
   portOfReporting,
   shippingLine,
   containerNos,
+  line_no
 }) => {
   const containerFirst = containerNos?.[0]?.container_number;
 

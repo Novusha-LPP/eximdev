@@ -15,14 +15,17 @@ import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import FileUpload from "../gallery/FileUpload";
+import ImagePreview from "../gallery/ImagePreview";
 
 const DocumentationJob = () => {
-    const routeLocation = useLocation()
+  const routeLocation = useLocation()
   const { job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -32,14 +35,16 @@ const DocumentationJob = () => {
       return url; // Fallback to original URL
     }
   };
-    const isTrue = routeLocation.state?.currentTab || false;
-
+  
+  const isTrue = routeLocation.state?.currentTab || false;
   const isAdmin = user.role === "Admin"; // Check if user is an Admin
   const isDisabled = (!isAdmin && isTrue === 1);
-
   
-
-
+  // Check if checklist exists and has items
+  const hasChecklist = data?.checklist && data.checklist.length > 0;
+  
+  // Combined disabled state - disable if isDisabled OR no checklist
+  const isFieldDisabled = isDisabled || !hasChecklist;
 
   useEffect(() => {
     fetchJobDetails();
@@ -88,20 +93,32 @@ const DocumentationJob = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     try {
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data._id}`,
         {
-          documentation_completed_date_time:
-            data.documentation_completed_date_time,
+          documentation_completed_date_time: data.documentation_completed_date_time,
         }
       );
       navigate("/documentation");
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
-      console.error("Error updating documentation date:", error);
-      alert("Failed to update documentation date.");
+      console.error("Error updating documentation data:", error);
+      alert("Failed to update documentation data.");
+    }
+  };
+
+  const updateChecklist = async (newChecklist) => {
+    try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
+        {
+          checklist: newChecklist,
+        }
+      );
+    } catch (error) {
+      console.error("Error updating checklist:", error);
+      alert("Failed to update checklist.");
     }
   };
 
@@ -169,6 +186,7 @@ const DocumentationJob = () => {
       </Box>
     );
   };
+  
   const renderAllDocuments = (documents) => {
     if (!documents || documents.length === 0) {
       return <p>No documents uploaded yet.</p>;
@@ -196,19 +214,6 @@ const DocumentationJob = () => {
               minWidth: "250px", // Minimum width for smaller devices
             }}
           >
-            {/* <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-              }}
-            >
-              Document {index + 1}
-            </Typography> */}
             <Box mt={1} textAlign="center">
               <a
                 href={url}
@@ -224,6 +229,7 @@ const DocumentationJob = () => {
       </Box>
     );
   };
+  
   return (
     <div>
       {data !== null ? (
@@ -241,6 +247,49 @@ const DocumentationJob = () => {
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />
             {renderAllDocuments(data.all_documents)}
+
+            {/* Checklist Upload Section */}
+            <div style={{ marginTop: "20px" }}>
+              <JobDetailsRowHeading heading="Upload Checklist" />
+              <FileUpload
+                bucketPath="checklist"
+                onFilesUploaded={(newFiles) => {
+                  const existingFiles = data.checklist || [];
+                  const updatedFiles = [...existingFiles, ...newFiles];
+                  setData((prevData) => ({
+                    ...prevData,
+                    checklist: updatedFiles,
+                  }));
+                  updateChecklist(updatedFiles); // Update the backend immediately
+                }}
+                multiple={true}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  backgroundColor: "#1976d2", // Material blue
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  textAlign: "center",
+                  transition: "background-color 0.3s",
+                }}
+                label="Upload Files"
+              />
+              <ImagePreview
+                images={data.checklist || []}
+                onDeleteImage={(index) => {
+                  const updatedFiles = [...data.checklist];
+                  updatedFiles.splice(index, 1);
+                  setData((prevData) => ({
+                    ...prevData,
+                    checklist: updatedFiles,
+                  }));
+                  updateChecklist(updatedFiles); // Update the backend immediately
+                }}
+              />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -251,7 +300,7 @@ const DocumentationJob = () => {
                   <FormControlLabel
                     control={
                       <Checkbox
-                        disabled={isDisabled}
+                        disabled={isFieldDisabled}
                         checked={!!data.documentation_completed_date_time}
                         onChange={handleCheckboxChange}
                       />
@@ -272,7 +321,7 @@ const DocumentationJob = () => {
                 {user?.role === "Admin" && (
                   <Col xs={12} md={6}>
                     <TextField
-                      disabled={isDisabled}
+                      disabled={isFieldDisabled}
                       type="datetime-local"
                       fullWidth
                       size="small"
@@ -286,6 +335,7 @@ const DocumentationJob = () => {
                       InputLabelProps={{
                         shrink: true,
                       }}
+                      helperText={!hasChecklist ? "Checklist is required" : ""}
                     />
                   </Col>
                 )}
@@ -297,6 +347,7 @@ const DocumentationJob = () => {
                 className="btn sticky-btn"
                 style={{ float: "right", margin: "20px" }}
                 type="submit"
+                disabled={!hasChecklist}
               >
                 Submit
               </button>

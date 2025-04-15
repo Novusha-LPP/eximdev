@@ -32,7 +32,7 @@ export const UserProvider = ({ children }) => {
         const response = await axios.get(
           `${process.env.REACT_APP_API_STRING}/verify-session`,
           {
-            withCredentials: true,
+            // withCredentials: true,
             headers: {
               "Content-Type": "application/json",
             },
@@ -62,7 +62,7 @@ export const UserProvider = ({ children }) => {
         `${process.env.REACT_APP_API_STRING}/logout`,
         {},
         {
-          withCredentials: true,
+          // withCredentials: true,
           headers: {
             "Content-Type": "application/json",
           },

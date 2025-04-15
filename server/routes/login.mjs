@@ -44,6 +44,13 @@ router.post("/api/login", async (req, res) => {
           }
         );
 
+        res.cookie("exim_token", token, {
+          httpOnly: true, // For security, not accessible to client JS
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        });
+
         // Return token in response body instead of cookie
         return res.status(200).json({
           ...userResponse,

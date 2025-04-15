@@ -56,7 +56,7 @@ router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
 // Route to add a new job
 router.post("/api/jobs/add-job-imp-man", async (req, res) => {
   try {
-    const { container_nos, importer, awb_bl_no, custom_house, year } = req.body;
+    const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
 
     // ✅ Validate required fields
     if (!importer || !custom_house) {
@@ -98,9 +98,23 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
     const numericJobNo = lastJob ? parseInt(lastJob.job_no, 10) : 0;
     const totalDigits = lastJob?.job_no?.length || 5;
     const newJobNo = (numericJobNo + 1).toString().padStart(totalDigits, "0");
+    const getTodayDate = () => {
+      const today = new Date();
+      const day = String(today.getDate()).padStart(2, "0");
+      const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+      const year = today.getFullYear();
+      return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
+    };
+    
+    const todayDate = getTodayDate();
 
-    // ✅ Create new job entry
-    const newJob = new JobModel({ job_no: newJobNo, ...req.body });
+// ✅ Create new job entry
+const newJob = new JobModel({ 
+  job_no: newJobNo,
+  ...req.body,
+  job_date: todayDate // ← This line sets job_date to "now" if not provided
+});
+
 
     // ✅ Save to database
     await newJob.save();

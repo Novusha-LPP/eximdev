@@ -224,7 +224,30 @@ function useJobColumns() {
         accessorKey: "importer",
         header: "Importer",
         size: 150,
-      },
+        Cell: ({ cell, row }) => {
+          const importer = cell?.getValue()?.toString() || "";
+          const supplier_exporter = row?.original?.supplier_exporter || "";
+          const origin_country = row?.original?.origin_country || "";
+          const fta_Benefit_date_time = row?.original?.fta_Benefit_date_time;
+      console.log(fta_Benefit_date_time)
+          const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
+          const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
+      
+          return (
+            <>
+              <span>{importer}</span>
+              <br />
+              <Tooltip title="Supplier/Exporter" arrow>
+                <span>{supplier_exporter}</span>
+              </Tooltip>
+              <br />
+              <Tooltip title="FTA Benefit" arrow>
+                <span>{`FTA Benefit: ${ftaDisplay}`}</span>
+              </Tooltip>
+            </>
+          );
+        },
+      },      
 
       {
         accessorKey: "awb_bl_no",
@@ -236,7 +259,7 @@ function useJobColumns() {
 
           const portOfReporting = row?.original?.port_of_reporting || "";
           const shippingLine = row?.original?.shipping_line_airline || "";
-          const supplier_exporter = row?.original?.supplier_exporter || "";
+          // const supplier_exporter = row?.original?.supplier_exporter || "";
           const gross_weight = row?.original?.gross_weight || "";
           const job_net_weight = row?.original?.job_net_weight || "";
           const loading_port = row?.original.loading_port || "";
@@ -363,9 +386,9 @@ function useJobColumns() {
                   <Tooltip title="shippingLine" arrow>
                     <strong> {shippingLine} </strong>
                   </Tooltip>
-                  <Tooltip title="Supplier/Exporter" arrow>
+                  {/* <Tooltip title="Supplier/Exporter" arrow>
                     <span>{supplier_exporter}</span>
-                  </Tooltip>
+                  </Tooltip> */}
                   <Tooltip title="Gross Weight" arrow>
                     <>
                       <strong>Gross(KGS): {gross_weight || "N/A"} </strong>{" "}
@@ -395,7 +418,7 @@ function useJobColumns() {
         accessorKey: "be_no",
         header: "BE Number and Date",
         size: 200,
-        Cell: BENumberCell,
+        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
       },
 
       {

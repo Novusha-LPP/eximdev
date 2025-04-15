@@ -289,14 +289,32 @@ const FreeDaysConf = () => {
       accessorKey: "awb_bl_no",
       header: "BL Number",
       size: 200,
-      Cell: ({ row }) => (
-        <BLNumberCell
+      Cell: ({ row }) => {
+        const line_no = row.original.line_no || "N/A";
+        return (
+          <>
+           <BLNumberCell
           blNumber={row.original.awb_bl_no}
           portOfReporting={row.original.port_of_reporting}
           shippingLine={row.original.shipping_line_airline}
           containerNos={row.original.container_nos}
-        />
-      ),
+
+            />
+                <div>
+            { `Line No: ${line_no}`}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, line_no)}
+              >
+                <abbr title="Copy Line No Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+          </>
+        )
+      }
     },
     {
       accessorKey: "free_time",

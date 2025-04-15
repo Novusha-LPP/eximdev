@@ -115,10 +115,6 @@ export const handleFileUpload = async (
   formik,
   setFileSnackbar
 ) => {
-  console.log("=== FORM FILE UPLOAD HANDLER CALLED ===");
-  console.log("Event target:", e.target);
-  console.log(`Files selected: ${e.target.files?.length || 0}`);
-  console.log(`Folder name: ${folderName}, Formik key: ${formikKey}`);
 
   if (e.target.files.length === 0) {
     console.warn("No files selected for upload");
@@ -137,29 +133,27 @@ export const handleFileUpload = async (
       }))
     );
 
-    console.log(`Calling uploadFileToS3 with folder: ${folderName}...`);
     const uploadResult = await uploadFileToS3(filesArray, folderName);
-    console.log("Upload result returned:", uploadResult);
 
     if (uploadResult.uploaded.length > 0) {
       const fileLocations = uploadResult.uploaded.map((file) => file.location);
-      console.log("File locations uploaded:", fileLocations);
+      // console.log("File locations uploaded:", fileLocations);
 
-      console.log(`Updating formik values for key: ${formikKey}`);
+      // console.log(`Updating formik values for key: ${formikKey}`);
       formik.setValues((values) => {
-        console.log("Current formik values:", values);
+        //console.log("Current formik values:", values);
         const newValues = {
           ...values,
           [formikKey]: fileLocations,
         };
-        console.log("New formik values:", newValues);
+       // console.log("New formik values:", newValues);
         return newValues;
       });
 
-      console.log("Setting file snackbar to true");
+      
       setFileSnackbar(true);
       setTimeout(() => {
-        console.log("Setting file snackbar back to false");
+       
         setFileSnackbar(false);
       }, 3000);
 

@@ -91,13 +91,12 @@ function useJobColumns() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No  ",
+        header: "Job No",
         size: 150,
         Cell: ({ cell }) => {
           const {
             job_no,
             year,
-            job_date,
             type_of_b_e,
             consignment_type,
             vessel_berthing,
@@ -196,25 +195,15 @@ function useJobColumns() {
 
           return (
             <div
-              onClick={() => {
-                console.log(user?.role);
-                if (user?.role == "Customer") {
-                  navigate(`/cjob/${job_no}/${year}`);
-                } else {
-                  navigate(`/job/${job_no}/${year}`);
-                }
-              }}
+              onClick={() => navigate(`/job/${job_no}/${year}`)}
               style={{
                 cursor: "pointer",
                 color: textColor,
                 backgroundColor: bgColor,
               }}
             >
-              {job_no} <br />
-              {job_date}
-              <br />
-              00
-              {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
               <br />
             </div>
           );
@@ -229,10 +218,10 @@ function useJobColumns() {
           const supplier_exporter = row?.original?.supplier_exporter || "";
           const origin_country = row?.original?.origin_country || "";
           const fta_Benefit_date_time = row?.original?.fta_Benefit_date_time;
-      console.log(fta_Benefit_date_time)
+          console.log(fta_Benefit_date_time);
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
-      
+
           return (
             <>
               <span>{importer}</span>
@@ -247,7 +236,7 @@ function useJobColumns() {
             </>
           );
         },
-      },      
+      },
 
       {
         accessorKey: "awb_bl_no",

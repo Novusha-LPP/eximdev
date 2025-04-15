@@ -1,31 +1,21 @@
-# Frontend Dockerfile
-FROM node:16-alpine AS build
 
-# Set working directory
+FROM node:18-alpine
+ 
+# Set the working directory inside the container
 WORKDIR /client
-
+ 
 # Copy package.json and package-lock.json
-COPY package.json package-lock.json ./
-
+COPY package*.json ./
+ 
 # Install dependencies
-RUN npm install --legacy-peer-deps
-
-# Copy the rest of the application
+RUN npm install --force --legacy-peer-deps
+ 
+# Copy the rest of your application files
 COPY . .
-
-# Build the React app
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-RUN npm run build
-
-# Serve the app using a lightweight web server
-FROM nginx:alpine
-
-# Copy the build output to the Nginx HTML directory
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Expose port 80
+ 
+# Expose the port your app runs on
 EXPOSE 3000
+ 
+# Define the command to run your app
+CMD ["npm", "start"]
 
-# Start Nginx server
-CMD ["nginx", "-g", "daemon off;"]

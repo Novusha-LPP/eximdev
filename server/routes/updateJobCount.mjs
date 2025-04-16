@@ -10,23 +10,24 @@ const statusOrder = [
   "ETA Date Pending",
 ];
 
-// Helper function to fetch today's date in "YYYY-MM-DD" format
-const getTodayDate = () => {
-  const today = new Date();
-  const day = String(today.getDate()).padStart(2, "0");
-  const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
-  const year = today.getFullYear();
-  return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
-};
+// // Helper function to fetch today's date in "YYYY-MM-DD" format
+// const getTodayDate = () => {
+//   const today = new Date();
+//   const day = String(today.getDate()).padStart(2, "0");
+//   const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+//   const year = today.getFullYear();
+//   return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
+// };
 
-const todayDate = getTodayDate(); // Current date in YYYY-MM-DD
-const todayYearDate = new Date().toISOString().split("T")[0]; // Current date in YYYY-MM-DD
+// const todayDate = getTodayDate(); // Current date in YYYY-MM-DD
+
 // const todayYearDate = "2024-11-14"; // Current date in YYYY-MM-DD
 // Function to fetch job overview data using MongoDB aggregation
 const fetchJobOverviewData = async (year) => {
-  // console.log("Year Parameter:", year);
-  
-  // console.log(todayYearDate);
+
+  const today = new Date();
+  const todayDate = today.toISOString().split("T")[0]; // Always fresh
+  const todayYearDate = new Date().toISOString().split("T")[0]; // Current date in YYYY-MM-DD
   try {
     const pipeline = [
       { $match: { year: year.toString() } }, // Filter for the provided year

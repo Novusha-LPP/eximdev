@@ -215,7 +215,6 @@ function useJobColumns() {
           const supplier_exporter = row?.original?.supplier_exporter || "";
           const origin_country = row?.original?.origin_country || "";
           const fta_Benefit_date_time = row?.original?.fta_Benefit_date_time;
-      console.log(fta_Benefit_date_time)
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
       

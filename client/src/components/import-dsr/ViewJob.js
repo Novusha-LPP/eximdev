@@ -159,7 +159,8 @@ const updateDetailedStatus = () => {
 
 const deliveryDate =
   container_nos?.length > 0 &&
-  container_nos.every((container) => container.delivery_date);
+    container_nos.every((container) => container.delivery_date);
+  
 
   // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
   const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
@@ -178,6 +179,8 @@ const deliveryDate =
     formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
   } else if (billOfEntryNo) {
     formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+  } else if (!billOfEntryNo && anyContainerArrivalDate) {
+    formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
   } else if (containerRailOutDate) {
     formik.setFieldValue("detailed_status", "Rail Out");
   } else if (dischargeDate) {
@@ -986,6 +989,9 @@ const deliveryDate =
                     <MenuItem value="BE Noted, Arrival Pending">
                       BE Noted, Arrival Pending
                     </MenuItem>
+                    <MenuItem value="Arrived, BE Note Pending">
+                    Arrived, BE Note Pending
+                    </MenuItem>
                     <MenuItem value="BE Noted, Clearance Pending">
                       BE Noted, Clearance Pending
                     </MenuItem>
@@ -1007,57 +1013,79 @@ const deliveryDate =
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Tracking Status" />
             <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>ETA Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="vessel_berthing"
-                    name="vessel_berthing"
-                    value={formik.values.vessel_berthing || ""}
-                    disabled={ExBondflag} // Disable if the user is not Admin
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>G-IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="gateway_igm_date"
-                    name="gateway_igm_date"
-                    value={formik.values.gateway_igm_date || ""}
-                    disabled={ExBondflag}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Discharge/ L-IGM Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="discharge_date"
-                    name="discharge_date"
-                    disabled={ExBondflag}
-                    value={formik.values.discharge_date || ""}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
+<Col xs={12} lg={4}>
+  <div className="job-detail-input-container">
+    <strong>ETA Date:&nbsp;</strong>
+    <TextField
+      fullWidth
+      size="small"
+      margin="normal"
+      variant="outlined"
+      type="datetime-local"
+      id="vessel_berthing"
+      name="vessel_berthing"
+      value={
+        formik.values.vessel_berthing
+          ? formik.values.vessel_berthing.length === 10
+            ? `${formik.values.vessel_berthing}T00:00`
+            : formik.values.vessel_berthing
+          : ""
+      }
+      disabled={ExBondflag}
+      onChange={formik.handleChange}
+    />
+  </div>
+</Col>
+
+
+<Col xs={12} lg={4}>
+  <div className="job-detail-input-container">
+    <strong>G-IGM Date:&nbsp;</strong>
+    <TextField
+      fullWidth
+      size="small"
+      margin="normal"
+      variant="outlined"
+      type="datetime-local"
+      id="gateway_igm_date"
+      name="gateway_igm_date"
+      value={
+        formik.values.gateway_igm_date
+          ? formik.values.gateway_igm_date.length === 10
+            ? `${formik.values.gateway_igm_date}T00:00`
+            : formik.values.gateway_igm_date
+          : ""
+      }
+      disabled={ExBondflag}
+      onChange={formik.handleChange}
+    />
+  </div>
+</Col>
+
+<Col xs={12} lg={4}>
+  <div className="job-detail-input-container">
+    <strong>Discharge/ L-IGM Date:&nbsp;</strong>
+    <TextField
+      fullWidth
+      size="small"
+      margin="normal"
+      variant="outlined"
+      type="datetime-local"
+      id="discharge_date"
+      name="discharge_date"
+      disabled={ExBondflag}
+      value={
+        formik.values.discharge_date
+          ? formik.values.discharge_date.length === 10
+            ? `${formik.values.discharge_date}T00:00`
+            : formik.values.discharge_date
+          : ""
+      }
+      onChange={formik.handleChange}
+    />
+  </div>
+</Col>
+
             </Row>
             <Row style={{ marginTop: "20px" }}>
               {/* <Col xs={12} lg={4}>
@@ -2017,21 +2045,28 @@ const deliveryDate =
               </Col>
 
               <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>PCV Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="pcv_date"
-                    name="pcv_date"
-                    value={formik.values.pcv_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
+  <div className="job-detail-input-container">
+    <strong>PCV Date:&nbsp;</strong>
+    <TextField
+      fullWidth
+      size="small"
+      margin="normal"
+      variant="outlined"
+      type="datetime-local"
+      id="pcv_date"
+      name="pcv_date"
+      value={
+        formik.values.pcv_date
+          ? formik.values.pcv_date.length === 10
+            ? `${formik.values.pcv_date}T00:00`
+            : formik.values.pcv_date
+          : ""
+      }
+      onChange={formik.handleChange}
+    />
+  </div>
+</Col>
+
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Duty Paid Date:&nbsp;</strong>
@@ -2050,22 +2085,29 @@ const deliveryDate =
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Out of Charge Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    id="out_of_charge"
-                    name="out_of_charge"
-                    value={formik.values.out_of_charge}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
+            <Col xs={12} lg={4}>
+  <div className="job-detail-input-container">
+    <strong>Out of Charge Date:&nbsp;</strong>
+    <TextField
+      fullWidth
+      size="small"
+      margin="normal"
+      variant="outlined"
+      type="datetime-local"
+      id="out_of_charge"
+      name="out_of_charge"
+      value={
+        formik.values.out_of_charge
+          ? formik.values.out_of_charge.length === 10
+            ? `${formik.values.out_of_charge}T00:00`
+            : formik.values.out_of_charge
+          : ""
+      }
+      onChange={formik.handleChange}
+    />
+  </div>
+</Col>
+
               <Col xs={4}>
                 <FileUpload
                   label="Upload OOC Copy"

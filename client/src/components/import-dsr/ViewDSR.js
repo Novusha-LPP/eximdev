@@ -3,7 +3,7 @@ import "../../styles/job-list.scss";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import useFetchDSR from "../../customHooks/useFetchDSR";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
-import { SelectedYearContext } from "../../contexts/SelectedYearContext";
+import { YearContext } from "../../contexts/yearContext";
 import { MenuItem, TextField } from "@mui/material";
 import {
   MaterialReactTable,
@@ -11,9 +11,9 @@ import {
 } from "material-react-table";
 
 function ViewDSR() {
-  const { selectedYear } = useContext(SelectedYearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [detailedStatus, setDetailedStatus] = useState("all");
-  const { rows } = useFetchDSR(detailedStatus, selectedYear);
+  const { rows } = useFetchDSR(detailedStatus, selectedYearState);
 
   const columns = [
     {

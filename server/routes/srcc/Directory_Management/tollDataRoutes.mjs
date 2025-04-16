@@ -1,5 +1,6 @@
 import express from "express";
 import TollData from "../../../model/srcc/Directory_Management/TollData.mjs"; // Adjust the path to your model
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.post("/api/add-toll-data", async (req, res) => {
 });
 
 // READ ALL: Get all Toll Data
-router.get("/api/get-toll-data", async (req, res) => {
+router.get("/api/get-toll-data",authenticateJWT, async (req, res) => {
   try {
     const tollDataList = await TollData.find();
     res.status(200).json({ data: tollDataList });
@@ -49,7 +50,7 @@ router.get("/api/get-toll-data", async (req, res) => {
 });
 
 // READ ONE: Get Toll Data by ID
-router.get("/api/get-toll-data/:id", async (req, res) => {
+router.get("/api/get-toll-data/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
   try {
     const tollDataItem = await TollData.findById(id);

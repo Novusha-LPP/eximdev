@@ -1,6 +1,7 @@
 import express from "express";
 const router = express.Router();
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 // Status Rank Configuration
 const statusRank = {
@@ -22,6 +23,7 @@ const parseDate = (dateStr) => {
 
 router.get(
   "/api/download-report/:years/:importerURL/:status",
+  authenticateJWT,
   async (req, res) => {
     try {
       let { years, importerURL, status } = req.params;

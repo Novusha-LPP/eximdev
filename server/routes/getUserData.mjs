@@ -1,9 +1,10 @@
 import express from "express";
 import UserModel from "../model/userModel.mjs";
+import { authenticateJWT } from "../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-user-data/:username", async (req, res) => {
+router.get("/api/get-user-data/:username", authenticateJWT,async (req, res) => {
   const { username } = req.params;
 
   try {

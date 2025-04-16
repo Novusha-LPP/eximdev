@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -302,7 +303,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
 });
 
 // Route to update detailed_status for all pending jobs
-router.get("/api/jobs/update-pending-status", async (req, res) => {
+router.get("/api/jobs/update-pending-status",authenticateJWT, async (req, res) => {
   try {
     // Step 1: Find all jobs where status is 'Pending'
     const pendingJobs = await JobModel.find({ status: "Pending" });

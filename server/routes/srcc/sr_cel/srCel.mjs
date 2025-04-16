@@ -1,10 +1,11 @@
 import express from "express";
 import SrcelModel from "../../../model/srcc/sr_cel/srCel.mjs"; // Adjust the path as needed
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // GET all data
-router.get("/api/get-all-srcel", async (req, res) => {
+router.get("/api/get-all-srcel", authenticateJWT, async (req, res) => {
   try {
     const data = await SrcelModel.find();
     res.status(200).json(data);

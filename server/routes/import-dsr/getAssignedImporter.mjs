@@ -1,9 +1,10 @@
 import express from "express";
 import User from "../../model/userModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-assigned-importer/:user", async (req, res) => {
+router.get("/api/get-assigned-importer/:user",authenticateJWT, async (req, res) => {
   const { user } = req.params;
   try {
     const result = await User.aggregate([

@@ -1,9 +1,9 @@
 import express from "express";
 import TyreModel from "../../model/srcc/tyreModel.mjs";
-
+import { authenticateJWT } from "../../auth/auth.mjs";
 const router = express.Router();
 
-router.get("/api/get-tyre-nos", async (req, res) => {
+router.get("/api/get-tyre-nos",authenticateJWT, async (req, res) => {
   try {
     const existingTyres = await TyreModel.find({}).select("tyre_no");
     const tyreNumbers = existingTyres.map((tyre) => tyre.tyre_no);

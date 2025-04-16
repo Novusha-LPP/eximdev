@@ -1,9 +1,10 @@
 import express from "express";
 import PrData from "../../model/srcc/pr.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-pr-data/:branch", async (req, res) => {
+router.get("/api/get-pr-data/:branch",authenticateJWT, async (req, res) => {
   const { branch } = req.params;
 
   try {

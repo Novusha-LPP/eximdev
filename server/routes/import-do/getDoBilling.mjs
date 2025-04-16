@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-do-billing", async (req, res) => {
+router.get("/api/get-do-billing",authenticateJWT, async (req, res) => {
   try {
     // Extract and validate query parameters
     const {

@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/dsr/:year", async (req, res) => {
+router.get("/api/dsr/:year",authenticateJWT, async (req, res) => {
   try {
     const { year } = req.params;
     const formattedStatus = "Pending";

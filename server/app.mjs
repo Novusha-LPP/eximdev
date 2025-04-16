@@ -308,6 +308,9 @@ if (cluster.isPrimary) {
     "http://eximdev.s3-website.ap-south-1.amazonaws.com",
     "http://eximit.s3-website.ap-south-1.amazonaws.com",
     "http://localhost:3000",
+    "https://exim.alvision.in",
+    "https://eximapi.alvision.in",
+
   ];
 
   app.use(

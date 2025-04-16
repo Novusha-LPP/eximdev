@@ -52,8 +52,8 @@ router.post("/api/refresh-token", async (req, res) => {
     res.cookie("access_token", newAccessToken, {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      secure: false,
-      sameSite: "lax",
+      secure: true,
+      sameSite: "strict",
       maxAge: 15 * 60 * 1000,
     });
 

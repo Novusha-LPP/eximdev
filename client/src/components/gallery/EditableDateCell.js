@@ -102,9 +102,11 @@ const EditableDateCell = ({ cell }) => {
       newStatus = "BE Noted, Clearance Pending";
     } else if (billOfEntryNo) {
       newStatus = "BE Noted, Arrival Pending";
+    } else if (!billOfEntryNo && anyContainerArrivalDate) {
+        newStatus = "Arrived, BE Note Pending";
     } else if (containerRailOutDate) {
       newStatus = "Rail Out";
-    } else if (dischargeDate) {
+    } else if (dischargeDate) {   
       newStatus = "Discharged";
     } else if (gatewayIGMDate) {
       newStatus = "Gateway IGM Filed";
@@ -178,10 +180,6 @@ const EditableDateCell = ({ cell }) => {
     setDateError("");
   };
 
-  // Handle time change
-  const handleTimeInputChange = (e) => {
-    setTempTimeValue(e.target.value);
-  };
 
   // Submit date changes
   const handleDateSubmit = (field, index = null) => {
@@ -444,7 +442,7 @@ const EditableDateCell = ({ cell }) => {
             {type_of_b_e !== "Ex-Bond" && (
               <>
                 {containers.map((container, id) => (
-                  <div key={id} style={{ marginBottom: "10px" }}>
+                  <div key={id}>
                     <strong>Arrival :</strong>{" "}
                     {container.arrival_date?.slice(0, 10) || "N/A"}{" "}
                     <FcCalendar
@@ -518,7 +516,7 @@ const EditableDateCell = ({ cell }) => {
 
                 {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
                   <>
-                    <strong>Detention.F. :</strong>
+                    <strong>Detention F. :</strong>
                     {containers.map((container, id) => (
                       <div key={id}>
                         {container.detention_from?.slice(0, 10) || "N/A"}{" "}
@@ -530,23 +528,7 @@ const EditableDateCell = ({ cell }) => {
                               onChange={handleDateInputChange}
                               style={dateError ? styles.errorInput : {}}
                             />
-                            <button
-                              style={styles.submitButton}
-                              onClick={() =>
-                                handleDateSubmit("detention_from", id)
-                              }
-                            >
-                              ✓
-                            </button>
-                            <button
-                              style={styles.cancelButton}
-                              onClick={() => setEditable(null)}
-                            >
-                              ✕
-                            </button>
-                            {dateError && (
-                              <div style={styles.errorText}>{dateError}</div>
-                            )}
+                          
                           </div>
                         )}
                       </div>

@@ -11,10 +11,11 @@ const statusRank = {
   "PCV Done, Duty Payment Pending": { rank: 3, field: "detention_from" },
   "BE Noted, Clearance Pending": { rank: 4, field: "detention_from" },
   "BE Noted, Arrival Pending": { rank: 5, field: "be_date" },
-  "Rail Out": { rank: 6, field: "rail_out" },
-  Discharged: { rank: 7, field: "discharge_date" },
-  "Gateway IGM Filed": { rank: 8, field: "gateway_igm_date" },
-  "Estimated Time of Arrival": { rank: 9, field: "vessel_berthing" },
+  "Arrived, BE Note Pending": { rank: 6, field: "be_date" },
+  "Rail Out": { rank: 7, field: "rail_out" },
+  Discharged: { rank: 8, field: "discharge_date" },
+  "Gateway IGM Filed": { rank: 9, field: "gateway_igm_date" },
+  "Estimated Time of Arrival": { rank: 10, field: "vessel_berthing" },
 };
 
 // Helper to safely parse dates

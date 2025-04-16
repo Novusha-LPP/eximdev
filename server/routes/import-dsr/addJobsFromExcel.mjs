@@ -419,6 +419,8 @@ function determineDetailedStatus(job) {
     return "PCV Done, Duty Payment Pending";
   } else if (be_no && anyContainerArrivalDate) {
     return "BE Noted, Clearance Pending";
+  } else if (!be_no && anyContainerArrivalDate) {
+    return "Arrived, BE Note Pending";
   } else if (be_no) {
     return "BE Noted, Arrival Pending";
   } else if (validRailOutDate) {

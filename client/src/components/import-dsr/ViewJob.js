@@ -159,7 +159,8 @@ const updateDetailedStatus = () => {
 
 const deliveryDate =
   container_nos?.length > 0 &&
-  container_nos.every((container) => container.delivery_date);
+    container_nos.every((container) => container.delivery_date);
+  
 
   // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
   const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
@@ -178,6 +179,8 @@ const deliveryDate =
     formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
   } else if (billOfEntryNo) {
     formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+  } else if (!billOfEntryNo && anyContainerArrivalDate) {
+    formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
   } else if (containerRailOutDate) {
     formik.setFieldValue("detailed_status", "Rail Out");
   } else if (dischargeDate) {
@@ -985,6 +988,9 @@ const deliveryDate =
                     <MenuItem value="Rail Out">Rail Out</MenuItem>
                     <MenuItem value="BE Noted, Arrival Pending">
                       BE Noted, Arrival Pending
+                    </MenuItem>
+                    <MenuItem value="Arrived, BE Note Pending">
+                    Arrived, BE Note Pending
                     </MenuItem>
                     <MenuItem value="BE Noted, Clearance Pending">
                       BE Noted, Clearance Pending

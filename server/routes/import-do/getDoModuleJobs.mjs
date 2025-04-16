@@ -101,7 +101,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment"
+        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
       )
       .lean();
 

@@ -11,7 +11,7 @@ const BLNumberCell = ({
   portOfReporting,
   shippingLine,
   containerNos,
-  line_no,
+  line_no
 }) => {
   const containerFirst = containerNos?.[0]?.container_number;
 
@@ -110,18 +110,6 @@ const BLNumberCell = ({
         </abbr>
       </div>
       <div>{shippingLine}</div>
-      <div>
-        {line_no}
-        <IconButton
-          size="small"
-          onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-          onClick={(event) => handleCopy(event, line_no)}
-        >
-          <abbr title="Copy Line Number">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-      </div>
     </>
   );
 };

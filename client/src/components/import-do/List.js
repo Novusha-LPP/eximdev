@@ -373,7 +373,7 @@ function List() {
       Cell: ({ row }) => {
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
-        const line_no = row.original.line_no?.toString() || "N/A";
+        const line_no = row.original.line_no || "N/A";
 
         return (
           <React.Fragment>
@@ -398,7 +398,7 @@ function List() {
             </div>
 
             <div>
-              {voyageNo}
+             { `Vessel Voyage: ${voyageNo}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -410,7 +410,7 @@ function List() {
               </IconButton>
               </div>
             <div>
-              {line_no}
+            <span>{`Line No: ${line_no}`}</span>
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}

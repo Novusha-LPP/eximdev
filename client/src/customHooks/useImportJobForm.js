@@ -33,6 +33,7 @@ const useImportJobForm = () => {
 
   // Initialize the state with the determined year pair
   const [year, setYear] = useState(defaultYearPair);
+  const [job_date, setJob_date] = useState("")
 
   // Existing states:
   // const [job_no, setJobNo] = useState("");
@@ -202,6 +203,7 @@ const useImportJobForm = () => {
         const payload = {
           ...values,
           year, // <-- MANDATORY for backend
+          job_date,
           custom_house,
           importer,
           importerURL,

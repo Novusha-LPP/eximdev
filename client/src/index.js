@@ -12,11 +12,13 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <BrowserRouter>
     <React.StrictMode>
-      <YearProvider>
-        <ImportersProvider>
-          <App />
-        </ImportersProvider>
-      </YearProvider>
+      <UserProvider>
+        <YearProvider>
+          <ImportersProvider>
+            <App />
+          </ImportersProvider>
+        </YearProvider>
+      </UserProvider>
     </React.StrictMode>
   </BrowserRouter>
 );

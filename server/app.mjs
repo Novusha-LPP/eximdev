@@ -279,12 +279,7 @@ if (cluster.isPrimary) {
   });
 } else {
   const app = express();
-  app.use("/api/upload", uploadRouter);
-  app.use(bodyParser.json({ limit: "100mb" }));
-  app.use(cors());
 
-  // Apply CORS preflight to all routes
-  app.options("*", cors());
   // app.options("*", (req, res) => {
   //   // Set CORS headers directly
   //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
@@ -303,18 +298,48 @@ if (cluster.isPrimary) {
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
+  app.use(bodyParser.json({ limit: "100mb" }));
+  // app.use(cors());
+
+  // // Apply CORS preflight to all routes
+  // app.options("*", cors());
+
   const allowedOrigins = [
     "http://eximdev.s3-website.ap-south-1.amazonaws.com",
     "http://eximit.s3-website.ap-south-1.amazonaws.com",
     "http://localhost:3000",
   ];
 
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        } else {
+          return callback(new Error("Not allowed by CORS"));
+        }
+      },
+      credentials: true, // <== crucial to allow cookies to be sent
+    })
+  );
+
+  // Optional: Handle preflight requests manually if needed
+  // app.options(
+  //   "*",
+  //   cors({
+  //     origin: allowedOrigins,
+  //     credentials: true,
+  //   })
+  // );
   // CORS configuration
 
   // Apply CORS middleware
 
   // app.options("*", cors());
 
+  app.use("/api/upload", uploadRouter);
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);
@@ -352,50 +377,6 @@ if (cluster.isPrimary) {
         }
       });
 
-      // Route to generate pre-signed URL
-      // app.post("/api/upload/get-upload-url", async (req, res) => {
-      //   try {
-      //     // Get file info from request
-      //     const { fileName, fileType, folderName } = req.body;
-
-      //     if (!fileName || !fileType || !folderName) {
-      //       return res.status(400).json({
-      //         success: false,
-      //         message: "Missing required parameters",
-      //       });
-      //     }
-
-      //     // Set expiration time for the URL (3600 seconds = 1 hour)
-      //     const s3Params = {
-      //       Bucket: process.env.S3_BUCKET || "alvision-exim-images",
-      //       Key: `${folderName}/${fileName}`,
-      //       ContentType: fileType,
-      //       Expires: 3600,
-      //     };
-
-      //     // Generate the pre-signed URL
-      //     const uploadURL = s3.getSignedUrl("putObject", s3Params);
-
-      //     // Return the URL to the client
-      //     return res.json({
-      //       success: true,
-      //       uploadURL,
-      //       key: `${folderName}/${fileName}`,
-      //     });
-      //   } catch (error) {
-      //     console.error("Error generating pre-signed URL:", error);
-      //     return res.status(500).json({
-      //       success: false,
-      //       message: "Failed to generate upload URL",
-      //     });
-      //   }
-      // });
-      // app.get("/api/test-cors", (req, res) => {
-      //   res.json({ message: "CORS is working!" });
-
-      //   console.log(res);
-      // });
-      // app.use(updateJobCount);
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);

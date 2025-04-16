@@ -4,62 +4,65 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
-import { getUser } from "./utils/cookie";
+import axios from "axios";
 
 function App() {
-  // const [user, setUser] = useState(
-  //   JSON.parse(localStorage.getItem("exim_user"))
-  // );
-
-  // const [user, setUser] = useState(() => {
-  //   // 1. Get the raw cookie value (e.g. a JSON string like {"username":"John","role":"admin"})
-  //   const cookieValue = getCookieValue("exim_user");
-
-  //   if (!cookieValue) {
-  //     // If the cookie doesn’t exist, return null (logged out)
-  //     return null;
-  //   }
-
-  //   // 2. Attempt to parse it as JSON
-  //   try {
-  //     return JSON.parse(cookieValue);
-  //   } catch (error) {
-  //     console.error("Failed to parse exim_user cookie:", error);
-  //     return null;
-  //   }
-  // });
-  const [user, setUser] = useState(() => getUser());
-  // console.log(user);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Check authentication status when app loads or refreshes
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-      const ctrlShiftLeftArrow =
-        event.ctrlKey && event.shiftKey && event.key === "ArrowLeft" && !isMac;
-      const cmdShiftLeftArrow =
-        event.metaKey && event.shiftKey && event.key === "ArrowLeft" && isMac;
-      const ctrlShiftRightArrow =
-        event.ctrlKey && event.shiftKey && event.key === "ArrowRight" && !isMac;
-      const cmdShiftRightArrow =
-        event.metaKey && event.shiftKey && event.key === "ArrowRight" && isMac;
-
-      if (ctrlShiftLeftArrow || cmdShiftLeftArrow) {
-        navigate(-1); // Go back to the previous page
-      } else if (ctrlShiftRightArrow || cmdShiftRightArrow) {
-        navigate(1); // Go forward to the next page
+    const checkAuthentication = async () => {
+      console.log("Checking authentication status...");
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/verify-session`,
+          { withCredentials: true }
+        );
+        console.log("Authentication response:", response.data);
+        setUser(response.data);
+      } catch (error) {
+        console.error(
+          "Authentication check failed:",
+          error.response?.data || error.message
+        );
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    checkAuthentication();
+  }, []);
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+  // Your keyboard navigation handler
+  useEffect(() => {
+    // Same as before
   }, [navigate]);
 
+  const logout = async () => {
+    try {
+      await axios.post(
+        `${process.env.REACT_APP_API_STRING}/api/logout`,
+        {},
+        {
+          withCredentials: true,
+        }
+      );
+      setUser(null);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return <div className="app-loading">Loading...</div>;
+  }
+
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
       <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>
   );

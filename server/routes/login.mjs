@@ -1,10 +1,15 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import UserModel from "../model/userModel.mjs";
-import { generateToken, sanitizeUserData } from "../auth/auth.mjs";
+import {
+  generateRefreshToken,
+  generateToken,
+  sanitizeUserData,
+} from "../auth/auth.mjs";
 
 const router = express.Router();
 
+// 🔐 Login Route
 router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -14,60 +19,43 @@ router.post("/api/login", async (req, res) => {
       return res.status(400).json({ message: "User not registered" });
     }
 
-    bcrypt.compare(password, user.password, (passwordErr, passwordResult) => {
-      if (passwordErr) {
-        console.error(passwordErr);
-        return res.status(500).json({ message: "Something went wrong" });
-      }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
-      if (passwordResult) {
-        // Generate JWT token
-        const token = generateToken(user);
+    const token = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
+    const userResponse = sanitizeUserData(user);
 
-        // Sanitize user data
-        const userResponse = sanitizeUserData(user);
-
-        // Set only the user data cookie (without token)
-        res.cookie(
-          "exim_user",
-          JSON.stringify({
-            username: user.username,
-            role: user.role,
-            first_name: user.first_name,
-            last_name: user.last_name,
-          }),
-          {
-            httpOnly: false, // this cookie can be read by client-side JS
-            // secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000, // 24 hours
-          }
-        );
-
-        res.cookie("exim_token", token, {
-          httpOnly: true, // For security, not accessible to client JS
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        });
-
-        // Return token in response body instead of cookie
-        return res.status(200).json({
-          ...userResponse,
-          token: token, // Include token in response body
-        });
-      } else {
-        return res
-          .status(400)
-          .json({ message: "Username or password didn't match" });
-      }
+    // Set HttpOnly secure token cookie
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      secure: false,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      secure: false,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return res.status(200).json(userResponse);
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Something went wrong" });
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// Logout route to clear cookies
+// 🚪 Logout Route
+router.post("/api/logout", (req, res) => {
+  res.clearCookie("exim_token");
+  return res.status(200).json({ message: "Logged out successfully" });
+});
 
 export default router;

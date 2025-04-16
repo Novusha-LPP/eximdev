@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState } from "react";
 import axios from "axios";
 import {
   TextField,
@@ -11,7 +11,6 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { UserContext } from "../contexts/UserContext";
-
 import { useNavigate } from "react-router-dom";
 
 function LoginPage() {
@@ -31,38 +30,21 @@ function LoginPage() {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/login`,
-        { username, password }
-        // { withCredentials: true } // Important for cookie handling
+        { username, password },
+        { withCredentials: true }
       );
-      // console.log(res);
-      if (res.status === 200) {
-        // Store token in localStorage
-        const user = res.data;
 
-        // console.log(user);
-        // Update user context with the returned data
-
-        //localStorage.setItem("exim_user", JSON.stringify(user));
-        setUser(user);
-        navigate("/");
-        // Reset form
-        setUsername("");
-        setPassword("");
-      }
+      setUser(res.data); // user info returned from backend
+      navigate("/");
     } catch (error) {
       if (error.response) {
-        switch (error.response.status) {
-          case 400:
-            setLoginError(error.response.data.message);
-            break;
-          case 401:
-            setLoginError("Invalid credentials");
-            break;
-          case 500:
-            setLoginError("Server error. Please try again later.");
-            break;
-          default:
-            setLoginError("An unexpected error occurred");
+        const status = error.response.status;
+        if (status === 400 || status === 401) {
+          setLoginError(error.response.data.message || "Invalid credentials");
+        } else if (status === 500) {
+          setLoginError("Server error. Please try again later.");
+        } else {
+          setLoginError("An unexpected error occurred.");
         }
       } else {
         setLoginError("Network error. Please check your connection.");
@@ -96,8 +78,6 @@ function LoginPage() {
       <form onSubmit={handleSubmit} style={{ width: "100%" }}>
         <TextField
           fullWidth
-          id="username"
-          name="username"
           label="Username"
           variant="outlined"
           margin="normal"
@@ -107,8 +87,6 @@ function LoginPage() {
 
         <TextField
           fullWidth
-          id="password"
-          name="password"
           label="Password"
           type={showPassword ? "text" : "password"}
           variant="outlined"

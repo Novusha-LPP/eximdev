@@ -61,7 +61,9 @@ function App() {
     return <div className="app-loading">Loading...</div>;
   }
 
+  console.log(user)
   return (
+    
     <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
       <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>

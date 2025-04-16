@@ -1,9 +1,10 @@
 import express from "express";
 import Vendors from "../../model/srcc/vendors.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-vendors", async (req, res) => {
+router.get("/api/get-vendors",authenticateJWT, async (req, res) => {
   try {
     const vendors = await Vendors.find({});
     if (vendors.length === 0) {

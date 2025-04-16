@@ -1,9 +1,10 @@
 import express from "express";
 import PrData from "../../model/srcc/pr.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/pr-job-list", async (req, res) => {
+router.get("/api/pr-job-list",authenticateJWT, async (req, res) => {
   try {
     const { status } = req.query; // Only status is received
     const { page = 1, limit = 100, search = "" } = req.query;

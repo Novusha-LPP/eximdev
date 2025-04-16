@@ -1,9 +1,10 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-contact-person-names", async (req, res) => {
+router.get("/api/get-contact-person-names",authenticateJWT, async (req, res) => {
   try {
     const contactPersonNames = await UserModel.find(
       {},

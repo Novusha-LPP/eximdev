@@ -1,10 +1,11 @@
 import express from "express";
 import Country from "../../../model/srcc/Directory_Management/contryCode.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // 📌 1. Add a new country
-router.post("/api/add-country", async (req, res) => {
+router.post("/api/add-country",authenticateJWT, async (req, res) => {
   try {
     const newCountry = new Country(req.body);
     await newCountry.save();
@@ -18,7 +19,7 @@ router.post("/api/add-country", async (req, res) => {
 });
 
 // 📌 2. Get all countries
-router.get("/api/get-countries", async (req, res) => {
+router.get("/api/get-countries",authenticateJWT, async (req, res) => {
   try {
     const countries = await Country.find();
     res.json(countries);
@@ -29,7 +30,7 @@ router.get("/api/get-countries", async (req, res) => {
 });
 
 // 📌 3. Get a single country by ID
-router.get("/api/get-country/:id", async (req, res) => {
+router.get("/api/get-country/:id",authenticateJWT, async (req, res) => {
   try {
     const country = await Country.findById(req.params.id);
     if (!country) {
@@ -43,7 +44,7 @@ router.get("/api/get-country/:id", async (req, res) => {
 });
 
 // 📌 4. Update a country by ID
-router.put("/api/update-country/:id", async (req, res) => {
+router.put("/api/update-country/:id",authenticateJWT, async (req, res) => {
   try {
     const updatedCountry = await Country.findByIdAndUpdate(
       req.params.id,
@@ -64,7 +65,7 @@ router.put("/api/update-country/:id", async (req, res) => {
 });
 
 // 📌 5. Delete a country by ID
-router.delete("/api/delete-country/:id", async (req, res) => {
+router.delete("/api/delete-country/:id",authenticateJWT, async (req, res) => {
   try {
     const deletedCountry = await Country.findByIdAndDelete(req.params.id);
     if (!deletedCountry) {

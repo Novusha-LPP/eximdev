@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -84,6 +85,7 @@ const buildSearchQuery = (search) => ({
 // API to fetch jobs with pagination, sorting, and search
 router.get(
   "/api/:year/jobs/:status/:detailedStatus/:importer",
+  authenticateJWT,
   async (req, res) => {
     try {
       const { year, status, detailedStatus, importer } = req.params;
@@ -217,7 +219,7 @@ router.get(
 );
 
 // PATCH API to update job dates
-router.patch("/api/jobs/:id", async (req, res) => {
+router.patch("/api/jobs/:id",authenticateJWT, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body; // Contains updated fields

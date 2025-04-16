@@ -1,9 +1,10 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 const router = express.Router();
 
-router.post("/api/assign-role", async (req, res) => {
+router.post("/api/assign-role",authenticateJWT, async (req, res) => {
   const { username, role } = req.body;
 
   try {
@@ -33,7 +34,7 @@ router.post("/api/assign-role", async (req, res) => {
   }
 });
 
-router.get("/api/users-by-role", async (req, res) => {
+router.get("/api/users-by-role" ,authenticateJWT, async (req, res) => {
   const { role } = req.query;
 
   if (!role) {

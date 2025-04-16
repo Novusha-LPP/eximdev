@@ -1,9 +1,10 @@
 import express from "express";
 import PrData from "../../model/srcc/pr.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/view-srcc-dsr", async (req, res) => {
+router.get("/api/view-srcc-dsr",authenticateJWT, async (req, res) => {
   const data = await PrData.find({});
 
   const extractRelevantData = (data) => {

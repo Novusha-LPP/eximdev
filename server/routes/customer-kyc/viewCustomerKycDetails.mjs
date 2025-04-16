@@ -1,9 +1,10 @@
 import express from "express";
 import CustomerKycModel from "../../model/customerKycModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/view-customer-kyc-details/:_id", async (req, res) => {
+router.get("/api/view-customer-kyc-details/:_id",authenticateJWT, async (req, res) => {
   const { _id } = req.params;
 
   try {

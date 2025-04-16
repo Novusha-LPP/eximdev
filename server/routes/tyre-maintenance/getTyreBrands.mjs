@@ -1,9 +1,10 @@
 import express from "express";
 import TyreBrand from "../../model/srcc/tyreBrand.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-tyre-brands", async (req, res) => {
+router.get("/api/get-tyre-brands",authenticateJWT, async (req, res) => {
   const existingTyreBrand = await TyreBrand.find({});
 
   if (existingTyreBrand) {

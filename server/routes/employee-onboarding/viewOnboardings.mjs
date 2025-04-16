@@ -1,9 +1,10 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 const router = express.Router();
 
 //* GET ALL THE USERS
-router.get("/api/view-onboardings", async (req, res) => {
+router.get("/api/view-onboardings",authenticateJWT, async (req, res) => {
   try {
     const users = await UserModel.find(
       {},
@@ -17,7 +18,7 @@ router.get("/api/view-onboardings", async (req, res) => {
 });
 
 //* GET USER FROM PARTICULAR ID
-router.get("/api/view-onboarding/:id", async (req, res) => {
+router.get("/api/view-onboarding/:id",authenticateJWT, async (req, res) => {
   try {
     const userId = req.params.id;
 

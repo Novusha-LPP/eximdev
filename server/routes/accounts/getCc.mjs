@@ -1,9 +1,10 @@
 import express from "express";
 import CcModel from "../../model/accounts/creditCardModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-cc", async (req, res) => {
+router.get("/api/get-cc", authenticateJWT, async (req, res) => {
   try {
     const data = await CcModel.find({}).exec();
     res.status(200).json(data);

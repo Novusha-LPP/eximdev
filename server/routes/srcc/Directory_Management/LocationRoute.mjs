@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Location from "../../../model/srcc/Directory_Management/location.mjs"; // Ensure correct path
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
  * @route POST /api/add-location
  * @desc Create a new location
  */
-router.post("/api/add-location", async (req, res) => {
+router.post("/api/add-location",authenticateJWT, async (req, res) => {
   const { name, postal_code, city, district, state, country } = req.body;
 
   try {
@@ -42,7 +43,7 @@ router.post("/api/add-location", async (req, res) => {
   }
 });
 
-router.get("/api/location-names", async (req, res) => {
+router.get("/api/location-names",authenticateJWT, async (req, res) => {
   try {
     // Get only the "name" field from each document
     const locations = await Location.find({}, "name");
@@ -61,7 +62,7 @@ router.get("/api/location-names", async (req, res) => {
  * @route GET /api/get-location
  * @desc Retrieve all locations
  */
-router.get("/api/get-location", async (req, res) => {
+router.get("/api/get-location",authenticateJWT, async (req, res) => {
   try {
     const locations = await Location.find();
    
@@ -76,7 +77,7 @@ router.get("/api/get-location", async (req, res) => {
  * @route PUT /api/update-location/:id
  * @desc Update an existing location
  */
-router.put("/api/update-location/:id", async (req, res) => {
+router.put("/api/update-location/:id",authenticateJWT, async (req, res) => {
   try {
     const { name, postal_code, city, district, state, country } = req.body;
 
@@ -108,7 +109,7 @@ router.put("/api/update-location/:id", async (req, res) => {
  * @route DELETE /api/delete-location/:id
  * @desc Delete a location
  */
-router.delete("/api/delete-location/:id", async (req, res) => {
+router.delete("/api/delete-location/:id",authenticateJWT, async (req, res) => {
   try {
     const deletedLocation = await Location.findByIdAndDelete(req.params.id);
     if (!deletedLocation) {

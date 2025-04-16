@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose"; // Add this line
 import VehicleRegistration from "../../../model/srcc/Directory_Management/VehicleRegistration.mjs";
 import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -119,7 +120,7 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
 });
 
 // READ all Vehicle Registrations
-router.get("/api/get-vehicle-registration", async (req, res) => {
+router.get("/api/get-vehicle-registration",authenticateJWT, async (req, res) => {
   try {
     const registrations = await VehicleRegistration.find().populate("type");
     res.status(200).json({ data: registrations });
@@ -130,7 +131,7 @@ router.get("/api/get-vehicle-registration", async (req, res) => {
 });
 
 // READ a single Vehicle Registration by ID
-router.get("/api/get-vehicle-registration/:id", async (req, res) => {
+router.get("/api/get-vehicle-registration/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
   try {
     const registration = await VehicleRegistration.findById(id).populate(
@@ -147,7 +148,7 @@ router.get("/api/get-vehicle-registration/:id", async (req, res) => {
 });
 
 // UPDATE a Vehicle Registration
-router.put("/api/update-vehicle-registration/:id", async (req, res) => {
+router.put("/api/update-vehicle-registration/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
   const {
     vehicleNumber,
@@ -245,7 +246,7 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
 });
 
 // DELETE a Vehicle Registration
-router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
+router.delete("/api/delete-vehicle-registration/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
   try {
     const deletedRegistration = await VehicleRegistration.findByIdAndDelete(id);
@@ -273,7 +274,7 @@ router.delete("/api/delete-vehicle-registration/:id", async (req, res) => {
   }
 });
 
-router.get("/api/vehicles", async (req, res) => {
+router.get("/api/vehicles",authenticateJWT, async (req, res) => {
 
   try {
     const { type_of_vehicle } = req.query;
@@ -317,7 +318,7 @@ router.get("/api/vehicles", async (req, res) => {
 });
 
 // PATCH API to update isOccupied value
-router.patch("/api/update-vehicle-occupied/:id", async (req, res) => {
+router.patch("/api/update-vehicle-occupied/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
   const { isOccupied } = req.body;
 

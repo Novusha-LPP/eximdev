@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ function formatImporter(importer) {
 // ensureIndexes();
 
 // ✅ API Endpoint to get job counts for an importer
-router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
+router.get("/api/get-importer-jobs/:importerURL/:year",authenticateJWT, async (req, res) => {
   try {
     const { year, importerURL } = req.params;
     const formattedImporter = formatImporter(importerURL);

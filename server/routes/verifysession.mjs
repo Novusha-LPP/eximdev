@@ -54,7 +54,7 @@ router.post("/api/refresh-token", async (req, res) => {
       // secure: process.env.NODE_ENV === "production",
       secure: true,
       sameSite: "strict",
-      domain: ".alvision.in",
+      // domain: ".alvision.in",
       maxAge: 15 * 60 * 1000,
     });
 

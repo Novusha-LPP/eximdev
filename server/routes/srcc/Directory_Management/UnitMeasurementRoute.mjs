@@ -1,5 +1,6 @@
 import express from "express";
 import UnitMeasurement from "../../../model/srcc/Directory_Management/UnitMeasurementModal.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -7,7 +8,7 @@ const router = express.Router();
  * @route POST /api/add-unit-measurement
  * @desc Create a new unit measurement category with measurements
  */
-router.post("/api/add-unit-measurement", async (req, res) => {
+router.post("/api/add-unit-measurement",authenticateJWT, async (req, res) => {
   const { name, measurements } = req.body;
 
   try {
@@ -30,7 +31,7 @@ router.post("/api/add-unit-measurement", async (req, res) => {
  * @route GET /api/get-unit-measurements
  * @desc Retrieve all unit measurement categories
  */
-router.get("/api/get-unit-measurements", async (req, res) => {
+router.get("/api/get-unit-measurements",authenticateJWT, async (req, res) => {
   try {
     const unitMeasurements = await UnitMeasurement.find();
     res.status(200).json(unitMeasurements);
@@ -44,7 +45,7 @@ router.get("/api/get-unit-measurements", async (req, res) => {
  * @route GET /api/get-unit-measurement/:id
  * @desc Retrieve a single unit measurement by ID
  */
-router.get("/api/get-unit-measurement/:id", async (req, res) => {
+router.get("/api/get-unit-measurement/:id",authenticateJWT, async (req, res) => {
   try {
     const unitMeasurement = await UnitMeasurement.findById(req.params.id);
     if (!unitMeasurement) {

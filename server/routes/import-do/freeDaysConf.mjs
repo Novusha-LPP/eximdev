@@ -16,9 +16,10 @@ const buildSearchQuery = (search) => ({
 
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
-router.get("/api/get-free-days", async (req, res) => {
+router.get("/api/get-free-days",authenticateJWT, async (req, res) => {
   try {
     // Extract and validate query parameters
     const page = parseInt(req.query.page, 10) || 1;

@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-esanchit-completed-jobs", async (req, res) => {
+router.get("/api/get-esanchit-completed-jobs",authenticateJWT, async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year } = req.query;
 

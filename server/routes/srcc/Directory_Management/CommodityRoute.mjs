@@ -1,10 +1,11 @@
 import express from "express";
 import CommodityCode from "../../../model/srcc/Directory_Management/Commodity.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // Create new commodity
-router.post("/api/add-commodity-type", async (req, res) => {
+router.post("/api/add-commodity-type", authenticateJWT, async (req, res) => {
   const { name, hsn_code, description } = req.body;
 
   try {
@@ -39,7 +40,7 @@ router.post("/api/add-commodity-type", async (req, res) => {
 });
 
 // Get all commodities
-router.get("/api/get-commodity-type", async (req, res) => {
+router.get("/api/get-commodity-type", authenticateJWT, async (req, res) => {
   try {
     const commoditys = await CommodityCode.find();
     res.status(200).json({ data: commoditys });
@@ -50,19 +51,23 @@ router.get("/api/get-commodity-type", async (req, res) => {
 });
 
 // Get commodity by HSN code (optional)
-router.get("/api/get-commodity-type/:hsn_code", async (req, res) => {
-  const { hsn_code } = req.params;
-  try {
-    const hsn = await CommodityCode.findOne({ hsn_code });
-    if (!hsn) {
-      return res.status(404).json({ error: "hsn_code not found" });
+router.get(
+  "/api/get-commodity-type/:hsn_code",
+  authenticateJWT,
+  async (req, res) => {
+    const { hsn_code } = req.params;
+    try {
+      const hsn = await CommodityCode.findOne({ hsn_code });
+      if (!hsn) {
+        return res.status(404).json({ error: "hsn_code not found" });
+      }
+      res.status(200).json({ data: hsn });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.status(200).json({ data: hsn });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
   }
-});
+);
 
 // Update commodity
 router.put("/api/update-commodity-type/:id", async (req, res) => {
@@ -83,11 +88,9 @@ router.put("/api/update-commodity-type/:id", async (req, res) => {
     });
 
     if (existingName) {
-      return res
-        .status(400)
-        .json({
-          error: "Commodity name already exists. Use a different name.",
-        });
+      return res.status(400).json({
+        error: "Commodity name already exists. Use a different name.",
+      });
     }
 
     const updatedCommodity = await CommodityCode.findByIdAndUpdate(

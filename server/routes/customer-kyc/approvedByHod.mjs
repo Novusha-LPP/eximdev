@@ -1,9 +1,10 @@
 import express from "express";
 import CustomerKycModel from "../../model/customerKycModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/approved-by-hod", async (req, res) => {
+router.get("/api/approved-by-hod",authenticateJWT, async (req, res) => {
   try {
     const data = await CustomerKycModel.find({
       approval: "Approved by HOD",

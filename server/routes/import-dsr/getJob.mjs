@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-job/:year/:jobNo", async (req, res) => {
+router.get("/api/get-job/:year/:jobNo",authenticateJWT, async (req, res) => {
   try {
     const { jobNo, year } = req.params;
 

@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-esanchit-job/:job_no/:year", async (req, res) => {
+router.get("/api/get-esanchit-job/:job_no/:year",authenticateJWT, async (req, res) => {
   const { job_no, year } = req.params;
   try {
     const data = await JobModel.findOne({ job_no, year });

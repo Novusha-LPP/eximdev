@@ -1,20 +1,27 @@
 import express from "express";
-
 const router = express.Router();
 
 router.post("/api/logout", (req, res) => {
-  res.clearCookie("exim_token", {
+  // Get the original cookie settings from request to see what we're working with
+  console.log("Cookies to clear:", req.cookies);
+
+  // Clear access token
+  res.clearCookie("access_token", {
     httpOnly: true,
-    secure: true,
-    sameSite: "strict", // Lax for testing, strict for production
+    secure: process.env.NODE_ENV === "production", // Conditional based on environment
+    sameSite: "lax",
+    path: "/",
   });
 
-  res.clearCookie("exim_user", {
-    httpOnly: false,
-    secure: true, // use HTTPS only in production
-    sameSite: "strict", // Lax for testing, strict for production
+  // Clear refresh token
+  res.clearCookie("refresh_token", {
+    httpOnly: true, // Match the setting used when creating the cookie
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
   });
 
+  console.log("Cookies cleared");
   return res.status(200).json({ message: "Logged out successfully" });
 });
 

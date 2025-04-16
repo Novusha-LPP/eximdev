@@ -1,6 +1,7 @@
 import express from "express";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import multer from "multer";
+import { authenticateJWT } from "../auth/auth.mjs";
 import cors from "cors";
 
 const router = express.Router();
@@ -26,7 +27,16 @@ const upload = multer({
 // Route for file upload using multer and S3
 router.post(
   "/upload-files",
-  cors({ origin: "*" }),
+  cors({
+    origin: [
+      "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+      "http://eximit.s3-website.ap-south-1.amazonaws.com",
+      "http://localhost:3000",
+      "https://exim.alvision.in",
+      "https://eximapi.alvision.in",
+    ],
+  }),
+  authenticateJWT,
   upload.array("files", 10),
   async (req, res) => {
     try {

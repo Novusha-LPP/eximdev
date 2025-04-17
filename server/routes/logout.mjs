@@ -8,18 +8,18 @@ router.post("/api/logout", (req, res) => {
   // Clear access token
   res.clearCookie("access_token", {
     httpOnly: true,
-    //secure: process.env.NODE_ENV === "production", // Conditional based on environment
-    sameSite: "lax",
-    secure: false,
+    secure: true,
+    sameSite: "strict",
+    // domain:".example.com", // Include the domain if necessary
     path: "/",
   });
 
   // Clear refresh token
   res.clearCookie("refresh_token", {
     httpOnly: true, // Match the setting used when creating the cookie
-    //secure: process.env.NODE_ENV === "production",
-    secure: false,
-    sameSite: "lax",
+    secure: true,
+    sameSite: "strict",
+    // domain:".example.com", // Include the domain if necessary
     // path: "/",
   });
 

@@ -4,7 +4,7 @@ import "./index.css";
 import App from "./App";
 import { ImportersProvider } from "./contexts/importersContext.js";
 import { UserProvider } from "./contexts/UserContext";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Navigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { YearProvider } from "./contexts/yearContext.js";
 

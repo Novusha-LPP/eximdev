@@ -324,6 +324,7 @@ if (cluster.isPrimary) {
         }
       },
       credentials: true, // <== crucial to allow cookies to be sent
+      exposedHeaders: ["Authorization"], // Expose the Authorization header
     })
   );
 

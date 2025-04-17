@@ -175,7 +175,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
       jobs: paginatedJobs,
     });
   } catch (error) {
-    console.error("Error in /api/get-do-module-jobs:", error.stack || error);
+    console.error( error.stack || error);
     res.status(500).json({
       message: "Internal Server Error",
       error: error.message,

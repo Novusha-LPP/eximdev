@@ -9,7 +9,7 @@ router.post("/api/logout", (req, res) => {
   res.clearCookie("access_token", {
     httpOnly: true,
     secure: false,
-    sameSite: "strict",
+    sameSite: "lax",
     // domain:".example.com", // Include the domain if necessary
     path: "/",
   });
@@ -18,7 +18,7 @@ router.post("/api/logout", (req, res) => {
   res.clearCookie("refresh_token", {
     httpOnly: true, // Match the setting used when creating the cookie
     secure: false,
-    sameSite: "strict",
+    sameSite: "lax",
     // domain:".example.com", // Include the domain if necessary
     // path: "/",
   });

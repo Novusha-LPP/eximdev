@@ -33,7 +33,7 @@ router.post("/api/login", async (req, res) => {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
       secure: false,
-      sameSite: "strict",
+      sameSite: "lax",
       // domain:".alvision.in",
       path: "/",
       maxAge: 24 * 60 * 60 * 1000, // 1 day
@@ -43,7 +43,7 @@ router.post("/api/login", async (req, res) => {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
       secure: false,
-      sameSite: "strict",
+      sameSite: "lax",
 
       // domain:".alvision.in",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days

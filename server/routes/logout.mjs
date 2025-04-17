@@ -8,19 +8,19 @@ router.post("/api/logout", (req, res) => {
   // Clear access token
   res.clearCookie("access_token", {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-    // domain:".example.com", // Include the domain if necessary
+    secure: true,
+    sameSite: "strict",
+    domain:".alvision.in", // Include the domain if necessary
     path: "/",
   });
 
   // Clear refresh token
   res.clearCookie("refresh_token", {
     httpOnly: true, // Match the setting used when creating the cookie
-    secure: false,
-    sameSite: "lax",
-    // domain:".example.com", // Include the domain if necessary
-    // path: "/",
+    secure: true,
+    sameSite: "strict",
+    domain:".alvision.in", // Include the domain if necessary
+    path: "/",
   });
 
   console.log("Cookies cleared");

@@ -14,13 +14,17 @@ router.get(
   (req, res, next) => {
     console.log("Cookies received:", req.cookies);
     console.log("Headers:", req.headers);
-    next(); // This is crucial - don't forget to call next()
+    next();
   },
-  authenticateJWT, // This should be a reference to the function, not an invocation
+  authenticateJWT, // Ensure this middleware is properly invoked
   async (req, res) => {
     console.log("User authenticated:", req.user);
 
     try {
+      if (!req.user || !req.user.userId) {
+        return res.status(401).json({ message: "Invalid session" });
+      }
+
       // Find the user based on the decoded token
       const user = await UserModel.findById(req.user.userId);
 
@@ -37,6 +41,7 @@ router.get(
     }
   }
 );
+
 router.post("/api/refresh-token", async (req, res) => {
   const refreshToken = req.cookies.refresh_token;
   if (!refreshToken)
@@ -56,6 +61,7 @@ router.post("/api/refresh-token", async (req, res) => {
       sameSite: "strict",
       // domain: ".alvision.in",
       maxAge: 15 * 60 * 1000,
+      path: "/",
     });
 
     res.status(200).json(sanitizeUserData(user));

@@ -28,13 +28,14 @@ function App() {
           error.response?.data || error.message
         );
         setUser(null);
+        navigate("/login"); // Redirect to login if not authenticated
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuthentication();
-  }, []);
+  }, [navigate]);
 
   // Your keyboard navigation handler
   useEffect(() => {
@@ -64,7 +65,13 @@ function App() {
   console.log(user);
   return (
     <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
-      <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+      <div className="App">
+        {user ? (
+          <HomePage />
+        ) : (
+          <LoginPage />
+        )}
+      </div>
     </UserContext.Provider>
   );
 }

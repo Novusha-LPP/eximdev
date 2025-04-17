@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import axios from "axios";
-
+axios.defaults.withCredentials = true;
 function App() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,9 +61,8 @@ function App() {
     return <div className="app-loading">Loading...</div>;
   }
 
-  console.log(user)
+  console.log(user);
   return (
-    
     <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
       <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>

@@ -32,19 +32,19 @@ router.post("/api/login", async (req, res) => {
     res.cookie("access_token", token, {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      secure: true,
+      secure: false,
       sameSite: "strict",
       // domain:".alvision.in",
-      path: "/", 
+      path: "/",
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      secure: true,
+      secure: false,
       sameSite: "strict",
-      
+
       // domain:".alvision.in",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
@@ -56,10 +56,6 @@ router.post("/api/login", async (req, res) => {
   }
 });
 
-// 🚪 Logout Route
-router.post("/api/logout", (req, res) => {
-  res.clearCookie("exim_token");
-  return res.status(200).json({ message: "Logged out successfully" });
-});
+
 
 export default router;

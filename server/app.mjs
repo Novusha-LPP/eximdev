@@ -294,9 +294,9 @@ if (cluster.isPrimary) {
   //   res.header("Access-Control-Allow-Credentials", "true");
   //   res.sendStatus(204); // No content needed for OPTIONS response
   // });
+  app.use(cookieParser());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(cookieParser());
 
   app.use(bodyParser.json({ limit: "100mb" }));
   // app.use(cors());
@@ -310,7 +310,6 @@ if (cluster.isPrimary) {
     "http://localhost:3000",
     "https://exim.alvision.in",
     "https://eximapi.alvision.in",
-
   ];
 
   app.use(

@@ -21,9 +21,9 @@ function Home() {
   const { user } = useContext(UserContext);
   const [data, setData] = useState();
   const navigate = useNavigate();
-
   useEffect(() => {
     async function getUser() {
+      if (!user || !user.username) return;
       try {
         const res = await axios(
           `${process.env.REACT_APP_API_STRING}/get-user/${user.username}`
@@ -36,7 +36,6 @@ function Home() {
 
     getUser();
   }, [user]);
-
   const categorizedModules = data?.modules?.reduce((acc, module) => {
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];

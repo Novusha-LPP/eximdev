@@ -11,31 +11,8 @@ export const useUser = () => {
   return context;
 };
 
-export const UserProvider = ({ children }) => {
-  // We don't need the authentication check here anymore
-  // since it's being handled in App.js
-  
-  const logout = async () => {
-    try {
-      await axios.post(
-        `${process.env.REACT_APP_API_STRING}/api/logout`,
-        {},
-        {
-          withCredentials: true,
-        }
-      );
-      // The App component will update user state
-      window.location.href = "/"; // Force a full page reload
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  };
-
-  // We're not providing user and setUser here anymore
-  // as they'll be provided through App.js
+export const UserProvider = ({ children, userValue }) => {
   return (
-    <UserContext.Provider value={{ logout }}>
-      {children}
-    </UserContext.Provider>
+    <UserContext.Provider value={userValue}>{children}</UserContext.Provider>
   );
 };

@@ -35,12 +35,14 @@ export const generateRefreshToken = (user) => {
 
 //* AUTH MIDDLEWARE: verifies token in cookie
 export const authenticateJWT = (req, res, next) => {
-  const token = req.cookies.access_token;
-  console.log("Token found:", !!token);
-
-  if (!token) {
-    return res.status(401).json({ message: "Authentication required" });
-  }
+  const token =
+    req.cookies.access_token ||
+    (req.headers.authorization && req.headers.authorization.split(" ")[1]);
+    if (!token) {
+      console.log("No token found in cookies");
+      return res.status(401).json({ message: "Authentication required" });
+    }
+ 
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

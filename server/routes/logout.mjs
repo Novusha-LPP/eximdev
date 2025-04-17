@@ -8,17 +8,19 @@ router.post("/api/logout", (req, res) => {
   // Clear access token
   res.clearCookie("access_token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Conditional based on environment
+    //secure: process.env.NODE_ENV === "production", // Conditional based on environment
     sameSite: "lax",
+    secure: false,
     path: "/",
   });
 
   // Clear refresh token
   res.clearCookie("refresh_token", {
     httpOnly: true, // Match the setting used when creating the cookie
-    secure: process.env.NODE_ENV === "production",
+    //secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax",
-    path: "/",
+    // path: "/",
   });
 
   console.log("Cookies cleared");

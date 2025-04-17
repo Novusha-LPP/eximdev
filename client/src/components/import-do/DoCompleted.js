@@ -150,7 +150,7 @@ function DoCompleted() {
       setLoading(true);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
+          `${process.env.REACT_APP_API_STRING}/get-do-complete-module-jobs`,
           {
             params: {
               page: currentPage,
@@ -245,7 +245,7 @@ function DoCompleted() {
               setSelectedJobId(_id);
 
               // 2) Navigate to the detail page, and pass selectedJobId
-              navigate(`/edit-do-planning/${_id}`, {
+              navigate(`/edit-do-completed/${_id}`, {
                 state: {
                   selectedJobId: _id,
                   searchQuery,

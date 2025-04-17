@@ -40,6 +40,7 @@ import ExitInterview from "../components/exit-interview/ExitInterview.js";
 import ImportDO from "../components/import-do/ImportDO.js";
 import EditDoList from "../components/import-do/EditDoList.js";
 import EditDoPlanning from "../components/import-do/EditDoPlanning.js";
+import EditDoCompleted from "../components/import-do/EditDoCompleted.js";
 import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
@@ -191,6 +192,7 @@ function HomePage() {
             <Route path="/import-do" element={<ImportDO />} />
             <Route path="/edit-do-list/:_id" element={<EditDoList />} />
             <Route path="/edit-do-planning/:_id" element={<EditDoPlanning />} />
+            <Route path="edit-do-completed/:_id" element={<EditDoCompleted />} />
             <Route
               path="/edit-billing-sheet/:_id"
               element={<EditBillingSheet />}

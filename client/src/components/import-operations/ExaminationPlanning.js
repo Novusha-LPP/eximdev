@@ -452,34 +452,34 @@ function ImportOperations() {
       },
     },
 
-    // {
-    //   accessorKey: "do_copies",
-    //   header: "Do Copies",
-    //   enableSorting: false,
-    //   size: 150,
-    //   Cell: ({ row }) => {
-    //     const doCopies = row.original.do_copies;
+    {
+      accessorKey: "do_copies",
+      header: "Do Copies",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ row }) => {
+        const doCopies = row.original.do_copies;
 
-    //     // Check if doCopies is an array and has at least one element
-    //     if (Array.isArray(doCopies) && doCopies.length > 0) {
-    //       return (
-    //         <div style={{ textAlign: "center" }}>
-    //           {doCopies.map((url, index) => (
-    //             <div key={index}>
-    //               <a href={url} target="_blank" rel="noopener noreferrer">
-    //                 do_copies{index + 1}
-    //               </a>
-    //             </div>
-    //           ))}
-    //         </div>
-    //       );
-    //     } else {
-    //       // Optionally, render nothing or an alternative message
-    //       return null;
-    //       // Or: return <span>No Copies Available</span>;
-    //     }
-    //   },
-    // },
+        // Check if doCopies is an array and has at least one element
+        if (Array.isArray(doCopies) && doCopies.length > 0) {
+          return (
+            <div style={{ textAlign: "center" }}>
+              {doCopies.map((url, index) => (
+                <div key={index}>
+                  <a href={url} target="_blank" rel="noopener noreferrer">
+                    do_copies{index + 1}
+                  </a>
+                </div>
+              ))}
+            </div>
+          );
+        } else {
+          // Optionally, render nothing or an alternative message
+          return null;
+          // Or: return <span>No Copies Available</span>;
+        }
+      },
+    },
 
     {
       accessorKey: "do_validity",

@@ -22,7 +22,7 @@ function Sidebar() {
         `${process.env.REACT_APP_API_STRING}/logout`,
         {},
         {
-          // withCredentials: true,
+          withCredentials: true,
           headers: {
             "Content-Type": "application/json",
           },

@@ -57,9 +57,9 @@ router.post("/api/login", async (req, res) => {
 });
 
 // 🚪 Logout Route
-router.post("/api/logout", (req, res) => {
-  res.clearCookie("exim_token");
-  return res.status(200).json({ message: "Logged out successfully" });
-});
+// router.post("/api/logout", (req, res) => {
+//   res.clearCookie("exim_token");
+//   return res.status(200).json({ message: "Logged out successfully" });
+// });
 
 export default router;

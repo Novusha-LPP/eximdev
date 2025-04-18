@@ -1159,30 +1159,27 @@ const deliveryDate =
                 </div>
               </Col> */}
 
+{formik.values.hss && formik.values.hss =="Yes" &&
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
-                  {/* HSS Field */}
-                  <strong>HSS:&nbsp;</strong>
+                  {/* Seller Name Field */}
+                  <strong>Seller Name:&nbsp;</strong>
                   <TextField
                     fullWidth
-                    select
                     size="small"
                     variant="outlined"
-                    id="hss"
-                    name="hss"
-                    value={formik.values.hss || "No"}
+                    id="Seller_name"
+                    name="Seller_name"
+                    value={formik.values.Seller_name || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                  >
-                    <MenuItem value="Yes">Yes</MenuItem>
-                    <MenuItem value="No">No</MenuItem>
-                  </TextField>
+                    placeholder="Enter Seller Name"
+                  />
                 </div>
-              </Col>
-
+              </Col>}
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"

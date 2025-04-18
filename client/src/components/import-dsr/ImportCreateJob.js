@@ -22,6 +22,7 @@ import {
   shippingLineOptions,
   cth_Dropdown,
   countryOptions,
+  hssOptions,
   portReportingOptions,
 } from "../MasterLists/MasterLists";
 import { useFormik } from "formik";
@@ -30,7 +31,10 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import useImportJobForm from "../../customHooks/useImportJobForm.js";
 import axios from "axios";
 
+
 const ImportCreateJob = () => {
+  const [HSS, setHSS] = useState("");
+  const [sallerName, setSallerName] = useState("");
   const {
     formik,
     // job_no,
@@ -581,6 +585,8 @@ const ImportCreateJob = () => {
           </TextField>
         </Grid>
 
+        
+
         {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -617,6 +623,48 @@ const ImportCreateJob = () => {
               : "This document is finalized."}
           </Typography>
         </Grid>
+
+        {/* HSS */}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+          HSS:
+          </Typography>
+          <Autocomplete
+  freeSolo
+  options={hssOptions}
+  value={HSS}
+  onInputChange={(event, newInputValue) => setHSS(newInputValue)}
+  renderInput={(params) => (
+    <TextField
+      {...params}
+      variant="outlined"
+      size="small"
+      helperText="Start typing to see suggestions"
+      fullWidth
+    />
+  )}
+/>
+
+        </Grid>
+
+        {/* conditionallyy render this saller name */}
+
+        {HSS && HSS == "Yes" &&(
+  <Grid item xs={12} md={6}>
+    <Typography variant="body1" style={{ fontWeight: 600 }}>
+      Saller Name:
+    </Typography>
+    <TextField
+      value={sallerName}
+      onChange={(e) => setSallerName(e.target.value)}
+      variant="outlined"
+      size="small"
+      placeholder="Enter Saller Name"
+      fullWidth
+    />
+  </Grid>
+)}
+
         {/*  */}
         {!isDraftDoc && (
           <>

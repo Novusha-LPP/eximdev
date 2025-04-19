@@ -135,154 +135,161 @@ router.post("/api/jobs/add-job", authenticateJWT, async (req, res) => {
   const jsonData = req.body;
 
   try {
-    const bulkOperations = [];
+    // Process data in chunks to handle large Excel files
+    const CHUNK_SIZE = 50; // Adjust based on your server's performance
+    
+    for (let i = 0; i < jsonData.length; i += CHUNK_SIZE) {
+      const chunk = jsonData.slice(i, i + CHUNK_SIZE);
+      const bulkOperations = [];
 
-    for (const data of jsonData) {
-      const {
-        year,
-        job_no,
-        be_no,
-        be_date,
-        invoice_number,
-        invoice_date,
-        awb_bl_no,
-        awb_bl_date,
-        bill_no,
-        bill_date,
-        no_of_pkgs,
-        gross_weight,
-        exrate,
-        cif_amount,
-        unit_price,
-        vessel_berthing, // New value from Excel
-        line_no,
-        ie_code_no,
-        container_nos, // Assume container data is part of the incoming job data
-        hss_name,
-        total_inv_value,
-      } = data;
+      for (const data of chunk) {
+        const {
+          year,
+          job_no,
+          be_no,
+          be_date,
+          invoice_number,
+          invoice_date,
+          awb_bl_no,
+          awb_bl_date,
+          bill_no,
+          bill_date,
+          no_of_pkgs,
+          gross_weight,
+          exrate,
+          cif_amount,
+          unit_price,
+          vessel_berthing,
+          line_no,
+          ie_code_no,
+          container_nos,
+          hss_name,
+          total_inv_value,
+        } = data;
 
-      // Sanitize bill_date before using it
-      const sanitizedBillDate =
-        typeof bill_date === "string"
-          ? bill_date
-          : bill_date != null
-          ? String(bill_date)
-          : "";
+        // Sanitize bill_date before using it
+        const sanitizedBillDate =
+          typeof bill_date === "string"
+            ? bill_date
+            : bill_date != null
+            ? String(bill_date)
+            : "";
 
-      // Define the filter to find existing jobs
-      const filter = { year, job_no };
+        // Define the filter to find existing jobs
+        const filter = { year, job_no };
 
-      // Check if the job already exists in the database
-      const existingJob = await JobModel.findOne(filter);
-      let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
-      let lineNoUpdate = existingJob?.line_no || "";
-      let iceCodeUpdate = existingJob?.ie_code_no || "";
+        // Check if the job already exists in the database
+        const existingJob = await JobModel.findOne(filter);
+        let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+        let lineNoUpdate = existingJob?.line_no || "";
+        let iceCodeUpdate = existingJob?.ie_code_no || "";
 
-      // Only update vessel_berthing if it's empty in the database
-      if (
-        vessel_berthing && // Excel has a valid vessel_berthing date
-        (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
-      ) {
-        vesselBerthingToUpdate = vessel_berthing;
+        // Only update vessel_berthing if it's empty in the database
+        if (
+          vessel_berthing && // Excel has a valid vessel_berthing date
+          (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
+        ) {
+          vesselBerthingToUpdate = vessel_berthing;
+        }
+        // Only update lineNoUpdate if it's empty in the database
+        if (
+          line_no && // Excel has a valid lineNoUpdate
+          (!lineNoUpdate || lineNoUpdate.trim() === "")
+        ) {
+          lineNoUpdate = line_no;
+        }
+        // Only update iceCodeUpdate if it's empty in the database
+        if (
+          ie_code_no && // Excel has a valid iceCodeUpdate
+          (!iceCodeUpdate || iceCodeUpdate.trim() === "")
+        ) {
+          iceCodeUpdate = ie_code_no;
+        }
+
+        if (existingJob) {
+          // Logic to merge or update container sizes
+          const updatedContainers = existingJob.container_nos.map(
+            (existingContainer) => {
+              const newContainerData = container_nos.find(
+                (c) => c.container_number === existingContainer.container_number
+              );
+
+              return newContainerData
+                ? { ...existingContainer.toObject(), size: newContainerData.size }
+                : existingContainer;
+            }
+          );
+
+          // Define the update to set new data, including "container_nos"
+          const update = {
+            $set: {
+              ...data,
+              vessel_berthing: vesselBerthingToUpdate,
+              line_no: lineNoUpdate,
+              ie_code_no: iceCodeUpdate,
+              container_nos: updatedContainers,
+              status:
+                existingJob.status === "Completed"
+                  ? existingJob.status
+                  : computeStatus(sanitizedBillDate),
+              be_no,
+              be_date,
+              invoice_number,
+              invoice_date,
+              awb_bl_no,
+              awb_bl_date,
+              bill_no,
+              bill_date,
+              no_of_pkgs,
+              gross_weight,
+              exrate,
+              cif_amount,
+              unit_price,
+            },
+          };
+
+          // Create the bulk update operation for upsert or update
+          const bulkOperation = {
+            updateOne: {
+              filter,
+              update,
+              upsert: true,
+            },
+          };
+
+          bulkOperations.push(bulkOperation);
+        } else {
+          // If job does not exist, add job with new data
+          const update = {
+            $set: {
+              ...data,
+              vessel_berthing: vesselBerthingToUpdate,
+              status: computeStatus(sanitizedBillDate),
+            },
+          };
+
+          const bulkOperation = {
+            updateOne: {
+              filter,
+              update,
+              upsert: true,
+            },
+          };
+
+          bulkOperations.push(bulkOperation);
+        }
       }
-      // Only update lineNoUpdate if it's empty in the database
-      if (
-        line_no && // Excel has a valid lineNoUpdate
-        (!lineNoUpdate || lineNoUpdate.trim() === "")
-      ) {
-        lineNoUpdate = line_no;
-      }
-      // Only update iceCodeUpdate if it's empty in the database
-      if (
-        ie_code_no && // Excel has a valid iceCodeUpdate
-        (!iceCodeUpdate || iceCodeUpdate.trim() === "")
-      ) {
-        iceCodeUpdate = ie_code_no;
-      }
 
-      if (existingJob) {
-        // Logic to merge or update container sizes
-        const updatedContainers = existingJob.container_nos.map(
-          (existingContainer) => {
-            const newContainerData = container_nos.find(
-              (c) => c.container_number === existingContainer.container_number
-            );
-
-            return newContainerData
-              ? { ...existingContainer.toObject(), size: newContainerData.size }
-              : existingContainer;
-          }
-        );
-
-        // Define the update to set new data, including "container_nos"
-        const update = {
-          $set: {
-            ...data,
-
-            vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
-            line_no: lineNoUpdate, // Ensure correct update logic
-            ie_code_no: iceCodeUpdate, // Ensure correct update logic
-            container_nos: updatedContainers,
-            status:
-              existingJob.status === "Completed"
-                ? existingJob.status
-                : computeStatus(sanitizedBillDate),
-            be_no,
-            be_date,
-            invoice_number,
-            invoice_date,
-            awb_bl_no,
-            awb_bl_date,
-            bill_no,
-            bill_date,
-            no_of_pkgs,
-            gross_weight,
-            exrate,
-            cif_amount,
-            unit_price,
-          },
-        };
-
-        // Create the bulk update operation for upsert or update
-        const bulkOperation = {
-          updateOne: {
-            filter,
-            update,
-            upsert: true,
-          },
-        };
-
-        bulkOperations.push(bulkOperation);
-      } else {
-        // If job does not exist, add job with new data
-        const update = {
-          $set: {
-            ...data,
-            vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
-            status: computeStatus(sanitizedBillDate),
-          },
-        };
-
-        const bulkOperation = {
-          updateOne: {
-            filter,
-            update,
-            upsert: true,
-          },
-        };
-
-        bulkOperations.push(bulkOperation);
+      // Execute the bulkWrite operation for this chunk
+      if (bulkOperations.length > 0) {
+        await JobModel.bulkWrite(bulkOperations);
       }
     }
-
-    // Execute the bulkWrite operation to update or insert multiple jobs
-    await JobModel.bulkWrite(bulkOperations);
 
     // Update the last jobs update date
     try {
       const existingDateDocument = await LastJobsDate.findOne();
-      const date = new Date().toISOString(); // Changed to ISO string for consistency
+      const date = new Date().toISOString();
       if (existingDateDocument) {
         existingDateDocument.date = date;
         await existingDateDocument.save();
@@ -292,13 +299,39 @@ router.post("/api/jobs/add-job", authenticateJWT, async (req, res) => {
       }
     } catch (error) {
       console.error("Error updating the last jobs date:", error);
-      return res.status(500).send("An error occurred while updating the date.");
+      return res.status(500).json({ 
+        error: "An error occurred while updating the date.", 
+        details: error.message
+      });
     }
 
     res.status(200).json({ message: "Jobs added/updated successfully" });
   } catch (error) {
     console.error("Error handling job data:", error);
-    return res.status(500).json({ error: "Internal server error." });
+    
+    // Enhanced error logging
+    if (error.name === 'ValidationError') {
+      console.error("Validation error details:", error.errors);
+      return res.status(400).json({ 
+        error: "Validation error", 
+        details: error.message,
+        validationErrors: error.errors
+      });
+    } else if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+      console.error("MongoDB error code:", error.code);
+      // Handle specific MongoDB errors
+      if (error.code === 16819 || error.code === 10334) {
+        return res.status(413).json({ 
+          error: "Data too large for MongoDB operation", 
+          details: error.message 
+        });
+      }
+    }
+    
+    return res.status(500).json({ 
+      error: "Internal server error.",
+      details: error.message
+    });
   }
 });
 

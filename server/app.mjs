@@ -279,31 +279,6 @@ if (cluster.isPrimary) {
   });
 } else {
   const app = express();
-
-  // app.options("*", (req, res) => {
-  //   // Set CORS headers directly
-  //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
-  //   res.header(
-  //     "Access-Control-Allow-Methods",
-  //     "GET, POST, PUT, DELETE, OPTIONS"
-  //   );
-  //   res.header(
-  //     "Access-Control-Allow-Headers",
-  //     "Content-Type, Authorization, Content-Length, X-Requested-With"
-  //   );
-  //   res.header("Access-Control-Allow-Credentials", "true");
-  //   res.sendStatus(204); // No content needed for OPTIONS response
-  // });
-  app.use(cookieParser());
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  app.use(bodyParser.json({ limit: "100mb" }));
-  // app.use(cors());
-
-  // // Apply CORS preflight to all routes
-  // app.options("*", cors());
-
   const allowedOrigins = [
     "http://eximdev.s3-website.ap-south-1.amazonaws.com",
     "http://eximit.s3-website.ap-south-1.amazonaws.com",
@@ -327,6 +302,34 @@ if (cluster.isPrimary) {
       exposedHeaders: ["Authorization"], // Expose the Authorization header
     })
   );
+  app.options('*', cors()); // ✅ allow preflight requests globally
+
+
+  // app.options("*", (req, res) => {
+  //   // Set CORS headers directly
+  //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  //   res.header(
+  //     "Access-Control-Allow-Methods",
+  //     "GET, POST, PUT, DELETE, OPTIONS"
+  //   );
+  //   res.header(
+  //     "Access-Control-Allow-Headers",
+  //     "Content-Type, Authorization, Content-Length, X-Requested-With"
+  //   );
+  //   res.header("Access-Control-Allow-Credentials", "true");
+  //   res.sendStatus(204); // No content needed for OPTIONS response
+  // });
+  app.use(cookieParser());
+  app.use(express.json());
+  // app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  // app.use(cors());
+
+  // // Apply CORS preflight to all routes
+  // app.options("*", cors());
+
+ 
 
   // Optional: Handle preflight requests manually if needed
   // app.options(

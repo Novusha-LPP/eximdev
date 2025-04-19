@@ -14,13 +14,13 @@ function App() {
   // Check authentication status when app loads or refreshes
   useEffect(() => {
     const checkAuthentication = async () => {
-      console.log("Checking authentication status...");
+      // console.log("Checking authentication status...");
       try {
         const response = await axios.get(
           `${process.env.REACT_APP_API_STRING}/verify-session`,
           { withCredentials: true }
         );
-        console.log("Authentication response:", response.data);
+        // console.log("Authentication response:", response.data);
         setUser(response.data);
       } catch (error) {
         console.error(
@@ -62,16 +62,10 @@ function App() {
     return <div className="app-loading">Loading...</div>;
   }
 
-  console.log(user);
+  // console.log(user);
   return (
     <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
-      <div className="App">
-        {user ? (
-          <HomePage />
-        ) : (
-          <LoginPage />
-        )}
-      </div>
+      <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>
   );
 }

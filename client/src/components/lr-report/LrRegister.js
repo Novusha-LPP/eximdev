@@ -50,19 +50,19 @@ function LrRegister() {
           aria-label="basic tabs example"
         >
           [
-          <Tab label="Pending" {...a11yProps(0)} key={0} />,
-          <Tab label="Completed" {...a11yProps(1)} key={1} />,
+          <Tab label="All" {...a11yProps(0)} key={0} />,
+          {/* <Tab label="Completed" {...a11yProps(1)} key={1} />, */}
           {/* <Tab label="Cancelled" {...a11yProps(2)} key={2} /> */}
           ,]
         </Tabs>
       </Box>
 
       <CustomTabPanel value={value} index={0}>
-        <PrJobList status="Pending" />
+        <PrJobList status="all" />
       </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
+      {/* <CustomTabPanel value={value} index={1}>
         <PrJobList status="Completed" />
-      </CustomTabPanel>
+      </CustomTabPanel> */}
       {/* <CustomTabPanel value={value} index={2}>
         <PrJobList status="Cancelled" />
       </CustomTabPanel> */}

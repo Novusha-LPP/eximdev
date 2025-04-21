@@ -9,15 +9,29 @@ router.get("/api/lr-job-list", async (req, res) => {
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    const matchCondition =
-      status?.toLowerCase() === "pending"
-        ? {
-            $or: [
-              { "containers.lr_completed": { $exists: false } }, // Missing field
-              { "containers.lr_completed": false }, // Explicitly false
-            ],
-          }
-        : { "containers.lr_completed": true }; // Explicitly true
+    // const matchCondition =
+    //   status?.toLowerCase() === "pending"
+    //     ? {
+    //         $or: [
+    //           { "containers.lr_completed": { $exists: false } }, // Missing field
+    //           { "containers.lr_completed": false }, // Explicitly false
+    //         ],
+    //       }
+    //     : { "containers.lr_completed": true }; // Explicitly true
+    let matchCondition = {};
+
+    if (status?.toLowerCase() === "pending") {
+      matchCondition = {
+        $or: [
+          { "containers.lr_completed": { $exists: false } },
+          { "containers.lr_completed": false },
+        ],
+      };
+    } else if (status?.toLowerCase() === "completed") {
+      matchCondition = { "containers.lr_completed": true };
+    } else if (status?.toLowerCase() === "all" || !status) {
+      matchCondition = {}; // No filter — include all containers
+    }
 
     const pipeline = [
       { $unwind: "$containers" }, // Flatten the containers array

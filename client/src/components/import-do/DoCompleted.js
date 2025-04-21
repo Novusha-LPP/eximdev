@@ -14,6 +14,7 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  colors,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
@@ -42,6 +43,19 @@ function DoCompleted() {
     location.state?.selectedJobId || null
   );
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+
+  const formatDate = useCallback((dateStr) => {
+    if (dateStr) {
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}/${month}/${day}`;
+    } else {
+      return dateStr;
+    }
+  }, []);
+  
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -478,10 +492,11 @@ function DoCompleted() {
       accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
       header: "Required Do Validity Upto",
       enableSorting: false,
-      size: 150,
+      size: 200,
       Cell: ({ cell, row }) => {
         const displayDate = cell.getValue(); // "displayDate" from backend
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
+        const  typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
 
         return (
           <div
@@ -492,7 +507,9 @@ function DoCompleted() {
             }}
           >
             {displayDate}{" "}
-            {dayDifference > 0 && <span>(+{dayDifference} days)</span>}
+            
+            {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
+            <div>Type Of Do: {typeOfDo}</div>
           </div>
         );
       },
@@ -573,118 +590,73 @@ function DoCompleted() {
     //     );
     //   },
     // },
-    {
-      accessorKey: "type_of_Do",
-      header: "Type of Do",
-      enableSorting: false,
-      size: 120,
-    },
+    // {
+    //   accessorKey: "type_of_Do",
+    //   header: "Type of Do",
+    //   enableSorting: false,
+    //   size: 120,
+    // },
     {
       accessorKey: "Doc",
-      header: "Docs",
+      header: "Do Completed  & Validity Date",
       enableSorting: false,
-      size: 150,
+      size: 200,
       Cell: ({ cell }) => {
         const {
-          processed_be_attachment,
-          cth_documents,
-          checklist,
+          do_completed,
+          do_validity,
+          do_copies,
         } = cell.row.original;
 
-        // Helper function to safely get the first link if it's an array or a string
-        const getFirstLink = (input) => {
-          if (Array.isArray(input)) {
-            return input.length > 0 ? input[0] : null;
-          }
-          return input || null;
-        };
-
-        const checklistLink = getFirstLink(checklist);
-        const processed_be_attachmentLink = getFirstLink(
-          processed_be_attachment
-        );
+        const doCopies = do_copies
+        const doCompleted = formatDate(do_completed)
+        const doValidity =  formatDate(do_validity)
+        
 
         return (
           <div style={{ textAlign: "left" }}>
             {/* Render the "Checklist" link or fallback text */}
-            {checklistLink ? (
-              <div style={{ marginBottom: "5px" }}>
-                <a
-                  href={checklistLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "blue",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Checklist
-                </a>
-              </div>
-            ) : (
-              <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>No Checklist </span>
-              </div>
-            )}
-            {processed_be_attachmentLink ? (
-              <div style={{ marginBottom: "5px" }}>
-                <a
-                  href={processed_be_attachmentLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "blue",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Processed Copy of BE no.
-                </a>
+
+<div>
+  {doCompleted ? (
+    <strong>DO Completed Date: {doCompleted}</strong>
+  ) : (
+    <span style={{color: "gray"}}>No DO Completed Date</span>
+  )}
+</div>
+<div>
+  {doValidity ? (
+    <strong>DO Validity: {doCompleted}</strong>
+  ) : (
+    <span style={{color: "gray"}}>No DO Validity</span>
+  )}
+</div>
+
+           
+            {Array.isArray(doCopies) && doCopies.length > 0 ? (
+              <div style={{ marginTop: "4px" }}>
+                {doCopies.map((url, index) => (
+                  <div key={index}>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#007bff", textDecoration: "underline" }}
+                    >
+                      DO Copy {index + 1}
+                    </a>
+                  </div>
+                ))}
               </div>
             ) : (
               <div style={{ marginBottom: "5px" }}>
                 <span style={{ color: "gray" }}>
                   {" "}
-                  Processed Copy of BE no.{" "}
+                 No DO copies{" "}
                 </span>
               </div>
             )}
 
-            {/* Render CTH Documents (showing actual URL) */}
-            {cth_documents &&
-            cth_documents.some(
-              (doc) =>
-                doc.url &&
-                doc.url.length > 0 &&
-                doc.document_name === "Pre-Shipment Inspection Certificate"
-            ) ? (
-              cth_documents
-                .filter(
-                  (doc) =>
-                    doc.url &&
-                    doc.url.length > 0 &&
-                    doc.document_name === "Pre-Shipment Inspection Certificate"
-                )
-                .map((doc) => (
-                  <div key={doc._id} style={{ marginBottom: "5px" }}>
-                    <a
-                      href={doc.url[0]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "blue",
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {doc.document_name}
-                    </a>
-                  </div>
-                ))
-            ) : (
-              <span style={{ color: "gray" }}> No Pre-Shipment Inspection Certificate </span>
-            )}
           </div>
         );
       },

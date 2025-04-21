@@ -478,10 +478,11 @@ function DoPlanning() {
       accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
       header: "Required Do Validity Upto",
       enableSorting: false,
-      size: 150,
+      size: 200,
       Cell: ({ cell, row }) => {
         const displayDate = cell.getValue(); // "displayDate" from backend
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
+        const  typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
 
         return (
           <div
@@ -492,7 +493,9 @@ function DoPlanning() {
             }}
           >
             {displayDate}{" "}
-            {dayDifference > 0 && <span>(+{dayDifference} days)</span>}
+            
+            {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
+            <div>Type Of Do: {typeOfDo}</div>
           </div>
         );
       },
@@ -573,12 +576,12 @@ function DoPlanning() {
     //     );
     //   },
     // },
-    {
-      accessorKey: "type_of_Do",
-      header: "Type of Do",
-      enableSorting: false,
-      size: 120,
-    },
+    // {
+    //   accessorKey: "type_of_Do",
+    //   header: "Type of Do",
+    //   enableSorting: false,
+    //   size: 120,
+    // },
     {
       accessorKey: "Doc",
       header: "Docs",

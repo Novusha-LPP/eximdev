@@ -132,6 +132,19 @@ const PrDataSchema = new mongoose.Schema({
         type: Boolean,
         default: false, // Default to false
       },
+      offloading_date_time: {
+        type: Date,
+      },
+      detention_days: {
+        type: Number,
+      },
+      reason_of_detention: {
+        type: String,
+      },
+      tipping: {
+        type: Boolean,
+      },
+      document_attachment: [{ type: String, trim: true }],
     },
   ],
   status: {

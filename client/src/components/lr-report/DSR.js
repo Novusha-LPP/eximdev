@@ -2,7 +2,19 @@ import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import useTableConfig from "../../customHooks/useTableConfig";
-import { TextField, MenuItem, IconButton, Checkbox } from "@mui/material"; // Added Checkbox import
+import {
+  TextField,
+  MenuItem,
+  IconButton,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Button,
+  FormControlLabel,
+  Typography,
+} from "@mui/material";
 import { srccDsrStatus } from "../../assets/data/dsrDetailedStatus";
 import SaveIcon from "@mui/icons-material/Save";
 
@@ -10,28 +22,30 @@ function DSR() {
   // State to store table rows
   const [rows, setRows] = useState([]);
 
-  // Fetch data from the API and process it
+  // State for dialog
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogData, setDialogData] = useState({
+    offloading_date_time: "",
+    detention_days: 0,
+    reason_of_detention: "",
+    tipping: false,
+    document_attachment: null,
+  });
+
+  const [saving, setSaving] = useState(false);
+
   const getData = useCallback(async () => {
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/view-srcc-dsr`
-    );
-
-    // Filter out completed jobs and ensure `lr_completed` is always defined
-    const filteredRows = res.data
-      .filter((row) => !row.lr_completed)
-      .map((row) => ({
-        ...row,
-        lr_completed: row.lr_completed ?? false, // Default to false if undefined
-      }));
-
-    // Sort rows in descending order based on the numeric part of `tr_no`
-    const sortedRows = filteredRows.sort((a, b) => {
-      const aNumber = parseInt(a.tr_no.split("/")[2], 10);
-      const bNumber = parseInt(b.tr_no.split("/")[2], 10);
-      return bNumber - aNumber;
-    });
-
-    setRows(sortedRows);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/view-srcc-dsr`
+      );
+      setRows(res.data.data); // Extract only the actual data array
+      // Optional: if you're managing pagination
+      // setTotal(res.data.total);
+      // setCurrentPage(res.data.currentPage);
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+    }
   }, []);
 
   // Fetch data on component mount
@@ -50,27 +64,80 @@ function DSR() {
     });
   };
 
-  // Save updated rows to the server
-  const handleSave = async (updatedRow) => {
+  const handleDialogInputChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setDialogData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+  const saveRowData = async (row, dialog = null) => {
+    if (!row.tr_no) {
+      alert("TR number is required");
+      return;
+    }
+
+    setSaving(true); // Set saving to true before starting the save process
+    const formData = new FormData();
+    formData.append("tr_no", row.tr_no);
+   
+    formData.append("lr_completed", true);
+
+    if (dialog) {
+      formData.append("offloading_date_time", dialog.offloading_date_time);
+      formData.append("detention_days", dialog.detention_days);
+      formData.append("reason_of_detention", dialog.reason_of_detention);
+      formData.append("tipping", dialog.tipping);
+      if (dialog.document_attachment) {
+        formData.append("document_attachment", dialog.document_attachment);
+      }
+    }
+
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/update-srcc-dsr`,
-        updatedRow
+        formData
       );
-
-      if (res.data && res.data.data) {
-        // Update the specific row in the state with the returned data
+      if (res.data?.data) {
         setRows((prevRows) =>
-          prevRows.map((row) =>
-            row.tr_no === updatedRow.tr_no ? res.data.data : row
-          )
+          prevRows.map((r) => (r.tr_no === row.tr_no ? res.data.data : r))
         );
         alert("Data saved successfully");
       }
-    } catch (error) {
-      console.error("Error saving data:", error);
+    } catch (err) {
+      console.error("Save error:", err);
+    } finally {
+      setSaving(false); // Reset saving to false after the save process
     }
   };
+  const handleSaveWithDialog = async () => {
+    await saveRowData(dialogData, dialogData);
+  };
+
+  const handleSave = async (row) => {
+    await saveRowData(row);
+  };
+
+  const handleSaveClick = (row) => {
+    if (row.lr_completed) {
+      setDialogData((prev) => ({
+        ...prev,
+        tr_no: row.tr_no,
+        container_offloading: row.container_offloading,
+        lr_completed: row.lr_completed,
+        offloading_date_time: row.offloading_date_time,
+        detention_days: row.detention_days,
+        reason_of_detention: row.reason_of_detention,
+        tipping: row.tipping,
+        document_attachment: null,
+      }));
+      setDialogOpen(true);
+    } else {
+      handleSave(row);
+    }
+  };
+
+  // Save updated rows to the server
 
   // Define table columns
   const columns = [
@@ -176,7 +243,7 @@ function DSR() {
       enableSorting: false,
       size: 80,
       Cell: ({ cell, row }) => (
-        <IconButton onClick={() => handleSave(row.original)}>
+        <IconButton onClick={() => handleSaveClick(row.original)}>
           <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),
@@ -189,6 +256,85 @@ function DSR() {
   return (
     <div style={{ width: "100%" }}>
       <MaterialReactTable table={table} />
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Additional Details</DialogTitle>
+        <DialogContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Container Offloading: {dialogData.container_offloading || "N/A"}
+          </Typography>
+          <TextField
+            label="Offloading Date and Time"
+            type="datetime-local"
+            name="offloading_date_time"
+            value={dialogData.offloading_date_time}
+            onChange={handleDialogInputChange}
+            fullWidth
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            label="Detention Days"
+            type="number"
+            name="detention_days"
+            value={dialogData.detention_days}
+            onChange={handleDialogInputChange}
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Reason of Detention"
+            name="reason_of_detention"
+            value={dialogData.reason_of_detention}
+            onChange={handleDialogInputChange}
+            fullWidth
+            margin="normal"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={dialogData.tipping}
+                onChange={handleDialogInputChange}
+                name="tipping"
+              />
+            }
+            label="Tipping"
+            sx={{ mt: 2, mb: 1 }}
+          />
+          <Button variant="outlined" component="label" fullWidth sx={{ mt: 2 }}>
+            Upload Document
+            <input
+              type="file"
+              hidden
+              name="document_attachment"
+              onChange={(e) =>
+                setDialogData((prev) => ({
+                  ...prev,
+                  document_attachment: e.target.files[0],
+                }))
+              }
+            />
+          </Button>
+          {dialogData.document_attachment && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Selected: {dialogData.document_attachment.name}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button
+            disabled={saving}
+            onClick={() => handleSaveWithDialog(dialogData)}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

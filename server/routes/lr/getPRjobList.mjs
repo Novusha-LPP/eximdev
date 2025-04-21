@@ -9,34 +9,6 @@ router.get("/api/pr-job-list", async (req, res) => {
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    // // Build aggregation pipeline based on status
-    // const matchCondition =
-    //   status?.toLowerCase() === "pending"
-    //     ? {
-    //         $or: [
-    //           { status: { $exists: false } },
-    //           { status: "" },
-    //           { status: "pending" },
-    //         ],
-    //       }
-    //     : status?.toLowerCase() === "completed"
-    //     ? {
-    //         $expr: {
-    //           $eq: [
-    //             { $size: "$containers" },
-    //             {
-    //               $size: {
-    //                 $filter: {
-    //                   input: "$containers",
-    //                   as: "container",
-    //                   cond: "$$container.lr_completed",
-    //                 },
-    //               },
-    //             },
-    //           ],
-    //         },
-    //       }
-    //     : {}; // Default to an empty condition if no valid status is provided
     let matchCondition = {};
 
     if (status?.toLowerCase() === "pending") {

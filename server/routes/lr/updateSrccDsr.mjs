@@ -18,7 +18,16 @@ const sendDetentionEmail = async (tr_no, days, reason, containerDetails) => {
   const emailParams = {
     Source: "atulnagose123@gmail.com",
     Destination: {
-      ToAddresses: ["atulnagose1499@gmail.com"],
+      ToAddresses: [
+        "ceo@srcontainercarriers.com",
+        "jeeyainamdar@gmail.com",
+        "react@novusha.com",
+      ],
+      // ToAddresses: [
+      //   "atulnagose1499@gmail.com",
+      //   "ceo@srcontainercarriers.com",
+      //   "react@novusha.com",
+      // ],
     },
     Message: {
       Subject: {
@@ -51,23 +60,23 @@ const sendDetentionEmail = async (tr_no, days, reason, containerDetails) => {
                 </tr>
                 <tr>
                   <td style="padding: 8px; border: 1px solid #ddd;"><strong>Container No:</strong></td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.containerNo}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.container_number}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; border: 1px solid #ddd;"><strong>Type:</strong></td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.type}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.type_of_vehicle}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; border: 1px solid #ddd;"><strong>Seal No:</strong></td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.sealNo}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.seal_no}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; border: 1px solid #ddd;"><strong>D.O Validity Date:</strong></td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.doValidityDate}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.do_validity}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; border: 1px solid #ddd;"><strong>Vehicle No:</strong></td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.vehicleNo}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${containerDetails.vehicle_no}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; border: 1px solid #ddd;"><strong>Container Loading:</strong></td>

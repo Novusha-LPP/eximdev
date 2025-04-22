@@ -22,6 +22,7 @@ const sendDetentionEmail = async (tr_no, days, reason, containerDetails) => {
         "ceo@srcontainercarriers.com",
         "jeeyainamdar@gmail.com",
         "react@novusha.com",
+        "punit@alluvium.in",
       ],
       // ToAddresses: [
       //   "atulnagose1499@gmail.com",

@@ -31,6 +31,7 @@ function DSR() {
     tipping: false,
     document_attachment: null,
   });
+  console.log(dialogData);
 
   const [saving, setSaving] = useState(false);
 
@@ -71,16 +72,16 @@ function DSR() {
       [name]: type === "checkbox" ? checked : value,
     }));
   };
+
   const saveRowData = async (row, dialog = null) => {
     if (!row.tr_no) {
       alert("TR number is required");
-      return;
+      return false; // Indicate failure
     }
 
     setSaving(true); // Set saving to true before starting the save process
     const formData = new FormData();
     formData.append("tr_no", row.tr_no);
-   
     formData.append("lr_completed", true);
 
     if (dialog) {
@@ -96,26 +97,37 @@ function DSR() {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/update-srcc-dsr`,
-        formData
+        dialogData
       );
       if (res.data?.data) {
-        setRows((prevRows) =>
-          prevRows.map((r) => (r.tr_no === row.tr_no ? res.data.data : r))
-        );
         alert("Data saved successfully");
+        return true; // Indicate success
       }
     } catch (err) {
       console.error("Save error:", err);
     } finally {
       setSaving(false); // Reset saving to false after the save process
     }
+    return false; // Indicate failure
   };
+
   const handleSaveWithDialog = async () => {
-    await saveRowData(dialogData, dialogData);
+    const success = await saveRowData(dialogData, dialogData);
+    if (success) {
+      setDialogOpen(false); // Close the modal after successful save
+      setRows(
+        (prevRows) => prevRows.filter((row) => row.tr_no !== dialogData.tr_no) // Remove the row if condition is satisfied
+      );
+    }
   };
 
   const handleSave = async (row) => {
-    await saveRowData(row);
+    const success = await saveRowData(row);
+    if (success) {
+      setRows(
+        (prevRows) => prevRows.filter((r) => r.tr_no !== row.tr_no) // Remove the row if condition is satisfied
+      );
+    }
   };
 
   const handleSaveClick = (row) => {
@@ -136,8 +148,6 @@ function DSR() {
       handleSave(row);
     }
   };
-
-  // Save updated rows to the server
 
   // Define table columns
   const columns = [

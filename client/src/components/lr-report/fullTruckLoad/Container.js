@@ -19,6 +19,7 @@ function Container() {
   const table = useMaterialReactTable({
     columns,
     data: rows,
+    getRowId: (row) => row.idno, // Use idno as the unique key for each row
     enableColumnResizing: true,
     enableDensityToggle: false, // Disable density toggle
     initialState: {
@@ -62,30 +63,30 @@ function Container() {
   });
 
   const handleAddRow = () => {
-    setRows((prevRows) => [
-      {
-        pr_no: "",
-        pr_date: "",
-        branch: "",
-        consignor: "",
-        consignee: "",
-        container_type: "",
-        container_count: "",
-        type_of_vehicle: "",
-        description: "",
-        shipping_line: "",
-        container_loading: "",
-        container_offloading: "",
-        do_validity: "",
-        instructions: "",
-        document_no: "",
-        document_date: "",
-        goods_pickup: "",
-        goods_delivery: "",
-        containers: [],
-      },
-      ...prevRows,
-    ]);
+    const newRow = {
+      pr_no: "",
+      pr_date: "",
+      branch: "",
+      consignor: "",
+      consignee: "",
+      container_type: "",
+      container_count: "",
+      type_of_vehicle: "",
+      description: "",
+      shipping_line: "",
+      container_loading: "",
+      container_offloading: "",
+      do_validity: "",
+      instructions: "",
+      document_no: "",
+      document_date: "",
+      goods_pickup: "",
+      goods_delivery: "",
+      containers: [],
+      idno: Date.now(), // Generate a unique id
+    };
+
+    setRows((prevRows) => [newRow, ...prevRows]);
   };
 
   return (

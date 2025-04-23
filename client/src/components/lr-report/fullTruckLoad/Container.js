@@ -83,6 +83,7 @@ function Container() {
       goods_pickup: "",
       goods_delivery: "",
       containers: [],
+      import_export: "",
       idno: Date.now(), // Generate a unique id
     };
 

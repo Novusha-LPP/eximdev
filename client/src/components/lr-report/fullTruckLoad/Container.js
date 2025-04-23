@@ -6,18 +6,15 @@ import {
 import LrTable from "./LrTable";
 import { IconButton } from "@mui/material";
 import TableRowsIcon from "@mui/icons-material/TableRows";
+import Pagination from "@mui/material/Pagination"; // Import Pagination
 import usePrColumns from "../../../customHooks/usePrColumns";
 import usePrData from "../../../customHooks/usePrData";
 
 function Container() {
   const { organisations, containerTypes, locations, truckTypes } = usePrData();
 
-  const { rows, setRows, columns } = usePrColumns(
-    organisations,
-    containerTypes,
-    locations,
-    truckTypes
-  );
+  const { rows, setRows, columns, totalPages, currentPage, handlePageChange } =
+    usePrColumns(organisations, containerTypes, locations, truckTypes);
 
   const table = useMaterialReactTable({
     columns,
@@ -33,6 +30,7 @@ function Container() {
     enableStickyHeader: true, // Enable sticky header
     enablePinning: true, // Enable pinning for sticky columns
     enableExpandAll: false,
+    enablePagination: false,
     muiTableContainerProps: {
       sx: { maxHeight: "600px", overflowY: "auto" },
     },
@@ -65,7 +63,6 @@ function Container() {
 
   const handleAddRow = () => {
     setRows((prevRows) => [
-      ...prevRows,
       {
         pr_no: "",
         pr_date: "",
@@ -87,6 +84,7 @@ function Container() {
         goods_delivery: "",
         containers: [],
       },
+      ...prevRows,
     ]);
   };
 
@@ -94,6 +92,13 @@ function Container() {
     <div style={{ width: "100% !important" }}>
       <br />
       <MaterialReactTable table={table} />
+      <Pagination
+        count={totalPages}
+        page={currentPage}
+        onChange={(event, page) => handlePageChange(page)}
+        color="primary"
+        sx={{ mt: 2, display: "flex", justifyContent: "center" }}
+      />
     </div>
   );
 }

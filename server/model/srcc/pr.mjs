@@ -157,6 +157,11 @@ PrDataSchema.virtual("isJobCompleted").get(function () {
   return this.containers.every((container) => container.lr_completed === true);
 });
 
+PrDataSchema.index({ pr_no: 1 });
+PrDataSchema.index({ "containers.lr_completed": 1 });
+PrDataSchema.index({ "containers.tr_no": 1 });
+PrDataSchema.index({ status: 1 });
+
 // Enable population of the `elock` field
 PrDataSchema.pre("find", function () {
   this.populate("containers.elock");

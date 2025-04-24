@@ -207,15 +207,28 @@ const Organisation = () => {
       }
     }
   };
+  // Utility function to format the name
+  const formatName = (name) => {
+    return name
+      .split(" ")
+      .filter((word) => word.trim() !== "") // Remove extra spaces
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
 
+  // ---------------------- CRUD Handlers ----------------------
   const handleSave = async (values) => {
     const { _id, ...payload } = values;
+
+    // Format the name before saving
+    payload.name = formatName(payload.name);
+
     try {
       let res;
       if (modalMode === "add") {
         res = await axios.post(`${API_URL}/organisations`, payload);
       } else {
-        res = await axios.put(`${API_URL}/organisations/${_id}`, payload);
+        res = await axios.post(`${API_URL}/organisations/${_id}`, payload);
       }
       if (res.status === 200 || res.status === 201) {
         alert(

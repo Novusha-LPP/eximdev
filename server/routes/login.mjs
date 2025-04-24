@@ -32,9 +32,9 @@ router.post("/api/login", async (req, res) => {
     res.cookie("access_token", token, {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      secure: false,
+      secure: true,
       sameSite: "strict",
-      // domain:".alvision.in",
+      domain:".alvision.in",
       path: "/",
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
@@ -42,9 +42,9 @@ router.post("/api/login", async (req, res) => {
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      secure: false,
+      secure: true,
       sameSite: "strict",
-      // domain:".alvision.in",
+      domain:".alvision.in",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 

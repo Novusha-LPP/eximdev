@@ -228,7 +228,7 @@ const Organisation = () => {
       if (modalMode === "add") {
         res = await axios.post(`${API_URL}/organisations`, payload);
       } else {
-        res = await axios.post(`${API_URL}/organisations/${_id}`, payload);
+        res = await axios.put(`${API_URL}/organisations/${_id}`, payload);
       }
       if (res.status === 200 || res.status === 201) {
         alert(

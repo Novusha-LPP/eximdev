@@ -27,6 +27,7 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form, FieldArray } from "formik";
+import Autocomplete from "@mui/material/Autocomplete";
 import * as Yup from "yup";
 
 // ---------------------- Validation Schema ----------------------
@@ -64,7 +65,8 @@ const organisationSchema = Yup.object().shape({
         "Global",
       ])
     )
-    .min(1, "At least one type is required"),
+    .min(1, "At least one type is required")
+    .required("Type is required"),
 
   binNo: Yup.string(),
   cinNo: Yup.string(),
@@ -290,7 +292,7 @@ const Organisation = () => {
               <TableRow key={org._id}>
                 <TableCell>{org.name}</TableCell>
                 <TableCell>{org.alias}</TableCell>
-                <TableCell>{org.type}</TableCell>
+                <TableCell>{org.type.join(", ")}</TableCell>
                 <TableCell>{org.gstin}</TableCell>
                 <TableCell>
                   <IconButton
@@ -336,7 +338,14 @@ const Organisation = () => {
             onSubmit={handleSave}
             enableReinitialize
           >
-            {({ values, errors, touched, handleChange, handleBlur }) => (
+            {({
+              values,
+              errors,
+              touched,
+              handleChange,
+              handleBlur,
+              setFieldValue,
+            }) => (
               <Form>
                 {/* Top-level organisation fields */}
                 <Stack spacing={3} mt={2}>
@@ -372,40 +381,46 @@ const Organisation = () => {
                     </Grid>
                   </Grid>
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth required>
-                        <InputLabel>Type</InputLabel>
-                        <Select
-                          multiple
-                          name="type"
-                          value={values.type} // ✅ Must be an array
-                          onChange={(event) => {
-                            handleChange({
-                              target: {
-                                name: "type",
-                                value: event.target.value,
-                              },
-                            });
-                          }}
-                          onBlur={handleBlur}
-                          error={touched.type && Boolean(errors.type)}
-                          renderValue={(selected) => selected.join(", ")} // ✅ Display selected values
-                        >
-                          {[
-                            "Consignor",
-                            "Consignee",
-                            "Services",
-                            "Carrier",
-                            "Global",
-                          ].map((option) => (
-                            <MenuItem key={option} value={option}>
-                              {option}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth required>
+                      <Autocomplete
+                        multiple // Enables multiple selection
+                        id="type"
+                        options={[
+                          "Consignor",
+                          "Consignee",
+                          "Services",
+                          "Agent",
+                          "Carrier",
+                          "Global",
+                        ]}
+                        value={values.type || []}
+                        onChange={(event, newValue) => {
+                          setFieldValue("type", newValue); // Updates Formik's state
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Type"
+                            name="type"
+                            fullWidth
+                            error={
+                              touched.type &&
+                              Boolean(errors.type) &&
+                              values.type.length === 0
+                            }
+                            helperText={touched.type && errors.type}
+                          />
+                        )}
+                      />
+                      {touched.type &&
+                        Boolean(errors.type) &&
+                        values.type.length === 0 && (
+                          <Typography color="error" variant="caption">
+                            {errors.type}
+                          </Typography>
+                        )}
+                    </FormControl>
                   </Grid>
 
                   <Typography variant="subtitle1" fontWeight="bold">

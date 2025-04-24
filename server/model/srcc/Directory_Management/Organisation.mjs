@@ -54,7 +54,7 @@ const BranchSchema = new mongoose.Schema({
 const OrganisationSchema = new mongoose.Schema(
   {
     // 1. Name
-    name: { type: String, required: true, trim: true },
+    name: { type: String, required: true, trim: true, unique: true },
     // 2. Alias
     alias: { type: String, trim: true },
     // 3. Type (single choose)

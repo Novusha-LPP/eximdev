@@ -73,9 +73,9 @@ const organisationSchema = Yup.object().shape({
   stRegNo: Yup.string(),
   tanNo: Yup.string(),
   vatNo: Yup.string(),
-  gstin: Yup.string(),
+  gstin: Yup.string().required("GSTIN is required"), // Made mandatory
   panNo: Yup.string(),
-  ieCodeNo: Yup.string(),
+  ieCodeNo: Yup.string().required("IE Code No. is required"), // Made mandatory
   branches: Yup.array()
     .of(branchSchema)
     .min(1, "At least one branch is required"),
@@ -401,6 +401,7 @@ const Organisation = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
                       <TextField
+                        required
                         fullWidth
                         label="GSTIN"
                         name="gstin"
@@ -493,12 +494,15 @@ const Organisation = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <TextField
+                        required
                         fullWidth
                         label="IE Code No."
                         name="ieCodeNo"
                         value={values.ieCodeNo}
                         onChange={handleChange}
                         onBlur={handleBlur}
+                        error={touched.ieCodeNo && Boolean(errors.ieCodeNo)}
+                        helperText={touched.ieCodeNo && errors.ieCodeNo}
                       />
                     </Grid>
                   </Grid>

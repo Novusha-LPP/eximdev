@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -53,6 +54,10 @@ import OperationListJob from "../components/import-operations/OperationListJob.j
 
 // Import add
 import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
+
+// import billing 
+import ImportBilling from "../components/Import-billing/ImportBilling.js";
+import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -80,6 +85,7 @@ import Screen3 from "../components/Screens/Screen3.js";
 import Screen4 from "../components/Screens/Screen4.js";
 import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
+
 
 const drawerWidth = 60;
 
@@ -215,6 +221,12 @@ function HomePage() {
             {/* ImportersInfo */}
 
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
+
+            {/* import billing */}
+            <Route path="/import-billing" element={<ImportBilling />} />
+            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
+            
+
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
 

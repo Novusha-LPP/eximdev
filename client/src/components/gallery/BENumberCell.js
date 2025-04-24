@@ -53,7 +53,7 @@ useEffect(() => {
   const customHouse = cell.row.original.custom_house;
   const beDate = formatDate(rawBeDate);
   const location = getCustomHouseLocation(customHouse);
-  const rowId = cell.row.original.id || cell.row.id;
+  const rowId = cell.row.original._id || cell.row.id;
 
 // Handle file uploads for different document types
 const handleFilesUploaded = async (newFiles, fieldName) => {

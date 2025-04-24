@@ -94,6 +94,9 @@ import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJob
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
 
+// import - billing
+import getImportBilling from "./routes/import-billing/getImportBilling.js"
+
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
 import assignRole from "./routes/home/assignRole.mjs";
@@ -426,6 +429,9 @@ if (cluster.isPrimary) {
       app.use(completedOperation);
       app.use(updateOperationsJob);
       app.use(getOperationPlanningList);
+
+      // import billing
+      app.use(getImportBilling)
 
       // Inward Register
       app.use(addInwardRegister);

@@ -11,6 +11,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
   const [shippingLines, setShippingLines] = useState([]);
   const [branchOptions, setBranchOptions] = useState([]);
+  const [total, setTotal] = useState(0); // Added state for total
+  const [totalPages, setTotalPages] = useState(0); // Added state for totalPages
+  const [currentPage, setCurrentPage] = useState(1); // Added state for currentPage
 
   const fetchShippingLines = async () => {
     try {
@@ -46,15 +49,23 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     }
   };
 
-  async function getPrData() {
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/get-pr-data/all`
-    );
-    setRows(res.data);
+  async function getPrData(page = 1, limit = 50) {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-pr-data/all?page=${page}&limit=${limit}`
+      );
+
+      setRows(res.data.data); // Access `data` from response
+      setTotal(res.data.total); // Optional: total count
+      setTotalPages(res.data.totalPages); // Optional: for pagination
+      setCurrentPage(res.data.currentPage); // Optional: current page
+    } catch (error) {
+      console.error("❌ Error fetching PR data:", error);
+    }
   }
 
   useEffect(() => {
-    getPrData();
+    getPrData(1, 50); // Load first page by default
     fetchShippingLines();
     fetchBranchOptions();
   }, []);
@@ -83,6 +94,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       alert(res.data.message);
       getPrData();
     }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    getPrData(page, 50); // Fetch data for the selected page
   };
 
   const columns = [
@@ -483,7 +499,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     },
   ];
 
-  return { rows, setRows, columns };
+  return { rows, setRows, columns, totalPages, currentPage, handlePageChange };
 }
 
 export default usePrColumns;

@@ -5,43 +5,90 @@ const router = express.Router();
 
 router.get("/api/get-pr-data/:branch", async (req, res) => {
   const { branch } = req.params;
+  const { page = 1, limit = 50 } = req.query;
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    const prDataArray = await PrData.find({});
+    const matchStage = [];
 
-    let matchingBranchCode = prDataArray;
-
-    // If branch is not empty, filter by branch code
+    // Branch filtering using pr_no
     if (branch !== "all") {
-      matchingBranchCode = prDataArray.filter((doc) => {
-        // Extract branch code from pr_no
-        const prBranchCode = doc.pr_no.split("/")[1];
-
-        // Compare branch code from pr_no with branch from request parameters
-        return prBranchCode === branch;
+      matchStage.push({
+        $expr: {
+          $eq: [{ $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 1] }, branch],
+        },
       });
     }
 
-    // Filter out documents based on the conditions
-    const filteredPrDataArray = matchingBranchCode.filter((doc) => {
-      // Condition 1: No containers array present
-      if (!doc.containers) {
-        return true;
-      }
-      // Condition 2: Containers array length is 0
-      if (doc.containers.length === 0) {
-        return true;
-      }
-      // Condition 3: At least one container does not have tr_no
-      return doc.containers.some((container) => !container.tr_no);
+    // Filtering documents where containers are missing, empty, or have at least one container without tr_no
+    matchStage.push({
+      $or: [
+        { containers: { $exists: false } },
+        { containers: { $size: 0 } },
+        {
+          containers: {
+            $elemMatch: {
+              $or: [
+                { tr_no: { $exists: false } },
+                { tr_no: "" },
+                { tr_no: null },
+              ],
+            },
+          },
+        },
+      ],
     });
 
-    const prDataMap = filteredPrDataArray.reduce((map, doc) => {
-      map.set(doc.pr_no, doc); // Use pr_no as the key, will automatically keep only the document at the later index
-      return map;
-    }, new Map());
+    const pipeline = [
+      { $match: { $and: matchStage } },
+      {
+        $addFields: {
+          pr_serial: {
+            $toInt: {
+              $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 2], // '00204' -> 204
+            },
+          },
+          pr_year_end: {
+            $toInt: {
+              $arrayElemAt: [
+                {
+                  $split: [
+                    { $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 3] },
+                    "-",
+                  ],
+                },
+                1,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $sort: {
+          pr_year_end: -1, // Sort by year (e.g., 25 from '24-25') descending
+          pr_serial: -1, // Then sort by serial descending
+        },
+      },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: parseInt(limit) }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ];
 
-    res.status(200).json([...prDataMap.values()]); // Convert map values back to an array for response
+    const result = await PrData.aggregate(pipeline);
+
+    const data = result[0].data;
+    const total = result[0].totalCount[0]?.count || 0;
+
+    res.status(200).json({
+      data,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -53,28 +53,32 @@ function useLrColumns(props) {
   }, []);
   const fetchSrcelOptions = async () => {
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_STRING}/get-all-srcel`
+      const response = await axios.get(
+        `${
+          process.env.REACT_APP_API_STRING || "http://localhost:9000/api"
+        }/elock/get-elocks`
       );
-      const data = await response.json();
-      console.log(`data`, data);
+      const data = response.data.data.map((elock) => ({
+        label: elock.ElockCode, // Use ElockCode as the label
+        value: elock._id, // Use _id as the value
+        ...elock, // Include all other elock properties
+      }));
       setSrcelOptions(data);
     } catch (error) {
-      console.error("Error fetching sr_cel options:", error);
+      console.error("Error fetching Elocks:", error);
     }
   };
   const SrCelDropdown = ({ options, onSelect, defaultValue, rowIndex }) => {
     return (
       <Autocomplete
-        options={options.filter((option) => !option.sr_cel_locked)}
-        getOptionLabel={(option) => option.sr_cel_no}
+        options={options}
+        getOptionLabel={(option) => option.label || "N/A"}
         renderInput={(params) => <TextField {...params} size="small" />}
         onChange={(event, newValue) => {
-          console.log(`newValue`, newValue?._id);
           onSelect(
             {
               target: {
-                value: newValue ? newValue.sr_cel_no : null,
+                value: newValue ? newValue.label : "N/A",
               },
             },
             rowIndex,
@@ -83,7 +87,7 @@ function useLrColumns(props) {
           onSelect(
             {
               target: {
-                value: newValue ? newValue.FGUID : null,
+                value: newValue ? newValue.FGUID : "N/A",
               },
             },
             rowIndex,
@@ -92,7 +96,7 @@ function useLrColumns(props) {
           onSelect(
             {
               target: {
-                value: newValue ? newValue._id : null,
+                value: newValue ? newValue.value : "N/A",
               },
             },
             rowIndex,
@@ -100,7 +104,7 @@ function useLrColumns(props) {
           );
         }}
         defaultValue={
-          options.find((option) => option.sr_cel_no === defaultValue) || null
+          options.find((option) => option.label === defaultValue) || null
         }
         size="small"
         fullWidth
@@ -896,61 +900,61 @@ function useLrColumns(props) {
       ),
     },
 
-    {
-      accessorKey: "status",
-      header: "Status",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell, row }) => {
-        const currentValue = cell.getValue();
-        const options = lrContainerPlanningStatus.includes(currentValue)
-          ? lrContainerPlanningStatus
-          : [currentValue, ...lrContainerPlanningStatus];
+    // {
+    //   accessorKey: "status",
+    //   header: "Status",
+    //   enableSorting: false,
+    //   size: 200,
+    //   Cell: ({ cell, row }) => {
+    //     const currentValue = cell.getValue();
+    //     const options = lrContainerPlanningStatus.includes(currentValue)
+    //       ? lrContainerPlanningStatus
+    //       : [currentValue, ...lrContainerPlanningStatus];
 
-        return (
-          <TextField
-            select
-            fullWidth
-            label="Status"
-            size="small"
-            defaultValue={currentValue}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-            disabled={
-              row.original.status === "Successful Collection of SR-CEL Lock"
-            }
-          >
-            {options.map((item) => (
-              <MenuItem key={item} value={item}>
-                {item}
-              </MenuItem>
-            ))}
-          </TextField>
-        );
-      },
-    },
-    {
-      accessorKey: "realtime_location",
-      header: "Realtime Location",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ row }) => (
-        <Button
-          variant="contained"
-          className="btn"
-          color="secondary"
-          onClick={() => handleLocationClick(row.original.sr_cel_FGUID)}
-          startIcon={<LocationOnIcon fontSize="small" color="inherit" />}
-          sx={{ minWidth: "60%", textTransform: "none" }}
-          disabled={
-            row.original.status === "Successful Collection of SR-CEL Lock"
-          }
-        >
-          Track Location
-        </Button>
-      ),
-    },
+    //     return (
+    //       <TextField
+    //         select
+    //         fullWidth
+    //         label="Status"
+    //         size="small"
+    //         defaultValue={currentValue}
+    //         onBlur={(event) =>
+    //           handleInputChange(event, row.index, cell.column.id)
+    //         }
+    //         disabled={
+    //           row.original.status === "Successful Collection of SR-CEL Lock"
+    //         }
+    //       >
+    //         {options.map((item) => (
+    //           <MenuItem key={item} value={item}>
+    //             {item}
+    //           </MenuItem>
+    //         ))}
+    //       </TextField>
+    //     );
+    //   },
+    // },
+    // {
+    //   accessorKey: "realtime_location",
+    //   header: "Realtime Location",
+    //   enableSorting: false,
+    //   size: 200,
+    //   Cell: ({ row }) => (
+    //     <Button
+    //       variant="contained"
+    //       className="btn"
+    //       color="secondary"
+    //       onClick={() => handleLocationClick(row.original.sr_cel_FGUID)}
+    //       startIcon={<LocationOnIcon fontSize="small" color="inherit" />}
+    //       sx={{ minWidth: "60%", textTransform: "none" }}
+    //       disabled={
+    //         row.original.status === "Successful Collection of SR-CEL Lock"
+    //       }
+    //     >
+    //       Track Location
+    //     </Button>
+    //   ),
+    // },
     {
       accessorKey: "eWay_bill",
       header: "E-Way Bill",
@@ -969,41 +973,41 @@ function useLrColumns(props) {
         );
       },
     },
-    {
-      accessorKey: "isOccupied",
-      header: "On Trip",
-      enableSorting: false,
-      size: 80,
-      Cell: ({ row }) => {
-        // Only show checkbox for Own vehicles with a selected vehicle number
-        const isOwnVehicle = row.original.own_hired === "Own";
-        const vehicleNo = row.original.vehicle_no;
+    // {
+    //   accessorKey: "isOccupied",
+    //   header: "On Trip",
+    //   enableSorting: false,
+    //   size: 80,
+    //   Cell: ({ row }) => {
+    //     // Only show checkbox for Own vehicles with a selected vehicle number
+    //     const isOwnVehicle = row.original.own_hired === "Own";
+    //     const vehicleNo = row.original.vehicle_no;
 
-        if (!isOwnVehicle || !vehicleNo) {
-          return null;
-        }
+    //     if (!isOwnVehicle || !vehicleNo) {
+    //       return null;
+    //     }
 
-        // Get the vehicle ID and occupancy status from the stored map
-        const vehicleInfo = rows[row.index]?.vehicleIds?.[vehicleNo];
-        console.log(vehicleInfo?.isOccupied);
-        const vehicleId = vehicleInfo?.id;
-        const isOccupied = vehicleInfo?.isOccupied || false;
+    //     // Get the vehicle ID and occupancy status from the stored map
+    //     const vehicleInfo = rows[row.index]?.vehicleIds?.[vehicleNo];
+    //     console.log(vehicleInfo?.isOccupied);
+    //     const vehicleId = vehicleInfo?.id;
+    //     const isOccupied = vehicleInfo?.isOccupied || false;
 
-        if (!vehicleId) {
-          return null;
-        }
+    //     if (!vehicleId) {
+    //       return null;
+    //     }
 
-        return (
-          <Checkbox
-            checked={isOccupied}
-            onChange={() =>
-              handleOccupancyToggle(vehicleId, isOccupied, row.index)
-            }
-            disabled={isUpdatingOccupancy}
-          />
-        );
-      },
-    },
+    //     return (
+    //       <Checkbox
+    //         checked={isOccupied}
+    //         onChange={() =>
+    //           handleOccupancyToggle(vehicleId, isOccupied, row.index)
+    //         }
+    //         disabled={isUpdatingOccupancy}
+    //       />
+    //     );
+    //   },
+    // },
     {
       accessorKey: "action",
       header: "Save",

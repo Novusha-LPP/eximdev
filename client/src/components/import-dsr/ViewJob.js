@@ -1171,9 +1171,9 @@ const deliveryDate =
                     fullWidth
                     size="small"
                     variant="outlined"
-                    id="Seller_name"
-                    name="Seller_name"
-                    value={formik.values.Seller_name || ""}
+                    id="saller_name"
+                    name="saller_name"
+                    value={formik.values.saller_name || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter Seller Name"
@@ -1191,9 +1191,9 @@ const deliveryDate =
                     fullWidth
                     size="small"
                     variant="outlined"
-                    id="Seller_name"
-                    name="Seller_name"
-                    value={formik.values.Seller_name || ""}
+                    id="saller_name"
+                    name="saller_name"
+                    value={formik.values.saller_name || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter Seller Name"

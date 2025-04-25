@@ -308,7 +308,7 @@ function useFetchJobDetails(
       vessel_berthing: "",
       gateway_igm_date: "",
       hss: "",
-      Seller_name: "",
+      saller_name: "",
       fristCheck: "",
       priorityJob: "Normal",
       emptyContainerOffLoadDate: "",
@@ -420,7 +420,7 @@ function useFetchJobDetails(
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
           hss: values.hss,
-          Seller_name: values.Seller_name,
+          saller_name: values.saller_name,
           fristCheck: values.fristCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
@@ -699,7 +699,7 @@ function useFetchJobDetails(
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
         hss: data.hss === undefined ? "" : data.hss,
-        Seller_name: data.Seller_name === undefined ? "" : data.Seller_name,
+        saller_name: data.saller_name === undefined ? "" : data.saller_name,
         fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
         priorityJob:
           data.priorityJob === undefined ? "Normal" : data.priorityJob,

@@ -467,7 +467,7 @@ function JobDetailsStaticData(props) {
         </Col>
        { props.data.hss == "Yes" && <Col xs={12} lg={5}>
           <strong>Seller Name:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.Seller_name}</span>
+          <span className="non-editable-text">{props.data.saller_name}</span>
         </Col>}
       </Row>
     </div>

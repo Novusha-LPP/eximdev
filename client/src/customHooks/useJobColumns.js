@@ -209,25 +209,32 @@ function useJobColumns() {
       {
         accessorKey: "importer",
         header: "Importer",
-        size: 150,
+        size: 200,
         Cell: ({ cell, row }) => {
           const importer = cell?.getValue()?.toString() || "";
           const supplier_exporter = row?.original?.supplier_exporter || "";
           const origin_country = row?.original?.origin_country || "";
+          const saller_name = row?.original?.saller_name || "";
           const fta_Benefit_date_time = row?.original?.fta_Benefit_date_time;
+          const hss = row?.original?.hss;
+          const hasHss = !!hss; // tru if not null empty undefined
+          const hssDisplay = hasHss ? `Yes - ${saller_name}` : "No";
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
-      
+          
           return (
             <>
-              <span>{importer}</span>
-              <br />
+              <span><strong>Importer: </strong>{importer}</span>
+          
               <Tooltip title="Supplier/Exporter" arrow>
-                <span>{supplier_exporter}</span>
+                <div style={{marginTop :"5px"}}><strong>Exporter: </strong>{supplier_exporter}</div>
               </Tooltip>
-              <br />
+           
               <Tooltip title="FTA Benefit" arrow>
-                <span>{`FTA Benefit: ${ftaDisplay}`}</span>
+                <span style={{marginTop :"5px"}}>{`FTA Benefit: ${ftaDisplay}`}</span>
+              </Tooltip>
+              <Tooltip title="Hss" arrow>
+                <span style={{marginTop :"5px"}}>{`Hss: ${hssDisplay}`}</span>
               </Tooltip>
             </>
           );

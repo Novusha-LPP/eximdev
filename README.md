@@ -20,7 +20,7 @@ AlVision Exim is a comprehensive application designed to streamline export-impor
    - **Functionality**: Upload Excel sheets manually or automatically process them from email attachments. Update and manage data as required.
    - **DSR Dashboard**: Features a selection tag to choose the financial year for displaying data, defaulting to the current year. Displays total, completed, pending, and cancelled jobs. After selecting an importer, their specific job stats are shown in a donut chart.
    - **Importer Selection**: Another tab allows selection of an importer to display a list of all jobs with the selected status, presented in tables using MUI DataGrid.
-   - **Document Upload**: Key documents are uploaded to AWS S3 (bucket: alvision-exim-images, region: ap-south-1).
+   - **Document Upload**: Key documents are uploaded to AWS S3 (bucket: exim-images-p1, region: ap-south-1).
    - **Navigation**: Links within data tables navigate to detailed DSR pages.
    - **Excel Operations**: On the dashboard, a button is provided to upload Excel sheets, converting them to JSON and saving the data in the backend database.
    - **Jobs Tab**: Features a button to download the DSR for the selected importer and status.

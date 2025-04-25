@@ -165,7 +165,7 @@ function CompleteKYC() {
       });
 
       const params = {
-        Bucket: "alvision-exim-images",
+        Bucket: "exim-images-p1",
         Key: key,
         Body: file,
       };

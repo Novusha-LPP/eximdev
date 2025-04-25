@@ -158,14 +158,19 @@ router.post("/api/update-pr", async (req, res) => {
       const currentYear = currentDate.getFullYear();
       const isBeforeApril =
         currentDate.getMonth() < 3 ||
-        (currentDate.getMonth() === 3 && currentDate.getDate() < 1); // April is month index 3
+        (currentDate.getMonth() === 3 && currentDate.getDate() < 1);
       const financialYearStart = isBeforeApril ? currentYear - 1 : currentYear;
       const financialYearEnd = financialYearStart + 1;
       const financialYear = `${financialYearStart
         .toString()
         .slice(2)}-${financialYearEnd.toString().slice(2)}`;
 
-      const newPrNo = `PR/${branch_code}/${fiveDigitNo}/${financialYear}`;
+      // Use prefix and suffix from request body if provided
+      const prefix = branch_code || req.body.prefix;
+      const suffix = req.body.suffix || financialYear;
+
+      // Construct the new pr_no
+      const newPrNo = `PR/${prefix}/${fiveDigitNo}/${suffix}`;
 
       let containerArray = [];
       for (let i = 0; i < container_count; i++) {

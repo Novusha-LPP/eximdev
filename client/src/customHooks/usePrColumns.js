@@ -286,9 +286,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.container_count || ""}
-          onBlur={(event) =>
+          onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
-          }
+          } // Use onChange for immediate updates
         />
       ),
     },
@@ -462,9 +462,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.goods_pickup || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -481,9 +485,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.goods_delivery || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -500,9 +508,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.container_offloading || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -519,9 +531,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.container_loading || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),

@@ -1,16 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Autocomplete from "@mui/material/Autocomplete";
 import SaveIcon from "@mui/icons-material/Save";
 import { calculateColumnWidth } from "../utils/calculateColumnWidth";
 import { IconButton, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
+
 import { handleSavePr } from "../utils/handleSavePr";
 
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
   const [shippingLines, setShippingLines] = useState([]);
   const [branchOptions, setBranchOptions] = useState([]);
+  const [total, setTotal] = useState(0); // Added state for total
+  const [totalPages, setTotalPages] = useState(0); // Added state for totalPages
+  const [currentPage, setCurrentPage] = useState(1); // Added state for currentPage
 
   const fetchShippingLines = async () => {
     try {
@@ -33,40 +37,140 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-port-types`
       );
-      setBranchOptions(
-        response.data.data
-          .filter((item) => item.isBranch) // Only include items where isBranch is true
-          .map((item) => ({
-            label: item.icd_code,
-            value: item.icd_code,
-          }))
-      );
+      
+      const branchOptionsData = response.data.data
+        .filter((item) => item.isBranch) // Only include items where isBranch is true
+        .map((item) => ({
+          isBranch: item.isBranch,
+          label: item.icd_code,
+          value: item.icd_code,
+          suffix: item.suffix, // Include suffix
+          prefix: item.prefix, // Include prefix
+        }));
+
+
+      setBranchOptions(branchOptionsData);
     } catch (error) {
       console.error("❌ Error fetching branch options:", error);
     }
   };
 
-  async function getPrData() {
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/get-pr-data/all`
-    );
-    setRows(res.data);
-  }
-
-  useEffect(() => {
-    getPrData();
-    fetchShippingLines();
-    fetchBranchOptions();
-  }, []);
-
   const handleInputChange = (event, rowIndex, columnId) => {
     const { value } = event.target;
+
+    
+
     setRows((prevRows) => {
       const newRows = [...prevRows];
       newRows[rowIndex][columnId] = value;
+
+      if (columnId === "branch") {
+        console.log(`🏢 Branch selected: ${value}`);
+        const selectedBranch = branchOptions.find(
+          (option) => option.value === value
+        );
+        console.log(
+          "🔍 Found selectedBranch from branchOptions:",
+          selectedBranch
+        );
+
+        if (selectedBranch) {
+          newRows[rowIndex].suffix = selectedBranch.suffix || "";
+          newRows[rowIndex].prefix = selectedBranch.prefix || "";
+          newRows[rowIndex].isBranch = selectedBranch.isBranch || "";
+
+          console.log(
+            `✅ Set suffix = ${selectedBranch.suffix}, prefix = ${selectedBranch.prefix} for row ${rowIndex}`
+          );
+        } else {
+          console.warn(`⚠️ No matching branch found for value: ${value}`);
+        }
+      }
+
+      console.log("🧩 Updated rows after input change:", newRows);
+
       return newRows;
     });
   };
+
+  const handleSavePr = async (rowIndex, getPrData) => {
+    const row = rows[rowIndex]; // Get the updated row from latest state
+    console.log("💾 Preparing to save row:", row);
+
+    const errors = [];
+
+    if (row.branch === "") {
+      errors.push("Please select branch");
+    }
+    if (row.consignor === "") {
+      errors.push("Please select consignor");
+    }
+    if (row.consignee === "") {
+      errors.push("Please select consignee");
+    }
+    if (
+      !row.container_count ||
+      isNaN(row.container_count) ||
+      Number(row.container_count) <= 0
+    ) {
+      errors.push(
+        "Invalid container count. Container count must be a positive number."
+      );
+    }
+
+    // If you want to check suffix and prefix manually uncomment below
+    /*
+      if (row.isBranch) {
+        if (!row.suffix || !row.prefix) {
+          errors.push("Suffix and Prefix are required when isBranch is true.");
+        }
+      }
+      */
+
+    if (errors.length > 0) {
+      console.error("❌ Validation Errors:", errors);
+      alert(errors.join("\n"));
+      return;
+    }
+
+    try {
+      console.log("🚀 Sending POST /update-pr with payload:", row);
+
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/update-pr`,
+        row
+      );
+
+      console.log("✅ API Response:", res.data);
+
+      alert(res.data.message);
+      getPrData();
+    } catch (error) {
+      console.error("❌ Error while saving PR:", error);
+      alert("Failed to save PR. Check console for details.");
+    }
+  };
+
+  async function getPrData(page = 1, limit = 50) {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-pr-data/all?page=${page}&limit=${limit}`
+      );
+
+      setRows(res.data.data); // Access `data` from response
+      setTotal(res.data.total); // Optional: total count
+      setTotalPages(res.data.totalPages); // Optional: for pagination
+      setCurrentPage(res.data.currentPage); // Optional: current page
+    } catch (error) {
+      console.error("❌ Error fetching PR data:", error);
+    }
+  }
+
+  useEffect(() => {
+    getPrData(1, 50); // Load first page by default
+    fetchShippingLines();
+    fetchBranchOptions();
+  }, []);
 
   const handleDeletePr = async (pr_no) => {
     const confirmDelete = window.confirm(
@@ -83,6 +187,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       alert(res.data.message);
       getPrData();
     }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    getPrData(page, 50); // Fetch data for the selected page
   };
 
   const columns = [
@@ -476,14 +585,14 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
       Cell: ({ cell, row }) => (
-        <IconButton onClick={() => handleSavePr(row.original, getPrData)}>
+        <IconButton onClick={() => handleSavePr(row.index, getPrData)}>
           <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),
     },
   ];
 
-  return { rows, setRows, columns };
+  return { rows, setRows, columns, totalPages, currentPage, handlePageChange };
 }
 
 export default usePrColumns;

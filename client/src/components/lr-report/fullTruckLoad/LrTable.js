@@ -9,6 +9,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import { generateLrPdf } from "../../../utils/generateLrPdf";
 import useLrColumns from "../../../customHooks/useLrColumns";
 import LocationDialog from "../../srcel/LocationDialog";
+import { Box } from "@mui/material";
 
 function LrTable(props) {
   const {
@@ -22,7 +23,28 @@ function LrTable(props) {
   } = useLrColumns(props);
 
   const table = useMaterialReactTable({
-    columns,
+    columns: [
+      ...columns,
+      {
+        accessorKey: "elock",
+        header: "Elock Details",
+        enableSorting: false,
+        size: 200,
+        Cell: ({ row }) => {
+          const elock = row.original.elock;
+          return elock ? (
+            <Box>
+              <div>ElockCode: {elock.ElockCode}</div>
+              <div>FAssetID: {elock.FAssetID}</div>
+              <div>FAgentGUID: {elock.FAgentGUID}</div>
+              <div>AssetGUID: {elock.AssetGUID}</div>
+            </Box>
+          ) : (
+            "No Elock Selected"
+          );
+        },
+      },
+    ],
     data: rows,
     initialState: {
       density: "compact",

@@ -73,9 +73,9 @@ const organisationSchema = Yup.object().shape({
   stRegNo: Yup.string(),
   tanNo: Yup.string(),
   vatNo: Yup.string(),
-  gstin: Yup.string(),
+  gstin: Yup.string().required("GSTIN is required"), // Made mandatory
   panNo: Yup.string(),
-  ieCodeNo: Yup.string(),
+  ieCodeNo: Yup.string().required("IE Code No. is required"), // Made mandatory
   branches: Yup.array()
     .of(branchSchema)
     .min(1, "At least one branch is required"),
@@ -207,9 +207,22 @@ const Organisation = () => {
       }
     }
   };
+  // Utility function to format the name
+  const formatName = (name) => {
+    return name
+      .split(" ")
+      .filter((word) => word.trim() !== "") // Remove extra spaces
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
 
+  // ---------------------- CRUD Handlers ----------------------
   const handleSave = async (values) => {
     const { _id, ...payload } = values;
+
+    // Format the name before saving
+    payload.name = formatName(payload.name);
+
     try {
       let res;
       if (modalMode === "add") {
@@ -401,6 +414,7 @@ const Organisation = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
                       <TextField
+                        required
                         fullWidth
                         label="GSTIN"
                         name="gstin"
@@ -493,12 +507,15 @@ const Organisation = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <TextField
+                        required
                         fullWidth
                         label="IE Code No."
                         name="ieCodeNo"
                         value={values.ieCodeNo}
                         onChange={handleChange}
                         onBlur={handleBlur}
+                        error={touched.ieCodeNo && Boolean(errors.ieCodeNo)}
+                        helperText={touched.ieCodeNo && errors.ieCodeNo}
                       />
                     </Grid>
                   </Grid>

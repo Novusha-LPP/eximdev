@@ -237,7 +237,9 @@ function useJobColumns() {
               <Tooltip title="Hss" arrow>
                 <span style={{marginTop :"5px"}}>{`Hss: ${hssDisplay}`}</span>
               </Tooltip>
-             { adCode&& <span style={{marginTop: "5px"}}><strong>AD Code: </strong>{adCode}</span>}
+              <span style={{ marginTop: "5px" }}>
+  <strong>AD Code: </strong> {adCode ? adCode : "NA"}
+</span>
             </>
           );
         },

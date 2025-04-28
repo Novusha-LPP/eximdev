@@ -37,7 +37,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-port-types`
       );
-      
+
       const branchOptionsData = response.data.data
         .filter((item) => item.isBranch) // Only include items where isBranch is true
         .map((item) => ({
@@ -48,7 +48,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           prefix: item.prefix, // Include prefix
         }));
 
-
       setBranchOptions(branchOptionsData);
     } catch (error) {
       console.error("❌ Error fetching branch options:", error);
@@ -57,8 +56,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
   const handleInputChange = (event, rowIndex, columnId) => {
     const { value } = event.target;
-
-    
 
     setRows((prevRows) => {
       const newRows = [...prevRows];
@@ -93,7 +90,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     });
   };
 
-  const handleSavePr = async (rowIndex, getPrData) => {
+  const handleSavePr = async (rowIndex) => {
     const row = rows[rowIndex]; // Get the updated row from latest state
     console.log("💾 Preparing to save row:", row);
 
@@ -144,7 +141,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       console.log("✅ API Response:", res.data);
 
       alert(res.data.message);
-      getPrData();
+      getPrData(currentPage, 50);
     } catch (error) {
       console.error("❌ Error while saving PR:", error);
       alert("Failed to save PR. Check console for details.");
@@ -213,21 +210,47 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Imp/Exp",
       enableSorting: false,
       size: 100,
-      Cell: ({ cell, row }) => (
-        <TextField
-          select
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        >
-          <MenuItem value="Import">Import</MenuItem>
-          <MenuItem value="Export">Export</MenuItem>
-        </TextField>
-      ),
-    },
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.import_export || "";
+    
+        let options = [];
+        if (currentValue === "Import") {
+          options = ["Export"];
+        } else if (currentValue === "Export") {
+          options = ["Import"];
+        } else {
+          options = ["Import", "Export"];
+        }
+    
+        return (
+          <TextField
+            select
+            fullWidth
+            size="small"
+            value={currentValue}
+            onChange={(event) => {
+              handleInputChange(event, row.index, cell.column.id);
+            }}
+            placeholder="Select Imp/Exp"
+          >
+            {/* Show selected value separately at top, disabled */}
+            {currentValue && (
+              <MenuItem value={currentValue} disabled>
+                {currentValue}
+              </MenuItem>
+            )}
+    
+            {/* Show selectable options */}
+            {options.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+        );
+      },
+    }
+    ,
     {
       accessorKey: "branch",
       header: "Branch",
@@ -267,7 +290,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
+          value={rows[row.index]?.container_count || ""}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -306,65 +329,111 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Consignor",
       enableSorting: false,
       size: calculateColumnWidth(rows, "consignor"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={organisations}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.consignor || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.consignor || ""; // Current value from the row
+        const selectedOption = organisations.find(
+          (org) => org === currentValue
+        );
+
+        return (
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={organisations}
+            getOptionLabel={(option) => option || ""}
+            value={selectedOption || currentValue} // Show current value if not in options
+            onChange={(_, newValue) => {
+              handleInputChange(
+                { target: { value: newValue || "" } },
+                row.index,
+                cell.column.id
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                size="small"
+                placeholder="Select or enter consignor"
+              />
+            )}
+            freeSolo // Allow user to enter custom values
+          />
+        );
+      },
     },
     {
       accessorKey: "consignee",
       header: "Consignee",
       enableSorting: false,
       size: calculateColumnWidth(rows, "consignee"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={organisations}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.consignee || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.consignee || ""; // Current value from the row
+        const selectedOption = organisations.find(
+          (org) => org === currentValue
+        );
+
+        return (
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={organisations}
+            getOptionLabel={(option) => option || ""}
+            value={selectedOption || currentValue} // Show current value if not in options
+            onChange={(_, newValue) => {
+              handleInputChange(
+                { target: { value: newValue || "" } },
+                row.index,
+                cell.column.id
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                size="small"
+                placeholder="Select or enter consignee"
+              />
+            )}
+            freeSolo // Allow user to enter custom values
+          />
+        );
+      },
     },
     {
       accessorKey: "shipping_line",
       header: "Shipping Line",
       enableSorting: false,
       size: calculateColumnWidth(rows, "shipping_line"),
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={shippingLines}
-          getOptionLabel={(option) => option.name}
-          value={
-            shippingLines.find(
-              (line) => line.code === rows[row.index]?.shipping_line
-            ) || null
-          }
-          onChange={(_, newValue) =>
-            handleInputChange(
-              { target: { value: newValue?.code || "" } },
-              row.index,
-              cell.column.id
-            )
-          }
-          renderInput={(params) => <TextField {...params} size="small" />}
-        />
-      ),
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.shipping_line || ""; // Current value from the row
+        const selectedOption = shippingLines.find(
+          (line) => line.code === currentValue
+        );
+
+        return (
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={shippingLines}
+            getOptionLabel={(option) => option.name || ""}
+            value={selectedOption || { name: currentValue }} // Show current value if not in options
+            onChange={(_, newValue) => {
+              handleInputChange(
+                { target: { value: newValue?.code || "" } },
+                row.index,
+                cell.column.id
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                size="small"
+                placeholder="Select or enter shipping line"
+              />
+            )}
+            freeSolo // Allow user to enter custom values
+          />
+        );
+      },
     },
     {
       accessorKey: "do_validity",
@@ -372,33 +441,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
       Cell: ({ cell, row }) => {
-        const rawValue = cell.getValue() || "";
-        let initialValue = rawValue;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
-          initialValue += "T23:59";
-        }
-        const [value, setValue] = React.useState(initialValue);
-        const handleBlur = (event) => {
-          let newValue = event.target.value;
-          if (newValue && newValue.length === 10) {
-            newValue += "T23:59";
-          }
-          setValue(newValue);
-          handleInputChange(
-            { ...event, target: { ...event.target, value: newValue } },
-            row.index,
-            cell.column.id
-          );
-        };
-
+        const currentValue = rows[row.index]?.do_validity || ""; // Current value from the row
         return (
           <TextField
             type="datetime-local"
             sx={{ width: "100%" }}
             size="small"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={handleBlur}
+            value={currentValue} // Bind to rows state
+            onChange={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
           />
         );
       },
@@ -511,8 +563,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
+          value={rows[row.index]?.document_no || ""} // Use value instead of defaultValue
+          onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
         />
@@ -528,8 +580,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           type="date"
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
+          value={rows[row.index]?.document_date || ""} // Use value instead of defaultValue
+          onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
         />
@@ -540,32 +592,38 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Description",
       enableSorting: false,
       size: calculateColumnWidth(rows, "description"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.description || ""; // Current value from the row
+        return (
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            value={currentValue} // Bind to rows state
+            onChange={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+          />
+        );
+      },
     },
     {
       accessorKey: "instructions",
       header: "Instructions",
       enableSorting: false,
       size: calculateColumnWidth(rows, "instructions"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.instructions || ""; // Current value from the row
+        return (
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            value={currentValue} // Bind to rows state
+            onChange={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+          />
+        );
+      },
     },
     {
       accessorKey: "pr_no",
@@ -585,7 +643,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
       Cell: ({ cell, row }) => (
-        <IconButton onClick={() => handleSavePr(row.index, getPrData)}>
+        <IconButton onClick={() => handleSavePr(row.index)}>
           <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),

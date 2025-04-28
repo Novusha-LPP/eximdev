@@ -45,21 +45,29 @@ router.get("/api/get-pr-data/:branch", async (req, res) => {
       {
         $addFields: {
           pr_serial: {
-            $toInt: {
-              $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 2], // '00204' -> 204
+            $convert: {
+              input: { $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 2] }, // Extract serial part
+              to: "int",
+              onError: null, // Handle invalid conversions
+              onNull: null, // Handle missing values
             },
           },
           pr_year_end: {
-            $toInt: {
-              $arrayElemAt: [
-                {
-                  $split: [
-                    { $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 3] },
-                    "-",
-                  ],
-                },
-                1,
-              ],
+            $convert: {
+              input: {
+                $arrayElemAt: [
+                  {
+                    $split: [
+                      { $arrayElemAt: [{ $split: ["$pr_no", "/"] }, 3] },
+                      "-",
+                    ],
+                  },
+                  1,
+                ],
+              },
+              to: "int",
+              onError: null, // Handle invalid conversions
+              onNull: null, // Handle missing values
             },
           },
         },
@@ -78,9 +86,15 @@ router.get("/api/get-pr-data/:branch", async (req, res) => {
       },
     ];
 
+    console.log("Executing pipeline:", JSON.stringify(pipeline, null, 2));
+
     const result = await PrData.aggregate(pipeline);
 
-    const data = result[0].data;
+    if (!result || result.length === 0) {
+      return res.status(404).json({ message: "No PR data found" });
+    }
+
+    const data = result[0].data || [];
     const total = result[0].totalCount[0]?.count || 0;
 
     res.status(200).json({
@@ -90,6 +104,7 @@ router.get("/api/get-pr-data/:branch", async (req, res) => {
       currentPage: parseInt(page),
     });
   } catch (error) {
+    console.error("Error in get-pr-data:", error.message);
     res.status(500).json({ error: error.message });
   }
 });

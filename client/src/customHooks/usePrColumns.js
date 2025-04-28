@@ -58,35 +58,31 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     const { value } = event.target;
 
     setRows((prevRows) => {
-      const newRows = [...prevRows];
-      newRows[rowIndex][columnId] = value;
+      const updatedRow = { ...prevRows[rowIndex], [columnId]: value };
 
+      // Handle branch-specific logic
       if (columnId === "branch") {
-        console.log(`🏢 Branch selected: ${value}`);
         const selectedBranch = branchOptions.find(
           (option) => option.value === value
         );
-        console.log(
-          "🔍 Found selectedBranch from branchOptions:",
-          selectedBranch
-        );
 
         if (selectedBranch) {
-          newRows[rowIndex].suffix = selectedBranch.suffix || "";
-          newRows[rowIndex].prefix = selectedBranch.prefix || "";
-          newRows[rowIndex].isBranch = selectedBranch.isBranch || "";
-
-          console.log(
-            `✅ Set suffix = ${selectedBranch.suffix}, prefix = ${selectedBranch.prefix} for row ${rowIndex}`
-          );
+          updatedRow.suffix = selectedBranch.suffix || "";
+          updatedRow.prefix = selectedBranch.prefix || "";
+          updatedRow.isBranch = selectedBranch.isBranch || "";
         } else {
-          console.warn(`⚠️ No matching branch found for value: ${value}`);
+          updatedRow.suffix = "";
+          updatedRow.prefix = "";
+          updatedRow.isBranch = false;
         }
       }
 
-      console.log("🧩 Updated rows after input change:", newRows);
+      console.log(`🧩 Updated row ${rowIndex}:`, updatedRow);
 
-      return newRows;
+      // Return updated rows with only the specific row modified
+      return prevRows.map((row, index) =>
+        index === rowIndex ? updatedRow : row
+      );
     });
   };
 
@@ -212,7 +208,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       size: 100,
       Cell: ({ cell, row }) => {
         const currentValue = rows[row.index]?.import_export || "";
-    
+
         let options = [];
         if (currentValue === "Import") {
           options = ["Export"];
@@ -221,7 +217,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         } else {
           options = ["Import", "Export"];
         }
-    
+
         return (
           <TextField
             select
@@ -239,7 +235,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 {currentValue}
               </MenuItem>
             )}
-    
+
             {/* Show selectable options */}
             {options.map((option) => (
               <MenuItem key={option} value={option}>
@@ -249,8 +245,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           </TextField>
         );
       },
-    }
-    ,
+    },
     {
       accessorKey: "branch",
       header: "Branch",
@@ -291,9 +286,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.container_count || ""}
-          onBlur={(event) =>
+          onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
-          }
+          } // Use onChange for immediate updates
         />
       ),
     },
@@ -467,9 +462,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.goods_pickup || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -486,9 +485,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.goods_delivery || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -505,9 +508,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.container_offloading || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -524,9 +531,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           options={locations}
           getOptionLabel={(option) => option}
           value={rows[row.index]?.container_loading || null}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),

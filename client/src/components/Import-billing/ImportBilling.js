@@ -447,5 +447,5 @@ useEffect(() => {
   );
 }
 
-export default React.memo(ImportBilling);
+export default ImportBilling;
 

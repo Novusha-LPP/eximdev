@@ -73,6 +73,7 @@ const jobSchema = new mongoose.Schema({
   shipping_line_airline: { type: String, trim: true },
   branchSrNo: { type: String, trim: true },
   adCode: { type: String, trim: true },
+  bank_name: {type: String, trim: true},
   isDraftDoc: { type: Boolean },
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },

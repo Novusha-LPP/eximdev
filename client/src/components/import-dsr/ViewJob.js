@@ -74,9 +74,8 @@ function JobDetails() {
   const [editValues, setEditValues] = useState({});
 
   const formatDateTime = (date) => {
-  return date ? new Date(date).toISOString().slice(0, 16) : "";
-};
-
+    return date ? new Date(date).toISOString().slice(0, 16) : "";
+  };
 
   const {
     data,
@@ -130,71 +129,69 @@ function JobDetails() {
   );
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
-  const [deleveryDate, setDeliveryDate] =
-    useState(false);
+  const [deleveryDate, setDeliveryDate] = useState(false);
   // Helper function to update the `detailed_status` based on form values
-const updateDetailedStatus = () => {
-  const {
-    vessel_berthing: eta,
-    gateway_igm_date: gatewayIGMDate,
-    discharge_date: dischargeDate,
-    out_of_charge: outOfChargeDate,
-    pcv_date: pcvDate,
-    container_nos,
-    type_of_b_e,
-    consignment_type,
-  } = formik.values;
+  const updateDetailedStatus = () => {
+    const {
+      vessel_berthing: eta,
+      gateway_igm_date: gatewayIGMDate,
+      discharge_date: dischargeDate,
+      out_of_charge: outOfChargeDate,
+      pcv_date: pcvDate,
+      container_nos,
+      type_of_b_e,
+      consignment_type,
+    } = formik.values;
 
-  const billOfEntryNo = formik.values.be_no || data?.be_no;
-  const anyContainerArrivalDate = container_nos?.some(
-    (container) => container.arrival_date
-  );
-  const containerRailOutDate =
-  container_nos?.length > 0 &&
-  container_nos.every((container) => container.container_rail_out_date);
+    const billOfEntryNo = formik.values.be_no || data?.be_no;
+    const anyContainerArrivalDate = container_nos?.some(
+      (container) => container.arrival_date
+    );
+    const containerRailOutDate =
+      container_nos?.length > 0 &&
+      container_nos.every((container) => container.container_rail_out_date);
 
-  const emptyContainerOffLoadDate =
-  container_nos?.length > 0 &&
-  container_nos.every((container) => container.emptyContainerOffLoadDate);
+    const emptyContainerOffLoadDate =
+      container_nos?.length > 0 &&
+      container_nos.every((container) => container.emptyContainerOffLoadDate);
 
-const deliveryDate =
-  container_nos?.length > 0 &&
-    container_nos.every((container) => container.delivery_date);
-  
+    const deliveryDate =
+      container_nos?.length > 0 &&
+      container_nos.every((container) => container.delivery_date);
 
-  // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
-  const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-  if (
-    billOfEntryNo &&
-    anyContainerArrivalDate &&
-    outOfChargeDate &&
-    (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)
-  ) {
-    formik.setFieldValue("detailed_status", "Billing Pending");
-  } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
-    formik.setFieldValue("detailed_status", "Custom Clearance Completed");
-  } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
-    formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
-  } else if (billOfEntryNo && anyContainerArrivalDate) {
-    formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
-  } else if (billOfEntryNo) {
-    formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-  } else if (!billOfEntryNo && anyContainerArrivalDate) {
-    formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
-  } else if (containerRailOutDate) {
-    formik.setFieldValue("detailed_status", "Rail Out");
-  } else if (dischargeDate) {
-    formik.setFieldValue("detailed_status", "Discharged");
-  } else if (gatewayIGMDate) {
-    formik.setFieldValue("detailed_status", "Gateway IGM Filed");
-  } else if (eta === "" || eta === "Invalid Date") {
-    formik.setFieldValue("detailed_status", "ETA Date Pending");
-  } else if (eta) {
-    formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
-  } else {
-
-  }
-};
+    // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
+    const isExBondOrLCL =
+      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+    if (
+      billOfEntryNo &&
+      anyContainerArrivalDate &&
+      outOfChargeDate &&
+      (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)
+    ) {
+      formik.setFieldValue("detailed_status", "Billing Pending");
+    } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
+      formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+    } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
+      formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+    } else if (billOfEntryNo && anyContainerArrivalDate) {
+      formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+    } else if (billOfEntryNo) {
+      formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+    } else if (!billOfEntryNo && anyContainerArrivalDate) {
+      formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
+    } else if (containerRailOutDate) {
+      formik.setFieldValue("detailed_status", "Rail Out");
+    } else if (dischargeDate) {
+      formik.setFieldValue("detailed_status", "Discharged");
+    } else if (gatewayIGMDate) {
+      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+    } else if (eta === "" || eta === "Invalid Date") {
+      formik.setFieldValue("detailed_status", "ETA Date Pending");
+    } else if (eta) {
+      formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
+    } else {
+    }
+  };
 
   // // Trigger the `updateDetailedStatus` function when form values change
   useEffect(() => {
@@ -319,9 +316,7 @@ const deliveryDate =
       setTimeout(() => {
         setFileSnackbar(false);
       }, 3000);
-    } catch (err) {
-
-    }
+    } catch (err) {}
   };
 
   const handleTransporterChange = (e, index) => {
@@ -637,9 +632,8 @@ const deliveryDate =
     return `${year}-${month}-${day}`; // Fixed template literal syntax
   }
 
-  const ExBondflag = formik.values.type_of_b_e === "Ex-Bond" 
-  const LCLFlag = formik.values.consignment_type === "LCL" 
-
+  const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
+  const LCLFlag = formik.values.consignment_type === "LCL";
 
   return (
     <>
@@ -990,7 +984,7 @@ const deliveryDate =
                       BE Noted, Arrival Pending
                     </MenuItem>
                     <MenuItem value="Arrived, BE Note Pending">
-                    Arrived, BE Note Pending
+                      Arrived, BE Note Pending
                     </MenuItem>
                     <MenuItem value="BE Noted, Clearance Pending">
                       BE Noted, Clearance Pending
@@ -1013,79 +1007,77 @@ const deliveryDate =
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Tracking Status" />
             <Row style={{ marginTop: "20px" }}>
-<Col xs={12} lg={4}>
-  <div className="job-detail-input-container">
-    <strong>ETA Date:&nbsp;</strong>
-    <TextField
-      fullWidth
-      size="small"
-      margin="normal"
-      variant="outlined"
-      type="datetime-local"
-      id="vessel_berthing"
-      name="vessel_berthing"
-      value={
-        formik.values.vessel_berthing
-          ? formik.values.vessel_berthing.length === 10
-            ? `${formik.values.vessel_berthing}T00:00`
-            : formik.values.vessel_berthing
-          : ""
-      }
-      disabled={ExBondflag}
-      onChange={formik.handleChange}
-    />
-  </div>
-</Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>ETA Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="vessel_berthing"
+                    name="vessel_berthing"
+                    value={
+                      formik.values.vessel_berthing
+                        ? formik.values.vessel_berthing.length === 10
+                          ? `${formik.values.vessel_berthing}T00:00`
+                          : formik.values.vessel_berthing
+                        : ""
+                    }
+                    disabled={ExBondflag}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
 
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>G-IGM Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="gateway_igm_date"
+                    name="gateway_igm_date"
+                    value={
+                      formik.values.gateway_igm_date
+                        ? formik.values.gateway_igm_date.length === 10
+                          ? `${formik.values.gateway_igm_date}T00:00`
+                          : formik.values.gateway_igm_date
+                        : ""
+                    }
+                    disabled={ExBondflag}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
 
-<Col xs={12} lg={4}>
-  <div className="job-detail-input-container">
-    <strong>G-IGM Date:&nbsp;</strong>
-    <TextField
-      fullWidth
-      size="small"
-      margin="normal"
-      variant="outlined"
-      type="datetime-local"
-      id="gateway_igm_date"
-      name="gateway_igm_date"
-      value={
-        formik.values.gateway_igm_date
-          ? formik.values.gateway_igm_date.length === 10
-            ? `${formik.values.gateway_igm_date}T00:00`
-            : formik.values.gateway_igm_date
-          : ""
-      }
-      disabled={ExBondflag}
-      onChange={formik.handleChange}
-    />
-  </div>
-</Col>
-
-<Col xs={12} lg={4}>
-  <div className="job-detail-input-container">
-    <strong>Discharge/ L-IGM Date:&nbsp;</strong>
-    <TextField
-      fullWidth
-      size="small"
-      margin="normal"
-      variant="outlined"
-      type="datetime-local"
-      id="discharge_date"
-      name="discharge_date"
-      disabled={ExBondflag}
-      value={
-        formik.values.discharge_date
-          ? formik.values.discharge_date.length === 10
-            ? `${formik.values.discharge_date}T00:00`
-            : formik.values.discharge_date
-          : ""
-      }
-      onChange={formik.handleChange}
-    />
-  </div>
-</Col>
-
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Discharge/ L-IGM Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="discharge_date"
+                    name="discharge_date"
+                    disabled={ExBondflag}
+                    value={
+                      formik.values.discharge_date
+                        ? formik.values.discharge_date.length === 10
+                          ? `${formik.values.discharge_date}T00:00`
+                          : formik.values.discharge_date
+                        : ""
+                    }
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               {/* <Col xs={12} lg={4}>
@@ -1158,48 +1150,53 @@ const deliveryDate =
                   )}
                 </div>
               </Col> */}
-
-{formik.values.hss && formik.values.hss =="Yes" &&
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
-                  {/* Seller Name Field */}
-                  <strong>Seller Name:&nbsp;</strong>
+                  {/* HSS Field */}
+                  <strong>HSS:&nbsp;</strong>
                   <TextField
-                    fullWidth
+                      
+                    select
                     size="small"
                     variant="outlined"
-                    id="saller_name"
-                    name="saller_name"
-                    value={formik.values.saller_name || ""}
+                    id="hss"
+                    name="hss"
+                    value={formik.values.hss || "No"}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    placeholder="Enter Seller Name"
-                  />
-                </div>
-              </Col>}
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>Seller Name:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="saller_name"
-                    name="saller_name"
-                    value={formik.values.saller_name || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter Seller Name"
-                  />
+                  >
+                    <MenuItem value="Yes">Yes</MenuItem>
+                    <MenuItem value="No">No</MenuItem>
+                  </TextField>
                 </div>
               </Col>
+
+              {formik.values.hss && formik.values.hss == "Yes" && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>Seller Name:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="saller_name"
+                      name="saller_name"
+                      value={formik.values.saller_name || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter Seller Name"
+                    />
+                  </div>
+                </Col>
+              )}
+
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1226,6 +1223,50 @@ const deliveryDate =
                   </TextField>
                 </div>
               </Col>
+              <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>AD Code:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="adCode"
+                      name="adCode"
+                      value={formik.values.adCode || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter AD Code"
+                    />
+                  </div>
+                </Col>
+
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>Bank Name:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="bank_name"
+                      name="bank_name"
+                      value={formik.values.bank_name || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter Bank Name"
+                    />
+                  </div>
+                </Col>
+
+              </Row>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col
@@ -2042,27 +2083,27 @@ const deliveryDate =
               </Col>
 
               <Col xs={12} lg={4}>
-  <div className="job-detail-input-container">
-    <strong>PCV Date:&nbsp;</strong>
-    <TextField
-      fullWidth
-      size="small"
-      margin="normal"
-      variant="outlined"
-      type="datetime-local"
-      id="pcv_date"
-      name="pcv_date"
-      value={
-        formik.values.pcv_date
-          ? formik.values.pcv_date.length === 10
-            ? `${formik.values.pcv_date}T00:00`
-            : formik.values.pcv_date
-          : ""
-      }
-      onChange={formik.handleChange}
-    />
-  </div>
-</Col>
+                <div className="job-detail-input-container">
+                  <strong>PCV Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="pcv_date"
+                    name="pcv_date"
+                    value={
+                      formik.values.pcv_date
+                        ? formik.values.pcv_date.length === 10
+                          ? `${formik.values.pcv_date}T00:00`
+                          : formik.values.pcv_date
+                        : ""
+                    }
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
 
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -2082,28 +2123,28 @@ const deliveryDate =
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
-            <Col xs={12} lg={4}>
-  <div className="job-detail-input-container">
-    <strong>Out of Charge Date:&nbsp;</strong>
-    <TextField
-      fullWidth
-      size="small"
-      margin="normal"
-      variant="outlined"
-      type="datetime-local"
-      id="out_of_charge"
-      name="out_of_charge"
-      value={
-        formik.values.out_of_charge
-          ? formik.values.out_of_charge.length === 10
-            ? `${formik.values.out_of_charge}T00:00`
-            : formik.values.out_of_charge
-          : ""
-      }
-      onChange={formik.handleChange}
-    />
-  </div>
-</Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Out of Charge Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="out_of_charge"
+                    name="out_of_charge"
+                    value={
+                      formik.values.out_of_charge
+                        ? formik.values.out_of_charge.length === 10
+                          ? `${formik.values.out_of_charge}T00:00`
+                          : formik.values.out_of_charge
+                        : ""
+                    }
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
 
               <Col xs={4}>
                 <FileUpload
@@ -2563,18 +2604,15 @@ const deliveryDate =
                     type="datetime-local"
                     id="do_completed"
                     name="do_completed"
-                    value={
-                    formatDateTime(  formik.values.do_completed
+                    value={formatDateTime(
+                      formik.values.do_completed
                         ? formik.values.do_completed
-                        : "")
-                    }
+                        : ""
+                    )}
                     onChange={(e) => {
                       const newValue = e.target.value;
                       if (newValue) {
-                        formik.setFieldValue(
-                          "do_completed",
-                          newValue
-                        );
+                        formik.setFieldValue("do_completed", newValue);
                       } else {
                         formik.setFieldValue("do_completed", "");
                       }
@@ -3110,8 +3148,8 @@ const deliveryDate =
                               variant="outlined"
                               type="date"
                               id={`arrival_date_${index}`}
-                                name={`container_nos[${index}].arrival_date`}
-                                disabled={ExBondflag}
+                              name={`container_nos[${index}].arrival_date`}
+                              disabled={ExBondflag}
                               value={container.arrival_date}
                               onChange={formik.handleChange}
                             />
@@ -3428,7 +3466,9 @@ const deliveryDate =
                             type="datetime-local"
                             id={`emptyContainerOffLoadDate${index}`}
                             name={`container_nos[${index}].emptyContainerOffLoadDate`}
-                            value={formatDateForInput(container.emptyContainerOffLoadDate)}
+                            value={formatDateForInput(
+                              container.emptyContainerOffLoadDate
+                            )}
                             disabled={LCLFlag} // Disable if the user is not Admin
                             onChange={formik.handleChange}
                           />

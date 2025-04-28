@@ -109,6 +109,9 @@ const useImportJobForm = () => {
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
+   const [HSS, setHSS] = useState("");
+  const [sallerName, setSallerName] = useState("");
+  const [bankName, setBankName] = useState("")
 
   useEffect(() => {
     if (importer) {
@@ -190,6 +193,9 @@ const useImportJobForm = () => {
     setSelectedDocument("");
     setNewDocumentName("");
     setNewDocumentCode("");
+    setHSS("")
+    setSallerName("")
+    setBankName("")
 
     // Reset any other states if necessary
   };
@@ -238,6 +244,9 @@ const useImportJobForm = () => {
           remarks: "",
           status: "Pending",
           clearanceValue,
+          saller_name: sallerName,
+          hss: HSS,
+          bank_name: bankName
         };
 
         // Make the API call and store response
@@ -473,6 +482,12 @@ const useImportJobForm = () => {
     canChangeClearance,
     jobDetails,
     setJobDetails,
+    HSS,
+    setHSS,
+    sallerName,
+    setSallerName,
+    bankName,
+    setBankName
   };
 };
 

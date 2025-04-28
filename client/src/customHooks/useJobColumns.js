@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { IconButton, TextField } from "@mui/material";
+import React, { useCallback, useMemo } from "react";
+import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -63,25 +63,25 @@ function useJobColumns() {
     []
   );
 
-  const getCustomHouseLocation = useMemo(
-    () => (customHouse) => {
-      const houseMap = {
-        "ICD SACHANA": "SACHANA ICD (INJKA6)",
-        "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-        "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-      };
-      return houseMap[customHouse] || customHouse;
-    },
-    []
-  );
+  // const getCustomHouseLocation = useMemo(
+  //   () => (customHouse) => {
+  //     const houseMap = {
+  //       "ICD SACHANA": "SACHANA ICD (INJKA6)",
+  //       "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
+  //       "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
+  //     };
+  //     return houseMap[customHouse] || customHouse;
+  //   },
+  //   []
+  // );
 
-  const formatDate = useCallback((dateStr) => {
-    const date = new Date(dateStr);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}/${month}/${day}`;
-  }, []);
+  // const formatDate = useCallback((dateStr) => {
+  //   const date = new Date(dateStr);
+  //   const year = date.getFullYear();
+  //   const month = String(date.getMonth() + 1).padStart(2, "0");
+  //   const day = String(date.getDate()).padStart(2, "0");
+  //   return `${year}/${month}/${day}`;
+  // }, []);
 
   // Optimized columns array
   const columns = useMemo(
@@ -100,7 +100,7 @@ function useJobColumns() {
             container_nos, // Assume this field holds an array of container objects
             detailed_status,
             custom_house,
-            delivery_date,
+            // delivery_date,
             emptyContainerOffLoadDate,
           } = cell.row.original;
 
@@ -217,10 +217,11 @@ function useJobColumns() {
           const saller_name = row?.original?.saller_name || "";
           const fta_Benefit_date_time = row?.original?.fta_Benefit_date_time;
           const hss = row?.original?.hss;
-          const hasHss = !!hss; // tru if not null empty undefined
+          const hasHss = !!hss && hss === "Yes"; // tru if not null empty undefined
           const hssDisplay = hasHss ? `Yes - ${saller_name}` : "No";
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
+          const adCode = row?.original?.adCode || "";
           
           return (
             <>
@@ -236,6 +237,7 @@ function useJobColumns() {
               <Tooltip title="Hss" arrow>
                 <span style={{marginTop :"5px"}}>{`Hss: ${hssDisplay}`}</span>
               </Tooltip>
+             { adCode&& <span style={{marginTop: "5px"}}><strong>AD Code: </strong>{adCode}</span>}
             </>
           );
         },
@@ -552,7 +554,7 @@ function useJobColumns() {
         },
       },
     ],
-    [formatDate, getPortLocation, getCustomHouseLocation, handleCopy]
+    [getPortLocation, handleCopy, navigate]
   );
 
   return columns;

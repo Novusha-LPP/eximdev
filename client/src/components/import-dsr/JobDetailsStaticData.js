@@ -19,39 +19,39 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
-  const handleCopy = (event, text) => {
-    event.stopPropagation();
+  // const handleCopy = (event, text) => {
+  //   event.stopPropagation();
 
-    if (
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          console.log("Text copied to clipboard:", text);
-        })
-        .catch((err) => {
-          alert("Failed to copy text to clipboard.");
-          console.error("Failed to copy:", err);
-        });
-    } else {
-      // Fallback approach for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
-      } catch (err) {
-        alert("Failed to copy text to clipboard.");
-        console.error("Fallback copy failed:", err);
-      }
-      document.body.removeChild(textArea);
-    }
-  };
+  //   if (
+  //     navigator.clipboard &&
+  //     typeof navigator.clipboard.writeText === "function"
+  //   ) {
+  //     navigator.clipboard
+  //       .writeText(text)
+  //       .then(() => {
+  //         console.log("Text copied to clipboard:", text);
+  //       })
+  //       .catch((err) => {
+  //         alert("Failed to copy text to clipboard.");
+  //         console.error("Failed to copy:", err);
+  //       });
+  //   } else {
+  //     // Fallback approach for older browsers
+  //     const textArea = document.createElement("textarea");
+  //     textArea.value = text;
+  //     document.body.appendChild(textArea);
+  //     textArea.focus();
+  //     textArea.select();
+  //     try {
+  //       document.execCommand("copy");
+  //       console.log("Text copied to clipboard using fallback method:", text);
+  //     } catch (err) {
+  //       alert("Failed to copy text to clipboard.");
+  //       console.error("Fallback copy failed:", err);
+  //     }
+  //     document.body.removeChild(textArea);
+  //   }
+  // };
   const getShippingLineUrl = (shippingLine, blNumber, containerFirst) => {
     const shippingLineUrls = {
       MSC: `https://www.msc.com/en/track-a-shipment`,
@@ -465,10 +465,22 @@ function JobDetailsStaticData(props) {
           <strong>HSS:&nbsp;</strong>
           <span className="non-editable-text">{props.data.hss}</span>
         </Col>
-       { props.data.hss == "Yes" && <Col xs={12} lg={5}>
+        <Col xs={12} lg={5}>
           <strong>Seller Name:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.saller_name}</span>
-        </Col>}
+          {props.data.hss === "Yes" && (
+            <span className="non-editable-text">{props.data.saller_name}</span>
+          )}
+        </Col>
+      </Row>
+      <Row>
+      <Col xs={12} lg={5}>
+          <strong>Ad Code:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.adCode}</span>
+        </Col>
+      <Col xs={12} lg={5}>
+          <strong>Bank Name:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.bankName}</span>
+        </Col>
       </Row>
     </div>
   );

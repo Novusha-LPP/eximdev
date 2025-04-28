@@ -443,11 +443,11 @@ function ViewCompletedKycDetails() {
                   </Col>
                   <Col>
                     <strong>AD Code: </strong>
-                    {bank.ad_code}
+                    {bank.adCode}
                   </Col>
                   <Col>
                     <strong>AD Code File: </strong>
-                    {bank.ad_code_file && (
+                    {bank.adCode_file && (
                       <>
                         {/* eslint-disable-next-line */}
                         <a
@@ -455,8 +455,8 @@ function ViewCompletedKycDetails() {
                           onClick={(e) => {
                             e.preventDefault();
                             downloadBase64File(
-                              bank.ad_code_file,
-                              `AD_Code_File_${id}.pdf`
+                              bank.adCode_file,
+                              `adCode_File_${id}.pdf`
                             );
                           }}
                         >

@@ -5,6 +5,7 @@ import PrModel from "../../model/srcc/prModel.mjs";
 const router = express.Router();
 
 router.post("/api/update-pr", async (req, res) => {
+  console.log(req.body);
   const {
     pr_no,
     import_export,
@@ -14,6 +15,9 @@ router.post("/api/update-pr", async (req, res) => {
     goods_delivery,
     container_count,
     containers,
+    isBranch, // Add isBranch
+    suffix, // Add suffix
+    prefix, // Add prefix
     ...updatedJobData
   } = req.body; // Extract relevant data from req.body
 
@@ -92,6 +96,8 @@ router.post("/api/update-pr", async (req, res) => {
           type_of_vehicle,
           goods_pickup,
           goods_delivery,
+          suffix: isBranch ? suffix : prDataToUpdate.suffix, // <- ADD THIS
+          prefix: isBranch ? prefix : prDataToUpdate.prefix, // <- ADD THIS
           ...updatedJobData,
         });
         prDataToUpdate.containers.forEach((container) => {
@@ -154,6 +160,10 @@ router.post("/api/update-pr", async (req, res) => {
       const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
 
       // Construct the new pr_no
+      // Add this console log to check the incoming request body
+      console.log("Request Body:", req.body);
+
+      // Construct the new pr_no
       const currentDate = new Date();
       const currentYear = currentDate.getFullYear();
       const isBeforeApril =
@@ -165,7 +175,17 @@ router.post("/api/update-pr", async (req, res) => {
         .toString()
         .slice(2)}-${financialYearEnd.toString().slice(2)}`;
 
-      const newPrNo = `PR/${branch_code}/${fiveDigitNo}/${financialYear}`;
+      // Add console logs to debug `isBranch`, `prefix`, and `suffix`
+      console.log("isBranch:", isBranch);
+      console.log("prefix:", prefix);
+      console.log("suffix:", suffix);
+
+      const newPrNo = isBranch
+        ? `PR/${prefix}/${fiveDigitNo}/${suffix}`
+        : `PR/${branch_code}/${fiveDigitNo}/${financialYear}`;
+
+      // Add a console log to check the generated `newPrNo`
+      console.log("Generated PR Number:", newPrNo);
 
       let containerArray = [];
       for (let i = 0; i < container_count; i++) {
@@ -199,6 +219,8 @@ router.post("/api/update-pr", async (req, res) => {
         goods_pickup: req.body.goods_pickup,
         goods_delivery: req.body.goods_delivery,
         containers: containerArray,
+        suffix: isBranch ? suffix : undefined, // <- ADD THIS
+        prefix: isBranch ? prefix : undefined, // <- ADD THIS
       });
 
       // Save the new PrData document to the database

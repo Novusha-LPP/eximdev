@@ -65,6 +65,8 @@ const PrDataSchema = new mongoose.Schema({
   goods_delivery: {
     type: String,
   },
+  suffix: { type: String, required: false },
+  prefix: { type: String, required: false },
   containers: [
     {
       tr_no: {

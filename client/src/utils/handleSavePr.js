@@ -22,6 +22,12 @@ export const handleSavePr = async (row, getPrData) => {
     );
   }
 
+  if (row.isBranch) {
+    if (!row.suffix || !row.prefix) {
+      errors.push("Suffix and Prefix are required when isBranch is true.");
+    }
+  }
+
   if (errors.length > 0) {
     alert(errors.join("\n"));
     return;

@@ -37,15 +37,12 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       const response = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-port-types`
       );
-      console.log(response.data.data);
       setBranchOptions(
         response.data.data
           .filter((item) => item.isBranch) // Only include items where isBranch is true
           .map((item) => ({
-            label: item.icd_code || "Unknown", // Use icd_code as label
-            value: item.icd_code || "", // Use icd_code as value
-            prefix: item.prefix || "", // Include prefix
-            suffix: item.suffix || "", // Include suffix
+            label: item.icd_code,
+            value: item.icd_code,
           }))
       );
     } catch (error) {
@@ -496,9 +493,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
       Cell: ({ cell, row }) => (
-        <IconButton
-          onClick={() => handleSavePr(row.original, getPrData, branchOptions)}
-        >
+        <IconButton onClick={() => handleSavePr(row.original, getPrData)}>
           <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),

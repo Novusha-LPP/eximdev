@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const handleSavePr = async (row, getPrData, branchOptions) => {
+export const handleSavePr = async (row, getPrData) => {
   const errors = [];
 
   if (row.branch === "") {
@@ -27,16 +27,9 @@ export const handleSavePr = async (row, getPrData, branchOptions) => {
     return;
   }
 
-  // Extract prefix and suffix from branchOptions
-  const selectedBranch = branchOptions.find(
-    (option) => option.value === row.branch
-  );
-  const prefix = selectedBranch?.prefix || "";
-  const suffix = selectedBranch?.suffix || "";
-
   const res = await axios.post(
     `${process.env.REACT_APP_API_STRING}/update-pr`,
-    { ...row, prefix, suffix } // Include prefix and suffix
+    row
   );
   alert(res.data.message);
   getPrData();

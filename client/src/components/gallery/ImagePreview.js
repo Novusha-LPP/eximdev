@@ -45,10 +45,33 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
     }
   };
 
-  const confirmDelete = () => {
-    onDeleteImage(deleteIndex);
+  const confirmDelete = async () => {
+    const imageUrl = imageArray[deleteIndex];
+  
+    try {
+      const key = new URL(imageUrl).pathname.slice(1); // correct key including folders
+  
+      const response = await fetch(`${process.env.REACT_APP_API_STRING}/delete-s3-file`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ key }),
+      });
+  
+      if (response.ok) {
+        onDeleteImage(deleteIndex);
+      } else {
+        alert("Failed to delete image from S3.");
+      }
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      alert("Error deleting image.");
+    }
+  
     setOpenDeleteDialog(false);
   };
+  
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>

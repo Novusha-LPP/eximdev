@@ -282,7 +282,7 @@ function JobDetails() {
             for (let i = 0; i < e.target.files.length; i++) {
               const file = e.target.files[i];
               const params = {
-                Bucket: "alvision-exim-images",
+                Bucket: process.env.REACT_APP_S3_BUCKET,
                 Key: `${fileType}/${container_number}/${file.name}`,
                 Body: file,
               };

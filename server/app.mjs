@@ -41,6 +41,7 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import handleS3Deletation from "./routes/handleS3Deletation.mjs"
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -334,6 +335,9 @@ if (cluster.isPrimary) {
       app.use(getUserData);
       app.use(getYears);
       app.use(login);
+
+      // handle delete 
+      app.use(handleS3Deletation)
 
       // Accounts
       app.use(addAdani);

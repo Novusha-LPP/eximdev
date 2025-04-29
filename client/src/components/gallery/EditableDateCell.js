@@ -404,7 +404,7 @@ const EditableDateCell = ({ cell }) => {
                   <div key={id}>
                     <strong>Rail-out :</strong>{" "}
                     {container.container_rail_out_date
-                      ?.slice(0, 16)
+                      ?.slice(0, 10)
                       .replace("T", " ") || "N/A"}{" "}
                     <FcCalendar
                       style={styles.icon}

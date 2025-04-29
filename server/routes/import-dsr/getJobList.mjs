@@ -52,6 +52,7 @@ const buildSearchQuery = (search) => ({
     { supplier_exporter: { $regex: escapeRegex(search), $options: "i" } },
     { consignment_type: { $regex: escapeRegex(search), $options: "i" } },
     { importer: { $regex: escapeRegex(search), $options: "i" } },
+    { selectedICD: { $regex: escapeRegex(search), $options: "i" } },
     { custom_house: { $regex: escapeRegex(search), $options: "i" } },
     { awb_bl_no: { $regex: escapeRegex(search), $options: "i" } },
     { vessel_berthing: { $regex: escapeRegex(search), $options: "i" } },
@@ -69,12 +70,13 @@ const buildSearchQuery = (search) => ({
 
 
 // API to fetch jobs with pagination, sorting, and search
-router.get("/api/:year/jobs/:status/:detailedStatus/:importer", async (req, res) => {
+router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", async (req, res) => {
   try {
-    const { year, status, detailedStatus, importer } = req.params;
+    const { year, status, detailedStatus, importer, selectedICD } = req.params;
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
+    console.log(selectedICD)
     // Base query with year filter
     const query = { year };
 
@@ -86,6 +88,9 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:importer", async (req, res)
     // Handle importer filtering with proper escaping
     if (importer && importer.toLowerCase() !== "all") {
       query.importer = { $regex: `^${escapeRegex(importer)}$`, $options: "i" };
+    }
+    if (selectedICD && selectedICD.toLowerCase() !== "all") {
+      query.custom_house = { $regex: `^${escapeRegex(selectedICD)}$`, $options: "i" };
     }
 
     // Handle case-insensitive status filtering and bill_date conditions

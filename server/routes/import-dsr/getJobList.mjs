@@ -28,7 +28,7 @@ const parseDate = (dateStr) => {
 const defaultFields = `
   job_no year importer custom_house awb_bl_no container_nos vessel_berthing 
   gateway_igm_date discharge_date detailed_status be_no be_date loading_port free_time
-  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity rail_out_date cth_documents payment_method supplier_exporter gross_weight job_net_weight processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time origin_country
+  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity rail_out_date cth_documents payment_method supplier_exporter gross_weight job_net_weight processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time origin_country hss saller_name adCode assessment_date
 `;
 
 const additionalFieldsByStatus = {
@@ -52,6 +52,7 @@ const buildSearchQuery = (search) => ({
     { supplier_exporter: { $regex: escapeRegex(search), $options: "i" } },
     { consignment_type: { $regex: escapeRegex(search), $options: "i" } },
     { importer: { $regex: escapeRegex(search), $options: "i" } },
+    { selectedICD: { $regex: escapeRegex(search), $options: "i" } },
     { custom_house: { $regex: escapeRegex(search), $options: "i" } },
     { awb_bl_no: { $regex: escapeRegex(search), $options: "i" } },
     { vessel_berthing: { $regex: escapeRegex(search), $options: "i" } },
@@ -69,12 +70,13 @@ const buildSearchQuery = (search) => ({
 
 
 // API to fetch jobs with pagination, sorting, and search
-router.get("/api/:year/jobs/:status/:detailedStatus/:importer", async (req, res) => {
+router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", async (req, res) => {
   try {
-    const { year, status, detailedStatus, importer } = req.params;
+    const { year, status, detailedStatus, importer, selectedICD } = req.params;
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
+    console.log(selectedICD)
     // Base query with year filter
     const query = { year };
 
@@ -86,6 +88,9 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:importer", async (req, res)
     // Handle importer filtering with proper escaping
     if (importer && importer.toLowerCase() !== "all") {
       query.importer = { $regex: `^${escapeRegex(importer)}$`, $options: "i" };
+    }
+    if (selectedICD && selectedICD.toLowerCase() !== "all") {
+      query.custom_house = { $regex: `^${escapeRegex(selectedICD)}$`, $options: "i" };
     }
 
     // Handle case-insensitive status filtering and bill_date conditions

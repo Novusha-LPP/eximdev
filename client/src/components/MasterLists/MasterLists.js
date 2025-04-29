@@ -2,6 +2,7 @@
 
 export const customHouseOptions = ["ICD SANAND", "ICD KHODIYAR", "ICD SACHANA"];
 export const portReportingOptions = [];
+export const hssOptions = ["Yes", "No"]
 export const countryOptions = [
   "AFGHANISTAN",
   "ALBANIA",

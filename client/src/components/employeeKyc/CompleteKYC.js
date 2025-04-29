@@ -165,7 +165,7 @@ function CompleteKYC() {
       });
 
       const params = {
-        Bucket: "exim-images-p1",
+        Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: key,
         Body: file,
       };

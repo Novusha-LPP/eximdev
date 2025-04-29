@@ -41,6 +41,7 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import handleS3Deletation from "./routes/handleS3Deletation.mjs"
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -93,6 +94,9 @@ import getESanchitJobs from "./routes/e-sanchit/getESanchitJobs.mjs";
 import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJobs.mjs";
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
+
+// import - billing
+import getImportBilling from "./routes/import-billing/getImportBilling.js"
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -157,6 +161,8 @@ import ViewExitInterviews from "./routes/exit-interview/viewExitInterviews.mjs";
 
 // LR Operations
 import getPrData from "./routes/lr/getPrData.mjs";
+import getPrJobList from "./routes/lr/getPRjobList.mjs";
+import getLrJobList from "./routes/lr/getLRjobList.mjs";
 import updatePr from "./routes/lr/updatePr.mjs";
 import deletePr from "./routes/lr/deletePr.mjs";
 import getOrganisations from "./routes/lr/getOrganisations.mjs";
@@ -330,6 +336,9 @@ if (cluster.isPrimary) {
       app.use(getYears);
       app.use(login);
 
+      // handle delete 
+      app.use(handleS3Deletation)
+
       // Accounts
       app.use(addAdani);
       app.use(addAMC);
@@ -427,6 +436,9 @@ if (cluster.isPrimary) {
       app.use(updateOperationsJob);
       app.use(getOperationPlanningList);
 
+      // import billing
+      app.use(getImportBilling)
+
       // Inward Register
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
@@ -445,6 +457,8 @@ if (cluster.isPrimary) {
 
       // LR Operations
       app.use(getPrData);
+      app.use(getPrJobList);
+      app.use(getLrJobList);
       app.use(updatePr);
       app.use(deletePr);
       app.use(getContainerTypes);

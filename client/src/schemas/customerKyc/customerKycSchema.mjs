@@ -78,8 +78,8 @@ export const validationSchema = Yup.object().shape({
       ifsc: Yup.string()
         .required("IFSC Code is required")
         .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC Code"),
-      ad_code: Yup.string().required("AD Code is required"),
-      ad_code_file: Yup.string().required("AD Code File is required"),
+      adCode: Yup.string().required("AD Code is required"),
+      adCode_file: Yup.string().required("AD Code File is required"),
     })
   ),
 });

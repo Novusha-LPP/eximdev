@@ -1,0 +1,276 @@
+import React from "react";
+
+const usePrJobColumns = () => {
+  const columns = [
+    {
+      accessorKey: "pr_no",
+      header: "PR No",
+      size: 100,
+      enableColumnFilter: false,
+    },
+    // {
+    //   accessorKey: "importer",
+    //   header: "Importer",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "consignee",
+    //   header: "Consignee",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "status",
+    //   header: "Status",
+    //   size: 100,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "pr_date",
+    //   header: "PR Date",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "import_export",
+    //   header: "Import/Export",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "branch",
+    //   header: "Branch",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "consignor",
+    //   header: "Consignor",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "container_type",
+    //   header: "Container Type",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "container_count",
+    //   header: "Container Count",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "gross_weight",
+    //   header: "Gross Weight",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "type_of_vehicle",
+    //   header: "Type of Vehicle",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "no_of_vehicle",
+    //   header: "No. of Vehicles",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "description",
+    //   header: "Description",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "shipping_line",
+    //   header: "Shipping Line",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "container_loading",
+    //   header: "Container Loading",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "container_offloading",
+    //   header: "Container Offloading",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "do_validity",
+    //   header: "DO Validity",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "instructions",
+    //   header: "Instructions",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "document_no",
+    //   header: "Document No",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "document_date",
+    //   header: "Document Date",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "goods_pickup",
+    //   header: "Goods Pickup",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    // {
+    //   accessorKey: "goods_delivery",
+    //   header: "Goods Delivery",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
+    {
+      accessorKey: "container_details.tr_no",
+      header: "TR No",
+      size: 150,
+      enableColumnFilter: true,
+      Cell: ({ cell }) => cell.getValue() || "N/A",
+    },
+    {
+      accessorKey: "container_details.container_number",
+      header: "Container Number",
+      size: 150,
+      enableColumnFilter: true,
+      Cell: ({ cell }) => cell.getValue() || "N/A",
+    },
+    {
+      accessorKey: "container_details.seal_no",
+      header: "Seal No",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.gross_weight",
+      header: "Container Gross Weight",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.tare_weight",
+      header: "Tare Weight",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.net_weight",
+      header: "Net Weight",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.goods_pickup",
+      header: "Container Goods Pickup",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.goods_delivery",
+      header: "Container Goods Delivery",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.own_hired",
+      header: "Own/Hired",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.type_of_vehicle",
+      header: "Vehicle Type",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.vehicle_no",
+      header: "Vehicle No",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.driver_name",
+      header: "Driver Name",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.driver_phone",
+      header: "Driver Phone",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.eWay_bill",
+      header: "eWay Bill",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.isOccupied",
+      header: "Is Occupied",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.sr_cel_no",
+      header: "SR Cell No",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.sr_cel_FGUID",
+      header: "SR Cell FGUID",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.sr_cel_id",
+      header: "SR Cell ID",
+      size: 150,
+      enableColumnFilter: true,
+      Cell: ({ cell }) => cell.getValue() || "N/A", // Show "N/A" if undefined
+    },
+    {
+      accessorKey: "container_details.elock",
+      header: "Elock",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.status",
+      header: "Container Status",
+      size: 150,
+      enableColumnFilter: true,
+    },
+    {
+      accessorKey: "container_details.lr_completed",
+      header: "LR Completed",
+      size: 150,
+      enableColumnFilter: true,
+    },
+  ];
+  return columns;
+};
+
+export default usePrJobColumns;

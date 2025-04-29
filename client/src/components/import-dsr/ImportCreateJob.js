@@ -22,6 +22,7 @@ import {
   shippingLineOptions,
   cth_Dropdown,
   countryOptions,
+  hssOptions,
   portReportingOptions,
 } from "../MasterLists/MasterLists";
 import { useFormik } from "formik";
@@ -31,6 +32,9 @@ import useImportJobForm from "../../customHooks/useImportJobForm.js";
 import axios from "axios";
 
 const ImportCreateJob = () => {
+  // const [HSS, setHSS] = useState("");
+  // const [sallerName, setSallerName] = useState("");
+
   const {
     formik,
     // job_no,
@@ -128,57 +132,61 @@ const ImportCreateJob = () => {
     setJobDetails,
     setYear,
     year,
+    HSS,
+    sallerName,
+    setHSS,
+    setSallerName,
+    setBankName,
+    bankName
   } = useImportJobForm();
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
-   const [selectedImporter, setSelectedImporter] = useState("");
-    const [importers, setImporters] = useState("");
+  const [selectedImporter, setSelectedImporter] = useState("");
+  const [importers, setImporters] = useState("");
 
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYear) {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
+        );
+        setImporters(res.data);
+        setSelectedImporter("Select Importer");
+      }
+    }
+    getImporterList();
+  }, [selectedYear]);
+  // Function to build the search query (not needed on client-side, handled by server)
+  // Keeping it in case you want to extend client-side filtering
 
-     React.useEffect(() => {
-       async function getImporterList() {
-         if (selectedYear) {
-           const res = await axios.get(
-             `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYear}`
-           );
-           setImporters(res.data);
-           setSelectedImporter("Select Importer");
-         }
-       }
-       getImporterList();
-     }, [selectedYear]);
-     // Function to build the search query (not needed on client-side, handled by server)
-     // Keeping it in case you want to extend client-side filtering
+  const getUniqueImporterNames = (importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  };
 
-     const getUniqueImporterNames = (importerData) => {
-       if (!importerData || !Array.isArray(importerData)) return [];
-       const uniqueImporters = new Set();
-       return importerData
-         .filter((importer) => {
-           if (uniqueImporters.has(importer.importer)) return false;
-           uniqueImporters.add(importer.importer);
-           return true;
-         })
-         .map((importer, index) => ({
-           label: importer.importer,
-           key: `${importer.importer}-${index}`,
-         }));
-     };
+  const importerNames = [
+    { label: "Select Importer" },
+    ...getUniqueImporterNames(importers),
+  ];
 
-     const importerNames = [
-       { label: "Select Importer" },
-       ...getUniqueImporterNames(importers),
-     ];
-
-     useEffect(() => {
-       if (!selectedImporter) {
-         setSelectedImporter("Select Importer");
-       }
-     }, [importerNames]);
-
+  useEffect(() => {
+    if (!selectedImporter) {
+      setSelectedImporter("Select Importer");
+    }
+  }, [importerNames]);
 
   useEffect(() => {
     // Determine the current date
@@ -321,6 +329,32 @@ const ImportCreateJob = () => {
             fullWidth
           />
         </Grid>
+        <Grid item xs={12} md={6}></Grid>
+
+        <Grid item xs={12} md={6}>
+    <Typography variant="body1" style={{ fontWeight: 600 }}>
+      Bank Name:
+    </Typography>
+    <TextField
+      value={bankName}
+      onChange={(e) => setBankName(e.target.value)}
+      variant="outlined"
+      size="small"
+      fullWidth
+    />
+  </Grid>
+        {/* <Grid item xs={12} md={4}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+           bank:
+          </Typography>
+          <TextField
+            value={adCode}
+            onChange={(e) => setAdCode(e.target.value)}
+            variant="outlined"
+            size="small"
+            fullWidth
+          />
+        </Grid> */}
         {/* Exporter/Supplier */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
@@ -617,6 +651,50 @@ const ImportCreateJob = () => {
               : "This document is finalized."}
           </Typography>
         </Grid>
+
+        {/* HSS */}
+        <Grid item xs={12} md={6}>
+  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+    HSS:
+  </Typography>
+  <TextField
+    select // This is the key missing part!
+    variant="outlined"
+    size="small"
+    value={HSS}
+    id="hss"
+    name="hss"
+    onChange={(e) => setHSS(e.target.value)}
+    helperText="Start typing to see suggestions"
+    fullWidth
+  >
+    {hssOptions.map((option) => (
+      <MenuItem key={option} value={option}>
+        {option}
+      </MenuItem>
+    ))}
+  </TextField>
+</Grid>
+
+
+        {/* conditionallyy render this saller name */}
+
+        {HSS && HSS == "Yes" && (
+          <Grid item xs={12} md={6}>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              Saller Name:
+            </Typography>
+            <TextField
+              value={sallerName}
+              onChange={(e) => setSallerName(e.target.value)}
+              variant="outlined"
+              size="small"
+              placeholder="Enter Saller Name"
+              fullWidth
+            />
+          </Grid>
+        )}
+
         {/*  */}
         {!isDraftDoc && (
           <>

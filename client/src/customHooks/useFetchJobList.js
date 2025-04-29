@@ -5,6 +5,7 @@ function useFetchJobList(
   detailedStatus,
   selectedYearState,
   status,
+  selectedICD,
   searchQuery,
   selectedImporter
 ) {
@@ -27,11 +28,9 @@ function useFetchJobList(
       const formattedSearchQuery = searchQuery
         ? encodeURIComponent(searchQuery)
         : "";
-      
-      console.log(selectedYearState);
 
       // Construct API URL
-      const apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${formattedImporter}?page=${page}&limit=100&search=${formattedSearchQuery}`;
+      const apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=100&search=${formattedSearchQuery}`;
 
       const response = await axios.get(apiUrl);
 
@@ -55,6 +54,7 @@ function useFetchJobList(
     detailedStatus,
     selectedYearState,
     status,
+    selectedICD,
     currentPage,
     searchQuery,
     selectedImporter,

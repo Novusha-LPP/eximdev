@@ -282,7 +282,7 @@ function JobDetails() {
             for (let i = 0; i < e.target.files.length; i++) {
               const file = e.target.files[i];
               const params = {
-                Bucket: "exim-images-p1",
+                Bucket: process.env.REACT_APP_S3_BUCKET,
                 Key: `${fileType}/${container_number}/${file.name}`,
                 Body: file,
               };
@@ -1150,7 +1150,6 @@ function JobDetails() {
                   )}
                 </div>
               </Col> */}
-
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1159,7 +1158,7 @@ function JobDetails() {
                   {/* HSS Field */}
                   <strong>HSS:&nbsp;</strong>
                   <TextField
-                    fullWidth
+                    fullWidth       
                     select
                     size="small"
                     variant="outlined"
@@ -1175,26 +1174,29 @@ function JobDetails() {
                 </div>
               </Col>
 
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>Seller Name:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="Seller_name"
-                    name="Seller_name"
-                    value={formik.values.Seller_name || ""}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter Seller Name"
-                  />
-                </div>
-              </Col>
+              {formik.values.hss && formik.values.hss == "Yes" && (
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>Seller Name:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="saller_name"
+                      name="saller_name"
+                      value={formik.values.saller_name || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter Seller Name"
+                    />
+                  </div>
+                </Col>
+              )}
+
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1221,6 +1223,50 @@ function JobDetails() {
                   </TextField>
                 </div>
               </Col>
+              <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>AD Code:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="adCode"
+                      name="adCode"
+                      value={formik.values.adCode || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter AD Code"
+                    />
+                  </div>
+                </Col>
+
+                <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>Bank Name:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="bank_name"
+                      name="bank_name"
+                      value={formik.values.bank_name || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter Bank Name"
+                    />
+                  </div>
+                </Col>
+
+              </Row>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col

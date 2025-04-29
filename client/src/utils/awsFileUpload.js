@@ -24,7 +24,7 @@ export const handleFileUpload = async (
     for (let i = 0; i < e.target.files.length; i++) {
       const file = e.target.files[i];
       const params = {
-        Bucket: "exim-images-p1",
+        Bucket: process.env.REACT_APP_S3_BUCKET,
         Key: `${folderName}/${file.name}`,
         Body: file,
       };
@@ -61,7 +61,7 @@ export const uploadFileToS3 = (file, folderName) => {
 
   const s3 = new AWS.S3();
   const params = {
-    Bucket: "exim-images-p1",
+    Bucket: process.env.REACT_APP_S3_BUCKET,
     Key: `${folderName}/${file.name}`,
     Body: file,
     ContentType: file.type,

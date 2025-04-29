@@ -22,6 +22,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { YearContext } from "../../contexts/yearContext.js";
+import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
 
 function ImportOperations() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -120,7 +121,7 @@ function ImportOperations() {
     async (
       currentPage,
       currentSearchQuery,
-      currentYear,
+      selectedYearState,
       currentStatus,
       currentICD,
       selectedImporter
@@ -133,7 +134,7 @@ function ImportOperations() {
               page: currentPage,
               limit,
               search: currentSearchQuery,
-              year: currentYear,
+              year: selectedYearState,
               detailedStatusExPlan: currentStatus, // Ensure parameter name matches backend
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
@@ -452,35 +453,14 @@ function ImportOperations() {
       },
     },
 
-    // {
-    //   accessorKey: "do_copies",
-    //   header: "Do Copies",
-    //   enableSorting: false,
-    //   size: 150,
-    //   Cell: ({ row }) => {
-    //     const doCopies = row.original.do_copies;
-
-    //     // Check if doCopies is an array and has at least one element
-    //     if (Array.isArray(doCopies) && doCopies.length > 0) {
-    //       return (
-    //         <div style={{ textAlign: "center" }}>
-    //           {doCopies.map((url, index) => (
-    //             <div key={index}>
-    //               <a href={url} target="_blank" rel="noopener noreferrer">
-    //                 do_copies{index + 1}
-    //               </a>
-    //             </div>
-    //           ))}
-    //         </div>
-    //       );
-    //     } else {
-    //       // Optionally, render nothing or an alternative message
-    //       return null;
-    //       // Or: return <span>No Copies Available</span>;
-    //     }
-    //   },
-    // },
-
+    {
+      accessorKey: "concor_invoice_copy",
+      header: "Concor Invoice Copy",
+      enableSorting: false,
+      size: 150,
+      Cell: ConcorInvoiceCell,
+    },
+  
     {
       accessorKey: "do_validity",
       header: "DO Completed & Validity",

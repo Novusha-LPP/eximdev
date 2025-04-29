@@ -146,14 +146,20 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
   async function getPrData(page = 1, limit = 50) {
     try {
-      const res = await axios.get(
+      const response = await fetch(
         `${process.env.REACT_APP_API_STRING}/get-pr-data/all?page=${page}&limit=${limit}`
       );
 
-      setRows(res.data.data); // Access `data` from response
-      setTotal(res.data.total); // Optional: total count
-      setTotalPages(res.data.totalPages); // Optional: for pagination
-      setCurrentPage(res.data.currentPage); // Optional: current page
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const res = await response.json();
+
+      setRows(res.data); // Access `data` from response
+      setTotal(res.total); // Optional: total count
+      setTotalPages(res.totalPages); // Optional: for pagination
+      setCurrentPage(res.currentPage); // Optional: current page
     } catch (error) {
       console.error("❌ Error fetching PR data:", error);
     }

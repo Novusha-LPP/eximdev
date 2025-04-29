@@ -6,6 +6,8 @@ import { calculateColumnWidth } from "../utils/calculateColumnWidth";
 import { IconButton, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 
+import { handleSavePr } from "../utils/handleSavePr";
+
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
   const [shippingLines, setShippingLines] = useState([]);
@@ -13,7 +15,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [total, setTotal] = useState(0); // Added state for total
   const [totalPages, setTotalPages] = useState(0); // Added state for totalPages
   const [currentPage, setCurrentPage] = useState(1); // Added state for currentPage
-  const [isSaving, setIsSaving] = useState(false); // Track save operation status
 
   const fetchShippingLines = async () => {
     try {
@@ -85,25 +86,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     });
   };
 
-  async function getPrData(page = 1, limit = 50) {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-pr-data/all?page=${page}&limit=${limit}`
-      );
-
-      setRows(res.data.data); // Access `data` from response
-      setTotal(res.data.total); // Optional: total count
-      setTotalPages(res.data.totalPages); // Optional: for pagination
-      setCurrentPage(res.data.currentPage); // Optional: current page
-    } catch (error) {
-      console.error("❌ Error fetching PR data:", error);
-    }
-  }
-
   const handleSavePr = async (rowIndex) => {
-    if (isSaving) return; // Prevent multiple simultaneous save operations
-
-    setIsSaving(true);
     const row = rows[rowIndex]; // Get the updated row from latest state
     console.log("💾 Preparing to save row:", row);
 
@@ -128,10 +111,18 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       );
     }
 
+    // If you want to check suffix and prefix manually uncomment below
+    /*
+      if (row.isBranch) {
+        if (!row.suffix || !row.prefix) {
+          errors.push("Suffix and Prefix are required when isBranch is true.");
+        }
+      }
+      */
+
     if (errors.length > 0) {
       console.error("❌ Validation Errors:", errors);
       alert(errors.join("\n"));
-      setIsSaving(false);
       return;
     }
 
@@ -142,23 +133,40 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         `${process.env.REACT_APP_API_STRING}/update-pr`,
         row
       );
-      console.log("✅ API Response:", res.data);
-      alert(res.data.message);
 
-      // Add a delay before fetching data again to ensure server has completed processing
-      setTimeout(() => {
-        getPrData(currentPage, 50);
-        setIsSaving(false);
-      }, 500);
+      console.log("✅ API Response:", res.data);
+
+      alert(res.data.message);
+      getPrData(currentPage, 50);
     } catch (error) {
       console.error("❌ Error while saving PR:", error);
       alert("Failed to save PR. Check console for details.");
-      setIsSaving(false);
     }
   };
 
+  async function getPrData(page = 1, limit = 50) {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_STRING}/get-pr-data/all?page=${page}&limit=${limit}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const res = await response.json();
+
+      setRows(res.data); // Access `data` from response
+      setTotal(res.total); // Optional: total count
+      setTotalPages(res.totalPages); // Optional: for pagination
+      setCurrentPage(res.currentPage); // Optional: current page
+    } catch (error) {
+      console.error("❌ Error fetching PR data:", error);
+    }
+  }
+
   useEffect(() => {
-    getPrData(currentPage, 50); // Load first page by default
+    getPrData(1, 50); // Load first page by default
     fetchShippingLines();
     fetchBranchOptions();
   }, []);
@@ -169,23 +177,14 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     );
 
     if (confirmDelete) {
-      try {
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_STRING}/delete-pr`,
-          {
-            pr_no,
-          }
-        );
-        alert(res.data.message);
-
-        // Add a delay before fetching data again
-        setTimeout(() => {
-          getPrData(currentPage, 50);
-        }, 500);
-      } catch (error) {
-        console.error("❌ Error deleting PR:", error);
-        alert("Failed to delete PR. Check console for details.");
-      }
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/delete-pr`,
+        {
+          pr_no,
+        }
+      );
+      alert(res.data.message);
+      getPrData();
     }
   };
 
@@ -201,10 +200,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableGrouping: false,
       size: 50,
       Cell: ({ row }) => (
-        <IconButton
-          onClick={() => handleDeletePr(row.original.pr_no)}
-          disabled={isSaving}
-        >
+        <IconButton onClick={() => handleDeletePr(row.original.pr_no)}>
           <DeleteIcon
             sx={{ color: "#BE3838", cursor: "pointer", fontSize: "18px" }}
           />
@@ -286,7 +282,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           cell.getValue()
         ),
     },
-    // Rest of the columns remain the same
     {
       accessorKey: "container_count",
       header: "Container Count",
@@ -299,7 +294,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           value={rows[row.index]?.container_count || ""}
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
-          }
+          } // Use onChange for immediate updates
         />
       ),
     },
@@ -336,7 +331,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "consignor"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.consignor || "";
+        const currentValue = rows[row.index]?.consignor || ""; // Current value from the row
         const selectedOption = organisations.find(
           (org) => org === currentValue
         );
@@ -347,7 +342,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             disablePortal={false}
             options={organisations}
             getOptionLabel={(option) => option || ""}
-            value={selectedOption || currentValue}
+            value={selectedOption || currentValue} // Show current value if not in options
             onChange={(_, newValue) => {
               handleInputChange(
                 { target: { value: newValue || "" } },
@@ -362,7 +357,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 placeholder="Select or enter consignor"
               />
             )}
-            freeSolo
+            freeSolo // Allow user to enter custom values
           />
         );
       },
@@ -373,7 +368,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "consignee"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.consignee || "";
+        const currentValue = rows[row.index]?.consignee || ""; // Current value from the row
         const selectedOption = organisations.find(
           (org) => org === currentValue
         );
@@ -384,7 +379,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             disablePortal={false}
             options={organisations}
             getOptionLabel={(option) => option || ""}
-            value={selectedOption || currentValue}
+            value={selectedOption || currentValue} // Show current value if not in options
             onChange={(_, newValue) => {
               handleInputChange(
                 { target: { value: newValue || "" } },
@@ -399,7 +394,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 placeholder="Select or enter consignee"
               />
             )}
-            freeSolo
+            freeSolo // Allow user to enter custom values
           />
         );
       },
@@ -410,7 +405,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "shipping_line"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.shipping_line || "";
+        const currentValue = rows[row.index]?.shipping_line || ""; // Current value from the row
         const selectedOption = shippingLines.find(
           (line) => line.code === currentValue
         );
@@ -421,7 +416,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             disablePortal={false}
             options={shippingLines}
             getOptionLabel={(option) => option.name || ""}
-            value={selectedOption || { name: currentValue }}
+            value={selectedOption || { name: currentValue }} // Show current value if not in options
             onChange={(_, newValue) => {
               handleInputChange(
                 { target: { value: newValue?.code || "" } },
@@ -436,7 +431,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 placeholder="Select or enter shipping line"
               />
             )}
-            freeSolo
+            freeSolo // Allow user to enter custom values
           />
         );
       },
@@ -447,13 +442,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.do_validity || "";
+        const currentValue = rows[row.index]?.do_validity || ""; // Current value from the row
         return (
           <TextField
             type="datetime-local"
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue}
+            value={currentValue} // Bind to rows state
             onChange={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
@@ -479,7 +474,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          }
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -502,7 +497,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          }
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -525,7 +520,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          }
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -548,7 +543,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          }
+          } // Use onChange for immediate updates
           renderInput={(params) => <TextField {...params} size="small" />}
         />
       ),
@@ -585,7 +580,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          value={rows[row.index]?.document_no || ""}
+          value={rows[row.index]?.document_no || ""} // Use value instead of defaultValue
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -602,7 +597,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           type="date"
           sx={{ width: "100%" }}
           size="small"
-          value={rows[row.index]?.document_date || ""}
+          value={rows[row.index]?.document_date || ""} // Use value instead of defaultValue
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -615,12 +610,12 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "description"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.description || "";
+        const currentValue = rows[row.index]?.description || ""; // Current value from the row
         return (
           <TextField
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue}
+            value={currentValue} // Bind to rows state
             onChange={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
@@ -634,12 +629,12 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "instructions"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.instructions || "";
+        const currentValue = rows[row.index]?.instructions || ""; // Current value from the row
         return (
           <TextField
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue}
+            value={currentValue} // Bind to rows state
             onChange={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
@@ -665,8 +660,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
       Cell: ({ cell, row }) => (
-        <IconButton onClick={() => handleSavePr(row.index)} disabled={isSaving}>
-          <SaveIcon sx={{ color: isSaving ? "#ccc" : "#015C4B" }} />
+        <IconButton onClick={() => handleSavePr(row.index)}>
+          <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),
     },

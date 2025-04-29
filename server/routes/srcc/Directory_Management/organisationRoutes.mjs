@@ -29,12 +29,27 @@ router.get("/api/organisations/autocomplete", async (req, res) => {
 // ------------------ CREATE (POST) ------------------
 router.post("/api/organisations", async (req, res) => {
   try {
+    // Check if an organisation with the same name already exists
+    const existingOrg = await Organisation.findOne({ name: req.body.name });
+    if (existingOrg) {
+      return res.status(400).json({
+        error: "Organisation with this name already exists.",
+      });
+    }
+
+    // Create a new organisation
     const newOrg = await Organisation.create(req.body);
     res.status(201).json({
       message: "Organisation added successfully",
       data: newOrg,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      // Handle duplicate key error (fallback)
+      return res.status(400).json({
+        error: "Organisation with this name already exists.",
+      });
+    }
     console.error("Error creating Organisation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -87,6 +102,20 @@ router.get("/api/organisations/:id", async (req, res) => {
 router.put("/api/organisations/:id", async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Check if the new name already exists (excluding the current organisation)
+    if (req.body.name) {
+      const existingOrg = await Organisation.findOne({
+        name: req.body.name,
+        _id: { $ne: id }, // Exclude the current organisation
+      });
+      if (existingOrg) {
+        return res.status(400).json({
+          error: "Organisation with this name already exists.",
+        });
+      }
+    }
+
     const updatedOrg = await Organisation.findByIdAndUpdate(id, req.body, {
       new: true,
     });
@@ -98,6 +127,12 @@ router.put("/api/organisations/:id", async (req, res) => {
       data: updatedOrg,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      // Duplicate key error
+      return res.status(400).json({
+        error: "Organisation with this name already exists.",
+      });
+    }
     console.error("Error updating Organisation:", error);
     res.status(500).json({ error: "Internal server error" });
   }

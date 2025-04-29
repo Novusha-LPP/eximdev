@@ -52,7 +52,7 @@ export const handleSaveLr = async (row, props) => {
       "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
     );
   }
-  
+
   const eWaybillRegex = /^\d{12}$/;
   if (row.eWay_bill && !eWaybillRegex.test(row.eWay_bill)) {
     errors.push("E-Way Bill number must be exactly 12 digits.");
@@ -90,7 +90,7 @@ export const handleSaveLr = async (row, props) => {
   try {
     const res = await axios.post(
       `${process.env.REACT_APP_API_STRING}/update-container`,
-      { ...row, pr_no }
+      { ...row, pr_no: props.pr_no, elock: row.elock } // Include elock field
     );
     alert(res.data.message);
   } catch (error) {

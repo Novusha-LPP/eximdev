@@ -401,7 +401,7 @@ function PortsCfsYardDirectory() {
                       <Box display="flex" gap={2}>
                         <TextField
                           name="prefix"
-                          label="Prefix"
+                          label="Prefix eg(KHD)"
                           value={values.prefix}
                           onChange={handleChange}
                           onBlur={handleBlur}
@@ -409,7 +409,7 @@ function PortsCfsYardDirectory() {
                         />
                         <TextField
                           name="suffix"
-                          label="Suffix"
+                          label="Suffix eg(25-26)"
                           value={values.suffix}
                           onChange={handleChange}
                           onBlur={handleBlur}

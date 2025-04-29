@@ -4,6 +4,8 @@ import UserModel from "../../model/userModel.mjs";
 import aws from "aws-sdk";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import crypto from "crypto";
+
 dotenv.config();
 
 const router = express.Router();
@@ -28,32 +30,33 @@ let transporter = nodemailer.createTransport({
 });
 
 router.post("/api/onboard-employee", async (req, res) => {
-  const {
-    first_name,
-    middle_name,
-    last_name,
-    email,
-    company,
-    employment_type,
-  } = req.body;
-  const username = `${first_name.toLowerCase()}_${last_name.toLowerCase()}`;
-  const password = "1234";
-
   try {
-    // Check if there exists an employee with same username
-    const existingEmployee = await UserModel.findOne({ username });
+    const {
+      first_name,
+      middle_name,
+      last_name,
+      email,
+      company,
+      employment_type,
+    } = req.body;
 
+    // Generate username and password
+    const username = `${first_name.toLowerCase()}_${last_name.toLowerCase()}`;
+    const password = crypto.randomBytes(8).toString("hex");
+
+    // Check if employee with same username exists
+    const existingEmployee = await UserModel.findOne({ username });
     if (existingEmployee) {
-      res.status(200).send({
-        message: `Employee with username: ${username} already exists`,
+      return res.status(200).send({
+        message: `Employee with username: ${username} already exists. Please choose a different username.`,
       });
-      return;
     }
 
-    // Hash the password
+    // Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    // Create new user
     const newUser = new UserModel({
       first_name: first_name.toUpperCase(),
       middle_name: middle_name ? middle_name.toUpperCase() : "",
@@ -69,33 +72,28 @@ router.post("/api/onboard-employee", async (req, res) => {
 
     await newUser.save();
 
+    // Prepare and send email
     let mailOptions = {
       from: "admin@surajforwarders.com",
       to: email,
       subject: `Welcome to the Team, ${first_name.toUpperCase()}!`,
-      html: `Dear ${first_name.toUpperCase()},
-      <br/><br/>
-      Congratulations on your new role at ${company}!
-      <br/><br/>
-      We are pleased to have you join us and look forward to the positive impact you will bring to our team. Enclosed are your onboarding details and some resources to help you get started.
-      <br/>
-      <ul>
-        <li>Username: ${username}</li>
-        <li>Password: ${password}</li>
-        <li>URL: ${CLIENT_URI}</li>
-      </ul>
-      Should you have any questions, please don't hesitate to ask.
-      Welcome aboard!
-      <br/><br/>
-      Warm regards,
-      <br/>
-      Shalini Arun
-      <br/>
-      HR & Admin
-      <br/>
-      Suraj Forwarders Private Limited
-      <br/><br/>
-      <img src="https://alvision-images.s3.ap-south-1.amazonaws.com/Shalini+Mam.jpg" alt="Email Signature" style="max-width: 100%; height: auto;">`,
+      html: `
+        Dear ${first_name.toUpperCase()},<br/><br/>
+        Congratulations on your new role at ${company}!<br/><br/>
+        We are pleased to have you join us and look forward to the positive impact you will bring to our team. Enclosed are your onboarding details and some resources to help you get started.<br/>
+        <ul>
+          <li>Username: ${username}</li>
+          <li>Password: ${password}</li>
+          <li>URL: ${CLIENT_URI}</li>
+        </ul>
+        Should you have any questions, please don't hesitate to ask.<br/><br/>
+        Welcome aboard!<br/><br/>
+        Warm regards,<br/>
+        Shalini Arun<br/>
+        HR & Admin<br/>
+        Suraj Forwarders Private Limited<br/><br/>
+        <img src="https://alvision-images.s3.ap-south-1.amazonaws.com/Shalini+Mam.jpg" alt="Email Signature" style="max-width:100%; height: auto;">
+      `,
     };
 
     await transporter.sendMail(mailOptions);

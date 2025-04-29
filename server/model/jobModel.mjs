@@ -64,7 +64,7 @@ const jobSchema = new mongoose.Schema({
   gateway_igm: { type: String, trim: true },
   gateway_igm_date: { type: String, trim: true },
   hss: { type: String, trim: true, default: "No" },
-  Seller_name: { type: String, trim: true },
+  saller_name: { type: String, trim: true },
   igm_no: { type: String, trim: true },
   igm_date: { type: String, trim: true },
   loading_port: { type: String, trim: true },
@@ -73,6 +73,7 @@ const jobSchema = new mongoose.Schema({
   shipping_line_airline: { type: String, trim: true },
   branchSrNo: { type: String, trim: true },
   adCode: { type: String, trim: true },
+  bank_name: {type: String, trim: true},
   isDraftDoc: { type: Boolean },
   fta_Benefit_date_time: { type: String, trim: true },
   exBondValue: { type: String, trim: true },
@@ -268,9 +269,10 @@ const jobSchema = new mongoose.Schema({
   do_completed: { type: String, trim: true },
   // *******
   icd_cfs_invoice: { type: String, trim: true },
-  icd_cfs_invoice_img: [{ type: String, trim: true }],
+
   icd_cfs_invoice_date: { type: String, trim: true },
-  bill_document_sent_to_accounts: { type: String, trim: true },
+
+
 
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },
@@ -334,7 +336,18 @@ const jobSchema = new mongoose.Schema({
   submission_completed_date_time: { type: String },
   job_sticker_upload: [{ type: String, trim: true }],
   job_sticker_upload_date_and_time: { type: String },
+
+  ////////////////////////////////////////////////// accounts
+  
+  billing_completed_date: { type: String },
+  bill_document_sent_to_accounts: { type: String, trim: true },
+  icd_cfs_invoice_img: [{ type: String, trim: true }],
+  upload_agency_bill_img: {type: String},
+  upload_reimbursement_bill_img: { type: String },  
+  bill_amount: {type: String}
+  
 });
+
 
 // Automatically update `updatedAt` before saving
 jobSchema.pre("save", function (next) {

@@ -194,20 +194,22 @@ function JobList(props) {
           )}
         />
 
-        <TextField
-          select
-          defaultValue={years[0]}
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "100px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
+{years.length > 0 && (
+  <TextField
+    select
+    size="small"
+    value={selectedYearState}
+    onChange={(e) => setSelectedYearState(e.target.value)}
+    sx={{ width: "100px", marginRight: "20px" }}
+  >
+    {years.map((year, index) => (
+      <MenuItem key={`year-${year}-${index}`} value={year}>
+        {year}
+      </MenuItem>
+    ))}
+  </TextField>
+)}
+
 
         <TextField
           select

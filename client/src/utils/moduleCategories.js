@@ -1,5 +1,6 @@
 export const moduleCategories = {
-  Accounts: "Accounts",
+  "Accounts": "Accounts",
+  "Import - Billing": "Accounts",
 
   "Employee Onboarding": "HR & Management",
   "Employee KYC": "HR & Management",
@@ -10,7 +11,6 @@ export const moduleCategories = {
   "Import - Operations": "Import",
   "Import - Add": "Import",
   "Import - DO": "Import",
-  "Import - Billing": "Import",
   "e-Sanchit": "Import",
   "LR Operations": "SRCC",
   "Inward Register": "Inward and Outward Register",

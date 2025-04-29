@@ -82,8 +82,8 @@ function ViewDraftDetails() {
           branch_address: "",
           account_no: "",
           ifsc: "",
-          ad_code: "",
-          ad_code_file: "",
+          adCode: "",
+          adCode_file: "",
         },
       ],
       other_documents: [],
@@ -175,8 +175,8 @@ function ViewDraftDetails() {
           branch_address: "",
           account_no: "",
           ifsc: "",
-          ad_code: "",
-          ad_code_file: "",
+          adCode: "",
+          adCode_file: "",
         },
       ],
     });
@@ -204,7 +204,7 @@ function ViewDraftDetails() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result;
-        formik.setFieldValue(`banks[${index}].ad_code_file`, base64String);
+        formik.setFieldValue(`banks[${index}].adCode_file`, base64String);
       };
       reader.readAsDataURL(file);
     }
@@ -1049,36 +1049,36 @@ function ViewDraftDetails() {
                   size="small"
                   margin="dense"
                   variant="filled"
-                  id={`banks[${index}].ad_code`}
-                  name={`banks[${index}].ad_code`}
+                  id={`banks[${index}].adCode`}
+                  name={`banks[${index}].adCode`}
                   label={`AD Code`}
-                  value={bank.ad_code}
+                  value={bank.adCode}
                   onChange={formik.handleChange}
                   error={
-                    formik.touched[`banks[${index}].ad_code`] &&
-                    Boolean(formik.errors[`banks[${index}].ad_code`])
+                    formik.touched[`banks[${index}].adCode`] &&
+                    Boolean(formik.errors[`banks[${index}].adCode`])
                   }
                   helperText={
-                    formik.touched[`banks[${index}].ad_code`] &&
-                    formik.errors[`banks[${index}].ad_code`]
+                    formik.touched[`banks[${index}].adCode`] &&
+                    formik.errors[`banks[${index}].adCode`]
                   }
                   className="login-input"
                 />
               </Col>
             </Row>
             <br />
-            <label htmlFor={`ad_code_file_${index}`}>
+            <label htmlFor={`adCode_file_${index}`}>
               Upload AD Code File:&nbsp;
             </label>
             <input
               type="file"
               accept="application/pdf"
-              id={`banks[${index}].ad_code_file`}
-              name={`banks[${index}].ad_code_file`}
+              id={`banks[${index}].adCode_file`}
+              name={`banks[${index}].adCode_file`}
               onChange={(e) => handleAdCodeFileUpload(e, index)}
             />
             <br />
-            {bank.ad_code_file && <a href={bank.ad_code_file}>View</a>}
+            {bank.adCode_file && <a href={bank.adCode_file}>View</a>}
           </div>
         ))}
 

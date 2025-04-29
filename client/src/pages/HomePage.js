@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -40,6 +41,7 @@ import ExitInterview from "../components/exit-interview/ExitInterview.js";
 import ImportDO from "../components/import-do/ImportDO.js";
 import EditDoList from "../components/import-do/EditDoList.js";
 import EditDoPlanning from "../components/import-do/EditDoPlanning.js";
+import EditDoCompleted from "../components/import-do/EditDoCompleted.js";
 import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
@@ -52,6 +54,10 @@ import OperationListJob from "../components/import-operations/OperationListJob.j
 
 // Import add
 import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
+
+// import billing 
+import ImportBilling from "../components/Import-billing/ImportBilling.js";
+import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -79,6 +85,7 @@ import Screen3 from "../components/Screens/Screen3.js";
 import Screen4 from "../components/Screens/Screen4.js";
 import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
+
 
 const drawerWidth = 60;
 
@@ -191,6 +198,7 @@ function HomePage() {
             <Route path="/import-do" element={<ImportDO />} />
             <Route path="/edit-do-list/:_id" element={<EditDoList />} />
             <Route path="/edit-do-planning/:_id" element={<EditDoPlanning />} />
+            <Route path="edit-do-completed/:_id" element={<EditDoCompleted />} />
             <Route
               path="/edit-billing-sheet/:_id"
               element={<EditBillingSheet />}
@@ -213,6 +221,12 @@ function HomePage() {
             {/* ImportersInfo */}
 
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
+
+            {/* import billing */}
+            <Route path="/import-billing" element={<ImportBilling />} />
+            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
+            
+
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
 

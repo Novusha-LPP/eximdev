@@ -12,38 +12,43 @@ import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
-const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
+const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
-
-  // Ensure `images` is always an array for backward compatibility
-  const imageArray = Array.isArray(images) ? images : images ? [images] : [];
   const { user } = useContext(UserContext);
-  // Function to extract the file name from the URL
+
+  // Ensure `images` is always an array and handle both string URLs and object URLs
+  const imageArray = Array.isArray(images) 
+    ? images.map(img => typeof img === 'object' && img !== null ? img.url : img)
+    : images 
+      ? [typeof images === 'object' && images !== null ? images.url : images] 
+      : [];
+
+  // Function to extract the file name from the URL, with error handling
   const extractFileName = (url) => {
     try {
+      if (!url) return "Unknown file";
       const parts = url.split("/");
       return decodeURIComponent(parts[parts.length - 1]);
     } catch (error) {
       console.error("Failed to extract file name:", error);
-      return url; // Fallback to original URL if extraction fails
+      return "File name unavailable"; // Fallback if extraction fails
     }
   };
 
   const handleDeleteClick = (index) => {
-     if (user.role === "Admin") {
-       setDeleteIndex(index);
-       setOpenDeleteDialog(true);
-     } else {
-       alert("You do not have permission to delete images.");
-     }
+    if (user.role === "Admin") {
+      setDeleteIndex(index);
+      setOpenDeleteDialog(true);
+    } else {
+      alert("You do not have permission to delete images.");
+    }
   };
 
   const confirmDelete = () => {
     onDeleteImage(deleteIndex);
     setOpenDeleteDialog(false);
-};
-
+  };
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
@@ -59,14 +64,18 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
             {imageArray.map((link, index) => (
               <TableRow key={index}>
                 <TableCell>
-                  <a
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", color: "blue" }}
-                  >
-                    {extractFileName(link)}
-                  </a>
+                  {link ? (
+                    <a
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "none", color: "blue" }}
+                    >
+                      {extractFileName(link)}
+                    </a>
+                  ) : (
+                    "Invalid image link"
+                  )}
                 </TableCell>
                 {!readOnly && (
                   <TableCell>
@@ -97,4 +106,4 @@ const ImagePreview  = ({ images, onDeleteImage, readOnly = false }) => {
   );
 };
 
-export default ImagePreview ;
+export default ImagePreview;

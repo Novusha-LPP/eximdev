@@ -16,6 +16,7 @@ const allModules = [
   "Import - DO",
   "Import - Operations",
   "Import - Add",
+  "Import - Billing",
   "Export",
   "LR Operations",
   "Accounts",
@@ -36,7 +37,7 @@ const allModules = [
   "Screen2",
   "Screen3",
   "Screen4",
-  "Import Billing"
+
   // "Screen5",
   // "Screen6",
 ];

@@ -6,6 +6,7 @@ import { TextField, MenuItem } from "@mui/material";
 const EditableDateCell = ({ cell }) => {
   const {
     _id,
+    assessment_date,
     free_time,
     vessel_berthing,
     gateway_igm_date,
@@ -20,6 +21,7 @@ const EditableDateCell = ({ cell }) => {
   } = cell.row.original;
 
   const [dates, setDates] = useState({
+    assessment_date,
     vessel_berthing,
     gateway_igm_date,
     discharge_date,
@@ -45,6 +47,7 @@ const EditableDateCell = ({ cell }) => {
   // Reset data when row changes
   useEffect(() => {
     setDates({
+      assessment_date,
       vessel_berthing,
       gateway_igm_date,
       discharge_date,
@@ -66,6 +69,7 @@ const EditableDateCell = ({ cell }) => {
     const dischargeDate = dates.discharge_date;
     const outOfChargeDate = dates.out_of_charge;
     const pcvDate = dates.pcv_date;
+    const assessmentDate = dates.assessment_date;
 
     const billOfEntryNo = be_no;
     const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
@@ -144,7 +148,7 @@ const EditableDateCell = ({ cell }) => {
     dates.gateway_igm_date,
     dates.discharge_date,
     dates.out_of_charge,
-    dates.pcv_date,
+    dates.assessment_date,
     containers,
     updateDetailedStatus,
   ]);
@@ -543,6 +547,37 @@ const EditableDateCell = ({ cell }) => {
 
       {/* Right Section */}
       <div>
+        <strong>Assesment Date:</strong>{" "}
+        {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+        <FcCalendar
+          style={styles.icon}
+          onClick={() => handleEditStart("assessment_date")}
+        />
+{editable === "assessment_date" && (
+          <div>
+            <input
+              type="datetime-local"
+              value={tempDateValue}
+              onChange={handleDateInputChange}
+              style={dateError ? styles.errorInput : {}}
+            />
+            <button
+              style={styles.submitButton}
+              onClick={() => handleDateSubmit("assessment_date")}
+            >
+              ✓
+            </button>
+            <button
+              style={styles.cancelButton}
+              onClick={() => setEditable(null)}
+            >
+              ✕
+            </button>
+            {dateError && <div style={styles.errorText}>{dateError}</div>}
+          </div>
+        )}
+        <br />
+        
         <strong>PCV :</strong>{" "}
         {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar

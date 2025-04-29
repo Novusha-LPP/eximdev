@@ -29,6 +29,18 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     year,
   } = req.query;
 
+
+  // Validate query parameters
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
+
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    return res.status(400).json({ message: "Invalid page number" });
+  }
+  if (isNaN(limitNumber) || limitNumber < 1) {
+    return res.status(400).json({ message: "Invalid limit value" });
+  }
   try {
     const user = await User.findOne({ username });
     if (!user) {
@@ -66,6 +78,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       customHouseCondition = { custom_house: selectedICD };
     }
 
+    
     const skip = (page - 1) * limit;
     const searchQuery = search ? buildSearchQuery(search) : {};
 
@@ -151,6 +164,10 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ],
     };
 
+       // ✅ Apply Year Filter if Provided
+       if (selectedYear) {
+        baseQuery.$and.push({ year: selectedYear });
+      }
     // **Fetch Jobs**
     const jobs = await JobModel.find(baseQuery).sort({
       examination_planning_date: 1,

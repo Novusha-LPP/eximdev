@@ -27,8 +27,6 @@ function useFetchJobList(
       const formattedSearchQuery = searchQuery
         ? encodeURIComponent(searchQuery)
         : "";
-      
-      console.log(selectedYearState);
 
       // Construct API URL
       const apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${formattedImporter}?page=${page}&limit=100&search=${formattedSearchQuery}`;

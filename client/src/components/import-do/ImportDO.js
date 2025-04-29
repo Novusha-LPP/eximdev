@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import "../../styles/import-dsr.scss";
 import List from "./List";
 import DoPlanning from "./DoPlanning";
+import DoCompleted from "./DoCompleted.js";
 import BillingSheet from "./BillingSheet";
 import useTabs from "../../customHooks/useTabs";
 import KycDetails from "./KycDetails";
@@ -57,8 +58,9 @@ function ImportDO() {
             <Tab label="Free Days Conf." {...a11yProps(0)} />
             <Tab label="List" {...a11yProps(1)} />
             <Tab label="DO Planning" {...a11yProps(2)} />
-            <Tab label="Billing Sheet" {...a11yProps(3)} />
-            <Tab label="KYC Details" {...a11yProps(4)} />
+            <Tab label="DO Completed" {...a11yProps(3)} />
+            <Tab label="Billing Sheet" {...a11yProps(4)} />
+            <Tab label="KYC Details" {...a11yProps(5)} />
           </Tabs>
         </Box>
         <CustomTabPanel value={value} index={0}>
@@ -71,9 +73,12 @@ function ImportDO() {
           <DoPlanning />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={3}>
-          <BillingSheet />
+          <DoCompleted />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={4}>
+          <BillingSheet />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={5}>
           <KycDetails />
         </CustomTabPanel>
       </Box>

@@ -6,21 +6,24 @@ import { calculateColumnWidth } from "../utils/calculateColumnWidth";
 import { IconButton, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 
-import { handleSavePr } from "../utils/handleSavePr";
+// Import handleSavePr utility if it's needed elsewhere, but don't use it directly here
+// import { handleSavePr } from "../utils/handleSavePr";
 
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
   const [shippingLines, setShippingLines] = useState([]);
   const [branchOptions, setBranchOptions] = useState([]);
-  const [total, setTotal] = useState(0); // Added state for total
-  const [totalPages, setTotalPages] = useState(0); // Added state for totalPages
-  const [currentPage, setCurrentPage] = useState(1); // Added state for currentPage
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false); // Add loading state
+
+  // Create a base URL constant to ensure consistency
+  const API_BASE_URL = process.env.REACT_APP_API_STRING;
 
   const fetchShippingLines = async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-shipping-line`
-      );
+      const response = await axios.get(`${API_BASE_URL}/get-shipping-line`);
       setShippingLines(
         response.data.data.map((item) => ({
           code: item.code || "",
@@ -34,18 +37,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
   const fetchBranchOptions = async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-port-types`
-      );
+      const response = await axios.get(`${API_BASE_URL}/get-port-types`);
 
       const branchOptionsData = response.data.data
-        .filter((item) => item.isBranch) // Only include items where isBranch is true
+        .filter((item) => item.isBranch)
         .map((item) => ({
           isBranch: item.isBranch,
           label: item.icd_code,
           value: item.icd_code,
-          suffix: item.suffix, // Include suffix
-          prefix: item.prefix, // Include prefix
+          suffix: item.suffix,
+          prefix: item.prefix,
         }));
 
       setBranchOptions(branchOptionsData);
@@ -86,12 +87,54 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     });
   };
 
+  // Define getPrData function before using it in handleSavePr
+  const getPrData = async (page = 1, limit = 50) => {
+    setIsLoading(true);
+    try {
+      // Use axios for consistency instead of fetch
+      const response = await axios.get(
+        `${API_BASE_URL}/get-pr-data/all?page=${page}&limit=${limit}`,
+        { timeout: 10000 } // Add timeout to prevent hanging requests
+      );
+
+      if (response.status === 200) {
+        const res = response.data;
+
+        setRows(res.data);
+        setTotal(res.total);
+        setTotalPages(res.totalPages);
+        setCurrentPage(res.currentPage);
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching PR data:", error);
+
+      // More descriptive error handling
+      if (error.code === "ERR_CONNECTION_REFUSED") {
+        alert(
+          "Unable to connect to the server. Please check your network or server status."
+        );
+      } else if (error.code === "ECONNABORTED") {
+        alert("Request timed out. The server may be under heavy load.");
+      } else {
+        alert(`Failed to load PR data: ${error.message}`);
+      }
+
+      // Initialize with empty data to prevent UI errors
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSavePr = async (rowIndex) => {
-    const row = rows[rowIndex]; // Get the updated row from latest state
+    const row = rows[rowIndex];
     console.log("💾 Preparing to save row:", row);
 
     const errors = [];
 
+    // Validation logic
     if (row.branch === "") {
       errors.push("Please select branch");
     }
@@ -111,64 +154,71 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       );
     }
 
-    // If you want to check suffix and prefix manually uncomment below
-    /*
-      if (row.isBranch) {
-        if (!row.suffix || !row.prefix) {
-          errors.push("Suffix and Prefix are required when isBranch is true.");
-        }
-      }
-      */
-
     if (errors.length > 0) {
       console.error("❌ Validation Errors:", errors);
-      alert(errors.join("\n"));
+      alert(errors.join("\\n"));
       return;
     }
 
     try {
+      setIsLoading(true);
       console.log("🚀 Sending POST /update-pr with payload:", row);
 
       const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/update-pr`,
-        row
+        `${API_BASE_URL}/update-pr`,
+        row,
+        { timeout: 10000 } // Add timeout
       );
 
       console.log("✅ API Response:", res.data);
-
       alert(res.data.message);
-      getPrData(currentPage, 50);
+
+      // Refresh data with error handling
+      try {
+        await getPrData(currentPage, 50);
+      } catch (refreshError) {
+        console.error("Failed to refresh data after save:", refreshError);
+        // Data refresh failed, but save was successful, so don't alert again
+      }
     } catch (error) {
       console.error("❌ Error while saving PR:", error);
-      alert("Failed to save PR. Check console for details.");
+
+      if (error.code === "ERR_CONNECTION_REFUSED") {
+        alert(
+          "Unable to connect to the server. Your changes may not have been saved."
+        );
+      } else if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        alert(
+          `Save failed: ${
+            error.response.data.message || error.response.statusText
+          }`
+        );
+      } else if (error.request) {
+        // The request was made but no response was received
+        alert("No response from server. Please check your network connection.");
+      } else {
+        // Something happened in setting up the request
+        alert(`Failed to save PR: ${error.message}`);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  async function getPrData(page = 1, limit = 50) {
-    try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_STRING}/get-pr-data/all?page=${page}&limit=${limit}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const res = await response.json();
-
-      setRows(res.data); // Access `data` from response
-      setTotal(res.total); // Optional: total count
-      setTotalPages(res.totalPages); // Optional: for pagination
-      setCurrentPage(res.currentPage); // Optional: current page
-    } catch (error) {
-      console.error("❌ Error fetching PR data:", error);
-    }
-  }
-
   useEffect(() => {
-    getPrData(1, 50); // Load first page by default
-    fetchShippingLines();
-    fetchBranchOptions();
+    const initializeData = async () => {
+      try {
+        await getPrData(1, 50);
+        await fetchShippingLines();
+        await fetchBranchOptions();
+      } catch (error) {
+        console.error("Error during initialization:", error);
+      }
+    };
+
+    initializeData();
   }, []);
 
   const handleDeletePr = async (pr_no) => {
@@ -177,20 +227,28 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     );
 
     if (confirmDelete) {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/delete-pr`,
-        {
-          pr_no,
-        }
-      );
-      alert(res.data.message);
-      getPrData();
+      setIsLoading(true);
+      try {
+        const res = await axios.post(
+          `${API_BASE_URL}/delete-pr`,
+          { pr_no },
+          { timeout: 10000 }
+        );
+
+        alert(res.data.message);
+        await getPrData(currentPage, 50);
+      } catch (error) {
+        console.error("❌ Error deleting PR:", error);
+        alert(`Failed to delete PR: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    getPrData(page, 50); // Fetch data for the selected page
+    getPrData(page, 50);
   };
 
   const columns = [
@@ -200,7 +258,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableGrouping: false,
       size: 50,
       Cell: ({ row }) => (
-        <IconButton onClick={() => handleDeletePr(row.original.pr_no)}>
+        <IconButton
+          onClick={() => handleDeletePr(row.original.pr_no)}
+          disabled={isLoading}
+        >
           <DeleteIcon
             sx={{ color: "#BE3838", cursor: "pointer", fontSize: "18px" }}
           />
@@ -234,15 +295,14 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               handleInputChange(event, row.index, cell.column.id);
             }}
             placeholder="Select Imp/Exp"
+            disabled={isLoading}
           >
-            {/* Show selected value separately at top, disabled */}
             {currentValue && (
               <MenuItem value={currentValue} disabled>
                 {currentValue}
               </MenuItem>
             )}
 
-            {/* Show selectable options */}
             {options.map((option) => (
               <MenuItem key={option} value={option}>
                 {option}
@@ -277,6 +337,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               )
             }
             renderInput={(params) => <TextField {...params} size="small" />}
+            disabled={isLoading}
           />
         ) : (
           cell.getValue()
@@ -294,7 +355,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           value={rows[row.index]?.container_count || ""}
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
-          } // Use onChange for immediate updates
+          }
+          disabled={isLoading}
         />
       ),
     },
@@ -322,6 +384,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             )
           }
           renderInput={(params) => <TextField {...params} size="small" />}
+          disabled={isLoading}
         />
       ),
     },
@@ -331,7 +394,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "consignor"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.consignor || ""; // Current value from the row
+        const currentValue = rows[row.index]?.consignor || "";
         const selectedOption = organisations.find(
           (org) => org === currentValue
         );
@@ -342,7 +405,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             disablePortal={false}
             options={organisations}
             getOptionLabel={(option) => option || ""}
-            value={selectedOption || currentValue} // Show current value if not in options
+            value={selectedOption || currentValue}
             onChange={(_, newValue) => {
               handleInputChange(
                 { target: { value: newValue || "" } },
@@ -357,7 +420,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 placeholder="Select or enter consignor"
               />
             )}
-            freeSolo // Allow user to enter custom values
+            freeSolo
+            disabled={isLoading}
           />
         );
       },
@@ -368,7 +432,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "consignee"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.consignee || ""; // Current value from the row
+        const currentValue = rows[row.index]?.consignee || "";
         const selectedOption = organisations.find(
           (org) => org === currentValue
         );
@@ -379,7 +443,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             disablePortal={false}
             options={organisations}
             getOptionLabel={(option) => option || ""}
-            value={selectedOption || currentValue} // Show current value if not in options
+            value={selectedOption || currentValue}
             onChange={(_, newValue) => {
               handleInputChange(
                 { target: { value: newValue || "" } },
@@ -394,7 +458,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 placeholder="Select or enter consignee"
               />
             )}
-            freeSolo // Allow user to enter custom values
+            freeSolo
+            disabled={isLoading}
           />
         );
       },
@@ -405,7 +470,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "shipping_line"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.shipping_line || ""; // Current value from the row
+        const currentValue = rows[row.index]?.shipping_line || "";
         const selectedOption = shippingLines.find(
           (line) => line.code === currentValue
         );
@@ -416,7 +481,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             disablePortal={false}
             options={shippingLines}
             getOptionLabel={(option) => option.name || ""}
-            value={selectedOption || { name: currentValue }} // Show current value if not in options
+            value={selectedOption || { name: currentValue }}
             onChange={(_, newValue) => {
               handleInputChange(
                 { target: { value: newValue?.code || "" } },
@@ -431,7 +496,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 placeholder="Select or enter shipping line"
               />
             )}
-            freeSolo // Allow user to enter custom values
+            freeSolo
+            disabled={isLoading}
           />
         );
       },
@@ -442,16 +508,17 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.do_validity || ""; // Current value from the row
+        const currentValue = rows[row.index]?.do_validity || "";
         return (
           <TextField
             type="datetime-local"
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue} // Bind to rows state
+            value={currentValue}
             onChange={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
+            disabled={isLoading}
           />
         );
       },
@@ -474,8 +541,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          } // Use onChange for immediate updates
+          }
           renderInput={(params) => <TextField {...params} size="small" />}
+          disabled={isLoading}
         />
       ),
     },
@@ -497,8 +565,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          } // Use onChange for immediate updates
+          }
           renderInput={(params) => <TextField {...params} size="small" />}
+          disabled={isLoading}
         />
       ),
     },
@@ -520,8 +589,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          } // Use onChange for immediate updates
+          }
           renderInput={(params) => <TextField {...params} size="small" />}
+          disabled={isLoading}
         />
       ),
     },
@@ -543,8 +613,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               row.index,
               cell.column.id
             )
-          } // Use onChange for immediate updates
+          }
           renderInput={(params) => <TextField {...params} size="small" />}
+          disabled={isLoading}
         />
       ),
     },
@@ -562,6 +633,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
+          disabled={isLoading}
         >
           {truckTypes?.map((type) => (
             <MenuItem key={type} value={type}>
@@ -580,10 +652,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          value={rows[row.index]?.document_no || ""} // Use value instead of defaultValue
+          value={rows[row.index]?.document_no || ""}
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
+          disabled={isLoading}
         />
       ),
     },
@@ -597,10 +670,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           type="date"
           sx={{ width: "100%" }}
           size="small"
-          value={rows[row.index]?.document_date || ""} // Use value instead of defaultValue
+          value={rows[row.index]?.document_date || ""}
           onChange={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
+          disabled={isLoading}
         />
       ),
     },
@@ -610,15 +684,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "description"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.description || ""; // Current value from the row
+        const currentValue = rows[row.index]?.description || "";
         return (
           <TextField
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue} // Bind to rows state
+            value={currentValue}
             onChange={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
+            disabled={isLoading}
           />
         );
       },
@@ -629,15 +704,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "instructions"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.instructions || ""; // Current value from the row
+        const currentValue = rows[row.index]?.instructions || "";
         return (
           <TextField
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue} // Bind to rows state
+            value={currentValue}
             onChange={(event) =>
               handleInputChange(event, row.index, cell.column.id)
             }
+            disabled={isLoading}
           />
         );
       },
@@ -660,14 +736,25 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
       Cell: ({ cell, row }) => (
-        <IconButton onClick={() => handleSavePr(row.index)}>
+        <IconButton
+          onClick={() => handleSavePr(row.index)}
+          disabled={isLoading}
+        >
           <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),
     },
   ];
 
-  return { rows, setRows, columns, totalPages, currentPage, handlePageChange };
+  return {
+    rows,
+    setRows,
+    columns,
+    totalPages,
+    currentPage,
+    handlePageChange,
+    isLoading,
+  };
 }
 
 export default usePrColumns;

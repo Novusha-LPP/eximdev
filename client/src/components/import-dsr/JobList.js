@@ -36,7 +36,8 @@ function JobList(props) {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const columns = useJobColumns(detailedStatus);
   const [selectedImporter, setSelectedImporter] = useState("");
-    const [importers, setImporters] = useState("");
+  const [importers, setImporters] = useState("");
+    const [selectedICD, setSelectedICD] = useState("all");
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
@@ -85,6 +86,7 @@ function JobList(props) {
       detailedStatus,
       selectedYearState,
       props.status,
+      selectedICD,
       debouncedSearchQuery,
       selectedImporter
     );
@@ -177,6 +179,23 @@ function JobList(props) {
           {props.status} Jobs: {total}
         </Typography>
 
+         <TextField
+                  select
+                  size="small"
+                  variant="outlined"
+                  label="ICD Code"
+                  value={selectedICD}
+                  onChange={(e) => {
+                    setSelectedICD(e.target.value); // Update the selected ICD code
+                  }}
+                  sx={{ width: "200px", marginRight: "20px" }}
+                >
+                  <MenuItem value="all">All ICDs</MenuItem>
+                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+                </TextField>
+
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
@@ -216,7 +235,7 @@ function JobList(props) {
           size="small"
           value={detailedStatus}
           onChange={(e) => setDetailedStatus(e.target.value)}
-          sx={{ width: "300px" }}
+          sx={{ width: "250px" }}
         >
           {detailedStatusOptions.map((option, index) => (
             <MenuItem

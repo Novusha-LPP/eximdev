@@ -1158,7 +1158,7 @@ function JobDetails() {
                   {/* HSS Field */}
                   <strong>HSS:&nbsp;</strong>
                   <TextField
-                      
+                    fullWidth       
                     select
                     size="small"
                     variant="outlined"

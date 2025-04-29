@@ -249,7 +249,7 @@ function JobDetailsStaticData(props) {
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
           <strong>Importer:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.importer}</span>
+          <span className="non-editable-text">{props.data.importer} - {props.data.ie_code_no}</span>
         </Col>
         <Col xs={12} lg={3}>
           <strong>Invoice No.:&nbsp;</strong>

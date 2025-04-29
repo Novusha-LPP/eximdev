@@ -133,11 +133,12 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
 
 router.post("/api/jobs/add-job", authenticateJWT, async (req, res) => {
   const jsonData = req.body;
-
+  console.log("Received data:", JSON.stringify(jsonData[0])); // Log first item to avoid huge logs
+  console.log("Number of records:", jsonData.length);
   try {
     // Process data in chunks to handle large Excel files
-    const CHUNK_SIZE = 50; // Adjust based on your server's performance
-    
+    const CHUNK_SIZE = 500; // Adjust based on your server's performance
+
     for (let i = 0; i < jsonData.length; i += CHUNK_SIZE) {
       const chunk = jsonData.slice(i, i + CHUNK_SIZE);
       const bulkOperations = [];
@@ -215,7 +216,10 @@ router.post("/api/jobs/add-job", authenticateJWT, async (req, res) => {
               );
 
               return newContainerData
-                ? { ...existingContainer.toObject(), size: newContainerData.size }
+                ? {
+                    ...existingContainer.toObject(),
+                    size: newContainerData.size,
+                  }
                 : existingContainer;
             }
           );
@@ -299,38 +303,44 @@ router.post("/api/jobs/add-job", authenticateJWT, async (req, res) => {
       }
     } catch (error) {
       console.error("Error updating the last jobs date:", error);
-      return res.status(500).json({ 
-        error: "An error occurred while updating the date.", 
-        details: error.message
+      return res.status(500).json({
+        error: "An error occurred while updating the date.",
+        details: error.message,
       });
     }
 
     res.status(200).json({ message: "Jobs added/updated successfully" });
   } catch (error) {
+    console.error("Full error object:", error);
+    console.error("Error stack:", error.stack);
+
     console.error("Error handling job data:", error);
-    
+
     // Enhanced error logging
-    if (error.name === 'ValidationError') {
+    if (error.name === "ValidationError") {
       console.error("Validation error details:", error.errors);
-      return res.status(400).json({ 
-        error: "Validation error", 
+      return res.status(400).json({
+        error: "Validation error",
         details: error.message,
-        validationErrors: error.errors
+        validationErrors: error.errors,
       });
-    } else if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+    } else if (
+      error.name === "MongoError" ||
+      error.name === "MongoServerError"
+    ) {
       console.error("MongoDB error code:", error.code);
       // Handle specific MongoDB errors
       if (error.code === 16819 || error.code === 10334) {
-        return res.status(413).json({ 
-          error: "Data too large for MongoDB operation", 
-          details: error.message 
+        return res.status(413).json({
+          error: "Data too large for MongoDB operation",
+          details: error.message,
         });
       }
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: "Internal server error.",
-      details: error.message
+      details: error.message,
     });
   }
 });

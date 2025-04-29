@@ -2,6 +2,18 @@ import * as xlsx from "xlsx";
 import axios from "axios";
 import { useState } from "react";
 
+const sanitizeData = (data) => {
+  return data.map((row) => {
+    const sanitizedRow = {};
+    for (const key in row) {
+      const value = row[key];
+      sanitizedRow[key] =
+        typeof value === "number" && isNaN(value) ? null : value;
+    }
+    return sanitizedRow;
+  });
+};
+
 function useFileUpload(inputRef, alt, setAlt) {
   const [snackbar, setSnackbar] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,8 +48,9 @@ function useFileUpload(inputRef, alt, setAlt) {
     const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], {
       range: 2,
     });
+    const sanitizedData = sanitizeData(jsonData);
 
-    const modifiedData = jsonData?.map((item) => {
+    const modifiedData = sanitizedData?.map((item) => {
       const modifiedItem = {};
       for (const key in item) {
         if (Object.hasOwnProperty.call(item, key)) {
@@ -282,7 +295,7 @@ function useFileUpload(inputRef, alt, setAlt) {
         alert("Something went wrong during data upload");
       }
     } catch (error) {
-      alert("Error occurred during the upload or status check");
+      //alert("Error occurred during the upload or status check");
       console.error("Error:", error); // Log error
     } finally {
       setLoading(false);

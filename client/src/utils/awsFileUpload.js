@@ -58,7 +58,7 @@ export const uploadFileToS3 = async (files, folderName) => {
     const uploadResponse = await fetch(endpoint, {
       method: "POST",
       body: formData,
-      // credentials: "include", // Enable if cookies are used
+       credentials: "include", // Enable if cookies are used
       cache: "no-cache",
     });
 

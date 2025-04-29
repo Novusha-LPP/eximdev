@@ -12,13 +12,13 @@ const router = express.Router();
 router.get(
   "/api/verify-session",
   (req, res, next) => {
-    console.log("Cookies received:", req.cookies);
-    console.log("Headers:", req.headers);
+    // console.log("Cookies received:", req.cookies);
+    // console.log("Headers:", req.headers);
     next();
   },
   authenticateJWT, // Ensure this middleware is properly invoked
   async (req, res) => {
-    console.log("User authenticated:", req.user);
+    // console.log("User authenticated:", req.user);
 
     try {
       if (!req.user || !req.user.userId) {
@@ -36,7 +36,7 @@ router.get(
       const sanitizedUser = sanitizeUserData(user);
       return res.status(200).json(sanitizedUser);
     } catch (error) {
-      console.error("Session verification error:", error);
+      // console.error("Session verification error:", error);
       return res.status(500).json({ message: "Server error" });
     }
   }

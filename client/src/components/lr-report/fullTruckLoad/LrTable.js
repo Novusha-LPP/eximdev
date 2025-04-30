@@ -12,6 +12,8 @@ import LocationDialog from "../../srcel/LocationDialog";
 import { Box } from "@mui/material";
 
 function LrTable(props) {
+  const { page, pr_no, locations, truckTypes, prData } = props;
+  console.log(`LrTable: ( PAGE, PR_NO, LOCATIONS, TRUCK_TYPES, PR_DATA ) => (${page}, ${pr_no}, ${locations}, ${truckTypes}, ${prData})`, page, pr_no, locations, truckTypes, prData);
   const {
     rows,
     setRows,

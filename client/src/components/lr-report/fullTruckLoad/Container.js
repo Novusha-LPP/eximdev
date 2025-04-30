@@ -46,6 +46,7 @@ function Container() {
       return (
         <div style={{ padding: "0 !important" }}>
           <LrTable
+            page={currentPage}
             pr_no={row.original.pr_no}
             locations={locations}
             truckTypes={truckTypes}
@@ -101,7 +102,6 @@ function Container() {
         color="primary"
         sx={{ mt: 2, display: "flex", justifyContent: "center" }}
       />
-      
     </div>
   );
 }

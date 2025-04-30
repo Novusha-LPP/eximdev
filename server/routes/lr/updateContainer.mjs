@@ -4,9 +4,10 @@ import Tr from "../../model/srcc/trModel.mjs";
 
 const router = express.Router();
 
-// Assuming you are handling this logic in an Express route handler
 router.post("/api/update-container", async (req, res) => {
   try {
+    console.log("📦 Received update-container request with data:", req.body);
+
     const {
       tr_no,
       container_number,
@@ -28,73 +29,94 @@ router.post("/api/update-container", async (req, res) => {
       vehicle_no,
       pr_no,
       status,
-      elock, // Add elock field
+      elock,
     } = req.body;
 
-    // Get the last TR document
-    const lastTr = await Tr.findOne().sort({ _id: -1 });
-
-    let lastTrNo;
-    if (lastTr) {
-      lastTrNo = parseInt(lastTr.tr_no) + 1;
-    } else {
-      lastTrNo = 1;
-    }
-
-    const paddedNo = lastTrNo.toString().padStart(5, "0");
-    const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
-    const tr = `TR/${pr_no?.split("/")[1]}/${fiveDigitNo}/${
-      pr_no?.split("/")[3]
-    }`;
-
-    // Find the document with matching pr_no and is at the last index
+    // Find the PR document
     const prDocument = await PrData.findOne({ pr_no }).sort({ _id: -1 }).exec();
     if (!prDocument) {
+      console.warn("❌ PR document not found for PR No:", pr_no);
       return res.status(200).json({ message: "PR document not found" });
     }
 
-    // Find the index of the container with matching container_number in the prDocument
+    console.log("📄 PR document found:", prDocument._id);
+
+    // Extract year from PR number
+    const prYear = pr_no?.split("/")[3]; // e.g., "25-26"
+    if (!prYear) {
+      console.error("❌ Year not found in PR number:", pr_no);
+      return res.status(400).json({ message: "Invalid PR number format" });
+    }
+
+    // Generate new TR number
+    let newTrNumber;
+    let newTrComplete;
+    let newTrFull;
+
+    // Check if updating existing container with TR number
     const containerIndex = prDocument.containers.findIndex(
       (container) => container.container_number === container_number
     );
 
-    // If container not found and there's a document without container number, update it
+    if (containerIndex !== -1 && prDocument.containers[containerIndex].tr_no) {
+      // Container exists and has a TR number, use existing TR
+      newTrFull = prDocument.containers[containerIndex].tr_no;
+      console.log("🔄 Using existing TR:", newTrFull);
+    } else {
+      // Need to generate a new TR number
+      // Get the last TR for the specified year
+      const lastTrForYear = await Tr.findOne({ year: prYear })
+        .sort({ tr_no: -1 })
+        .exec();
+
+      console.log("📋 Last TR for year", prYear, ":", lastTrForYear);
+
+      // Calculate the next TR number for this year
+      let lastTrNo = lastTrForYear ? parseInt(lastTrForYear.tr_no) : 0;
+      let nextTrNo = lastTrNo + 1;
+      console.log("🔢 Next TR number:", nextTrNo);
+
+      // Format TR number with leading zeros
+      newTrNumber = nextTrNo.toString().padStart(5, "0");
+      newTrComplete = `${newTrNumber}/${prYear}`;
+      newTrFull = `TR/${pr_no?.split("/")[1]}/${newTrNumber}/${prYear}`;
+
+      console.log("🆕 Generated new TR:", newTrFull);
+
+      // Create a new TR record in the database
+      await Tr.create({
+        tr_no: newTrNumber,
+        year: prYear,
+        tr_no_complete: newTrComplete,
+      });
+      console.log("✅ New TR document created:", newTrComplete);
+    }
+
+    // Update container information
     if (containerIndex === -1) {
+      // Container not found, check for blank slot
+      console.log(
+        "📦 Container not found. Checking for blank container slot..."
+      );
       const containerWithoutNumberIndex = prDocument.containers.findIndex(
         (container) => !container.container_number
       );
-      if (containerWithoutNumberIndex !== -1) {
-        const containerWithoutNumber =
-          prDocument.containers[containerWithoutNumberIndex];
-        containerWithoutNumber.container_number = container_number;
-        containerWithoutNumber.tare_weight = tare_weight;
-        containerWithoutNumber.net_weight = net_weight;
-        containerWithoutNumber.sr_cel_no = sr_cel_no;
-        containerWithoutNumber.sr_cel_FGUID = sr_cel_FGUID;
-        containerWithoutNumber.sr_cel_id = sr_cel_id;
-        containerWithoutNumber.goods_pickup = goods_pickup;
-        containerWithoutNumber.goods_delivery = goods_delivery;
-        containerWithoutNumber.own_hired = own_hired;
-        containerWithoutNumber.eWay_bill = eWay_bill;
-        containerWithoutNumber.isOccupied = isOccupied;
-        containerWithoutNumber.type_of_vehicle = type_of_vehicle;
-        containerWithoutNumber.driver_name = driver_name;
-        containerWithoutNumber.driver_phone = driver_phone;
-        containerWithoutNumber.seal_no = seal_no;
-        containerWithoutNumber.gross_weight = gross_weight;
-        containerWithoutNumber.vehicle_no = vehicle_no;
-        containerWithoutNumber.status = status;
-        containerWithoutNumber.tr_no = tr;
-        containerWithoutNumber.elock = elock; // Save the selected Elock reference
 
-        // Create and save new Tr document
-        await Tr.create({ tr_no: fiveDigitNo.toString() });
-      } else {
-        // If no document without container number, create a new one
-        prDocument.containers.push({
+      if (containerWithoutNumberIndex !== -1) {
+        // Update existing blank container
+        console.log(
+          "✅ Found a blank container slot at index:",
+          containerWithoutNumberIndex
+        );
+        const container = prDocument.containers[containerWithoutNumberIndex];
+
+        Object.assign(container, {
           container_number,
           tare_weight,
           net_weight,
+          sr_cel_no,
+          sr_cel_FGUID,
+          sr_cel_id,
           goods_pickup,
           goods_delivery,
           own_hired,
@@ -103,61 +125,81 @@ router.post("/api/update-container", async (req, res) => {
           type_of_vehicle,
           driver_name,
           driver_phone,
-          sr_cel_no,
-          sr_cel_FGUID,
-          sr_cel_id,
           seal_no,
           gross_weight,
           vehicle_no,
           status,
-          tr_no: tr,
-          elock, // Save the selected Elock reference
+          tr_no: newTrFull,
+          elock,
+        });
+      } else {
+        // Add new container
+        console.log("➕ No blank slot. Pushing new container entry.");
+        prDocument.containers.push({
+          container_number,
+          tare_weight,
+          net_weight,
+          sr_cel_no,
+          sr_cel_FGUID,
+          sr_cel_id,
+          goods_pickup,
+          goods_delivery,
+          own_hired,
+          eWay_bill,
+          isOccupied,
+          type_of_vehicle,
+          driver_name,
+          driver_phone,
+          seal_no,
+          gross_weight,
+          vehicle_no,
+          status,
+          tr_no: newTrFull,
+          elock,
         });
       }
     } else {
-      // Update the fields of the matching container with the data sent in req.body
+      // Container exists, update it
       const matchingContainer = prDocument.containers[containerIndex];
-      const trDigit = tr_no?.split("/")[2];
+      console.log("✏️ Updating existing container at index:", containerIndex);
 
-      if (matchingContainer.tr_no !== tr_no) {
-        // Check if tr_no exists in Tr model
-        const trDocument = await Tr.findOne({ trDigit }).exec();
+      // Update container properties
+      Object.assign(matchingContainer, {
+        tare_weight,
+        net_weight,
+        sr_cel_no,
+        sr_cel_FGUID,
+        sr_cel_id,
+        goods_pickup,
+        goods_delivery,
+        own_hired,
+        eWay_bill,
+        isOccupied,
+        type_of_vehicle,
+        driver_name,
+        driver_phone,
+        seal_no,
+        gross_weight,
+        vehicle_no,
+        status,
+        elock,
+      });
 
-        if (trDocument) {
-          return res.status(200).json({ message: "LR no already exists" });
-        }
-      }
-      matchingContainer.tare_weight = tare_weight;
-      matchingContainer.net_weight = net_weight;
-      matchingContainer.goods_pickup = goods_pickup;
-      matchingContainer.goods_delivery = goods_delivery;
-      matchingContainer.own_hired = own_hired;
-      matchingContainer.eWay_bill = eWay_bill;
-      matchingContainer.isOccupied = isOccupied;
-      matchingContainer.type_of_vehicle = type_of_vehicle;
-      matchingContainer.driver_name = driver_name;
-      matchingContainer.driver_phone = driver_phone;
-      matchingContainer.sr_cel_no = sr_cel_no;
-      matchingContainer.sr_cel_FGUID = sr_cel_FGUID;
-      matchingContainer.sr_cel_id = sr_cel_id;
-      matchingContainer.seal_no = seal_no;
-      matchingContainer.gross_weight = gross_weight;
-      matchingContainer.vehicle_no = vehicle_no;
-      matchingContainer.status = status;
-      matchingContainer.elock = elock; // Update the Elock reference
-
-      // Check if tr_no is present, if not, update it
+      // Assign TR if not already present
       if (!matchingContainer.tr_no) {
-        matchingContainer.tr_no = tr;
+        matchingContainer.tr_no = newTrFull;
+        console.log("🆕 Assigned new TR to existing container:", newTrFull);
       }
     }
 
-    // Save the updated document
     await prDocument.save();
-
-    res.status(200).json({ message: "Container data updated successfully" });
+    console.log("💾 PR document saved successfully.");
+    res.status(200).json({
+      message: "Container data updated successfully",
+      tr_no: newTrFull,
+    });
   } catch (error) {
-    console.error("Error updating container data:", error);
+    console.error("❌ Error updating container data:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

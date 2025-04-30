@@ -12,6 +12,7 @@ client/.env
 # Ignore .env file in the server directory
 server/.env
 readmail/.env
+server/package-lock.json
 
 # Ignore logs
 logs/

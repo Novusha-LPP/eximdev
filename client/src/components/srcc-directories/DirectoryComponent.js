@@ -16,6 +16,7 @@ import Elock from "./Elock";
 import Organisation from "./Organisation";
 import UnitConversion from "./unitConversion";
 import CountryCode from "./ContryCode";
+import CurrencyDirectory from "./CurrencyDirectory";
 
 function DirectoryComponent({ directoryType }) {
   console.log("Selected Directory Type:", directoryType); // Debugging log
@@ -54,6 +55,8 @@ function DirectoryComponent({ directoryType }) {
         return <UnitConversion />;
       case "Country Code": // ✅ Added Commoditys Directory
         return <CountryCode />;
+      case "Currency": // ✅ Added Commoditys Directory
+        return <CurrencyDirectory />;
       default:
         console.log("No matching directory found for:", directoryType);
         return null;

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -12,6 +11,11 @@ import ViewBugs from "../components/home/ViewBugs.js";
 import ChangePassword from "../components/home/ChangePassword.js";
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
+
+// import billing
+import ImportBilling from "../components/Import-billing/ImportBilling.js";
+import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
+
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
 import ViewCustomerKyc from "../components/customerKyc/ViewCustomerKyc.js";
@@ -55,9 +59,9 @@ import OperationListJob from "../components/import-operations/OperationListJob.j
 // Import add
 import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 
-// import billing 
-import ImportBilling from "../components/Import-billing/ImportBilling.js";
-import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
+// Import Utility Tool
+import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
+
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -85,7 +89,6 @@ import Screen3 from "../components/Screens/Screen3.js";
 import Screen4 from "../components/Screens/Screen4.js";
 import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
-
 
 const drawerWidth = 60;
 
@@ -134,6 +137,10 @@ function HomePage() {
 
             {/* Accounts */}
             <Route path="/accounts" element={<Accounts />} />
+
+            {/* import billing */}
+            <Route path="/import-billing" element={<ImportBilling />} />
+            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />}/>
 
             {/* Customer KYC */}
             <Route path="/customer-kyc" element={<CustomerKyc />} />
@@ -198,7 +205,10 @@ function HomePage() {
             <Route path="/import-do" element={<ImportDO />} />
             <Route path="/edit-do-list/:_id" element={<EditDoList />} />
             <Route path="/edit-do-planning/:_id" element={<EditDoPlanning />} />
-            <Route path="edit-do-completed/:_id" element={<EditDoCompleted />} />
+            <Route
+              path="edit-do-completed/:_id"
+              element={<EditDoCompleted />}
+            />
             <Route
               path="/edit-billing-sheet/:_id"
               element={<EditBillingSheet />}
@@ -221,11 +231,6 @@ function HomePage() {
             {/* ImportersInfo */}
 
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
-
-            {/* import billing */}
-            <Route path="/import-billing" element={<ImportBilling />} />
-            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
-            
 
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />

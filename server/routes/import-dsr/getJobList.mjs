@@ -75,8 +75,6 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
     const { year, status, detailedStatus, importer, selectedICD } = req.params;
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
-
-    console.log(selectedICD)
     // Base query with year filter
     const query = { year };
 

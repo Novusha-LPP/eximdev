@@ -12,8 +12,8 @@ const router = express.Router();
 
 // Configure AWS SDK
 aws.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+  secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
   region: "ap-south-1",
 });
 

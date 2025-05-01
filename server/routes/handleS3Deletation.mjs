@@ -23,7 +23,7 @@ router.post("/api/delete-s3-file", async (req, res) => {
   }
 
   const command = new DeleteObjectCommand({
-    Bucket: process.env.S3_BUCKET,
+    Bucket: process.env.REACT_APP_S3_BUCKET,
     Key: key,
   });
 

@@ -10,8 +10,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/import-operations");
     case "Import - Add":
       return navigate("/ImportersInfo");
-    case "Import - Billing":
-      return navigate("/import-billing");
+    case "Import Utility Tool":
+      return navigate("/import-utility-tool");
     case "Import - DO":
       return navigate("/import-do");
     case "Inward Register":
@@ -20,6 +20,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/outward-register");
     case "Accounts":
       return navigate("/accounts");
+    case "Import - Billing":
+      return navigate("/import-billing");
     case "Customer KYC":
       return navigate("/customer-kyc");
     case "Exit Feedback":

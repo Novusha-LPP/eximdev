@@ -15,7 +15,7 @@ const importPriority = [
   "Import - DO",
   "Import - Operations",
   "Import - Add",
-  "Import - Billing",
+  "Import Utility Tool",
 ];
 
 function Home() {

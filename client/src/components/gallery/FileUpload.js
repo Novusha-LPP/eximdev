@@ -12,7 +12,7 @@ const FileUpload = ({
   readOnly = false, // Default to false
 }) => {
   const [uploading, setUploading] = useState(false);
-   const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
 
   const handleFileUpload = async (event) => {
     if (readOnly) return; // Prevent upload if readOnly is true
@@ -23,7 +23,7 @@ const FileUpload = ({
     setUploading(true);
     for (const file of files) {
       try {
-        const result = await uploadFileToS3(file, bucketPath, );
+        const result = await uploadFileToS3(file, bucketPath);
         uploadedFiles.push(result.Location);
       } catch (error) {
         console.error(`Failed to upload ${file.name}:`, error);
@@ -61,7 +61,5 @@ const FileUpload = ({
     </div>
   );
 };
-
-
 
 export default FileUpload;

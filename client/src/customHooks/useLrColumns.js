@@ -554,7 +554,8 @@ function useLrColumns(props) {
         return (
           <Checkbox
             style={{ padding: 0 }}
-            disabled={!(hasTrNo && isEwayValid)} // ✅ Only enabled if BOTH are true
+            // disabled={!(hasTrNo && isEwayValid)} // ✅ Only enabled if BOTH are true
+            disabled={!hasTrNo} // ✅ Only enabled if BOTH are true
             onChange={() => handleCheckboxChange(row.original)}
           />
         );

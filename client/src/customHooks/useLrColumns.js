@@ -128,11 +128,29 @@ function useLrColumns(props) {
   }, []);
 
   async function getData() {
-    const res = await axios.post(
-      `${process.env.REACT_APP_API_STRING}/get-trs`,
-      { pr_no: props.pr_no }
-    );
-    setRows(res.data);
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/get-trs`,
+        { pr_no: props.pr_no }
+      );
+
+      // Clear all existing rows first
+      setRows([]);
+
+      // Then set the new data
+      setRows(
+        res.data.map((row) => ({
+          ...row,
+          availableVehicles: [],
+          availableDrivers: [],
+          vehicleIds: {},
+          // Add any other dynamic properties that need to be reset
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching TR data:", error);
+      setRows([]);
+    }
   }
 
   useEffect(() => {
@@ -282,8 +300,42 @@ function useLrColumns(props) {
           }
         );
 
-        alert(res.data.message);
+        // Clear all fields for this TR
+        setRows((prevRows) =>
+          prevRows.map((row) => {
+            if (
+              row.tr_no === tr_no &&
+              row.container_number === container_number
+            ) {
+              // Reset all fields for the deleted row
+              return {
+                ...row,
+                container_number: "",
+                seal_no: "",
+                gross_weight: "",
+                tare_weight: "",
+                net_weight: "",
+                goods_pickup: "",
+                goods_delivery: "",
+                own_hired: "",
+                type_of_vehicle: "",
+                vehicle_no: "",
+                driver_name: "",
+                driver_phone: "",
+                sr_cel_no: "",
+                eWay_bill: "",
+                status: "",
+                // Add any other fields that need to be cleared
+              };
+            }
+            return row;
+          })
+        );
+
+        // Fetch fresh data to ensure everything is in sync
         await getData();
+
+        alert(res.data.message);
 
         // Call the parent's refresh function after successful deletion
         if (props.onDelete) {

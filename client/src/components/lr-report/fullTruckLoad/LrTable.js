@@ -63,9 +63,9 @@ function LrTable(props) {
     enableTopToolbar: false,
     renderBottomToolbar: ({ table }) => (
       <>
-        <IconButton onClick={handleAddRow}>
+        {/* <IconButton onClick={handleAddRow}>
           <TableRowsIcon />
-        </IconButton>
+        </IconButton> */}
         <IconButton onClick={() => generateLrPdf(selectedRows, props.prData)}>
           <PrintIcon />
         </IconButton>

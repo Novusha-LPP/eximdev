@@ -300,41 +300,10 @@ function useLrColumns(props) {
           }
         );
 
-        // Clear all fields for this TR
-        setRows((prevRows) =>
-          prevRows.map((row) => {
-            if (
-              row.tr_no === tr_no &&
-              row.container_number === container_number
-            ) {
-              // Reset all fields for the deleted row
-              return {
-                ...row,
-                container_number: "",
-                seal_no: "",
-                gross_weight: "",
-                tare_weight: "",
-                net_weight: "",
-                goods_pickup: "",
-                goods_delivery: "",
-                own_hired: "",
-                type_of_vehicle: "",
-                vehicle_no: "",
-                driver_name: "",
-                driver_phone: "",
-                sr_cel_no: "",
-                eWay_bill: "",
-                status: "",
-                // Add any other fields that need to be cleared
-              };
-            }
-            return row;
-          })
-        );
-
-        // Fetch fresh data to ensure everything is in sync
+        // Immediately refresh data after deletion to ensure complete sync with backend
         await getData();
 
+        // Success message
         alert(res.data.message);
 
         // Call the parent's refresh function after successful deletion
@@ -632,7 +601,15 @@ function useLrColumns(props) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
+          value={rows[row.index]?.container_number || ""}
+          onChange={(e) => {
+            const newValue = e.target.value;
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].container_number = newValue;
+              return updatedRows;
+            });
+          }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -648,7 +625,14 @@ function useLrColumns(props) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
+          value={rows[row.index]?.seal_no || ""}
+          onChange={(e) => {
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].seal_no = e.target.value;
+              return updatedRows;
+            });
+          }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -664,7 +648,14 @@ function useLrColumns(props) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
+          value={rows[row.index]?.gross_weight || ""}
+          onChange={(e) => {
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].gross_weight = e.target.value;
+              return updatedRows;
+            });
+          }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -680,7 +671,14 @@ function useLrColumns(props) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
+          value={rows[row.index]?.tare_weight || ""}
+          onChange={(e) => {
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].tare_weight = e.target.value;
+              return updatedRows;
+            });
+          }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -696,7 +694,14 @@ function useLrColumns(props) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
+          value={rows[row.index]?.net_weight || ""}
+          onChange={(e) => {
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].net_weight = e.target.value;
+              return updatedRows;
+            });
+          }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
@@ -759,10 +764,15 @@ function useLrColumns(props) {
           select
           sx={{ width: "100%" }}
           size="small"
-          defaultValue={cell.getValue()}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          value={rows[row.index]?.own_hired || ""}
+          onChange={(e) => {
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].own_hired = e.target.value;
+              return updatedRows;
+            });
+            handleInputChange(e, row.index, cell.column.id);
+          }}
         >
           <MenuItem value="Own">Own</MenuItem>
           <MenuItem value="Hired">Hired</MenuItem>
@@ -1000,18 +1010,24 @@ function useLrColumns(props) {
       header: "E-Way Bill",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) => {
-        return (
-          <TextField
-            sx={{ width: "100%" }}
-            size="small"
-            defaultValue={cell.getValue()}
-            onBlur={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-          />
-        );
-      },
+      Cell: ({ cell, row }) => (
+        <TextField
+          sx={{ width: "100%" }}
+          size="small"
+          value={rows[row.index]?.eWay_bill || ""}
+          onChange={(e) => {
+            setRows((prevRows) => {
+              const updatedRows = [...prevRows];
+              updatedRows[row.index].eWay_bill = e.target.value;
+              return updatedRows;
+            });
+          }}
+          onBlur={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+          placeholder="Enter E-Way Bill number"
+        />
+      ),
     },
     // {
     //   accessorKey: "isOccupied",

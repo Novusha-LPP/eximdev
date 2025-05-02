@@ -61,6 +61,9 @@ import getLIC from "./routes/accounts/getLic.mjs";
 import getMobile from "./routes/accounts/getMobile.mjs";
 import getRent from "./routes/accounts/getRent.mjs";
 
+// import - billing
+import getImportBilling from "./routes/import-billing/getImportBilling.js"
+
 // Customer KYC
 import addCustomerKyc from "./routes/customer-kyc/addCustomerKyc.mjs";
 import viewCompletedKyc from "./routes/customer-kyc/viewCompletedKyc.mjs";
@@ -95,8 +98,6 @@ import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJob
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
 
-// import - billing
-import getImportBilling from "./routes/import-billing/getImportBilling.js"
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -142,6 +143,9 @@ import getOperationPlanningJobs from "./routes/import-operations/getOperationPla
 import completedOperation from "./routes/import-operations/CompletedOperation.mjs";
 import updateOperationsJob from "./routes/import-operations/updateOperationsJob.mjs";
 import getOperationPlanningList from "./routes/import-operations/getOperationPlanningList.mjs";
+
+//import utility tool
+import getCthSearch from "../server/model/srcc/Directory_Management/CthUtil/getChtSearch.js"
 
 // Inward Register
 import addInwardRegister from "./routes/inward-register/addInwardRegister.mjs";
@@ -440,6 +444,9 @@ if (cluster.isPrimary) {
       // import billing
       app.use(getImportBilling)
 
+      // import cth search
+      app.use(getCthSearch);
+
       // Inward Register
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
@@ -564,4 +571,7 @@ if (cluster.isPrimary) {
     console.log("Mongoose connection closed due to app termination");
     process.exit(0);
   });
+
+
+  
 }

@@ -231,6 +231,9 @@ function HomePage() {
             {/* ImportersInfo */}
 
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
+            {/* import utility tool */}
+
+            <Route path="/import-utility-tool" element={<ImportUtilityTool />} />
 
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />

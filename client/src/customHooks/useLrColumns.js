@@ -111,16 +111,6 @@ function useLrColumns(props) {
       />
     );
   };
-  // useEffect(() => {
-  //   async function getTruckNo() {
-  //     const res = await axios(
-  //       `${process.env.REACT_APP_API_STRING}/get-vehicles`
-  //     );
-  //     setTruckNos(res.data);
-  //   }
-
-  //   getTruckNo();
-  // }, []);
 
   useEffect(() => {
     async function getVehicleTypes() {
@@ -519,23 +509,7 @@ function useLrColumns(props) {
       newRows[rowIndex].driver_phone = "";
     }
   };
-  // const populateDriverDetails = (newRows, rowIndex, vehicleNo) => {
-  //   const selectedTruck = truckNos.find(
-  //     (truck) => truck.truck_no === vehicleNo
-  //   );
 
-  //   if (selectedTruck?.drivers?.length > 0) {
-  //     const lastDriver =
-  //       selectedTruck.drivers[selectedTruck.drivers?.length - 1];
-
-  //     newRows[rowIndex].driver_name = lastDriver.driver_name;
-  //     newRows[rowIndex].driver_phone = lastDriver.driver_phone;
-  //   } else {
-  //     newRows[rowIndex].driver_name = "";
-  //     newRows[rowIndex].driver_phone = "";
-  //   }
-  //   setRows(newRows); // Update the state to reflect changes in the UI
-  // };
 
   const handleCloseLocationDialog = () => {
     setOpenLocationDialog(false);
@@ -568,9 +542,13 @@ function useLrColumns(props) {
       size: 50,
       Cell: ({ row }) => (
         <IconButton
-          onClick={() =>
-            handleDelete(row.original.tr_no, row.original.container_number)
-          }
+          onClick={async () => {
+            await handleDelete(
+              row.original.tr_no,
+              row.original.container_number
+            );
+            await getData();
+          }}
         >
           <DeleteIcon
             sx={{ color: "#BE3838", cursor: "pointer", fontSize: "18px" }}

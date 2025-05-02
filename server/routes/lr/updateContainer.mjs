@@ -79,7 +79,7 @@ router.post("/api/update-container", async (req, res) => {
       // Format TR number with leading zeros
       newTrNumber = nextTrNo.toString().padStart(5, "0");
       newTrComplete = `${newTrNumber}/${prYear}`;
-      newTrFull = `TR/${pr_no?.split("/")[1]}/${newTrNumber}/${prYear}`;
+      newTrFull = `LR/${pr_no?.split("/")[1]}/${newTrNumber}/${prYear}`;
 
       console.log("🆕 Generated new TR:", newTrFull);
 

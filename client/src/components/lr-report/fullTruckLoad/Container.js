@@ -21,6 +21,7 @@ function Container() {
     totalPages,
     currentPage,
     handlePageChange,
+    refreshPrData,
   } = usePrColumns(organisations, containerTypes, locations, truckTypes);
 
   const table = useMaterialReactTable({
@@ -58,6 +59,7 @@ function Container() {
             locations={locations}
             truckTypes={truckTypes}
             prData={rows[row.id]}
+            onDelete={() => refreshPrData(currentPage)}
           />
         </div>
       );

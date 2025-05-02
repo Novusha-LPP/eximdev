@@ -272,17 +272,27 @@ function useLrColumns(props) {
     );
 
     if (confirmDelete) {
-      // If user confirms deletion, proceed with deletion
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/delete-tr`,
-        {
-          pr_no: props.pr_no,
-          tr_no,
-          container_number,
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/delete-tr`,
+          {
+            pr_no: props.pr_no,
+            tr_no,
+            container_number,
+          }
+        );
+
+        alert(res.data.message);
+        await getData();
+
+        // Call the parent's refresh function after successful deletion
+        if (props.onDelete) {
+          props.onDelete();
         }
-      );
-      alert(res.data.message);
-      getData();
+      } catch (error) {
+        console.error("Error deleting TR:", error);
+        alert("Failed to delete TR");
+      }
     }
   };
 
@@ -509,7 +519,6 @@ function useLrColumns(props) {
       newRows[rowIndex].driver_phone = "";
     }
   };
-
 
   const handleCloseLocationDialog = () => {
     setOpenLocationDialog(false);

@@ -53,6 +53,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     }
   };
 
+  const refreshPrData = (page = currentPage) => {
+    getPrData(page, 50);
+  };
+
   const handleInputChange = (event, rowIndex, columnId) => {
     const { value } = event.target;
 
@@ -703,7 +707,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     },
   ];
 
-  return { rows, setRows, columns, totalPages, currentPage, handlePageChange };
+  return {
+    rows,
+    setRows,
+    columns,
+    total,
+    totalPages,
+    currentPage,
+    handlePageChange,
+    refreshPrData,
+  };
 }
 
 export default usePrColumns;

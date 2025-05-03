@@ -521,6 +521,35 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       Cell: ({ cell, row }) => {
         const inputRef = React.useRef(null);
 
+        // Setup effect to open picker on focus (including tab navigation)
+        React.useEffect(() => {
+          const handleFocus = () => {
+            // Small delay to ensure browser has completed focus
+            setTimeout(() => {
+              if (document.activeElement === inputRef.current) {
+                try {
+                  inputRef.current.showPicker();
+                } catch (error) {
+                  // Some browsers require direct user interaction
+                  console.log("Browser requires direct interaction for picker");
+                }
+              }
+            }, 100);
+          };
+
+          // Attach focus listener
+          if (inputRef.current) {
+            inputRef.current.addEventListener("focus", handleFocus);
+          }
+
+          // Cleanup
+          return () => {
+            if (inputRef.current) {
+              inputRef.current.removeEventListener("focus", handleFocus);
+            }
+          };
+        }, []);
+
         // Calculate dates: 1 year back and 1 year ahead
         const now = new Date();
         const minDate = new Date(now);
@@ -543,11 +572,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               min: minDateTime,
               max: maxDateTime,
             }}
-            onFocus={(event) => {
-              inputRef.current?.showPicker();
-            }}
             onChange={(event) => {
-              const selectedDate = new Date(event.target.value);
+              const value = event.target.value;
+
+              // Always allow clearing the field
+              if (!value) {
+                handleInputChange(event, row.index, cell.column.id);
+                return;
+              }
+
+              const selectedDate = new Date(value);
 
               // Validate if date is within allowed range
               if (selectedDate >= minDate && selectedDate <= maxDate) {
@@ -556,6 +590,22 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 alert(
                   "Please select a date between last year and next year from today"
                 );
+              }
+            }}
+            onClick={(event) => {
+              // This ensures the picker shows when clicking on the input field
+              try {
+                inputRef.current?.showPicker();
+              } catch (error) {
+                console.log("Error showing picker:", error);
+              }
+            }}
+            onFocus={(event) => {
+              // Backup for browsers that support this
+              try {
+                inputRef.current?.showPicker();
+              } catch (error) {
+                // Already handled by the useEffect
               }
             }}
           />
@@ -701,6 +751,35 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       Cell: ({ cell, row }) => {
         const inputRef = React.useRef(null);
 
+        // Setup effect to open picker on focus (including tab navigation)
+        React.useEffect(() => {
+          const handleFocus = () => {
+            // Small delay to ensure browser has completed focus
+            setTimeout(() => {
+              if (document.activeElement === inputRef.current) {
+                try {
+                  inputRef.current.showPicker();
+                } catch (error) {
+                  // Some browsers require direct user interaction
+                  console.log("Browser requires direct interaction for picker");
+                }
+              }
+            }, 100);
+          };
+
+          // Attach focus listener
+          if (inputRef.current) {
+            inputRef.current.addEventListener("focus", handleFocus);
+          }
+
+          // Cleanup
+          return () => {
+            if (inputRef.current) {
+              inputRef.current.removeEventListener("focus", handleFocus);
+            }
+          };
+        }, []);
+
         // Calculate dates: 1 year back and 1 year ahead
         const now = new Date();
         const minDate = new Date(now);
@@ -723,11 +802,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               min: minDateStr,
               max: maxDateStr,
             }}
-            onFocus={(event) => {
-              inputRef.current?.showPicker();
-            }}
             onChange={(event) => {
-              const selectedDate = new Date(event.target.value);
+              const value = event.target.value;
+
+              // Always allow clearing the field
+              if (!value) {
+                handleInputChange(event, row.index, cell.column.id);
+                return;
+              }
+
+              const selectedDate = new Date(value);
 
               // Validate if date is within allowed range
               if (selectedDate >= minDate && selectedDate <= maxDate) {
@@ -736,6 +820,22 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
                 alert(
                   "Please select a date between last year and next year from today"
                 );
+              }
+            }}
+            onClick={(event) => {
+              // This ensures the picker shows when clicking on the input field
+              try {
+                inputRef.current?.showPicker();
+              } catch (error) {
+                console.log("Error showing picker:", error);
+              }
+            }}
+            onFocus={(event) => {
+              // Backup for browsers that support this
+              try {
+                inputRef.current?.showPicker();
+              } catch (error) {
+                // Already handled by the useEffect
               }
             }}
           />

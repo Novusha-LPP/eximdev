@@ -9,10 +9,10 @@ const FileUpload = ({
   bucketPath,
   multiple = true,
   acceptedFileTypes = [],
-  readOnly = false, // Default to false
+  readOnly = false,
 }) => {
   const [uploading, setUploading] = useState(false);
-   const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
 
   const handleFileUpload = async (event) => {
     if (readOnly) return; // Prevent upload if readOnly is true
@@ -21,16 +21,22 @@ const FileUpload = ({
     const uploadedFiles = [];
 
     setUploading(true);
-    for (const file of files) {
-      try {
-        const result = await uploadFileToS3(file, bucketPath, );
-        uploadedFiles.push(result.Location);
-      } catch (error) {
-        console.error(`Failed to upload ${file.name}:`, error);
+    try {
+      for (const file of files) {
+        try {
+          const result = await uploadFileToS3(file, bucketPath);
+          // Just store the URL string rather than an object
+          uploadedFiles.push(result.Location);
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+        }
       }
+      onFilesUploaded(uploadedFiles);
+    } catch (error) {
+      console.error("Upload process failed:", error);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
-    onFilesUploaded(uploadedFiles);
   };
 
   return (
@@ -43,7 +49,7 @@ const FileUpload = ({
           color: "#fff",
           cursor: readOnly ? "not-allowed" : "pointer",
         }}
-        disabled={readOnly || uploading} // Disable button when readOnly
+        disabled={readOnly || uploading}
       >
         {label}
         <input
@@ -52,7 +58,7 @@ const FileUpload = ({
           multiple={multiple}
           accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
           onChange={handleFileUpload}
-          disabled={readOnly || uploading} // Disable input when readOnly
+          disabled={readOnly || uploading}
         />
       </Button>
       {uploading && (
@@ -61,7 +67,5 @@ const FileUpload = ({
     </div>
   );
 };
-
-
 
 export default FileUpload;

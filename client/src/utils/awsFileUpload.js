@@ -115,7 +115,6 @@ export const handleFileUpload = async (
   formik,
   setFileSnackbar
 ) => {
-
   if (e.target.files.length === 0) {
     console.warn("No files selected for upload");
     alert("No files selected");
@@ -147,14 +146,12 @@ export const handleFileUpload = async (
           ...values,
           [formikKey]: fileLocations,
         };
-       // console.log("New formik values:", newValues);
+        // console.log("New formik values:", newValues);
         return newValues;
       });
 
-      
       setFileSnackbar(true);
       setTimeout(() => {
-       
         setFileSnackbar(false);
       }, 3000);
 

@@ -1,6 +1,5 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -86,14 +85,13 @@ const buildSearchQuery = (search) => ({
 
 // API to fetch jobs with pagination, sorting, and search
 router.get(
-  "/api/:year/jobs/:status/:detailedStatus/:importer",
-  authenticateJWT,
+  "/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer",
   async (req, res) => {
     try {
-      const { year, status, detailedStatus, importer } = req.params;
+      const { year, status, detailedStatus, importer, selectedICD } =
+        req.params;
       const { page = 1, limit = 100, search = "" } = req.query;
       const skip = (page - 1) * limit;
-
       // Base query with year filter
       const query = { year };
 
@@ -106,6 +104,12 @@ router.get(
       if (importer && importer.toLowerCase() !== "all") {
         query.importer = {
           $regex: `^${escapeRegex(importer)}$`,
+          $options: "i",
+        };
+      }
+      if (selectedICD && selectedICD.toLowerCase() !== "all") {
+        query.custom_house = {
+          $regex: `^${escapeRegex(selectedICD)}$`,
           $options: "i",
         };
       }
@@ -217,119 +221,11 @@ router.get(
       console.error("Error fetching jobs:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
-    if (selectedICD && selectedICD.toLowerCase() !== "all") {
-      query.custom_house = {
-        $regex: `^${escapeRegex(selectedICD)}$`,
-        $options: "i",
-      };
-    }
-
-    // Handle case-insensitive status filtering and bill_date conditions
-    const statusLower = status.toLowerCase();
-
-    if (statusLower === "pending") {
-      query.$and = [
-        { status: { $regex: "^pending$", $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-        {
-          $or: [
-            { bill_date: { $in: [null, ""] } },
-            { status: { $regex: "^pending$", $options: "i" } },
-          ],
-        },
-      ];
-    } else if (statusLower === "completed") {
-      query.$and = [
-        { status: { $regex: "^completed$", $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-        {
-          $or: [
-            { bill_date: { $nin: [null, ""] } },
-            { status: { $regex: "^completed$", $options: "i" } },
-          ],
-        },
-      ];
-    } else if (statusLower === "cancelled") {
-      query.$and = [
-        {
-          $or: [
-            { status: { $regex: "^cancelled$", $options: "i" } },
-            { be_no: { $regex: "^cancelled$", $options: "i" } },
-          ],
-        },
-      ];
-      if (search) query.$and.push(buildSearchQuery(search));
-    } else {
-      query.$and = [
-        { status: { $regex: `^${status}$`, $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-      ];
-    }
-
-    // Handle detailedStatus filtering using a mapping object
-    const statusMapping = {
-      billing_pending: "Billing Pending",
-      eta_date_pending: "ETA Date Pending",
-      estimated_time_of_arrival: "Estimated Time of Arrival",
-      gateway_igm_filed: "Gateway IGM Filed",
-      discharged: "Discharged",
-      rail_out: "Rail Out",
-      be_noted_arrival_pending: "BE Noted, Arrival Pending",
-      be_noted_clearance_pending: "BE Noted, Clearance Pending",
-      pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
-      custom_clearance_completed: "Custom Clearance Completed",
-    };
-
-    if (detailedStatus !== "all") {
-      query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
-    }
-
-    // Add search filter if provided (for non-cancelled cases)
-    if (search && statusLower !== "cancelled") {
-      query.$and.push(buildSearchQuery(search));
-    }
-
-    // Fetch jobs from the database
-    const jobs = await JobModel.find(query).select(
-      getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus)
-    );
-
-    // Group jobs into ranked and unranked
-    const rankedJobs = jobs.filter((job) => statusRank[job.detailed_status]);
-    const unrankedJobs = jobs.filter((job) => !statusRank[job.detailed_status]);
-
-    // Sort ranked jobs by status rank and date field
-    const sortedRankedJobs = Object.entries(statusRank).reduce(
-      (acc, [status, { field }]) => [
-        ...acc,
-        ...rankedJobs
-          .filter((job) => job.detailed_status === status)
-          .sort(
-            (a, b) =>
-              parseDate(a.container_nos?.[0]?.[field] || a[field]) -
-              parseDate(b.container_nos?.[0]?.[field] || b[field])
-          ),
-      ],
-      []
-    );
-
-    // Combine ranked and unranked jobs
-    const allJobs = [...sortedRankedJobs, ...unrankedJobs];
-
-    // Paginate results
-    const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
-
-    res.json({
-      data: paginatedJobs,
-      total: allJobs.length,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(allJobs.length / limit),
-    });
   }
 );
 
 // PATCH API to update job dates
-router.patch("/api/jobs/:id", authenticateJWT, async (req, res) => {
+router.patch("/api/jobs/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body; // Contains updated fields

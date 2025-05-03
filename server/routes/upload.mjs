@@ -8,10 +8,10 @@ const router = express.Router();
 
 // Initialize the S3 client with AWS SDK v3
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.REACT_APP_AWS_REGION,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
   },
 });
 
@@ -65,7 +65,7 @@ router.post(
 
           // Set up S3 upload parameters
           const params = {
-            Bucket: process.env.S3_BUCKET,
+            Bucket: process.env.REACT_APP_S3_BUCKET,
             Key: key,
             Body: file.buffer,
             ContentType: file.mimetype,
@@ -76,7 +76,7 @@ router.post(
           const uploadResult = await s3Client.send(command);
 
           // Construct location URL since SDK v3 doesn't return it directly
-          const location = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+          const location = `https://${process.env.REACT_APP_S3_BUCKET}.s3.${process.env.REACT_APP_AWS_REGION}.amazonaws.com/${key}`;
 
           uploadResults.push({
             originalName: file.originalname,

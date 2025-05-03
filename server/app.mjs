@@ -302,8 +302,7 @@ if (cluster.isPrimary) {
       exposedHeaders: ["Authorization"], // Expose the Authorization header
     })
   );
-  app.options('*', cors()); // ✅ allow preflight requests globally
-
+  app.options("*", cors()); // ✅ allow preflight requests globally
 
   // app.options("*", (req, res) => {
   //   // Set CORS headers directly
@@ -320,16 +319,14 @@ if (cluster.isPrimary) {
   //   res.sendStatus(204); // No content needed for OPTIONS response
   // });
   app.use(cookieParser());
-  app.use(express.json());
+
   // app.use(express.urlencoded({ extended: true }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
   // app.use(cors());
 
   // // Apply CORS preflight to all routes
   // app.options("*", cors());
-
- 
 
   // Optional: Handle preflight requests manually if needed
   // app.options(
@@ -586,33 +583,14 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
       app.use(driverAssignment);
       app.use(getTyreDetails);
       app.use(getTruckDetails);
+
       app.use("/upload", uploadRouter);
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
-      const serverMode = process.env.SERVER_MODE;
-      console.log(serverMode, "serverMode");
-
-      let server;
-
-      if (serverMode === "production-secure") {
-        const sslOptions = {
-          key: fs.readFileSync(
-            "/etc/letsencrypt/live/exim.alvision.in/privkey.pem"
-          ),
-          cert: fs.readFileSync(
-            "/etc/letsencrypt/live/exim.alvision.in/fullchain.pem"
-          ),
-        };
-
-        server = https.createServer(sslOptions, app);
-        console.log("🔐 HTTPS server created with SSL certs");
-      } else {
-        server = http.createServer(app);
-        console.log("🧪 HTTP server created for non-secure environments");
-      }
-
+      const server = http.createServer(app);
       setupJobOverviewWebSocket(server);
+
       server.listen(9000, () => {
         console.log(`🟢 Server listening on http://localhost:${9000}`);
       });

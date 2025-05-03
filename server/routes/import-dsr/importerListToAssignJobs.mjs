@@ -1,10 +1,11 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import UserModel from "../../model/userModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/importer-list-to-assign-jobs", async (req, res) => {
+router.get("/api/importer-list-to-assign-jobs",authenticateJWT, async (req, res) => {
   try {
     // Get all importers from the JobModel
     const importers = await JobModel.aggregate([

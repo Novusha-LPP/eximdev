@@ -37,7 +37,7 @@ const baseFormat = format.combine(
   format.errors({ stack: true }),
   customFormat
 );
-
+console.log(MONGODB_URI);
 // Create the logger
 const logger = createLogger({
   level: "error", // Log only errors and more severe messages

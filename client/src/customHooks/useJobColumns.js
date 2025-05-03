@@ -7,7 +7,10 @@ import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
+import { getUser } from "../utils/cookie.js";
 // Custom hook to manage job columns configuration
+
+const user = getUser();
 function useJobColumns() {
   const navigate = useNavigate();
 
@@ -243,7 +246,7 @@ function useJobColumns() {
             </>
           );
         },
-      },      
+      },
 
       {
         accessorKey: "awb_bl_no",

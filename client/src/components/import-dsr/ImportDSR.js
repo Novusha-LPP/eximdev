@@ -44,11 +44,9 @@ function ImportDSR() {
     getLastJobsDate();
   }, [alt]);
 
-  const { handleFileUpload, snackbar, loading } = useFileUpload(
-    inputRef,
-    alt,
-    setAlt
-  );
+  const { handleFileUpload, snackbar, loading, error, successMessage } =
+    useFileUpload(inputRef, alt, setAlt);
+  
 
   return (
     <SelectedYearContext.Provider value={{ selectedYear, setSelectedYear }}>

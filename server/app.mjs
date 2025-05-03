@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import logger from "./logger.js";
+import AWS from "aws-sdk";
 
 process.on("uncaughtException", (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, { stack: error.stack });
@@ -19,7 +20,10 @@ import cluster from "cluster";
 import os from "os";
 import bodyParser from "body-parser";
 import http from "http";
+import https from "https";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
+import cookieParser from "cookie-parser";
+import fs from "fs";
 
 dotenv.config();
 
@@ -29,6 +33,15 @@ Sentry.init({
   tracesSampleRate: 1.0, // Capture 100% of transactions for tracing
   profilesSampleRate: 1.0, // Capture 100% of transactions for profiling
 });
+
+// Configure AWS with your credentials (keep these on server side only)
+AWS.config.update({
+  region: process.env.AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
+
+const s3 = new AWS.S3();
 
 // SSE
 // import updateJobCount from "./routes/updateJobCount.mjs";
@@ -42,6 +55,8 @@ import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
 import handleS3Deletation from "./routes/handleS3Deletation.mjs"
+import verifySessionRoutes from "./routes/verifysession.mjs";
+import logout from "./routes/logout.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -89,6 +104,7 @@ import viewAllKycs from "./routes/employee-kyc/viewAllKycs.mjs";
 import onboardEmployee from "./routes/employee-onboarding/onboardEmployee.mjs";
 import completeOnboarding from "./routes/employee-onboarding/completeOnboarding.mjs";
 import viewOnboardings from "./routes/employee-onboarding/viewOnboardings.mjs";
+import viewOnboarding from "./routes/employee-onboarding/viewOnboardings.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -243,6 +259,7 @@ import driverAssignment from "./routes/tyre-maintenance/driverAssignment.mjs";
 import getTyreDetails from "./routes/tyre-maintenance/getTyreDetails.mjs";
 import getTruckDetails from "./routes/tyre-maintenance/getTruckDetails.mjs";
 import JobModel from "./model/jobModel.mjs";
+import uploadRouter from "./routes/upload.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -250,16 +267,15 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
+const CLIENT_URI =
+  process.env.NODE_ENV === "production"
+    ? process.env.PROD_CLIENT_URI
+    : process.env.NODE_ENV === "server"
+    ? process.env.SERVER_CLIENT_URI
+    : process.env.DEV_CLIENT_URI;
 
-// const CLIENT_URI =
-//   process.env.NODE_ENV === "production"
-//     ? process.env.PROD_CLIENT_URI
-//     : process.env.NODE_ENV === "server"
-//     ? process.env.SERVER_CLIENT_URI
-//     : process.env.DEV_CLIENT_URI;
-
+//console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
-console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -271,31 +287,70 @@ if (cluster.isPrimary) {
   });
 } else {
   const app = express();
+  const allowedOrigins = [
+    "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+    "http://eximit.s3-website.ap-south-1.amazonaws.com",
+    "http://localhost:3000",
+    "https://exim.alvision.in",
+    "https://eximapi.alvision.in",
+  ];
 
-  app.use(bodyParser.json({ limit: "100mb" }));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        } else {
+          return callback(new Error("Not allowed by CORS"));
+        }
+      },
+      credentials: true, // <== crucial to allow cookies to be sent
+      exposedHeaders: ["Authorization"], // Expose the Authorization header
+    })
+  );
+  app.options("*", cors()); // ✅ allow preflight requests globally
 
-  app.use(cors());
-  app.use((req, res, next) => {
-    const isBrowserRequest =
-      req.headers["user-agent"] &&
-      req.headers["user-agent"].includes("Mozilla");
+  // app.options("*", (req, res) => {
+  //   // Set CORS headers directly
+  //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  //   res.header(
+  //     "Access-Control-Allow-Methods",
+  //     "GET, POST, PUT, DELETE, OPTIONS"
+  //   );
+  //   res.header(
+  //     "Access-Control-Allow-Headers",
+  //     "Content-Type, Authorization, Content-Length, X-Requested-With"
+  //   );
+  //   res.header("Access-Control-Allow-Credentials", "true");
+  //   res.sendStatus(204); // No content needed for OPTIONS response
+  // });
+  app.use(cookieParser());
 
-    // For sensitive routes, block direct browser access
-    if (
-      req.path.startsWith("/api/") &&
-      isBrowserRequest &&
-      !req.xhr &&
-      req.headers.accept.indexOf("html") > -1
-    ) {
-      return res.status(404).send("Not found");
-    }
+  // app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+  // app.use(cors());
 
-    next();
-  });
-  // app.use(cors({ origin: CLIENT_URI, credentials: true }));
+  // // Apply CORS preflight to all routes
+  // app.options("*", cors());
 
+  // Optional: Handle preflight requests manually if needed
+  // app.options(
+  //   "*",
+  //   cors({
+  //     origin: allowedOrigins,
+  //     credentials: true,
+  //   })
+  // );
+  // CORS configuration
+
+  // Apply CORS middleware
+
+  // app.options("*", cors());
+
+  app.use("/api/upload", uploadRouter);
   app.use(compression({ level: 9 }));
 
   mongoose.set("strictQuery", true);
@@ -332,7 +387,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-      // app.use(updateJobCount);
+
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);
@@ -340,6 +395,8 @@ if (cluster.isPrimary) {
       app.use(getUserData);
       app.use(getYears);
       app.use(login);
+      app.use(verifySessionRoutes);
+      app.use(logout);
 
       // handle delete 
       app.use(handleS3Deletation)
@@ -387,6 +444,7 @@ if (cluster.isPrimary) {
       app.use(onboardEmployee);
       app.use(completeOnboarding);
       app.use(viewOnboardings);
+      app.use(viewOnboarding);
 
       // E-Sanchit
       app.use(getCthDocs);
@@ -435,7 +493,7 @@ if (cluster.isPrimary) {
       app.use(viewDSR);
       // app.use(ImportCreateJob);
 
-      // Import Operations
+      //* Import Operations
       app.use(getOperationPlanningJobs);
       app.use(completedOperation);
       app.use(updateOperationsJob);
@@ -448,22 +506,23 @@ if (cluster.isPrimary) {
       app.use(getCthSearch);
 
       // Inward Register
+      //* Inward Register
       app.use(addInwardRegister);
       app.use(getContactPersonNames);
       app.use(getInwardRegisters);
       app.use(handleStatus);
 
-      // Outward Register
+      //* Outward Register
       app.use(addOutwardRegister);
       app.use(getOutwardRegisters);
       app.use(getOutwardRegisterDetails);
       app.use(updateOutwardRegister);
 
-      // Exit Feedback
+      //* Exit Feedback
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
 
-      // LR Operations
+      //* LR Operations
       app.use(getPrData);
       app.use(getPrJobList);
       app.use(getLrJobList);
@@ -544,9 +603,10 @@ if (cluster.isPrimary) {
       app.use(getTyreDetails);
       app.use(getTruckDetails);
 
+      app.use("/upload", uploadRouter);
+
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
-      // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);
 

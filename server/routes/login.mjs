@@ -1,9 +1,15 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import UserModel from "../model/userModel.mjs";
+import {
+  generateRefreshToken,
+  generateToken,
+  sanitizeUserData,
+} from "../auth/auth.mjs";
 
 const router = express.Router();
 
+// 🔐 Login Route
 router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -13,42 +19,46 @@ router.post("/api/login", async (req, res) => {
       return res.status(400).json({ message: "User not registered" });
     }
 
-    bcrypt.compare(password, user.password, (passwordErr, passwordResult) => {
-      if (passwordErr) {
-        console.error(passwordErr);
-        return res.status(500).json({ message: "Something went wrong" });
-      }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
-      if (passwordResult) {
-        // Create a new object with only the required fields
-        const userResponse = {
-          username: user.username,
-          role: user.role,
-          modules: user.modules,
-          first_name: user.first_name,
-          middle_name: user.middle_name,
-          last_name: user.last_name,
-          company: user.company,
-          employee_photo: user.employee_photo,
-          designation: user.designation,
-          department: user.department,
-          employment_type: user.employment_type,
-          email: user.email,
-          assigned_importer: user.assigned_importer,
-          assigned_importer_name: user.assigned_importer_name,
-        };
+    const token = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
+    const userResponse = sanitizeUserData(user);
 
-        return res.status(200).json(userResponse);
-      } else {
-        return res
-          .status(400)
-          .json({ message: "Username or password didn't match" });
-      }
+    // Set HttpOnly secure token cookie
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+     // secure: true,
+     // sameSite: "strict",
+      //domain:".alvision.in",
+      path: "/",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+     // secure: true,
+      sameSite: "strict",
+      //domain:".alvision.in",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return res.status(200).json(userResponse);
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Something went wrong" });
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// 🚪 Logout Route
+// router.post("/api/logout", (req, res) => {
+//   res.clearCookie("exim_token");
+//   return res.status(200).json({ message: "Logged out successfully" });
+// });
 
 export default router;

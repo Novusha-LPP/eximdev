@@ -1,9 +1,10 @@
 import express from "express";
 import ExitInterviewModel from "../../model/exitInterviewModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/view-exit-interviews", async (req, res) => {
+router.get("/api/view-exit-interviews", authenticateJWT, async (req, res) => {
   try {
     const data = await ExitInterviewModel.find({});
 

@@ -2,6 +2,7 @@ import express from "express";
 import nodemailer from "nodemailer";
 import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
 import dotenv from "dotenv";
+import { authenticateJWT } from "../auth/auth.mjs";
 
 dotenv.config();
 
@@ -50,7 +51,7 @@ const sesTransport = {
 // Create Nodemailer transporter
 let transporter = nodemailer.createTransport(sesTransport);
 
-router.get("/api/send-mail", async (req, res) => {
+router.get("/api/send-mail", authenticateJWT, async (req, res) => {
   try {
     let mailOptions = {
       from: "admin@surajforwarders.com",
@@ -62,7 +63,6 @@ router.get("/api/send-mail", async (req, res) => {
 
     let info = await transporter.sendMail(mailOptions);
 
-    console.log("Message sent: %s", info.messageId);
     res.status(200).send("Email sent successfully");
   } catch (error) {
     console.error("Error sending email:", error);

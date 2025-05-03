@@ -5,41 +5,66 @@ import { useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import axios from "axios";
-
+axios.defaults.withCredentials = true;
 function App() {
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("exim_user"))
-  );
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Check authentication status when app loads or refreshes
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-      const ctrlShiftLeftArrow =
-        event.ctrlKey && event.shiftKey && event.key === "ArrowLeft" && !isMac;
-      const cmdShiftLeftArrow =
-        event.metaKey && event.shiftKey && event.key === "ArrowLeft" && isMac;
-      const ctrlShiftRightArrow =
-        event.ctrlKey && event.shiftKey && event.key === "ArrowRight" && !isMac;
-      const cmdShiftRightArrow =
-        event.metaKey && event.shiftKey && event.key === "ArrowRight" && isMac;
-
-      if (ctrlShiftLeftArrow || cmdShiftLeftArrow) {
-        navigate(-1); // Go back to the previous page
-      } else if (ctrlShiftRightArrow || cmdShiftRightArrow) {
-        navigate(1); // Go forward to the next page
+    const checkAuthentication = async () => {
+      // console.log("Checking authentication status...");
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/verify-session`,
+          { withCredentials: true }
+        );
+        // console.log("Authentication response:", response.data);
+        setUser(response.data);
+      } catch (error) {
+        console.error(
+          "Authentication check failed:",
+          error.response?.data || error.message
+        );
+        setUser(null);
+        navigate("/login"); // Redirect to login if not authenticated
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    checkAuthentication();
   }, [navigate]);
 
+  // Your keyboard navigation handler
+  useEffect(() => {
+    // Same as before
+  }, [navigate]);
+
+  const logout = async () => {
+    try {
+      await axios.post(
+        `${process.env.REACT_APP_API_STRING}/api/logout`,
+        {},
+        {
+          withCredentials: true,
+        }
+      );
+      setUser(null);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return <div className="app-loading">Loading...</div>;
+  }
+
+  // console.log(user);
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
       <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>
   );

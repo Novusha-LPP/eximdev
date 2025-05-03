@@ -8,7 +8,6 @@ import axios from "axios";
 function ViewAdani() {
   const [rows, setRows] = useState([]);
 
-  clg
   useEffect(() => {
     async function getData() {
       try {

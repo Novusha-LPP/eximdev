@@ -8,6 +8,7 @@ import axios from "axios";
 function ViewAdani() {
   const [rows, setRows] = useState([]);
 
+  clg
   useEffect(() => {
     async function getData() {
       try {
@@ -15,6 +16,8 @@ function ViewAdani() {
           `${process.env.REACT_APP_API_STRING}/get-adani`
         );
         setRows(res.data);
+
+        
       } catch (error) {
         console.error("Error fetching data:", error);
       }

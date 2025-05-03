@@ -1007,7 +1007,7 @@ function useLrColumns(props) {
     // },
     {
       accessorKey: "eWay_bill",
-      header: "E-Way Bill",
+      header: "E-Way Bill (only 12-digit)",
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => (
@@ -1015,17 +1015,26 @@ function useLrColumns(props) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.eWay_bill || ""}
+          placeholder="Enter E-Way Bill number"
+          inputProps={{
+            maxLength: 12,
+            inputMode: "numeric", // mobile-friendly numeric keyboard
+            pattern: "[0-9]*", // regex pattern for numeric input
+          }}
           onChange={(e) => {
-            setRows((prevRows) => {
-              const updatedRows = [...prevRows];
-              updatedRows[row.index].eWay_bill = e.target.value;
-              return updatedRows;
-            });
+            const value = e.target.value;
+            // Allow only digits and max 12 characters
+            if (/^\d{0,12}$/.test(value)) {
+              setRows((prevRows) => {
+                const updatedRows = [...prevRows];
+                updatedRows[row.index].eWay_bill = value;
+                return updatedRows;
+              });
+            }
           }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
-          placeholder="Enter E-Way Bill number"
         />
       ),
     },

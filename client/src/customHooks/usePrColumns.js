@@ -331,10 +331,47 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
+          type="number"
+          error={
+            rows[row.index]?.container_count &&
+            (Number(rows[row.index]?.container_count) < 1 ||
+              Number(rows[row.index]?.container_count) > 20)
+          }
+          helperText={
+            rows[row.index]?.container_count &&
+            (Number(rows[row.index]?.container_count) < 1 ||
+              Number(rows[row.index]?.container_count) > 20)
+              ? "Value must be between 1 and 20"
+              : ""
+          }
+          inputProps={{
+            min: 1,
+            max: 20,
+            pattern: "[0-9]*",
+          }}
           value={rows[row.index]?.container_count || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          } // Use onChange for immediate updates
+          onChange={(event) => {
+            const value = event.target.value;
+            const numValue = Number(value);
+
+            if (value === "") {
+              handleInputChange(event, row.index, cell.column.id);
+            } else if (numValue < 1) {
+              alert("Container count cannot be less than 1");
+              event.target.value = rows[row.index]?.container_count || "";
+            } else if (numValue > 20) {
+              alert("Container count cannot be more than 20");
+              event.target.value = rows[row.index]?.container_count || "";
+            } else if (Number.isInteger(numValue)) {
+              handleInputChange(event, row.index, cell.column.id);
+            }
+          }}
+          onKeyPress={(event) => {
+            // Block non-numeric characters and decimal point
+            if (!/[0-9]/.test(event.key) || event.key === ".") {
+              event.preventDefault();
+            }
+          }}
         />
       ),
     },
@@ -482,16 +519,45 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
       Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.do_validity || ""; // Current value from the row
+        const inputRef = React.useRef(null);
+
+        // Calculate dates: 1 year back and 1 year ahead
+        const now = new Date();
+        const minDate = new Date(now);
+        minDate.setFullYear(now.getFullYear() - 1);
+        const maxDate = new Date(now);
+        maxDate.setFullYear(now.getFullYear() + 1);
+
+        // Format dates for datetime-local input
+        const minDateTime = minDate.toISOString().slice(0, 16);
+        const maxDateTime = maxDate.toISOString().slice(0, 16);
+
         return (
           <TextField
+            inputRef={inputRef}
             type="datetime-local"
             sx={{ width: "100%" }}
             size="small"
-            value={currentValue} // Bind to rows state
-            onChange={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
+            value={rows[row.index]?.do_validity || ""}
+            inputProps={{
+              min: minDateTime,
+              max: maxDateTime,
+            }}
+            onFocus={(event) => {
+              inputRef.current?.showPicker();
+            }}
+            onChange={(event) => {
+              const selectedDate = new Date(event.target.value);
+
+              // Validate if date is within allowed range
+              if (selectedDate >= minDate && selectedDate <= maxDate) {
+                handleInputChange(event, row.index, cell.column.id);
+              } else {
+                alert(
+                  "Please select a date between last year and next year from today"
+                );
+              }
+            }}
           />
         );
       },
@@ -632,17 +698,49 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "Document Date",
       enableSorting: false,
       size: calculateColumnWidth(rows, "document_date"),
-      Cell: ({ cell, row }) => (
-        <TextField
-          type="date"
-          sx={{ width: "100%" }}
-          size="small"
-          value={rows[row.index]?.document_date || ""} // Use value instead of defaultValue
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
+      Cell: ({ cell, row }) => {
+        const inputRef = React.useRef(null);
+
+        // Calculate dates: 1 year back and 1 year ahead
+        const now = new Date();
+        const minDate = new Date(now);
+        minDate.setFullYear(now.getFullYear() - 1);
+        const maxDate = new Date(now);
+        maxDate.setFullYear(now.getFullYear() + 1);
+
+        // Format dates for date input
+        const minDateStr = minDate.toISOString().split("T")[0];
+        const maxDateStr = maxDate.toISOString().split("T")[0];
+
+        return (
+          <TextField
+            inputRef={inputRef}
+            type="date"
+            sx={{ width: "100%" }}
+            size="small"
+            value={rows[row.index]?.document_date || ""}
+            inputProps={{
+              min: minDateStr,
+              max: maxDateStr,
+            }}
+            onFocus={(event) => {
+              inputRef.current?.showPicker();
+            }}
+            onChange={(event) => {
+              const selectedDate = new Date(event.target.value);
+
+              // Validate if date is within allowed range
+              if (selectedDate >= minDate && selectedDate <= maxDate) {
+                handleInputChange(event, row.index, cell.column.id);
+              } else {
+                alert(
+                  "Please select a date between last year and next year from today"
+                );
+              }
+            }}
+          />
+        );
+      },
     },
     {
       accessorKey: "description",

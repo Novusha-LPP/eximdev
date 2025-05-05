@@ -20,11 +20,18 @@ import {
   List,
   ListItem,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import HistoryIcon from "@mui/icons-material/History";
+import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
 
 const ImportUtilityTool = () => {
@@ -40,6 +47,11 @@ const ImportUtilityTool = () => {
     open: false,
     message: "",
     severity: "success",
+  });
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    itemId: null,
+    collection: null,
   });
 
   // Handle search input changes with debounce
@@ -222,6 +234,63 @@ const ImportUtilityTool = () => {
     }
   };
 
+  // New function to handle delete confirmation
+  const handleDeleteConfirm = (itemId, collection) => {
+    setDeleteDialog({
+      open: true,
+      itemId,
+      collection,
+    });
+  };
+
+  // New function to handle the actual deletion
+  const handleDeleteItem = async () => {
+    const { itemId, collection } = deleteDialog;
+    
+    try {
+      await axios.delete(
+        `${process.env.REACT_APP_API_STRING}/delete/${collection}/${itemId}`
+      );
+      
+      // Close the dialog
+      setDeleteDialog({ open: false, itemId: null, collection: null });
+      
+      // Update UI based on which collection was affected
+      if (collection === 'recent') {
+        setRecentSearches(recentSearches.filter(item => item._id !== itemId));
+        showNotification("Item removed from recent searches", "success");
+      } else if (collection === 'favorite') {
+        setFavorites(favorites.filter(item => item._id !== itemId));
+        showNotification("Item removed from favorites", "success");
+      }
+      
+      // Check if the deleted item is currently displayed in search results
+      if (
+        searchResults && 
+        searchResults.result && 
+        searchResults.result._id === itemId
+      ) {
+        // Update the search result to show that it's no longer in the collection
+        if (collection === 'favorite') {
+          setSearchResults({
+            ...searchResults,
+            result: {
+              ...searchResults.result,
+              favourite: false,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      showNotification("Failed to delete item", "error");
+    }
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialog({ open: false, itemId: null, collection: null });
+  };
+
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
@@ -400,6 +469,9 @@ const ImportUtilityTool = () => {
   };
 
   const renderItem = (item, source) => {
+    // Determine which collection to use for the delete action
+    const deleteCollection = source === "recent" ? "recent" : "favorite";
+    
     return (
       <Paper
         elevation={2}
@@ -412,7 +484,16 @@ const ImportUtilityTool = () => {
           "&:hover": { backgroundColor: "#f9f9f9" },
         }}
       >
-        <Box>
+        <Box 
+          sx={{ 
+            flexGrow: 1, 
+            cursor: "pointer" 
+          }}
+          onClick={() => {
+            setActiveTab(0); // Switch to Search Result tab
+            performSearch(item.hs_code, true);
+          }}
+        >
           <Typography variant="subtitle1" fontWeight="bold">
             {item.hs_code} - {item.item_description}
           </Typography>
@@ -421,11 +502,23 @@ const ImportUtilityTool = () => {
           </Typography>
         </Box>
         <Box display="flex" alignItems="center">
+          {/* Favorite icon */}
           <IconButton
             onClick={() => handleToggleFavorite(item, source)}
             color={item.favourite ? "warning" : "default"}
           >
             {item.favourite ? <StarIcon /> : <StarBorderIcon />}
+          </IconButton>
+          
+          {/* Delete icon */}
+          <IconButton
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent triggering the row click
+              handleDeleteConfirm(item._id, deleteCollection);
+            }}
+            color="error"
+          >
+            <DeleteIcon />
           </IconButton>
         </Box>
       </Paper>
@@ -534,19 +627,15 @@ const ImportUtilityTool = () => {
       {/* Recent Searches Tab */}
       {activeTab === 1 && (
         <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            Recently Searched Items (Last 20)
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="subtitle1">
+              Recently Searched Items (Last 20)
+            </Typography>
+          </Box>
+          
           {recentSearches.length > 0 ? (
             recentSearches.map((item) => (
-              <Box
-                key={item._id}
-                onClick={() => {
-                  setActiveTab(0); // Switch to Search Result tab
-                  performSearch(item.hs_code, true);
-                }}
-                sx={{ cursor: "pointer" }}
-              >
+              <Box key={item._id}>
                 {renderItem(item, "recent")}
               </Box>
             ))
@@ -566,19 +655,15 @@ const ImportUtilityTool = () => {
       {/* Favorites Tab */}
       {activeTab === 2 && (
         <Box>
-          <Typography variant="subtitle1" gutterBottom>
-            Favorite Items
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="subtitle1">
+              Favorite Items
+            </Typography>
+          </Box>
+          
           {favorites.length > 0 ? (
             favorites.map((item) => (
-              <Box
-                key={item._id}
-                onClick={() => {
-                  setActiveTab(0); // Switch to Search Result tab
-                  performSearch(item.hs_code, true);
-                }}
-                sx={{ cursor: "pointer" }}
-              >
+              <Box key={item._id}>
                 {renderItem(item, "favorite")}
               </Box>
             ))
@@ -594,6 +679,31 @@ const ImportUtilityTool = () => {
           )}
         </Box>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={handleCloseDeleteDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          Confirm Delete
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to delete this item? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteItem} color="error" autoFocus>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={notification.open}

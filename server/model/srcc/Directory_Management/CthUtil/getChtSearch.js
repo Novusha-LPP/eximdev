@@ -304,3 +304,50 @@ router.get('/api/recent', async (req, res) => {
 });
 
 export default router;
+
+
+router.delete('/api/delete/:collection/:id', async (req, res) => {
+  try {
+    const { collection, id } = req.params;
+    console.log(`Delete request - Collection: ${collection}, ID: ${id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('Invalid document ID');
+      return res.status(400).json({ message: 'Invalid document ID' });
+    }
+    
+    if (!['recent', 'favorite'].includes(collection)) {
+      console.log('Invalid collection name');
+      return res.status(400).json({ message: 'Valid collection name is required (recent or favorite)' });
+    }
+    
+    let Model;
+    switch (collection) {
+      case 'recent':
+        Model = RecentModel;
+        break;
+      case 'favorite':
+        Model = FavoriteModel;
+        break;
+    }
+    
+    const result = await Model.findByIdAndDelete(id);
+    
+    if (!result) {
+      console.log('Document not found');
+      return res.status(404).json({ message: 'Document not found' });
+    }
+    
+    console.log(`Successfully deleted document ${id} from ${collection} collection`);
+    return res.status(200).json({
+      message: `Successfully deleted from ${collection} collection`,
+      deletedId: id
+    });
+  } catch (error) {
+    console.error(`Delete error:`, error);
+    return res.status(500).json({
+      message: 'Server error while deleting item',
+      error: error.message
+    });
+  }
+});

@@ -31,34 +31,19 @@ const FileUpload = ({
     const uploadedFiles = [];
 
     setUploading(true);
-
     try {
-      // Call the upload utility function
-      const result = await uploadFileToS3(files, bucketPath);
-
-      // Extract file URLs from the uploaded array in the response
-      if (result && result.uploaded && result.uploaded.length > 0) {
-        // Map through the uploaded files to get their locations
-        const fileUrls = result.uploaded.map((file) => file.location);
-
-        uploadedFiles.push(...fileUrls);
-      } else {
-        console.error("Upload response missing uploaded files data:", result);
+      for (const file of files) {
+        try {
+          const result = await uploadFileToS3(file, bucketPath);
+          // Just store the URL string rather than an object
+          uploadedFiles.push(result.Location);
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+        }
       }
-
-      // Call the callback function with the uploaded file URLs
-      if (uploadedFiles.length > 0) {
-        onFilesUploaded(uploadedFiles);
-      } else {
-        console.log("No files to pass to callback");
-      }
+      onFilesUploaded(uploadedFiles);
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Unknown error occurred";
-      console.error("Error in file upload process:", errorMessage);
-      console.error("Error details:", error);
+      console.error("Upload process failed:", error);
     } finally {
       setUploading(false);
     }
@@ -84,10 +69,7 @@ const FileUpload = ({
           hidden
           multiple={multiple}
           accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
-          onChange={(e) => {
-            //console.log("FileUpload: File input change event triggered");
-            handleFileUpload(e);
-          }}
+          onChange={handleFileUpload}
           disabled={readOnly || uploading}
         />
       </Button>

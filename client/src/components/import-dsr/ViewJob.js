@@ -1,7 +1,7 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
-// import { uploadFileToS3 } from "../../utils/awsFileUpload";
+// import { upl./oadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import {
   IconButton,
@@ -646,7 +646,7 @@ function JobDetails() {
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
             container_nos={formik.values.container_nos}
-            // Passing be_no from formik
+          // Passing be_no from formik
           />
           {/* Importer info End*/}
           {/* completion status start*/}
@@ -1158,7 +1158,7 @@ function JobDetails() {
                   {/* HSS Field */}
                   <strong>HSS:&nbsp;</strong>
                   <TextField
-                    fullWidth       
+                    fullWidth
                     select
                     size="small"
                     variant="outlined"
@@ -1213,7 +1213,7 @@ function JobDetails() {
                     value={formik.values.free_time || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    // disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                  // disabled={user.role !== "Admin"} // Disable if the user is not Admin
                   >
                     {options?.map((option, id) => (
                       <MenuItem key={id} value={option}>
@@ -1224,7 +1224,7 @@ function JobDetails() {
                 </div>
               </Col>
               <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
+                <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
@@ -1339,19 +1339,19 @@ function JobDetails() {
                       value="Transaction"
                       control={<Radio size="small" />}
                       label="Transaction"
-                      // sx={{
-                      //   color: "green",
-                      //   "& .MuiSvgIcon-root": { color: "green" },
-                      // }}
+                    // sx={{
+                    //   color: "green",
+                    //   "& .MuiSvgIcon-root": { color: "green" },
+                    // }}
                     />
                     <FormControlLabel
                       value="Deferred"
                       control={<Radio size="small" />}
                       label="Deferred"
-                      // sx={{
-                      //   color: "orange",
-                      //   "& .MuiSvgIcon-root": { color: "orange" },
-                      // }}
+                    // sx={{
+                    //   color: "orange",
+                    //   "& .MuiSvgIcon-root": { color: "orange" },
+                    // }}
                     />
                   </RadioGroup>
                 </div>
@@ -3028,17 +3028,17 @@ function JobDetails() {
               formik.values.container_nos?.map((container, index) => {
                 return ( */}
             {(formik.values.status !== "" &&
-            formik.values.container_nos?.length > 0
+              formik.values.container_nos?.length > 0
               ? formik.values.container_nos
               : [
-                  {
-                    container_number: "",
-                    size: "",
-                    arrival_date: "",
-                    container_rail_out_date: "",
-                    do_revalidation: [],
-                  },
-                ]
+                {
+                  container_number: "",
+                  size: "",
+                  arrival_date: "",
+                  container_rail_out_date: "",
+                  do_revalidation: [],
+                },
+              ]
             )?.map((container, index) => {
               return (
                 <div key={index}>
@@ -3386,7 +3386,7 @@ function JobDetails() {
                         >
                           <strong>Weight Excess/Shortage:&nbsp;</strong>
                           {container.container_gross_weight &&
-                          container.container_gross_weight !== "0" ? (
+                            container.container_gross_weight !== "0" ? (
                             <>{container.weight_shortage || ""}</>
                           ) : (
                             ""
@@ -3477,35 +3477,35 @@ function JobDetails() {
                     </Row>
 
                     <Row>
-                    <Col>
-                    <FileUpload
-  label="Upload Weighment Slip"
-  multiple={true}
-  bucketPath={`weighment_slip_images/${container.container_number}`}
-  onFilesUploaded={(uploadedUrls) => {
-    const updatedContainers = formik.values.container_nos.map((c) => {
-      if (c.container_number === container.container_number) {
-        // Check if the container already has weighment slip images
-        const existingImages = c.weighment_slip_images || [];
-        
-        // Ensure we're creating a simpler data structure
-        // Just store the URLs as strings rather than complex objects
-        return {
-          ...c,
-          weighment_slip_images: [
-            ...existingImages,
-            ...uploadedUrls
-          ]
-        };
-      }
-      return c;
-    });
+                      <Col>
+                        <FileUpload
+                          label="Upload Weighment Slip"
+                          multiple={true}
+                          bucketPath={`weighment_slip_images/${container.container_number}`}
+                          onFilesUploaded={(uploadedUrls) => {
+                            const updatedContainers = formik.values.container_nos.map((c) => {
+                              if (c.container_number === container.container_number) {
+                                // Check if the container already has weighment slip images
+                                const existingImages = c.weighment_slip_images || [];
 
-    formik.setFieldValue("container_nos", updatedContainers);
-  }}
-  readOnly={false}
-/>
-</Col>
+                                // Ensure we're creating a simpler data structure
+                                // Just store the URLs as strings rather than complex objects
+                                return {
+                                  ...c,
+                                  weighment_slip_images: [
+                                    ...existingImages,
+                                    ...uploadedUrls
+                                  ]
+                                };
+                              }
+                              return c;
+                            });
+
+                            formik.setFieldValue("container_nos", updatedContainers);
+                          }}
+                          readOnly={false}
+                        />
+                      </Col>
 
                     </Row>
 

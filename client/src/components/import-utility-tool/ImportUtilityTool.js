@@ -17,9 +17,6 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  List,
-  ListItem,
-  Divider,
   Dialog,
   DialogActions,
   DialogContent,
@@ -39,6 +36,7 @@ const ImportUtilityTool = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [multipleResults, setMultipleResults] = useState([]);
+  const [multipleResultsSource, setMultipleResultsSource] = useState("cth"); // Track source of multiple results
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [recentSearches, setRecentSearches] = useState([]);
@@ -52,6 +50,11 @@ const ImportUtilityTool = () => {
     open: false,
     itemId: null,
     collection: null,
+  });
+  const [unfavoriteDialog, setUnfavoriteDialog] = useState({
+    open: false,
+    item: null,
+    collectionSource: null,
   });
 
   // Handle search input changes with debounce
@@ -108,37 +111,47 @@ const ImportUtilityTool = () => {
           query
         )}&addToRecent=${addToRecent}`
       );
-
+  
+      // Log the response to debug
+  
       if (response.data.results && response.data.results.length > 0) {
         // If multiple results
+        // Explicitly get source from response or use default "cth"
+        const source = response.data.source || "cth";
+        
         setMultipleResults(response.data.results);
-
+        setMultipleResultsSource(source); // Store the source of multiple results
+  
         // If addToRecent is true, also set the first result as the main result
         if (addToRecent) {
           setSearchResults({
             result: response.data.results[0],
-            source: response.data.source,
+            source: source,
           });
           setMultipleResults([]); // Clear multiple results to show only the selected one
+          
+          // Refresh recent searches after adding to recent
+          fetchRecentSearches();
         } else {
           // Clear single result when showing multiple results
           setSearchResults(null);
         }
       } else if (response.data.result) {
         // If single result
+        const source = response.data.source || "cth";
+        
         setSearchResults({
           result: response.data.result,
-          source: response.data.source,
+          source: source,
         });
         setMultipleResults([]); // Clear multiple results
-      }
-
-      // Refresh recent searches list after adding to recent
-      if (addToRecent) {
-        fetchRecentSearches();
+        
+        // Refresh recent searches if addToRecent is true
+        if (addToRecent) {
+          fetchRecentSearches();
+        }
       }
     } catch (error) {
-      console.error("Search error:", error);
       if (error.response && error.response.status === 404) {
         setSearchResults(null);
         setMultipleResults([]);
@@ -150,6 +163,7 @@ const ImportUtilityTool = () => {
       setIsLoading(false);
     }
   };
+  
 
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
@@ -168,70 +182,154 @@ const ImportUtilityTool = () => {
         `${process.env.REACT_APP_API_STRING}/add-to-recent`,
         item
       );
-
+  
+      // Get the source from the stored multipleResultsSource
+      const source = multipleResultsSource;
+      
       // Update UI to show only the selected item
       setSearchResults({
         result: item,
-        source: "selected",
+        source: source,
       });
       setMultipleResults([]);
+      
+      // Refresh recent searches
       fetchRecentSearches();
     } catch (error) {
-      console.error("Error adding to recent:", error);
       showNotification("Failed to add to recent searches", "error");
     }
   };
 
-  const handleToggleFavorite = async (document, collectionSource) => {
+  // Determine the proper collection source
+  const determineCollectionSource = (item, explicitSource = null) => {
+    // If explicit source is provided, use it
+    if (explicitSource) {
+      return explicitSource;
+    }
+    
+    // Check if item exists in favorites
+    const inFavorites = favorites.some(fav => fav._id === item._id || fav.hs_code === item.hs_code);
+    if (inFavorites) {
+      return "favorite";
+    }
+    
+    // Check if item exists in recent searches
+    const inRecent = recentSearches.some(recent => recent._id === item._id || recent.hs_code === item.hs_code);
+    if (inRecent) {
+      return "recent";
+    }
+    
+    // Default to "cth" if not in favorites or recent
+    return "cth";
+  };
+
+  // Initial favorite toggle function - now checks if confirmation is needed
+  const handleToggleFavorite = (document, explicitSource = null) => {
+    // Determine the proper collection source
+    const collectionSource = determineCollectionSource(document, explicitSource);
+    
+    // If the item is already a favorite and we're trying to unfavorite it, show the confirmation dialog
+    if (document.favourite) {
+      // Show confirmation dialog
+      setUnfavoriteDialog({
+        open: true,
+        item: document,
+        collectionSource: collectionSource,
+      });
+    } else {
+      // If we're adding to favorites, no confirmation needed
+      processFavoriteToggle(document, collectionSource);
+    }
+  };
+
+  // Actual function to process the favorite toggle after confirmation (if needed)
+  const processFavoriteToggle = async (document, collectionSource) => {
     try {
-      await axios.patch(
+      // Fix 1: Check if your API URL is correct - update this based on your actual backend route
+      // For example, if your backend uses a different URL structure:
+      const response = await axios.patch(
         `${process.env.REACT_APP_API_STRING}/toggle-favorite/${document._id}`,
         {
           collectionName: collectionSource,
         }
       );
-
-      // Update UI accordingly
+  
+      // Get the new favorite status from the response
+      const newFavoriteStatus = !document.favourite;
+      
+      // Check the HS code to find and update all related items
+      const hsCode = document.hs_code;
+      
+      // Update UI for single search result if it exists and matches
       if (
         searchResults &&
         searchResults.result &&
-        searchResults.result._id === document._id
+        searchResults.result.hs_code === hsCode
       ) {
         setSearchResults({
           ...searchResults,
           result: {
             ...searchResults.result,
-            favourite: !searchResults.result.favourite,
+            favourite: newFavoriteStatus,
           },
         });
       }
-
+  
       // Update in multiple results if present
       if (multipleResults.length > 0) {
         setMultipleResults(
           multipleResults.map((item) =>
-            item._id === document._id
-              ? { ...item, favourite: !item.favourite }
+            item.hs_code === hsCode
+              ? { ...item, favourite: newFavoriteStatus }
               : item
           )
         );
       }
-
-      // Refresh favorites list
-      fetchFavorites();
-
-      // If we're toggling a document from the recent or favorites list, update them too
-      if (activeTab === 1) fetchRecentSearches();
-      if (activeTab === 2) fetchFavorites();
-
+      
+      // Update recent searches list - update any items with the same HS code
+      setRecentSearches(
+        recentSearches.map((item) =>
+          item.hs_code === hsCode
+            ? { ...item, favourite: newFavoriteStatus }
+            : item
+        )
+      );
+  
+      // Update favorites list - either add or remove item
+      if (newFavoriteStatus) {
+        // If adding to favorites and it's not already there
+        if (!favorites.some(item => item.hs_code === hsCode)) {
+          // Fetch the updated favorites to ensure we have the correct data
+          fetchFavorites();
+        } else {
+          // Update existing favorite item
+          setFavorites(
+            favorites.map((item) =>
+              item.hs_code === hsCode
+                ? { ...item, favourite: true }
+                : item
+            )
+          );
+        }
+      } else {
+        // Removing from favorites
+        setFavorites(favorites.filter(item => item.hs_code !== hsCode));
+      }
+  
       showNotification(
-        document.favourite ? "Removed from favorites" : "Added to favorites",
+        newFavoriteStatus ? "Added to favorites" : "Removed from favorites",
         "success"
       );
     } catch (error) {
       console.error("Error toggling favorite:", error);
       showNotification("Failed to update favorite status", "error");
     }
+  };
+  
+  
+  // Handle close of unfavorite confirmation dialog without confirming
+  const handleCloseUnfavoriteDialog = () => {
+    setUnfavoriteDialog({ open: false, item: null, collectionSource: null });
   };
 
   // New function to handle delete confirmation
@@ -248,7 +346,26 @@ const ImportUtilityTool = () => {
     const { itemId, collection } = deleteDialog;
     
     try {
-      await axios.delete(
+      // Store the HS code before deletion to update UI
+      let hsCode = null;
+      let wasFavorite = false;
+      
+      // Find the item to get its HS code
+      if (collection === 'recent') {
+        const item = recentSearches.find(item => item._id === itemId);
+        if (item) {
+          hsCode = item.hs_code;
+          wasFavorite = item.favourite;
+        }
+      } else if (collection === 'favorite') {
+        const item = favorites.find(item => item._id === itemId);
+        if (item) {
+          hsCode = item.hs_code;
+          wasFavorite = true; // If it's in favorites, it's favorite by definition
+        }
+      }
+      
+      const response = await axios.delete(
         `${process.env.REACT_APP_API_STRING}/delete/${collection}/${itemId}`
       );
       
@@ -260,7 +377,20 @@ const ImportUtilityTool = () => {
         setRecentSearches(recentSearches.filter(item => item._id !== itemId));
         showNotification("Item removed from recent searches", "success");
       } else if (collection === 'favorite') {
+        // If deleting from favorites, we need to update all related UI components
         setFavorites(favorites.filter(item => item._id !== itemId));
+        
+        // Also update favorite status in recent searches if the item exists there
+        if (hsCode) {
+          setRecentSearches(
+            recentSearches.map(item => 
+              item.hs_code === hsCode
+                ? { ...item, favourite: false }
+                : item
+            )
+          );
+        }
+        
         showNotification("Item removed from favorites", "success");
       }
       
@@ -268,7 +398,8 @@ const ImportUtilityTool = () => {
       if (
         searchResults && 
         searchResults.result && 
-        searchResults.result._id === itemId
+        hsCode && 
+        searchResults.result.hs_code === hsCode
       ) {
         // Update the search result to show that it's no longer in the collection
         if (collection === 'favorite') {
@@ -279,6 +410,19 @@ const ImportUtilityTool = () => {
               favourite: false,
             },
           });
+        }
+      }
+      
+      // Update multiple results if present
+      if (multipleResults.length > 0 && hsCode) {
+        if (collection === 'favorite') {
+          setMultipleResults(
+            multipleResults.map(item => 
+              item.hs_code === hsCode
+                ? { ...item, favourite: false }
+                : item
+            )
+          );
         }
       }
     } catch (error) {
@@ -306,6 +450,7 @@ const ImportUtilityTool = () => {
   const handleCloseNotification = () => {
     setNotification({ ...notification, open: false });
   };
+
 
   const renderSearchResult = (item, source) => {
     return (
@@ -453,7 +598,7 @@ const ImportUtilityTool = () => {
                   <IconButton
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent triggering the row click
-                      handleToggleFavorite(item, "cth");
+                      handleToggleFavorite(item, multipleResultsSource);
                     }}
                     color={item.favourite ? "warning" : "default"}
                   >
@@ -469,8 +614,8 @@ const ImportUtilityTool = () => {
   };
 
   const renderItem = (item, source) => {
-    // Determine which collection to use for the delete action
-    const deleteCollection = source === "recent" ? "recent" : "favorite";
+    // Only show delete button for recent searches, not for favorites
+    const showDeleteButton = source === "recent";
     
     return (
       <Paper
@@ -491,6 +636,8 @@ const ImportUtilityTool = () => {
           }}
           onClick={() => {
             setActiveTab(0); // Switch to Search Result tab
+            // Set the search query to the HS code
+            setSearchQuery(item.hs_code);
             performSearch(item.hs_code, true);
           }}
         >
@@ -504,22 +651,27 @@ const ImportUtilityTool = () => {
         <Box display="flex" alignItems="center">
           {/* Favorite icon */}
           <IconButton
-            onClick={() => handleToggleFavorite(item, source)}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent triggering the row click
+              handleToggleFavorite(item, source);
+            }}
             color={item.favourite ? "warning" : "default"}
           >
             {item.favourite ? <StarIcon /> : <StarBorderIcon />}
           </IconButton>
           
-          {/* Delete icon */}
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering the row click
-              handleDeleteConfirm(item._id, deleteCollection);
-            }}
-            color="error"
-          >
-            <DeleteIcon />
-          </IconButton>
+          {/* Delete icon - only show for recent searches */}
+          {showDeleteButton && (
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent triggering the row click
+                handleDeleteConfirm(item._id, "recent");
+              }}
+              color="error"
+            >
+              <DeleteIcon />
+            </IconButton>
+          )}
         </Box>
       </Paper>
     );
@@ -701,6 +853,40 @@ const ImportUtilityTool = () => {
           </Button>
           <Button onClick={handleDeleteItem} color="error" autoFocus>
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Unfavorite Confirmation Dialog */}
+      <Dialog
+        open={unfavoriteDialog.open}
+        onClose={handleCloseUnfavoriteDialog}
+        aria-labelledby="unfavorite-dialog-title"
+        aria-describedby="unfavorite-dialog-description"
+      >
+        <DialogTitle id="unfavorite-dialog-title">
+          Remove from Favorites
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="unfavorite-dialog-description">
+            Are you sure you want to remove this item from your favorites?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseUnfavoriteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => {
+              if (unfavoriteDialog.item && unfavoriteDialog.collectionSource) {
+                processFavoriteToggle(unfavoriteDialog.item, unfavoriteDialog.collectionSource);
+                handleCloseUnfavoriteDialog();
+              }
+            }} 
+            color="warning" 
+            autoFocus
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>

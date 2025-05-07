@@ -3,13 +3,14 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import {ImportersProvider} from "./contexts/importersContext.js"
-import { BrowserRouter } from "react-router-dom";
+// import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { YearProvider } from "./contexts/yearContext.js";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
-  <BrowserRouter>
+  <HashRouter>
     <React.StrictMode>
       <YearProvider>
         <ImportersProvider>
@@ -17,5 +18,5 @@ root.render(
         </ImportersProvider>
       </YearProvider>
     </React.StrictMode>
-  </BrowserRouter>
+  </HashRouter>
 );

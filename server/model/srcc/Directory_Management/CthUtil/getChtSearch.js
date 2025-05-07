@@ -6,80 +6,117 @@ import RecentModel from './RecentCth.mjs';
 
 const router = express.Router();
 
-// Modified search API to return multiple results
-router.get('/api/search', async (req, res) => {
-    try {
-      const { query } = req.query;
-      const addToRecent = req.query.addToRecent === 'true'; // Convert string to boolean
+
+
+async function getHsCodeWithContext(hsCode, Model) {
+  try {
+    // Find the main document with the HS code
+    const mainDoc = await Model.findOne({ hs_code: hsCode });
+    if (!mainDoc) {
+      return [{ message: "HS code not found." }];
+    }
+
+    // Get all documents sorted by row_index
+    const docs = await Model.find().sort({ row_index: 1 });
+    const docsArray = Array.isArray(docs) ? docs : docs.length ? Array.from(docs) : [];
+
+    // Find index of the main document
+    let i = docsArray.findIndex(doc => doc.hs_code === hsCode) + 1;
     
-  
-      if (!query) {
-        return res.status(400).json({ message: 'Search query is required' });
+    const result = [mainDoc];
+    const noteKeywords = ["note", "w.e.f", "clause", "finance", "inserted", "amendment"];
+    let breakCounter = 0;
+
+    // Loop through subsequent documents to find related notes
+    while (i < docsArray.length) {
+      const doc = docsArray[i];
+      const hs = (doc.hs_code || "").toString().trim().toLowerCase();
+      const desc = (doc.item_description || "").toString().trim().toLowerCase();
+      const remark = (doc.remark || "").toString().trim().toLowerCase();
+
+      // Break if we find another HS code
+      if (hs && hs !== "nan") {
+        break;
       }
-  
-      // Create case-insensitive regex that matches anywhere in the string
-      const searchRegex = new RegExp(query, 'i');
-  
-      const searchCondition = {
-        $or: [
-          { item_description: searchRegex },
-          { hs_code: searchRegex }
-        ]
-      };
-  
-      // Check counts before searching
-      const recentCount = await RecentModel.countDocuments();
-      const favoriteCount = await FavoriteModel.countDocuments();
-      const cthCount = await CthModel.countDocuments();
-  
-      // Search in Recent collection
-      let results = await RecentModel.find(searchCondition);
-      let sourceCollection = 'recent';
-  
-      // If not found in Recent, search in Favorite
-      if (!results.length) {
-        results = await FavoriteModel.find(searchCondition);
-        sourceCollection = 'favorite';
-      }
-  
-      // If not found in Favorite, search in CTH
-      if (!results.length) {
-        results = await CthModel.find(searchCondition).limit(20); // Limit to 20 results for performance
-        sourceCollection = 'cth';
-  
-        // Add the first matching result to RecentModel if addToRecent is true
-        if (results.length > 0 && addToRecent) {
-          const firstResult = results[0];
-          await addToRecentCollection(firstResult);
-        }
-      }
-  
-      if (results.length > 0) {
-        if (addToRecent) {
-          // If addToRecent is true, return the first result only (traditional behavior)
-          return res.status(200).json({
-            result: results[0],
-            source: sourceCollection
-          });
-        } else {
-          // If addToRecent is false, return all matching results
-          return res.status(200).json({
-            results: results,
-            source: sourceCollection
-          });
-        }
+
+      // Add document if it contains any note keywords
+      if (noteKeywords.some(keyword => desc.includes(keyword) || remark.includes(keyword))) {
+        result.push(doc);
+        breakCounter = 0;
       } else {
-        return res.status(404).json({
-          message: 'No document found matching the search criteria'
-        });
+        breakCounter++;
+        if (breakCounter >= 3) {
+          break;
+        }
       }
-    } catch (error) {
-      return res.status(500).json({
-        message: 'Server error while searching',
-        error: error.message
+      i++;
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error in getHsCodeWithContext:", error);
+    throw error;
+  }
+}
+
+router.get('/api/search', async (req, res) => {
+  try {
+    const { query } = req.query;
+    const addToRecent = req.query.addToRecent === 'true';
+
+    if (!query) {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+
+    const searchRegex = new RegExp(query, 'i');
+
+    const searchCondition = {
+      $or: [
+        { item_description: searchRegex },
+        { hs_code: searchRegex }
+      ]
+    };
+
+    // Search only in CTH collection
+    const results = await CthModel.find(searchCondition).limit(20).lean();
+    const sourceCollection = 'cth';
+
+    if (!results.length) {
+      return res.status(404).json({
+        message: 'No document found matching the search criteria'
       });
     }
+
+    const mainItem = results[0]; // pick first for context extraction
+
+    // Add to recent if requested
+    if (addToRecent) {
+      await addToRecentCollection(mainItem);
+    }
+
+    // Get context from the first matching hs_code (if it has one)
+    let contextItems = [];
+    if (mainItem.hs_code) {
+      const contextResults = await getHsCodeWithContext(mainItem.hs_code, CthModel);
+      contextItems = contextResults.slice(1); // exclude the mainItem (already in results)
+    }
+
+    return res.status(200).json({
+      results,
+      contextItems,
+      source: sourceCollection
+    });
+
+  } catch (error) {
+    console.error('Search API error:', error);
+    return res.status(500).json({
+      message: 'Server error while searching',
+      error: error.message
+    });
+  }
 });
+
+
 
 // Helper function to add an item to the recent collection
 async function addToRecentCollection(item) {

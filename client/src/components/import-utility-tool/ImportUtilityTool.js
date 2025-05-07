@@ -23,12 +23,18 @@ import {
   DialogContentText,
   DialogTitle,
   Button,
+  Collapse,
+  Divider,
+  Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import HistoryIcon from "@mui/icons-material/History";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import InfoIcon from "@mui/icons-material/Info";
 import axios from "axios";
 
 const ImportUtilityTool = () => {
@@ -56,6 +62,9 @@ const ImportUtilityTool = () => {
     item: null,
     collectionSource: null,
   });
+  // New state for context items
+  const [contextItems, setContextItems] = useState([]);
+  const [contextExpanded, setContextExpanded] = useState(false);
 
   // Handle search input changes with debounce
   useEffect(() => {
@@ -111,17 +120,22 @@ const ImportUtilityTool = () => {
           query
         )}&addToRecent=${addToRecent}`
       );
-  
-      // Log the response to debug
-  
+
+      // Handle context items if they exist
+      if (response.data.contextItems && response.data.contextItems.length > 0) {
+        setContextItems(response.data.contextItems);
+      } else {
+        setContextItems([]);
+      }
+
       if (response.data.results && response.data.results.length > 0) {
         // If multiple results
         // Explicitly get source from response or use default "cth"
         const source = response.data.source || "cth";
-        
+
         setMultipleResults(response.data.results);
         setMultipleResultsSource(source); // Store the source of multiple results
-  
+
         // If addToRecent is true, also set the first result as the main result
         if (addToRecent) {
           setSearchResults({
@@ -129,7 +143,7 @@ const ImportUtilityTool = () => {
             source: source,
           });
           setMultipleResults([]); // Clear multiple results to show only the selected one
-          
+
           // Refresh recent searches after adding to recent
           fetchRecentSearches();
         } else {
@@ -139,13 +153,13 @@ const ImportUtilityTool = () => {
       } else if (response.data.result) {
         // If single result
         const source = response.data.source || "cth";
-        
+
         setSearchResults({
           result: response.data.result,
           source: source,
         });
         setMultipleResults([]); // Clear multiple results
-        
+
         // Refresh recent searches if addToRecent is true
         if (addToRecent) {
           fetchRecentSearches();
@@ -155,6 +169,7 @@ const ImportUtilityTool = () => {
       if (error.response && error.response.status === 404) {
         setSearchResults(null);
         setMultipleResults([]);
+        setContextItems([]);
         showNotification("No results found", "info");
       } else {
         showNotification("Error performing search", "error");
@@ -163,7 +178,7 @@ const ImportUtilityTool = () => {
       setIsLoading(false);
     }
   };
-  
+
 
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
@@ -182,17 +197,17 @@ const ImportUtilityTool = () => {
         `${process.env.REACT_APP_API_STRING}/add-to-recent`,
         item
       );
-  
+
       // Get the source from the stored multipleResultsSource
       const source = multipleResultsSource;
-      
+
       // Update UI to show only the selected item
       setSearchResults({
         result: item,
         source: source,
       });
       setMultipleResults([]);
-      
+
       // Refresh recent searches
       fetchRecentSearches();
     } catch (error) {
@@ -206,19 +221,19 @@ const ImportUtilityTool = () => {
     if (explicitSource) {
       return explicitSource;
     }
-    
+
     // Check if item exists in favorites
     const inFavorites = favorites.some(fav => fav._id === item._id || fav.hs_code === item.hs_code);
     if (inFavorites) {
       return "favorite";
     }
-    
+
     // Check if item exists in recent searches
     const inRecent = recentSearches.some(recent => recent._id === item._id || recent.hs_code === item.hs_code);
     if (inRecent) {
       return "recent";
     }
-    
+
     // Default to "cth" if not in favorites or recent
     return "cth";
   };
@@ -227,7 +242,7 @@ const ImportUtilityTool = () => {
   const handleToggleFavorite = (document, explicitSource = null) => {
     // Determine the proper collection source
     const collectionSource = determineCollectionSource(document, explicitSource);
-    
+
     // If the item is already a favorite and we're trying to unfavorite it, show the confirmation dialog
     if (document.favourite) {
       // Show confirmation dialog
@@ -253,13 +268,13 @@ const ImportUtilityTool = () => {
           collectionName: collectionSource,
         }
       );
-  
+
       // Get the new favorite status from the response
       const newFavoriteStatus = !document.favourite;
-      
+
       // Check the HS code to find and update all related items
       const hsCode = document.hs_code;
-      
+
       // Update UI for single search result if it exists and matches
       if (
         searchResults &&
@@ -274,7 +289,7 @@ const ImportUtilityTool = () => {
           },
         });
       }
-  
+
       // Update in multiple results if present
       if (multipleResults.length > 0) {
         setMultipleResults(
@@ -285,7 +300,7 @@ const ImportUtilityTool = () => {
           )
         );
       }
-      
+
       // Update recent searches list - update any items with the same HS code
       setRecentSearches(
         recentSearches.map((item) =>
@@ -294,7 +309,7 @@ const ImportUtilityTool = () => {
             : item
         )
       );
-  
+
       // Update favorites list - either add or remove item
       if (newFavoriteStatus) {
         // If adding to favorites and it's not already there
@@ -315,7 +330,7 @@ const ImportUtilityTool = () => {
         // Removing from favorites
         setFavorites(favorites.filter(item => item.hs_code !== hsCode));
       }
-  
+
       showNotification(
         newFavoriteStatus ? "Added to favorites" : "Removed from favorites",
         "success"
@@ -325,8 +340,8 @@ const ImportUtilityTool = () => {
       showNotification("Failed to update favorite status", "error");
     }
   };
-  
-  
+
+
   // Handle close of unfavorite confirmation dialog without confirming
   const handleCloseUnfavoriteDialog = () => {
     setUnfavoriteDialog({ open: false, item: null, collectionSource: null });
@@ -344,12 +359,12 @@ const ImportUtilityTool = () => {
   // New function to handle the actual deletion
   const handleDeleteItem = async () => {
     const { itemId, collection } = deleteDialog;
-    
+
     try {
       // Store the HS code before deletion to update UI
       let hsCode = null;
       let wasFavorite = false;
-      
+
       // Find the item to get its HS code
       if (collection === 'recent') {
         const item = recentSearches.find(item => item._id === itemId);
@@ -364,14 +379,14 @@ const ImportUtilityTool = () => {
           wasFavorite = true; // If it's in favorites, it's favorite by definition
         }
       }
-      
+
       const response = await axios.delete(
         `${process.env.REACT_APP_API_STRING}/delete/${collection}/${itemId}`
       );
-      
+
       // Close the dialog
       setDeleteDialog({ open: false, itemId: null, collection: null });
-      
+
       // Update UI based on which collection was affected
       if (collection === 'recent') {
         setRecentSearches(recentSearches.filter(item => item._id !== itemId));
@@ -379,26 +394,26 @@ const ImportUtilityTool = () => {
       } else if (collection === 'favorite') {
         // If deleting from favorites, we need to update all related UI components
         setFavorites(favorites.filter(item => item._id !== itemId));
-        
+
         // Also update favorite status in recent searches if the item exists there
         if (hsCode) {
           setRecentSearches(
-            recentSearches.map(item => 
+            recentSearches.map(item =>
               item.hs_code === hsCode
                 ? { ...item, favourite: false }
                 : item
             )
           );
         }
-        
+
         showNotification("Item removed from favorites", "success");
       }
-      
+
       // Check if the deleted item is currently displayed in search results
       if (
-        searchResults && 
-        searchResults.result && 
-        hsCode && 
+        searchResults &&
+        searchResults.result &&
+        hsCode &&
         searchResults.result.hs_code === hsCode
       ) {
         // Update the search result to show that it's no longer in the collection
@@ -412,12 +427,12 @@ const ImportUtilityTool = () => {
           });
         }
       }
-      
+
       // Update multiple results if present
       if (multipleResults.length > 0 && hsCode) {
         if (collection === 'favorite') {
           setMultipleResults(
-            multipleResults.map(item => 
+            multipleResults.map(item =>
               item.hs_code === hsCode
                 ? { ...item, favourite: false }
                 : item
@@ -451,119 +466,205 @@ const ImportUtilityTool = () => {
     setNotification({ ...notification, open: false });
   };
 
+  // Toggle context expansion
+  const toggleContextExpand = () => {
+    setContextExpanded(!contextExpanded);
+  };
 
-  const renderSearchResult = (item, source) => {
+  // Render the main search result with its context
+  const renderSearchResultWithContext = (mainItem, source) => {
+    // Get all fields from the main item to use as headers, filtering out metadata fields
+    const fields = mainItem ? Object.keys(mainItem).filter(key =>
+      !['_id', 'updatedAt', 'row_index', 'favourite'].includes(key)
+    ) : [];
+
     return (
-      <TableContainer component={Paper} elevation={3} sx={{ marginTop: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell>Field</TableCell>
-              <TableCell>Value</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                HS Code
-              </TableCell>
-              <TableCell>{item.hs_code}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Item Description
-              </TableCell>
-              <TableCell>{item.item_description}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Level
-              </TableCell>
-              <TableCell>{item.level}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Unit
-              </TableCell>
-              <TableCell>{item.unit}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Basic Duty (Schedule)
-              </TableCell>
-              <TableCell>{item.basic_duty_sch}%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Basic Duty (Notification)
-              </TableCell>
-              <TableCell>{item.basic_duty_ntfn}%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Specific Duty (Rs)
-              </TableCell>
-              <TableCell>{item.specific_duty_rs}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                IGST
-              </TableCell>
-              <TableCell>{item.igst}%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                SWS (10%)
-              </TableCell>
-              <TableCell>{item.sws_10_percent}%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Total Duty with SWS
-              </TableCell>
-              <TableCell>{item.total_duty_with_sws}%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Total Duty (Specific)
-              </TableCell>
-              <TableCell>{item.total_duty_specific}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Preferential Duty A
-              </TableCell>
-              <TableCell>{item.pref_duty_a}%</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Import Policy
-              </TableCell>
-              <TableCell>{item.import_policy}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Non-Tariff Barriers
-              </TableCell>
-              <TableCell>{item.non_tariff_barriers}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Export Policy
-              </TableCell>
-              <TableCell>{item.export_policy}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell component="th" scope="row">
-                Remarks
-              </TableCell>
-              <TableCell>{item.remark}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Box sx={{ mb: 16 }}>
+        {contextItems.length > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Chip
+              icon={<InfoIcon />}
+              label={`${contextItems.length} context item${contextItems.length > 1 ? 's' : ''} included below`}
+              color="primary"
+              variant="outlined"
+              sx={{ mr: 1 }}
+            />
+          </Box>
+        )}
+
+        <TableContainer component={Paper} elevation={3}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                <TableCell sx={{ fontWeight: 'bold', minWidth: 100, textAlign: 'center' }}>
+                  Item Type
+                </TableCell>
+                {fields.map((field) => (
+                  <TableCell
+                    key={field}
+                    sx={{
+                      fontWeight: 'bold',
+                      minWidth: field === 'item_description' ? 300 : 150,
+                      textAlign: 'center'
+                    }}
+                  >
+                    {field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {/* Main item row */}
+              <TableRow sx={{ backgroundColor: "#f8f8ff" }}>
+                <TableCell sx={{ fontWeight: 'bold', textAlign: 'center', minHeight: 56 }}>
+                  Main Item
+                </TableCell>
+                {fields.map((field) => (
+                  <TableCell key={field} sx={{ textAlign: 'center' }}>
+                    {mainItem[field] && mainItem[field] !== "nan" ?
+                      field.includes('duty') || field.includes('igst') || field.includes('sws') ?
+                        `${mainItem[field]}%` : mainItem[field]
+                      : "-"}
+                  </TableCell>
+                ))}
+              </TableRow>
+
+
+              {contextItems.map((item, index) => (
+                <TableRow key={index} sx={{ backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white" }}>
+                  <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>
+                
+                  </TableCell>
+                  {fields.map((field) => (
+                    <TableCell key={field} sx={{ textAlign: 'center' }}>
+                      {item[field] && item[field] !== "nan" ?
+                        field.includes('duty') || field.includes('igst') || field.includes('sws') ?
+                          `${item[field]}%` : item[field]
+                        : "-"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
     );
   };
+  // Render the legacy table for backward compatibility
+  // const renderSearchResult = (item, source) => {
+  //   return (
+  //     <TableContainer component={Paper} elevation={3} sx={{ marginTop: 2 }}>
+  //       <Table>
+  //         <TableHead>
+  //           <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+  //             <TableCell>Field</TableCell>
+  //             <TableCell>Value</TableCell>
+  //           </TableRow>
+  //         </TableHead>
+  //         <TableBody>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               HS Code
+  //             </TableCell>
+  //             <TableCell>{item.hs_code}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Item Description
+  //             </TableCell>
+  //             <TableCell>{item.item_description}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Level
+  //             </TableCell>
+  //             <TableCell>{item.level}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Unit
+  //             </TableCell>
+  //             <TableCell>{item.unit}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Basic Duty (Schedule)
+  //             </TableCell>
+  //             <TableCell>{item.basic_duty_sch}%</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Basic Duty (Notification)
+  //             </TableCell>
+  //             <TableCell>{item.basic_duty_ntfn}%</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Specific Duty (Rs)
+  //             </TableCell>
+  //             <TableCell>{item.specific_duty_rs}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               IGST
+  //             </TableCell>
+  //             <TableCell>{item.igst}%</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               SWS (10%)
+  //             </TableCell>
+  //             <TableCell>{item.sws_10_percent}%</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Total Duty with SWS
+  //             </TableCell>
+  //             <TableCell>{item.total_duty_with_sws}%</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Total Duty (Specific)
+  //             </TableCell>
+  //             <TableCell>{item.total_duty_specific}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Preferential Duty A
+  //             </TableCell>
+  //             <TableCell>{item.pref_duty_a}%</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Import Policy
+  //             </TableCell>
+  //             <TableCell>{item.import_policy}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Non-Tariff Barriers
+  //             </TableCell>
+  //             <TableCell>{item.non_tariff_barriers}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Export Policy
+  //             </TableCell>
+  //             <TableCell>{item.export_policy}</TableCell>
+  //           </TableRow>
+  //           <TableRow>
+  //             <TableCell component="th" scope="row">
+  //               Remarks
+  //             </TableCell>
+  //             <TableCell>{item.remark}</TableCell>
+  //           </TableRow>
+  //         </TableBody>
+  //       </Table>
+  //     </TableContainer>
+  //   );
+  // };
 
   const renderMultipleResults = () => {
     return (
@@ -616,7 +717,7 @@ const ImportUtilityTool = () => {
   const renderItem = (item, source) => {
     // Only show delete button for recent searches, not for favorites
     const showDeleteButton = source === "recent";
-    
+
     return (
       <Paper
         elevation={2}
@@ -629,10 +730,10 @@ const ImportUtilityTool = () => {
           "&:hover": { backgroundColor: "#f9f9f9" },
         }}
       >
-        <Box 
-          sx={{ 
-            flexGrow: 1, 
-            cursor: "pointer" 
+        <Box
+          sx={{
+            flexGrow: 1,
+            cursor: "pointer"
           }}
           onClick={() => {
             setActiveTab(0); // Switch to Search Result tab
@@ -659,7 +760,7 @@ const ImportUtilityTool = () => {
           >
             {item.favourite ? <StarIcon /> : <StarBorderIcon />}
           </IconButton>
-          
+
           {/* Delete icon - only show for recent searches */}
           {showDeleteButton && (
             <IconButton
@@ -678,12 +779,23 @@ const ImportUtilityTool = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Customs HS Code Search
-      </Typography>
+    <Box sx={{ maxWidth: 1500, margin: "0 auto", p: 3, }}>
+ <Typography
+  variant="h5"
+  gutterBottom
+  sx={{
+    textAlign: "center",
+    fontWeight: 550,  // semi-bold
+    fontSize: "1.75rem",
+    mb: 6
+  }}
+>
+  Import Utility Tool
+</Typography>
 
-      <Box sx={{ display: "flex", mb: 3 }}>
+
+
+      <Box sx={{ display: "flex", mb: 3, width: "100%", justifyContent: "center", alignItems: "center" }}>
         <TextField
           placeholder="Search by HS Code or Item Description"
           size="small"
@@ -698,13 +810,14 @@ const ImportUtilityTool = () => {
                 {isLoading ? (
                   <CircularProgress size={24} />
                 ) : (
-                  <IconButton onClick={() => performSearch(searchQuery, false)}>
+                  <IconButton onClick={() => performSearch(searchQuery, true)}>
                     <SearchIcon />
                   </IconButton>
                 )}
               </InputAdornment>
             ),
           }}
+          style={{ width: "35%", }}
         />
       </Box>
 
@@ -756,7 +869,9 @@ const ImportUtilityTool = () => {
                   )}
                 </IconButton>
               </Box>
-              {renderSearchResult(searchResults.result, searchResults.source)}
+
+              {/* Use the new component that shows context */}
+              {renderSearchResultWithContext(searchResults.result, searchResults.source)}
             </Box>
           )}
 
@@ -784,7 +899,7 @@ const ImportUtilityTool = () => {
               Recently Searched Items (Last 20)
             </Typography>
           </Box>
-          
+
           {recentSearches.length > 0 ? (
             recentSearches.map((item) => (
               <Box key={item._id}>
@@ -812,7 +927,7 @@ const ImportUtilityTool = () => {
               Favorite Items
             </Typography>
           </Box>
-          
+
           {favorites.length > 0 ? (
             favorites.map((item) => (
               <Box key={item._id}>
@@ -856,7 +971,7 @@ const ImportUtilityTool = () => {
           </Button>
         </DialogActions>
       </Dialog>
-      
+
       {/* Unfavorite Confirmation Dialog */}
       <Dialog
         open={unfavoriteDialog.open}
@@ -876,14 +991,14 @@ const ImportUtilityTool = () => {
           <Button onClick={handleCloseUnfavoriteDialog} color="primary">
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={() => {
               if (unfavoriteDialog.item && unfavoriteDialog.collectionSource) {
                 processFavoriteToggle(unfavoriteDialog.item, unfavoriteDialog.collectionSource);
                 handleCloseUnfavoriteDialog();
               }
-            }} 
-            color="warning" 
+            }}
+            color="warning"
             autoFocus
           >
             Remove

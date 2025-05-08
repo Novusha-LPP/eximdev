@@ -61,7 +61,7 @@ function ChangePasswordByAdmin({ selectedUser }) {
     }
 
     // Password strength validation
-    if (newPassword.length > 8) {
+    if (newPassword.length < 8) {
       setMessage({ text: "Password must be at least 8 characters long", type: "error" });
       return;
     }

@@ -19,8 +19,6 @@ function Assign() {
 
   const { user } = useContext(UserContext);
 
-  console.log(user)
-
   useEffect(() => {
     async function getUsers() {
       try {

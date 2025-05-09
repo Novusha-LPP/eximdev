@@ -1,7 +1,7 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
-// import { uploadFileToS3 } from "../../utils/awsFileUpload";
+// import { upl./oadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import {
   IconButton,
@@ -2971,7 +2971,7 @@ function JobDetails() {
                               size="small"
                               margin="normal"
                               variant="outlined"
-                              type="date"
+                              type="datetime-local"
                               id={`arrival_date_${index}`}
                               name={`container_nos[${index}].arrival_date`}
                               disabled={ExBondflag}

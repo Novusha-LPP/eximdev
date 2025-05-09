@@ -61,12 +61,14 @@ const ImportDutyCalculator = () => {
     shipmentDetails.exchangeRate,
   ]);
 
+  // Update assessable value only if user hasn't manually modified it
   useEffect(() => {
     if (!userModified) {
       setAssessableValue(cifINR + additionalCharges);
     }
   }, [cifINR, additionalCharges, userModified]);
 
+  // Recalculate duties whenever relevant values change
   useEffect(() => {
     calculateDuties();
   }, [
@@ -140,7 +142,6 @@ const ImportDutyCalculator = () => {
       setAdditionalCharges((prev) => prev + numValue);
       setNewCharge("");
       setShowAddChargeInput(false);
-      setUserModified(false);
     }
   };
 
@@ -150,13 +151,19 @@ const ImportDutyCalculator = () => {
       additionalChargesList.filter((_, i) => i !== index)
     );
     setAdditionalCharges((prev) => prev - chargeToDelete);
-    setUserModified(false);
   };
 
   // Function to handle assessable value input change
   const handleAssessableValueChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    setAssessableValue(value);
     setUserModified(true);
-    setAssessableValue(parseFloat(e.target.value) || 0);
+  };
+
+  // Function to reset to automatic calculation
+  const resetToAutoCalculation = () => {
+    setUserModified(false);
+    setAssessableValue(cifINR + additionalCharges);
   };
 
   // Function to handle duty rates change
@@ -216,7 +223,12 @@ const ImportDutyCalculator = () => {
         if (data.data.job_data) {
           // Extract and set assessable value
           setClearanceValue(data.data.job_data.clearanceValue || "-");
-          setAssessableValue(parseFloat(data.data.job_data.assbl_value) || 0);
+
+          // Set the assessable value and mark as user modified so it doesn't get overwritten
+          const newAssessableValue =
+            parseFloat(data.data.job_data.assbl_value) || 0;
+          setAssessableValue(newAssessableValue);
+          setUserModified(true);
 
           setShipmentDetails((prev) => ({
             ...prev,
@@ -260,7 +272,6 @@ const ImportDutyCalculator = () => {
             }));
           }
         }
-        setUserModified(true);
       } else {
         setError("No data found");
       }
@@ -361,11 +372,15 @@ const ImportDutyCalculator = () => {
           setNewCharge={setNewCharge}
           addCharge={addCharge}
           handleAddCharge={handleAddCharge}
+          setShowAddChargeInput={setShowAddChargeInput}
           deleteCharge={deleteCharge}
           dutyValues={dutyValues}
           calculateCIF={calculateCIF}
           calculateDuties={calculateDuties}
           exportCSV={exportCSV}
+          cifINR={cifINR}
+          userModified={userModified}
+          resetToAutoCalculation={resetToAutoCalculation}
         />
       </div>
     </div>

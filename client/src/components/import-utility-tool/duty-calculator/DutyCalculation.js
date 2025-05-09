@@ -1,5 +1,4 @@
 import React from "react";
-import AdditionalChargesList from "./AdditionalChargesList";
 
 const DutyCalculation = ({
   dutyRates,
@@ -15,11 +14,15 @@ const DutyCalculation = ({
   setNewCharge,
   addCharge,
   handleAddCharge,
+  setShowAddChargeInput,
   deleteCharge,
   dutyValues,
   calculateCIF,
   calculateDuties,
   exportCSV,
+  cifINR,
+  userModified,
+  resetToAutoCalculation,
 }) => {
   return (
     <div
@@ -73,28 +76,28 @@ const DutyCalculation = ({
                 >
                   Assemble Value (₹)
                   <br />
-                  (Auto = CIF INR + Charges)
+                  <span style={{ fontSize: "11px", color: "#666" }}>
+                    (Manual entry enabled)
+                  </span>
                 </div>
               </td>
               <td style={{ padding: "4px", verticalAlign: "top" }}>
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
                 >
                   <input
                     type="number"
-                    value={assessableValue.toFixed(2)}
+                    value={assessableValue}
                     onChange={handleAssessableValueChange}
-                    placeholder="Auto/manual"
+                    onFocus={(e) => e.target.select()}
                     style={{
                       width: "180px",
                       padding: "6px 10px",
                       border: "1px solid #ccc",
                       borderRadius: "6px",
                       fontSize: "14px",
+                      backgroundColor: userModified ? "#ffffe0" : "#fff",
+                      cursor: "text",
                     }}
                   />
                   <button
@@ -111,6 +114,39 @@ const DutyCalculation = ({
                   >
                     + Add
                   </button>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginTop: "4px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#666",
+                    }}
+                  >
+                    Auto = {(cifINR + additionalCharges).toFixed(2)}
+                  </div>
+                  {userModified && (
+                    <button
+                      onClick={resetToAutoCalculation}
+                      style={{
+                        background: "#6c757d",
+                        color: "white",
+                        padding: "2px 8px",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                      }}
+                    >
+                      Reset to Auto
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -136,15 +172,91 @@ const DutyCalculation = ({
                     </span>
                   </div>
 
-                  <AdditionalChargesList
-                    showAddChargeInput={showAddChargeInput}
-                    newCharge={newCharge}
-                    setNewCharge={setNewCharge}
-                    handleAddCharge={handleAddCharge}
-                    setShowAddChargeInput={() => showAddChargeInput(false)}
-                    additionalChargesList={additionalChargesList}
-                    deleteCharge={deleteCharge}
-                  />
+                  {showAddChargeInput && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <input
+                        type="number"
+                        value={newCharge}
+                        onChange={(e) => setNewCharge(e.target.value)}
+                        placeholder="Enter charge amount"
+                        style={{
+                          width: "180px",
+                          padding: "6px 10px",
+                          border: "1px solid #ccc",
+                          borderRadius: "6px",
+                          fontSize: "14px",
+                        }}
+                      />
+                      <button
+                        onClick={handleAddCharge}
+                        style={{
+                          background: "#28a745",
+                          color: "white",
+                          padding: "6px 14px",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => setShowAddChargeInput(false)}
+                        style={{
+                          background: "#dc3545",
+                          color: "white",
+                          padding: "6px 14px",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {additionalChargesList.length > 0 && (
+                    <div style={{ marginTop: "8px" }}>
+                      {additionalChargesList.map((charge, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <span style={{ fontSize: "14px" }}>
+                            ₹{charge.toFixed(2)}
+                          </span>
+                          <button
+                            onClick={() => deleteCharge(index)}
+                            style={{
+                              background: "#dc3545",
+                              color: "white",
+                              padding: "2px 8px",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </td>
             </tr>
@@ -168,10 +280,9 @@ const DutyCalculation = ({
               <td style={{ padding: "4px", verticalAlign: "top" }}>
                 <input
                   type="number"
+                  id="bcdRate"
                   value={dutyRates.bcdRate}
-                  onChange={(e) =>
-                    handleDutyRateChange("bcdRate", e.target.value)
-                  }
+                  onChange={handleDutyRateChange}
                   style={{
                     width: "180px",
                     padding: "6px 10px",
@@ -180,6 +291,98 @@ const DutyCalculation = ({
                     fontSize: "14px",
                   }}
                 />
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: "#1e8449",
+                    marginTop: "4px",
+                    display: "inline-block",
+                  }}
+                >
+                  {dutyValues.bcd.toFixed(2)}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                FTA (%)
+                <span
+                  style={{
+                    display: "inline-block",
+                    position: "relative",
+                    cursor: "help",
+                    color: "#007bff",
+                    fontWeight: "bold",
+                    marginLeft: "6px",
+                  }}
+                  title="Free Trade Agreement - Percentage reduction applied to FTA"
+                >
+                  ℹ️
+                </span>
+              </td>
+              <td style={{ padding: "4px", verticalAlign: "top" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <label style={{ marginRight: "15px" }}>
+                    <input
+                      type="radio"
+                      name="bofEnabled"
+                      value="yes"
+                      checked={dutyRates.bofEnabled}
+                      onChange={handleBOFChange}
+                      style={{ marginRight: "5px" }}
+                    />
+                    Yes
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="bofEnabled"
+                      value="no"
+                      checked={!dutyRates.bofEnabled}
+                      onChange={handleBOFChange}
+                      style={{ marginRight: "5px" }}
+                    />
+                    No
+                  </label>
+                </div>
+
+                {dutyRates.bofEnabled && (
+                  <div>
+                    <input
+                      type="number"
+                      id="bofPercentage"
+                      value={dutyRates.bofPercentage}
+                      onChange={handleDutyRateChange}
+                      placeholder="Percentage %"
+                      style={{
+                        width: "180px",
+                        padding: "6px 10px",
+                        border: "1px solid #ccc",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                      }}
+                    />
+                    {dutyValues.bofReduction > 0 && (
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#c0392b",
+                          marginTop: "4px",
+                          display: "inline-block",
+                          marginLeft: "8px",
+                        }}
+                      >
+                        - {dutyValues.bofReduction.toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </td>
             </tr>
             <tr>
@@ -194,7 +397,7 @@ const DutyCalculation = ({
                     fontWeight: "bold",
                     marginLeft: "6px",
                   }}
-                  title="Social Welfare Surcharge = BCD Amount × SWS%"
+                  title="SWS = 10% of BCD amount (after BOF reduction if applicable)"
                 >
                   ℹ️
                 </span>
@@ -202,10 +405,9 @@ const DutyCalculation = ({
               <td style={{ padding: "4px", verticalAlign: "top" }}>
                 <input
                   type="number"
+                  id="swsRate"
                   value={dutyRates.swsRate}
-                  onChange={(e) =>
-                    handleDutyRateChange("swsRate", e.target.value)
-                  }
+                  onChange={handleDutyRateChange}
                   style={{
                     width: "180px",
                     padding: "6px 10px",
@@ -214,6 +416,16 @@ const DutyCalculation = ({
                     fontSize: "14px",
                   }}
                 />
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: "#1e8449",
+                    marginTop: "4px",
+                    display: "inline-block",
+                  }}
+                >
+                  {dutyValues.sws.toFixed(2)}
+                </div>
               </td>
             </tr>
             <tr>
@@ -228,7 +440,7 @@ const DutyCalculation = ({
                     fontWeight: "bold",
                     marginLeft: "6px",
                   }}
-                  title="IGST = (Assemble + BCD Amount + SWS Amount) × IGST%"
+                  title="IGST = (Assessable + BCD + SWS) × IGST%"
                 >
                   ℹ️
                 </span>
@@ -236,10 +448,9 @@ const DutyCalculation = ({
               <td style={{ padding: "4px", verticalAlign: "top" }}>
                 <input
                   type="number"
+                  id="igstRate"
                   value={dutyRates.igstRate}
-                  onChange={(e) =>
-                    handleDutyRateChange("igstRate", e.target.value)
-                  }
+                  onChange={handleDutyRateChange}
                   style={{
                     width: "180px",
                     padding: "6px 10px",
@@ -248,116 +459,86 @@ const DutyCalculation = ({
                     fontSize: "14px",
                   }}
                 />
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: "#1e8449",
+                    marginTop: "4px",
+                    display: "inline-block",
+                  }}
+                >
+                  {dutyValues.igst.toFixed(2)}
+                </div>
               </td>
             </tr>
             <tr>
               <td>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={dutyRates.bofEnabled}
-                    onChange={(e) => handleBOFChange(e.target.checked)}
-                    style={{ margin: 0 }}
-                  />
-                  <span>
-                    BOF (%)
-                    <span
-                      style={{
-                        display: "inline-block",
-                        position: "relative",
-                        cursor: "help",
-                        color: "#007bff",
-                        fontWeight: "bold",
-                        marginLeft: "6px",
-                      }}
-                      title="Basic Overseas Freight = Assemble × BOF%"
-                    >
-                      ℹ️
-                    </span>
-                  </span>
-                </div>
+                <strong>Total Duty (₹)</strong>
               </td>
-              <td style={{ padding: "4px", verticalAlign: "top" }}>
-                <input
-                  type="number"
-                  value={dutyRates.bofPercentage}
-                  onChange={(e) =>
-                    handleDutyRateChange("bofPercentage", e.target.value)
-                  }
-                  disabled={!dutyRates.bofEnabled}
-                  style={{
-                    width: "180px",
-                    padding: "6px 10px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                    backgroundColor: dutyRates.bofEnabled ? "white" : "#f5f5f5",
-                  }}
-                />
-              </td>
-            </tr>
-
-            {/* Results Section */}
-            <tr>
-              <td colSpan="2">
-                <div
-                  style={{
-                    marginTop: "20px",
-                    padding: "15px",
-                    backgroundColor: "#f8f9fa",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <h4 style={{ margin: "0 0 15px 0", color: "#2c3e50" }}>
-                    Calculated Duties
-                  </h4>
-                  <div style={{ display: "grid", gap: "10px" }}>
-                    {Object.entries(dutyValues).map(([key, value]) => (
-                      <div
-                        key={key}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "14px",
-                        }}
-                      >
-                        <span>{key}</span>
-                        <span style={{ fontWeight: 600 }}>
-                          ₹ {value.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </td>
-            </tr>
-
-            {/* Export Button */}
-            <tr>
               <td
-                colSpan="2"
-                style={{ textAlign: "right", paddingTop: "20px" }}
+                style={{
+                  fontWeight: 600,
+                  color: "#1e8449",
+                  marginTop: "4px",
+                  display: "inline-block",
+                  padding: "4px",
+                }}
               >
-                <button
-                  onClick={exportCSV}
-                  style={{
-                    background: "#28a745",
-                    color: "white",
-                    padding: "8px 16px",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                  }}
-                >
-                  Export to CSV
-                </button>
+                {dutyValues.total.toFixed(2)}
               </td>
             </tr>
           </tbody>
         </table>
+        <button
+          onClick={() => {
+            calculateCIF();
+            calculateDuties();
+          }}
+          style={{
+            background: "#007bff",
+            color: "white",
+            padding: "6px 14px",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "13px",
+            marginTop: "10px",
+            marginRight: "5px",
+          }}
+        >
+          🔁 Recalculate
+        </button>
+        <button
+          onClick={() => window.print()}
+          style={{
+            background: "#007bff",
+            color: "white",
+            padding: "6px 14px",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "13px",
+            marginTop: "10px",
+            marginRight: "5px",
+          }}
+        >
+          🖨️ Print
+        </button>
+        <button
+          onClick={exportCSV}
+          style={{
+            background: "#007bff",
+            color: "white",
+            padding: "6px 14px",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "13px",
+            marginTop: "10px",
+          }}
+        >
+          📥 Export CSV
+        </button>
       </div>
     </div>
   );

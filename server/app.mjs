@@ -41,7 +41,7 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
-import handleS3Deletation from "./routes/handleS3Deletation.mjs"
+import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -62,7 +62,7 @@ import getMobile from "./routes/accounts/getMobile.mjs";
 import getRent from "./routes/accounts/getRent.mjs";
 
 // import - billing
-import getImportBilling from "./routes/import-billing/getImportBilling.js"
+import getImportBilling from "./routes/import-billing/getImportBilling.js";
 
 // Customer KYC
 import addCustomerKyc from "./routes/customer-kyc/addCustomerKyc.mjs";
@@ -97,7 +97,6 @@ import getESanchitJobs from "./routes/e-sanchit/getESanchitJobs.mjs";
 import getESanchitCompletedJobs from "./routes/e-sanchit/getESanchitCompletedJobs.mjs";
 import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
-
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -145,7 +144,7 @@ import updateOperationsJob from "./routes/import-operations/updateOperationsJob.
 import getOperationPlanningList from "./routes/import-operations/getOperationPlanningList.mjs";
 
 //import utility tool
-import getCthSearch from "../server/model/srcc/Directory_Management/CthUtil/getChtSearch.js"
+import getCthSearch from "../server/model/srcc/Directory_Management/CthUtil/getChtSearch.js";
 
 // Inward Register
 import addInwardRegister from "./routes/inward-register/addInwardRegister.mjs";
@@ -243,6 +242,7 @@ import driverAssignment from "./routes/tyre-maintenance/driverAssignment.mjs";
 import getTyreDetails from "./routes/tyre-maintenance/getTyreDetails.mjs";
 import getTruckDetails from "./routes/tyre-maintenance/getTruckDetails.mjs";
 import JobModel from "./model/jobModel.mjs";
+import dutyCalculator from "./model/srcc/Directory_Management/CthUtil/dutycalculator.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -297,13 +297,12 @@ if (cluster.isPrimary) {
   // app.use(cors({ origin: CLIENT_URI, credentials: true }));
 
   app.use(compression({ level: 9 }));
-
+  app.use("/", dutyCalculator);
   mongoose.set("strictQuery", true);
 
   mongoose
     .connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      useunifiedTopology: true,
       minPoolSize: 10,
       maxPoolSize: 1000,
     })
@@ -341,8 +340,8 @@ if (cluster.isPrimary) {
       app.use(getYears);
       app.use(login);
 
-      // handle delete 
-      app.use(handleS3Deletation)
+      // handle delete
+      app.use(handleS3Deletation);
 
       // Accounts
       app.use(addAdani);
@@ -442,7 +441,7 @@ if (cluster.isPrimary) {
       app.use(getOperationPlanningList);
 
       // import billing
-      app.use(getImportBilling)
+      app.use(getImportBilling);
 
       // import cth search
       app.use(getCthSearch);
@@ -571,7 +570,4 @@ if (cluster.isPrimary) {
     console.log("Mongoose connection closed due to app termination");
     process.exit(0);
   });
-
-
-  
 }

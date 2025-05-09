@@ -11,7 +11,7 @@ export const navigateToModule = (module, navigate) => {
     case "Import - Add":
       return navigate("/ImportersInfo");
     case "Import Utility Tool":
-      return navigate("/import-utility-tool");
+      return navigate("/utilities");
     case "Import - DO":
       return navigate("/import-do");
     case "Inward Register":

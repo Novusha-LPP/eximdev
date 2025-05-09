@@ -16,40 +16,55 @@ const FileUpload = ({
 
   const handleFileUpload = async (event) => {
     if (readOnly) {
-      // console.log("Upload prevented: component is in readOnly mode");
       return;
     }
 
     const files = event.target.files;
-    // console.log(`Files selected: ${files?.length || 0}`);
-
     if (!files || files.length === 0) {
-      // console.log("No files selected, returning early");
       return;
     }
 
-    const uploadedFiles = [];
-
     setUploading(true);
     try {
-      for (const file of files) {
-        try {
-          const result = await uploadFileToS3(file, bucketPath);
-          // Just store the URL string rather than an object
-          uploadedFiles.push(result.Location);
-        } catch (error) {
-          console.error(`Failed to upload ${file.name}:`, error);
-        }
+      // Use the uploadFileToS3 function directly with all files
+      const result = await uploadFileToS3(files, bucketPath);
+      
+      // Log the entire response to see the structure
+      console.log("Full upload result:", result);
+      console.log("Uploaded files data:", result.uploaded);
+      
+      // Check the first item to see its structure
+      if (result.uploaded && result.uploaded.length > 0) {
+        console.log("First uploaded file structure:", result.uploaded[0]);
       }
-      onFilesUploaded(uploadedFiles);
+      
+      // Extract URLs correctly based on the actual response structure
+      // Try different possible property names
+      const uploadedUrls = result.uploaded.map(file => {
+        // Log each file object to see what's available
+        console.log("Processing file:", file);
+        
+        // Check common property names
+        if (file.location) return file.location;
+        if (file.Location) return file.Location;
+        if (file.url) return file.url;
+        if (file.URL) return file.URL;
+        
+        // If none found, return the whole object as a last resort
+        console.warn("Could not find URL property in uploaded file:", file);
+        return file;
+      });
+      
+      console.log("Extracted URLs:", uploadedUrls);
+      
+      // Pass the array of URLs to the parent component
+      onFilesUploaded(uploadedUrls);
     } catch (error) {
       console.error("Upload process failed:", error);
     } finally {
       setUploading(false);
     }
   };
-
-  //console.log("FileUpload: Rendering button with uploading state:", uploading);
 
   return (
     <div style={{ marginTop: "10px" }}>

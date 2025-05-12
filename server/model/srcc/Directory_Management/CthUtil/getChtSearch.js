@@ -3,8 +3,11 @@ import mongoose from 'mongoose';
 import CthModel from './CthUtil.mjs';
 import FavoriteModel from './FavouriteCth.mjs';
 import RecentModel from './RecentCth.mjs';
+import NodeCache from 'node-cache'; 
 
 const router = express.Router();
+
+const searchCache = new NodeCache({ stdTTL: 300 });
 
 
 
@@ -68,44 +71,109 @@ router.get('/api/search', async (req, res) => {
       return res.status(400).json({ message: 'Search query is required' });
     }
 
-    const searchRegex = new RegExp(query, 'i');
+    // Generate a cache key
+    const cacheKey = `search_${query}_${addToRecent}`;
+    
+    // Check if result is in cache
+    const cachedResult = searchCache.get(cacheKey);
+    if (cachedResult) {
+      console.log('Search cache hit for:', query);
+      return res.status(200).json(cachedResult);
+    }
 
-    const searchCondition = {
-      $or: [
-        { item_description: searchRegex },
-        { hs_code: searchRegex }
-      ]
-    };
-
-    // Search only in CTH collection
-    const results = await CthModel.find(searchCondition).limit(20).lean();
-    const sourceCollection = 'cth';
+    // Parse the query to determine if it's an HS code (numeric) or description
+    const isHsCodeSearch = /^\d+/.test(query);
+    
+    // Optimize the query based on what's being searched
+    let searchCondition;
+    let results;
+    
+    if (isHsCodeSearch) {
+      // For HS codes, use exact prefix match which is faster than regex
+      // This is much more efficient for indexed fields
+      searchCondition = { hs_code: new RegExp(`^${query}`) };
+      results = await CthModel.find(searchCondition)
+        .lean()
+        .limit(20)
+        .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit'); // Only select fields we need
+    } else {
+      // For descriptive text, use text search which is optimized if you have text indexes
+      // Fall back to regex if the string is too short for text search
+      if (query.length >= 3) {
+        // Use text index search for longer queries
+        searchCondition = { $text: { $search: query } };
+        results = await CthModel.find(searchCondition)
+          .lean()
+          .limit(20)
+          .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit')
+          .sort({ score: { $meta: "textScore" } }); // Sort by text relevance
+      } else {
+        // Use regex for short queries
+        searchCondition = { item_description: new RegExp(query, 'i') };
+        results = await CthModel.find(searchCondition)
+          .lean()
+          .limit(20)
+          .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
+      }
+    }
 
     if (!results.length) {
-      return res.status(404).json({
-        message: 'No document found matching the search criteria'
-      });
+      // If no results with optimized query, try a more flexible search as fallback
+      searchCondition = {
+        $or: [
+          { item_description: new RegExp(query, 'i') },
+          { hs_code: new RegExp(query, 'i') }
+        ]
+      };
+      
+      results = await CthModel.find(searchCondition)
+        .lean()
+        .limit(20)
+        .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
+      
+      if (!results.length) {
+        return res.status(404).json({
+          message: 'No document found matching the search criteria'
+        });
+      }
     }
 
+    const sourceCollection = 'cth';
     const mainItem = results[0]; // pick first for context extraction
 
-    // Add to recent if requested
-    if (addToRecent) {
-      await addToRecentCollection(mainItem);
-    }
+    // Get context items in parallel with adding to recent
+    const contextPromise = mainItem.hs_code
+      ? getHsCodeWithContext(mainItem.hs_code, CthModel)
+      : Promise.resolve([]);
 
-    // Get context from the first matching hs_code (if it has one)
+    // Add to recent if requested - in parallel
+    const recentPromise = addToRecent
+      ? addToRecentCollection(mainItem)
+      : Promise.resolve();
+
+    // Wait for both operations to complete
+    const [contextResults] = await Promise.all([contextPromise, recentPromise]);
+
+    // Process context items
     let contextItems = [];
-    if (mainItem.hs_code) {
-      const contextResults = await getHsCodeWithContext(mainItem.hs_code, CthModel);
-      contextItems = contextResults.slice(1); // exclude the mainItem (already in results)
+    if (contextResults && contextResults.length > 0) {
+      // Filter out the main item from context
+      contextItems = contextResults.filter(item => 
+        item._id.toString() !== mainItem._id.toString()
+      );
     }
 
-    return res.status(200).json({
+    // Prepare response object
+    const responseData = {
       results,
       contextItems,
       source: sourceCollection
-    });
+    };
+
+    // Save to cache
+    searchCache.set(cacheKey, responseData);
+
+    return res.status(200).json(responseData);
 
   } catch (error) {
     console.error('Search API error:', error);
@@ -116,62 +184,91 @@ router.get('/api/search', async (req, res) => {
   }
 });
 
+const recentCache = new NodeCache({ stdTTL: 600 });
+const favoritesCache = new NodeCache({ stdTTL: 600 });
 
+// Cache key constants
+const RECENT_COUNT_KEY = 'recent_count';
+const FAVORITES_KEY_PREFIX = 'fav_';
 
-// Helper function to add an item to the recent collection
+// Function to get recent count with caching
+async function getCachedRecentCount() {
+  let count = recentCache.get(RECENT_COUNT_KEY);
+  if (count === undefined) {
+    count = await RecentModel.countDocuments();
+    recentCache.set(RECENT_COUNT_KEY, count);
+  }
+  return count;
+}
+
+// Function to check if item is favorite with caching
+async function isItemFavorite(query) {
+  const cacheKey = FAVORITES_KEY_PREFIX + (query.hs_code || query.item_description);
+  let isFavorite = favoritesCache.get(cacheKey);
+  
+  if (isFavorite === undefined) {
+    const favoriteExists = await FavoriteModel.exists(query);
+    isFavorite = !!favoriteExists;
+    favoritesCache.set(cacheKey, isFavorite);
+  }
+  
+  return isFavorite;
+}
+
+// The optimized function
 async function addToRecentCollection(item) {
   try {
-    // Build dynamic query based on availability
-    const query = [];
-    if (item.hs_code) query.push({ hs_code: item.hs_code });
-    if (item.item_description) query.push({ item_description: item.item_description });
-
-    const existingRecent = query.length
-      ? await RecentModel.findOne({ $or: query })
-      : null;
-
-    if (existingRecent) {
-      existingRecent.createdAt = new Date();
-      await existingRecent.save();
+    // Use the most unique field for querying
+    const query = item.hs_code ? { hs_code: item.hs_code } : { item_description: item.item_description };
+    
+    // First, check if document already exists
+    const existingDoc = await RecentModel.findOne(query).select('_id');
+    
+    if (existingDoc) {
+      // Document exists, just update the timestamp
+      // Use updateOne which is faster than findOneAndUpdate when you don't need the result
+      await RecentModel.updateOne(
+        { _id: existingDoc._id },
+        { $set: { createdAt: new Date() } }
+      );
+      
+      // Update the recent count in cache if we're tracking it
+      if (recentCache.has(RECENT_COUNT_KEY)) {
+        // No need to change the count
+      }
+      
       return;
     }
-
-    const recentCount = await RecentModel.countDocuments();
-
+    
+    // Document doesn't exist, we need to create a new one
+    
+    // Check if we're at the limit (with caching)
+    const recentCount = await getCachedRecentCount();
+    
     if (recentCount >= 20) {
-      const oldest = await RecentModel.findOne().sort({ createdAt: 1 });
+      // Find and delete the oldest document
+      const oldest = await RecentModel.findOne().sort({ createdAt: 1 }).select('_id');
       if (oldest) {
-        await RecentModel.findByIdAndDelete(oldest._id);
+        await RecentModel.deleteOne({ _id: oldest._id });
+        // Don't update cache count as we'll add one document next
       }
+    } else {
+      // We're adding a document, increment the count in cache
+      recentCache.set(RECENT_COUNT_KEY, recentCount + 1);
     }
-
-    const favoriteItem = query.length
-      ? await FavoriteModel.findOne({ $or: query })
-      : null;
-
-    const isFavorite = !!favoriteItem;
-
+    
+    // Check if item is in favorites (with caching)
+    const isFavorite = await isItemFavorite(query);
+    
+    // Create and save the new document
     const newRecentDoc = new RecentModel({
-      hs_code: item.hs_code,
-      level: item.level,
-      item_description: item.item_description,
-      unit: item.unit,
-      basic_duty_sch: item.basic_duty_sch,
-      basic_duty_ntfn: item.basic_duty_ntfn,
-      specific_duty_rs: item.specific_duty_rs,
-      igst: item.igst,
-      sws_10_percent: item.sws_10_percent,
-      total_duty_with_sws: item.total_duty_with_sws,
-      total_duty_specific: item.total_duty_specific,
-      pref_duty_a: item.pref_duty_a,
-      import_policy: item.import_policy,
-      non_tariff_barriers: item.non_tariff_barriers,
-      export_policy: item.export_policy,
-      remark: item.remark,
-      favourite: isFavorite
+      ...item,
+      favourite: isFavorite,
+      createdAt: new Date()
     });
-
+    
     await newRecentDoc.save();
+    
   } catch (error) {
     console.error('Error adding to Recent collection:', error);
     throw error;
@@ -400,5 +497,34 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
     });
   }
 });
+
+// Add this new API route to your Express router file
+
+// Get context items for an HS code
+router.get('/api/context/:hsCode', async (req, res) => {
+  try {
+    const { hsCode } = req.params;
+    
+    if (!hsCode) {
+      return res.status(400).json({ message: 'HS Code is required' });
+    }
+    
+    // Get context from the hs_code
+    const contextResults = await getHsCodeWithContext(hsCode, CthModel);
+    
+    // Exclude the main item (first item)
+    const contextItems = contextResults.length > 1 ? contextResults.slice(1) : [];
+    
+    return res.status(200).json({ contextItems });
+    
+  } catch (error) {
+    console.error('Context API error:', error);
+    return res.status(500).json({ 
+      message: 'Server error while fetching context', 
+      error: error.message 
+    });
+  }
+});
+
 
 export default router;

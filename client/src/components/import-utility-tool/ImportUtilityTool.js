@@ -23,8 +23,6 @@ import {
   DialogContentText,
   DialogTitle,
   Button,
-  Collapse,
-  Divider,
   Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -32,8 +30,6 @@ import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import HistoryIcon from "@mui/icons-material/History";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import InfoIcon from "@mui/icons-material/Info";
 import axios from "axios";
 
@@ -64,7 +60,7 @@ const ImportUtilityTool = () => {
   });
   // New state for context items
   const [contextItems, setContextItems] = useState([]);
-  const [contextExpanded, setContextExpanded] = useState(false);
+
 
   // Handle search input changes with debounce
   useEffect(() => {
@@ -109,6 +105,41 @@ const ImportUtilityTool = () => {
     } catch (error) {
       console.error("Error fetching favorites:", error);
       showNotification("Failed to load favorites", "error");
+    }
+  };
+
+  const handleItemClick = (item, source) => {
+    setActiveTab(0); // Switch to Search Result tab
+    
+    // Instead of setting search query and triggering a search
+    // Directly set the selected item as the search result
+    setSearchResults({
+      result: item,
+      source: source
+    });
+    
+    // Clear multiple results
+    setMultipleResults([]);
+    
+    // Fetch context items for this item
+    fetchContextItems(item.hs_code);
+  };
+  
+  // New function to fetch context items for an HS code
+  const fetchContextItems = async (hsCode) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/context/${hsCode}`
+      );
+      
+      if (response.data && response.data.contextItems) {
+        setContextItems(response.data.contextItems);
+      } else {
+        setContextItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching context items:", error);
+      setContextItems([]);
     }
   };
 
@@ -466,10 +497,6 @@ const ImportUtilityTool = () => {
     setNotification({ ...notification, open: false });
   };
 
-  // Toggle context expansion
-  const toggleContextExpand = () => {
-    setContextExpanded(!contextExpanded);
-  };
 
   // Render the main search result with its context
   const renderSearchResultWithContext = (mainItem, source) => {
@@ -496,15 +523,12 @@ const ImportUtilityTool = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                <TableCell sx={{ fontWeight: 'bold', minWidth: 100, textAlign: 'center' }}>
-                  Item Type
-                </TableCell>
                 {fields.map((field) => (
                   <TableCell
                     key={field}
                     sx={{
                       fontWeight: 'bold',
-                      minWidth: field === 'item_description' ? 300 : 150,
+                      minWidth: field === 'item_description' ? 300 : 100,
                       textAlign: 'center'
                     }}
                   >
@@ -516,10 +540,8 @@ const ImportUtilityTool = () => {
 
             <TableBody>
               {/* Main item row */}
-              <TableRow sx={{ backgroundColor: "#f8f8ff" }}>
-                <TableCell sx={{ fontWeight: 'bold', textAlign: 'center', minHeight: 56 }}>
-                  Main Item
-                </TableCell>
+              <TableRow sx={{ backgroundColor: "#f8f8ff", height: 100 }}>
+             
                 {fields.map((field) => (
                   <TableCell key={field} sx={{ textAlign: 'center' }}>
                     {mainItem[field] && mainItem[field] !== "nan" ?
@@ -552,119 +574,6 @@ const ImportUtilityTool = () => {
       </Box>
     );
   };
-  // Render the legacy table for backward compatibility
-  // const renderSearchResult = (item, source) => {
-  //   return (
-  //     <TableContainer component={Paper} elevation={3} sx={{ marginTop: 2 }}>
-  //       <Table>
-  //         <TableHead>
-  //           <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-  //             <TableCell>Field</TableCell>
-  //             <TableCell>Value</TableCell>
-  //           </TableRow>
-  //         </TableHead>
-  //         <TableBody>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               HS Code
-  //             </TableCell>
-  //             <TableCell>{item.hs_code}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Item Description
-  //             </TableCell>
-  //             <TableCell>{item.item_description}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Level
-  //             </TableCell>
-  //             <TableCell>{item.level}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Unit
-  //             </TableCell>
-  //             <TableCell>{item.unit}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Basic Duty (Schedule)
-  //             </TableCell>
-  //             <TableCell>{item.basic_duty_sch}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Basic Duty (Notification)
-  //             </TableCell>
-  //             <TableCell>{item.basic_duty_ntfn}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Specific Duty (Rs)
-  //             </TableCell>
-  //             <TableCell>{item.specific_duty_rs}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               IGST
-  //             </TableCell>
-  //             <TableCell>{item.igst}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               SWS (10%)
-  //             </TableCell>
-  //             <TableCell>{item.sws_10_percent}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Total Duty with SWS
-  //             </TableCell>
-  //             <TableCell>{item.total_duty_with_sws}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Total Duty (Specific)
-  //             </TableCell>
-  //             <TableCell>{item.total_duty_specific}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Preferential Duty A
-  //             </TableCell>
-  //             <TableCell>{item.pref_duty_a}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Import Policy
-  //             </TableCell>
-  //             <TableCell>{item.import_policy}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Non-Tariff Barriers
-  //             </TableCell>
-  //             <TableCell>{item.non_tariff_barriers}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Export Policy
-  //             </TableCell>
-  //             <TableCell>{item.export_policy}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Remarks
-  //             </TableCell>
-  //             <TableCell>{item.remark}</TableCell>
-  //           </TableRow>
-  //         </TableBody>
-  //       </Table>
-  //     </TableContainer>
-  //   );
-  // };
 
   const renderMultipleResults = () => {
     return (
@@ -714,70 +623,64 @@ const ImportUtilityTool = () => {
     );
   };
 
-  const renderItem = (item, source) => {
-    // Only show delete button for recent searches, not for favorites
-    const showDeleteButton = source === "recent";
+const renderItem = (item, source) => {
+  // Only show delete button for recent searches, not for favorites
+  const showDeleteButton = source === "recent";
 
-    return (
-      <Paper
-        elevation={2}
+  return (
+    <Paper
+      elevation={2}
+      sx={{
+        p: 2,
+        mb: 2,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        "&:hover": { backgroundColor: "#f9f9f9" },
+      }}
+    >
+      <Box
         sx={{
-          p: 2,
-          mb: 2,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          "&:hover": { backgroundColor: "#f9f9f9" },
+          flexGrow: 1,
+          cursor: "pointer"
         }}
+        onClick={() => handleItemClick(item, source)}
       >
-        <Box
-          sx={{
-            flexGrow: 1,
-            cursor: "pointer"
+        <Typography variant="subtitle1" fontWeight="bold">
+          {item.hs_code} - {item.item_description}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Duty: {item.total_duty_with_sws}% | IGST: {item.igst}%
+        </Typography>
+      </Box>
+      <Box display="flex" alignItems="center">
+        {/* Favorite icon */}
+        <IconButton
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent triggering the row click
+            handleToggleFavorite(item, source);
           }}
-          onClick={() => {
-            setActiveTab(0); // Switch to Search Result tab
-            // Set the search query to the HS code
-            setSearchQuery(item.hs_code);
-            performSearch(item.hs_code, true);
-          }}
+          color={item.favourite ? "warning" : "default"}
         >
-          <Typography variant="subtitle1" fontWeight="bold">
-            {item.hs_code} - {item.item_description}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Duty: {item.total_duty_with_sws}% | IGST: {item.igst}%
-          </Typography>
-        </Box>
-        <Box display="flex" alignItems="center">
-          {/* Favorite icon */}
+          {item.favourite ? <StarIcon /> : <StarBorderIcon />}
+        </IconButton>
+
+        {/* Delete icon - only show for recent searches */}
+        {showDeleteButton && (
           <IconButton
             onClick={(e) => {
               e.stopPropagation(); // Prevent triggering the row click
-              handleToggleFavorite(item, source);
+              handleDeleteConfirm(item._id, "recent");
             }}
-            color={item.favourite ? "warning" : "default"}
+            color="error"
           >
-            {item.favourite ? <StarIcon /> : <StarBorderIcon />}
+            <DeleteIcon />
           </IconButton>
-
-          {/* Delete icon - only show for recent searches */}
-          {showDeleteButton && (
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent triggering the row click
-                handleDeleteConfirm(item._id, "recent");
-              }}
-              color="error"
-            >
-              <DeleteIcon />
-            </IconButton>
-          )}
-        </Box>
-      </Paper>
-    );
-  };
-
+        )}
+      </Box>
+    </Paper>
+  );
+};
   return (
     <Box sx={{ maxWidth: 1500, margin: "0 auto", p: 3, }}>
  <Typography
@@ -790,7 +693,7 @@ const ImportUtilityTool = () => {
     mb: 6
   }}
 >
-  Import Utility Tool
+ CTH Directory Search
 </Typography>
 
 

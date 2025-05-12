@@ -526,5 +526,28 @@ router.get('/api/context/:hsCode', async (req, res) => {
   }
 });
 
+// DELETE all favorites
+router.delete('/api/favorite-cth/clear', async (req, res) => {
+  try {
+    await FavoriteModel.deleteMany({});
+    res.json({ message: 'All favorite CTH entries deleted.' });
+  } catch (error) {
+    console.error('Error deleting favorite CTH:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE all recent items
+router.delete('/api/recent-cth/clear', async (req, res) => {
+  try {
+    await RecentModel.deleteMany({});
+    res.json({ message: 'All recent CTH entries deleted.' });
+  } catch (error) {
+    console.error('Error deleting recent CTH:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 
 export default router;

@@ -214,6 +214,7 @@ import getSrccOrganisations from "./routes/srcc-directories/getSrccOrganisations
 import UnitConversion from "./routes/srcc/Directory_Management/unitConvirsionRoutes.mjs";
 import CountryCode from "./routes/srcc/Directory_Management/countryCodeRoutes.js";
 import Currency from "./routes/srcc/Directory_Management/CurrencyRoutes.mjs";
+import Port from "./routes/srcc/Directory_Management/PortRoutes.mjs";
 // sr_cel
 import srCel from "./routes/srcc/sr_cel/srCel.mjs";
 import elock from "./routes/srcc/Directory_Management/ElockRoute.mjs";
@@ -515,6 +516,7 @@ if (cluster.isPrimary) {
       app.use(UnitConversion);
       app.use(CountryCode);
       app.use(Currency);
+      app.use(Port);
       // sr cel
       app.use(srCel);
       app.use(elock);

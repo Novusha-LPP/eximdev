@@ -55,33 +55,33 @@ router.get("/api/getallcth", async (req, res) => {
 });
 
 // Get a single CTH entry by ID
-router.get("/api/:id", async (req, res) => {
-  try {
-    const cth = await CthModel.findById(req.params.id).populate(
-      "job",
-      "job_no year total_inv_value assbl_value"
-    );
+// router.get("/api/:id", async (req, res) => {
+//   try {
+//     const cth = await CthModel.findById(req.params.id).populate(
+//       "job",
+//       "job_no year total_inv_value assbl_value"
+//     );
 
-    if (!cth) {
-      return res.status(404).json({
-        success: false,
-        message: "CTH entry not found",
-      });
-    }
+//     if (!cth) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "CTH entry not found",
+//       });
+//     }
 
-    res.status(200).json({
-      success: true,
-      data: cth,
-    });
-  } catch (error) {
-    console.error("Error fetching CTH entry:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch CTH entry",
-      error: error.message,
-    });
-  }
-});
+//     res.status(200).json({
+//       success: true,
+//       data: cth,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching CTH entry:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch CTH entry",
+//       error: error.message,
+//     });
+//   }
+// });
 
 // Look up CTH by HS code
 // Look up CTH by HS code or by job number and year

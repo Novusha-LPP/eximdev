@@ -19,11 +19,11 @@ const CthSchema = new mongoose.Schema(
     export_policy: { type: String },
     remark: { type: String },
     favourite: { type: Boolean, default: false },
-    job: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Job",
-      index: true,
-    },
+    // job: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "Job",
+    //   index: true,
+    // },
   },
   { timestamps: true }
 );

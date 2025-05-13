@@ -1,14 +1,14 @@
+// In auth.mjs - modified authenticateJWT function
+
 import jwt from "jsonwebtoken";
 
-// Authenticate JWT from either cookies or Authorization header
+// Authenticate JWT from Authorization header
 export const authenticateJWT = (req, res, next) => {
   try {
-    // Check for token in either cookie or Authorization header
+    // Check for token in Authorization header
     let token = null;
 
-    if (req.cookies && req.cookies.access_token) {
-      token = req.cookies.access_token;
-    } else if (
+    if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer ")
     ) {
@@ -51,7 +51,8 @@ export const generateRefreshToken = (user) => {
     { expiresIn: "7d" } // 7 days
   );
 };
-//* Sanitize user object (no password, _id, etc.)
+
+// Sanitize user object (no password, _id, etc.)
 export const sanitizeUserData = (user) => ({
   username: user.username,
   role: user.role,

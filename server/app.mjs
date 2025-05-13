@@ -307,13 +307,19 @@ if (cluster.isPrimary) {
         }
       },
       credentials: true, // Important for cookies
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowedHeaders: [
+        "Origin",
+        "X-Requested-With",
+        "Content-Type",
+        "Accept",
+        "Authorization", // Add this to allow the Authorization header
+      ],
       exposedHeaders: ["set-cookie"],
       maxAge: 86400,
     })
   );
-  //  app.options("*", cors()); // ✅ allow preflight requests globally
+  //app.options("*", cors()); // ✅ allow preflight requests globally
 
   // app.options("*", (req, res) => {
   //   // Set CORS headers directly
@@ -335,7 +341,6 @@ if (cluster.isPrimary) {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
   // app.use(cors());
-  
 
   // // Apply CORS preflight to all routes
   // app.options("*", cors());

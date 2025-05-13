@@ -66,41 +66,93 @@ router.get("/api/verify-session", async (req, res) => {
   }
 });
 
+// router.get("/verify-session", authenticateJWT, async (req, res) => {
+//   try {
+//     const user = await UserModel.findById(req.user.userId);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Return sanitized user data
+//     return res.status(200).json(sanitizeUserData(user));
+//   } catch (error) {
+//     console.error("Session verification error:", error);
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// router.post("/api/refresh-token", async (req, res) => {
+//   try {
+//     // Try to get refresh token from cookie first, then from the request body
+//     const refreshToken = req.cookies.refresh_token || req.body.refresh_token;
+
+//     if (!refreshToken) {
+//       return res.status(401).json({ message: "No refresh token" });
+//     }
+
+//     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+//     const user = await UserModel.findById(decoded.userId);
+
+//     if (!user) {
+//       return res.status(401).json({ message: "User not found" });
+//     }
+
+//     const newAccessToken = generateToken(user);
+
+//     // Set cookie with more permissive settings for cross-origin
+//     res.cookie("access_token", newAccessToken, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//       sameSite: "none", // Changed from strict to none to allow cross-origin
+//       maxAge: 15 * 60 * 1000, // 15 minutes
+//       path: "/",
+//     });
+
+//     // Also return the token in the response body
+//     res.status(200).json({
+//       ...sanitizeUserData(user),
+//       token: newAccessToken, // Include token in response for clients that can't use cookies
+//     });
+//   } catch (err) {
+//     console.error("Refresh error:", err);
+//     res.status(403).json({ message: "Invalid refresh token" });
+//   }
+// });
 router.post("/api/refresh-token", async (req, res) => {
   try {
-    // Try to get refresh token from cookie first, then from the request body
-    const refreshToken = req.cookies.refresh_token || req.body.refresh_token;
+    // Get refresh token from request body instead of cookie
+    const { refresh_token } = req.body;
 
-    if (!refreshToken) {
-      return res.status(401).json({ message: "No refresh token" });
+    if (!refresh_token) {
+      return res.status(401).json({ message: "Refresh token required" });
     }
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    // Verify refresh token
+    const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
+
+    // Find user
     const user = await UserModel.findById(decoded.userId);
 
     if (!user) {
-      return res.status(401).json({ message: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
+    // Generate new access token
     const newAccessToken = generateToken(user);
 
-    // Set cookie with more permissive settings for cross-origin
-    res.cookie("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none", // Changed from strict to none to allow cross-origin
-      maxAge: 15 * 60 * 1000, // 15 minutes
-      path: "/",
+    // Return the new access token
+    return res.status(200).json({
+      access_token: newAccessToken,
     });
+  } catch (error) {
+    console.error("Token refresh error:", error);
 
-    // Also return the token in the response body
-    res.status(200).json({
-      ...sanitizeUserData(user),
-      token: newAccessToken, // Include token in response for clients that can't use cookies
-    });
-  } catch (err) {
-    console.error("Refresh error:", err);
-    res.status(403).json({ message: "Invalid refresh token" });
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Refresh token expired" });
+    }
+
+    return res.status(401).json({ message: "Invalid refresh token" });
   }
 });
 

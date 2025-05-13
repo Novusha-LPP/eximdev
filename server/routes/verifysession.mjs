@@ -10,14 +10,6 @@ import UserModel from "../model/userModel.mjs";
 const router = express.Router();
 
 // Debugging middleware to inspect cookies and headers
-router.use("/api/verify-session", (req, res, next) => {
-  console.log("\n=== Session Verification Debug Info ===");
-  console.log("Request Headers:", JSON.stringify(req.headers, null, 2));
-  console.log("Authorization:", req.headers.authorization || "Not provided");
-  console.log("Cookies:", req.cookies || "No cookies");
-  console.log("======================================\n");
-  next();
-});
 
 // Attempt to authenticate with either cookie or Authorization header
 router.get("/api/verify-session", async (req, res) => {

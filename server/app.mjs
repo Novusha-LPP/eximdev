@@ -268,15 +268,10 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
-const CLIENT_URI =
-  process.env.NODE_ENV === "production"
-    ? process.env.PROD_CLIENT_URI
-    : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_CLIENT_URI
-    : process.env.DEV_CLIENT_URI;
 
 //console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
+
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -295,6 +290,7 @@ if (cluster.isPrimary) {
     "https://exim.alvision.in",
     "https://eximapi.alvision.in",
   ];
+
   app.use(
     cors({
       origin: function (origin, callback) {
@@ -361,12 +357,13 @@ if (cluster.isPrimary) {
 
   app.use("/api/upload", uploadRouter);
   app.use(compression({ level: 9 }));
-  app.use("/", dutyCalculator);
+
   mongoose.set("strictQuery", true);
 
   mongoose
     .connect(MONGODB_URI, {
-      useunifiedTopology: true,
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
       minPoolSize: 10,
       maxPoolSize: 1000,
     })
@@ -395,7 +392,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-
+      
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);

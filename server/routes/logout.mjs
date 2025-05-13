@@ -8,8 +8,9 @@ router.post("/api/logout", (req, res) => {
   // Clear access token
   res.clearCookie("access_token", {
     httpOnly: true,
-    //secure: true,
-    sameSite: "strict",
+    secure: true,
+    // sameSite: "strict",
+    sameSite: "none",
     //domain:".alvision.in", // Include the domain if necessary
     path: "/",
   });

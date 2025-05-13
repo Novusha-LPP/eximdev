@@ -295,64 +295,59 @@ if (cluster.isPrimary) {
     "https://exim.alvision.in",
     "https://eximapi.alvision.in",
   ];
-  app.use(
-    cors({
-      origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, Postman)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        } else {
-          return callback(new Error("Not allowed by CORS"));
-        }
-      },
-      credentials: true, // Important for cookies
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
-      exposedHeaders: ["set-cookie"],
-      maxAge: 86400,
-    })
-  );
-  //  app.options("*", cors()); // ✅ allow preflight requests globally
 
-  // app.options("*", (req, res) => {
-  //   // Set CORS headers directly
-  //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
-  //   res.header(
-  //     "Access-Control-Allow-Methods",
-  //     "GET, POST, PUT, DELETE, OPTIONS"
-  //   );
-  //   res.header(
-  //     "Access-Control-Allow-Headers",
-  //     "Content-Type, Authorization, Content-Length, X-Requested-With"
-  //   );
-  //   res.header("Access-Control-Allow-Credentials", "true");
-  //   res.sendStatus(204); // No content needed for OPTIONS response
-  // });
+  // Configure trust proxy if behind a reverse proxy
+  app.set('trust proxy', 1);
+
   app.use(cookieParser());
-
-  // app.use(express.urlencoded({ extended: true }));
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-  // app.use(cors());
-  
 
-  // // Apply CORS preflight to all routes
-  // app.options("*", cors());
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
 
-  // Optional: Handle preflight requests manually if needed
-  // app.options(
-  //   "*",
-  //   cors({
-  //     origin: allowedOrigins,
-  //     credentials: true,
-  //   })
-  // );
-  // CORS configuration
+    // console.log("origin", origin)
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Expose-Headers', 'set-cookie');
+    next();
+  });
 
-  // Apply CORS middleware
+  // Handle preflight requests
+  app.options('*', (req, res) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.status(204).end();
+  });
 
-  // app.options("*", cors());
+  // Cookie default settings middleware
+  app.use((req, res, next) => {
+    res.cookie = res.cookie.bind(res);
+    const originalCookie = res.cookie;
+    res.cookie = function (name, value, options = {}) {
+      const defaultOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development', // Only use secure in non-dev
+        sameSite: 'none', // Required for cross-origin cookies
+        path: '/',
+        ...options
+      };
+      return originalCookie.call(this, name, value, defaultOptions);
+    };
+    next();
+  });
+
+  app.use(compression({ level: 9 }));
 
   app.use("/api/upload", uploadRouter);
   app.use(compression({ level: 9 }));

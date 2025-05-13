@@ -84,35 +84,52 @@ router.get("/api/:id", async (req, res) => {
 });
 
 // Look up CTH by HS code
-router.get("/api/lookup/:hsCode/:jobNo/:year", async (req, res) => {
+// Look up CTH by HS code or by job number and year
+router.get("/api/lookup/:hsCode?/:jobNo/:year", async (req, res) => {
   try {
     const { hsCode, jobNo, year } = req.params;
+    let job, cthEntry, lookupHsCode;
+
+    // If hsCode is provided directly, use it. Otherwise, look it up from the job
+    if (hsCode && hsCode !== "undefined") {
+      lookupHsCode = hsCode;
+
+      // Find the job matching the criteria
+      job = await JobModel.findOne({
+        cth_no: lookupHsCode,
+        job_no: jobNo,
+        year: year,
+      }).select(
+        "cth_no total_duty total_inv_value assbl_value exrate clearanceValue unit_price awb_bl_date job_net_weight"
+      );
+    } else {
+      // Find the job just by job number and year
+      job = await JobModel.findOne({
+        job_no: jobNo,
+        year: year,
+      }).select(
+        "cth_no total_duty total_inv_value assbl_value exrate clearanceValue unit_price awb_bl_date job_net_weight"
+      );
+
+      if (job) {
+        lookupHsCode = job.cth_no;
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: "No job found with the specified job number and year",
+        });
+      }
+    }
 
     // Find the CTH entry that matches the HS code
-    const cthEntry = await CthModel.findOne({
-      hs_code: hsCode,
+    cthEntry = await CthModel.findOne({
+      hs_code: lookupHsCode,
     }).select("hs_code basic_duty_sch basic_duty_ntfn igst sws_10_percent");
 
     if (!cthEntry) {
       return res.status(404).json({
         success: false,
-        message: "No CTH entry found for the provided HS code",
-      });
-    }
-
-    // Find the specific job
-    const job = await JobModel.findOne({
-      cth_no: hsCode,
-      job_no: jobNo,
-      year: year,
-    }).select(
-      "total_duty total_inv_value assbl_value exrate clearanceValue unit_price  awb_bl_date job_net_weight"
-    );
-
-    if (!job) {
-      return res.status(404).json({
-        success: false,
-        message: "No job found with the specified criteria",
+        message: "No CTH entry found for the job's HS code",
       });
     }
 
@@ -148,7 +165,6 @@ router.get("/api/lookup/:hsCode/:jobNo/:year", async (req, res) => {
     });
   }
 });
-
 // Attach CTH to a job
 
 export default router;

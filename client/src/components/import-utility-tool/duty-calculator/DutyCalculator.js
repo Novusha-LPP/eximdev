@@ -187,8 +187,9 @@ const ImportDutyCalculator = () => {
 
   // Function to perform API lookup
   const lookupHSCode = async () => {
-    if (!shipmentDetails.hsCode || !jobNo || !year) {
-      setError("Please provide HS Code, Job Number, and Year");
+    // Check if at least jobNo and year are provided
+    if (!jobNo || !year) {
+      setError("Please provide at least Job Number and Year");
       return;
     }
 
@@ -196,8 +197,12 @@ const ImportDutyCalculator = () => {
     setError("");
 
     try {
+      // Modified API endpoint - makes hsCode optional
+      const hsCodeParam = shipmentDetails.hsCode
+        ? shipmentDetails.hsCode
+        : "undefined";
       const response = await fetch(
-        `${process.env.REACT_APP_API_STRING}/lookup/${shipmentDetails.hsCode}/${jobNo}/${year}`
+        `${process.env.REACT_APP_API_STRING}/lookup/${hsCodeParam}/${jobNo}/${year}`
       );
 
       if (!response.ok) {
@@ -219,6 +224,14 @@ const ImportDutyCalculator = () => {
           bofEnabled: false,
           bofPercentage: "0",
         });
+
+        // Update the hsCode field if it was found by jobNo lookup
+        if (data.data.hs_code && !shipmentDetails.hsCode) {
+          setShipmentDetails((prev) => ({
+            ...prev,
+            hsCode: data.data.hs_code,
+          }));
+        }
 
         if (data.data.job_data) {
           // Extract and set assessable value
@@ -281,7 +294,6 @@ const ImportDutyCalculator = () => {
       setIsLoading(false);
     }
   };
-
   // Function to export data as CSV
   const exportCSV = () => {
     const rows = [

@@ -311,7 +311,7 @@ if (cluster.isPrimary) {
       exposedHeaders: ["Authorization"], // Expose the Authorization header
     })
   );
-  // app.options("*", cors()); // ✅ allow preflight requests globally
+  //  app.options("*", cors()); // ✅ allow preflight requests globally
 
   // app.options("*", (req, res) => {
   //   // Set CORS headers directly

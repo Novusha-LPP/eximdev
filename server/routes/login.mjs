@@ -43,9 +43,8 @@ router.post("/api/login", async (req, res) => {
     // Set access token cookie - more permissive for cross-origin
     res.cookie("access_token", accessToken, {
       httpOnly: true,
-      // secure: isProduction,
-      // sameSite: isProduction ? "none" : "lax", // Allow cross-origin in production
-      // sameSite: "none", // Changed from strict to none to allow cross-origin
+      secure: false,
+      sameSite: "lax", // More permissive than "strict", but less than "none"
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: "/",
     });
@@ -53,13 +52,11 @@ router.post("/api/login", async (req, res) => {
     // Set refresh token cookie - more permissive for cross-origin
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      // secure: isProduction,
-      // sameSite: isProduction ? "none" : "lax", // Allow cross-origin in production
-      // sameSite: "none", // Changed from strict to none to allow cross-origin
+      secure: true,
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
     });
-
     // Return user data and tokens in body as well (for clients that can't use cookies)
     const sanitizedUser = sanitizeUserData(user);
     return res.status(200).json({

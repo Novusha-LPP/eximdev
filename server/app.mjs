@@ -54,7 +54,7 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
-import handleS3Deletation from "./routes/handleS3Deletation.mjs"
+import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 import verifySessionRoutes from "./routes/verifysession.mjs";
 import logout from "./routes/logout.mjs";
 
@@ -311,7 +311,7 @@ if (cluster.isPrimary) {
       exposedHeaders: ["Authorization"], // Expose the Authorization header
     })
   );
-  app.options("*", cors()); // ✅ allow preflight requests globally
+  // app.options("*", cors()); // ✅ allow preflight requests globally
 
   // app.options("*", (req, res) => {
   //   // Set CORS headers directly

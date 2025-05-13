@@ -45,7 +45,7 @@ router.post("/api/login", async (req, res) => {
       httpOnly: true,
       // secure: isProduction,
       // sameSite: isProduction ? "none" : "lax", // Allow cross-origin in production
-      sameSite: "none", // Changed from strict to none to allow cross-origin
+      // sameSite: "none", // Changed from strict to none to allow cross-origin
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: "/",
     });
@@ -53,9 +53,9 @@ router.post("/api/login", async (req, res) => {
     // Set refresh token cookie - more permissive for cross-origin
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: isProduction,
+      // secure: isProduction,
       // sameSite: isProduction ? "none" : "lax", // Allow cross-origin in production
-      sameSite: "none", // Changed from strict to none to allow cross-origin
+      // sameSite: "none", // Changed from strict to none to allow cross-origin
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/",
     });

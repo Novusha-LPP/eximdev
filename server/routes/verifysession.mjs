@@ -80,8 +80,8 @@ router.post("/api/refresh-token", async (req, res) => {
     // Set cookie with more permissive settings for cross-origin
     res.cookie("access_token", newAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none", // Changed from strict to none to allow cross-origin
+      // secure: process.env.NODE_ENV === "production",
+      // sameSite: "none", // Changed from strict to none to allow cross-origin
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: "/",
     });

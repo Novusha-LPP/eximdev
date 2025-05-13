@@ -268,15 +268,10 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
-const CLIENT_URI =
-  process.env.NODE_ENV === "production"
-    ? process.env.PROD_CLIENT_URI
-    : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_CLIENT_URI
-    : process.env.DEV_CLIENT_URI;
 
 //console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
+
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -296,67 +291,70 @@ if (cluster.isPrimary) {
     "https://eximapi.alvision.in",
   ];
 
-  // Configure trust proxy if behind a reverse proxy
-  app.set('trust proxy', 1);
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        } else {
+          return callback(new Error("Not allowed by CORS"));
+        }
+      },
+      credentials: true, // <== crucial to allow cookies to be sent
+      exposedHeaders: ["Authorization"], // Expose the Authorization header
+    })
+  );
+  app.options("*", cors()); // ✅ allow preflight requests globally
 
+  // app.options("*", (req, res) => {
+  //   // Set CORS headers directly
+  //   res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  //   res.header(
+  //     "Access-Control-Allow-Methods",
+  //     "GET, POST, PUT, DELETE, OPTIONS"
+  //   );
+  //   res.header(
+  //     "Access-Control-Allow-Headers",
+  //     "Content-Type, Authorization, Content-Length, X-Requested-With"
+  //   );
+  //   res.header("Access-Control-Allow-Credentials", "true");
+  //   res.sendStatus(204); // No content needed for OPTIONS response
+  // });
   app.use(cookieParser());
+
+  // app.use(express.urlencoded({ extended: true }));
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+  // app.use(cors());
 
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
+  // // Apply CORS preflight to all routes
+  // app.options("*", cors());
 
-    // console.log("origin", origin)
-    if (allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Expose-Headers', 'set-cookie');
-    next();
-  });
+  // Optional: Handle preflight requests manually if needed
+  // app.options(
+  //   "*",
+  //   cors({
+  //     origin: allowedOrigins,
+  //     credentials: true,
+  //   })
+  // );
+  // CORS configuration
 
-  // Handle preflight requests
-  app.options('*', (req, res) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '86400');
-    res.status(204).end();
-  });
+  // Apply CORS middleware
 
-  // Cookie default settings middleware
-  app.use((req, res, next) => {
-    res.cookie = res.cookie.bind(res);
-    const originalCookie = res.cookie;
-    res.cookie = function (name, value, options = {}) {
-      const defaultOptions = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development', // Only use secure in non-dev
-        sameSite: 'none', // Required for cross-origin cookies
-        path: '/',
-        ...options
-      };
-      return originalCookie.call(this, name, value, defaultOptions);
-    };
-    next();
-  });
-
-  app.use(compression({ level: 9 }));
+  // app.options("*", cors());
 
   app.use("/api/upload", uploadRouter);
   app.use(compression({ level: 9 }));
-  app.use("/", dutyCalculator);
+
   mongoose.set("strictQuery", true);
 
   mongoose
     .connect(MONGODB_URI, {
-      useunifiedTopology: true,
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
       minPoolSize: 10,
       maxPoolSize: 1000,
     })
@@ -385,7 +383,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-
+      
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);

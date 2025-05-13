@@ -703,23 +703,55 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
-            <Row style={{ marginTop: "10px" }}>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={14} lg={3}>
+                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                  <div className="flex items-center">
+                    <strong>Bill document sent to account team:&nbsp;</strong>
+                    <span className="text-gray-900">
+                      {new Date(data.bill_document_sent_to_accounts).toLocaleString("en-US", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </Col>
+
+
               <Col xs={14} lg={3}>
                 <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4 ">
                   <div className="flex items-center">
-                  <strong>Bill No : </strong>
+                    <strong>Bill No : </strong>
                     <span className="text-gray-900">{data.bill_no}</span>
                   </div>
-                  </div>
-              </Col>
-              <Col xs={12} lg={3}>
-                <div className="flex items-center">
-                  <strong>Bill Date : </strong>
-                  <span className="text-gray-900">{data.bill_date.split(",")
-                    .map(dateStr => dateStr.split("T")[0])
-                    .join("  ")}</span>
                 </div>
               </Col>
+              <Col xs={12} lg={3}>
+  <div className="flex items-center">
+    <strong>Bill Date:&nbsp;</strong>
+    <span className="text-gray-900">
+      {data.bill_date
+        .split(",")
+        .map(dateStr =>
+          new Date(dateStr).toLocaleString("en-US", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })
+        )
+        .join("  ")}
+    </span>
+  </div>
+</Col>
+
             </Row>
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={2}>

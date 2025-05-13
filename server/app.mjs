@@ -295,7 +295,6 @@ if (cluster.isPrimary) {
     "https://exim.alvision.in",
     "https://eximapi.alvision.in",
   ];
-
   app.use(
     cors({
       origin: function (origin, callback) {
@@ -307,8 +306,11 @@ if (cluster.isPrimary) {
           return callback(new Error("Not allowed by CORS"));
         }
       },
-      credentials: true, // <== crucial to allow cookies to be sent
-      exposedHeaders: ["Authorization"], // Expose the Authorization header
+      credentials: true, // Important for cookies
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
+      exposedHeaders: ["set-cookie"],
+      maxAge: 86400,
     })
   );
   //  app.options("*", cors()); // ✅ allow preflight requests globally
@@ -333,6 +335,7 @@ if (cluster.isPrimary) {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
   // app.use(cors());
+  
 
   // // Apply CORS preflight to all routes
   // app.options("*", cors());

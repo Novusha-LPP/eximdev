@@ -402,41 +402,68 @@ const ImportUtilityTool = () => {
   // Render search result with context
   const renderSearchResultWithContext = useCallback((mainItem) => {
     const fields = mainItem ? Object.keys(mainItem).filter(key =>
-      !['_id', 'updatedAt', 'row_index', 'favourite'].includes(key)
+      !['_id', 'updatedAt', 'row_index', 'favourite', "createdAt", "__v"].includes(key)
     ) : [];
 
     return (
-      <Box sx={{ mb: 16 }}>
-        {contextItems.length > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Chip
-              icon={<InfoIcon />}
-              label={`${contextItems.length} context item${contextItems.length > 1 ? 's' : ''} included below`}
-              color="primary"
-              variant="outlined"
-              sx={{ mr: 1 }}
-            />
-          </Box>
-        )}
+      <Box
+      sx={{
+        mb: 16,
+        maxHeight: '500px',
+        overflow: 'auto', // allows both X and Y scrolling
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {contextItems.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            mb: 1,
+            maxWidth: '100%',
+            flexShrink: 0,
+          }}
+        >
+          <Chip
+            icon={<InfoIcon />}
+            label={`${contextItems.length} context item${contextItems.length > 1 ? 's' : ''} included below`}
+            color="primary"
+            variant="outlined"
+            sx={{ mr: 1 }}
+          />
+        </Box>
+      )}
+    
+    
 
         <TableContainer component={Paper} elevation={3}>
           <Table size="small">
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                {fields.map((field) => (
-                  <TableCell
-                    key={field}
-                    sx={{
-                      fontWeight: 'bold',
-                      minWidth: field === 'item_description' ? 300 : 100,
-                      textAlign: 'center'
-                    }}
-                  >
-                    {field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
+          <TableHead>
+  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+    {fields.map((field) => (
+      <TableCell
+        key={field}
+        sx={{
+          fontWeight: 'bold',
+          minWidth:
+            field === 'item_description'
+              ? 300
+              : field === 'import_policy'
+              ? 300 // Set your preferred width here
+              : 100,
+          textAlign: 'center',
+        }}
+      >
+        {field
+          .split('_')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')}
+      </TableCell>
+    ))}
+  </TableRow>
+</TableHead>
+
 
             <TableBody>
               {/* Main item row */}

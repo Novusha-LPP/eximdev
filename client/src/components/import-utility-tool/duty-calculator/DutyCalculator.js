@@ -31,7 +31,7 @@ const ImportDutyCalculator = () => {
   const [dutyValues, setDutyValues] = useState({
     bcd: 0,
     bofReduction: 0, // New field for BOF reduction amount
-    sws: 0,
+    sws: 10,
     igst: 0,
     total: 0,
   });

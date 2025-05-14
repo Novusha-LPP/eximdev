@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useMemo } from "react";
 import "../../styles/job-list.scss";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import useFetchDSR from "../../customHooks/useFetchDSR";
@@ -15,7 +15,8 @@ function ViewDSR() {
   const [detailedStatus, setDetailedStatus] = useState("all");
   const { rows } = useFetchDSR(detailedStatus, selectedYearState);
 
-  const columns = [
+  // Memoize columns and rows for performance
+  const columns = useMemo(() => [
     {
       accessorKey: "job_no",
       header: "Job Number",
@@ -224,11 +225,14 @@ function ViewDSR() {
       enableSorting: false,
       size: 250,
     },
-  ];
+  ], []);
+
+  const memoizedRows = useMemo(() => rows, [rows]);
 
   const table = useMaterialReactTable({
     columns,
-    data: rows,
+    data: memoizedRows,
+    enableRowVirtualization: true, // Enable virtualization for large datasets
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,

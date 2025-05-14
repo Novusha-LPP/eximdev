@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import redisClient from '../../config/redisClient.mjs';
 
 const router = express.Router();
 
@@ -92,6 +93,13 @@ router.get(
         req.params;
       const { page = 1, limit = 100, search = "" } = req.query;
       const skip = (page - 1) * limit;
+      const cacheKey = `importdsr:joblist:${status}:${page}:${limit}:${search}:${year}:${importer}`;
+      
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+      
       // Base query with year filter
       const query = { year };
 
@@ -211,12 +219,15 @@ router.get(
       // Paginate results
       const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
 
-      res.json({
+      const result = {
         data: paginatedJobs,
         total: allJobs.length,
         currentPage: parseInt(page),
         totalPages: Math.ceil(allJobs.length / limit),
-      });
+      };
+
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(result));
+      return res.status(200).json(result);
     } catch (error) {
       console.error("Error fetching jobs:", error);
       res.status(500).json({ error: "Internal Server Error" });

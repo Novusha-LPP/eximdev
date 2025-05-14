@@ -26,11 +26,11 @@ function useJobColumns() {
       navigator.clipboard
         .writeText(text)
         .then(() => {
-          console.log("Text copied to clipboard:", text);
+          // Removed console.log for production performance
         })
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
-          console.error("Failed to copy:", err);
+          // Removed console.error for production performance
         });
     } else {
       // Fallback approach for older browsers
@@ -41,10 +41,10 @@ function useJobColumns() {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
+        // Removed console.log for production performance
       } catch (err) {
         alert("Failed to copy text to clipboard.");
-        console.error("Fallback copy failed:", err);
+        // Removed console.error for production performance
       }
       document.body.removeChild(textArea);
     }

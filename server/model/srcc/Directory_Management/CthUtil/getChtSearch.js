@@ -4,6 +4,7 @@ import CthModel from './CthUtil.mjs';
 import FavoriteModel from './FavouriteCth.mjs';
 import RecentModel from './RecentCth.mjs';
 import NodeCache from 'node-cache'; 
+import redisClient from '../../../../config/redisClient.mjs';
 
 const router = express.Router();
 
@@ -27,7 +28,7 @@ async function getHsCodeWithContext(hsCode, Model) {
     let i = docsArray.findIndex(doc => doc.hs_code === hsCode) + 1;
     
     const result = [mainDoc];
-    const noteKeywords = ["note", "w.e.f", "clause", "finance", "inserted", "amendment"];
+    const noteKeywords = ["note", "w.e.f", "clause", "finance", "inserted", "amendment","tariff"];
     let breakCounter = 0;
 
     // Loop through subsequent documents to find related notes
@@ -73,9 +74,21 @@ router.get('/api/search', async (req, res) => {
 
     // Generate a cache key
     const cacheKey = `search_${query}_${addToRecent}`;
+
+    // Try Redis cache first
+    let cachedResult;
+    try {
+      const redisData = await redisClient.get(cacheKey);
+      if (redisData) {
+        console.log('Redis cache hit for:', query);
+        return res.status(200).json(JSON.parse(redisData));
+      }
+    } catch (err) {
+      console.error('Redis error:', err);
+    }
     
     // Check if result is in cache
-    const cachedResult = searchCache.get(cacheKey);
+    cachedResult = searchCache.get(cacheKey);
     if (cachedResult) {
       console.log('Search cache hit for:', query);
       return res.status(200).json(cachedResult);
@@ -172,6 +185,13 @@ router.get('/api/search', async (req, res) => {
 
     // Save to cache
     searchCache.set(cacheKey, responseData);
+
+    // Save to Redis cache
+    try {
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(responseData));
+    } catch (err) {
+      console.error('Redis set error:', err);
+    }
 
     return res.status(200).json(responseData);
 

@@ -162,6 +162,7 @@ import getOperationPlanningList from "./routes/import-operations/getOperationPla
 //import utility tool
 import getCthSearch from "../server/model/srcc/Directory_Management/CthUtil/getChtSearch.js";
 
+
 // Inward Register
 import addInwardRegister from "./routes/inward-register/addInwardRegister.mjs";
 import getContactPersonNames from "./routes/inward-register/getContactPersonNames.mjs";
@@ -509,6 +510,7 @@ if (cluster.isPrimary) {
 
       // import cth search
       app.use(getCthSearch);
+      app.use(dutyCalculator)
 
       // Inward Register
       //* Inward Register

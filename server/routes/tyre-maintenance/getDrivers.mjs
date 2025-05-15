@@ -1,9 +1,10 @@
 import express from "express";
 import DriverModel from "../../model/srcc/driverDetails.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-drivers", async (req, res) => {
+router.get("/api/get-drivers",authenticateJWT, async (req, res) => {
   const drivers = await DriverModel.find({});
 
   if (drivers) {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
-// import { uploadFileToS3 } from "../../utils/awsFileUpload";
+// import { upl./oadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import {
   IconButton,
@@ -127,6 +127,7 @@ function JobDetails() {
     setTabValue,
     setFileSnackbar
   );
+
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
   const [deleveryDate, setDeliveryDate] = useState(false);
@@ -261,63 +262,6 @@ function JobDetails() {
     if (date.length === 10) return `${date}T00:00`; // If only date, add default time
     return date.replace(" ", "T"); // Convert space to "T" if needed
   };
-  const handleWeighmentSlip = async (e, container_number, fileType) => {
-    if (e.target.files.length === 0) {
-      alert("No file selected");
-      return;
-    }
-
-    try {
-      const s3 = new AWS.S3({
-        accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-        secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-        region: "ap-south-1",
-      });
-
-      const updatedWeighmentSlips = await Promise.all(
-        formik.values.container_nos?.map(async (container) => {
-          if (container.container_number === container_number) {
-            const fileUrls = [];
-
-            for (let i = 0; i < e.target.files.length; i++) {
-              const file = e.target.files[i];
-              const params = {
-                Bucket: process.env.REACT_APP_S3_BUCKET,
-                Key: `${fileType}/${container_number}/${file.name}`,
-                Body: file,
-              };
-
-              // Upload the file to S3 and wait for the promise to resolve
-              const data = await s3.upload(params).promise();
-
-              // Store the S3 URL in the fileUrls array
-              fileUrls.push({ url: data.Location, container_number });
-            }
-
-            // Update the container with the new images, replacing the old ones
-            return {
-              ...container,
-              [fileType]: fileUrls,
-            };
-          }
-
-          return container;
-        })
-      );
-
-      // Update the formik values with the updated container images
-      formik.setValues((values) => ({
-        ...values,
-        container_nos: updatedWeighmentSlips,
-      }));
-
-      setFileSnackbar(true);
-
-      setTimeout(() => {
-        setFileSnackbar(false);
-      }, 3000);
-    } catch (err) {}
-  };
 
   const handleTransporterChange = (e, index) => {
     if (e.target.checked === true) {
@@ -382,48 +326,6 @@ function JobDetails() {
   const handleGenerate = () => {
     pdfRef.current?.generatePdf();
   };
-  // const handleOpenDialog = (doc, action) => {
-  //   setCurrentDocument(doc);
-  //   setActionType(action);
-  //   setDialogOpen(true);
-  // };
-
-  // const handleCloseDialog = () => {
-  //   setDialogOpen(false);
-  //   setCurrentDocument(null);
-  //   setActionType("");
-  // };
-
-  // const handleConfirmDialog = () => {
-  //   if (actionType === "delete") {
-  //     setCthDocuments((prevDocs) =>
-  //       prevDocs.filter((doc) => doc !== currentDocument)
-  //     );
-  //   } else if (actionType === "edit") {
-  //     const newName = prompt(
-  //       "Enter new document name:",
-  //       currentDocument.document_name
-  //     );
-  //     const newCode = prompt(
-  //       "Enter new document code:",
-  //       currentDocument.document_code
-  //     );
-
-  //     if (newName && newCode) {
-  //       setCthDocuments((prevDocs) =>
-  //         prevDocs.map((doc) =>
-  //           doc === currentDocument
-  //             ? { ...doc, document_name: newName, document_code: newCode }
-  //             : doc
-  //         )
-  //       );
-  //     }
-  //   }
-  //   handleCloseDialog();
-  // };
-  /**
-   * Handle PDF generation and download
-   */
 
   const handleOpenDialog = (doc, isEdit = false) => {
     setCurrentDocument(doc);
@@ -462,139 +364,6 @@ function JobDetails() {
     handleCloseDialog();
   };
 
-  //
-  // Ref to JobStickerPDF component
-  // const jobStickerRef = useRef();
-
-  // Modal visibility state
-  // const [showModal, setShowModal] = useState(false);
-
-  // Loading state for uploading
-  // const [isUploading, setIsUploading] = useState(false);
-
-  // Open modal
-  // Inside ParentComponent.jsx or ViewJob.js
-  // const handleOpenModal = () => {
-  //   console.log("Opening modal with jobData:", formik.values.job_no);
-  //   setShowModal(true);
-  // };
-
-  // Close modal
-  // const handleCloseModal = () => setShowModal(false);
-
-  // Handle PDF generation and upload on Confirm
-  // const handleConfirm = async () => {
-  //   setIsUploading(true);
-  //   try {
-  //     if (jobStickerRef.current) {
-  //       // Generate PDF as Blob
-  //       const pdfBlob = await jobStickerRef.current.generatePdf();
-
-  //       // Upload the PDF Blob
-  //       const uploadedFile = await uploadPdf(
-  //         pdfBlob,
-  //         `job-sticker/${formik.values.jobId}.pdf`
-  //       );
-
-  //       // Update Formik's job_sticker_upload with the uploaded file info
-  //       const existingFiles = formik.values.job_sticker_upload || [];
-  //       const updatedFiles = [...existingFiles, uploadedFile];
-  //       formik.setFieldValue("job_sticker_upload", updatedFiles);
-
-  //       alert("PDF uploaded successfully!");
-
-  //       // Optionally, handle further actions like form submission
-  //       // formik.handleSubmit();
-
-  //       // Close the modal
-  //       handleCloseModal();
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating or uploading PDF:", error);
-  //     alert(
-  //       "An error occurred while generating or uploading the PDF. Please try again."
-  //     );
-  //   }
-  //   setIsUploading(false);
-  // };
-
-  // const handleDownload = async () => {
-  //   setIsDownloading(true);
-  //   try {
-  //     if (jobStickerRef.current) {
-
-  //       // Generate PDF as Blob
-  //       const pdfBlob = await jobStickerRef.current.generatePdf();
-  //       // Check if Blob was generated successfully
-  //       if (!pdfBlob) {
-  //         throw new Error("PDF Blob is undefined");
-  //       }
-
-  //       // Create a download link
-  //       const url = window.URL.createObjectURL(pdfBlob);
-  //       const link = document.createElement("a");
-  //       link.href = url;
-  //       link.setAttribute(
-  //         "download",
-  //         `Job_Sticker_${formik.values.job_no}.pdf`
-  //       );
-  //       document.body.appendChild(link);
-  //       link.click();
-  //       link.parentNode.removeChild(link);
-
-  //       // Release the object URL
-  //       window.URL.revokeObjectURL(url);
-  //       console.log("PDF downloaded successfully.");
-  //     } else {
-  //       throw new Error("JobStickerPDF ref is not defined");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating or downloading PDF:", error);
-  //     alert(
-  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
-  //     );
-  //   }
-  //   setIsDownloading(false);
-  // };
-
-  // const handleDownload = async () => {
-  //   setIsDownloading(true);
-  //   try {
-  //     if (jobStickerRef.current) {
-  //       // Generate PDF as Blob without passing arguments
-  //       const pdfBlob = await jobStickerRef.current.generatePdf();
-
-  //       // Check if Blob was generated successfully
-  //       if (!pdfBlob) {
-  //         throw new Error("PDF Blob is undefined");
-  //       }
-
-  //       // Create a download link
-  //       const url = window.URL.createObjectURL(pdfBlob);
-  //       const link = document.createElement("a");
-  //       link.href = url;
-  //       link.setAttribute(
-  //         "download",
-  //         `Job_Sticker_${formik.values.job_no}.pdf`
-  //       );
-  //       document.body.appendChild(link);
-  //       link.click();
-  //       link.parentNode.removeChild(link);
-
-  //       // Release the object URL
-  //       window.URL.revokeObjectURL(url);
-  //       console.log("PDF downloaded successfully.");
-  //     } else {
-  //       throw new Error("JobStickerPDF ref is not defined");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating or downloading PDF:", error);
-  //     alert(
-  //       `An error occurred while generating or downloading the PDF: ${error.message}. Please try again.`
-  //     );
-  //   }
-  //   setIsDownloading(false);
-  // };
 
   /**
    * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
@@ -646,7 +415,7 @@ function JobDetails() {
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
             container_nos={formik.values.container_nos}
-            // Passing be_no from formik
+          // Passing be_no from formik
           />
           {/* Importer info End*/}
           {/* completion status start*/}
@@ -934,6 +703,70 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
+            <Row style={{ marginTop: "20px" }}>
+  {/* Bill Document Sent */}
+  <Col xs={14} lg={3}>
+    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+      <div className="flex items-center">
+        <strong>Bill document sent to account team:&nbsp;</strong>
+        <span className="text-gray-900">
+          {data.bill_document_sent_to_accounts ? 
+            new Date(data.bill_document_sent_to_accounts).toLocaleString("en-US", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            }) : ""}
+        </span>
+      </div>
+    </div>
+  </Col>
+
+  {/* Bill Agency No */}
+  <Col xs={14} lg={3}>
+    <div className="flex items-center">
+      <strong>Bill Agency:&nbsp;</strong>
+      <span className="text-gray-900">
+        {(data.bill_no || "").split(",")[0]?.trim() || ""}
+      </span>
+    </div>
+  </Col>
+
+  {/* Bill Reimbursement No */}
+  <Col xs={14} lg={3}>
+    <div className="flex items-center">
+      <strong>Bill Reimbursement:&nbsp;</strong>
+      <span className="text-gray-900">
+        {(data.bill_no || "").split(",")[1]?.trim() || ""}
+      </span>
+    </div>
+  </Col>
+
+  {/* Bill Date (First Only) */}
+  <Col xs={12} lg={3}>
+    <div className="flex items-center">
+      <strong>Bill Date:&nbsp;</strong>
+      <span className="text-gray-900">
+        {(() => {
+          const firstDateStr = (data.bill_date || "").split(",")[0]?.trim();
+          const firstDate = new Date(firstDateStr);
+          return firstDate instanceof Date && !isNaN(firstDate)
+            ? firstDate.toLocaleString("en-US", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "";
+        })()}
+      </span>
+    </div>
+  </Col>
+</Row>
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={2}>
                 <div className="job-detail-input-container">
@@ -1158,7 +991,7 @@ function JobDetails() {
                   {/* HSS Field */}
                   <strong>HSS:&nbsp;</strong>
                   <TextField
-                    fullWidth       
+                    fullWidth
                     select
                     size="small"
                     variant="outlined"
@@ -1213,7 +1046,7 @@ function JobDetails() {
                     value={formik.values.free_time || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    // disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                  // disabled={user.role !== "Admin"} // Disable if the user is not Admin
                   >
                     {options?.map((option, id) => (
                       <MenuItem key={id} value={option}>
@@ -1224,7 +1057,7 @@ function JobDetails() {
                 </div>
               </Col>
               <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
+                <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
@@ -1339,19 +1172,19 @@ function JobDetails() {
                       value="Transaction"
                       control={<Radio size="small" />}
                       label="Transaction"
-                      // sx={{
-                      //   color: "green",
-                      //   "& .MuiSvgIcon-root": { color: "green" },
-                      // }}
+                    // sx={{
+                    //   color: "green",
+                    //   "& .MuiSvgIcon-root": { color: "green" },
+                    // }}
                     />
                     <FormControlLabel
                       value="Deferred"
                       control={<Radio size="small" />}
                       label="Deferred"
-                      // sx={{
-                      //   color: "orange",
-                      //   "& .MuiSvgIcon-root": { color: "orange" },
-                      // }}
+                    // sx={{
+                    //   color: "orange",
+                    //   "& .MuiSvgIcon-root": { color: "orange" },
+                    // }}
                     />
                   </RadioGroup>
                 </div>
@@ -3028,17 +2861,17 @@ function JobDetails() {
               formik.values.container_nos?.map((container, index) => {
                 return ( */}
             {(formik.values.status !== "" &&
-            formik.values.container_nos?.length > 0
+              formik.values.container_nos?.length > 0
               ? formik.values.container_nos
               : [
-                  {
-                    container_number: "",
-                    size: "",
-                    arrival_date: "",
-                    container_rail_out_date: "",
-                    do_revalidation: [],
-                  },
-                ]
+                {
+                  container_number: "",
+                  size: "",
+                  arrival_date: "",
+                  container_rail_out_date: "",
+                  do_revalidation: [],
+                },
+              ]
             )?.map((container, index) => {
               return (
                 <div key={index}>
@@ -3146,7 +2979,7 @@ function JobDetails() {
                               size="small"
                               margin="normal"
                               variant="outlined"
-                              type="date"
+                              type="datetime-local"
                               id={`arrival_date_${index}`}
                               name={`container_nos[${index}].arrival_date`}
                               disabled={ExBondflag}
@@ -3386,7 +3219,7 @@ function JobDetails() {
                         >
                           <strong>Weight Excess/Shortage:&nbsp;</strong>
                           {container.container_gross_weight &&
-                          container.container_gross_weight !== "0" ? (
+                            container.container_gross_weight !== "0" ? (
                             <>{container.weight_shortage || ""}</>
                           ) : (
                             ""
@@ -3478,34 +3311,36 @@ function JobDetails() {
 
                     <Row>
                       <Col>
-                        <br />
-                        <label
-                          htmlFor={`weighmentSlip${index}`}
-                          className="btn"
-                        >
-                          Upload Weighment Slip
-                        </label>
-                        <input
-                          type="file"
-                          multiple
-                          id={`weighmentSlip${index}`}
-                          onChange={(e) => {
-                            handleWeighmentSlip(
-                              e,
-                              container.container_number,
-                              "weighment_slip_images"
-                            );
+                        {/* Container Upload Component Section */}
+                        <FileUpload
+                          label="Upload Weighment Slip"
+                          multiple={true}
+                          bucketPath={`weighment_slip_images/${container.container_number}`}
+                          onFilesUploaded={(uploadedUrls) => {
+                            const updatedContainers = formik.values.container_nos.map((c) => {
+                              if (c.container_number === container.container_number) {
+                                // Check if the container already has weighment slip images
+                                // Use a defensive approach to ensure the property exists
+                                const existingImages = c.weighment_slip_images || [];
+                                console.log("Existing images:", existingImages);
+                                console.log("New uploaded URLs:", uploadedUrls);
+
+                                // Merge existing images with newly uploaded ones
+                                return {
+                                  ...c,
+                                  weighment_slip_images: [...existingImages, ...uploadedUrls]
+                                };
+                              }
+                              return c;
+                            });
+
+                            console.log("Updated containers:", updatedContainers);
+                            formik.setFieldValue("container_nos", updatedContainers);
                           }}
-                          className="input-hidden"
-                          ref={weighmentSlipRef}
+                          readOnly={false}
                         />
-                        <br />
-                        <br />
-                        {container.weighment_slip_images?.map((image, id) => {
-                          // eslint-disable-next-line
-                          return <a href={image.url} key={id} />;
-                        })}
                       </Col>
+
                     </Row>
 
                     <Row>
@@ -3518,6 +3353,7 @@ function JobDetails() {
                             images={container?.weighment_slip_images || []}
                             readOnly
                           />
+
                         </div>
 
                         {/* Container Pre-Damage Images */}

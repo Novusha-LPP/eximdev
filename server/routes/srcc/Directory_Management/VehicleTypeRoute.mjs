@@ -1,6 +1,7 @@
 // routes/vehicleTypeRoutes.js
 import express from "express";
 import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ router.post("/api/vehicle-types", async (req, res) => {
 });
 
 // Get All Vehicle Types
-router.get("/api/vehicle-types", async (req, res) => {
+router.get("/api/vehicle-types", authenticateJWT, async (req, res) => {
   try {
     const vehicles = await VehicleType.find();
     res.status(200).json({ data: vehicles });
@@ -37,7 +38,7 @@ router.get("/api/vehicle-types", async (req, res) => {
 });
 
 // Get Vehicle Type by ID
-router.get("/api/vehicle-types/:id", async (req, res) => {
+router.get("/api/vehicle-types/:id", authenticateJWT, async (req, res) => {
   try {
     const vehicle = await VehicleType.findById(req.params.id);
     if (!vehicle) {

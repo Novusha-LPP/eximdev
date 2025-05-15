@@ -1,9 +1,10 @@
 import express from "express";
 import DriverDetails from "../../model/srcc/driverDetails.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-driver-details", async (req, res) => {
+router.get("/api/get-driver-details",authenticateJWT, async (req, res) => {
   try {
     const driverDetails = await DriverDetails.find({});
     if (driverDetails.length === 0) {

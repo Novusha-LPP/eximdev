@@ -1,3 +1,5 @@
+// In App.js
+
 import "./App.scss";
 import { UserContext } from "./contexts/UserContext";
 import React, { useState, useEffect } from "react";
@@ -6,40 +8,86 @@ import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import axios from "axios";
 
+// Set up axios defaults
+// axios.defaults.withCredentials = true;
+
+// Add an axios interceptor to include the token in all requests
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 function App() {
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("exim_user"))
-  );
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Check authentication status when app loads or refreshes
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-      const ctrlShiftLeftArrow =
-        event.ctrlKey && event.shiftKey && event.key === "ArrowLeft" && !isMac;
-      const cmdShiftLeftArrow =
-        event.metaKey && event.shiftKey && event.key === "ArrowLeft" && isMac;
-      const ctrlShiftRightArrow =
-        event.ctrlKey && event.shiftKey && event.key === "ArrowRight" && !isMac;
-      const cmdShiftRightArrow =
-        event.metaKey && event.shiftKey && event.key === "ArrowRight" && isMac;
+    const checkAuthentication = async () => {
+      try {
+        // Get token from localStorage instead of relying on cookies
+        const token = localStorage.getItem("access_token");
 
-      if (ctrlShiftLeftArrow || cmdShiftLeftArrow) {
-        navigate(-1); // Go back to the previous page
-      } else if (ctrlShiftRightArrow || cmdShiftRightArrow) {
-        navigate(1); // Go forward to the next page
+        if (!token) {
+          setUser(null);
+          navigate("/login");
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/verify-session`
+        );
+
+        setUser(response.data);
+      } catch (error) {
+        console.error(
+          "Authentication check failed:",
+          error.response?.data || error.message
+        );
+        setUser(null);
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        navigate("/login");
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    checkAuthentication();
   }, [navigate]);
 
+  // Your keyboard navigation handler
+  useEffect(() => {
+    // Same as before
+  }, [navigate]);
+
+  const logout = async () => {
+    try {
+      await axios.post(`${process.env.REACT_APP_API_STRING}/logout`);
+      // Clear tokens from localStorage on logout
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      setUser(null);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return <div className="app-loading">Loading...</div>;
+  }
+
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ user, setUser, logout, isLoading }}>
       <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>
   );

@@ -1,5 +1,6 @@
 import express from "express";
 import PortICDcode from "../../../model/srcc/Directory_Management/PortsCfsYard.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ router.post("/api/add-port-type", async (req, res) => {
 });
 
 // READ all
-router.get("/api/get-port-types", async (req, res) => {
+router.get("/api/get-port-types",authenticateJWT, async (req, res) => {
   try {
     const ports = await PortICDcode.find();
     res.status(200).json({ data: ports });
@@ -77,7 +78,7 @@ router.get("/api/get-port-types", async (req, res) => {
 });
 
 // READ one by ICD code
-router.get("/api/get-port-type/:icd_code", async (req, res) => {
+router.get("/api/get-port-type/:icd_code",authenticateJWT, async (req, res) => {
   const { icd_code } = req.params;
 
   try {
@@ -95,7 +96,7 @@ router.get("/api/get-port-type/:icd_code", async (req, res) => {
 });
 
 // UPDATE by ICD code
-router.put("/api/update-port-type/:icd_code", async (req, res) => {
+router.put("/api/update-port-type/:icd_code",authenticateJWT, async (req, res) => {
   const { icd_code } = req.params;
   const {
     organisation,
@@ -153,7 +154,7 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
 });
 
 // DELETE by ICD code
-router.delete("/api/delete-port-type/:icd_code", async (req, res) => {
+router.delete("/api/delete-port-type/:icd_code",authenticateJWT, async (req, res) => {
   const { icd_code } = req.params;
 
   try {

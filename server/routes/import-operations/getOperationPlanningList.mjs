@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
-router.get("/api/get-operations-planning-list/:username", async (req, res) => {
+router.get("/api/get-operations-planning-list/:username",authenticateJWT, async (req, res) => {
   try {
     const { username } = req.params;
     const {

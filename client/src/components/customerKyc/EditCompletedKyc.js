@@ -12,7 +12,6 @@ import FormLabel from "@mui/material/FormLabel";
 import { Row, Col } from "react-bootstrap";
 import useSupportingDocuments from "../../customHooks/useSupportingDocuments";
 import Snackbar from "@mui/material/Snackbar";
-import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import { handleFileUpload } from "../../utils/awsFileUpload";
 import Checkbox from "@mui/material/Checkbox";
 import Preview from "./Preview";
@@ -857,7 +856,7 @@ function EditCompletedKyc() {
           type="file"
           multiple
           onChange={(e) =>
-            handleSingleFileUpload(
+            handleFileUpload(
               e,
               "authorised_signatories",
               "authorised_signatories",
@@ -882,7 +881,7 @@ function EditCompletedKyc() {
           type="file"
           multiple
           onChange={(e) =>
-            handleSingleFileUpload(
+            handleFileUpload(
               e,
               "authorisation_letter",
               "authorisation_letter",
@@ -920,13 +919,7 @@ function EditCompletedKyc() {
         <input
           type="file"
           onChange={(e) =>
-            handleSingleFileUpload(
-              e,
-              "iec_copy",
-              "iec_copy",
-              formik,
-              setFileSnackbar
-            )
+            handleFileUpload(e, "iec_copy", "iec_copy", formik, setFileSnackbar)
           }
         />
         <br />
@@ -956,13 +949,7 @@ function EditCompletedKyc() {
         <input
           type="file"
           onChange={(e) =>
-            handleSingleFileUpload(
-              e,
-              "pan_copy",
-              "pan_copy",
-              formik,
-              setFileSnackbar
-            )
+            handleFileUpload(e, "pan_copy", "pan_copy", formik, setFileSnackbar)
           }
         />
         <br />
@@ -1100,10 +1087,7 @@ function EditCompletedKyc() {
             <a
               href="#"
               onClick={() =>
-                downloadBase64File(
-                  bank.adCode_file,
-                  `adCode_File_${index}.pdf`
-                )
+                downloadBase64File(bank.adCode_file, `adCode_File_${index}.pdf`)
               }
             >
               View
@@ -1154,13 +1138,7 @@ function EditCompletedKyc() {
         <input
           type="file"
           onChange={(e) =>
-            handleSingleFileUpload(
-              e,
-              "spcb_reg",
-              "spcb_reg",
-              formik,
-              setFileSnackbar
-            )
+            handleFileUpload(e, "spcb_reg", "spcb_reg", formik, setFileSnackbar)
           }
         />
         <br />

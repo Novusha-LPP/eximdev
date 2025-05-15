@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/do-team-list-of-jobs", async (req, res) => {
+router.get("/api/do-team-list-of-jobs",authenticateJWT, async (req, res) => {
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;

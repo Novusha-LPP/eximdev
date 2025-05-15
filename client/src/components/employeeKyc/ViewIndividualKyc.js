@@ -6,7 +6,6 @@ import { Row, Col } from "react-bootstrap";
 function ViewIndividualKyc() {
   const { username } = useParams();
   const [data, setData] = useState();
-
   useEffect(() => {
     async function getUser() {
       const res = await axios(

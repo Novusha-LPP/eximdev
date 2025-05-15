@@ -142,7 +142,7 @@ const usePrJobColumns = () => {
     // },
     {
       accessorKey: "container_details.tr_no",
-      header: "TR No",
+      header: "LR No",
       size: 150,
       enableColumnFilter: true,
       Cell: ({ cell }) => cell.getValue() || "N/A",

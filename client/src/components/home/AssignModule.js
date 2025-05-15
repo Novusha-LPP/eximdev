@@ -13,10 +13,12 @@ import axios from "axios";
 
 const allModules = [
   "Import - DSR",
+  "Customer",
   "Import - DO",
   "Import - Operations",
   "Import - Add",
   "Import - Billing",
+  "Import Utility Tool",
   "Export",
   "LR Operations",
   "Accounts",
@@ -29,6 +31,7 @@ const allModules = [
   "e-Sanchit",
   "Tyre Maintenance",
   "SRCC Directories",
+  "Directories",
   "Documentation",
   "Submission",
   "RTO",

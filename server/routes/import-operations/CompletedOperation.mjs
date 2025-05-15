@@ -1,10 +1,11 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-completed-operations/:username", async (req, res) => {
+router.get("/api/get-completed-operations/:username",authenticateJWT, async (req, res) => {
   try {
     // Extract parameters
     const { username } = req.params;

@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -56,7 +57,8 @@ router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
 // Route to add a new job
 router.post("/api/jobs/add-job-imp-man", async (req, res) => {
   try {
-    const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
+    const { container_nos, importer, awb_bl_no, custom_house, year, job_date } =
+      req.body;
 
     // ✅ Validate required fields
     if (!importer || !custom_house) {
@@ -105,16 +107,15 @@ router.post("/api/jobs/add-job-imp-man", async (req, res) => {
       const year = today.getFullYear();
       return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
     };
-    
+
     const todayDate = getTodayDate();
 
-// ✅ Create new job entry
-const newJob = new JobModel({ 
-  job_no: newJobNo,
-  ...req.body,
-  job_date: todayDate // ← This line sets job_date to "now" if not provided
-});
-
+    // ✅ Create new job entry
+    const newJob = new JobModel({
+      job_no: newJobNo,
+      ...req.body,
+      job_date: todayDate, // ← This line sets job_date to "now" if not provided
+    });
 
     // ✅ Save to database
     await newJob.save();
@@ -175,6 +176,8 @@ router.post("/api/jobs/add-job", async (req, res) => {
         total_inv_value,
       } = data;
 
+
+      // console.log(data.bill_no)
       // Sanitize bill_date before using it
       const sanitizedBillDate =
         typeof bill_date === "string"
@@ -316,49 +319,53 @@ router.post("/api/jobs/add-job", async (req, res) => {
 });
 
 // Route to update detailed_status for all pending jobs
-router.get("/api/jobs/update-pending-status", async (req, res) => {
-  try {
-    // Step 1: Find all jobs where status is 'Pending'
-    const pendingJobs = await JobModel.find({ status: "Pending" });
+router.get(
+  "/api/jobs/update-pending-status",
+  authenticateJWT,
+  async (req, res) => {
+    try {
+      // Step 1: Find all jobs where status is 'Pending'
+      const pendingJobs = await JobModel.find({ status: "Pending" });
 
-    if (!pendingJobs.length) {
-      return res
-        .status(200)
-        .json({ message: "No jobs with pending status found." });
-    }
-
-    const bulkOperations = [];
-
-    // Step 2: Iterate over each pending job and determine the detailed status
-    pendingJobs.forEach((job) => {
-      const newDetailedStatus = determineDetailedStatus(job);
-
-      if (newDetailedStatus !== job.detailed_status) {
-        // Step 3: Add bulk operation to update detailed_status
-        bulkOperations.push({
-          updateOne: {
-            filter: { _id: job._id },
-            update: { $set: { detailed_status: newDetailedStatus } },
-          },
-        });
+      if (!pendingJobs.length) {
+        return res
+          .status(200)
+          .json({ message: "No jobs with pending status found." });
       }
-    });
 
-    // Step 4: Perform bulkWrite operation if there are jobs to update
-    if (bulkOperations.length) {
-      await JobModel.bulkWrite(bulkOperations);
-      return res.status(200).json({
-        message: "Jobs updated successfully.",
-        updatedCount: bulkOperations.length,
+      const bulkOperations = [];
+
+      // Step 2: Iterate over each pending job and determine the detailed status
+      pendingJobs.forEach((job) => {
+        const newDetailedStatus = determineDetailedStatus(job);
+
+        if (newDetailedStatus !== job.detailed_status) {
+          // Step 3: Add bulk operation to update detailed_status
+          bulkOperations.push({
+            updateOne: {
+              filter: { _id: job._id },
+              update: { $set: { detailed_status: newDetailedStatus } },
+            },
+          });
+        }
       });
-    } else {
-      return res.status(200).json({ message: "No jobs needed updating." });
+
+      // Step 4: Perform bulkWrite operation if there are jobs to update
+      if (bulkOperations.length) {
+        await JobModel.bulkWrite(bulkOperations);
+        return res.status(200).json({
+          message: "Jobs updated successfully.",
+          updatedCount: bulkOperations.length,
+        });
+      } else {
+        return res.status(200).json({ message: "No jobs needed updating." });
+      }
+    } catch (error) {
+      console.error("Error updating pending jobs:", error);
+      return res.status(500).json({ error: "Internal server error." });
     }
-  } catch (error) {
-    console.error("Error updating pending jobs:", error);
-    return res.status(500).json({ error: "Internal server error." });
   }
-});
+);
 
 // Function to determine the detailed status based on the job data
 function determineDetailedStatus(job) {
@@ -387,12 +394,10 @@ function determineDetailedStatus(job) {
     isValidDate(container.arrival_date)
   );
 
-  const emptyContainerOffLoadDate = container_nos?.
-    every((container) =>
+  const emptyContainerOffLoadDate = container_nos?.every((container) =>
     isValidDate(container.emptyContainerOffLoadDate)
   );
-  const delivery_date = container_nos ?.
-    every((container) =>
+  const delivery_date = container_nos?.every((container) =>
     isValidDate(container.delivery_date)
   );
 

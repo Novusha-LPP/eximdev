@@ -1,12 +1,10 @@
-
-
-
-import React, { useState } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Toolbar from "@mui/material/Toolbar";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { TabValueContext } from "../contexts/TabValueContext.js";
+import { UserContext } from "../contexts/UserContext.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
@@ -14,6 +12,11 @@ import ViewBugs from "../components/home/ViewBugs.js";
 import ChangePassword from "../components/home/ChangePassword.js";
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
+
+// import billing
+import ImportBilling from "../components/Import-billing/ImportBilling.js";
+import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
+
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
 import ViewCustomerKyc from "../components/customerKyc/ViewCustomerKyc.js";
@@ -57,9 +60,9 @@ import OperationListJob from "../components/import-operations/OperationListJob.j
 // Import add
 import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 
-// import billing 
-import ImportBilling from "../components/Import-billing/ImportBilling.js";
-import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
+// Import Utility Tool
+import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
+
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -87,11 +90,23 @@ import Screen3 from "../components/Screens/Screen3.js";
 import Screen4 from "../components/Screens/Screen4.js";
 import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
-
+import CImportDSR from "../components/customer/CImportDSR.js";
+import CViewJob from "../components/customer/CViewJob.js";
+import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
+import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 
 const drawerWidth = 60;
 
 function HomePage() {
+  const { user } = useContext(UserContext);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login"); // Redirect to login if user is not authenticated
+    }
+  }, [user, navigate]);
+
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
@@ -136,6 +151,13 @@ function HomePage() {
 
             {/* Accounts */}
             <Route path="/accounts" element={<Accounts />} />
+
+            {/* import billing */}
+            <Route path="/import-billing" element={<ImportBilling />} />
+            <Route
+              path="/view-billing-job/:job_no/:year"
+              element={<ViewBillingJob />}
+            />
 
             {/* Customer KYC */}
             <Route path="/customer-kyc" element={<CustomerKyc />} />
@@ -200,7 +222,10 @@ function HomePage() {
             <Route path="/import-do" element={<ImportDO />} />
             <Route path="/edit-do-list/:_id" element={<EditDoList />} />
             <Route path="/edit-do-planning/:_id" element={<EditDoPlanning />} />
-            <Route path="edit-do-completed/:_id" element={<EditDoCompleted />} />
+            <Route
+              path="edit-do-completed/:_id"
+              element={<EditDoCompleted />}
+            />
             <Route
               path="/edit-billing-sheet/:_id"
               element={<EditBillingSheet />}
@@ -209,6 +234,10 @@ function HomePage() {
             {/* Import DSR */}
             <Route path="/import-dsr" element={<ImportDSR />} />
             <Route path="/job/:job_no/:selected_year" element={<ViewJob />} />
+
+            {/* Customer DSR  */}
+            <Route path="/customer" element={<CImportDSR />} />
+            <Route path="/cjob/:job_no/:selected_year" element={<CViewJob />} />
 
             {/* Import Operations */}
             <Route path="/import-operations" element={<ImportOperations />} />
@@ -223,12 +252,14 @@ function HomePage() {
             {/* ImportersInfo */}
 
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
+            {/* import utility tool */}
 
-            {/* import billing */}
-            <Route path="/import-billing" element={<ImportBilling />} />
-            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
-            
-
+            <Route
+              path="/import-utility-tool"
+              element={<ImportUtilityTool />}
+            />
+            <Route path="/duty-calculator" element={<DutyCalculator />} />
+            <Route path="/utilities" element={<UtilityParent />} />
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
 

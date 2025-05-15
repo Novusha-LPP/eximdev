@@ -3,11 +3,11 @@ import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const router = express.Router();
 const s3 = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.REACT_APP_AWS_REGION,
   credentials: () =>
     Promise.resolve({
       accessKeyId: process.env.REACT_APP_ACCESS_KEY || "",
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+      secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY || "",
     }),
 });
 router.post("/api/delete-s3-file", async (req, res) => {
@@ -18,12 +18,15 @@ router.post("/api/delete-s3-file", async (req, res) => {
 
   const key = decodeURIComponent(rawKey);
 
-  if (!process.env.REACT_APP_ACCESS_KEY || !process.env.AWS_SECRET_ACCESS_KEY) {
+  if (
+    !process.env.REACT_APP_ACCESS_KEY ||
+    !process.env.REACT_APP_SECRET_ACCESS_KEY
+  ) {
     throw new Error("Missing AWS credentials in environment variables.");
   }
 
   const command = new DeleteObjectCommand({
-    Bucket: process.env.S3_BUCKET,
+    Bucket: process.env.REACT_APP_S3_BUCKET,
     Key: key,
   });
 

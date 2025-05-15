@@ -29,12 +29,12 @@ function CountryCode() {
   const [formData, setFormData] = useState({
     cntry_cd: "",
     cntry_nm: "",
-    dgcis_cd: "",
-    cntry_cd_old: "",
-    aepc_cntry_cd: "",
-    cntry_grp: "",
-    ref_cntry_cd: "",
-    status: "",
+    // dgcis_cd: "",
+    // cntry_cd_old: "",
+    // aepc_cntry_cd: "",
+    // cntry_grp: "",
+    // ref_cntry_cd: "",
+    // status: "",
   });
   const [errors, setErrors] = useState({});
 
@@ -59,12 +59,12 @@ function CountryCode() {
     setFormData({
       cntry_cd: "",
       cntry_nm: "",
-      dgcis_cd: "",
-      cntry_cd_old: "",
-      aepc_cntry_cd: "",
-      cntry_grp: "",
-      ref_cntry_cd: "",
-      status: "",
+      // dgcis_cd: "",
+      // cntry_cd_old: "",
+      // aepc_cntry_cd: "",
+      // cntry_grp: "",
+      // ref_cntry_cd: "",
+      // status: "",
     });
     setOpenModal(true);
     setErrors({});
@@ -138,27 +138,6 @@ function CountryCode() {
               <TableCell>
                 <strong>Country Name</strong>
               </TableCell>
-              <TableCell>
-                <strong>DGCIS Code</strong>
-              </TableCell>
-              <TableCell>
-                <strong>Old Country Code</strong>
-              </TableCell>
-              <TableCell>
-                <strong>AEPC Country Code</strong>
-              </TableCell>
-              <TableCell>
-                <strong>Country Group</strong>
-              </TableCell>
-              <TableCell>
-                <strong>Reference Country Code</strong>
-              </TableCell>
-              <TableCell>
-                <strong>Status</strong>
-              </TableCell>
-              <TableCell>
-                <strong>Actions</strong>
-              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -166,12 +145,6 @@ function CountryCode() {
               <TableRow key={country._id}>
                 <TableCell>{country.cntry_cd}</TableCell>
                 <TableCell>{country.cntry_nm}</TableCell>
-                <TableCell>{country.dgcis_cd}</TableCell>
-                <TableCell>{country.cntry_cd_old}</TableCell>
-                <TableCell>{country.aepc_cntry_cd}</TableCell>
-                <TableCell>{country.cntry_grp}</TableCell>
-                <TableCell>{country.ref_cntry_cd}</TableCell>
-                <TableCell>{country.status}</TableCell>
                 <TableCell>
                   <IconButton
                     onClick={() => handleEdit(country)}
@@ -222,54 +195,6 @@ function CountryCode() {
             onChange={handleFieldChange}
             error={!!errors.cntry_nm}
             helperText={errors.cntry_nm}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="DGCIS Code"
-            name="dgcis_cd"
-            value={formData.dgcis_cd}
-            onChange={handleFieldChange}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="Old Country Code"
-            name="cntry_cd_old"
-            value={formData.cntry_cd_old}
-            onChange={handleFieldChange}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="AEPC Country Code"
-            name="aepc_cntry_cd"
-            value={formData.aepc_cntry_cd}
-            onChange={handleFieldChange}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="Country Group"
-            name="cntry_grp"
-            value={formData.cntry_grp}
-            onChange={handleFieldChange}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="Reference Country Code"
-            name="ref_cntry_cd"
-            value={formData.ref_cntry_cd}
-            onChange={handleFieldChange}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="Status"
-            name="status"
-            value={formData.status}
-            onChange={handleFieldChange}
           />
         </DialogContent>
 

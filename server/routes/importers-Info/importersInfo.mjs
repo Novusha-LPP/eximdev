@@ -1,8 +1,9 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import ImporterModel from "../../model/importerSchemaModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 const router = express.Router();
-router.post("/api/importers", async (req, res) => {
+router.post("/api/importers",authenticateJWT, async (req, res) => {
   const { name, contact, email, address } = req.body;
 
   // Validate input fields
@@ -42,7 +43,7 @@ router.post("/api/importers", async (req, res) => {
   }
 });
 
-router.get("/api/importers", async (req, res) => {
+router.get("/api/importers",authenticateJWT, async (req, res) => {
   try {
     const importers = await ImporterModel.find();
     res
@@ -54,7 +55,7 @@ router.get("/api/importers", async (req, res) => {
       .send({ message: "Internal Server Error", error: error.message });
   }
 });
-router.patch("/api/importers/:id", async (req, res) => {
+router.patch("/api/importers/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
   const { name, contact, email, address } = req.body;
 
@@ -82,7 +83,7 @@ router.patch("/api/importers/:id", async (req, res) => {
   }
 });
 
-router.delete("/api/importers/:id", async (req, res) => {
+router.delete("/api/importers/:id",authenticateJWT, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -99,7 +100,7 @@ router.delete("/api/importers/:id", async (req, res) => {
 });
 
 // PATCH API to assign importers to a user
-router.patch("/api/users/:userId/importers", async (req, res) => {
+router.patch("/api/users/:userId/importers",authenticateJWT, async (req, res) => {
   const { userId } = req.params;
   const { importers } = req.body; // Array of importer names to assign
 
@@ -134,7 +135,7 @@ router.patch("/api/users/:userId/importers", async (req, res) => {
 });
 
 // GET API to fetch a user with assigned importers
-router.get("/api/users/:userId", async (req, res) => {
+router.get("/api/users/:userId",authenticateJWT, async (req, res) => {
   const { userId } = req.params;
 
   try {

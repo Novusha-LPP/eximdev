@@ -1,9 +1,10 @@
 import express from "express";
 import AmcModel from "../../model/accounts/amcModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-amc", async (req, res) => {
+router.get("/api/get-amc", authenticateJWT, async (req, res) => {
   try {
     const data = await AmcModel.find({}).exec();
     res.status(200).json(data);

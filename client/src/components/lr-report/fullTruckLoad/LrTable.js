@@ -12,6 +12,15 @@ import LocationDialog from "../../srcel/LocationDialog";
 import { Box } from "@mui/material";
 
 function LrTable(props) {
+  const { page, pr_no, locations, truckTypes, prData, onDelete } = props;
+  console.log(
+    `LrTable: ( PAGE, PR_NO, LOCATIONS, TRUCK_TYPES, PR_DATA ) => (${page}, ${pr_no}, ${locations}, ${truckTypes}, ${prData})`,
+    page,
+    pr_no,
+    locations,
+    truckTypes,
+    prData
+  );
   const {
     rows,
     setRows,
@@ -20,30 +29,12 @@ function LrTable(props) {
     openLocationDialog,
     handleCloseLocationDialog,
     locationData,
-  } = useLrColumns(props);
+  } = useLrColumns({ ...props, onDelete });
 
   const table = useMaterialReactTable({
     columns: [
       ...columns,
-      {
-        accessorKey: "elock",
-        header: "Elock Details",
-        enableSorting: false,
-        size: 200,
-        Cell: ({ row }) => {
-          const elock = row.original.elock;
-          return elock ? (
-            <Box>
-              <div>ElockCode: {elock.ElockCode}</div>
-              <div>FAssetID: {elock.FAssetID}</div>
-              <div>FAgentGUID: {elock.FAgentGUID}</div>
-              <div>AssetGUID: {elock.AssetGUID}</div>
-            </Box>
-          ) : (
-            "No Elock Selected"
-          );
-        },
-      },
+      
     ],
     data: rows,
     initialState: {
@@ -54,9 +45,9 @@ function LrTable(props) {
     enableTopToolbar: false,
     renderBottomToolbar: ({ table }) => (
       <>
-        <IconButton onClick={handleAddRow}>
+        {/* <IconButton onClick={handleAddRow}>
           <TableRowsIcon />
-        </IconButton>
+        </IconButton> */}
         <IconButton onClick={() => generateLrPdf(selectedRows, props.prData)}>
           <PrintIcon />
         </IconButton>

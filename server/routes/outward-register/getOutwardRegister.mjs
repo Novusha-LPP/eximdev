@@ -1,9 +1,10 @@
 import express from "express";
 import OutwardRegisterModel from "../../model/outwardRegisterModel.mjs";
+import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-outward-registers", async (req, res) => {
+router.get("/api/get-outward-registers",authenticateJWT, async (req, res) => {
   try {
     const outwardRegisterData = await OutwardRegisterModel.find();
     res.status(200).json(outwardRegisterData);

@@ -1,13 +1,10 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
-import Autocomplete from "@mui/material/Autocomplete";
 import SaveIcon from "@mui/icons-material/Save";
-import { calculateColumnWidth } from "../utils/calculateColumnWidth";
+import Autocomplete from "@mui/material/Autocomplete";
 import { IconButton, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
-
-// Import handleSavePr utility if it's needed elsewhere, but don't use it directly here
-// import { handleSavePr } from "../utils/handleSavePr";
+import { calculateColumnWidth } from "../utils/calculateColumnWidth";
 
 function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [rows, setRows] = useState([]);
@@ -16,9 +13,8 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(false); // Add loading state
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Create a base URL constant to ensure consistency
   const API_BASE_URL = process.env.REACT_APP_API_STRING;
 
   const fetchShippingLines = async () => {
@@ -55,13 +51,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     }
   };
 
+  const refreshPrData = (page = currentPage) => {
+    getPrData(page, 50);
+  };
+
   const handleInputChange = (event, rowIndex, columnId) => {
     const { value } = event.target;
 
     setRows((prevRows) => {
       const updatedRow = { ...prevRows[rowIndex], [columnId]: value };
 
-      // Handle branch-specific logic
       if (columnId === "branch") {
         const selectedBranch = branchOptions.find(
           (option) => option.value === value
@@ -80,53 +79,40 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
       console.log(`🧩 Updated row ${rowIndex}:`, updatedRow);
 
-      // Return updated rows with only the specific row modified
       return prevRows.map((row, index) =>
         index === rowIndex ? updatedRow : row
       );
     });
   };
 
-  // Define getPrData function before using it in handleSavePr
-  const getPrData = async (page = 1, limit = 50) => {
+  async function getPrData(page = 1, limit = 50) {
     setIsLoading(true);
+
     try {
-      // Use axios for consistency instead of fetch
-      const response = await axios.get(
-        `${API_BASE_URL}/get-pr-data/all?page=${page}&limit=${limit}`,
-        { timeout: 10000 } // Add timeout to prevent hanging requests
-      );
+      const response = await axios.get(`${API_BASE_URL}/get-pr-data/all`, {
+        params: { page, limit },
+        timeout: 10000,
+      });
 
-      if (response.status === 200) {
-        const res = response.data;
+      const res = response.data;
 
-        setRows(res.data);
-        setTotal(res.total);
-        setTotalPages(res.totalPages);
-        setCurrentPage(res.currentPage);
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      setRows(res.data);
+      setTotal(res.total || 0);
+      setTotalPages(res.totalPages || 0);
+      setCurrentPage(res.currentPage || page);
+
+      console.log("✅ PR data loaded successfully:", res);
     } catch (error) {
       console.error("❌ Error fetching PR data:", error);
-
-      // More descriptive error handling
-      if (error.code === "ERR_CONNECTION_REFUSED") {
+      if (error.code === "ERR_NETWORK") {
         alert(
-          "Unable to connect to the server. Please check your network or server status."
+          "Network error: Could not connect to the server. Please try again later."
         );
-      } else if (error.code === "ECONNABORTED") {
-        alert("Request timed out. The server may be under heavy load.");
-      } else {
-        alert(`Failed to load PR data: ${error.message}`);
       }
-
-      // Initialize with empty data to prevent UI errors
-      setRows([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   const handleSavePr = async (rowIndex) => {
     const row = rows[rowIndex];
@@ -134,7 +120,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
     const errors = [];
 
-    // Validation logic
     if (row.branch === "") {
       errors.push("Please select branch");
     }
@@ -156,74 +141,45 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
     if (errors.length > 0) {
       console.error("❌ Validation Errors:", errors);
-      alert(errors.join("\\n"));
+      alert(errors.join("\n"));
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
       console.log("🚀 Sending POST /update-pr with payload:", row);
 
-      const res = await axios.post(
-        `${API_BASE_URL}/update-pr`,
-        row,
-        { timeout: 10000 } // Add timeout
-      );
+      const res = await axios.post(`${API_BASE_URL}/update-pr`, row, {
+        timeout: 10000,
+      });
 
       console.log("✅ API Response:", res.data);
       alert(res.data.message);
 
-      // Refresh data with error handling
-      try {
-        await getPrData(currentPage, 50);
-      } catch (refreshError) {
-        console.error("Failed to refresh data after save:", refreshError);
-        // Data refresh failed, but save was successful, so don't alert again
-      }
+      setTimeout(() => {
+        getPrData(currentPage, 50);
+      }, 500);
     } catch (error) {
       console.error("❌ Error while saving PR:", error);
-
-      if (error.code === "ERR_CONNECTION_REFUSED") {
+      if (error.code === "ERR_NETWORK") {
         alert(
-          "Unable to connect to the server. Your changes may not have been saved."
+          "Network error: Save was successful but could not refresh data. Please refresh the page manually."
         );
-      } else if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        alert(
-          `Save failed: ${
-            error.response.data.message || error.response.statusText
-          }`
-        );
-      } else if (error.request) {
-        // The request was made but no response was received
-        alert("No response from server. Please check your network connection.");
       } else {
-        // Something happened in setting up the request
-        alert(`Failed to save PR: ${error.message}`);
+        alert(
+          "Failed to save PR. " +
+            (error.response?.data?.message || "Check console for details.")
+        );
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        await getPrData(1, 50);
-        await fetchShippingLines();
-        await fetchBranchOptions();
-      } catch (error) {
-        console.error("Error during initialization:", error);
-      }
-    };
-
-    initializeData();
-  }, []);
-
   const handleDeletePr = async (pr_no) => {
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this PR?"
+      `Are you sure you want to delete this ${pr_no} PR?`
     );
 
     if (confirmDelete) {
@@ -234,12 +190,23 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           { pr_no },
           { timeout: 10000 }
         );
-
         alert(res.data.message);
-        await getPrData(currentPage, 50);
+
+        setTimeout(() => {
+          getPrData(currentPage, 50);
+        }, 500);
       } catch (error) {
         console.error("❌ Error deleting PR:", error);
-        alert(`Failed to delete PR: ${error.message}`);
+        if (error.code === "ERR_NETWORK") {
+          alert(
+            "Network error: Could not connect to the server. Please refresh the page manually."
+          );
+        } else {
+          alert(
+            "Failed to delete PR. " +
+              (error.response?.data?.message || "Check console for details.")
+          );
+        }
       } finally {
         setIsLoading(false);
       }
@@ -251,6 +218,131 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     getPrData(page, 50);
   };
 
+  useEffect(() => {
+    getPrData(1, 50);
+    fetchShippingLines();
+    fetchBranchOptions();
+  }, []);
+
+  // Handle text input with character limit and show alert
+  const handleTextInputChange = (event, rowIndex, columnId, maxLength) => {
+    const value = event.target.value;
+
+    // If exceeding limit, show alert and only use the text up to the limit
+    if (value.length > maxLength) {
+      alert(
+        `${
+          columnId.charAt(0).toUpperCase() + columnId.slice(1)
+        } cannot exceed ${maxLength} characters.`
+      );
+
+      // Truncate the input to the maximum length allowed
+      const truncatedValue = value.substring(0, maxLength);
+
+      // Update with truncated value
+      handleInputChange(
+        { target: { value: truncatedValue } },
+        rowIndex,
+        columnId
+      );
+    } else {
+      // Normal update if within limit
+      handleInputChange(event, rowIndex, columnId);
+    }
+  };
+
+  // Create a DateInputCell reusable component for date fields
+  const DateInputCell = ({ rowIndex, columnId, isTime = false }) => {
+    const inputRef = useRef(null);
+
+    // Calculate date range limits
+    const now = new Date();
+    const minDate = new Date(now);
+    minDate.setFullYear(now.getFullYear() - 1);
+    const maxDate = new Date(now);
+    maxDate.setFullYear(now.getFullYear() + 1);
+
+    // Format date strings
+    const minDateStr = minDate.toISOString().split("T")[0];
+    const maxDateStr = maxDate.toISOString().split("T")[0];
+
+    // For datetime-local, include time
+    const minDateTime = minDate.toISOString().slice(0, 16);
+    const maxDateTime = maxDate.toISOString().slice(0, 16);
+
+    useEffect(() => {
+      const handleFocus = () => {
+        setTimeout(() => {
+          if (document.activeElement === inputRef.current) {
+            try {
+              inputRef.current.showPicker();
+            } catch (error) {
+              console.log("Browser requires direct interaction for picker");
+            }
+          }
+        }, 100);
+      };
+
+      if (inputRef.current) {
+        inputRef.current.addEventListener("focus", handleFocus);
+      }
+
+      return () => {
+        if (inputRef.current) {
+          inputRef.current.removeEventListener("focus", handleFocus);
+        }
+      };
+    }, []);
+
+    return (
+      <TextField
+        inputRef={inputRef}
+        type={isTime ? "datetime-local" : "date"}
+        sx={{ width: "100%" }}
+        size="small"
+        value={rows[rowIndex]?.[columnId] || ""}
+        inputProps={{
+          min: isTime ? minDateTime : minDateStr,
+          max: isTime ? maxDateTime : maxDateStr,
+        }}
+        onChange={(event) => {
+          const value = event.target.value;
+
+          // Always allow clearing the field
+          if (!value) {
+            handleInputChange(event, rowIndex, columnId);
+            return;
+          }
+
+          const selectedDate = new Date(value);
+
+          // Validate if date is within allowed range
+          if (selectedDate >= minDate && selectedDate <= maxDate) {
+            handleInputChange(event, rowIndex, columnId);
+          } else {
+            alert(
+              "Please select a date between last year and next year from today"
+            );
+          }
+        }}
+        onClick={() => {
+          try {
+            inputRef.current?.showPicker();
+          } catch (error) {
+            console.log("Error showing picker:", error);
+          }
+        }}
+        onFocus={() => {
+          try {
+            inputRef.current?.showPicker();
+          } catch (error) {
+            // Already handled by the useEffect
+          }
+        }}
+      />
+    );
+  };
+
   const columns = [
     {
       accessorKey: "delete",
@@ -258,10 +350,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableGrouping: false,
       size: 50,
       Cell: ({ row }) => (
-        <IconButton
-          onClick={() => handleDeletePr(row.original.pr_no)}
-          disabled={isLoading}
-        >
+        <IconButton onClick={() => handleDeletePr(row.original.pr_no)}>
           <DeleteIcon
             sx={{ color: "#BE3838", cursor: "pointer", fontSize: "18px" }}
           />
@@ -295,14 +384,15 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               handleInputChange(event, row.index, cell.column.id);
             }}
             placeholder="Select Imp/Exp"
-            disabled={isLoading}
           >
+            {/* Show selected value separately at top, disabled */}
             {currentValue && (
               <MenuItem value={currentValue} disabled>
                 {currentValue}
               </MenuItem>
             )}
 
+            {/* Show selectable options */}
             {options.map((option) => (
               <MenuItem key={option} value={option}>
                 {option}
@@ -337,7 +427,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               )
             }
             renderInput={(params) => <TextField {...params} size="small" />}
-            disabled={isLoading}
           />
         ) : (
           cell.getValue()
@@ -352,11 +441,47 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         <TextField
           sx={{ width: "100%" }}
           size="small"
-          value={rows[row.index]?.container_count || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
+          type="number"
+          error={
+            rows[row.index]?.container_count &&
+            (Number(rows[row.index]?.container_count) < 1 ||
+              Number(rows[row.index]?.container_count) > 20)
           }
-          disabled={isLoading}
+          helperText={
+            rows[row.index]?.container_count &&
+            (Number(rows[row.index]?.container_count) < 1 ||
+              Number(rows[row.index]?.container_count) > 20)
+              ? "Value must be between 1 and 20"
+              : ""
+          }
+          inputProps={{
+            min: 1,
+            max: 20,
+            pattern: "[0-9]*",
+          }}
+          value={rows[row.index]?.container_count || ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            const numValue = Number(value);
+
+            if (value === "") {
+              handleInputChange(event, row.index, cell.column.id);
+            } else if (numValue < 1) {
+              alert("Container count cannot be less than 1");
+              event.target.value = rows[row.index]?.container_count || "";
+            } else if (numValue > 20) {
+              alert("Container count cannot be more than 20");
+              event.target.value = rows[row.index]?.container_count || "";
+            } else if (Number.isInteger(numValue)) {
+              handleInputChange(event, row.index, cell.column.id);
+            }
+          }}
+          onKeyPress={(event) => {
+            // Block non-numeric characters and decimal point
+            if (!/[0-9]/.test(event.key) || event.key === ".") {
+              event.preventDefault();
+            }
+          }}
         />
       ),
     },
@@ -384,7 +509,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             )
           }
           renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={isLoading}
         />
       ),
     },
@@ -421,7 +545,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               />
             )}
             freeSolo
-            disabled={isLoading}
           />
         );
       },
@@ -459,7 +582,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               />
             )}
             freeSolo
-            disabled={isLoading}
           />
         );
       },
@@ -497,7 +619,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               />
             )}
             freeSolo
-            disabled={isLoading}
           />
         );
       },
@@ -507,21 +628,13 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       header: "DO Validity",
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
-      Cell: ({ cell, row }) => {
-        const currentValue = rows[row.index]?.do_validity || "";
-        return (
-          <TextField
-            type="datetime-local"
-            sx={{ width: "100%" }}
-            size="small"
-            value={currentValue}
-            onChange={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-            disabled={isLoading}
-          />
-        );
-      },
+      Cell: ({ cell, row }) => (
+        <DateInputCell
+          rowIndex={row.index}
+          columnId={cell.column.id}
+          isTime={true}
+        />
+      ),
     },
     {
       accessorKey: "goods_pickup",
@@ -543,7 +656,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             )
           }
           renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={isLoading}
         />
       ),
     },
@@ -567,7 +679,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             )
           }
           renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={isLoading}
         />
       ),
     },
@@ -591,7 +702,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             )
           }
           renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={isLoading}
         />
       ),
     },
@@ -615,7 +725,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             )
           }
           renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={isLoading}
         />
       ),
     },
@@ -625,22 +734,21 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => (
-        <TextField
-          select
-          sx={{ width: "100%" }}
-          size="small"
-          value={cell.getValue() || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={truckTypes}
+          getOptionLabel={(option) => option}
+          value={rows[row.index]?.type_of_vehicle || null}
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
           }
-          disabled={isLoading}
-        >
-          {truckTypes?.map((type) => (
-            <MenuItem key={type} value={type}>
-              {type}
-            </MenuItem>
-          ))}
-        </TextField>
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
       ),
     },
     {
@@ -653,10 +761,21 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.document_no || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          disabled={isLoading}
+          onChange={(event) => {
+            const value = event.target.value;
+            // Validate input: must be numeric, no special characters, and max length of 16
+            if (/^\d{0,16}$/.test(value)) {
+              handleInputChange(event, row.index, cell.column.id);
+            } else {
+              alert(
+                "Document number must be a numeric value with a maximum of 16 digits and no special characters."
+              );
+            }
+          }}
+          inputProps={{
+            maxLength: 16,
+            pattern: "\\d*",
+          }}
         />
       ),
     },
@@ -666,34 +785,29 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "document_date"),
       Cell: ({ cell, row }) => (
-        <TextField
-          type="date"
-          sx={{ width: "100%" }}
-          size="small"
-          value={rows[row.index]?.document_date || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          disabled={isLoading}
-        />
+        <DateInputCell rowIndex={row.index} columnId={cell.column.id} />
       ),
     },
     {
       accessorKey: "description",
       header: "Description",
       enableSorting: false,
-      size: calculateColumnWidth(rows, "description"),
+      size: 300,
       Cell: ({ cell, row }) => {
         const currentValue = rows[row.index]?.description || "";
         return (
           <TextField
             sx={{ width: "100%" }}
             size="small"
+            multiline
+            rows={3}
             value={currentValue}
-            onChange={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-            disabled={isLoading}
+            onChange={(event) => {
+              handleTextInputChange(event, row.index, cell.column.id, 300);
+            }}
+            inputProps={{
+              maxLength: 300,
+            }}
           />
         );
       },
@@ -702,18 +816,22 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       accessorKey: "instructions",
       header: "Instructions",
       enableSorting: false,
-      size: calculateColumnWidth(rows, "instructions"),
+      size: 300,
       Cell: ({ cell, row }) => {
         const currentValue = rows[row.index]?.instructions || "";
         return (
           <TextField
             sx={{ width: "100%" }}
             size="small"
+            multiline
+            rows={3}
             value={currentValue}
-            onChange={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
-            disabled={isLoading}
+            onChange={(event) => {
+              handleTextInputChange(event, row.index, cell.column.id, 300);
+            }}
+            inputProps={{
+              maxLength: 300,
+            }}
           />
         );
       },
@@ -736,10 +854,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 100,
       Cell: ({ cell, row }) => (
-        <IconButton
-          onClick={() => handleSavePr(row.index)}
-          disabled={isLoading}
-        >
+        <IconButton onClick={() => handleSavePr(row.index)}>
           <SaveIcon sx={{ color: "#015C4B" }} />
         </IconButton>
       ),
@@ -750,9 +865,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     rows,
     setRows,
     columns,
+    total,
     totalPages,
     currentPage,
     handlePageChange,
+    refreshPrData,
     isLoading,
   };
 }

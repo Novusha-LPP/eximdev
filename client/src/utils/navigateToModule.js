@@ -6,12 +6,14 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/employee-kyc");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Customer":
+      return navigate("/customer");
     case "Import - Operations":
       return navigate("/import-operations");
     case "Import - Add":
       return navigate("/ImportersInfo");
-    case "Import - Billing":
-      return navigate("/import-billing");
+    case "Import Utility Tool":
+      return navigate("/utilities");
     case "Import - DO":
       return navigate("/import-do");
     case "Inward Register":
@@ -20,6 +22,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/outward-register");
     case "Accounts":
       return navigate("/accounts");
+    case "Import - Billing":
+      return navigate("/import-billing");
     case "Customer KYC":
       return navigate("/customer-kyc");
     case "Exit Feedback":
@@ -30,7 +34,7 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/lr-report");
     case "Tyre Maintenance":
       return navigate("/tyre-maintenance");
-    case "SRCC Directories":
+    case "Directories":
       return navigate("/srcc-directories");
     case "RTO":
       return navigate("/rto");

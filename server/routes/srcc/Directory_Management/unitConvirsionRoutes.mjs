@@ -1,12 +1,13 @@
 import express from "express";
 import Conversion from "../../../model/srcc/Directory_Management/unitConversion.mjs";
+import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // POST: Add a new unit conversion
 
 // **GET: Fetch all unit conversions**
-router.get("/api/get-unit-conversions", async (req, res) => {
+router.get("/api/get-unit-conversions", authenticateJWT, async (req, res) => {
   try {
     const conversions = await Conversion.find();
     res.json(conversions);
@@ -16,7 +17,7 @@ router.get("/api/get-unit-conversions", async (req, res) => {
 });
 
 // **POST: Add a new unit conversion**
-router.post("/api/add-unit-conversion", async (req, res) => {
+router.post("/api/add-unit-conversion", authenticateJWT, async (req, res) => {
   try {
     const { uqc, uqc_desc, type } = req.body;
     const newConversion = new Conversion({ uqc, uqc_desc, type });
@@ -66,6 +67,5 @@ router.delete("/api/delete-unit-conversion/:id", async (req, res) => {
     res.status(500).json({ error: "Error deleting unit conversion" });
   }
 });
-
 
 export default router;

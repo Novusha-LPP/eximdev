@@ -737,9 +737,21 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.document_no || ""} // Use value instead of defaultValue
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
+          onChange={(event) => {
+            const value = event.target.value;
+            // Validate input: must be numeric, no special characters, and max length of 16
+            if (/^\d{0,16}$/.test(value)) {
+              handleInputChange(event, row.index, cell.column.id);
+            } else {
+              alert(
+                "Document number must be a numeric value with a maximum of 16 digits and no special characters."
+              );
+            }
+          }}
+          inputProps={{
+            maxLength: 16, // Limit input to 16 characters
+            pattern: "\\d*", // Allow only numeric input
+          }}
         />
       ),
     },
@@ -846,7 +858,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       accessorKey: "description",
       header: "Description",
       enableSorting: false,
-      size: calculateColumnWidth(rows, "description"),
+      size: 300, // Set a fixed width for the column
       Cell: ({ cell, row }) => {
         const currentValue = rows[row.index]?.description || ""; // Current value from the row
         return (
@@ -854,9 +866,17 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             sx={{ width: "100%" }}
             size="small"
             value={currentValue} // Bind to rows state
-            onChange={(event) =>
-              handleInputChange(event, row.index, cell.column.id)
-            }
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value.length <= 300) { // Limit input to 300 characters
+                handleInputChange(event, row.index, cell.column.id);
+              } else {
+                alert("Description cannot exceed 300 characters.");
+              }
+            }}
+            inputProps={{
+              maxLength: 300, // Enforce max length at the input level
+            }}
           />
         );
       },

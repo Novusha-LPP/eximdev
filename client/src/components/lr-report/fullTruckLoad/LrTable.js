@@ -34,25 +34,7 @@ function LrTable(props) {
   const table = useMaterialReactTable({
     columns: [
       ...columns,
-      {
-        accessorKey: "elock",
-        header: "Elock Details",
-        enableSorting: false,
-        size: 200,
-        Cell: ({ row }) => {
-          const elock = row.original.elock;
-          return elock ? (
-            <Box>
-              <div>ElockCode: {elock.ElockCode}</div>
-              <div>FAssetID: {elock.FAssetID}</div>
-              <div>FAgentGUID: {elock.FAgentGUID}</div>
-              <div>AssetGUID: {elock.AssetGUID}</div>
-            </Box>
-          ) : (
-            "No Elock Selected"
-          );
-        },
-      },
+      
     ],
     data: rows,
     initialState: {

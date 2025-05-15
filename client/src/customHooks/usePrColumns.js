@@ -150,11 +150,9 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
     try {
       console.log("🚀 Sending POST /update-pr with payload:", row);
 
-      const res = await axios.post(
-        `${API_BASE_URL}/update-pr`,
-        row,
-        { timeout: 10000 }
-      );
+      const res = await axios.post(`${API_BASE_URL}/update-pr`, row, {
+        timeout: 10000,
+      });
 
       console.log("✅ API Response:", res.data);
       alert(res.data.message);
@@ -181,7 +179,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
 
   const handleDeletePr = async (pr_no) => {
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this PR?"
+      `Are you sure you want to delete this ${pr_no} PR?`
     );
 
     if (confirmDelete) {
@@ -229,14 +227,18 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   // Handle text input with character limit and show alert
   const handleTextInputChange = (event, rowIndex, columnId, maxLength) => {
     const value = event.target.value;
-    
+
     // If exceeding limit, show alert and only use the text up to the limit
     if (value.length > maxLength) {
-      alert(`${columnId.charAt(0).toUpperCase() + columnId.slice(1)} cannot exceed ${maxLength} characters.`);
-      
+      alert(
+        `${
+          columnId.charAt(0).toUpperCase() + columnId.slice(1)
+        } cannot exceed ${maxLength} characters.`
+      );
+
       // Truncate the input to the maximum length allowed
       const truncatedValue = value.substring(0, maxLength);
-      
+
       // Update with truncated value
       handleInputChange(
         { target: { value: truncatedValue } },
@@ -252,18 +254,18 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   // Create a DateInputCell reusable component for date fields
   const DateInputCell = ({ rowIndex, columnId, isTime = false }) => {
     const inputRef = useRef(null);
-    
+
     // Calculate date range limits
     const now = new Date();
     const minDate = new Date(now);
     minDate.setFullYear(now.getFullYear() - 1);
     const maxDate = new Date(now);
     maxDate.setFullYear(now.getFullYear() + 1);
-    
+
     // Format date strings
     const minDateStr = minDate.toISOString().split("T")[0];
     const maxDateStr = maxDate.toISOString().split("T")[0];
-    
+
     // For datetime-local, include time
     const minDateTime = minDate.toISOString().slice(0, 16);
     const maxDateTime = maxDate.toISOString().slice(0, 16);
@@ -627,10 +629,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "do_validity"),
       Cell: ({ cell, row }) => (
-        <DateInputCell 
-          rowIndex={row.index} 
-          columnId={cell.column.id} 
-          isTime={true} 
+        <DateInputCell
+          rowIndex={row.index}
+          columnId={cell.column.id}
+          isTime={true}
         />
       ),
     },
@@ -732,21 +734,21 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => (
-        <TextField
-          select
-          sx={{ width: "100%" }}
-          size="small"
-          value={cell.getValue() || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
+        <Autocomplete
+          fullWidth
+          disablePortal={false}
+          options={truckTypes}
+          getOptionLabel={(option) => option}
+          value={rows[row.index]?.type_of_vehicle || null}
+          onChange={(_, newValue) =>
+            handleInputChange(
+              { target: { value: newValue || "" } },
+              row.index,
+              cell.column.id
+            )
           }
-        >
-          {truckTypes?.map((type) => (
-            <MenuItem key={type} value={type}>
-              {type}
-            </MenuItem>
-          ))}
-        </TextField>
+          renderInput={(params) => <TextField {...params} size="small" />}
+        />
       ),
     },
     {
@@ -783,10 +785,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       enableSorting: false,
       size: calculateColumnWidth(rows, "document_date"),
       Cell: ({ cell, row }) => (
-        <DateInputCell 
-          rowIndex={row.index} 
-          columnId={cell.column.id} 
-        />
+        <DateInputCell rowIndex={row.index} columnId={cell.column.id} />
       ),
     },
     {

@@ -92,6 +92,7 @@ router.get(
         req.params;
       const { page = 1, limit = 100, search = "" } = req.query;
       const skip = (page - 1) * limit;
+      
       // Base query with year filter
       const query = { year };
 
@@ -211,12 +212,14 @@ router.get(
       // Paginate results
       const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));
 
-      res.json({
+      const result = {
         data: paginatedJobs,
         total: allJobs.length,
         currentPage: parseInt(page),
         totalPages: Math.ceil(allJobs.length / limit),
-      });
+      };
+
+      return res.status(200).json(result);
     } catch (error) {
       console.error("Error fetching jobs:", error);
       res.status(500).json({ error: "Internal Server Error" });

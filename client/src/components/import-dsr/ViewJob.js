@@ -127,6 +127,7 @@ function JobDetails() {
     setTabValue,
     setFileSnackbar
   );
+
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
   const [deleveryDate, setDeliveryDate] = useState(false);
@@ -261,63 +262,6 @@ function JobDetails() {
     if (date.length === 10) return `${date}T00:00`; // If only date, add default time
     return date.replace(" ", "T"); // Convert space to "T" if needed
   };
-  // const handleWeighmentSlip = async (e, container_number, fileType) => {
-  //   if (e.target.files.length === 0) {
-  //     alert("No file selected");
-  //     return;
-  //   }
-
-  //   try {
-  //     const s3 = new AWS.S3({
-  //       accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-  //       secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-  //       region: "ap-south-1",
-  //     });
-
-  //     const updatedWeighmentSlips = await Promise.all(
-  //       formik.values.container_nos?.map(async (container) => {
-  //         if (container.container_number === container_number) {
-  //           const fileUrls = [];
-
-  //           for (let i = 0; i < e.target.files.length; i++) {
-  //             const file = e.target.files[i];
-  //             const params = {
-  //               Bucket: process.env.REACT_APP_S3_BUCKET,
-  //               Key: `${fileType}/${container_number}/${file.name}`,
-  //               Body: file,
-  //             };
-
-  //             // Upload the file to S3 and wait for the promise to resolve
-  //             const data = await s3.upload(params).promise();
-
-  //             // Store the S3 URL in the fileUrls array
-  //             fileUrls.push({ url: data.Location, container_number });
-  //           }
-
-  //           // Update the container with the new images, replacing the old ones
-  //           return {
-  //             ...container,
-  //             [fileType]: fileUrls,
-  //           };
-  //         }
-
-  //         return container;
-  //       })
-  //     );
-
-  //     // Update the formik values with the updated container images
-  //     formik.setValues((values) => ({
-  //       ...values,
-  //       container_nos: updatedWeighmentSlips,
-  //     }));
-
-  //     setFileSnackbar(true);
-
-  //     setTimeout(() => {
-  //       setFileSnackbar(false);
-  //     }, 3000);
-  //   } catch (err) {}
-  // };
 
   const handleTransporterChange = (e, index) => {
     if (e.target.checked === true) {
@@ -759,6 +703,70 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
+            <Row style={{ marginTop: "20px" }}>
+  {/* Bill Document Sent */}
+  <Col xs={14} lg={3}>
+    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+      <div className="flex items-center">
+        <strong>Bill document sent to account team:&nbsp;</strong>
+        <span className="text-gray-900">
+          {data.bill_document_sent_to_accounts ? 
+            new Date(data.bill_document_sent_to_accounts).toLocaleString("en-US", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            }) : ""}
+        </span>
+      </div>
+    </div>
+  </Col>
+
+  {/* Bill Agency No */}
+  <Col xs={14} lg={3}>
+    <div className="flex items-center">
+      <strong>Bill Agency:&nbsp;</strong>
+      <span className="text-gray-900">
+        {(data.bill_no || "").split(",")[0]?.trim() || ""}
+      </span>
+    </div>
+  </Col>
+
+  {/* Bill Reimbursement No */}
+  <Col xs={14} lg={3}>
+    <div className="flex items-center">
+      <strong>Bill Reimbursement:&nbsp;</strong>
+      <span className="text-gray-900">
+        {(data.bill_no || "").split(",")[1]?.trim() || ""}
+      </span>
+    </div>
+  </Col>
+
+  {/* Bill Date (First Only) */}
+  <Col xs={12} lg={3}>
+    <div className="flex items-center">
+      <strong>Bill Date:&nbsp;</strong>
+      <span className="text-gray-900">
+        {(() => {
+          const firstDateStr = (data.bill_date || "").split(",")[0]?.trim();
+          const firstDate = new Date(firstDateStr);
+          return firstDate instanceof Date && !isNaN(firstDate)
+            ? firstDate.toLocaleString("en-US", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "";
+        })()}
+      </span>
+    </div>
+  </Col>
+</Row>
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={2}>
                 <div className="job-detail-input-container">
@@ -3303,34 +3311,34 @@ function JobDetails() {
 
                     <Row>
                       <Col>
-                       {/* Container Upload Component Section */}
-<FileUpload
-  label="Upload Weighment Slip"
-  multiple={true}
-  bucketPath={`weighment_slip_images/${container.container_number}`}
-  onFilesUploaded={(uploadedUrls) => {
-    const updatedContainers = formik.values.container_nos.map((c) => {
-      if (c.container_number === container.container_number) {
-        // Check if the container already has weighment slip images
-        // Use a defensive approach to ensure the property exists
-        const existingImages = c.weighment_slip_images || [];
-        console.log("Existing images:", existingImages);
-        console.log("New uploaded URLs:", uploadedUrls);
-        
-        // Merge existing images with newly uploaded ones
-        return {
-          ...c,
-          weighment_slip_images: [...existingImages, ...uploadedUrls]
-        };
-      }
-      return c;
-    });
-    
-    console.log("Updated containers:", updatedContainers);
-    formik.setFieldValue("container_nos", updatedContainers);
-  }}
-  readOnly={false}
-/>
+                        {/* Container Upload Component Section */}
+                        <FileUpload
+                          label="Upload Weighment Slip"
+                          multiple={true}
+                          bucketPath={`weighment_slip_images/${container.container_number}`}
+                          onFilesUploaded={(uploadedUrls) => {
+                            const updatedContainers = formik.values.container_nos.map((c) => {
+                              if (c.container_number === container.container_number) {
+                                // Check if the container already has weighment slip images
+                                // Use a defensive approach to ensure the property exists
+                                const existingImages = c.weighment_slip_images || [];
+                                console.log("Existing images:", existingImages);
+                                console.log("New uploaded URLs:", uploadedUrls);
+
+                                // Merge existing images with newly uploaded ones
+                                return {
+                                  ...c,
+                                  weighment_slip_images: [...existingImages, ...uploadedUrls]
+                                };
+                              }
+                              return c;
+                            });
+
+                            console.log("Updated containers:", updatedContainers);
+                            formik.setFieldValue("container_nos", updatedContainers);
+                          }}
+                          readOnly={false}
+                        />
                       </Col>
 
                     </Row>
@@ -3345,7 +3353,7 @@ function JobDetails() {
                             images={container?.weighment_slip_images || []}
                             readOnly
                           />
-                      
+
                         </div>
 
                         {/* Container Pre-Damage Images */}

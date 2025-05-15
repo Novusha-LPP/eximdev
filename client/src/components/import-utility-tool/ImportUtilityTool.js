@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   TextField,
   InputAdornment,
@@ -17,14 +17,7 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Button,
-  Collapse,
-  Divider,
   Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -32,96 +25,91 @@ import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import HistoryIcon from "@mui/icons-material/History";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import InfoIcon from "@mui/icons-material/Info";
 import axios from "axios";
 
 const ImportUtilityTool = () => {
+  // State management
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [multipleResults, setMultipleResults] = useState([]);
-  const [multipleResultsSource, setMultipleResultsSource] = useState("cth"); // Track source of multiple results
+  const [multipleResultsSource, setMultipleResultsSource] = useState("cth");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [recentSearches, setRecentSearches] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  const [contextItems, setContextItems] = useState([]);
   const [notification, setNotification] = useState({
     open: false,
     message: "",
     severity: "success",
   });
-  const [deleteDialog, setDeleteDialog] = useState({
-    open: false,
-    itemId: null,
-    collection: null,
-  });
-  const [unfavoriteDialog, setUnfavoriteDialog] = useState({
-    open: false,
-    item: null,
-    collectionSource: null,
-  });
-  // New state for context items
-  const [contextItems, setContextItems] = useState([]);
-  const [contextExpanded, setContextExpanded] = useState(false);
 
-  // Handle search input changes with debounce
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 1000); // 1000ms delay
+  // API base URL
+  const API_URL = process.env.REACT_APP_API_STRING;
 
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  // Perform search when debounced query changes
-  useEffect(() => {
-    if (debouncedSearchQuery) {
-      performSearch(debouncedSearchQuery, false); // false = don't add to recent
-    }
-  }, [debouncedSearchQuery]);
-
-  // Load recent searches and favorites on component mount
-  useEffect(() => {
-    fetchRecentSearches();
-    fetchFavorites();
+  // Show notification helper function
+  const showNotification = useCallback((message, severity) => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
   }, []);
 
-  const fetchRecentSearches = async () => {
+  // Handle close notification
+  const handleCloseNotification = useCallback(() => {
+    setNotification(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // Fetch recent searches
+  const fetchRecentSearches = useCallback(async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/recent`
-      );
+      const response = await axios.get(`${API_URL}/recent`);
       setRecentSearches(response.data);
     } catch (error) {
       console.error("Error fetching recent searches:", error);
       showNotification("Failed to load recent searches", "error");
     }
-  };
+  }, [API_URL, showNotification]);
 
-  const fetchFavorites = async () => {
+  // Fetch favorites
+  const fetchFavorites = useCallback(async () => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/favorites`
-      );
+      const response = await axios.get(`${API_URL}/favorites`);
       setFavorites(response.data);
     } catch (error) {
       console.error("Error fetching favorites:", error);
       showNotification("Failed to load favorites", "error");
     }
-  };
+  }, [API_URL, showNotification]);
 
-  const performSearch = async (query, addToRecent = false) => {
+  // Fetch context items
+  const fetchContextItems = useCallback(async (hsCode) => {
+    try {
+      const response = await axios.get(`${API_URL}/context/${hsCode}`);
+      
+      if (response.data && response.data.contextItems) {
+        setContextItems(response.data.contextItems);
+      } else {
+        setContextItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching context items:", error);
+      setContextItems([]);
+    }
+  }, [API_URL]);
+
+  // Perform search
+  const performSearch = useCallback(async (query, addToRecent = false) => {
     setIsLoading(true);
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/search?query=${encodeURIComponent(
-          query
-        )}&addToRecent=${addToRecent}`
+        `${API_URL}/search?query=${encodeURIComponent(query)}&addToRecent=${addToRecent}`
       );
 
-      // Handle context items if they exist
+      // Handle context items
       if (response.data.contextItems && response.data.contextItems.length > 0) {
         setContextItems(response.data.contextItems);
       } else {
@@ -130,11 +118,9 @@ const ImportUtilityTool = () => {
 
       if (response.data.results && response.data.results.length > 0) {
         // If multiple results
-        // Explicitly get source from response or use default "cth"
         const source = response.data.source || "cth";
-
         setMultipleResults(response.data.results);
-        setMultipleResultsSource(source); // Store the source of multiple results
+        setMultipleResultsSource(source);
 
         // If addToRecent is true, also set the first result as the main result
         if (addToRecent) {
@@ -143,24 +129,19 @@ const ImportUtilityTool = () => {
             source: source,
           });
           setMultipleResults([]); // Clear multiple results to show only the selected one
-
-          // Refresh recent searches after adding to recent
           fetchRecentSearches();
         } else {
-          // Clear single result when showing multiple results
           setSearchResults(null);
         }
       } else if (response.data.result) {
         // If single result
         const source = response.data.source || "cth";
-
         setSearchResults({
           result: response.data.result,
           source: source,
         });
-        setMultipleResults([]); // Clear multiple results
+        setMultipleResults([]);
 
-        // Refresh recent searches if addToRecent is true
         if (addToRecent) {
           fetchRecentSearches();
         }
@@ -177,158 +158,74 @@ const ImportUtilityTool = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-
-  const handleSearchInputChange = (event) => {
-    setSearchQuery(event.target.value);
-  };
-
-  const handleSearchSubmit = (event) => {
-    if (event.key === "Enter" && searchQuery.trim()) {
-      performSearch(searchQuery.trim(), true); // true = add to recent
-    }
-  };
-
-  const handleSelectResult = async (item) => {
-    try {
-      // Add the selected item to recent searches
-      await axios.post(
-        `${process.env.REACT_APP_API_STRING}/add-to-recent`,
-        item
-      );
-
-      // Get the source from the stored multipleResultsSource
-      const source = multipleResultsSource;
-
-      // Update UI to show only the selected item
-      setSearchResults({
-        result: item,
-        source: source,
-      });
-      setMultipleResults([]);
-
-      // Refresh recent searches
-      fetchRecentSearches();
-    } catch (error) {
-      showNotification("Failed to add to recent searches", "error");
-    }
-  };
+  }, [API_URL, fetchRecentSearches, showNotification]);
 
   // Determine the proper collection source
-  const determineCollectionSource = (item, explicitSource = null) => {
-    // If explicit source is provided, use it
-    if (explicitSource) {
-      return explicitSource;
-    }
-
-    // Check if item exists in favorites
+  const determineCollectionSource = useCallback((item, explicitSource = null) => {
+    if (explicitSource) return explicitSource;
+    
     const inFavorites = favorites.some(fav => fav._id === item._id || fav.hs_code === item.hs_code);
-    if (inFavorites) {
-      return "favorite";
-    }
-
-    // Check if item exists in recent searches
+    if (inFavorites) return "favorite";
+    
     const inRecent = recentSearches.some(recent => recent._id === item._id || recent.hs_code === item.hs_code);
-    if (inRecent) {
-      return "recent";
-    }
-
-    // Default to "cth" if not in favorites or recent
+    if (inRecent) return "recent";
+    
     return "cth";
-  };
+  }, [favorites, recentSearches]);
 
-  // Initial favorite toggle function - now checks if confirmation is needed
-  const handleToggleFavorite = (document, explicitSource = null) => {
-    // Determine the proper collection source
-    const collectionSource = determineCollectionSource(document, explicitSource);
-
-    // If the item is already a favorite and we're trying to unfavorite it, show the confirmation dialog
-    if (document.favourite) {
-      // Show confirmation dialog
-      setUnfavoriteDialog({
-        open: true,
-        item: document,
-        collectionSource: collectionSource,
-      });
-    } else {
-      // If we're adding to favorites, no confirmation needed
-      processFavoriteToggle(document, collectionSource);
-    }
-  };
-
-  // Actual function to process the favorite toggle after confirmation (if needed)
-  const processFavoriteToggle = async (document, collectionSource) => {
+  // Toggle favorite status (without confirmation)
+  const handleToggleFavorite = useCallback(async (document, explicitSource = null) => {
     try {
-      // Fix 1: Check if your API URL is correct - update this based on your actual backend route
-      // For example, if your backend uses a different URL structure:
-      const response = await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/toggle-favorite/${document._id}`,
-        {
-          collectionName: collectionSource,
-        }
+      const collectionSource = determineCollectionSource(document, explicitSource);
+      
+      await axios.patch(
+        `${API_URL}/toggle-favorite/${document._id}`,
+        { collectionName: collectionSource }
       );
 
-      // Get the new favorite status from the response
       const newFavoriteStatus = !document.favourite;
-
-      // Check the HS code to find and update all related items
       const hsCode = document.hs_code;
 
-      // Update UI for single search result if it exists and matches
-      if (
-        searchResults &&
-        searchResults.result &&
-        searchResults.result.hs_code === hsCode
-      ) {
-        setSearchResults({
-          ...searchResults,
+      // Update UI for single search result
+      if (searchResults?.result?.hs_code === hsCode) {
+        setSearchResults(prev => ({
+          ...prev,
           result: {
-            ...searchResults.result,
+            ...prev.result,
             favourite: newFavoriteStatus,
           },
-        });
+        }));
       }
 
-      // Update in multiple results if present
+      // Update multiple results
       if (multipleResults.length > 0) {
-        setMultipleResults(
-          multipleResults.map((item) =>
-            item.hs_code === hsCode
-              ? { ...item, favourite: newFavoriteStatus }
-              : item
+        setMultipleResults(prev => 
+          prev.map(item =>
+            item.hs_code === hsCode ? { ...item, favourite: newFavoriteStatus } : item
           )
         );
       }
 
-      // Update recent searches list - update any items with the same HS code
-      setRecentSearches(
-        recentSearches.map((item) =>
-          item.hs_code === hsCode
-            ? { ...item, favourite: newFavoriteStatus }
-            : item
+      // Update recent searches
+      setRecentSearches(prev => 
+        prev.map(item =>
+          item.hs_code === hsCode ? { ...item, favourite: newFavoriteStatus } : item
         )
       );
 
-      // Update favorites list - either add or remove item
+      // Update favorites
       if (newFavoriteStatus) {
-        // If adding to favorites and it's not already there
         if (!favorites.some(item => item.hs_code === hsCode)) {
-          // Fetch the updated favorites to ensure we have the correct data
           fetchFavorites();
         } else {
-          // Update existing favorite item
-          setFavorites(
-            favorites.map((item) =>
-              item.hs_code === hsCode
-                ? { ...item, favourite: true }
-                : item
+          setFavorites(prev => 
+            prev.map(item =>
+              item.hs_code === hsCode ? { ...item, favourite: true } : item
             )
           );
         }
       } else {
-        // Removing from favorites
-        setFavorites(favorites.filter(item => item.hs_code !== hsCode));
+        setFavorites(prev => prev.filter(item => item.hs_code !== hsCode));
       }
 
       showNotification(
@@ -339,27 +236,10 @@ const ImportUtilityTool = () => {
       console.error("Error toggling favorite:", error);
       showNotification("Failed to update favorite status", "error");
     }
-  };
+  }, [API_URL, determineCollectionSource, favorites, multipleResults, searchResults, showNotification, fetchFavorites]);
 
-
-  // Handle close of unfavorite confirmation dialog without confirming
-  const handleCloseUnfavoriteDialog = () => {
-    setUnfavoriteDialog({ open: false, item: null, collectionSource: null });
-  };
-
-  // New function to handle delete confirmation
-  const handleDeleteConfirm = (itemId, collection) => {
-    setDeleteDialog({
-      open: true,
-      itemId,
-      collection,
-    });
-  };
-
-  // New function to handle the actual deletion
-  const handleDeleteItem = async () => {
-    const { itemId, collection } = deleteDialog;
-
+  // Delete item (without confirmation)
+  const handleDeleteItem = useCallback(async (itemId, collection) => {
     try {
       // Store the HS code before deletion to update UI
       let hsCode = null;
@@ -376,32 +256,24 @@ const ImportUtilityTool = () => {
         const item = favorites.find(item => item._id === itemId);
         if (item) {
           hsCode = item.hs_code;
-          wasFavorite = true; // If it's in favorites, it's favorite by definition
+          wasFavorite = true;
         }
       }
 
-      const response = await axios.delete(
-        `${process.env.REACT_APP_API_STRING}/delete/${collection}/${itemId}`
-      );
-
-      // Close the dialog
-      setDeleteDialog({ open: false, itemId: null, collection: null });
+      await axios.delete(`${API_URL}/delete/${collection}/${itemId}`);
 
       // Update UI based on which collection was affected
       if (collection === 'recent') {
-        setRecentSearches(recentSearches.filter(item => item._id !== itemId));
+        setRecentSearches(prev => prev.filter(item => item._id !== itemId));
         showNotification("Item removed from recent searches", "success");
       } else if (collection === 'favorite') {
-        // If deleting from favorites, we need to update all related UI components
-        setFavorites(favorites.filter(item => item._id !== itemId));
+        setFavorites(prev => prev.filter(item => item._id !== itemId));
 
-        // Also update favorite status in recent searches if the item exists there
+        // Also update favorite status in recent searches
         if (hsCode) {
-          setRecentSearches(
-            recentSearches.map(item =>
-              item.hs_code === hsCode
-                ? { ...item, favourite: false }
-                : item
+          setRecentSearches(prev =>
+            prev.map(item =>
+              item.hs_code === hsCode ? { ...item, favourite: false } : item
             )
           );
         }
@@ -409,117 +281,193 @@ const ImportUtilityTool = () => {
         showNotification("Item removed from favorites", "success");
       }
 
-      // Check if the deleted item is currently displayed in search results
-      if (
-        searchResults &&
-        searchResults.result &&
-        hsCode &&
-        searchResults.result.hs_code === hsCode
-      ) {
-        // Update the search result to show that it's no longer in the collection
+      // Update search results if needed
+      if (searchResults?.result?.hs_code === hsCode) {
         if (collection === 'favorite') {
-          setSearchResults({
-            ...searchResults,
+          setSearchResults(prev => ({
+            ...prev,
             result: {
-              ...searchResults.result,
+              ...prev.result,
               favourite: false,
             },
-          });
+          }));
         }
       }
 
-      // Update multiple results if present
-      if (multipleResults.length > 0 && hsCode) {
-        if (collection === 'favorite') {
-          setMultipleResults(
-            multipleResults.map(item =>
-              item.hs_code === hsCode
-                ? { ...item, favourite: false }
-                : item
-            )
-          );
-        }
+      // Update multiple results if needed
+      if (multipleResults.length > 0 && hsCode && collection === 'favorite') {
+        setMultipleResults(prev =>
+          prev.map(item =>
+            item.hs_code === hsCode ? { ...item, favourite: false } : item
+          )
+        );
       }
     } catch (error) {
       console.error("Error deleting item:", error);
       showNotification("Failed to delete item", "error");
     }
-  };
+  }, [API_URL, favorites, multipleResults, recentSearches, searchResults, showNotification]);
 
-  const handleCloseDeleteDialog = () => {
-    setDeleteDialog({ open: false, itemId: null, collection: null });
-  };
+  // Clear all favorites
+  const handleClearAllFavorites = useCallback(async () => {
+    try {
+      await axios.delete(`${API_URL}/favorite-cth/clear`);
+      setFavorites([]);
+      setRecentSearches(prev => prev.map(item => ({ ...item, favourite: false })));
+      showNotification("All favorite CTH entries deleted.", "success");
+    } catch (error) {
+      showNotification("Failed to clear favorites", "error");
+    }
+  }, [API_URL, showNotification]);
+  
+  // Clear all recent
+  const handleClearAllRecent = useCallback(async () => {
+    try {
+      await axios.delete(`${API_URL}/recent-cth/clear`);
+      setRecentSearches([]);
+      showNotification("All recent CTH entries deleted.", "success");
+    } catch (error) {
+      showNotification("Failed to clear recent searches", "error");
+    }
+  }, [API_URL, showNotification]);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  const showNotification = (message, severity) => {
-    setNotification({
-      open: true,
-      message,
-      severity,
+  // Handle item click
+  const handleItemClick = useCallback((item, source) => {
+    setActiveTab(0);
+    setSearchResults({
+      result: item,
+      source: source
     });
-  };
+    setMultipleResults([]);
+    fetchContextItems(item.hs_code);
+  }, [fetchContextItems]);
 
-  const handleCloseNotification = () => {
-    setNotification({ ...notification, open: false });
-  };
+  // Handle select result
+  const handleSelectResult = useCallback(async (item) => {
+    try {
+      await axios
+        .post(`${API_URL}/add-to-recent`, item);
 
-  // Toggle context expansion
-  const toggleContextExpand = () => {
-    setContextExpanded(!contextExpanded);
-  };
+      const source = multipleResultsSource;
+      setSearchResults({
+        result: item,
+        source: source,
+      });
+      setMultipleResults([]);
+      fetchRecentSearches();
+    } catch (error) {
+      showNotification("Failed to add to recent searches", "error");
+    }
+  }, [API_URL, fetchRecentSearches, multipleResultsSource, showNotification]);
 
-  // Render the main search result with its context
-  const renderSearchResultWithContext = (mainItem, source) => {
-    // Get all fields from the main item to use as headers, filtering out metadata fields
+  // Handle search input change
+  const handleSearchInputChange = useCallback((event) => {
+    setSearchQuery(event.target.value);
+  }, []);
+
+  // Handle search submit
+  const handleSearchSubmit = useCallback((event) => {
+    if (event.key === "Enter" && searchQuery.trim()) {
+      performSearch(searchQuery.trim(), true);
+    }
+  }, [performSearch, searchQuery]);
+
+  // Handle tab change
+  const handleTabChange = useCallback((event, newValue) => {
+    setActiveTab(newValue);
+  }, []);
+
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 1000);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Perform search when debounced query changes
+  useEffect(() => {
+    if (debouncedSearchQuery) {
+      performSearch(debouncedSearchQuery, false);
+    }
+  }, [debouncedSearchQuery, performSearch]);
+
+  // Load recent searches and favorites on mount
+  useEffect(() => {
+    fetchRecentSearches();
+    fetchFavorites();
+  }, [fetchFavorites, fetchRecentSearches]);
+
+  // Render search result with context
+  const renderSearchResultWithContext = useCallback((mainItem) => {
     const fields = mainItem ? Object.keys(mainItem).filter(key =>
-      !['_id', 'updatedAt', 'row_index', 'favourite'].includes(key)
+      !['_id', 'updatedAt', 'row_index', 'favourite', "createdAt", "__v"].includes(key)
     ) : [];
 
     return (
-      <Box sx={{ mb: 16 }}>
-        {contextItems.length > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Chip
-              icon={<InfoIcon />}
-              label={`${contextItems.length} context item${contextItems.length > 1 ? 's' : ''} included below`}
-              color="primary"
-              variant="outlined"
-              sx={{ mr: 1 }}
-            />
-          </Box>
-        )}
+      <Box
+      sx={{
+        mb: 16,
+        maxHeight: '500px',
+        overflow: 'auto', // allows both X and Y scrolling
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {contextItems.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            mb: 1,
+            maxWidth: '100%',
+            flexShrink: 0,
+          }}
+        >
+          <Chip
+            icon={<InfoIcon />}
+            label={`${contextItems.length} context item${contextItems.length > 1 ? 's' : ''} included below`}
+            color="primary"
+            variant="outlined"
+            sx={{ mr: 1 }}
+          />
+        </Box>
+      )}
+    
+    
 
         <TableContainer component={Paper} elevation={3}>
           <Table size="small">
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                <TableCell sx={{ fontWeight: 'bold', minWidth: 100, textAlign: 'center' }}>
-                  Item Type
-                </TableCell>
-                {fields.map((field) => (
-                  <TableCell
-                    key={field}
-                    sx={{
-                      fontWeight: 'bold',
-                      minWidth: field === 'item_description' ? 300 : 150,
-                      textAlign: 'center'
-                    }}
-                  >
-                    {field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
+          <TableHead>
+  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+    {fields.map((field) => (
+      <TableCell
+        key={field}
+        sx={{
+          fontWeight: 'bold',
+          minWidth:
+            field === 'item_description'
+              ? 300
+              : field === 'import_policy'
+              ? 300 // Set your preferred width here
+              : 100,
+          textAlign: 'center',
+        }}
+      >
+        {field
+          .split('_')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')}
+      </TableCell>
+    ))}
+  </TableRow>
+</TableHead>
+
 
             <TableBody>
               {/* Main item row */}
-              <TableRow sx={{ backgroundColor: "#f8f8ff" }}>
-                <TableCell sx={{ fontWeight: 'bold', textAlign: 'center', minHeight: 56 }}>
-                  Main Item
-                </TableCell>
+              <TableRow sx={{ backgroundColor: "#f8f8ff", height: 100 }}>
                 {fields.map((field) => (
                   <TableCell key={field} sx={{ textAlign: 'center' }}>
                     {mainItem[field] && mainItem[field] !== "nan" ?
@@ -530,12 +478,8 @@ const ImportUtilityTool = () => {
                 ))}
               </TableRow>
 
-
               {contextItems.map((item, index) => (
                 <TableRow key={index} sx={{ backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white" }}>
-                  <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                
-                  </TableCell>
                   {fields.map((field) => (
                     <TableCell key={field} sx={{ textAlign: 'center' }}>
                       {item[field] && item[field] !== "nan" ?
@@ -551,122 +495,10 @@ const ImportUtilityTool = () => {
         </TableContainer>
       </Box>
     );
-  };
-  // Render the legacy table for backward compatibility
-  // const renderSearchResult = (item, source) => {
-  //   return (
-  //     <TableContainer component={Paper} elevation={3} sx={{ marginTop: 2 }}>
-  //       <Table>
-  //         <TableHead>
-  //           <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-  //             <TableCell>Field</TableCell>
-  //             <TableCell>Value</TableCell>
-  //           </TableRow>
-  //         </TableHead>
-  //         <TableBody>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               HS Code
-  //             </TableCell>
-  //             <TableCell>{item.hs_code}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Item Description
-  //             </TableCell>
-  //             <TableCell>{item.item_description}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Level
-  //             </TableCell>
-  //             <TableCell>{item.level}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Unit
-  //             </TableCell>
-  //             <TableCell>{item.unit}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Basic Duty (Schedule)
-  //             </TableCell>
-  //             <TableCell>{item.basic_duty_sch}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Basic Duty (Notification)
-  //             </TableCell>
-  //             <TableCell>{item.basic_duty_ntfn}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Specific Duty (Rs)
-  //             </TableCell>
-  //             <TableCell>{item.specific_duty_rs}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               IGST
-  //             </TableCell>
-  //             <TableCell>{item.igst}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               SWS (10%)
-  //             </TableCell>
-  //             <TableCell>{item.sws_10_percent}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Total Duty with SWS
-  //             </TableCell>
-  //             <TableCell>{item.total_duty_with_sws}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Total Duty (Specific)
-  //             </TableCell>
-  //             <TableCell>{item.total_duty_specific}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Preferential Duty A
-  //             </TableCell>
-  //             <TableCell>{item.pref_duty_a}%</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Import Policy
-  //             </TableCell>
-  //             <TableCell>{item.import_policy}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Non-Tariff Barriers
-  //             </TableCell>
-  //             <TableCell>{item.non_tariff_barriers}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Export Policy
-  //             </TableCell>
-  //             <TableCell>{item.export_policy}</TableCell>
-  //           </TableRow>
-  //           <TableRow>
-  //             <TableCell component="th" scope="row">
-  //               Remarks
-  //             </TableCell>
-  //             <TableCell>{item.remark}</TableCell>
-  //           </TableRow>
-  //         </TableBody>
-  //       </Table>
-  //     </TableContainer>
-  //   );
-  // };
+  }, [contextItems]);
 
-  const renderMultipleResults = () => {
+  // Render multiple results
+  const renderMultipleResults = useCallback(() => {
     return (
       <TableContainer
         component={Paper}
@@ -698,7 +530,7 @@ const ImportUtilityTool = () => {
                 <TableCell>
                   <IconButton
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering the row click
+                      e.stopPropagation();
                       handleToggleFavorite(item, multipleResultsSource);
                     }}
                     color={item.favourite ? "warning" : "default"}
@@ -712,10 +544,10 @@ const ImportUtilityTool = () => {
         </Table>
       </TableContainer>
     );
-  };
+  }, [handleSelectResult, handleToggleFavorite, multipleResults, multipleResultsSource]);
 
-  const renderItem = (item, source) => {
-    // Only show delete button for recent searches, not for favorites
+  // Render item
+  const renderItem = useCallback((item, source) => {
     const showDeleteButton = source === "recent";
 
     return (
@@ -735,12 +567,7 @@ const ImportUtilityTool = () => {
             flexGrow: 1,
             cursor: "pointer"
           }}
-          onClick={() => {
-            setActiveTab(0); // Switch to Search Result tab
-            // Set the search query to the HS code
-            setSearchQuery(item.hs_code);
-            performSearch(item.hs_code, true);
-          }}
+          onClick={() => handleItemClick(item, source)}
         >
           <Typography variant="subtitle1" fontWeight="bold">
             {item.hs_code} - {item.item_description}
@@ -753,7 +580,7 @@ const ImportUtilityTool = () => {
           {/* Favorite icon */}
           <IconButton
             onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering the row click
+              e.stopPropagation();
               handleToggleFavorite(item, source);
             }}
             color={item.favourite ? "warning" : "default"}
@@ -765,8 +592,8 @@ const ImportUtilityTool = () => {
           {showDeleteButton && (
             <IconButton
               onClick={(e) => {
-                e.stopPropagation(); // Prevent triggering the row click
-                handleDeleteConfirm(item._id, "recent");
+                e.stopPropagation();
+                handleDeleteItem(item._id, "recent");
               }}
               color="error"
             >
@@ -776,24 +603,22 @@ const ImportUtilityTool = () => {
         </Box>
       </Paper>
     );
-  };
+  }, [handleDeleteItem, handleItemClick, handleToggleFavorite]);
 
   return (
-    <Box sx={{ maxWidth: 1500, margin: "0 auto", p: 3, }}>
- <Typography
-  variant="h5"
-  gutterBottom
-  sx={{
-    textAlign: "center",
-    fontWeight: 550,  // semi-bold
-    fontSize: "1.75rem",
-    mb: 6
-  }}
->
-  Import Utility Tool
-</Typography>
-
-
+    <Box sx={{ maxWidth: 1500, margin: "0 auto", p: 3 }}>
+      <Typography
+        variant="h5"
+        gutterBottom
+        sx={{
+          textAlign: "center",
+          fontWeight: 550,
+          fontSize: "1.75rem",
+          mb: 6
+        }}
+      >
+        CTH Directory Search
+      </Typography>
 
       <Box sx={{ display: "flex", mb: 3, width: "100%", justifyContent: "center", alignItems: "center" }}>
         <TextField
@@ -817,7 +642,7 @@ const ImportUtilityTool = () => {
               </InputAdornment>
             ),
           }}
-          style={{ width: "35%", }}
+          style={{ width: "35%" }}
         />
       </Box>
 
@@ -853,25 +678,16 @@ const ImportUtilityTool = () => {
                   Found in {searchResults.source} collection
                 </Typography>
                 <IconButton
-                  onClick={() =>
-                    handleToggleFavorite(
-                      searchResults.result,
-                      searchResults.source
-                    )
-                  }
+                  onClick={() => handleToggleFavorite(searchResults.result, searchResults.source)}
                   color={searchResults.result.favourite ? "warning" : "default"}
                   sx={{ ml: 1 }}
                 >
-                  {searchResults.result.favourite ? (
-                    <StarIcon />
-                  ) : (
-                    <StarBorderIcon />
-                  )}
+                  {searchResults.result.favourite ? <StarIcon /> : <StarBorderIcon />}
                 </IconButton>
               </Box>
 
-              {/* Use the new component that shows context */}
-              {renderSearchResultWithContext(searchResults.result, searchResults.source)}
+              {/* Context-aware search result */}
+              {renderSearchResultWithContext(searchResults.result)}
             </Box>
           )}
 
@@ -898,6 +714,14 @@ const ImportUtilityTool = () => {
             <Typography variant="subtitle1">
               Recently Searched Items (Last 20)
             </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleClearAllRecent}
+            >
+              Delete All Recent
+            </Button>
           </Box>
 
           {recentSearches.length > 0 ? (
@@ -926,6 +750,14 @@ const ImportUtilityTool = () => {
             <Typography variant="subtitle1">
               Favorite Items
             </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleClearAllFavorites}
+            >
+              Delete All Favorites
+            </Button>
           </Box>
 
           {favorites.length > 0 ? (
@@ -946,65 +778,6 @@ const ImportUtilityTool = () => {
           )}
         </Box>
       )}
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialog.open}
-        onClose={handleCloseDeleteDialog}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">
-          Confirm Delete
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            Are you sure you want to delete this item? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteItem} color="error" autoFocus>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Unfavorite Confirmation Dialog */}
-      <Dialog
-        open={unfavoriteDialog.open}
-        onClose={handleCloseUnfavoriteDialog}
-        aria-labelledby="unfavorite-dialog-title"
-        aria-describedby="unfavorite-dialog-description"
-      >
-        <DialogTitle id="unfavorite-dialog-title">
-          Remove from Favorites
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="unfavorite-dialog-description">
-            Are you sure you want to remove this item from your favorites?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseUnfavoriteDialog} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              if (unfavoriteDialog.item && unfavoriteDialog.collectionSource) {
-                processFavoriteToggle(unfavoriteDialog.item, unfavoriteDialog.collectionSource);
-                handleCloseUnfavoriteDialog();
-              }
-            }}
-            color="warning"
-            autoFocus
-          >
-            Remove
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar
         open={notification.open}

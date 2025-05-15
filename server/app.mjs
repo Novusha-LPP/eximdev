@@ -54,7 +54,7 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
-import handleS3Deletation from "./routes/handleS3Deletation.mjs"
+import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 import verifySessionRoutes from "./routes/verifysession.mjs";
 import logout from "./routes/logout.mjs";
 
@@ -162,6 +162,7 @@ import getOperationPlanningList from "./routes/import-operations/getOperationPla
 //import utility tool
 import getCthSearch from "../server/model/srcc/Directory_Management/CthUtil/getChtSearch.js";
 
+
 // Inward Register
 import addInwardRegister from "./routes/inward-register/addInwardRegister.mjs";
 import getContactPersonNames from "./routes/inward-register/getContactPersonNames.mjs";
@@ -268,15 +269,10 @@ const MONGODB_URI =
     : process.env.NODE_ENV === "server"
     ? process.env.SERVER_MONGODB_URI
     : process.env.DEV_MONGODB_URI;
-const CLIENT_URI =
-  process.env.NODE_ENV === "production"
-    ? process.env.PROD_CLIENT_URI
-    : process.env.NODE_ENV === "server"
-    ? process.env.SERVER_CLIENT_URI
-    : process.env.DEV_CLIENT_URI;
 
 //console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 const numOfCPU = os.availableParallelism();
+
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -307,11 +303,20 @@ if (cluster.isPrimary) {
           return callback(new Error("Not allowed by CORS"));
         }
       },
-      credentials: true, // <== crucial to allow cookies to be sent
-      exposedHeaders: ["Authorization"], // Expose the Authorization header
+      credentials: true, // Important for cookies
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+      allowedHeaders: [
+        "Origin",
+        "X-Requested-With",
+        "Content-Type",
+        "Accept",
+        "Authorization", // Add this to allow the Authorization header
+      ],
+      exposedHeaders: ["set-cookie"],
+      maxAge: 86400,
     })
   );
-  app.options("*", cors()); // ✅ allow preflight requests globally
+  //app.options("*", cors()); // ✅ allow preflight requests globally
 
   // app.options("*", (req, res) => {
   //   // Set CORS headers directly
@@ -353,12 +358,13 @@ if (cluster.isPrimary) {
 
   app.use("/api/upload", uploadRouter);
   app.use(compression({ level: 9 }));
-  app.use("/", dutyCalculator);
+
   mongoose.set("strictQuery", true);
 
   mongoose
     .connect(MONGODB_URI, {
-      useunifiedTopology: true,
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
       minPoolSize: 10,
       maxPoolSize: 1000,
     })
@@ -387,7 +393,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-
+      
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);
@@ -504,6 +510,7 @@ if (cluster.isPrimary) {
 
       // import cth search
       app.use(getCthSearch);
+      app.use(dutyCalculator)
 
       // Inward Register
       //* Inward Register

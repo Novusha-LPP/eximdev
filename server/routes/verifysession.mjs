@@ -9,65 +9,142 @@ import UserModel from "../model/userModel.mjs";
 
 const router = express.Router();
 
-router.get(
-  "/api/verify-session",
-  (req, res, next) => {
-    // console.log("Cookies received:", req.cookies);
-    // console.log("Headers:", req.headers);
-    next();
-  },
-  authenticateJWT, // Ensure this middleware is properly invoked
-  async (req, res) => {
-    // console.log("User authenticated:", req.user);
+// Debugging middleware to inspect cookies and headers
 
-    try {
-      if (!req.user || !req.user.userId) {
-        return res.status(401).json({ message: "Invalid session" });
-      }
-
-      // Find the user based on the decoded token
-      const user = await UserModel.findById(req.user.userId);
-
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-
-      // Return sanitized user data
-      const sanitizedUser = sanitizeUserData(user);
-      return res.status(200).json(sanitizedUser);
-    } catch (error) {
-      // console.error("Session verification error:", error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  }
-);
-
-router.post("/api/refresh-token", async (req, res) => {
-  const refreshToken = req.cookies.refresh_token;
-  if (!refreshToken)
-    return res.status(401).json({ message: "No refresh token" });
-
+// Attempt to authenticate with either cookie or Authorization header
+router.get("/api/verify-session", async (req, res) => {
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await UserModel.findById(decoded.userId);
-    if (!user) return res.status(401).json({ message: "User not found" });
+    // Check for token in either cookie or Authorization header
+    let token = null;
 
+    if (req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
+    } else if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({ message: "Invalid session" });
+    }
+
+    // Find the user based on the decoded token
+    const user = await UserModel.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Return sanitized user data
+    const sanitizedUser = sanitizeUserData(user);
+    return res.status(200).json(sanitizedUser);
+  } catch (error) {
+    console.error("Session verification error:", error);
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+
+    return res.status(401).json({ message: "Authentication required" });
+  }
+});
+
+// router.get("/verify-session", authenticateJWT, async (req, res) => {
+//   try {
+//     const user = await UserModel.findById(req.user.userId);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Return sanitized user data
+//     return res.status(200).json(sanitizeUserData(user));
+//   } catch (error) {
+//     console.error("Session verification error:", error);
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// router.post("/api/refresh-token", async (req, res) => {
+//   try {
+//     // Try to get refresh token from cookie first, then from the request body
+//     const refreshToken = req.cookies.refresh_token || req.body.refresh_token;
+
+//     if (!refreshToken) {
+//       return res.status(401).json({ message: "No refresh token" });
+//     }
+
+//     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+//     const user = await UserModel.findById(decoded.userId);
+
+//     if (!user) {
+//       return res.status(401).json({ message: "User not found" });
+//     }
+
+//     const newAccessToken = generateToken(user);
+
+//     // Set cookie with more permissive settings for cross-origin
+//     res.cookie("access_token", newAccessToken, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//       sameSite: "none", // Changed from strict to none to allow cross-origin
+//       maxAge: 15 * 60 * 1000, // 15 minutes
+//       path: "/",
+//     });
+
+//     // Also return the token in the response body
+//     res.status(200).json({
+//       ...sanitizeUserData(user),
+//       token: newAccessToken, // Include token in response for clients that can't use cookies
+//     });
+//   } catch (err) {
+//     console.error("Refresh error:", err);
+//     res.status(403).json({ message: "Invalid refresh token" });
+//   }
+// });
+router.post("/api/refresh-token", async (req, res) => {
+  try {
+    // Get refresh token from request body instead of cookie
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(401).json({ message: "Refresh token required" });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
+
+    // Find user
+    const user = await UserModel.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate new access token
     const newAccessToken = generateToken(user);
 
-    res.cookie("access_token", newAccessToken, {
-      httpOnly: true,
-      // secure: process.env.NODE_ENV === "production",
-      //secure: true,
-      //sameSite: "strict",
-      // domain: ".alvision.in",
-      maxAge: 15 * 60 * 1000,
-      path: "/",
+    // Return the new access token
+    return res.status(200).json({
+      access_token: newAccessToken,
     });
+  } catch (error) {
+    console.error("Token refresh error:", error);
 
-    res.status(200).json(sanitizeUserData(user));
-  } catch (err) {
-    console.error("Refresh error:", err);
-    res.status(403).json({ message: "Invalid refresh token" });
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Refresh token expired" });
+    }
+
+    return res.status(401).json({ message: "Invalid refresh token" });
   }
 });
 

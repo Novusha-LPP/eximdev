@@ -18,7 +18,7 @@ const ImportDutyCalculator = () => {
 
   const [dutyRates, setDutyRates] = useState({
     bcdRate: "",
-    swsRate: "10", // Default is typically 10%
+    swsRate: "10", // Default is 10%
     igstRate: "",
     bofEnabled: false, // Default BOF is disabled
     bofPercentage: "0", // Default BOF percentage
@@ -31,13 +31,16 @@ const ImportDutyCalculator = () => {
   const [dutyValues, setDutyValues] = useState({
     bcd: 0,
     bofReduction: 0, // New field for BOF reduction amount
-    sws: 0,
+    sws: 10,
     igst: 0,
     total: 0,
   });
 
   // State for tracking if user has modified assessable value
   const [userModified, setUserModified] = useState(false);
+  
+  // New state to track if user has manually changed SWS rate
+  const [userModifiedSWS, setUserModifiedSWS] = useState(false);
 
   // State for API lookup
   const [jobNo, setJobNo] = useState("");
@@ -169,6 +172,12 @@ const ImportDutyCalculator = () => {
   // Function to handle duty rates change
   const handleDutyRateChange = (e) => {
     const { id, value } = e.target;
+    
+    // If SWS rate is being changed, mark it as user modified
+    if (id === "swsRate") {
+      setUserModifiedSWS(true);
+    }
+    
     setDutyRates((prev) => ({
       ...prev,
       [id]: value,
@@ -187,8 +196,9 @@ const ImportDutyCalculator = () => {
 
   // Function to perform API lookup
   const lookupHSCode = async () => {
-    if (!shipmentDetails.hsCode || !jobNo || !year) {
-      setError("Please provide HS Code, Job Number, and Year");
+    // Check if at least jobNo and year are provided
+    if (!jobNo || !year) {
+      setError("Please provide at least Job Number and Year");
       return;
     }
 
@@ -196,8 +206,12 @@ const ImportDutyCalculator = () => {
     setError("");
 
     try {
+      // Modified API endpoint - makes hsCode optional
+      const hsCodeParam = shipmentDetails.hsCode
+        ? shipmentDetails.hsCode
+        : "undefined";
       const response = await fetch(
-        `${process.env.REACT_APP_API_STRING}/lookup/${shipmentDetails.hsCode}/${jobNo}/${year}`
+        `${process.env.REACT_APP_API_STRING}/lookup/${hsCodeParam}/${jobNo}/${year}`
       );
 
       if (!response.ok) {
@@ -208,17 +222,26 @@ const ImportDutyCalculator = () => {
       const data = await response.json();
 
       if (data.success && data.data) {
-        // Auto-fill the form with the fetched data
-        setDutyRates({
+        // Auto-fill the form with the fetched data, but preserve SWS rate if user modified it
+        setDutyRates(prev => ({
           bcdRate:
             !data.data.basic_duty_ntfn || data.data.basic_duty_ntfn === "nan"
               ? data.data.basic_duty_sch
               : data.data.basic_duty_ntfn || "",
-          swsRate: data.data.sws_10_percent || "10",
+          // Keep user's SWS rate if modified, otherwise default to 10
+          swsRate: userModifiedSWS ? prev.swsRate : "10",
           igstRate: data.data.igst || "18",
           bofEnabled: false,
           bofPercentage: "0",
-        });
+        }));
+
+        // Update the hsCode field if it was found by jobNo lookup
+        if (data.data.hs_code && !shipmentDetails.hsCode) {
+          setShipmentDetails((prev) => ({
+            ...prev,
+            hsCode: data.data.hs_code,
+          }));
+        }
 
         if (data.data.job_data) {
           // Extract and set assessable value
@@ -281,7 +304,6 @@ const ImportDutyCalculator = () => {
       setIsLoading(false);
     }
   };
-
   // Function to export data as CSV
   const exportCSV = () => {
     const rows = [

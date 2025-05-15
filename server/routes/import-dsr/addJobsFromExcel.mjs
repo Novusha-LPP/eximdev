@@ -176,6 +176,8 @@ router.post("/api/jobs/add-job", async (req, res) => {
         total_inv_value,
       } = data;
 
+
+      // console.log(data.bill_no)
       // Sanitize bill_date before using it
       const sanitizedBillDate =
         typeof bill_date === "string"

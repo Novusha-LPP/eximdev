@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import { authenticateJWT } from "../../auth/auth.mjs";
+import redisClient from '../../config/redisClient.mjs';
 
 const router = express.Router();
 
@@ -74,6 +75,24 @@ router.get("/api/get-importer-jobs/:importerURL/:year",authenticateJWT, async (r
   } catch (error) {
     console.error("Error fetching job counts by importer:", error);
     res.status(500).json({ error: "Error fetching job counts by importer" });
+  }
+});
+
+router.get('/api/import-dsr/importer-jobs', async (req, res) => {
+  const { status, page = 1, limit = 100, search = '', year, importer } = req.query;
+  const cacheKey = `importdsr:importerjobs:${status}:${page}:${limit}:${search}:${year}:${importer}`;
+  try {
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
+    }
+    // ...existing DB query code...
+    // After getting result from DB:
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(result));
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("Error fetching importer jobs:", err);
+    res.status(500).json({ error: "Error fetching importer jobs" });
   }
 });
 

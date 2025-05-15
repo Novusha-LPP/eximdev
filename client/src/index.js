@@ -7,6 +7,7 @@ import {ImportersProvider} from "./contexts/importersContext.js"
 import { HashRouter } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { YearProvider } from "./contexts/yearContext.js";
+import { UserProvider } from "./contexts/UserContext.js";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(

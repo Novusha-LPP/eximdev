@@ -30,11 +30,25 @@ function LoginPage() {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/login`,
-        { username, password },
-        { withCredentials: true }
+        { username, password }
       );
 
-      setUser(res.data); // user info returned from backend
+      // Store tokens in localStorage
+      if (res.data.access_token) {
+        localStorage.setItem("access_token", res.data.access_token);
+      }
+
+      if (res.data.refresh_token) {
+        localStorage.setItem("refresh_token", res.data.refresh_token);
+      }
+
+      // Remove tokens from user object before setting in context
+      const userData = { ...res.data };
+      // delete userData.access_token;
+      // delete userData.refresh_token;
+
+      // Update user context with user data
+      setUser(userData);
       navigate("/");
     } catch (error) {
       if (error.response) {

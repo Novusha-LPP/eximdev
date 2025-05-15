@@ -92,6 +92,8 @@ import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
 import CImportDSR from "../components/customer/CImportDSR.js";
 import CViewJob from "../components/customer/CViewJob.js";
+import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
+import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 
 const drawerWidth = 60;
 
@@ -152,7 +154,10 @@ function HomePage() {
 
             {/* import billing */}
             <Route path="/import-billing" element={<ImportBilling />} />
-            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />}/>
+            <Route
+              path="/view-billing-job/:job_no/:year"
+              element={<ViewBillingJob />}
+            />
 
             {/* Customer KYC */}
             <Route path="/customer-kyc" element={<CustomerKyc />} />
@@ -249,8 +254,12 @@ function HomePage() {
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
             {/* import utility tool */}
 
-            <Route path="/import-utility-tool" element={<ImportUtilityTool />} />
-
+            <Route
+              path="/import-utility-tool"
+              element={<ImportUtilityTool />}
+            />
+            <Route path="/duty-calculator" element={<DutyCalculator />} />
+            <Route path="/utilities" element={<UtilityParent />} />
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
 

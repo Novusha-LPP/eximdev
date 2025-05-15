@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { TextField } from "@mui/material";
-import { handleSingleFileUpload } from "../utils/awsSingleFileUpload";
+import { handleFileUpload } from "../utils/awsFileUpload";
 
 function useSupportingDocuments(formik) {
   const [fileSnackbar, setFileSnackbar] = useState(false);
@@ -15,7 +15,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "individual_passport_img",
                 "passport_img",
@@ -41,7 +41,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "individual_voter_card_img",
                 "voter_card_img",
@@ -66,7 +66,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "individual_driving_license_img",
                 "driving_license_img",
@@ -91,7 +91,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "individual_bank_statement_img",
                 "bank_statement_img",
@@ -116,7 +116,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "individual_ration_card_img",
                 "ration_card_img",
@@ -141,7 +141,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "individual_aadhar_card",
                 "ration_card_img",
@@ -175,7 +175,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_registration_certificate_img",
                 "registration_certificate_img",
@@ -201,7 +201,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_deed_img",
                 "partnership_deed_img",
@@ -228,7 +228,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_power_of_attorney_img",
                 "power_of_attorney_partnership_img",
@@ -252,7 +252,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_aadhar_card_front_photo",
                 "partnership_aadhar_card_front_photo",
@@ -276,7 +276,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_aadhar_card_back_photo",
                 "partnership_aadhar_card_back_photo",
@@ -300,7 +300,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_valid_document",
                 "partnership_valid_document",
@@ -326,7 +326,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "partnership_telephone_bill",
                 "telephone_bill_in_the_name_of_firm_img",
@@ -359,7 +359,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "company_certificate_of_incorporation_img",
                 "certificate_of_incorporation_img",
@@ -388,7 +388,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "company_memorandum_of_association_img",
                 "memorandum_of_association_img",
@@ -417,7 +417,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "company_articles_of_association_img",
                 "articles_of_association_img",
@@ -445,7 +445,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "company_power_of_attorney_img",
                 "power_of_attorney_company_img",
@@ -472,7 +472,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "company_telephone_bill_img",
                 "telephone_bill_company_img",
@@ -497,7 +497,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "company_pan_allotment_letter_img",
                 "pan_allotment_letter_img",
@@ -529,7 +529,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "trust_certificate_of_registration_img",
                 "certificate_of_registration_img",
@@ -558,7 +558,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "trust_power_of_attorney_img",
                 "power_of_attorney_trust_img",
@@ -588,7 +588,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "trust_officially_valid_document_img",
                 "officially_valid_document_trust_img",
@@ -615,7 +615,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "trust_resolution_of_managing_body_img",
                 "resolution_of_managing_body_img",
@@ -644,7 +644,7 @@ function useSupportingDocuments(formik) {
           <input
             type="file"
             onChange={(e) =>
-              handleSingleFileUpload(
+              handleFileUpload(
                 e,
                 "trust_telephone_bill_img",
                 "telephone_bill_trust_img",

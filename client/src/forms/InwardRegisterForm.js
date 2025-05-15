@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { MenuItem, TextField } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "axios";
-import { handleSingleFileUpload } from "../utils/awsSingleFileUpload";
+import { handleFileUpload } from "../utils/awsFileUpload";
 import Snackbar from "@mui/material/Snackbar";
 import { validationSchema } from "../schemas/inwardRegister/inwardRegister";
 
@@ -201,7 +201,7 @@ function InwardRegisterForm() {
         accept="image/*"
         capture="environment"
         onChange={(e) =>
-          handleSingleFileUpload(
+          handleFileUpload(
             e,
             "inward_consignment_photo",
             "inward_register",

@@ -80,12 +80,12 @@ export const handleSaveLr = async (row, props) => {
   // Validate driver phone number
   const indianMobileRegex = /^[6-9]\d{9}$/;
   console.log("📱 Validating Driver Phone:", row.driver_phone);
-  if (row.driver_phone && !indianMobileRegex.test(row.driver_phone)) {
-    console.warn("❌ Invalid driver phone number.");
-    errors.push(
-      "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
-    );
-  }
+  // if (row.driver_phone && !indianMobileRegex.test(row.driver_phone)) {
+  //   console.warn("❌ Invalid driver phone number.");
+  //   errors.push(
+  //     "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
+  //   );
+  // }
 
   // Validate E-Way Bill
   const eWaybillRegex = /^\d{12}$/;

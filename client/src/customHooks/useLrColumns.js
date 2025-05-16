@@ -366,37 +366,45 @@ function useLrColumns(props) {
       header: "Container Number",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          value={rows[row.index]?.container_number || ""}
-          onChange={(e) => {
-            const newValue = e.target.value.toUpperCase(); // Force uppercase
-            setRows((prevRows) => {
-              const updatedRows = [...prevRows];
-              updatedRows[row.index].container_number = newValue;
-              updatedRows[row.index].isValidContainer =
-                isValidContainerNumber(newValue);
-              return updatedRows;
-            });
-          }}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          error={
-            !rows[row.index]?.isValidContainer &&
-            rows[row.index]?.container_number
-          }
-          helperText={
-            !rows[row.index]?.isValidContainer &&
-            rows[row.index]?.container_number
-              ? "Format: ABCD1234567 (4 uppercase letters + 7 digits)"
-              : ""
-          }
-          placeholder="ABCD1234567"
-        />
-      ),
+      Cell: ({ cell, row }) =>
+        !row.original.tr_no ? (
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            value={rows[row.index]?.container_number || ""}
+            onChange={(e) => {
+              const newValue = e.target.value.toUpperCase(); // Convert to uppercase
+              setRows((prevRows) => {
+                const updatedRows = [...prevRows];
+                updatedRows[row.index] = {
+                  ...updatedRows[row.index],
+                  container_number: newValue,
+                  isValidContainer: isValidContainerNumber(newValue),
+                };
+                return updatedRows;
+              });
+            }}
+            onBlur={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+            error={
+              !!rows[row.index]?.container_number &&
+              !rows[row.index]?.isValidContainer
+            }
+            helperText={
+              !!rows[row.index]?.container_number &&
+              !rows[row.index]?.isValidContainer
+                ? "Format: ABCD1234567 (4 uppercase letters + 7 digits)"
+                : ""
+            }
+            inputProps={{
+              maxLength: 11,
+            }}
+            placeholder="ABCD1234567"
+          />
+        ) : (
+          cell.getValue()
+        ),
     },
     {
       accessorKey: "seal_no",
@@ -657,6 +665,9 @@ function useLrColumns(props) {
                   {...params}
                   size="small"
                   placeholder="Select or enter vehicle number"
+                  inputProps={{
+                    maxLength: 10,
+                  }}
                   error={!isValidVehicleNumber && savedValue}
                   helperText={
                     !isValidVehicleNumber && savedValue
@@ -692,6 +703,9 @@ function useLrColumns(props) {
                   ? "Format: MH12V1234 or MH12VV1234"
                   : ""
               }
+              inputProps={{
+                maxLength: 10,
+              }}
               disabled={!rows[row.index]?.isValidContainer}
             />
           );
@@ -721,9 +735,13 @@ function useLrColumns(props) {
               sx={{ width: "100%" }}
               size="small"
               value={cell.getValue() || ""}
-              onChange={(event) =>
-                handleInputChange(event, row.index, cell.column.id)
-              }
+              onChange={(event) => {
+                const inputValue = event.target.value;
+                // Allow only alphabetic characters
+                if (/^[a-zA-Z\s]*$/.test(inputValue)) {
+                  handleInputChange(event, row.index, cell.column.id);
+                }
+              }}
               placeholder="Enter driver name"
               disabled={!rows[row.index]?.isValidContainer}
             />
@@ -761,6 +779,11 @@ function useLrColumns(props) {
                 handleInputChange(event, row.index, cell.column.id)
               }
               placeholder="Enter driver phone"
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric", // mobile-friendly numeric keyboard
+                pattern: "[0-9]*", // regex pattern for numeric input
+              }}
               error={!isValidPhoneNumber && savedValue}
               helperText={
                 !isValidPhoneNumber && savedValue

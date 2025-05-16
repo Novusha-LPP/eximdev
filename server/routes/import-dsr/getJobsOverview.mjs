@@ -1,7 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import { authenticateJWT } from "../../auth/auth.mjs";
-import redisClient from '../../config/redisClient.mjs';
 
 const router = express.Router();
 
@@ -156,13 +155,8 @@ router.get("/api/get-jobs-overview/:year",authenticateJWT, async (req, res) => {
 
 router.get('/api/import-dsr/jobs-overview', async (req, res) => {
   const { year, importer } = req.query;
-  const cacheKey = `importdsr:jobsoverview:${year}:${importer}`;
+  
   try {
-    const cached = await redisClient.get(cacheKey);
-    if (cached) {
-      return res.status(200).json(JSON.parse(cached));
-    }
-    // existing DB query code
     const jobCounts = await JobModel.aggregate([
       { $match: { year: year, importer: importer } },
       {
@@ -245,7 +239,6 @@ router.get('/api/import-dsr/jobs-overview', async (req, res) => {
       totalJobs: 0,
     };
 
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(responseObj));
     return res.status(200).json(responseObj);
   } catch (err) {
     console.error("Error fetching job counts:", err);

@@ -1,9 +1,10 @@
 // Helper function to determine the correct API base URL
+import axios from "axios";
+
 const getApiBaseUrl = () => {
   const apiBaseUrl = process.env.REACT_APP_API_STRING || "";
   return apiBaseUrl;
 };
-
 export const uploadFileToS3 = async (files, folderName) => {
   console.log("=== UPLOAD TO S3 INITIATED ===");
   console.log(`Files to upload: ${files?.length || 0}, Folder: ${folderName}`);
@@ -36,52 +37,19 @@ export const uploadFileToS3 = async (files, folderName) => {
     const apiBaseUrl = getApiBaseUrl();
     const endpoint = `${apiBaseUrl}/upload/upload-files`;
 
+    // Get token from localStorage or your auth context
+    const token = localStorage.getItem("token");
+
     console.log("=== UPLOAD REQUEST DETAILS ===");
     console.log(`API Base URL: ${apiBaseUrl}`);
     console.log(`Upload endpoint: ${endpoint}`);
-    console.log(
-      "FormData entries:",
-      [...formData.entries()].map(([key, value]) => {
-        if (value instanceof File) {
-          return {
-            key,
-            fileName: value.name,
-            fileType: value.type,
-            fileSize: `${(value.size / 1024).toFixed(2)} KB`,
-          };
-        }
-        return { key, value };
-      })
-    );
 
-    console.log("Initiating fetch request to upload files...");
-    const uploadResponse = await fetch(endpoint, {
-      method: "POST",
-      body: formData,
-      credentials: "include", // Enable if cookies are used
-      cache: "no-cache",
+    const response = await axios.post(endpoint, formData, {
     });
 
-    console.log("=== UPLOAD RESPONSE RECEIVED ===");
-    console.log(
-      "Response status:",
-      uploadResponse.status,
-      uploadResponse.statusText
-    );
-    console.log(
-      "Response headers:",
-      Object.fromEntries([...uploadResponse.headers.entries()])
-    );
+    console.log("=== UPLOAD RESPONSE RECEIVED ===", response);
 
-    if (!uploadResponse.ok) {
-      console.error(`Upload failed with status: ${uploadResponse.status}`);
-      const errorText = await uploadResponse.text();
-      console.error("Server error response:", errorText);
-      throw new Error(`Server responded with status: ${uploadResponse.status}`);
-    }
-
-    const responseData = await uploadResponse.json();
-    console.log("Upload response data:", responseData);
+    const responseData = response.data;
 
     if (!responseData.success) {
       console.error("Upload unsuccessful:", responseData.message);

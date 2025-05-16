@@ -842,12 +842,12 @@ const EditableDateCell = ({ cell }) => {
       {/* Notification Snackbar */}
       <Snackbar
   open={notification.open}
-  autoHideDuration={3000}
+  autoHideDuration={1000}
   onClose={handleCloseNotification}
-  anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+  anchorOrigin={{ vertical: "top", horizontal: "left" }}
   sx={{
     zIndex: 1500, // above other content like forms
-    ml: 30, // add margin from top (adjust as needed)
+    ml:60, // add margin from top (adjust as needed)
   }}
 >
   <Alert

@@ -111,8 +111,6 @@ const EditableDateCell = ({ cell }) => {
         { timeout: 10000 } // Add timeout to avoid hanging requests
       );
       
-      console.log(`API update successful for ${endpoint}`, response.data);
-      
       // Show notification for successful update
       if (data.assessment_date) {
         showNotification("Assessment date updated successfully");
@@ -844,7 +842,7 @@ const EditableDateCell = ({ cell }) => {
       {/* Notification Snackbar */}
       <Snackbar
   open={notification.open}
-  autoHideDuration={4000}
+  autoHideDuration={3000}
   onClose={handleCloseNotification}
   anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
   sx={{

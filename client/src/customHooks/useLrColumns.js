@@ -451,12 +451,24 @@ function useLrColumns(props) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.gross_weight || ""}
+          inputProps={{
+            maxLength: 8,
+            inputMode: "decimal",
+          }}
           onChange={(e) => {
-            setRows((prevRows) => {
-              const updatedRows = [...prevRows];
-              updatedRows[row.index].gross_weight = e.target.value;
-              return updatedRows;
-            });
+            const inputValue = e.target.value;
+            const validFormat = /^(\d+(\.\d*)?)?$/; // Allows empty, or valid positive decimal numbers
+
+            if (validFormat.test(inputValue)) {
+              // Allow empty string or non-negative numbers
+              if (inputValue === "" || parseFloat(inputValue) >= 0) {
+                setRows((prevRows) => {
+                  const updatedRows = [...prevRows];
+                  updatedRows[row.index].gross_weight = inputValue;
+                  return updatedRows;
+                });
+              }
+            }
           }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
@@ -475,12 +487,23 @@ function useLrColumns(props) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.tare_weight || ""}
+          inputProps={{
+            maxLength: 8,
+            inputMode: "decimal",
+          }}
           onChange={(e) => {
-            setRows((prevRows) => {
-              const updatedRows = [...prevRows];
-              updatedRows[row.index].tare_weight = e.target.value;
-              return updatedRows;
-            });
+            const inputValue = e.target.value;
+            const validFormat = /^(\d+(\.\d*)?)?$/; // Allows only positive decimals and empty
+
+            if (validFormat.test(inputValue)) {
+              if (inputValue === "" || parseFloat(inputValue) >= 0) {
+                setRows((prevRows) => {
+                  const updatedRows = [...prevRows];
+                  updatedRows[row.index].tare_weight = inputValue;
+                  return updatedRows;
+                });
+              }
+            }
           }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
@@ -499,12 +522,23 @@ function useLrColumns(props) {
           sx={{ width: "100%" }}
           size="small"
           value={rows[row.index]?.net_weight || ""}
+          inputProps={{
+            maxLength: 8,
+            inputMode: "decimal",
+          }}
           onChange={(e) => {
-            setRows((prevRows) => {
-              const updatedRows = [...prevRows];
-              updatedRows[row.index].net_weight = e.target.value;
-              return updatedRows;
-            });
+            const inputValue = e.target.value;
+            const validFormat = /^(\d+(\.\d*)?)?$/; // Only positive decimal or empty
+
+            if (validFormat.test(inputValue)) {
+              if (inputValue === "" || parseFloat(inputValue) >= 0) {
+                setRows((prevRows) => {
+                  const updatedRows = [...prevRows];
+                  updatedRows[row.index].net_weight = inputValue;
+                  return updatedRows;
+                });
+              }
+            }
           }}
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)

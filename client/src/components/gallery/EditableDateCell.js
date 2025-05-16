@@ -847,7 +847,7 @@ const EditableDateCell = ({ cell }) => {
   anchorOrigin={{ vertical: "top", horizontal: "left" }}
   sx={{
     zIndex: 1500, // above other content like forms
-    ml:60, // add margin from top (adjust as needed)
+    ml:63, // add margin from top (adjust as needed)
   }}
 >
   <Alert

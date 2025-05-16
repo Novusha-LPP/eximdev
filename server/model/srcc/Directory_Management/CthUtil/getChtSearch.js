@@ -107,7 +107,6 @@ router.get('/api/search', async (req, res) => {
       searchCondition = { hs_code: new RegExp(`^${query}`) };
       results = await CthModel.find(searchCondition)
         .lean()
-        .limit(20)
         .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit'); // Only select fields we need
     } else {
       // For descriptive text, use text search which is optimized if you have text indexes
@@ -117,7 +116,6 @@ router.get('/api/search', async (req, res) => {
         searchCondition = { $text: { $search: query } };
         results = await CthModel.find(searchCondition)
           .lean()
-          .limit(20)
           .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit')
           .sort({ score: { $meta: "textScore" } }); // Sort by text relevance
       } else {
@@ -125,7 +123,6 @@ router.get('/api/search', async (req, res) => {
         searchCondition = { item_description: new RegExp(query, 'i') };
         results = await CthModel.find(searchCondition)
           .lean()
-          .limit(20)
           .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
       }
     }
@@ -141,7 +138,6 @@ router.get('/api/search', async (req, res) => {
       
       results = await CthModel.find(searchCondition)
         .lean()
-        .limit(20)
         .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
       
       if (!results.length) {

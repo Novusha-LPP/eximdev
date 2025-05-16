@@ -162,7 +162,6 @@ import getOperationPlanningList from "./routes/import-operations/getOperationPla
 //import utility tool
 import getCthSearch from "../server/model/srcc/Directory_Management/CthUtil/getChtSearch.js";
 
-
 // Inward Register
 import addInwardRegister from "./routes/inward-register/addInwardRegister.mjs";
 import getContactPersonNames from "./routes/inward-register/getContactPersonNames.mjs";
@@ -287,6 +286,7 @@ if (cluster.isPrimary) {
   const allowedOrigins = [
     "http://eximdev.s3-website.ap-south-1.amazonaws.com",
     "http://eximit.s3-website.ap-south-1.amazonaws.com",
+    "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
     "http://localhost:3000",
     "https://exim.alvision.in",
     "https://eximapi.alvision.in",
@@ -393,7 +393,7 @@ if (cluster.isPrimary) {
           res.status(500).send("An error occurred while updating the jobs");
         }
       });
-      
+
       app.use(getAllUsers);
       app.use(getImporterList);
       app.use(getJobById);
@@ -510,7 +510,7 @@ if (cluster.isPrimary) {
 
       // import cth search
       app.use(getCthSearch);
-      app.use(dutyCalculator)
+      app.use(dutyCalculator);
 
       // Inward Register
       //* Inward Register

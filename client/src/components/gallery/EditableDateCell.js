@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
 import { TextField, MenuItem, Snackbar, Alert } from "@mui/material";
@@ -36,6 +36,9 @@ const EditableDateCell = ({ cell }) => {
   const [tempDateValue, setTempDateValue] = useState("");
   const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
+  
+  // Add a isUpdating ref to prevent multiple simultaneous API calls
+  const isUpdating = useRef(false);
 
   // Notification state
   const [notification, setNotification] = useState({
@@ -78,7 +81,7 @@ const EditableDateCell = ({ cell }) => {
     setDateError("");
   }, [cell.row.original]);
 
-  const updateDetailedStatus = useCallback(async () => {
+  const calculateDetailedStatus = useCallback(() => {
     const eta = dates.vessel_berthing;
     const gatewayIGMDate = dates.gateway_igm_date;
     const dischargeDate = dates.discharge_date;
@@ -135,13 +138,31 @@ const EditableDateCell = ({ cell }) => {
       newStatus = "Estimated Time of Arrival";
     }
 
+    return newStatus;
+  }, [
+    dates,
+    containers,
+    be_no,
+    consignment_type,
+    type_of_b_e,
+  ]);
+
+  const updateDetailedStatus = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isUpdating.current) return;
+    
+    const newStatus = calculateDetailedStatus();
+
     if (newStatus && newStatus !== localStatus) {
-      cell.row.original.detailed_status = newStatus;
+      isUpdating.current = true;
+      
       try {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
         });
+        
         setLocalStatus(newStatus);
+        cell.row.original.detailed_status = newStatus;
       } catch (err) {
         console.error("Error updating status:", err);
         setNotification({
@@ -149,25 +170,30 @@ const EditableDateCell = ({ cell }) => {
           message: "Error updating status",
           severity: "error",
         });
+      } finally {
+        isUpdating.current = false;
       }
     }
   }, [
-    dates,
-    containers,
-    be_no,
-    consignment_type,
-    type_of_b_e,
-    localStatus,
     _id,
+    calculateDetailedStatus,
+    localStatus,
+    cell.row.original,
   ]);
 
+  // Debounced status update to avoid race conditions
   useEffect(() => {
-    updateDetailedStatus();
+    const timer = setTimeout(() => {
+      updateDetailedStatus();
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, [
     dates.vessel_berthing,
     dates.gateway_igm_date,
     dates.discharge_date,
     dates.out_of_charge,
+    dates.pcv_date,
     dates.assessment_date,
     containers,
     updateDetailedStatus,
@@ -253,14 +279,14 @@ const EditableDateCell = ({ cell }) => {
 
       setContainers(updatedContainers);
 
+      // First update container data
       axios
         .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
         })
         .then(() => {
           setEditable(null);
-          updateDetailedStatus();
-
+          
           // Show success notification
           setNotification({
             open: true,
@@ -270,6 +296,9 @@ const EditableDateCell = ({ cell }) => {
             } updated`,
             severity: "success",
           });
+          
+          // Now let the updateDetailedStatus handle status update
+          // This ensures we don't make simultaneous API calls
         })
         .catch((err) => {
           console.error("Error Updating:", err);
@@ -283,15 +312,15 @@ const EditableDateCell = ({ cell }) => {
       // Handle non-container fields
       setDates((prev) => {
         const newDates = { ...prev, [field]: finalValue };
-
+        
+        // First update the date field
         axios
           .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
             [field]: finalValue,
           })
           .then(() => {
             setEditable(null);
-            updateDetailedStatus();
-
+            
             // Show success notification
             setNotification({
               open: true,
@@ -301,6 +330,9 @@ const EditableDateCell = ({ cell }) => {
               } updated`,
               severity: "success",
             });
+            
+            // Now let the updateDetailedStatus handle status update
+            // This ensures we don't make simultaneous API calls
           })
           .catch((err) => {
             console.error("Error Updating:", err);

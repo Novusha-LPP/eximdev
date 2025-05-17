@@ -4,10 +4,13 @@ import CthModel from './CthUtil.mjs';
 import FavoriteModel from './FavouriteCth.mjs';
 import RecentModel from './RecentCth.mjs';
 import NodeCache from 'node-cache'; 
+import redisClient from '../../../../config/redisClient.mjs';
 
 const router = express.Router();
 
 const searchCache = new NodeCache({ stdTTL: 300 });
+
+
 
 async function getHsCodeWithContext(hsCode, Model) {
   try {
@@ -71,9 +74,21 @@ router.get('/api/search', async (req, res) => {
 
     // Generate a cache key
     const cacheKey = `search_${query}_${addToRecent}`;
+
+    // Try Redis cache first
+    let cachedResult;
+    try {
+      const redisData = await redisClient.get(cacheKey);
+      if (redisData) {
+        console.log('Redis cache hit for:', query);
+        return res.status(200).json(JSON.parse(redisData));
+      }
+    } catch (err) {
+      console.error('Redis error:', err);
+    }
     
     // Check if result is in cache
-    const cachedResult = searchCache.get(cacheKey);
+    cachedResult = searchCache.get(cacheKey);
     if (cachedResult) {
       console.log('Search cache hit for:', query);
       return res.status(200).json(cachedResult);
@@ -92,6 +107,7 @@ router.get('/api/search', async (req, res) => {
       searchCondition = { hs_code: new RegExp(`^${query}`) };
       results = await CthModel.find(searchCondition)
         .lean()
+        .limit(20)
         .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit'); // Only select fields we need
     } else {
       // For descriptive text, use text search which is optimized if you have text indexes
@@ -101,6 +117,7 @@ router.get('/api/search', async (req, res) => {
         searchCondition = { $text: { $search: query } };
         results = await CthModel.find(searchCondition)
           .lean()
+          .limit(20)
           .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit')
           .sort({ score: { $meta: "textScore" } }); // Sort by text relevance
       } else {
@@ -108,6 +125,7 @@ router.get('/api/search', async (req, res) => {
         searchCondition = { item_description: new RegExp(query, 'i') };
         results = await CthModel.find(searchCondition)
           .lean()
+          .limit(20)
           .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
       }
     }
@@ -123,6 +141,7 @@ router.get('/api/search', async (req, res) => {
       
       results = await CthModel.find(searchCondition)
         .lean()
+        .limit(20)
         .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
       
       if (!results.length) {
@@ -166,6 +185,13 @@ router.get('/api/search', async (req, res) => {
 
     // Save to cache
     searchCache.set(cacheKey, responseData);
+
+    // Save to Redis cache
+    try {
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(responseData));
+    } catch (err) {
+      console.error('Redis set error:', err);
+    }
 
     return res.status(200).json(responseData);
 
@@ -269,6 +295,7 @@ async function addToRecentCollection(item) {
   }
 }
 
+
 // New API endpoint to add an item to the recent collection
 router.post('/api/add-to-recent', async (req, res) => {
   try {
@@ -288,6 +315,7 @@ router.post('/api/add-to-recent', async (req, res) => {
     });
   }
 });
+
 
 // Improved toggle favorite API to sync across all collections
 router.patch('/api/toggle-favorite/:id', async (req, res) => {
@@ -490,6 +518,8 @@ router.delete('/api/delete/:collection/:id', async (req, res) => {
   }
 });
 
+// Add this new API route to your Express router file
+
 // Get context items for an HS code
 router.get('/api/context/:hsCode', async (req, res) => {
   try {
@@ -537,5 +567,7 @@ router.delete('/api/recent-cth/clear', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
 
 export default router;

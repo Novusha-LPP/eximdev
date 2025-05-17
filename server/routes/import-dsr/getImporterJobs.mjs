@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import { authenticateJWT } from "../../auth/auth.mjs";
+import redisClient from '../../config/redisClient.mjs';
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ function formatImporter(importer) {
 // ensureIndexes();
 
 // ✅ API Endpoint to get job counts for an importer
-router.get("/api/get-importer-jobs/:importerURL/:year", authenticateJWT, async (req, res) => {
+router.get("/api/get-importer-jobs/:importerURL/:year",authenticateJWT, async (req, res) => {
   try {
     const { year, importerURL } = req.params;
     const formattedImporter = formatImporter(importerURL);
@@ -79,44 +80,15 @@ router.get("/api/get-importer-jobs/:importerURL/:year", authenticateJWT, async (
 
 router.get('/api/import-dsr/importer-jobs', async (req, res) => {
   const { status, page = 1, limit = 100, search = '', year, importer } = req.query;
-  
+  const cacheKey = `importdsr:importerjobs:${status}:${page}:${limit}:${search}:${year}:${importer}`;
   try {
-    // DB query implementation (would need to be expanded with actual query logic)
-    const skip = (page - 1) * limit;
-    
-    // Build the query conditions
-    const query = {};
-    
-    if (status) {
-      query.status = status;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return res.status(200).json(JSON.parse(cached));
     }
-    
-    if (year) {
-      query.year = year;
-    }
-    
-    if (importer) {
-      query.importerURL = formatImporter(importer);
-    }
-    
-    if (search) {
-      // Add search conditions
-      query.$or = [
-        { jobNumber: new RegExp(search, 'i') },
-        { description: new RegExp(search, 'i') }
-        // Add other fields as needed
-      ];
-    }
-    
-    // Execute the query
-    const result = {
-      jobs: await JobModel.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
-      totalCount: await JobModel.countDocuments(query)
-    };
-    
+    // ...existing DB query code...
+    // After getting result from DB:
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(result));
     return res.status(200).json(result);
   } catch (err) {
     console.error("Error fetching importer jobs:", err);

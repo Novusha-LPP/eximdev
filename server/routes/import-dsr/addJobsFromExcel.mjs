@@ -171,7 +171,6 @@ router.post("/api/jobs/add-job", async (req, res) => {
         vessel_berthing, // New value from Excel
         line_no,
         ie_code_no,
-        gateway_igm_date,
         container_nos, // Assume container data is part of the incoming job data
         hss_name,
         total_inv_value,
@@ -195,7 +194,6 @@ router.post("/api/jobs/add-job", async (req, res) => {
       let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
       let lineNoUpdate = existingJob?.line_no || "";
       let iceCodeUpdate = existingJob?.ie_code_no || "";
-      let gigmUpdate = existingJob?.gateway_igm_date || "";
 
       // Only update vessel_berthing if it's empty in the database
       if (
@@ -203,12 +201,6 @@ router.post("/api/jobs/add-job", async (req, res) => {
         (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
       ) {
         vesselBerthingToUpdate = vessel_berthing;
-      }
-      if (
-        gateway_igm_date && // Excel has a valid vessel_berthing date
-        (!gigmUpdate || gigmUpdate.trim() === "")
-      ) {
-        gigmUpdate = gateway_igm_date;
       }
       // Only update lineNoUpdate if it's empty in the database
       if (
@@ -248,7 +240,6 @@ router.post("/api/jobs/add-job", async (req, res) => {
             line_no: lineNoUpdate, // Ensure correct update logic
             ie_code_no: iceCodeUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
-            gateway_igm_date: gigmUpdate,
             status:
               existingJob.status === "Completed"
                 ? existingJob.status
@@ -285,7 +276,6 @@ router.post("/api/jobs/add-job", async (req, res) => {
           $set: {
             ...data,
             vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
-            gateway_igm_date: gigmUpdate,
             status: computeStatus(sanitizedBillDate),
           },
         };

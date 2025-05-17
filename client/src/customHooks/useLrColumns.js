@@ -668,55 +668,79 @@ function useLrColumns(props) {
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => {
-        // Different input field based on Own/Hired
-        if (row.original.own_hired === "Own") {
-          // Current saved value
-          const savedValue = cell.getValue() || "";
+        const savedValue = cell.getValue() || "";
+        const isValidVehicleNumber =
+          /^[A-Za-z]{2}[0-9]{2}[A-Za-z]{1,2}[0-9]{4}$/.test(savedValue);
 
-          // Check if we have available vehicles loaded
+        if (row.original.own_hired === "Own") {
           const hasAvailableVehicles =
             rows[row.index]?.availableVehicles?.length > 0;
 
-          // If we have a saved value but no available vehicles yet, we need to show the saved value anyway
-          const menuItems = hasAvailableVehicles
-            ? rows[row.index].availableVehicles.map((vehicleNo) => (
-                <MenuItem key={vehicleNo} value={vehicleNo}>
-                  {vehicleNo}
-                </MenuItem>
-              ))
+          const vehicleOptions = hasAvailableVehicles
+            ? rows[row.index].availableVehicles
             : savedValue
-            ? [
-                <MenuItem key={savedValue} value={savedValue}>
-                  {savedValue}
-                </MenuItem>,
-              ]
-            : [<MenuItem disabled>Select vehicle type first</MenuItem>];
+            ? [savedValue]
+            : [];
 
           return (
+            <Autocomplete
+              options={vehicleOptions}
+              getOptionLabel={(option) => option || ""}
+              value={savedValue || null}
+              onChange={(event, newValue) =>
+                handleInputChange(
+                  { target: { value: newValue } },
+                  row.index,
+                  cell.column.id
+                )
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  placeholder="Select or enter vehicle number"
+                  inputProps={{
+                    maxLength: 10,
+                  }}
+                  error={!isValidVehicleNumber && savedValue}
+                  helperText={
+                    !isValidVehicleNumber && savedValue
+                      ? "Format: MH12V1234 or MH12VV1234"
+                      : ""
+                  }
+                  disabled={
+                    !row.original.type_of_vehicle ||
+                    !rows[row.index]?.isValidContainer
+                  }
+                />
+              )}
+              disabled={
+                !row.original.type_of_vehicle ||
+                !rows[row.index]?.isValidContainer
+              }
+              fullWidth
+            />
+          );
+        } else {
+          return (
             <TextField
-              select
               sx={{ width: "100%" }}
               size="small"
               value={savedValue}
               onChange={(event) =>
                 handleInputChange(event, row.index, cell.column.id)
               }
-              disabled={!row.original.type_of_vehicle} // Disable until vehicle type is selected
-            >
-              {menuItems}
-            </TextField>
-          );
-        } else {
-          // For Hired vehicles, show text input field
-          return (
-            <TextField
-              sx={{ width: "100%" }}
-              size="small"
-              value={cell.getValue() || ""}
-              onChange={(event) =>
-                handleInputChange(event, row.index, cell.column.id)
-              }
               placeholder="Enter vehicle number"
+              error={!isValidVehicleNumber && savedValue}
+              helperText={
+                !isValidVehicleNumber && savedValue
+                  ? "Format: MH12V1234 or MH12VV1234"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+              }}
+              disabled={!rows[row.index]?.isValidContainer}
             />
           );
         }

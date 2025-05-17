@@ -1,6 +1,7 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams } from "react-router-dom";
+// import { upl./oadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import {
   IconButton,
@@ -51,12 +52,22 @@ function JobDetails() {
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const bl_no_ref = useRef();
+  // const checklistRef = useRef();
+  // const processedBeAttachmentRef = useRef();
+  // const oocCopyRef = useRef();
+  // const gatePassCopyRef = useRef();
   const weighmentSlipRef = useRef();
   const container_number_ref = useRef([]);
   const pdfRef = useRef(null);
+  // delete modal
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // const [dialogOpen, setDialogOpen] = useState(false);
+  // const [currentDocument, setCurrentDocument] = useState(null);
+  // Modal visibility state
+  // Loading state for downloading
+  // const [isDownloading, setIsDownloading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -72,18 +83,43 @@ function JobDetails() {
     formik,
     cthDocuments,
     setCthDocuments,
+    // handleFileChange,
+    // selectedDocuments,
+    // setSelectedDocuments,
+    // handleDocumentChange,
+    // handleAddDocument,
+    // handleRemoveDocument,
     newDocumentName,
     setNewDocumentName,
     setNewDocumentCode,
     newDocumentCode,
+    // canEditOrDelete,
     cth_Dropdown,
+    // filterDocuments,
     selectedDocument,
     setSelectedDocument,
+    // clearanceOptionsMapping,
     jobDetails,
+    // setJobDetails,
+    // type_of_b_e,
+    // setTypeOfBE,
+    // clearanceValue,
+    // setClearanceValue,
+    // scheme,
+    // setScheme,
+    // exBondValue,
+    // setExBondValue,
+    // be_no,
+    // setBeNo,
+    // be_date,
+    // setBeDate,
+    // ooc_copies,
+    // setOocCopies,
     beTypeOptions,
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
+    // schemeOptions,
   } = useFetchJobDetails(
     params,
     checked,
@@ -95,7 +131,6 @@ function JobDetails() {
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
   const [deleveryDate, setDeliveryDate] = useState(false);
-
   // Helper function to update the `detailed_status` based on form values
   const updateDetailedStatus = () => {
     const {
@@ -159,7 +194,7 @@ function JobDetails() {
     }
   };
 
- // Trigger the `updateDetailedStatus` function when form values change
+  // // Trigger the `updateDetailedStatus` function when form values change
   useEffect(() => {
     updateDetailedStatus();
   }, [
@@ -178,6 +213,27 @@ function JobDetails() {
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
+  // const handleRadioChange = (event) => {
+  //   const selectedValue = event.target.value;
+
+  //   if (selectedValue === "clear") {
+  //     setSelectedRegNo("");
+  //     formik.setFieldValue("sims_reg_no", "");
+  //     formik.setFieldValue("pims_reg_no", "");
+  //     formik.setFieldValue("nfmims_reg_no", "");
+  //     formik.setFieldValue("sims_date", "");
+  //     formik.setFieldValue("pims_date", "");
+  //     formik.setFieldValue("nfmims_date", "");
+  //   } else {
+  //     setSelectedRegNo(selectedValue);
+  //     formik.setFieldValue("sims_reg_no", "");
+  //     formik.setFieldValue("pims_reg_no", "");
+  //     formik.setFieldValue("nfmims_reg_no", "");
+  //     formik.setFieldValue("sims_date", "");
+  //     formik.setFieldValue("pims_date", "");
+  //     formik.setFieldValue("nfmims_date", "");
+  //   }
+  // };
 
   const handleBlStatusChange = (event) => {
     const selectedValue = event.target.value;
@@ -308,6 +364,33 @@ function JobDetails() {
     handleCloseDialog();
   };
 
+
+  /**
+   * Uploads the PDF Blob to the storage bucket and returns the uploaded file's info.
+   * @param {Blob} blob - The PDF blob to upload.
+   * @param {string} filePath - The desired file path or name in storage.
+   * @returns {Promise<Object>} - An object containing uploaded file's details.
+   */
+  // const uploadPdf = async (blob, filePath) => {
+  //   // Assuming uploadFileToS3 is a utility function you've defined
+  //   // that uploads a file to AWS S3 and returns the file URL.
+
+  //   // Example implementation:
+  //   // const result = await uploadFileToS3(blob, filePath);
+  //   // return { url: result.Location, name: result.Key };
+
+  //   // Replace the below mock implementation with your actual upload logic
+  //   try {
+  //     const result = await uploadFileToS3(blob, filePath);
+  //     return {
+  //       name: result.Key, // Assuming Key is the file name/path in S3
+  //       url: result.Location, // URL of the uploaded file
+  //       size: blob.size,
+  //     };
+  //   } catch (error) {
+  //     throw new Error("Upload failed");
+  //   }
+  // };
   function subtractOneDay(dateString) {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -830,6 +913,76 @@ function JobDetails() {
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
+              {/* <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Railout Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="rail_out_date"
+                    name="rail_out_date"
+                    value={
+                      formik.values.rail_out_date
+                        ? formik.values.rail_out_date
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        // formik.setFieldValue("examinationPlanning", true);
+                        formik.setFieldValue("rail_out_date", newValue);
+                      } else {
+                        // formik.setFieldValue("examinationPlanning", false);
+                        formik.setFieldValue("rail_out_date", "");
+                      }
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col> */}
+              {/* <Col xs={12} lg={4} className="mb-3">
+                <div className="job-detail-input-container">
+                  <Checkbox
+                    checked={formik.values.checked}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setChecked(true);
+                        formik.setFieldValue("checked", true);
+                      } else {
+                        setChecked(false);
+                        formik.setFieldValue("checked", false);
+                      }
+                    }}
+                  />
+                  {!formik.values.checked && (
+                    <strong>All containers arrived at same date</strong>
+                  )}
+                  {formik.values.checked && (
+                    <>
+                      <strong>All Arrival Date:&nbsp;</strong>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        type="date"
+                        id="arrival_date"
+                        name="arrival_date"
+                        value={formik.values.arrival_date || ""}
+                        onChange={formik.handleChange}
+                      />
+                    </>
+                  )}
+                </div>
+              </Col> */}
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -893,6 +1046,7 @@ function JobDetails() {
                     value={formik.values.free_time || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
+                  // disabled={user.role !== "Admin"} // Disable if the user is not Admin
                   >
                     {options?.map((option, id) => (
                       <MenuItem key={id} value={option}>
@@ -1018,12 +1172,19 @@ function JobDetails() {
                       value="Transaction"
                       control={<Radio size="small" />}
                       label="Transaction"
-              
+                    // sx={{
+                    //   color: "green",
+                    //   "& .MuiSvgIcon-root": { color: "green" },
+                    // }}
                     />
                     <FormControlLabel
                       value="Deferred"
                       control={<Radio size="small" />}
                       label="Deferred"
+                    // sx={{
+                    //   color: "orange",
+                    //   "& .MuiSvgIcon-root": { color: "orange" },
+                    // }}
                     />
                   </RadioGroup>
                 </div>
@@ -1164,6 +1325,31 @@ function JobDetails() {
                   </TextField>
                 </div>
               </Col>
+
+              {/* Scheme Selection */}
+              {/* <Col xs={12} lg={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  label="Scheme:"
+                  name="scheme"
+                  value={formik.values.scheme}
+                  onChange={formik.handleChange}
+                  style={{ marginBottom: "16px" }}
+                  displayEmpty
+                >
+                  <MenuItem value="" disabled>
+                    Select Scheme
+                  </MenuItem>
+                  {schemeOptions.map((schemeOption, index) => (
+                    <MenuItem key={index} value={schemeOption}>
+                      {schemeOption}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Col> */}
 
               {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
               <Col xs={12} lg={4}>
@@ -1438,6 +1624,22 @@ function JobDetails() {
                   }}
                 />
               </Col>
+              {/* <Col xs={12} lg={4}>
+                <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                  <Button
+                    variant="primary"
+                    onClick={handleGenerate}
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "16px",
+                      borderRadius: "6px",
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    Generate Job Sticker
+                  </Button>
+                </div>
+              </Col> */}
               <JobStickerPDF
                 ref={pdfRef}
                 jobData={{
@@ -1465,6 +1667,28 @@ function JobDetails() {
                 }}
                 data={data}
               />
+              {/* <Col xs={12} lg={4}>
+                <FileUpload
+                  label="Job Sticker Upload"
+                  bucketPath="job-sticker"
+                  onFilesUploaded={(newFiles) => {
+                    const existingFiles =
+                      formik.values.job_sticker_upload || [];
+                    const updatedFiles = [...existingFiles, ...newFiles];
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                  multiple={true}
+                />
+
+                <ImagePreview
+                  images={formik.values.job_sticker_upload || []}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...formik.values.job_sticker_upload];
+                    updatedFiles.splice(index, 1);
+                    formik.setFieldValue("job_sticker_upload", updatedFiles);
+                  }}
+                />
+              </Col> */}
               <Col xs={12} lg={4}>
                 {/* Only show FileUpload if there's NO PDF in the array */}
 
@@ -2251,6 +2475,61 @@ function JobDetails() {
                 </div>
               </Col>
             </Row>
+            {/* <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4} className="mb-3">
+                <div className="job-detail-input-container">
+                  <strong>Delivery Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="date"
+                    margin="normal"
+                    variant="outlined"
+                    id="delivery_date"
+                    name="delivery_date"
+                    value={formik.values.delivery_date}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>Emty Cont. Off-Load Date.</strong>
+                  &nbsp;
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="emptyContainerOffLoadDate"
+                    name="emptyContainerOffLoadDate"
+                    value={
+                      formik.values.emptyContainerOffLoadDate
+                        ? formik.values.emptyContainerOffLoadDate
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue) {
+                        formik.setFieldValue(
+                          "emptyContainerOffLoadDate",
+                          newValue
+                        );
+                      } else {
+                        formik.setFieldValue("emptyContainerOffLoadDate", "");
+                      }
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              </Col>
+            </Row> */}
             <Row style={{ marginTop: "20px" }}>
               <Col>
                 <div className="job-detail-input-container">
@@ -2710,6 +2989,30 @@ function JobDetails() {
                           )}
                         </div>
                       </Col>
+
+                      {/* <Col xs={12} lg={1}>
+                        <div className="job-detail-input-container">
+                          <strong>Free Time:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            select
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id="free_time"
+                            name="free_time"
+                            value={formik.values.free_time}
+                            onChange={formik.handleChange}
+                            disabled={user.role !== "Admin"} // Disable if the user is not Admin
+                          >
+                            {options?.map((option, id) => (
+                              <MenuItem key={id} value={option}>
+                                {option}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </div>
+                      </Col> */}
                       <Col xs={12} lg={2} className="flex-div">
                         <strong>Detention From:&nbsp;</strong>
                         {detentionFrom[index]}
@@ -2718,6 +3021,40 @@ function JobDetails() {
                         <strong>DO Validity:&nbsp;</strong>
                         {subtractOneDay(detentionFrom[index])}
                       </Col>
+                      {/* <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>DO Validity :&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="date"
+                            id={`do_validity_upto_container_level_${index}`}
+                            name={`container_nos[${index}].do_validity_upto_container_level`}
+                            value={container.do_validity_upto_container_level}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col> */}
+                      {/* <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Required DO Validity Upto:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            type="date"
+                            id={`required_do_validity_upto_${index}`}
+                            name={`container_nos[${index}].required_do_validity_upto`}
+                            value={container.required_do_validity_upto}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col> */}
                       <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>Required DO Validity Upto:&nbsp;</strong>
@@ -2845,6 +3182,22 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
+                      {/* <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Weight as per Document:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            key={index}
+                            size="small"
+                            margin="normal"
+                            variant="outlined"
+                            id={`net_weight_${index}`}
+                            name={`container_nos[${index}].net_weight`}
+                            value={container.net_weight}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col> */}
                     </Row>
 
                     <Row>
@@ -3103,6 +3456,66 @@ function JobDetails() {
         }
         sx={{ left: "auto !important", right: "24px !important" }}
       />
+      {/* Modal for Review and Alteration */}
+      {/* Modal for Review and Alteration */}
+      {/* Modal for Review and Download */}
+      {/* <Modal
+        show={showModal}
+        onHide={handleCloseModal}
+        size="lg"
+        centered
+        style={{ marginTop: "40px" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Review and Download Job Sticker</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <JobStickerPDF
+            ref={jobStickerRef}
+            jobData={{
+              job_no: formik.values.job_no,
+              year: formik.values.year,
+              importer: formik.values.importer,
+              be_no: formik.values.be_no,
+              be_date: formik.values.be_date,
+              invoice_number: formik.values.invoice_number,
+              invoice_date: formik.values.invoice_date,
+              loading_port: formik.values.loading_port,
+              no_of_pkgs: formik.values.no_of_pkgs,
+              description: formik.values.description,
+              gross_weight: formik.values.gross_weight,
+              job_net_weight: formik.values.job_net_weight,
+              gateway_igm: formik.values.gateway_igm,
+              gateway_igm_date: formik.values.gateway_igm_date,
+              igm_no: formik.values.igm_no,
+              igm_date: formik.values.igm_date,
+              awb_bl_no: formik.values.awb_bl_no,
+              awb_bl_date: formik.values.awb_bl_date,
+              shipping_line_airline: formik.values.shipping_line_airline,
+              custom_house: formik.values.custom_house,
+              container_nos: formik.values.container_nos,
+            }}
+            data={data}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={handleCloseModal}
+            disabled={isDownloading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleDownload}
+            disabled={isDownloading}
+          >
+            {isDownloading ? "Downloading..." : "Download PDF"}
+          </Button>
+        </Modal.Footer>
+      </Modal> */}
+
       {/* Confirm Deletion */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>

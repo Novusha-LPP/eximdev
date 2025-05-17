@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
-import { TextField, MenuItem, Snackbar, Alert } from "@mui/material";
+import { TextField, MenuItem } from "@mui/material";
 
 const EditableDateCell = ({ cell }) => {
   const {
@@ -20,10 +20,6 @@ const EditableDateCell = ({ cell }) => {
     be_no,
   } = cell.row.original;
 
-  // Track API calls to prevent race conditions
-  const pendingApiRef = useRef(false);
-
-  // State management
   const [dates, setDates] = useState({
     assessment_date,
     vessel_berthing,
@@ -32,20 +28,21 @@ const EditableDateCell = ({ cell }) => {
     pcv_date,
     out_of_charge,
   });
+
   const [localStatus, setLocalStatus] = useState(detailed_status);
   const [containers, setContainers] = useState([...container_nos]);
   const [editable, setEditable] = useState(null);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
+  const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
-  const [updateSuccessful, setUpdateSuccessful] = useState(true);
-  
-  // New notification state
-  const [notification, setNotification] = useState({
-    open: false,
-    severity: "success",
-    message: ""
-  });
+
+  // Free time options
+  const options = Array.from({ length: 25 }, (_, index) => index);
+
+  const handleCombinedDateTimeChange = (e) => {
+    setTempDateValue(e.target.value);
+  };
 
   // Reset data when row changes
   useEffect(() => {
@@ -62,134 +59,44 @@ const EditableDateCell = ({ cell }) => {
     setLocalFreeTime(free_time);
     setEditable(null);
     setTempDateValue("");
+    setTempTimeValue("");
     setDateError("");
-    setUpdateSuccessful(true);
-  }, [
-    assessment_date,
-    vessel_berthing,
-    gateway_igm_date, 
-    discharge_date,
-    pcv_date,
-    out_of_charge,
-    container_nos,
-    detailed_status,
-    free_time
-  ]);
+  }, [cell.row.original]);
 
-  // Handle notification close
-  const handleCloseNotification = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setNotification(prev => ({...prev, open: false}));
-  };
-
-  // Show notification when updates occur
-  const showNotification = (message, severity = "success") => {
-    setNotification({
-      open: true,
-      severity,
-      message
-    });
-  };
-
-  // Safely make API calls with error handling and retry logic
-  const safeApiCall = useCallback(async (endpoint, data) => {
-    if (pendingApiRef.current) {
-      console.log("API call already in progress, queuing...");
-      // Wait for previous call to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
-    pendingApiRef.current = true;
-    setUpdateSuccessful(true);
-    
-    try {
-      const response = await axios.patch(
-        `${process.env.REACT_APP_API_STRING}${endpoint}`, 
-        data,
-        { timeout: 10000 } // Add timeout to avoid hanging requests
-      );
-      
-      // Show notification for successful update
-      if (data.assessment_date) {
-        showNotification("Assessment date updated successfully");
-      } else if (data.vessel_berthing) {
-        showNotification("ETA date updated successfully");
-      } else if (data.gateway_igm_date) {
-        showNotification("Gateway IGM date updated successfully");
-      } else if (data.discharge_date) {
-        showNotification("Discharge date updated successfully");
-      } else if (data.pcv_date) {
-        showNotification("PCV date updated successfully");
-      } else if (data.out_of_charge) {
-        showNotification("Out of charge date updated successfully");
-      } else if (data.free_time !== undefined) {
-        showNotification("Free time updated successfully");
-      } else if (data.container_nos) {
-        // Check what container field was updated
-        showNotification("Container date updated successfully");
-      }
-      
-      return response.data;
-    } catch (err) {
-      console.error(`Error updating ${endpoint}:`, err);
-      setUpdateSuccessful(false);
-      
-      // Show error notification
-      showNotification(`Update failed: ${err.message || 'Network error'}`, "error");
-      
-      // Retry once after 1 second on network errors
-      if (err.message?.includes('network') || err.code === 'ECONNABORTED') {
-        console.log("Network error, retrying...");
-        try {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const retryResponse = await axios.patch(
-            `${process.env.REACT_APP_API_STRING}${endpoint}`, 
-            data
-          );
-          setUpdateSuccessful(true);
-          showNotification("Update successful after retry");
-          return retryResponse.data;
-        } catch (retryErr) {
-          console.error("Retry failed:", retryErr);
-          setUpdateSuccessful(false);
-          showNotification("Update failed after retry", "error");
-          throw retryErr;
-        }
-      }
-      
-      throw err;
-    } finally {
-      pendingApiRef.current = false;
-    }
-  }, []);
-
-  // Update detailed status based on dates
   const updateDetailedStatus = useCallback(async () => {
-    if (!updateSuccessful) return; // Don't update status if previous updates failed
-    
     const eta = dates.vessel_berthing;
     const gatewayIGMDate = dates.gateway_igm_date;
     const dischargeDate = dates.discharge_date;
     const outOfChargeDate = dates.out_of_charge;
     const pcvDate = dates.pcv_date;
+    const assessmentDate = dates.assessment_date;
+
     const billOfEntryNo = be_no;
-    
-    const anyContainerArrivalDate = containers.some(c => c.arrival_date);
-    const containerRailOutDate = containers.length > 0 && 
-      containers.every(container => container.container_rail_out_date);
-    const emptyContainerOffLoadDate = containers.length > 0 && 
-      containers.every(container => container.emptyContainerOffLoadDate);
-    const deliveryDate = containers.length > 0 && 
-      containers.every(container => container.delivery_date);
-    
-    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+    const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
+
+    const containerRailOutDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.container_rail_out_date);
+
+    const emptyContainerOffLoadDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.emptyContainerOffLoadDate);
+
+    const deliveryDate =
+      containers?.length > 0 &&
+      containers.every((container) => container.delivery_date);
+
+    const isExBondOrLCL =
+      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
 
     let newStatus = "";
 
-    if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate && 
-      (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)) {
+    if (
+      billOfEntryNo &&
+      anyContainerArrivalDate &&
+      outOfChargeDate &&
+      (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)
+    ) {
       newStatus = "Billing Pending";
     } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
       newStatus = "Custom Clearance Completed";
@@ -200,7 +107,7 @@ const EditableDateCell = ({ cell }) => {
     } else if (billOfEntryNo) {
       newStatus = "BE Noted, Arrival Pending";
     } else if (!billOfEntryNo && anyContainerArrivalDate) {
-      newStatus = "Arrived, BE Note Pending";
+        newStatus = "Arrived, BE Note Pending";
     } else if (containerRailOutDate) {
       newStatus = "Rail Out";
     } else if (dischargeDate) {   
@@ -212,6 +119,18 @@ const EditableDateCell = ({ cell }) => {
     } else if (eta) {
       newStatus = "Estimated Time of Arrival";
     }
+
+    if (newStatus && newStatus !== localStatus) {
+      cell.row.original.detailed_status = newStatus;
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          detailed_status: newStatus,
+        });
+        setLocalStatus(newStatus);
+      } catch (err) {
+        console.error("Error updating status:", err);
+      }
+    }
   }, [
     dates,
     containers,
@@ -220,16 +139,10 @@ const EditableDateCell = ({ cell }) => {
     type_of_b_e,
     localStatus,
     _id,
-    safeApiCall,
-    updateSuccessful
   ]);
 
-  // Update detailed status when relevant data changes
   useEffect(() => {
-    // Only update status if no pending API calls
-    if (!pendingApiRef.current) {
-      updateDetailedStatus();
-    }
+    updateDetailedStatus();
   }, [
     dates.vessel_berthing,
     dates.gateway_igm_date,
@@ -237,195 +150,156 @@ const EditableDateCell = ({ cell }) => {
     dates.out_of_charge,
     dates.assessment_date,
     containers,
-    updateDetailedStatus
+    updateDetailedStatus,
   ]);
 
-  // Handle initiating edit mode
+  // Handle initiating edit mode for a date field
   const handleEditStart = (field, index = null) => {
-    const editableKey = index !== null ? `${field}_${index}` : field;
-    setEditable(editableKey);
-    
-    // Initialize with current value for better UX
-    if (index !== null) {
-      // For container fields
-      const currentValue = containers[index]?.[field];
-      setTempDateValue(currentValue ? currentValue.slice(0, 16) : "");
-    } else {
-      // For job-level date fields
-      const currentValue = dates[field];
-      setTempDateValue(currentValue ? currentValue.slice(0, 16) : "");
-    }
-    
+    setEditable(index !== null ? `${field}_${index}` : field);
+    setTempDateValue("");
+    setTempTimeValue("");
     setDateError("");
   };
 
   // Validate date format
   const validateDate = (dateString) => {
+    // Allow empty string (cleared date is valid)
     if (!dateString || dateString.trim() === "") return true;
-    
+
     const date = new Date(dateString);
-    
+
+    // Check if date is valid (not Invalid Date)
     if (isNaN(date.getTime())) return false;
-    
+
+    // Check year is reasonable (between 2000 and 2100)
     const year = date.getFullYear();
     if (year < 2000 || year > 2100) return false;
-    
+
     return true;
   };
 
-  // Handle date input change
+  // Handle date change
   const handleDateInputChange = (e) => {
     setTempDateValue(e.target.value);
     setDateError("");
   };
 
-  // Get readable field name for notifications
-  const getFieldDisplayName = (field) => {
-    const fieldMap = {
-      assessment_date: "Assessment Date",
-      vessel_berthing: "ETA",
-      gateway_igm_date: "Gateway IGM Date",
-      discharge_date: "Discharge Date",
-      pcv_date: "PCV Date",
-      out_of_charge: "Out of Charge Date",
-      container_rail_out_date: "Rail-out Date",
-      arrival_date: "Arrival Date",
-      delivery_date: "Delivery Date",
-      emptyContainerOffLoadDate: "Empty Container Return Date"
-    };
-    
-    return fieldMap[field] || field;
-  };
 
-  // Submit date changes with improved error handling
-  const handleDateSubmit = async (field, index = null) => {
+  // Submit date changes
+  const handleDateSubmit = (field, index = null) => {
     if (!validateDate(tempDateValue)) {
       setDateError("Please enter a valid date");
       return;
     }
 
-    const finalValue = tempDateValue;
-    const displayName = getFieldDisplayName(field);
-    
-    try {
-      if (index !== null) {
-        // Handle container field updates
-        const updatedContainers = containers.map((container, i) => {
-          if (i === index) {
-            const updatedContainer = { ...container, [field]: finalValue };
-            
-            // Auto-update detention_from if arrival_date changes
-            if (field === "arrival_date" && finalValue) {
+    let finalValue = tempDateValue;
+
+    // Add time component for rail-out if available
+    if (field === "container_rail_out_date" && tempTimeValue) {
+      finalValue = `${tempDateValue}T${tempTimeValue}`;
+    }
+
+    if (index !== null) {
+      const updatedContainers = containers.map((container, i) => {
+        if (i === index) {
+          const updatedContainer = { ...container, [field]: finalValue };
+
+          // Automatically update detention_from if arrival_date is changed
+          if (field === "arrival_date") {
+            if (!finalValue) {
+              // If arrival_date is cleared, also clear detention_from
+              updatedContainer.detention_from = "";
+            } else {
               const arrival = new Date(finalValue);
               const freeDays = parseInt(localFreeTime) || 0;
-              
+
               const detentionDate = new Date(arrival);
               detentionDate.setDate(detentionDate.getDate() + freeDays);
-              
-              updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
-            } else if (field === "arrival_date" && !finalValue) {
-              updatedContainer.detention_from = "";
-            }
-            
-            return updatedContainer;
-          }
-          return container;
-        });
-        
-        // Update local state first for responsiveness
-        setContainers(updatedContainers);
-        
-        // Then update via API
-        await safeApiCall(`/jobs/${_id}`, { container_nos: updatedContainers });
-        
-        showNotification(`${displayName} updated successfully`);
-        
-        // Double-check that the update was successful by verifying with backend data
-        try {
-          const verification = await axios.get(`${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`);
-          const serverContainers = verification.data.container_nos || [];
-          
-          // Verify that rail-out date was properly saved
-          if (field === "container_rail_out_date") {
-            const isUpdated = serverContainers.some(
-              (container, i) => i === index && container.container_rail_out_date === finalValue
-            );
-            
-            if (!isUpdated) {
-              console.warn("Rail-out date verification failed - data not saved on server");
-              // Try one more time to update
-              await safeApiCall(`/jobs/${_id}`, { container_nos: updatedContainers });
-            }
-          }
-        } catch (verifyErr) {
-          console.error("Verification error:", verifyErr);
-        }
-      } else {
-        // Handle job-level date field updates
-        const oldValue = dates[field];
-        
-        setDates(prev => {
-          const newDates = { ...prev, [field]: finalValue };
-          return newDates;
-        });
-        
-        await safeApiCall(`/jobs/${_id}`, { [field]: finalValue });
-        
-        showNotification(`${displayName} updated successfully`);
-      }
-      
-      setEditable(null);
-    } catch (err) {
-      console.error(`Error updating ${field}:`, err);
-      setDateError(`Update failed: ${err.message || 'Network error'}`);
-    }
-  };
 
-  // Handle free time change with improved error handling
-  const handleFreeTimeChange = async (value) => {
-    try {
-      setLocalFreeTime(value);
-      
-      // Update free time in database
-      await safeApiCall(`/jobs/${_id}`, { free_time: value });
-      
-      showNotification(`Free time updated to ${value} days`);
-      
-      // Update detention dates based on arrival dates
-      const updatedContainers = containers.map(container => {
-        const updatedContainer = { ...container };
-        
-        if (updatedContainer.arrival_date) {
-          const arrival = new Date(updatedContainer.arrival_date);
-          const freeDays = parseInt(value) || 0;
-          
-          const detentionDate = new Date(arrival);
-          detentionDate.setDate(detentionDate.getDate() + freeDays);
-          
-          updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
+              updatedContainer.detention_from = detentionDate
+                .toISOString()
+                .slice(0, 10);
+            }
+          }
+
+          return updatedContainer;
         }
-        
-        return updatedContainer;
+        return container;
       });
-      
-      if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
-        setContainers(updatedContainers);
-        await safeApiCall(`/jobs/${_id}`, { container_nos: updatedContainers });
-        showNotification("Detention dates updated based on new free time");
-      }
-    } catch (err) {
-      console.error("Error updating free time:", err);
-      // Restore previous value on error
-      setLocalFreeTime(free_time);
+
+      setContainers(updatedContainers);
+
+      axios
+        .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          container_nos: updatedContainers,
+        })
+        .then(() => {
+          setEditable(null);
+          updateDetailedStatus();
+        })
+        .catch((err) => console.error("Error Updating:", err));
+    } else {
+      // Handle non-container fields
+      setDates((prev) => {
+        const newDates = { ...prev, [field]: finalValue };
+
+        axios
+          .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+            [field]: finalValue,
+          })
+          .then(() => {
+            setEditable(null);
+            updateDetailedStatus();
+          })
+          .catch((err) => console.error("Error Updating:", err));
+
+        return newDates;
+      });
     }
   };
 
-  // Show error indicator if previous update failed
-  const errorIndicator = !updateSuccessful && (
-    <span style={{ color: "red", marginLeft: "5px" }}>
-      ⚠ Update failed
-    </span>
-  );
+  // Handle free time change
+  const handleFreeTimeChange = (value) => {
+    setLocalFreeTime(value);
+
+    // Update free time in database
+    axios
+      .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+        free_time: value,
+      })
+      .then(() => {
+        // Update detention dates for all containers based on their arrival dates
+        const updatedContainers = containers.map((container) => {
+          const updatedContainer = { ...container };
+
+          if (updatedContainer.arrival_date) {
+            const arrival = new Date(updatedContainer.arrival_date);
+            const freeDays = parseInt(value) || 0;
+
+            const detentionDate = new Date(arrival);
+            detentionDate.setDate(detentionDate.getDate() + freeDays);
+
+            updatedContainer.detention_from = detentionDate
+              .toISOString()
+              .slice(0, 10);
+          }
+
+          return updatedContainer;
+        });
+
+        if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
+          setContainers(updatedContainers);
+
+          // Update containers in database
+          axios
+            .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+              container_nos: updatedContainers,
+            })
+            .catch((err) => console.error("Error Updating Containers:", err));
+        }
+      })
+      .catch((err) => console.error("Error Updating Free Time:", err));
+  };
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -433,19 +307,18 @@ const EditableDateCell = ({ cell }) => {
       <div>
         {type_of_b_e !== "Ex-Bond" && (
           <>
-            <strong>ETA:</strong>{" "}
+            <strong>ETA :</strong>{" "}
             {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
               onClick={() => handleEditStart("vessel_berthing")}
             />
-            {errorIndicator}
             {editable === "vessel_berthing" && (
               <div>
                 <input
                   type="datetime-local"
                   value={tempDateValue}
-                  onChange={handleDateInputChange}
+                  onChange={handleCombinedDateTimeChange}
                   style={dateError ? styles.errorInput : {}}
                 />
                 <button
@@ -464,8 +337,7 @@ const EditableDateCell = ({ cell }) => {
               </div>
             )}
             <br />
-            
-            <strong>GIGM:</strong>{" "}
+            <strong>GIGM :</strong>{" "}
             {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
@@ -495,8 +367,7 @@ const EditableDateCell = ({ cell }) => {
               </div>
             )}
             <br />
-            
-            <strong>Discharge:</strong>{" "}
+            <strong>Discharge :</strong>{" "}
             {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
@@ -526,13 +397,12 @@ const EditableDateCell = ({ cell }) => {
               </div>
             )}
             <br />
-            
             {type_of_b_e !== "Ex-Bond" && consignment_type !== "LCL" && (
               <>
                 {/* Container Dates */}
                 {containers.map((container, id) => (
                   <div key={id}>
-                    <strong>Rail-out:</strong>{" "}
+                    <strong>Rail-out :</strong>{" "}
                     {container.container_rail_out_date
                       ?.slice(0, 10)
                       .replace("T", " ") || "N/A"}{" "}
@@ -547,7 +417,7 @@ const EditableDateCell = ({ cell }) => {
                         <input
                           type="datetime-local"
                           value={tempDateValue}
-                          onChange={handleDateInputChange}
+                          onChange={handleCombinedDateTimeChange}
                           style={dateError ? styles.errorInput : {}}
                         />
                         <button
@@ -573,12 +443,11 @@ const EditableDateCell = ({ cell }) => {
                 ))}
               </>
             )}
-            
             {type_of_b_e !== "Ex-Bond" && (
               <>
                 {containers.map((container, id) => (
                   <div key={id}>
-                    <strong>Arrival:</strong>{" "}
+                    <strong>Arrival :</strong>{" "}
                     {container.arrival_date?.slice(0, 10) || "N/A"}{" "}
                     <FcCalendar
                       style={styles.icon}
@@ -612,7 +481,7 @@ const EditableDateCell = ({ cell }) => {
                   </div>
                 ))}
 
-                {/* Free Time Dropdown */}
+                {/* Free Time Dropdown - Added below arrival date */}
                 <div style={{ marginBottom: "10px" }}>
                   <strong>Free time:</strong>{" "}
                   <div
@@ -640,9 +509,9 @@ const EditableDateCell = ({ cell }) => {
                         },
                       }}
                     >
-                      {Array.from({ length: 25 }, (_, i) => (
-                        <MenuItem key={i} value={i}>
-                          {i}
+                      {options.map((option, id) => (
+                        <MenuItem key={id} value={option}>
+                          {option}
                         </MenuItem>
                       ))}
                     </TextField>
@@ -651,10 +520,21 @@ const EditableDateCell = ({ cell }) => {
 
                 {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
                   <>
-                    <strong>Detention F.:</strong>
+                    <strong>Detention F. :</strong>
                     {containers.map((container, id) => (
                       <div key={id}>
-                        {container.detention_from?.slice(0, 10) || "N/A"}
+                        {container.detention_from?.slice(0, 10) || "N/A"}{" "}
+                        {editable === `detention_from_${id}` && (
+                          <div>
+                            <input
+                              type="datetime-local"
+                              value={tempDateValue}
+                              onChange={handleDateInputChange}
+                              style={dateError ? styles.errorInput : {}}
+                            />
+                          
+                          </div>
+                        )}
                       </div>
                     ))}
                   </>
@@ -667,13 +547,13 @@ const EditableDateCell = ({ cell }) => {
 
       {/* Right Section */}
       <div>
-        <strong>Assessment Date:</strong>{" "}
+        <strong>Assesment Date:</strong>{" "}
         {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
           onClick={() => handleEditStart("assessment_date")}
         />
-        {editable === "assessment_date" && (
+{editable === "assessment_date" && (
           <div>
             <input
               type="datetime-local"
@@ -698,7 +578,7 @@ const EditableDateCell = ({ cell }) => {
         )}
         <br />
         
-        <strong>PCV:</strong>{" "}
+        <strong>PCV :</strong>{" "}
         {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
@@ -728,8 +608,7 @@ const EditableDateCell = ({ cell }) => {
           </div>
         )}
         <br />
-        
-        <strong>OOC:</strong>{" "}
+        <strong>OOC :</strong>{" "}
         {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
@@ -759,10 +638,9 @@ const EditableDateCell = ({ cell }) => {
           </div>
         )}
         <br />
-        
         {containers.map((container, id) => (
           <div key={id}>
-            <strong>Delivery:</strong>{" "}
+            <strong>Delivery :</strong>{" "}
             {container.delivery_date?.slice(0, 10) || "N/A"}{" "}
             <FcCalendar
               style={styles.icon}
@@ -793,7 +671,6 @@ const EditableDateCell = ({ cell }) => {
             )}
           </div>
         ))}
-        
         {consignment_type !== "LCL" && (
           <>
             <strong>EmptyOff:</strong>
@@ -838,27 +715,6 @@ const EditableDateCell = ({ cell }) => {
           </>
         )}
       </div>
-      
-      {/* Notification Snackbar */}
-      <Snackbar
-  open={notification.open}
-  autoHideDuration={1000}
-  onClose={handleCloseNotification}
-  anchorOrigin={{ vertical: "top", horizontal: "left" }}
-  sx={{
-    zIndex: 1500, // above other content like forms
-    ml:60, // add margin from top (adjust as needed)
-  }}
->
-  <Alert
-    onClose={handleCloseNotification}
-    severity={notification.severity}
-    sx={{ width: "100%" }}
-  >
-    {notification.message}
-  </Alert>
-</Snackbar>
-
     </div>
   );
 };

@@ -1,10 +1,9 @@
 import express from "express";
 import CustomerKycModel from "../../model/customerKycModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-srcc-organisations",authenticateJWT, async (req, res) => {
+router.get("/api/get-srcc-organisations", async (req, res) => {
   const data = await CustomerKycModel.find({ module: "Transportation" });
   if (!data) {
     return res.status(200).json({ message: "Data not found" });

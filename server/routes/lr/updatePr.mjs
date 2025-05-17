@@ -15,31 +15,36 @@ router.post("/api/update-pr", async (req, res) => {
     goods_delivery,
     container_count,
     containers,
-    isBranch,
-    suffix,
-    prefix,
+    isBranch, // Add isBranch
+    suffix, // Add suffix
+    prefix, // Add prefix
     ...updatedJobData
-  } = req.body;
+  } = req.body; // Extract relevant data from req.body
 
   try {
     let prDataToUpdate = await PrData.findOne({ pr_no }).sort({ _id: -1 });
 
     if (prDataToUpdate) {
+      // Container count is less than existing container count
       if (container_count < prDataToUpdate.container_count) {
+        // Calculate how many containers need to be deleted
         const containersToDelete =
           prDataToUpdate.container_count - container_count;
 
+        // Check if any container does not have tr_no
         const containersWithoutTrNo = prDataToUpdate.containers.filter(
           (container) => !container.tr_no
         );
 
         if (containersWithoutTrNo.length < containersToDelete) {
+          // Can't delete containers with tr_no
           return res.status(200).send({
             message:
               "Cannot update container count. Some containers have LR assigned.",
           });
         }
 
+        // Filter out containers without tr_no to delete
         let containersToDeleteCount = 0;
         prDataToUpdate.containers = prDataToUpdate.containers.filter(
           (container) => {
@@ -48,17 +53,22 @@ router.post("/api/update-pr", async (req, res) => {
               containersToDeleteCount < containersToDelete
             ) {
               containersToDeleteCount++;
-              return false;
+              return false; // Exclude this container
             }
-            return true;
+            return true; // Keep this container
           }
         );
 
+        // Update container_count in prDataToUpdate
         prDataToUpdate.container_count = container_count;
-      } else if (container_count > prDataToUpdate.container_count) {
+      }
+      // Container count is greater than existing container count
+      else if (container_count > prDataToUpdate.container_count) {
+        // Add additional containers to prDataToUpdate.containers
         const additionalContainersCount =
-          container_count - prDataToUpdate.container_count;
+          parseInt(container_count) - parseInt(prDataToUpdate.container_count);
 
+        // Update type_of_vehicle, goods_pickup, and goods_delivery in each container without tr_no
         prDataToUpdate.containers.forEach((container) => {
           if (!container.tr_no) {
             container.type_of_vehicle = type_of_vehicle;
@@ -67,34 +77,51 @@ router.post("/api/update-pr", async (req, res) => {
           }
         });
 
+        // Add type_of_vehicle, goods_pickup, and goods_delivery to each additional containers
         for (let i = 0; i < additionalContainersCount; i++) {
           prDataToUpdate.containers.push({
             type_of_vehicle,
             goods_pickup,
             goods_delivery,
           });
+          // Update container_count in prDataToUpdate
+          prDataToUpdate.container_count = container_count;
         }
-
-        prDataToUpdate.container_count = container_count;
+      }
+      // No change in container_count, update other fields if needed
+      else {
+        prDataToUpdate.set({
+          import_export,
+          branch,
+          type_of_vehicle,
+          goods_pickup,
+          goods_delivery,
+          suffix: isBranch ? suffix : prDataToUpdate.suffix, // <- ADD THIS
+          prefix: isBranch ? prefix : prDataToUpdate.prefix, // <- ADD THIS
+          ...updatedJobData,
+        });
+        prDataToUpdate.containers.forEach((container) => {
+          if (!container.tr_no) {
+            container.type_of_vehicle = type_of_vehicle;
+            container.goods_pickup = goods_pickup;
+            container.goods_delivery = goods_delivery;
+          }
+        });
+        // Update type_of_vehicle, goods_pickup, and goods_delivery in each container
+        prDataToUpdate.containers.forEach((container) => {
+          if (!container.tr_no) {
+            container.type_of_vehicle = type_of_vehicle;
+            container.goods_pickup = goods_pickup;
+            container.goods_delivery = goods_delivery;
+          }
+        });
       }
 
-      prDataToUpdate.set({
-        import_export,
-        branch,
-        type_of_vehicle,
-        goods_pickup,
-        goods_delivery,
-        suffix: isBranch ? suffix : prDataToUpdate.suffix,
-        prefix: isBranch ? prefix : prDataToUpdate.prefix,
-        ...updatedJobData,
-      });
-
       await prDataToUpdate.save();
-      return res.status(200).send({ message: "PR updated successfully" });
     } else {
-      // Create New PR
+      //  Determine the branch_code based on the custom_house field
       let branch_code;
-      switch (branch) {
+      switch (req.body.branch) {
         case "ICD SANAND":
           branch_code = "SND";
           break;
@@ -117,59 +144,49 @@ router.post("/api/update-pr", async (req, res) => {
           branch_code = "AIR";
           break;
         default:
-          branch_code = "GEN";
           break;
       }
 
-      // Determine financial year for suffix if not provided
-      let yearSuffix;
-      if (isBranch && suffix) {
-        yearSuffix = suffix;
+      // Fetch the last document from PrModel and generate a 5-digit number
+      const lastPr = await PrModel.findOne().sort({ _id: -1 });
+
+      let lastPrNo;
+      if (lastPr) {
+        lastPrNo = parseInt(lastPr.pr_no) + 1;
       } else {
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const isBeforeApril =
-          currentDate.getMonth() < 3 ||
-          (currentDate.getMonth() === 3 && currentDate.getDate() < 1);
-        const financialYearStart = isBeforeApril
-          ? currentYear - 1
-          : currentYear;
-        const financialYearEnd = financialYearStart + 1;
-        yearSuffix = `${financialYearStart
-          .toString()
-          .slice(2)}-${financialYearEnd.toString().slice(2)}`;
+        lastPrNo = 1;
       }
+      const paddedNo = lastPrNo.toString().padStart(5, "0");
+      const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
 
-      // Determine prefix for PR
-      const prPrefix = isBranch ? prefix : branch_code;
+      // Construct the new pr_no
+      // Add this console log to check the incoming request body
+      console.log("Request Body:", req.body);
 
-      // Get the last PR number for this year
-      const lastPrForYear = await PrModel.findOne({
-        year: yearSuffix,
-      })
-        .sort({ pr_no: -1 }) // Sort by pr_no descending to get the highest number
-        .exec();
+      // Construct the new pr_no
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const isBeforeApril =
+        currentDate.getMonth() < 3 ||
+        (currentDate.getMonth() === 3 && currentDate.getDate() < 1); // April is month index 3
+      const financialYearStart = isBeforeApril ? currentYear - 1 : currentYear;
+      const financialYearEnd = financialYearStart + 1;
+      const financialYear = `${financialYearStart
+        .toString()
+        .slice(2)}-${financialYearEnd.toString().slice(2)}`;
 
-      console.log(`📋 Last PR for year ${yearSuffix}:`, lastPrForYear);
+      // Add console logs to debug `isBranch`, `prefix`, and `suffix`
+      console.log("isBranch:", isBranch);
+      console.log("prefix:", prefix);
+      console.log("suffix:", suffix);
 
-      // Calculate the next PR number for this year
-      let nextPrNo = 1; // Default to 1 if no previous PR exists
+      const newPrNo = isBranch
+        ? `PR/${prefix}/${fiveDigitNo}/${suffix}`
+        : `PR/${branch_code}/${fiveDigitNo}/${financialYear}`;
 
-      if (lastPrForYear) {
-        // Parse the PR number as an integer and increment
-        nextPrNo = parseInt(lastPrForYear.pr_no) + 1;
-      }
+      // Add a console log to check the generated `newPrNo`
+      console.log("Generated PR Number:", newPrNo);
 
-      console.log("🔢 Next PR number:", nextPrNo);
-
-      // Format PR number with leading zeros
-      const paddedPrNo = nextPrNo.toString().padStart(5, "0");
-      const prNoComplete = `${paddedPrNo}/${yearSuffix}`;
-      const newPrNo = `PR/${prPrefix}/${paddedPrNo}/${yearSuffix}`;
-
-      console.log("🆕 Generated new PR:", newPrNo);
-
-      // Create container array
       let containerArray = [];
       for (let i = 0; i < container_count; i++) {
         containerArray.push({
@@ -179,18 +196,18 @@ router.post("/api/update-pr", async (req, res) => {
         });
       }
 
-      // Create the new PR Data
+      // Create a new PrData document
       const newPrData = new PrData({
         pr_date: new Date().toLocaleDateString("en-GB"),
         pr_no: newPrNo,
-        import_export,
-        branch,
+        import_export: req.body.import_export,
+        branch: req.body.branch,
         consignor: req.body.consignor,
         consignee: req.body.consignee,
         container_type: req.body.container_type,
-        container_count,
+        container_count: container_count,
         gross_weight: req.body.gross_weight,
-        type_of_vehicle,
+        type_of_vehicle: req.body.type_of_vehicle,
         description: req.body.description,
         shipping_line: req.body.shipping_line,
         container_loading: req.body.container_loading,
@@ -199,31 +216,29 @@ router.post("/api/update-pr", async (req, res) => {
         instructions: req.body.instructions,
         document_no: req.body.document_no,
         document_date: req.body.document_date,
-        goods_pickup,
-        goods_delivery,
+        goods_pickup: req.body.goods_pickup,
+        goods_delivery: req.body.goods_delivery,
         containers: containerArray,
-        suffix: yearSuffix,
-        prefix: prPrefix,
+        suffix: isBranch ? suffix : undefined, // <- ADD THIS
+        prefix: isBranch ? prefix : undefined, // <- ADD THIS
       });
 
+      // Save the new PrData document to the database
       await newPrData.save();
-      console.log("✅ New PR data saved:", newPrNo);
 
-      // Create entry in PR Model for tracking
-      const newPrModel = new PrModel({
-        pr_no: paddedPrNo,
-        year: yearSuffix,
-        pr_no_complete: prNoComplete,
+      const newPr = new PrModel({
+        pr_no: fiveDigitNo,
       });
 
-      await newPrModel.save();
-      console.log("✅ New PR model entry created:", prNoComplete);
+      // Save the new PrModel document to the database
+      await newPr.save();
 
-      return res.status(200).send({ message: "New PR added successfully" });
+      res.status(200).send({ message: "New PR added successfully" });
     }
+
+    res.status(200).send({ message: "PR updated successfully" });
   } catch (error) {
-    console.error("❌ Error in update-pr route:", error);
-    return res.status(500).send({ error: error.message });
+    res.status(500).send({ error: error.message });
   }
 });
 

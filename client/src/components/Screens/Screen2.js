@@ -8,27 +8,8 @@ const Screen2 = () => {
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   useEffect(() => {
-    let SOCKET_URL;
-
-    switch (process.env.REACT_APP_SOCKET_URL) {
-      case "secure-production":
-        SOCKET_URL = "wss://l6bnda4xwi.execute-api.ap-south-1.amazonaws.com/dev";
-        break;
-    
-      case "testing":
-        SOCKET_URL = "ws://43.205.59.159:9000";
-        break;
-    
-      case "production":
-        SOCKET_URL = "ws://13.202.42.73:9000";
-        break;
-    
-      default:
-        console.warn("⚠️ Unknown SOCKET_URL environment setting");
-        SOCKET_URL = "ws://localhost:9000"; // fallback for local dev
-    }
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL}`;
     const socket = new WebSocket(SOCKET_URL);
-
 
     socket.onopen = () => {
       setConnectionStatus("Connected");

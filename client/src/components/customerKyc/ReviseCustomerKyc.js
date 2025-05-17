@@ -12,6 +12,7 @@ import FormLabel from "@mui/material/FormLabel";
 import { Row, Col } from "react-bootstrap";
 import useSupportingDocuments from "../../customHooks/useSupportingDocuments";
 import Snackbar from "@mui/material/Snackbar";
+import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import { handleFileUpload } from "../../utils/awsFileUpload";
 import Checkbox from "@mui/material/Checkbox";
 import Preview from "./Preview";
@@ -856,7 +857,7 @@ function ReviseCustomerKyc() {
           type="file"
           multiple
           onChange={(e) =>
-            handleFileUpload(
+            handleSingleFileUpload(
               e,
               "authorised_signatories",
               "authorised_signatories",
@@ -881,7 +882,7 @@ function ReviseCustomerKyc() {
           type="file"
           multiple
           onChange={(e) =>
-            handleFileUpload(
+            handleSingleFileUpload(
               e,
               "authorisation_letter",
               "authorisation_letter",
@@ -919,7 +920,13 @@ function ReviseCustomerKyc() {
         <input
           type="file"
           onChange={(e) =>
-            handleFileUpload(e, "iec_copy", "iec_copy", formik, setFileSnackbar)
+            handleSingleFileUpload(
+              e,
+              "iec_copy",
+              "iec_copy",
+              formik,
+              setFileSnackbar
+            )
           }
         />
         <br />
@@ -949,7 +956,13 @@ function ReviseCustomerKyc() {
         <input
           type="file"
           onChange={(e) =>
-            handleFileUpload(e, "pan_copy", "pan_copy", formik, setFileSnackbar)
+            handleSingleFileUpload(
+              e,
+              "pan_copy",
+              "pan_copy",
+              formik,
+              setFileSnackbar
+            )
           }
         />
         <br />
@@ -1087,7 +1100,10 @@ function ReviseCustomerKyc() {
             <a
               href="#"
               onClick={() =>
-                downloadBase64File(bank.adCode_file, `adCode_File_${index}.pdf`)
+                downloadBase64File(
+                  bank.adCode_file,
+                  `adCode_File_${index}.pdf`
+                )
               }
             >
               View
@@ -1138,7 +1154,13 @@ function ReviseCustomerKyc() {
         <input
           type="file"
           onChange={(e) =>
-            handleFileUpload(e, "spcb_reg", "spcb_reg", formik, setFileSnackbar)
+            handleSingleFileUpload(
+              e,
+              "spcb_reg",
+              "spcb_reg",
+              formik,
+              setFileSnackbar
+            )
           }
         />
         <br />

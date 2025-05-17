@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { MenuItem, TextField } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "axios";
-import { handleFileUpload } from "../../utils/awsFileUpload";
+import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import Snackbar from "@mui/material/Snackbar";
 import { validationSchema } from "../../schemas/srcc/NewTyreSchema";
 
@@ -327,7 +327,7 @@ function NewTyre() {
             multiple
             id="tyreBlast"
             onChange={(e) =>
-              handleFileUpload(
+              handleSingleFileUpload(
                 e,
                 "tyre_invoice_image",
                 "tyre_invoice_image",

@@ -1,6 +1,5 @@
 import express from "express";
 import ShippingLine from "../../../model/srcc/Directory_Management/ShippingLine.mjs";
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -32,7 +31,7 @@ router.post("/api/add-shipping-line", async (req, res) => {
 });
 
 // READ ALL
-router.get("/api/get-shipping-line",authenticateJWT, async (req, res) => {
+router.get("/api/get-shipping-line", async (req, res) => {
   try {
     const lines = await ShippingLine.find();
     res.status(200).json({ data: lines });
@@ -43,7 +42,7 @@ router.get("/api/get-shipping-line",authenticateJWT, async (req, res) => {
 });
 
 // READ ONE
-router.get("/api/get-shipping-line/:id",authenticateJWT, async (req, res) => {
+router.get("/api/get-shipping-line/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const line = await ShippingLine.findById(id);

@@ -1,9 +1,9 @@
 import express from "express";
 import Tyre from "../../model/srcc/tyreModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
+
 const router = express.Router();
 
-router.get("/api/tyre-details/:tyreNo", authenticateJWT, async (req, res) => {
+router.get("/api/tyre-details/:tyreNo", async (req, res) => {
   const { tyreNo } = req.params;
   const existingTyre = await Tyre.findOne({ tyre_no: tyreNo });
 

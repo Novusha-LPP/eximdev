@@ -1,12 +1,11 @@
 import express from "express";
 import AdvanceToDriver from "../../../model/srcc/Directory_Management/AdvanceToDriver.mjs"; 
-import { authenticateJWT } from "../../../auth/auth.mjs";
 // ^ Adjust path as needed
 
 const router = express.Router();
 
 // CREATE: Add new "Advance to Driver"
-router.post("/api/add-advance-to-driver",authenticateJWT, async (req, res) => {
+router.post("/api/add-advance-to-driver", async (req, res) => {
   try {
     const advanceItem = await AdvanceToDriver.create(req.body);
     res.status(201).json({
@@ -20,7 +19,7 @@ router.post("/api/add-advance-to-driver",authenticateJWT, async (req, res) => {
 });
 
 // READ ALL
-router.get("/api/get-advance-to-driver",authenticateJWT, async (req, res) => {
+router.get("/api/get-advance-to-driver", async (req, res) => {
   try {
     const dataList = await AdvanceToDriver.find();
     res.status(200).json({ data: dataList });
@@ -31,7 +30,7 @@ router.get("/api/get-advance-to-driver",authenticateJWT, async (req, res) => {
 });
 
 // READ ONE
-router.get("/api/get-advance-to-driver/:id",authenticateJWT, async (req, res) => {
+router.get("/api/get-advance-to-driver/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const dataItem = await AdvanceToDriver.findById(id);
@@ -46,7 +45,7 @@ router.get("/api/get-advance-to-driver/:id",authenticateJWT, async (req, res) =>
 });
 
 // UPDATE
-router.put("/api/update-advance-to-driver/:id",authenticateJWT, async (req, res) => {
+router.put("/api/update-advance-to-driver/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const updatedItem = await AdvanceToDriver.findByIdAndUpdate(id, req.body, {
@@ -68,7 +67,7 @@ router.put("/api/update-advance-to-driver/:id",authenticateJWT, async (req, res)
 });
 
 // DELETE
-router.delete("/api/delete-advance-to-driver/:id",authenticateJWT, async (req, res) => {
+router.delete("/api/delete-advance-to-driver/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const deletedItem = await AdvanceToDriver.findByIdAndDelete(id);

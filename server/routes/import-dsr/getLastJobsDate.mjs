@@ -1,10 +1,9 @@
 import express from "express";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-last-jobs-date",authenticateJWT, async (req, res) => {
+router.get("/api/get-last-jobs-date", async (req, res) => {
   try {
     // Fetch the latest document based on the 'date' field
     const lastJobsDateDocument = await LastJobsDate.findOne(

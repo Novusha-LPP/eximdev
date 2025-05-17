@@ -1,10 +1,9 @@
 import express from "express";
 import TypeOfVehicle from "../../model/srcc/typeOfVehicle.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-type-of-vehicles",authenticateJWT, async (req, res) => {
+router.get("/api/get-type-of-vehicles", async (req, res) => {
   try {
     const existingTypeOfVehicle = await TypeOfVehicle.find({});
     const typeOfVehiclesArray = existingTypeOfVehicle.map(

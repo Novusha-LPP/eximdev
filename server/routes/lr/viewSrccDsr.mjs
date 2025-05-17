@@ -1,6 +1,5 @@
 import express from "express";
 import PrData from "../../model/srcc/pr.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 

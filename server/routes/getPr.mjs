@@ -1,9 +1,9 @@
 import express from "express";
 import PrData from "../model/pr.mjs";
-import { authenticateJWT } from "../auth/auth.mjs";
+
 const router = express.Router();
 
-router.get("/api/getPrData/:branch", authenticateJWT, async (req, res) => {
+router.get("/api/getPrData/:branch", async (req, res) => {
   const { branch } = req.params;
 
   try {

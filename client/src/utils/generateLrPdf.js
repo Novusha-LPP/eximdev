@@ -135,8 +135,7 @@ export const generateLrPdf = async (data, lrData) => {
     });
 
     // Container pickup and destuff
-    const firstTableHeight = pdf.previousAutoTable?.finalY || headerHeight + 40;
-
+    const firstTableHeight = pdf.previousAutoTable.finalY;
     const headers2 = ["Container Pickup", "Empty Offloading", "Shipping Line"];
     const rowsData2 = [
       [
@@ -169,8 +168,7 @@ export const generateLrPdf = async (data, lrData) => {
     });
 
     // From and To
-    const secondTableHeight =
-      pdf.previousAutoTable?.finalY || firstTableHeight + 40;
+    const secondTableHeight = pdf.previousAutoTable.finalY;
     const headers3 = ["From", "To"];
     const rowsData3 = [[item.goods_pickup, item.goods_delivery]];
     const columnWidth3 = tableWidth / headers3.length;
@@ -197,8 +195,7 @@ export const generateLrPdf = async (data, lrData) => {
     });
 
     // Container details
-    const thirdTableHeight =
-      pdf.previousAutoTable?.finalY || secondTableHeight + 40;
+    const thirdTableHeight = pdf.previousAutoTable.finalY;
 
     const headers4 = [
       "Container Number/ Number of Packages",
@@ -240,8 +237,7 @@ export const generateLrPdf = async (data, lrData) => {
     });
 
     // Checkboxes
-    const fourthTableHeight =
-      pdf.previousAutoTable?.finalY || thirdTableHeight + 40;
+    const fourthTableHeight = pdf.previousAutoTable.finalY;
     const checkboxSize = 10;
     const checkboxY = fourthTableHeight + 20;
 

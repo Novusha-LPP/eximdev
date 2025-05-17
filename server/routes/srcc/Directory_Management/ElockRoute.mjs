@@ -1,11 +1,10 @@
 import express from "express";
 import Elock from "../../../model/srcc/Directory_Management/Elock.mjs";
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // Create a new Elock
-router.post("/api/elock/create-elock",authenticateJWT,  async (req, res) => {
+router.post("/api/elock/create-elock", async (req, res) => {
   try {
     const { FAssetID, FAgentGUID, AssetGUID, ElockCode } = req.body;
     const newElock = new Elock({ FAssetID, FAgentGUID, AssetGUID, ElockCode });
@@ -20,7 +19,7 @@ router.post("/api/elock/create-elock",authenticateJWT,  async (req, res) => {
 });
 
 // Read all Elocks
-router.get("/api/elock/get-elocks",authenticateJWT,  async (req, res) => {
+router.get("/api/elock/get-elocks", async (req, res) => {
   try {
     const elocks = await Elock.find();
     res
@@ -33,7 +32,7 @@ router.get("/api/elock/get-elocks",authenticateJWT,  async (req, res) => {
 });
 
 // Read a single Elock by ID
-router.get("/api/elock/get-elock/:id",authenticateJWT, async (req, res) => {
+router.get("/api/elock/get-elock/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const elock = await Elock.findById(id);
@@ -50,7 +49,7 @@ router.get("/api/elock/get-elock/:id",authenticateJWT, async (req, res) => {
 });
 
 // Update an Elock
-router.put("/api/elock/update-elock/:id",authenticateJWT,  async (req, res) => {
+router.put("/api/elock/update-elock/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { FAssetID, FAgentGUID, AssetGUID, ElockCode } = req.body;
@@ -72,7 +71,7 @@ router.put("/api/elock/update-elock/:id",authenticateJWT,  async (req, res) => {
 });
 
 // Delete an Elock
-router.delete("/api/elock/delete-elock/:id",authenticateJWT,  async (req, res) => {
+router.delete("/api/elock/delete-elock/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deletedElock = await Elock.findByIdAndDelete(id);

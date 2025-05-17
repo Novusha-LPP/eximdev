@@ -1,10 +1,9 @@
 import express from "express";
 import JobModel from "../model/jobModel.mjs";
-import { authenticateJWT } from "../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-years",authenticateJWT, async (req, res) => {
+router.get("/api/get-years", async (req, res) => {
   try {
     const pipeline = [
       // Group by year to get distinct years

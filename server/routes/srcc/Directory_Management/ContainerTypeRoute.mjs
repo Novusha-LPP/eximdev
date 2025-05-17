@@ -1,7 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
 import ContainerType from "../../../model/srcc/containerType.mjs"; // Ensure correct path
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -9,8 +8,8 @@ const router = express.Router();
  * @route POST /api/add-container-type
  * @desc Create a new container type
  */
-router.post("/api/add-container-type",authenticateJWT, async (req, res) => {
-
+router.post("/api/add-container-type", async (req, res) => {
+  console.log("Received Data:", req.body);
 
   const {
     container_type,
@@ -64,7 +63,7 @@ router.post("/api/add-container-type",authenticateJWT, async (req, res) => {
  * @route GET /api/get-container-types
  * @desc Retrieve all container types
  */
-router.get("/api/get-container-types",authenticateJWT, async (req, res) => {
+router.get("/api/get-container-types", async (req, res) => {
   try {
     const containerTypes = await ContainerType.find();
     res.status(200).json(containerTypes);
@@ -78,7 +77,7 @@ router.get("/api/get-container-types",authenticateJWT, async (req, res) => {
  * @route GET /api/get-container-type/:id
  * @desc Retrieve a single container type by ID
  */
-router.get("/api/get-container-type/:id",authenticateJWT, async (req, res) => {
+router.get("/api/get-container-type/:id", async (req, res) => {
   try {
     const containerType = await ContainerType.findById(req.params.id);
     if (!containerType) {
@@ -95,7 +94,7 @@ router.get("/api/get-container-type/:id",authenticateJWT, async (req, res) => {
  * @route PUT /api/update-container-type/:id
  * @desc Update an existing container type
  */
-router.put("/api/update-container-type/:id",authenticateJWT, async (req, res) => {
+router.put("/api/update-container-type/:id", async (req, res) => {
   try {
     const {
       container_type,
@@ -149,7 +148,7 @@ router.put("/api/update-container-type/:id",authenticateJWT, async (req, res) =>
  * @route DELETE /api/delete-container-type/:id
  * @desc Delete a container type
  */
-router.delete("/api/delete-container-type/:id",authenticateJWT, async (req, res) => {
+router.delete("/api/delete-container-type/:id", async (req, res) => {
   try {
     const deletedContainer = await ContainerType.findByIdAndDelete(
       req.params.id

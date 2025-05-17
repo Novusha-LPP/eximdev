@@ -1,10 +1,9 @@
 import express from "express";
 import documentsModel from "../../model/documentsModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-docs/",authenticateJWT, async (req, res) => {
+router.get("/api/get-docs/", async (req, res) => {
   try {
     const data = await documentsModel.find({}).sort({ document_name: 1 });
     if (!data || data.length === 0) {

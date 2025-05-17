@@ -7,10 +7,7 @@ import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
-import { getUser } from "../utils/cookie.js";
 // Custom hook to manage job columns configuration
-
-const user = getUser();
 function useJobColumns() {
   const navigate = useNavigate();
 
@@ -26,11 +23,11 @@ function useJobColumns() {
       navigator.clipboard
         .writeText(text)
         .then(() => {
-          // Removed console.log for production performance
+          console.log("Text copied to clipboard:", text);
         })
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
-          // Removed console.error for production performance
+          console.error("Failed to copy:", err);
         });
     } else {
       // Fallback approach for older browsers
@@ -41,10 +38,10 @@ function useJobColumns() {
       textArea.select();
       try {
         document.execCommand("copy");
-        // Removed console.log for production performance
+        console.log("Text copied to clipboard using fallback method:", text);
       } catch (err) {
         alert("Failed to copy text to clipboard.");
-        // Removed console.error for production performance
+        console.error("Fallback copy failed:", err);
       }
       document.body.removeChild(textArea);
     }
@@ -246,7 +243,7 @@ function useJobColumns() {
             </>
           );
         },
-      },
+      },      
 
       {
         accessorKey: "awb_bl_no",

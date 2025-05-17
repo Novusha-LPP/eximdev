@@ -1,5 +1,4 @@
 import React, { useContext } from "react";
-
 import { useNavigate } from "react-router-dom";
 import "../../styles/sidebar.scss";
 import { Avatar, IconButton, ListItemButton, Tooltip } from "@mui/material";
@@ -9,36 +8,18 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import { UserContext } from "../../contexts/UserContext";
-import axios from "axios";
 
 function Sidebar() {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
-
-  const handleLogout = async () => {
-    console.log("Logout button clicked");
-    try {
-      await axios.post(
-        `${process.env.REACT_APP_API_STRING}/logout`,
-        {},
-        {
-          // withCredentials: true,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      localStorage.removeItem("exim_user");
-      setUser(null);
-
-      setUser(null); // optional if logout already does it
-      localStorage.removeItem("selected_importer");
-      localStorage.removeItem("selected_importer_url");
-      localStorage.removeItem("tab_value");
-      navigate("/");
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
+  const handleLogout = () => {
+    setUser(null);
+    navigate("/");
+    // Remove user from local storage
+    localStorage.removeItem("exim_user");
+    localStorage.removeItem("selected_importer");
+    localStorage.removeItem("selected_importer_url");
+    localStorage.removeItem("tab_value");
   };
 
   return (

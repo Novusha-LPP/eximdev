@@ -4,7 +4,7 @@ import { useFormik } from "formik";
 import axios from "axios";
 import { validationSchema } from "../../schemas/srcc/TyreRepairSchema";
 import Autocomplete from "@mui/material/Autocomplete";
-import { handleFileUpload } from "../../utils/awsFileUpload";
+import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import Snackbar from "@mui/material/Snackbar";
 import useTyreNumber from "../../customHooks/useTyreNumber";
 import useTruckNumber from "../../customHooks/useTruckNumber";
@@ -261,7 +261,7 @@ function TyreRepairs() {
             multiple
             id="tyreBlast"
             onChange={(e) =>
-              handleFileUpload(
+              handleSingleFileUpload(
                 e,
                 "tyre_repair_invoice_images",
                 "tyre_repair_invoice_images",

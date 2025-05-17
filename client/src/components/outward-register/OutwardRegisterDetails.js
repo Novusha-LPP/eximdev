@@ -7,7 +7,7 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
-import { handleFileUpload } from "../../utils/awsFileUpload";
+import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import Snackbar from "@mui/material/Snackbar";
 import { validationSchema } from "../../schemas/outwardRegister/completeOutwardRegister";
 
@@ -182,7 +182,7 @@ function OutwardRegisterDetails() {
         accept="image/*"
         capture="environment"
         onChange={(e) =>
-          handleFileUpload(
+          handleSingleFileUpload(
             e,
             "outward_consignment_photo",
             "outward_register",

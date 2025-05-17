@@ -1,7 +1,6 @@
 import express from "express";
 const router = express.Router();
 import JobModel from "../../model/jobModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 // Status Rank Configuration
 const statusRank = {
@@ -20,10 +19,10 @@ const parseDate = (dateStr) => {
   const date = new Date(dateStr);
   return isNaN(date.getTime()) ? null : date;
 };
-router.get("/api/download-report/:years/:status",authenticateJWT, async (req, res) => {
+router.get("/api/download-report/:years/:status", async (req, res) => {
   try {
     let { years, status } = req.params;
-    
+    console.log("Received years:", years, "Status:", status);
 
     // Convert years into an array (e.g., "24-25,25-26" to ["24-25", "25-26"])
     let yearArray = years.split(",");

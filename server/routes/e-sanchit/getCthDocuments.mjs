@@ -1,10 +1,9 @@
 import express from "express";
 import DocumentListModel from "../../model/cthDocumentsModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-cth-docs/:cth_no",authenticateJWT, async (req, res) => {
+router.get("/api/get-cth-docs/:cth_no", async (req, res) => {
   const { cth_no } = req.params;
 
   if (isNaN(parseInt(cth_no, 10))) {

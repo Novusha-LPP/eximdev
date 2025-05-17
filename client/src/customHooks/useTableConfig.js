@@ -1,6 +1,5 @@
 import { useMaterialReactTable } from "material-react-table";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 function useTableConfig(rows, columns, url) {
   const navigate = useNavigate();
@@ -26,29 +25,10 @@ function useTableConfig(rows, columns, url) {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row, url }) => ({
-      onClick: async () => {
-        // Log the entire row data
-        // console.log("Clicked Row Data:", row.original);
-
-        try {
-          // Make an API call to fetch detailed user data
-          const response = await axios.get(
-            `${process.env.REACT_APP_API_STRING}/view-onboarding/${row.original._id}`
-          );
-
-          // Log the detailed user data
-          // console.log("Detailed User Data:", response.data);
-
-          // Navigate to the detailed view
-          // navigate(`/onboarding/${row.original._id}`);
-          navigate(`/${url}/${row.original._id}`);
-        } catch (error) {
-          console.error("Error fetching user details:", error);
-        }
-      },
-      style: { cursor: "pointer" },
-    }),
+    // muiTableBodyRowProps: ({ row }) => ({
+    //   onClick: () => navigate(`/${url}/${row.original._id}`), // Navigate on row click
+    //   style: { cursor: "pointer" }, // Change cursor to pointer on hover
+    // }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

@@ -5,7 +5,6 @@ import PrData from "../../model/srcc/pr.mjs";
 
 const router = express.Router();
 
-
 router.put("/api/update-job/:year/:jobNo", async (req, res) => {
   const { jobNo, year } = req.params;
 
@@ -19,30 +18,6 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
     do_validity_upto_job_level,
   } = req.body;
 
-  function sanitizeContainerData(container) {
-    // Create a copy to avoid mutating the original
-    const sanitized = { ...container };
-    
-    // Handle weighment_slip_images specifically
-    if (sanitized.weighment_slip_images) {
-      // Ensure weighment_slip_images is an array of strings or simple objects
-      sanitized.weighment_slip_images = sanitized.weighment_slip_images.map(image => {
-        // If it's already a string, return as is
-        if (typeof image === 'string') {
-          return image;
-        }
-        // If it's an object with a url, just return the url as a string to simplify
-        else if (image && image.url) {
-          return image.url;
-        }
-        // Handle any other case
-        return image;
-      });
-    }
-    
-    return sanitized;
-  }
-  
   function addDaysToDate(dateString, days) {
     var date = new Date(dateString);
     date.setDate(date.getDate() + days);
@@ -222,18 +197,15 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
     }
 
     Object.assign(matchingJob, updatedFields);
+
     if (checked) {
       matchingJob.container_nos = container_nos.map((container) => {
         const detentionDate =
           arrival_date === ""
             ? ""
             : addDaysToDate(arrival_date, parseInt(free_time));
-        
-        // Sanitize the container data
-        const sanitizedContainer = sanitizeContainerData(container);
-        
         return {
-          ...sanitizedContainer,
+          ...container,
           arrival_date: arrival_date,
           detention_from: detentionDate,
           do_validity_upto_container_level: subtractOneDay(detentionDate),
@@ -245,12 +217,9 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
           container.arrival_date === ""
             ? ""
             : addDaysToDate(container.arrival_date, parseInt(free_time));
-    
-        // Sanitize the container data
-        const sanitizedContainer = sanitizeContainerData(container);
-        
+
         return {
-          ...sanitizedContainer,
+          ...container,
           arrival_date: container.arrival_date,
           detention_from: detentionDate,
           do_validity_upto_container_level: subtractOneDay(detentionDate),

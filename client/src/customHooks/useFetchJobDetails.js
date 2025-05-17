@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 // import { Dropdown } from "react-bootstrap";
 
-const handleFileUpload = async (file, folderName, setFileSnackbar) => {
+const handleSingleFileUpload = async (file, folderName, setFileSnackbar) => {
   try {
     const key = `${folderName}/${file.name}`;
 
@@ -424,7 +424,7 @@ function useFetchJobDetails(
           hss: values.hss,
           saller_name: values.saller_name,
           adCode: values.adCode,
-          bank_name: values.bank_name,
+          bank_name: values.bank_name, 
           fristCheck: values.fristCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
@@ -901,7 +901,7 @@ function useFetchJobDetails(
       .replace(/_+/g, "_")
       .replace(/^_+|_+$/g, "");
 
-    const photoUrl = await handleFileUpload(
+    const photoUrl = await handleSingleFileUpload(
       file,
       formattedDocumentName,
       setFileSnackbar

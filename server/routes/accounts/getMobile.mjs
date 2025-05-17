@@ -1,10 +1,9 @@
 import express from "express";
 import MobileModel from "../../model/accounts/mobileModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-mobile",authenticateJWT, async (req, res) => {
+router.get("/api/get-mobile", async (req, res) => {
   try {
     const data = await MobileModel.find({}).exec();
     res.status(200).json(data);

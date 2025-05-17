@@ -1,6 +1,5 @@
 import express from "express";
 import StateDistrict from "../../../model/srcc/Directory_Management/StateDistrict.mjs"; // Ensure correct path
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -40,7 +39,7 @@ router.post("/api/add-state-district", async (req, res) => {
  * @route GET /api/get-state-districts
  * @desc Retrieve all states and districts
  */
-router.get("/api/get-state-districts",authenticateJWT, async (req, res) => {
+router.get("/api/get-state-districts", async (req, res) => {
   try {
     const data = await StateDistrict.findOne();
     if (!data) {

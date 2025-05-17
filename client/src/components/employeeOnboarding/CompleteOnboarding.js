@@ -5,7 +5,7 @@ import { Row, Col } from "react-bootstrap";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import Snackbar from "@mui/material/Snackbar";
-import { handleFileUpload } from "../../utils/awsFileUpload";
+import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import { validationSchema } from "../../schemas/employeeOnboarding/completeOnboarding";
 
 function CompleteOnboarding() {
@@ -130,7 +130,7 @@ function CompleteOnboarding() {
             name=""
             id=""
             onChange={(e) =>
-              handleFileUpload(
+              handleSingleFileUpload(
                 e,
                 "employee_photo",
                 "kyc",
@@ -162,7 +162,13 @@ function CompleteOnboarding() {
             name=""
             id=""
             onChange={(e) =>
-              handleFileUpload(e, "resume", "kyc", formik, setFileSnackbar)
+              handleSingleFileUpload(
+                e,
+                "resume",
+                "kyc",
+                formik,
+                setFileSnackbar
+              )
             }
           />
           {formik.touched.resume && formik.errors.resume ? (
@@ -187,7 +193,7 @@ function CompleteOnboarding() {
             name=""
             id=""
             onChange={(e) =>
-              handleFileUpload(
+              handleSingleFileUpload(
                 e,
                 "address_proof",
                 "kyc",
@@ -221,7 +227,13 @@ function CompleteOnboarding() {
                 name=""
                 id=""
                 onChange={(e) =>
-                  handleFileUpload(e, "nda", "kyc", formik, setFileSnackbar)
+                  handleSingleFileUpload(
+                    e,
+                    "nda",
+                    "kyc",
+                    formik,
+                    setFileSnackbar
+                  )
                 }
               />
               {formik.touched.nda && formik.errors.nda ? (

@@ -1,10 +1,9 @@
 import express from "express";
 import CustomerKycModel from "../../model/customerKycModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/view-completed-kyc",authenticateJWT, async (req, res) => {
+router.get("/api/view-completed-kyc", async (req, res) => {
   try {
     const data = await CustomerKycModel.find({
       approved_by: "MANU PILLAI",

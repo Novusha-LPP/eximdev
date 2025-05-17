@@ -1,11 +1,10 @@
 import express from "express";
 import SrcelModel from "../../../model/srcc/sr_cel/srCel.mjs"; // Adjust the path as needed
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // GET all data
-router.get("/api/get-all-srcel", authenticateJWT, async (req, res) => {
+router.get("/api/get-all-srcel", async (req, res) => {
   try {
     const data = await SrcelModel.find();
     res.status(200).json(data);
@@ -18,7 +17,7 @@ router.get("/api/get-all-srcel", authenticateJWT, async (req, res) => {
 
 router.post("/api/add-srcel", async (req, res) => {
   try {
-
+    console.log("Received request body:", req.body);
     const { FObject } = req.body;
     if (!Array.isArray(FObject) || FObject.length === 0) {
       return res
@@ -28,9 +27,9 @@ router.post("/api/add-srcel", async (req, res) => {
 
     // We'll use the first object in the array
     const newEntry = new SrcelModel(FObject[0]);
-    
+    console.log("New entry created:", newEntry);
     const savedEntry = await newEntry.save();
-    
+    console.log("Entry saved:", savedEntry);
     res.status(201).json(savedEntry);
   } catch (error) {
     console.error("Error saving data:", error);

@@ -9,61 +9,28 @@ const FileUpload = ({
   bucketPath,
   multiple = true,
   acceptedFileTypes = [],
-  readOnly = false,
+  readOnly = false, // Default to false
 }) => {
   const [uploading, setUploading] = useState(false);
-  const { user } = useContext(UserContext);
+   const { user } = useContext(UserContext);
 
   const handleFileUpload = async (event) => {
-    if (readOnly) {
-      return;
-    }
+    if (readOnly) return; // Prevent upload if readOnly is true
 
     const files = event.target.files;
-    if (!files || files.length === 0) {
-      return;
-    }
+    const uploadedFiles = [];
 
     setUploading(true);
-    try {
-      // Use the uploadFileToS3 function directly with all files
-      const result = await uploadFileToS3(files, bucketPath);
-      
-      // Log the entire response to see the structure
-      console.log("Full upload result:", result);
-      console.log("Uploaded files data:", result.uploaded);
-      
-      // Check the first item to see its structure
-      if (result.uploaded && result.uploaded.length > 0) {
-        console.log("First uploaded file structure:", result.uploaded[0]);
+    for (const file of files) {
+      try {
+        const result = await uploadFileToS3(file, bucketPath, );
+        uploadedFiles.push(result.Location);
+      } catch (error) {
+        console.error(`Failed to upload ${file.name}:`, error);
       }
-      
-      // Extract URLs correctly based on the actual response structure
-      // Try different possible property names
-      const uploadedUrls = result.uploaded.map(file => {
-        // Log each file object to see what's available
-        console.log("Processing file:", file);
-        
-        // Check common property names
-        if (file.location) return file.location;
-        if (file.Location) return file.Location;
-        if (file.url) return file.url;
-        if (file.URL) return file.URL;
-        
-        // If none found, return the whole object as a last resort
-        console.warn("Could not find URL property in uploaded file:", file);
-        return file;
-      });
-      
-      console.log("Extracted URLs:", uploadedUrls);
-      
-      // Pass the array of URLs to the parent component
-      onFilesUploaded(uploadedUrls);
-    } catch (error) {
-      console.error("Upload process failed:", error);
-    } finally {
-      setUploading(false);
     }
+    setUploading(false);
+    onFilesUploaded(uploadedFiles);
   };
 
   return (
@@ -76,16 +43,16 @@ const FileUpload = ({
           color: "#fff",
           cursor: readOnly ? "not-allowed" : "pointer",
         }}
-        disabled={readOnly || uploading}
+        disabled={readOnly || uploading} // Disable button when readOnly
       >
-        {uploading ? "Uploading..." : label}
+        {label}
         <input
           type="file"
           hidden
           multiple={multiple}
           accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
           onChange={handleFileUpload}
-          disabled={readOnly || uploading}
+          disabled={readOnly || uploading} // Disable input when readOnly
         />
       </Button>
       {uploading && (
@@ -94,5 +61,7 @@ const FileUpload = ({
     </div>
   );
 };
+
+
 
 export default FileUpload;

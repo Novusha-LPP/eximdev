@@ -63,9 +63,6 @@ router.get("/api/get-billing-import-job", async (req, res) => {
       ],
     };
     
-    if (search) {
-      baseQuery.$and.push(buildSearchQuery(search));
-    }
 
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {

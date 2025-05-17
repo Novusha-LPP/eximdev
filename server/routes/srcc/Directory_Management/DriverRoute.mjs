@@ -1,6 +1,5 @@
 import express from "express";
 import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -35,7 +34,7 @@ const validateDriverData = (data) => {
 };
 
 // POST route to create a new driver
-router.post("/api/create-driver",authenticateJWT, async (req, res) => {
+router.post("/api/create-driver", async (req, res) => {
   const validationErrors = validateDriverData(req.body);
   if (validationErrors.length > 0) {
     return res.status(400).json({ message: validationErrors.join(", ") });
@@ -62,7 +61,7 @@ router.post("/api/create-driver",authenticateJWT, async (req, res) => {
   }
 });
 // GET route to retrieve all drivers
-router.get("/api/all-drivers",authenticateJWT, async (req, res) => {
+router.get("/api/all-drivers", async (req, res) => {
   try {
     const drivers = await DriverType.find();
     return res.status(200).json(drivers);
@@ -74,7 +73,7 @@ router.get("/api/all-drivers",authenticateJWT, async (req, res) => {
 });
 
 // GET route to retrieve a driver by ID
-router.get("/api/get-driver/:id",authenticateJWT, async (req, res) => {
+router.get("/api/get-driver/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const driver = await DriverType.findById(id);
@@ -90,7 +89,7 @@ router.get("/api/get-driver/:id",authenticateJWT, async (req, res) => {
 });
 
 // PUT route to update a driver by ID
-router.put("/api/update-driver/:id",authenticateJWT, async (req, res) => {
+router.put("/api/update-driver/:id", async (req, res) => {
   const { id } = req.params;
   const validationErrors = validateDriverData(req.body);
   if (validationErrors.length > 0) {
@@ -124,7 +123,7 @@ router.put("/api/update-driver/:id",authenticateJWT, async (req, res) => {
 });
 
 // DELETE route to delete a driver by ID
-router.delete("/api/delete-driver/:id",authenticateJWT, async (req, res) => {
+router.delete("/api/delete-driver/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const deletedDriver = await DriverType.findByIdAndDelete(id);
@@ -140,7 +139,7 @@ router.delete("/api/delete-driver/:id",authenticateJWT, async (req, res) => {
 });
 
 // New GET route to retrieve drivers by typerouter.get("/api/drivers-by-type/:type", async (req, res) => {
-router.get("/api/available-drivers/:type",authenticateJWT, async (req, res) => {
+router.get("/api/available-drivers/:type", async (req, res) => {
   const { type } = req.params;
 
   if (!type) {
@@ -148,14 +147,14 @@ router.get("/api/available-drivers/:type",authenticateJWT, async (req, res) => {
   }
 
   try {
-  
+    console.log("Received type:", type); // Log the type for debugging
 
     const drivers = await DriverType.find({
       drivingVehicleTypes: { $regex: type, $options: "i" }, // Case-insensitive regex match
       isAssigned: false, // Ensure driver is not assigned
     });
 
-    
+    console.log("Available drivers:", drivers); // Log the query results
 
     if (drivers.length === 0) {
       return res

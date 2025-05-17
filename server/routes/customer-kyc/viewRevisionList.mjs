@@ -1,10 +1,9 @@
 import express from "express";
 import CustomerKycModel from "../../model/customerKycModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/view-revision-list",authenticateJWT, async (req, res) => {
+router.get("/api/view-revision-list", async (req, res) => {
   try {
     const data = await CustomerKycModel.find({
       remarks: { $exists: true, $ne: "" },

@@ -7,7 +7,6 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  Typography,
 } from "@mui/material";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -72,6 +71,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
   
     setOpenDeleteDialog(false);
   };
+  
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
@@ -105,7 +105,6 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
                     <IconButton
                       onClick={() => handleDeleteClick(index)}
                       color="error"
-                      size="small"
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -116,9 +115,7 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
           </TableBody>
         </Table>
       ) : (
-        <Typography variant="body2" color="textSecondary">
-          No assets uploaded yet.
-        </Typography>
+        <p>No asset uploaded yet.</p>
       )}
       {!readOnly && (
         <ConfirmDialog

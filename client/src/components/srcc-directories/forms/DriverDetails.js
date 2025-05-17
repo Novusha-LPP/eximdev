@@ -4,7 +4,7 @@ import { TextField } from "@mui/material";
 import axios from "axios";
 import { validationSchema } from "../../../schemas/srcc/DriverDetailsSchema";
 import { handleFileUpload } from "../../../utils/awsFileUpload";
-import { handleFileUpload } from "../../../utils/awsFileUpload";
+import { handleSingleFileUpload } from "../../../utils/awsSingleFileUpload";
 import Snackbar from "@mui/material/Snackbar";
 
 const DriverDetails = () => {
@@ -173,7 +173,7 @@ const DriverDetails = () => {
           type="file"
           accept="image/*"
           onChange={(e) =>
-            handleFileUpload(
+            handleSingleFileUpload(
               e,
               "driver_photo",
               "driver_photo",

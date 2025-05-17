@@ -175,7 +175,6 @@ function AssignRole({ selectedUser }) {
                 <MenuItem value="Manager">Manager</MenuItem>
                 <MenuItem value="Asst_Manager">Asst. Manager</MenuItem>
                 <MenuItem value="Sr_Executive">Sr. Executive</MenuItem>
-                <MenuItem value="Customer">Customer</MenuItem>
                 <MenuItem value="Executive">Executive</MenuItem>
                 <MenuItem value="Asst_Executive">Asst. Executive</MenuItem>
                 <MenuItem value="User">User</MenuItem>

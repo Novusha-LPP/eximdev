@@ -11,6 +11,7 @@ import FormLabel from "@mui/material/FormLabel";
 import { Row, Col } from "react-bootstrap";
 import useSupportingDocuments from "../../customHooks/useSupportingDocuments";
 import Snackbar from "@mui/material/Snackbar";
+import { handleSingleFileUpload } from "../../utils/awsSingleFileUpload";
 import { handleFileUpload } from "../../utils/awsFileUpload";
 import Checkbox from "@mui/material/Checkbox";
 import Preview from "./Preview";
@@ -835,7 +836,7 @@ function ViewDraftDetails() {
           type="file"
           multiple
           onChange={(e) =>
-            handleFileUpload(
+            handleSingleFileUpload(
               e,
               "authorised_signatories",
               "authorised_signatories",
@@ -861,7 +862,7 @@ function ViewDraftDetails() {
           type="file"
           multiple
           onChange={(e) =>
-            handleFileUpload(
+            handleSingleFileUpload(
               e,
               "authorisation_letter",
               "authorisation_letter",
@@ -902,7 +903,13 @@ function ViewDraftDetails() {
         <input
           type="file"
           onChange={(e) =>
-            handleFileUpload(e, "iec_copy", "iec_copy", formik, setFileSnackbar)
+            handleSingleFileUpload(
+              e,
+              "iec_copy",
+              "iec_copy",
+              formik,
+              setFileSnackbar
+            )
           }
         />
         <br />
@@ -932,7 +939,13 @@ function ViewDraftDetails() {
         <input
           type="file"
           onChange={(e) =>
-            handleFileUpload(e, "pan_copy", "pan_copy", formik, setFileSnackbar)
+            handleSingleFileUpload(
+              e,
+              "pan_copy",
+              "pan_copy",
+              formik,
+              setFileSnackbar
+            )
           }
         />
         <br />
@@ -1116,7 +1129,13 @@ function ViewDraftDetails() {
         <input
           type="file"
           onChange={(e) =>
-            handleFileUpload(e, "spcb_reg", "spcb_reg", formik, setFileSnackbar)
+            handleSingleFileUpload(
+              e,
+              "spcb_reg",
+              "spcb_reg",
+              formik,
+              setFileSnackbar
+            )
           }
         />
         <br />

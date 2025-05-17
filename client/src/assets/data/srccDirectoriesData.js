@@ -29,10 +29,8 @@ export const viewMasterList = [
   "shipping Line",
   "Organisation",
   "Elock",
-  // "Unit Conversion",
-  "Country Code",
-  "Currency",
-  "Port",
+  "Unit Conversion",
+  "Country Code"
   // "Organisation",
   // "Ply Rating",
   // "Repair Type",

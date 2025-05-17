@@ -1,11 +1,10 @@
 import express from "express";
 import Organisation from "../../../model/srcc/Directory_Management/Organisation.mjs";
-import { authenticateJWT } from "../../../auth/auth.mjs";
 
 const router = express.Router();
 
 // ------------------ AUTOCOMPLETE (GET) ------------------
-router.get("/api/organisations/autocomplete",authenticateJWT, async (req, res) => {
+router.get("/api/organisations/autocomplete", async (req, res) => {
   try {
     const q = req.query.q || "";
 
@@ -28,7 +27,7 @@ router.get("/api/organisations/autocomplete",authenticateJWT, async (req, res) =
 });
 
 // ------------------ CREATE (POST) ------------------
-router.post("/api/organisations",authenticateJWT, async (req, res) => {
+router.post("/api/organisations", async (req, res) => {
   try {
     // Check if an organisation with the same name already exists
     const existingOrg = await Organisation.findOne({ name: req.body.name });
@@ -57,7 +56,7 @@ router.post("/api/organisations",authenticateJWT, async (req, res) => {
 });
 
 // ------------------ READ ALL (GET) ------------------
-router.get("/api/organisations",authenticateJWT, async (req, res) => {
+router.get("/api/organisations", async (req, res) => {
   try {
     const orgs = await Organisation.find();
     res.status(200).json({ data: orgs });
@@ -67,7 +66,7 @@ router.get("/api/organisations",authenticateJWT, async (req, res) => {
   }
 });
 // GET /api/organisations/names
-router.get("/api/organisations/names",authenticateJWT, async (req, res) => {
+router.get("/api/organisations/names", async (req, res) => {
   try {
     // 1) Query your Organisation collection to retrieve only the "name" field.
     //    Mongoose will return an array of docs with just "_id" and "name".
@@ -85,7 +84,7 @@ router.get("/api/organisations/names",authenticateJWT, async (req, res) => {
 });
 
 // ------------------ READ ONE (GET) ------------------
-router.get("/api/organisations/:id",authenticateJWT, async (req, res) => {
+router.get("/api/organisations/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const org = await Organisation.findById(id);

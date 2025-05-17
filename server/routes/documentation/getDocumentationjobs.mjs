@@ -1,6 +1,5 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -18,7 +17,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-documentation-jobs",authenticateJWT, async (req, res) => {
+router.get("/api/get-documentation-jobs", async (req, res) => {
   try {
     const { page = 1, limit = 10, search = "", importer, year } = req.query;
 

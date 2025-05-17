@@ -1,7 +1,5 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
-import redisClient from '../../config/redisClient.mjs';
 
 const router = express.Router();
 
@@ -16,7 +14,7 @@ const buildSearchQuery = (search) => {
   };
 };
 
-router.get("/api/get-jobs-overview/:year",authenticateJWT, async (req, res) => {
+router.get("/api/get-jobs-overview/:year", async (req, res) => {
   try {
     const { year } = req.params;
     const status = req.query.status;
@@ -150,105 +148,6 @@ router.get("/api/get-jobs-overview/:year",authenticateJWT, async (req, res) => {
     res.json(responseObj);
   } catch (error) {
     console.error("Error fetching job counts:", error);
-    res.status(500).json({ error: "Error fetching job counts" });
-  }
-});
-
-router.get('/api/import-dsr/jobs-overview', async (req, res) => {
-  const { year, importer } = req.query;
-  const cacheKey = `importdsr:jobsoverview:${year}:${importer}`;
-  try {
-    const cached = await redisClient.get(cacheKey);
-    if (cached) {
-      return res.status(200).json(JSON.parse(cached));
-    }
-    // existing DB query code
-    const jobCounts = await JobModel.aggregate([
-      { $match: { year: year, importer: importer } },
-      {
-        $group: {
-          _id: null,
-          pendingJobs: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: [{ $toLower: "$status" }, "pending"] },
-                    { $ne: [{ $toLower: "$be_no" }, "cancelled"] },
-                    {
-                      $or: [
-                        { $eq: ["$bill_date", null] },
-                        { $eq: ["$bill_date", ""] },
-                        { $eq: [{ $toLower: "$status" }, "pending"] },
-                      ],
-                    },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          completedJobs: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: [{ $toLower: "$status" }, "completed"] },
-                    { $ne: [{ $toLower: "$be_no" }, "cancelled"] },
-                    {
-                      $or: [
-                        { $ne: ["$bill_date", null] },
-                        { $ne: ["$bill_date", ""] },
-                        { $eq: [{ $toLower: "$status" }, "completed"] },
-                      ],
-                    },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          cancelledJobs: {
-            $sum: {
-              $cond: [
-                {
-                  $or: [
-                    { $eq: [{ $toLower: "$status" }, "cancelled"] },
-                    { $eq: [{ $toLower: "$be_no" }, "cancelled"] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          totalJobs: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          pendingJobs: 1,
-          completedJobs: 1,
-          cancelledJobs: 1,
-          totalJobs: 1,
-        },
-      },
-    ]);
-
-    const responseObj = jobCounts[0] || {
-      pendingJobs: 0,
-      completedJobs: 0,
-      cancelledJobs: 0,
-      totalJobs: 0,
-    };
-
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(responseObj));
-    return res.status(200).json(responseObj);
-  } catch (err) {
-    console.error("Error fetching job counts:", err);
     res.status(500).json({ error: "Error fetching job counts" });
   }
 });

@@ -1,7 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -18,7 +17,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-operations-planning-jobs/:username",authenticateJWT, async (req, res) => {
+router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
   const { username } = req.params;
   const {
     page = 1,

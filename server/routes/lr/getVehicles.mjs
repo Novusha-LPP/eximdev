@@ -1,10 +1,9 @@
 import express from "express";
 import VehicleModel from "../../model/srcc/vehicleModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-vehicles",authenticateJWT, async (req, res) => {
+router.get("/api/get-vehicles", async (req, res) => {
   try {
     const vehicles = await VehicleModel.find();
     if (!vehicles) {

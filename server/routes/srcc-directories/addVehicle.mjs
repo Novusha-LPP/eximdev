@@ -1,6 +1,5 @@
 import express from "express";
 import Vehicles from "../../model/srcc/vehicleModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -88,7 +87,7 @@ router.put("/api/vehicles/:truck_no/rto", async (req, res) => {
 });
 
 // GET /api/vehicles - Get all vehicles
-router.get("/api/get-vehicles",authenticateJWT, async (req, res) => {
+router.get("/api/get-vehicles", async (req, res) => {
   try {
     const vehicles = await Vehicles.find();
     res.status(200).json({ success: true, data: vehicles });
@@ -98,7 +97,7 @@ router.get("/api/get-vehicles",authenticateJWT, async (req, res) => {
 });
 
 // GET /api/vehicle/:truck_no - Get a specific vehicle by truck number
-router.get("/api/get-vehicles/:truck_no", authenticateJWT, async (req, res) => {
+router.get("/api/get-vehicles/:truck_no", async (req, res) => {
   try {
     const vehicle = await Vehicles.findOne({ truck_no: req.params.truck_no });
     if (!vehicle) {
@@ -113,7 +112,7 @@ router.get("/api/get-vehicles/:truck_no", authenticateJWT, async (req, res) => {
 });
 
 // DELETE /api/vehicle/:truck_no - Delete a specific vehicle
-router.delete("/api/delete-vehicle/:truck_no", authenticateJWT, async (req, res) => {
+router.delete("/api/delete-vehicle/:truck_no", async (req, res) => {
   try {
     const { truck_no } = req.params;
     const result = await Vehicles.findOneAndDelete({ truck_no });

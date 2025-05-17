@@ -1,10 +1,9 @@
 import express from "express";
 import LicModel from "../../model/accounts/LicModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-lic", authenticateJWT, async (req, res) => {
+router.get("/api/get-lic", async (req, res) => {
   try {
     const data = await LicModel.find({}).exec();
     res.status(200).json(data);

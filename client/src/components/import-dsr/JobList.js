@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useMemo } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -131,14 +131,9 @@ function JobList(props) {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Memoize columns and rows for performance
-  const memoizedColumns = useMemo(() => columns, [columns]);
-  const memoizedRows = useMemo(() => rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` })), [rows]);
-
   const table = useMaterialReactTable({
-    columns: memoizedColumns,
-    data: memoizedRows,
-    enableRowVirtualization: true, // Enable virtualization for large datasets
+    columns,
+    data: rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` })),
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,

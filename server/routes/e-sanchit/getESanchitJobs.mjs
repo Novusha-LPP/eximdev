@@ -1,6 +1,5 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
@@ -19,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-esanchit-jobs", authenticateJWT, async (req, res) => {
+router.get("/api/get-esanchit-jobs", async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year } = req.query;
 
@@ -125,7 +124,7 @@ router.get("/api/get-esanchit-jobs", authenticateJWT, async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year",authenticateJWT, async (req, res) => {
+router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
   const { job_no, year } = req.params;
   const { cth_documents, queries, esanchit_completed_date_time } = req.body;
 

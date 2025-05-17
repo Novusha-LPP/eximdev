@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 const prSchema = new mongoose.Schema(
   {
+    branch_code: {
+      type: String,
+      required: true,
+    },
     pr_no: {
       type: String,
       required: true,

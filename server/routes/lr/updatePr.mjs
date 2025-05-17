@@ -164,7 +164,7 @@ router.post("/api/update-pr", async (req, res) => {
 
       // Format PR number with leading zeros
       const paddedPrNo = nextPrNo.toString().padStart(5, "0");
-      const prNoComplete = `${paddedPrNo}/${yearSuffix}`;
+      const prNoComplete = `${prPrefix}/${paddedPrNo}/${yearSuffix}`;
       const newPrNo = `PR/${prPrefix}/${paddedPrNo}/${yearSuffix}`;
 
       console.log("🆕 Generated new PR:", newPrNo);
@@ -211,6 +211,7 @@ router.post("/api/update-pr", async (req, res) => {
 
       // Create entry in PR Model for tracking
       const newPrModel = new PrModel({
+        branch_code: prPrefix,
         pr_no: paddedPrNo,
         year: yearSuffix,
         pr_no_complete: prNoComplete,

@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 const trSchema = new mongoose.Schema(
   {
+    branch_code: {
+      type: String,
+      required: true,
+    },
     tr_no: {
       type: String,
       required: true,

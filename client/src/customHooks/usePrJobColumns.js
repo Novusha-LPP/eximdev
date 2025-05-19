@@ -5,7 +5,7 @@ const usePrJobColumns = () => {
     {
       accessorKey: "pr_no",
       header: "PR No",
-      size: 100,
+      size: 170,
       enableColumnFilter: false,
     },
     {

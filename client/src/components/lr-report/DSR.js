@@ -162,7 +162,7 @@ function DSR() {
       accessorKey: "tr_no",
       header: "LR No",
       enableSorting: false,
-      size: 160,
+      size: 170,
     },
     {
       accessorKey: "container_number",

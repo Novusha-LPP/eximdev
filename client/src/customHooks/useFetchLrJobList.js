@@ -37,34 +37,45 @@ function useFetchLrJobList(
 
       const { data, total, totalPages, currentPage } = response.data;
 
-      // Ensure sr_cel_id is safely accessed
-      const processedData = data.map((item) => ({
-        ...item,
-        container_details: {
-          ...item.container_details,
-          tr_no: item.container_details?.tr_no || "N/A",
-          container_number: item.container_details?.container_number || "N/A",
-          seal_no: item.container_details?.seal_no || "N/A",
-          gross_weight: item.container_details?.gross_weight || 0,
-          tare_weight: item.container_details?.tare_weight || 0,
-          net_weight: item.container_details?.net_weight || 0,
-          goods_pickup: item.container_details?.goods_pickup || "N/A",
-          goods_delivery: item.container_details?.goods_delivery || "N/A",
-          own_hired: item.container_details?.own_hired || "N/A",
-          type_of_vehicle: item.container_details?.type_of_vehicle || "N/A",
-          vehicle_no: item.container_details?.vehicle_no || "N/A",
-          driver_name: item.container_details?.driver_name || "N/A",
-          driver_phone: item.container_details?.driver_phone || "N/A",
-          eWay_bill: item.container_details?.eWay_bill || "N/A",
-          isOccupied: item.container_details?.isOccupied || false,
-          sr_cel_no: item.container_details?.sr_cel_no || "N/A",
-          sr_cel_FGUID: item.container_details?.sr_cel_FGUID || "N/A",
-          sr_cel_id: item.container_details?.sr_cel_id || "N/A",
-          elock: item.container_details?.elock || "N/A",
-          status: item.container_details?.status || "N/A",
-          lr_completed: item.container_details?.lr_completed || false,
-        },
-      }));
+      // Process data and exclude items where tr_no is empty or null
+      const processedData = data.map((item) => {
+        // Check if tr_no exists and is not empty
+        const hasTrNo =
+          item.container_details?.tr_no && item.container_details.tr_no !== "";
+
+        // If tr_no is empty or null, don't include container details
+        const containerDetails = hasTrNo
+          ? {
+              tr_no: item.container_details.tr_no,
+              container_number:
+                item.container_details?.container_number || "N/A",
+              seal_no: item.container_details?.seal_no || "N/A",
+              gross_weight: item.container_details?.gross_weight || 0,
+              tare_weight: item.container_details?.tare_weight || 0,
+              net_weight: item.container_details?.net_weight || 0,
+              goods_pickup: item.container_details?.goods_pickup || "N/A",
+              goods_delivery: item.container_details?.goods_delivery || "N/A",
+              own_hired: item.container_details?.own_hired || "N/A",
+              type_of_vehicle: item.container_details?.type_of_vehicle || "N/A",
+              vehicle_no: item.container_details?.vehicle_no || "N/A",
+              driver_name: item.container_details?.driver_name || "N/A",
+              driver_phone: item.container_details?.driver_phone || "N/A",
+              eWay_bill: item.container_details?.eWay_bill || "N/A",
+              isOccupied: item.container_details?.isOccupied || false,
+              sr_cel_no: item.container_details?.sr_cel_no || "N/A",
+              sr_cel_FGUID: item.container_details?.sr_cel_FGUID || "N/A",
+              sr_cel_id: item.container_details?.sr_cel_id || "N/A",
+              elock: item.container_details?.elock || "N/A",
+              status: item.container_details?.status || "N/A",
+              lr_completed: item.container_details?.lr_completed || false,
+            }
+          : null;
+
+        return {
+          ...item,
+          container_details: containerDetails,
+        };
+      });
 
       setRows(processedData);
       setTotal(total);

@@ -875,7 +875,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         accessorKey: "pr_no",
         header: "PR No",
         enableSorting: false,
-        size: 150,
+        size: 170,
       },
       {
         accessorKey: "pr_date",

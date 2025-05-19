@@ -27,6 +27,7 @@ export const viewMasterList = [
   "Toll Data",
   "Advance To Driver",
   "shipping Line",
+  "Lr Tracking Stages",
   "Organisation",
   "Elock",
   // "Unit Conversion",

@@ -12,6 +12,7 @@ import VehicleRegistration from "./VehicleRegistration";
 import TollData from "./TollData";
 import AdvanceToDriver from "./AdvanceToDriver";
 import ShippingLine from "./ShippingLine";
+import LrTrackingStagesDirectorie from "./LrTrackingStagesDirectorie";
 import Elock from "./Elock";
 import Organisation from "./Organisation";
 import UnitConversion from "./unitConversion";
@@ -48,6 +49,8 @@ function DirectoryComponent({ directoryType }) {
         return <AdvanceToDriver />;
       case "shipping Line": // ✅ Added Commoditys Directory
         return <ShippingLine />;
+      case "Lr Tracking Stages": // ✅ Added Commoditys Directory
+        return <LrTrackingStagesDirectorie />;
       case "Elock": // ✅ Added Commoditys Directory
         return <Elock />;
       case "Organisation": // ✅ Added Commoditys Directory
@@ -59,7 +62,7 @@ function DirectoryComponent({ directoryType }) {
       case "Currency": // ✅ Added Commoditys Directory
         return <CurrencyDirectory />;
       case "Port": // ✅ Added Commoditys Directory
-        return <PortDirectory/>;
+        return <PortDirectory />;
       default:
         console.log("No matching directory found for:", directoryType);
         return null;

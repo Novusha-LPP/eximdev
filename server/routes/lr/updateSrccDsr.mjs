@@ -125,6 +125,7 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
   const {
     tr_no,
     lr_completed,
+    tracking_status,
     offloading_date_time,
     detention_days = 0,
     reason_of_detention = "",
@@ -144,6 +145,10 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
     if (lr_completed !== undefined) {
       updateFields["lr_completed"] = lr_completed;
       console.log("lr_completed set to:", lr_completed);
+    }
+    if (tracking_status !== undefined) {
+      updateFields["tracking_status"] = tracking_status;
+      console.log("tracking_status set to:", tracking_status);
     }
 
     if (offloading_date_time) {
@@ -216,6 +221,7 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
       data: {
         tr_no: tr_no || "",
         lr_completed: lr_completed || "",
+        tracking_status: tracking_status || "",
         offloading_date_time: offloading_date_time || "",
         detention_days: detention_days || "",
         reason_of_detention: reason_of_detention || "",

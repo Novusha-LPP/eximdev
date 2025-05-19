@@ -4,7 +4,7 @@ import { authenticateJWT } from "../../auth/auth.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-pr-data/:branch",authenticateJWT, async (req, res) => {
+router.get("/api/get-pr-data/:branch", authenticateJWT, async (req, res) => {
   const { branch } = req.params;
   const { page = 1, limit = 50 } = req.query;
 
@@ -75,10 +75,12 @@ router.get("/api/get-pr-data/:branch",authenticateJWT, async (req, res) => {
       },
       {
         $sort: {
-          pr_year_end: -1, // Sort by year (e.g., 25 from '24-25') descending
-          pr_serial: -1, // Then sort by serial descending
+          createdAt: -1, // First priority: most recent PRs by creation time
+          pr_year_end: -1, // Then by PR year
+          pr_serial: -1, // Then by PR serial
         },
       },
+
       {
         $facet: {
           data: [{ $skip: skip }, { $limit: parseInt(limit) }],

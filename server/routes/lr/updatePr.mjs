@@ -143,21 +143,26 @@ router.post("/api/update-pr", async (req, res) => {
       // Determine prefix for PR
       const prPrefix = isBranch ? prefix : branch_code;
 
-      // Get the last PR number for this year
-      const lastPrForYear = await PrModel.findOne({
+      // Get the last PR number for this SPECIFIC branch prefix and year
+      const lastPrForBranchAndYear = await PrModel.findOne({
+        branch_code: prPrefix,
         year: yearSuffix,
       })
         .sort({ pr_no: -1 }) // Sort by pr_no descending to get the highest number
         .exec();
 
-      console.log(`📋 Last PR for year ${yearSuffix}:`, lastPrForYear);
+      console.log(
+        `📋 Last PR for branch ${prPrefix} and year ${yearSuffix}:`,
+        lastPrForBranchAndYear
+      );
 
-      // Calculate the next PR number for this year
-      let nextPrNo = 1; // Default to 1 if no previous PR exists
+      // Calculate the next PR number for this branch and year
+      // If no previous PR exists for this specific branch prefix and year, start from 1
+      let nextPrNo = 1;
 
-      if (lastPrForYear) {
+      if (lastPrForBranchAndYear) {
         // Parse the PR number as an integer and increment
-        nextPrNo = parseInt(lastPrForYear.pr_no) + 1;
+        nextPrNo = parseInt(lastPrForBranchAndYear.pr_no) + 1;
       }
 
       console.log("🔢 Next PR number:", nextPrNo);

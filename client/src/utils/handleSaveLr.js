@@ -135,12 +135,22 @@ export const handleSaveLr = async (row, props) => {
   const pr_no = props.pr_no;
   console.log(`pr_no: ${pr_no}`);
   console.log("📦 Sending final container save request...");
-  console.log("Payload:", { ...row, pr_no: props.pr_no, elock: row.elock });
+  console.log("Payload:", {
+    ...row,
+    pr_no: props.pr_no,
+    elock: row.elock,
+    tracking_status: row.tracking_status,
+  });
 
   try {
     const res = await axios.post(
       `${process.env.REACT_APP_API_STRING}/update-container`,
-      { ...row, pr_no: props.pr_no, elock: row.elock }
+      {
+        ...row,
+        pr_no: props.pr_no,
+        elock: row.elock,
+        tracking_status: row.tracking_status,
+      }
     );
     console.log("✅ Container update response:", res.data);
     alert(res.data.message);

@@ -1,6 +1,17 @@
 import mongoose from "mongoose";
 import Elock from "./Directory_Management/Elock.mjs";
 
+const TrackingHistorySchema = new mongoose.Schema({
+  status: {
+    type: String,
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 const PrDataSchema = new mongoose.Schema(
   {
     pr_no: {
@@ -128,8 +139,12 @@ const PrDataSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Elock", // Reference the Elock model
         },
-        status: {
+        tracking_status: {
           type: String,
+        },
+        tracking_status_history: {
+          type: [TrackingHistorySchema],
+          default: [],
         },
         lr_completed: {
           type: Boolean,

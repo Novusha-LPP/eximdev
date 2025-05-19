@@ -30,6 +30,7 @@ router.post("/api/update-container", async (req, res) => {
       pr_no,
       status,
       elock,
+      tracking_status,
     } = req.body;
 
     // Find the PR document
@@ -146,6 +147,7 @@ router.post("/api/update-container", async (req, res) => {
           status,
           tr_no: newTrFull,
           elock,
+          tracking_status,
         });
       } else {
         // Add new container
@@ -171,6 +173,7 @@ router.post("/api/update-container", async (req, res) => {
           status,
           tr_no: newTrFull,
           elock,
+          tracking_status,
         });
       }
     } else {
@@ -198,6 +201,7 @@ router.post("/api/update-container", async (req, res) => {
         vehicle_no,
         status,
         elock,
+        tracking_status,
       });
 
       // Assign TR if not already present

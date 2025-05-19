@@ -379,7 +379,7 @@ function useLrColumns(props) {
       accessorKey: "tr_no",
       header: "LR No",
       enableSorting: false,
-      size: 100,
+      size: 170,
     },
     {
       accessorKey: "container_number",

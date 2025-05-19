@@ -19,8 +19,6 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-console.log("ji")
-
 router.get("/api/get-esanchit-completed-jobs",authenticateJWT, async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year } = req.query;

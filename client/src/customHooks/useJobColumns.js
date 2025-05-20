@@ -1,15 +1,27 @@
 import React, { useCallback, useMemo } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
+import { useSearchQuery } from "../contexts/SearchQueryContext";
 // Custom hook to manage job columns configuration
 function useJobColumns() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { 
+    searchQuery, 
+    detailedStatus, 
+    selectedICD, 
+    selectedImporter,
+    setSearchQuery,
+    setDetailedStatus,
+    setSelectedICD,
+    setSelectedImporter
+  } = useSearchQuery();
 
   const handleCopy = (event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -192,7 +204,15 @@ function useJobColumns() {
 
           return (
             <div
-              onClick={() => navigate(`/job/${job_no}/${year}`)}
+              onClick={() => navigate(`/job/${job_no}/${year}`, {
+                state: {
+                  searchQuery,
+                  detailedStatus,
+                  selectedICD,
+                  selectedImporter,
+                  fromJobList: true
+                }
+              })}
               style={{
                 cursor: "pointer",
                 color: textColor,
@@ -556,7 +576,7 @@ function useJobColumns() {
         },
       },
     ],
-    [getPortLocation, handleCopy, navigate]
+    [getPortLocation, handleCopy, navigate, location, searchQuery, detailedStatus, selectedICD, selectedImporter]
   );
 
   return columns;

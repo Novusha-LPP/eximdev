@@ -39,10 +39,11 @@ const CreatePrModal = ({
   prData,
   onInputChange,
   isSaving,
+  title = "New PR",
 }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>New PR</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 1 }}>
           <Grid item xs={6}>
@@ -210,14 +211,14 @@ const CreatePrModal = ({
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>Cancel</Button>{" "}
         <Button
           onClick={onSave}
           variant="contained"
           color="primary"
           disabled={isSaving}
         >
-          Create
+          {title === "New PR" ? "Create" : "Save"}
         </Button>
       </DialogActions>
     </Dialog>

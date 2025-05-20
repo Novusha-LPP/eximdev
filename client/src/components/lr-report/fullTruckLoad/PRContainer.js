@@ -16,16 +16,15 @@ const PRContainer = () => {
   const [totalRows, setTotalRows] = useState(0);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newPrData, setNewPrData] = useState(INITIAL_PR_DATA);
+  const [editingPr, setEditingPr] = useState(null);
 
   // Optimize data fetching for PR
   const getPrData = useCallback(async (page = 1, limit = 50) => {
     setIsLoading(true);
-
     try {
       const res = await prService.getPrData(page, limit);
       setPrData(res.data);
       setTotalRows(res.total || 0);
-
       console.log("✅ PR data loaded successfully:", res);
     } catch (error) {
       console.error("❌ Error fetching PR data:", error);
@@ -39,7 +38,6 @@ const PRContainer = () => {
     }
   }, []);
 
-  // Fetch data on mount and when pagination changes
   useEffect(() => {
     getPrData(pagination.pageIndex + 1, pagination.pageSize);
   }, [getPrData, pagination.pageIndex, pagination.pageSize]);
@@ -53,32 +51,24 @@ const PRContainer = () => {
 
   const handleCreateModalClose = () => {
     setCreateModalOpen(false);
+    setEditingPr(null);
     setNewPrData(INITIAL_PR_DATA);
   };
 
-  const handleCreatePr = async () => {
+  const handleSavePr = async () => {
     setIsSaving(true);
     try {
-      await prService.createPr(newPrData);
+      if (editingPr) {
+        await prService.updatePrData(editingPr._id, newPrData);
+      } else {
+        await prService.createPr(newPrData);
+      }
       await getPrData(pagination.pageIndex + 1, pagination.pageSize);
       handleCreateModalClose();
-      alert("PR created successfully");
+      alert(editingPr ? "PR updated successfully" : "PR created successfully");
     } catch (error) {
-      console.error("Error creating PR:", error);
-      alert("Failed to create PR. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSavePr = async ({ row, values }) => {
-    setIsSaving(true);
-    try {
-      await prService.updatePrData(row.original._id, values);
-      await getPrData(pagination.pageIndex + 1, pagination.pageSize);
-    } catch (error) {
-      console.error("Error updating PR:", error);
-      alert("Failed to update PR. Please try again.");
+      console.error("Error saving PR:", error);
+      alert("Failed to save PR. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -136,6 +126,8 @@ const PRContainer = () => {
         accessorKey: "pr_no",
         header: "PR Number",
         enableEditing: true,
+        Pin: "left",
+        size: 150,
       },
       {
         accessorKey: "pr_date",
@@ -320,31 +312,49 @@ const PRContainer = () => {
     [containerColumns, handleDeleteContainer, handleSaveContainer]
   );
 
+  const renderRowActions = ({ row }) => (
+    <Box sx={{ display: "flex", gap: "1rem" }}>
+      <Tooltip title="Edit">
+        <IconButton
+          onClick={() => {
+            setEditingPr(row.original);
+            setNewPrData(row.original);
+            setCreateModalOpen(true);
+          }}
+        >
+          <Edit />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Delete">
+        <IconButton color="error" onClick={() => handleDeletePr(row)}>
+          <Delete />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+
   return (
     <>
       <MaterialReactTable
         columns={prColumns}
         data={prData}
         enableExpanding
-        enableEditing
-        editingMode="row"
+        enableEditing={false}
         enableRowActions
-        positionActionsColumn="last"
-        renderRowActions={({ row, table }) => (
-          <Box sx={{ display: "flex", gap: "1rem" }}>
-            <Tooltip title="Edit">
-              <IconButton onClick={() => table.setEditingRow(row)}>
-                <Edit />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton color="error" onClick={() => handleDeletePr(row)}>
-                <Delete />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-        onEditingRowSave={handleSavePr}
+        enablePinning
+        positionActionsColumn="first"
+        displayColumnDefOptions={{
+          "mrt-row-actions": {
+            Pin: "left",
+            size: 100,
+          },
+        }}
+        initialState={{
+          columnPinning: {
+            left: ["mrt-row-actions", "pr_no"],
+          },
+        }}
+        renderRowActions={renderRowActions}
         renderDetailPanel={renderContainerTable}
         muiTableBodyProps={{
           sx: {
@@ -353,15 +363,20 @@ const PRContainer = () => {
             },
           },
         }}
+        muiTableContainerProps={{
+          sx: {
+            maxHeight: "600px",
+          },
+        }}
         state={{
           isLoading: isLoading || isSaving,
           pagination,
         }}
-        manualPagination
+        manualPagination={true}
         rowCount={totalRows}
         onPaginationChange={setPagination}
-        enablePagination
-        enableTopToolbar
+        enablePagination={true}
+        enableTopToolbar={true}
         renderTopToolbarCustomActions={() => (
           <Button
             color="primary"
@@ -377,10 +392,11 @@ const PRContainer = () => {
       <CreatePrModal
         open={createModalOpen}
         onClose={handleCreateModalClose}
-        onSave={handleCreatePr}
+        onSave={handleSavePr}
         prData={newPrData}
         onInputChange={handleInputChange}
         isSaving={isSaving}
+        title={editingPr ? "Edit PR" : "New PR"}
       />
     </>
   );

@@ -129,7 +129,6 @@ const PRContainer = () => {
       setIsSaving(false);
     }
   };
-
   // Define columns for PR (parent rows)
   const prColumns = useMemo(
     () => [
@@ -144,13 +143,88 @@ const PRContainer = () => {
         enableEditing: true,
       },
       {
-        accessorKey: "shipper",
-        header: "Shipper",
+        accessorKey: "branch",
+        header: "Branch",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "consignor",
+        header: "Consignor",
         enableEditing: true,
       },
       {
         accessorKey: "consignee",
         header: "Consignee",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "container_type",
+        header: "Container Type",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "container_count",
+        header: "Container Count",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "type_of_vehicle",
+        header: "Vehicle Type",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "description",
+        header: "Description",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "shipping_line",
+        header: "Shipping Line",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "container_loading",
+        header: "Container Loading",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "container_offloading",
+        header: "Container Offloading",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "do_validity",
+        header: "DO Validity",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "instructions",
+        header: "Instructions",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "document_no",
+        header: "Document No",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "document_date",
+        header: "Document Date",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "goods_pickup",
+        header: "Goods Pickup",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "goods_delivery",
+        header: "Goods Delivery",
+        enableEditing: true,
+      },
+      {
+        accessorKey: "import_export",
+        header: "Import/Export",
         enableEditing: true,
       },
     ],

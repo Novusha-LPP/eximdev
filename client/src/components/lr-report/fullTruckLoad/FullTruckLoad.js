@@ -5,6 +5,7 @@ import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Container from "./Container";
+import PRContainer from "./PRContainer.js";
 import Packages from "./Packages";
 import Bulk from "./Bulk";
 
@@ -59,6 +60,7 @@ export default function FullTruckLoad(props) {
           <Tab label="Container" {...a11yProps(0)} />
           <Tab label="Packages" {...a11yProps(1)} />
           <Tab label="Bulk" {...a11yProps(2)} />
+          <Tab label="PRContainer" {...a11yProps(3)} />
         </Tabs>
       </Box>
       <CustomTabPanel value={value} index={0}>
@@ -69,6 +71,9 @@ export default function FullTruckLoad(props) {
       </CustomTabPanel>
       <CustomTabPanel value={value} index={2}>
         <Bulk />
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={3}>
+        <PRContainer />
       </CustomTabPanel>
     </Box>
   );

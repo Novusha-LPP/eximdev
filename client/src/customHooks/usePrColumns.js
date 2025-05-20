@@ -798,18 +798,16 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             value={rows[row.index]?.document_no || ""}
             onChange={(event) => {
               const value = event.target.value;
-              // Validate input: must be numeric, no special characters, and max length of 16
-              if (/^\d{0,16}$/.test(value)) {
+
+              // Allow any characters, but limit to 10
+              if (value.length <= 10) {
                 handleInputChange(event, row.index, cell.column.id);
               } else {
-                alert(
-                  "Document number must be a numeric value with a maximum of 16 digits and no special characters."
-                );
+                alert("Document number must be at most 10 characters.");
               }
             }}
             inputProps={{
-              maxLength: 16,
-              pattern: "\\d*",
+              maxLength: 10,
             }}
           />
         ),
@@ -837,7 +835,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               multiline
               rows={3}
               value={currentValue}
-              onChange={(event) => {
+              // onChange={(event) => {
+              //   handleTextInputChange(event, row.index, cell.column.id, 300);
+              // }}
+              onBlur={(event) => {
                 handleTextInputChange(event, row.index, cell.column.id, 300);
               }}
               inputProps={{

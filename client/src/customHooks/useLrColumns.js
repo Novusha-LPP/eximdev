@@ -77,7 +77,6 @@ function useLrColumns(props) {
       console.error("Error fetching Elocks:", error);
     }
   };
-
   const SrCelDropdown = ({ options, onSelect, defaultValue, rowIndex }) => {
     return (
       <Autocomplete
@@ -111,9 +110,7 @@ function useLrColumns(props) {
             },
             rowIndex,
             "sr_cel_id"
-          );
-
-          // Update the elock details in the row
+          ); // Update the elock details in the row
           setRows((prevRows) => {
             const updatedRows = [...prevRows];
             updatedRows[rowIndex].elock = newValue || null;
@@ -833,19 +830,12 @@ function useLrColumns(props) {
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => (
-        <div
-          style={{
-            pointerEvents: rows[row.index]?.isValidContainer ? "auto" : "none",
-            opacity: rows[row.index]?.isValidContainer ? 1 : 0.5,
-          }}
-        >
-          <SrCelDropdown
-            options={srcelOptions}
-            onSelect={handleInputChange}
-            defaultValue={cell.getValue()}
-            rowIndex={row.index}
-          />
-        </div>
+        <SrCelDropdown
+          options={srcelOptions}
+          onSelect={handleInputChange}
+          defaultValue={cell.getValue()}
+          rowIndex={row.index}
+        />
       ),
     },
     {
@@ -942,8 +932,9 @@ function useLrColumns(props) {
           <Box>
             <div>ElockCode: {elock.ElockCode}</div>
             <div>FAssetID: {elock.FAssetID}</div>
-            <div>FAgentGUID: {elock.FAgentGUID}</div>
-            <div>AssetGUID: {elock.AssetGUID}</div>
+            <div>FTokenID: {elock.FTokenID}</div>
+            {/* <div>FAgentGUID: {elock.FAgentGUID}</div>
+            <div>AssetGUID: {elock.AssetGUID}</div> */}
           </Box>
         ) : (
           "No Elock Selected"

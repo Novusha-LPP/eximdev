@@ -6,8 +6,14 @@ const router = express.Router();
 // Create a new Elock
 router.post("/api/elock/create-elock", async (req, res) => {
   try {
-    const { FAssetID, FAgentGUID, AssetGUID, ElockCode } = req.body;
-    const newElock = new Elock({ FAssetID, FAgentGUID, AssetGUID, ElockCode });
+    const { FAssetID, FTokenID, FAgentGUID, AssetGUID, ElockCode } = req.body;
+    const newElock = new Elock({
+      FAssetID,
+      FTokenID,
+      FAgentGUID,
+      AssetGUID,
+      ElockCode,
+    });
     await newElock.save();
     res
       .status(201)
@@ -52,10 +58,10 @@ router.get("/api/elock/get-elock/:id", async (req, res) => {
 router.put("/api/elock/update-elock/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { FAssetID, FAgentGUID, AssetGUID, ElockCode } = req.body;
+    const { FAssetID, FTokenID, FAgentGUID, AssetGUID, ElockCode } = req.body;
     const updatedElock = await Elock.findByIdAndUpdate(
       id,
-      { FAssetID, FAgentGUID, AssetGUID, ElockCode },
+      { FAssetID, FTokenID, FAgentGUID, AssetGUID, ElockCode },
       { new: true }
     );
     if (!updatedElock) {

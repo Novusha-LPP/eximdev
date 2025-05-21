@@ -24,6 +24,7 @@ import * as Yup from "yup";
 
 const validationSchema = Yup.object({
   FAssetID: Yup.string().required("FAssetID is required"),
+  FTokenID: Yup.string().required("FTokenID is required"),
   FAgentGUID: Yup.string().required("FAgentGUID is required"),
   AssetGUID: Yup.string().required("AssetGUID is required"),
   ElockCode: Yup.string().required("ElockCode is required"),
@@ -35,6 +36,7 @@ const Elock = () => {
   const [modalMode, setModalMode] = useState("add");
   const [formData, setFormData] = useState({
     FAssetID: "",
+    FTokenID: "",
     FAgentGUID: "",
     AssetGUID: "",
     ElockCode: "",
@@ -58,7 +60,7 @@ const Elock = () => {
 
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ FAssetID: "", FAgentGUID: "", AssetGUID: "", ElockCode: "" });
+    setFormData({ FAssetID: "", FTokenID: "",FAgentGUID: "", AssetGUID: "", ElockCode: "" });
     setOpenModal(true);
   };
 
@@ -67,6 +69,7 @@ const Elock = () => {
     setFormData({
       _id: elock._id,
       FAssetID: elock.FAssetID || "",
+      FTokenID: elock.FTokenID || "",
       FAgentGUID: elock.FAgentGUID || "",
       AssetGUID: elock.AssetGUID || "",
       ElockCode: elock.ElockCode || "",
@@ -134,6 +137,7 @@ const Elock = () => {
             <TableRow>
               <TableCell>ElockCode</TableCell>
               <TableCell>FAssetID</TableCell>
+              <TableCell>FTokenID</TableCell>
               <TableCell>FAgentGUID</TableCell>
               <TableCell>AssetGUID</TableCell>
               <TableCell>Actions</TableCell>
@@ -144,6 +148,7 @@ const Elock = () => {
               <TableRow key={elock._id}>
                 <TableCell>{elock.ElockCode}</TableCell>
                 <TableCell>{elock.FAssetID}</TableCell>
+                <TableCell>{elock.FTokenID}</TableCell>
                 <TableCell>{elock.FAgentGUID}</TableCell>
                 <TableCell>{elock.AssetGUID}</TableCell>
                 <TableCell>
@@ -196,6 +201,17 @@ const Elock = () => {
                     required
                     error={touched.FAssetID && Boolean(errors.FAssetID)}
                     helperText={touched.FAssetID && errors.FAssetID}
+                  />
+                  <TextField
+                    name="FTokenID"
+                    label="FTokenID"
+                    value={values.FTokenID}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    fullWidth
+                    required
+                    error={touched.FTokenID && Boolean(errors.FTokenID)}
+                    helperText={touched.FTokenID && errors.FTokenID}
                   />
 
                   <TextField

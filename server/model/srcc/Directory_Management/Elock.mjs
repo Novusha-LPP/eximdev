@@ -8,6 +8,12 @@ const ElockSchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
+    FTokenID: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+    },
     FAgentGUID: {
       type: String,
       required: true,

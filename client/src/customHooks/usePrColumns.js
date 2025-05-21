@@ -835,10 +835,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               multiline
               rows={3}
               value={currentValue}
-              // onChange={(event) => {
-              //   handleTextInputChange(event, row.index, cell.column.id, 300);
-              // }}
-              onBlur={(event) => {
+              onChange={(event) => {
                 handleTextInputChange(event, row.index, cell.column.id, 300);
               }}
               inputProps={{

@@ -438,9 +438,10 @@ function useLrColumns(props) {
           value={rows[row.index]?.seal_no || ""}
           onChange={(e) => {
             const inputValue = e.target.value.toUpperCase(); // Convert to uppercase
-            const isValidInput = /^[A-Z0-9]*$/.test(inputValue); // Allow only uppercase letters and numbers
+            const isValidInput =
+              /^[A-Z0-9!@#$%^&*()_\-+=<>?/.,:;'"\\[\]{}|`~]*$/.test(inputValue); // Allow uppercase, numbers, and special chars
 
-            if (isValidInput && inputValue.length <= 25) {
+            if (isValidInput && inputValue.length <= 30) {
               setRows((prevRows) => {
                 const updatedRows = [...prevRows];
                 updatedRows[row.index].seal_no = inputValue;
@@ -451,10 +452,10 @@ function useLrColumns(props) {
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
-          error={rows[row.index]?.seal_no?.length >= 25} // Show error if not exactly 25 characters
+          error={rows[row.index]?.seal_no?.length > 30}
           helperText={
-            rows[row.index]?.seal_no?.length >= 25
-              ? "Seal No must be exactly 25 characters (uppercase and numeric)"
+            rows[row.index]?.seal_no?.length > 30
+              ? "Seal No must be up to 30 characters"
               : ""
           }
           disabled={!rows[row.index]?.isValidContainer}

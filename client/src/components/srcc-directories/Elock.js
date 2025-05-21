@@ -23,11 +23,7 @@ import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
 const validationSchema = Yup.object({
-  FAssetID: Yup.string().required("FAssetID is required"),
-  FTokenID: Yup.string().required("FTokenID is required"),
-  FAgentGUID: Yup.string().required("FAgentGUID is required"),
-  AssetGUID: Yup.string().required("AssetGUID is required"),
-  ElockCode: Yup.string().required("ElockCode is required"),
+  ElockNumber: Yup.string().required("Elock Number is required"),
 });
 
 const Elock = () => {
@@ -35,11 +31,7 @@ const Elock = () => {
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [formData, setFormData] = useState({
-    FAssetID: "",
-    FTokenID: "",
-    FAgentGUID: "",
-    AssetGUID: "",
-    ElockCode: "",
+    ElockNumber: "",
   });
 
   const API_URL =
@@ -53,14 +45,13 @@ const Elock = () => {
       console.error("❌ Error fetching Elocks:", error);
     }
   };
-
   useEffect(() => {
     fetchElocks();
-  }, []);
+  }, [fetchElocks]);
 
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ FAssetID: "", FTokenID: "",FAgentGUID: "", AssetGUID: "", ElockCode: "" });
+    setFormData({ ElockNumber: "" });
     setOpenModal(true);
   };
 
@@ -68,11 +59,7 @@ const Elock = () => {
     setModalMode("edit");
     setFormData({
       _id: elock._id,
-      FAssetID: elock.FAssetID || "",
-      FTokenID: elock.FTokenID || "",
-      FAgentGUID: elock.FAgentGUID || "",
-      AssetGUID: elock.AssetGUID || "",
-      ElockCode: elock.ElockCode || "",
+      ElockNumber: elock.ElockNumber || "",
     });
     setOpenModal(true);
   };
@@ -80,7 +67,7 @@ const Elock = () => {
   const handleDelete = async (elock) => {
     if (
       window.confirm(
-        `Are you sure you want to delete Elock with FAssetID: ${elock.FAssetID}?`
+        `Are you sure you want to delete Elock with Number: ${elock.ElockNumber}?`
       )
     ) {
       try {
@@ -135,22 +122,14 @@ const Elock = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>ElockCode</TableCell>
-              <TableCell>FAssetID</TableCell>
-              <TableCell>FTokenID</TableCell>
-              <TableCell>FAgentGUID</TableCell>
-              <TableCell>AssetGUID</TableCell>
+              <TableCell>Elock Number</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {elocks.map((elock) => (
               <TableRow key={elock._id}>
-                <TableCell>{elock.ElockCode}</TableCell>
-                <TableCell>{elock.FAssetID}</TableCell>
-                <TableCell>{elock.FTokenID}</TableCell>
-                <TableCell>{elock.FAgentGUID}</TableCell>
-                <TableCell>{elock.AssetGUID}</TableCell>
+                <TableCell>{elock.ElockNumber}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(elock)} color="primary">
                     <EditIcon />
@@ -192,62 +171,15 @@ const Elock = () => {
                   }}
                 >
                   <TextField
-                    name="FAssetID"
-                    label="FAssetID"
-                    value={values.FAssetID}
+                    name="ElockNumber"
+                    label="Elock Number"
+                    value={values.ElockNumber}
                     onChange={handleChange}
                     onBlur={handleBlur}
                     fullWidth
                     required
-                    error={touched.FAssetID && Boolean(errors.FAssetID)}
-                    helperText={touched.FAssetID && errors.FAssetID}
-                  />
-                  <TextField
-                    name="FTokenID"
-                    label="FTokenID"
-                    value={values.FTokenID}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.FTokenID && Boolean(errors.FTokenID)}
-                    helperText={touched.FTokenID && errors.FTokenID}
-                  />
-
-                  <TextField
-                    name="FAgentGUID"
-                    label="FAgentGUID"
-                    value={values.FAgentGUID}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.FAgentGUID && Boolean(errors.FAgentGUID)}
-                    helperText={touched.FAgentGUID && errors.FAgentGUID}
-                  />
-
-                  <TextField
-                    name="AssetGUID"
-                    label="AssetGUID"
-                    value={values.AssetGUID}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.AssetGUID && Boolean(errors.AssetGUID)}
-                    helperText={touched.AssetGUID && errors.AssetGUID}
-                  />
-
-                  <TextField
-                    name="ElockCode"
-                    label="ElockCode"
-                    value={values.ElockCode}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.ElockCode && Boolean(errors.ElockCode)}
-                    helperText={touched.ElockCode && errors.ElockCode}
+                    error={touched.ElockNumber && Boolean(errors.ElockNumber)}
+                    helperText={touched.ElockNumber && errors.ElockNumber}
                   />
 
                   <DialogActions>

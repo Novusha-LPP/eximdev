@@ -143,27 +143,33 @@ router.post("/api/update-pr", async (req, res) => {
       // Determine prefix for PR
       const prPrefix = isBranch ? prefix : branch_code;
 
-      // Get the last PR number for this prefix and year combination
-      const lastPrForYear = await PrModel.findOne({
-        prefix: prPrefix,
+      // Get the last PR number for this SPECIFIC branch prefix and year
+      const lastPrForBranchAndYear = await PrModel.findOne({
+        branch_code: prPrefix,
         year: yearSuffix,
       })
-        .sort({ tr_no: -1 })
+        .sort({ pr_no: -1 }) // Sort by pr_no descending to get the highest number
         .exec();
 
       console.log(
-        `📋 Last PR for prefix ${prPrefix} and year ${yearSuffix}:`,
-        lastPrForYear
+        `📋 Last PR for branch ${prPrefix} and year ${yearSuffix}:`,
+        lastPrForBranchAndYear
       );
 
-      // Calculate the next PR number for this prefix/year combination
-      let lastPrNo = lastPrForYear ? parseInt(lastPrForYear.pr_no) : 0;
-      let nextPrNo = lastPrNo + 1;
+      // Calculate the next PR number for this branch and year
+      // If no previous PR exists for this specific branch prefix and year, start from 1
+      let nextPrNo = 1;
+
+      if (lastPrForBranchAndYear) {
+        // Parse the PR number as an integer and increment
+        nextPrNo = parseInt(lastPrForBranchAndYear.pr_no) + 1;
+      }
+
       console.log("🔢 Next PR number:", nextPrNo);
 
       // Format PR number with leading zeros
       const paddedPrNo = nextPrNo.toString().padStart(5, "0");
-      const prNoComplete = `${paddedPrNo}/${yearSuffix}`;
+      const prNoComplete = `${prPrefix}/${paddedPrNo}/${yearSuffix}`;
       const newPrNo = `PR/${prPrefix}/${paddedPrNo}/${yearSuffix}`;
 
       console.log("🆕 Generated new PR:", newPrNo);
@@ -210,6 +216,7 @@ router.post("/api/update-pr", async (req, res) => {
 
       // Create entry in PR Model for tracking
       const newPrModel = new PrModel({
+        branch_code: prPrefix,
         pr_no: paddedPrNo,
         year: yearSuffix,
         pr_no_complete: prNoComplete,

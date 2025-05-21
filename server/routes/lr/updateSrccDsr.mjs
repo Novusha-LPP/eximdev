@@ -6,10 +6,10 @@ const router = express.Router();
 
 // AWS SES configuration
 AWS.config.update({
-  region: process.env.AWS_REGION,
+  region: process.env.REACT_APP_AWS_REGION,
   // credentials: {
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  accessKeyId: process.env.REACT_APP_ACCESS_KEY_ID,
+  secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
 });
 
 const ses = new AWS.SES();
@@ -125,12 +125,14 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
   const {
     tr_no,
     lr_completed,
+    tracking_status,
     offloading_date_time,
     detention_days = 0,
     reason_of_detention = "",
     tipping = false,
     document_attachment,
   } = req.body;
+  console.log(tracking_status);
 
   if (!tr_no) {
     console.log("Validation failed: TR number is missing");
@@ -144,6 +146,10 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
     if (lr_completed !== undefined) {
       updateFields["lr_completed"] = lr_completed;
       console.log("lr_completed set to:", lr_completed);
+    }
+    if (tracking_status !== undefined) {
+      updateFields["tracking_status"] = tracking_status;
+      console.log("tracking_status set to:", tracking_status);
     }
 
     if (offloading_date_time) {
@@ -216,6 +222,7 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
       data: {
         tr_no: tr_no || "",
         lr_completed: lr_completed || "",
+        tracking_status: tracking_status || "",
         offloading_date_time: offloading_date_time || "",
         detention_days: detention_days || "",
         reason_of_detention: reason_of_detention || "",

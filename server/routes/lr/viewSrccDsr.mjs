@@ -18,9 +18,9 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
         $match: {
           $or: [
             { "containers.lr_completed": false },
-            { "containers.lr_completed": { $exists: false } }
+            { "containers.lr_completed": { $exists: false } },
           ],
-          "containers.tr_no": { $exists: true, $ne: "" }
+          "containers.tr_no": { $exists: true, $ne: "" },
         },
       },
       {
@@ -57,6 +57,7 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
                 sr_cel_no: "$containers.sr_cel_no",
                 sr_cel_FGUID: "$containers.sr_cel_FGUID",
                 sr_cel_id: "$containers.sr_cel_id",
+                tracking_status: "$containers.tracking_status",
                 shipping_line: 1,
                 container_offloading: 1,
                 do_validity: 1,

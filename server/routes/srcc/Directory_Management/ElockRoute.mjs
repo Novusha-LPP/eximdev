@@ -7,11 +7,20 @@ const router = express.Router();
 router.post("/api/elock/create-elock", async (req, res) => {
   try {
     const { ElockNumber } = req.body;
+
+    // Prevent duplicate ElockNumber
+    const exists = await Elock.findOne({ ElockNumber });
+    if (exists) {
+      return res.status(409).json({ message: "Elock already exists" });
+    }
+
     const newElock = new Elock({ ElockNumber });
     await newElock.save();
-    res
-      .status(201)
-      .json({ message: "Elock created successfully", data: newElock });
+
+    res.status(201).json({
+      message: "Elock created successfully",
+      data: newElock,
+    });
   } catch (error) {
     console.error("Error creating Elock:", error);
     res.status(500).json({ message: "Error creating Elock", error });

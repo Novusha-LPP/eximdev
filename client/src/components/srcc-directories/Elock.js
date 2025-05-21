@@ -23,7 +23,9 @@ import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
 const validationSchema = Yup.object({
-  ElockNumber: Yup.string().required("Elock Number is required"),
+  ElockNumber: Yup.string()
+    .required("Elock Number is required")
+    .matches(/^\d+$/, "Only numbers are allowed"),
 });
 
 const Elock = () => {
@@ -160,7 +162,7 @@ const Elock = () => {
             onSubmit={handleSave}
             enableReinitialize
           >
-            {({ values, handleChange, handleBlur, errors, touched }) => (
+            {({ values, handleChange: formikHandleChange, handleBlur, errors, touched }) => (
               <Form>
                 <Box
                   sx={{
@@ -174,12 +176,20 @@ const Elock = () => {
                     name="ElockNumber"
                     label="Elock Number"
                     value={values.ElockNumber}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      e.target.value = value;
+                      formikHandleChange(e);
+                    }}
                     onBlur={handleBlur}
                     fullWidth
                     required
                     error={touched.ElockNumber && Boolean(errors.ElockNumber)}
                     helperText={touched.ElockNumber && errors.ElockNumber}
+                    inputProps={{
+                      pattern: "[0-9]*",
+                      inputMode: "numeric"
+                    }}
                   />
 
                   <DialogActions>

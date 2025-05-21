@@ -11,7 +11,7 @@ import {
 
 const INITIAL_PR_DATA = {
   pr_no: "",
-  pr_date: new Date().toISOString().split("T")[0],
+  // pr_date: new Date().toISOString().split("T")[0],
   branch: "",
   consignor: "",
   consignee: "",
@@ -54,7 +54,7 @@ const CreatePrModal = ({
               fullWidth
             />
           </Grid>
-          <Grid item xs={6}>
+          {/* <Grid item xs={6}>
             <TextField
               label="PR Date"
               type="date"
@@ -63,7 +63,7 @@ const CreatePrModal = ({
               fullWidth
               InputLabelProps={{ shrink: true }}
             />
-          </Grid>
+          </Grid> */}
           <Grid item xs={6}>
             <TextField
               label="Branch"

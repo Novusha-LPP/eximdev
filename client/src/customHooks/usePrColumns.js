@@ -282,98 +282,18 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       handleInputChange(event, rowIndex, columnId);
     }
   };
+  function formatLocalDateTime(date) {
+    const d = new Date(date);
+    const pad = (n) => n.toString().padStart(2, "0");
 
-  // Create a DateInputCell reusable component for date fields
-  const DateInputCell = ({ rowIndex, columnId, isTime = false }) => {
-    const inputRef = useRef(null);
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
 
-    // Calculate date range limits
-    const now = new Date();
-    const minDate = new Date(now);
-    minDate.setFullYear(now.getFullYear() - 1);
-    const maxDate = new Date(now);
-    maxDate.setFullYear(now.getFullYear() + 1);
-
-    // Format date strings
-    const minDateStr = minDate.toISOString().split("T")[0];
-    const maxDateStr = maxDate.toISOString().split("T")[0];
-
-    // For datetime-local, include time
-    const minDateTime = minDate.toISOString().slice(0, 16);
-    const maxDateTime = maxDate.toISOString().slice(0, 16);
-
-    useEffect(() => {
-      const handleFocus = () => {
-        setTimeout(() => {
-          if (document.activeElement === inputRef.current) {
-            try {
-              inputRef.current.showPicker();
-            } catch (error) {
-              console.log("Browser requires direct interaction for picker");
-            }
-          }
-        }, 100);
-      };
-
-      if (inputRef.current) {
-        inputRef.current.addEventListener("focus", handleFocus);
-      }
-
-      return () => {
-        if (inputRef.current) {
-          inputRef.current.removeEventListener("focus", handleFocus);
-        }
-      };
-    }, []);
-
-    return (
-      <TextField
-        inputRef={inputRef}
-        type={isTime ? "datetime-local" : "date"}
-        sx={{ width: "100%" }}
-        size="small"
-        value={rows[rowIndex]?.[columnId] || ""}
-        inputProps={{
-          min: isTime ? minDateTime : minDateStr,
-          max: isTime ? maxDateTime : maxDateStr,
-        }}
-        onChange={(event) => {
-          const value = event.target.value;
-
-          // Always allow clearing the field
-          if (!value) {
-            handleInputChange(event, rowIndex, columnId);
-            return;
-          }
-
-          const selectedDate = new Date(value);
-
-          // Validate if date is within allowed range
-          if (selectedDate >= minDate && selectedDate <= maxDate) {
-            handleInputChange(event, rowIndex, columnId);
-          } else {
-            alert(
-              "Please select a date between last year and next year from today"
-            );
-          }
-        }}
-        onClick={() => {
-          try {
-            inputRef.current?.showPicker();
-          } catch (error) {
-            console.log("Error showing picker:", error);
-          }
-        }}
-        onFocus={() => {
-          try {
-            inputRef.current?.showPicker();
-          } catch (error) {
-            // Already handled by the useEffect
-          }
-        }}
-      />
-    );
-  };
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
 
   // Memoize columns configuration
   const columns = useMemo(
@@ -664,10 +584,18 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         enableSorting: false,
         size: calculateColumnWidth(rows, "do_validity"),
         Cell: ({ cell, row }) => (
-          <DateInputCell
-            rowIndex={row.index}
-            columnId={cell.column.id}
-            isTime={true}
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            type="datetime-local"
+            value={
+              rows[row.index]?.do_validity
+                ? formatLocalDateTime(rows[row.index]?.do_validity)
+                : ""
+            }
+            onChange={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
           />
         ),
       },
@@ -818,7 +746,18 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         enableSorting: false,
         size: calculateColumnWidth(rows, "document_date"),
         Cell: ({ cell, row }) => (
-          <DateInputCell rowIndex={row.index} columnId={cell.column.id} />
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            type="date"
+            value={rows[row.index]?.document_date || ""}
+            onChange={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+            inputProps={{
+              max: new Date().toISOString().split("T")[0], // Prevents future dates
+            }}
+          />
         ),
       },
       {

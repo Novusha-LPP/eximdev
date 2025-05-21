@@ -3,13 +3,13 @@ import axios from "axios";
 import {
   Box,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Paper,
   IconButton,
   Dialog,
   DialogTitle,
@@ -17,108 +17,87 @@ import {
   DialogActions,
   TextField,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 const validationSchema = Yup.object({
   ElockNumber: Yup.string()
     .required("Elock Number is required")
-    .matches(/^\d+$/, "Only numbers are allowed"),
+    .matches(/^\d+$/, "Only numbers allowed"),
 });
 
 const Elock = () => {
   const [elocks, setElocks] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [modalMode, setModalMode] = useState("add");
-  const [formData, setFormData] = useState({
-    ElockNumber: "",
-  });
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState("add");
+  const [selected, setSelected] = useState(null);
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  const fetchElocks = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/elock/get-elocks`);
-      setElocks(response.data.data || []);
-    } catch (error) {
-      console.error("❌ Error fetching Elocks:", error);
-    }
-  };
+  // ✅ Fetch once when component loads
   useEffect(() => {
     fetchElocks();
-  }, [fetchElocks]);
+  }, []);
 
-  const handleAdd = () => {
-    setModalMode("add");
-    setFormData({ ElockNumber: "" });
-    setOpenModal(true);
+  const fetchElocks = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/elock/get-elocks`);
+      setElocks(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetching Elocks:", err);
+    }
+  };
+
+  const handleSubmit = async (values) => {
+    try {
+      if (mode === "add") {
+        await axios.post(`${API_URL}/elock/create-elock`, values);
+        alert("Elock added!");
+      } else {
+        await axios.put(
+          `${API_URL}/elock/update-elock/${selected._id}`,
+          values
+        );
+        alert("Elock updated!");
+      }
+      setOpen(false);
+      fetchElocks();
+    } catch (err) {
+      alert("Failed to save Elock");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this Elock?")) {
+      try {
+        await axios.delete(`${API_URL}/elock/delete-elock/${id}`);
+        fetchElocks();
+      } catch (err) {
+        alert("Delete failed");
+      }
+    }
   };
 
   const handleEdit = (elock) => {
-    setModalMode("edit");
-    setFormData({
-      _id: elock._id,
-      ElockNumber: elock.ElockNumber || "",
-    });
-    setOpenModal(true);
+    setSelected(elock);
+    setMode("edit");
+    setOpen(true);
   };
 
-  const handleDelete = async (elock) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete Elock with Number: ${elock.ElockNumber}?`
-      )
-    ) {
-      try {
-        await axios.delete(`${API_URL}/elock/delete-elock/${elock._id}`);
-        fetchElocks();
-      } catch (error) {
-        console.error("❌ Error deleting Elock:", error);
-      }
-    }
-  };
-
-  const handleSave = async (values) => {
-    try {
-      let response;
-      if (modalMode === "add") {
-        response = await axios.post(`${API_URL}/elock/create-elock`, values);
-        responseHandler(response, "added");
-      } else {
-        response = await axios.put(
-          `${API_URL}/elock/update-elock/${values._id}`,
-          values
-        );
-        responseHandler(response, "updated");
-      }
-    } catch (error) {
-      console.error("❌ Error saving Elock:", error);
-      alert(
-        `Failed to save Elock: ${error.response?.data?.error || "Server error"}`
-      );
-    }
-  };
-
-  const responseHandler = (response, action) => {
-    if (response.status === 200 || response.status === 201) {
-      alert(`Elock ${action} successfully!`);
-      setOpenModal(false);
-      fetchElocks();
-    } else {
-      alert(`Failed to ${action} Elock: ${response.statusText}`);
-    }
+  const handleAdd = () => {
+    setSelected(null);
+    setMode("add");
+    setOpen(true);
   };
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Button variant="contained" onClick={handleAdd}>
-          Add Elock
-        </Button>
-      </Box>
+      <Button variant="contained" onClick={handleAdd} sx={{ mb: 2 }}>
+        Add Elock
+      </Button>
 
       <TableContainer component={Paper}>
         <Table>
@@ -133,10 +112,13 @@ const Elock = () => {
               <TableRow key={elock._id}>
                 <TableCell>{elock.ElockNumber}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleEdit(elock)} color="primary">
+                  <IconButton color="primary" onClick={() => handleEdit(elock)}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(elock)} color="error">
+                  <IconButton
+                    color="error"
+                    onClick={() => handleDelete(elock._id)}
+                  >
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -146,59 +128,36 @@ const Elock = () => {
         </Table>
       </TableContainer>
 
-      <Dialog
-        open={openModal}
-        onClose={() => setOpenModal(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {modalMode === "add" ? "Add New Elock" : "Edit Elock"}
-        </DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>{mode === "add" ? "Add Elock" : "Edit Elock"}</DialogTitle>
         <DialogContent>
           <Formik
-            initialValues={formData}
+            initialValues={{
+              ElockNumber: selected?.ElockNumber || "",
+            }}
             validationSchema={validationSchema}
-            onSubmit={handleSave}
+            onSubmit={handleSubmit}
             enableReinitialize
           >
-            {({ values, handleChange: formikHandleChange, handleBlur, errors, touched }) => (
+            {({ values, handleChange, handleBlur, errors, touched }) => (
               <Form>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                    mt: 2,
-                  }}
-                >
-                  <TextField
-                    name="ElockNumber"
-                    label="Elock Number"
-                    value={values.ElockNumber}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9]/g, '');
-                      e.target.value = value;
-                      formikHandleChange(e);
-                    }}
-                    onBlur={handleBlur}
-                    fullWidth
-                    required
-                    error={touched.ElockNumber && Boolean(errors.ElockNumber)}
-                    helperText={touched.ElockNumber && errors.ElockNumber}
-                    inputProps={{
-                      pattern: "[0-9]*",
-                      inputMode: "numeric"
-                    }}
-                  />
-
-                  <DialogActions>
-                    <Button onClick={() => setOpenModal(false)}>Cancel</Button>
-                    <Button variant="contained" type="submit">
-                      {modalMode === "add" ? "Add" : "Save"}
-                    </Button>
-                  </DialogActions>
-                </Box>
+                <TextField
+                  name="ElockNumber"
+                  label="Elock Number"
+                  value={values.ElockNumber}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  fullWidth
+                  margin="normal"
+                  error={touched.ElockNumber && Boolean(errors.ElockNumber)}
+                  helperText={touched.ElockNumber && errors.ElockNumber}
+                />
+                <DialogActions>
+                  <Button onClick={() => setOpen(false)}>Cancel</Button>
+                  <Button type="submit" variant="contained">
+                    {mode === "add" ? "Add" : "Save"}
+                  </Button>
+                </DialogActions>
               </Form>
             )}
           </Formik>

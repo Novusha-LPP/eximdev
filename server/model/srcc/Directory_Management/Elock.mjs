@@ -8,12 +8,13 @@ const ElockSchema = new mongoose.Schema(
       trim: true,
       unique: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return /^\d+$/.test(v); // Only allows digits
         },
-        message: props => `${props.value} is not a valid number! Only numbers are allowed.`
-      }
-    }
+        message: (props) =>
+          `${props.value} is not a valid number! Only numbers are allowed.`,
+      },
+    },
   },
   { timestamps: true }
 );

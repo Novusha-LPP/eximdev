@@ -45,7 +45,7 @@ function useLrColumns(props) {
   const [rows, setRows] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [truckNos, setTruckNos] = useState([]);
-  const [srcelOptions, setSrcelOptions] = useState([]);
+  const [elockOptions, setElockOptions] = useState([]);
   // Add this near the top of the useLrColumns function with other state declarations
   const [trackingStatusOptions, setTrackingStatusOptions] = useState([]);
 
@@ -53,77 +53,6 @@ function useLrColumns(props) {
   const isValidContainerNumber = (value) => {
     const regex = /^[A-Z]{4}\d{7}$/;
     return regex.test(value);
-  };
-
-  useEffect(() => {
-    // Fetch the sr_cel options when the component mounts
-    fetchSrcelOptions();
-  }, []);
-
-  const fetchSrcelOptions = async () => {
-    try {
-      const response = await axios.get(
-        `${
-          process.env.REACT_APP_API_STRING || "http://localhost:9000/api"
-        }/elock/get-elocks`
-      );
-      const data = response.data.data.map((elock) => ({
-        label: elock.ElockCode, // Use ElockCode as the label
-        value: elock._id, // Use _id as the value
-        ...elock, // Include all other elock properties
-      }));
-      setSrcelOptions(data);
-    } catch (error) {
-      console.error("Error fetching Elocks:", error);
-    }
-  };
-  const SrCelDropdown = ({ options, onSelect, defaultValue, rowIndex }) => {
-    return (
-      <Autocomplete
-        options={options}
-        getOptionLabel={(option) => option.label || "N/A"}
-        renderInput={(params) => <TextField {...params} size="small" />}
-        onChange={(event, newValue) => {
-          onSelect(
-            {
-              target: {
-                value: newValue ? newValue.label : "N/A",
-              },
-            },
-            rowIndex,
-            "sr_cel_no"
-          );
-          onSelect(
-            {
-              target: {
-                value: newValue ? newValue.FGUID : "N/A",
-              },
-            },
-            rowIndex,
-            "sr_cel_FGUID"
-          );
-          onSelect(
-            {
-              target: {
-                value: newValue ? newValue.value : "N/A",
-              },
-            },
-            rowIndex,
-            "sr_cel_id"
-          ); // Update the elock details in the row
-          setRows((prevRows) => {
-            const updatedRows = [...prevRows];
-            updatedRows[rowIndex].elock = newValue || null;
-            return updatedRows;
-          });
-        }}
-        defaultValue={
-          options.find((option) => option.label === defaultValue) || null
-        }
-        size="small"
-        fullWidth
-      />
-    );
   };
 
   useEffect(() => {
@@ -824,20 +753,7 @@ function useLrColumns(props) {
         }
       },
     },
-    {
-      accessorKey: "sr_cel_no",
-      header: "E-Lock No",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell, row }) => (
-        <SrCelDropdown
-          options={srcelOptions}
-          onSelect={handleInputChange}
-          defaultValue={cell.getValue()}
-          rowIndex={row.index}
-        />
-      ),
-    },
+
     {
       accessorKey: "eWay_bill",
       header: "E-Way Bill (only 12-digit)",
@@ -918,26 +834,6 @@ function useLrColumns(props) {
               }}
             />
           </IconButton>
-        );
-      },
-    },
-    {
-      accessorKey: "elock",
-      header: "Elock Details",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ row }) => {
-        const elock = row.original.elock;
-        return elock ? (
-          <Box>
-            <div>ElockCode: {elock.ElockCode}</div>
-            <div>FAssetID: {elock.FAssetID}</div>
-            <div>FTokenID: {elock.FTokenID}</div>
-            {/* <div>FAgentGUID: {elock.FAgentGUID}</div>
-            <div>AssetGUID: {elock.AssetGUID}</div> */}
-          </Box>
-        ) : (
-          "No Elock Selected"
         );
       },
     },

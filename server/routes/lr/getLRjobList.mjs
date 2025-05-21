@@ -9,33 +9,34 @@ router.get("/api/lr-job-list", async (req, res) => {
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    // const matchCondition =
-    //   status?.toLowerCase() === "pending"
-    //     ? {
-    //         $or: [
-    //           { "containers.lr_completed": { $exists: false } }, // Missing field
-    //           { "containers.lr_completed": false }, // Explicitly false
-    //         ],
-    //       }
-    //     : { "containers.lr_completed": true }; // Explicitly true
-    let matchCondition = {};
+    let statusMatchCondition = {};
 
     if (status?.toLowerCase() === "pending") {
-      matchCondition = {
+      statusMatchCondition = {
         $or: [
           { "containers.lr_completed": { $exists: false } },
           { "containers.lr_completed": false },
         ],
       };
     } else if (status?.toLowerCase() === "completed") {
-      matchCondition = { "containers.lr_completed": true };
+      statusMatchCondition = { "containers.lr_completed": true };
     } else if (status?.toLowerCase() === "all" || !status) {
-      matchCondition = {}; // No filter — include all containers
+      statusMatchCondition = {}; // No filter — include all containers
     }
+
+    // Add additional match condition to filter out empty or null tr_no values
+    const trNoMatchCondition = {
+      "containers.tr_no": {
+        $exists: true,
+        $ne: null,
+        $ne: "",
+      },
+    };
 
     const pipeline = [
       { $unwind: "$containers" }, // Flatten the containers array
-      { $match: matchCondition }, // Apply the match condition
+      { $match: statusMatchCondition }, // Apply status match condition
+      { $match: trNoMatchCondition }, // Filter out empty or null tr_no values
       {
         $match: {
           $or: [
@@ -53,7 +54,7 @@ router.get("/api/lr-job-list", async (req, res) => {
           consignor: 1,
           container_count: 1,
           no_of_vehicle: 1,
-          "container_details.tr_no": { $ifNull: ["$containers.tr_no", null] },
+          "container_details.tr_no": "$containers.tr_no",
           "container_details.container_number": {
             $ifNull: ["$containers.container_number", null],
           },
@@ -108,7 +109,7 @@ router.get("/api/lr-job-list", async (req, res) => {
           "container_details.elock": { $ifNull: ["$containers.elock", null] },
           "container_details.status": { $ifNull: ["$containers.status", null] },
           "container_details.lr_completed": {
-            $ifNull: ["$containers.lr_completed", false], // Default to false if missing
+            $ifNull: ["$containers.lr_completed", false],
           },
         },
       },
@@ -117,11 +118,16 @@ router.get("/api/lr-job-list", async (req, res) => {
     ];
 
     const data = await PrData.aggregate(pipeline);
-    const total = await PrData.aggregate([
+
+    // Update total count pipeline to include the tr_no filter
+    const totalPipeline = [
       { $unwind: "$containers" },
-      { $match: matchCondition },
+      { $match: statusMatchCondition },
+      { $match: trNoMatchCondition },
       { $count: "total" },
-    ]);
+    ];
+
+    const total = await PrData.aggregate(totalPipeline);
 
     res.json({
       data,

@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { MaterialReactTable } from "material-react-table";
-import useTableConfig from "../../customHooks/useTableConfig";
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+} from "material-react-table";
+
 import {
   TextField,
   MenuItem,
@@ -31,6 +34,7 @@ function DSR() {
     tipping: false,
     document_attachment: null,
   });
+  const [trackingStatusOptions, setTrackingStatusOptions] = useState([]);
   console.log(dialogData);
 
   const [saving, setSaving] = useState(false);
@@ -47,6 +51,33 @@ function DSR() {
     } catch (err) {
       console.error("Failed to fetch data:", err);
     }
+  }, []);
+  // Replace the existing useEffect for fetchTrackingStatus with this updated version:
+
+  useEffect(() => {
+    const fetchTrackingStatus = async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/lr-tracking-stages/all`
+        );
+        console.log("API Response:", response.data); // Debug log
+
+        // Check if response.data is an array directly
+        if (Array.isArray(response.data)) {
+          const options = response.data.map((stage) => stage.name);
+          console.log("Mapped Options:", options); // Debug log
+          setTrackingStatusOptions(options);
+        } else {
+          console.error("Invalid data structure received:", response.data);
+          setTrackingStatusOptions([]); // Set empty array as fallback
+        }
+      } catch (error) {
+        console.error("Error fetching tracking stages:", error);
+        setTrackingStatusOptions([]); // Set empty array on error
+      }
+    };
+
+    fetchTrackingStatus();
   }, []);
 
   // Fetch data on component mount
@@ -73,62 +104,68 @@ function DSR() {
     }));
   };
 
-  const saveRowData = async (row, dialog = null) => {
-    if (!row.tr_no) {
-      alert("TR number is required");
-      return false; // Indicate failure
-    }
+const saveRowData = async (row, dialog = null) => {
+  if (!row.tr_no) {
+    alert("TR number is required");
+    return false;
+  }
 
-    setSaving(true); // Set saving to true before starting the save process
-    const formData = new FormData();
-    formData.append("tr_no", row.tr_no);
-    formData.append("lr_completed", true);
+  setSaving(true);
 
-    if (dialog) {
-      formData.append("offloading_date_time", dialog.offloading_date_time);
-      formData.append("detention_days", dialog.detention_days);
-      formData.append("reason_of_detention", dialog.reason_of_detention);
-      formData.append("tipping", dialog.tipping);
-      if (dialog.document_attachment) {
-        formData.append("document_attachment", dialog.document_attachment);
-      }
-    }
+  let dataToSend;
 
-    try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/update-srcc-dsr`,
-        dialogData
-      );
-      if (res.data?.data) {
-        alert("Data saved successfully");
-        return true; // Indicate success
-      }
-    } catch (err) {
-      console.error("Save error:", err);
-    } finally {
-      setSaving(false); // Reset saving to false after the save process
-    }
-    return false; // Indicate failure
-  };
+  if (dialog) {
+    // If dialog data is present, send all dialog-related fields
+    dataToSend = {
+      tr_no: row.tr_no,
+      lr_completed: row.lr_completed,
+      tracking_status: row.tracking_status,
+      offloading_date_time: dialog.offloading_date_time,
+      detention_days: dialog.detention_days,
+      reason_of_detention: dialog.reason_of_detention,
+      tipping: dialog.tipping,
+      document_attachment: dialog.document_attachment,
+    };
+  } else {
+    // For normal save (without dialog), send basic fields
+    dataToSend = {
+      tr_no: row.tr_no,
+      lr_completed: row.lr_completed,
+      tracking_status: row.tracking_status,
+    };
+  }
 
-  const handleSaveWithDialog = async () => {
-    const success = await saveRowData(dialogData, dialogData);
-    if (success) {
-      setDialogOpen(false); // Close the modal after successful save
-      setRows(
-        (prevRows) => prevRows.filter((row) => row.tr_no !== dialogData.tr_no) // Remove the row if condition is satisfied
-      );
-    }
-  };
+  try {
+    const res = await axios.post(
+      `${process.env.REACT_APP_API_STRING}/update-srcc-dsr`,
+      dataToSend
+    );
 
-  const handleSave = async (row) => {
-    const success = await saveRowData(row);
-    if (success) {
-      setRows(
-        (prevRows) => prevRows.filter((r) => r.tr_no !== row.tr_no) // Remove the row if condition is satisfied
-      );
+    if (res.data?.data) {
+      alert("Data saved successfully");
+      await getData(); // Fetch fresh data after successful save
+      return true;
     }
-  };
+  } catch (err) {
+    console.error("Save error:", err);
+    alert(err.response?.data?.message || "Failed to save data");
+  } finally {
+    setSaving(false);
+  }
+  return false;
+};
+
+// Also update the handlers to remove the manual row filtering since getData will refresh the entire list
+const handleSaveWithDialog = async () => {
+  const success = await saveRowData(dialogData, dialogData);
+  if (success) {
+    setDialogOpen(false); // Close the modal after successful save
+  }
+};
+
+const handleSave = async (row) => {
+  await saveRowData(row);
+};
 
   const handleSaveClick = (row) => {
     if (row.lr_completed) {
@@ -162,7 +199,33 @@ function DSR() {
       accessorKey: "tr_no",
       header: "LR No",
       enableSorting: false,
-      size: 160,
+      size: 170,
+    },
+    // Find and replace the tracking_status column definition with this:
+    {
+      accessorKey: "tracking_status",
+      header: "Tracking Status",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ cell, row }) => (
+        <TextField
+          select
+          sx={{ width: "100%" }}
+          size="small"
+          value={cell.getValue() || ""}
+          onChange={(event) =>
+            handleInputChange(event, row.index, cell.column.id)
+          }
+          // Remove or modify the disabled condition
+          // disabled={!rows[row.index]?.isValidContainer}
+        >
+          {trackingStatusOptions.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </TextField>
+      ),
     },
     {
       accessorKey: "container_number",
@@ -268,8 +331,38 @@ function DSR() {
   ];
 
   // Configure the table using the custom hook
-  const table = useTableConfig(rows, columns);
-
+  const table = useMaterialReactTable({
+    columns,
+    data: rows,
+    enableColumnResizing: true,
+    enableColumnOrdering: true,
+    enableDensityToggle: false,
+    enablePagination: false,
+    enableBottomToolbar: false,
+    initialState: {
+      density: "compact",
+      columnPinning: { left: ["tr_no"] },
+    },
+    enableColumnPinning: true,
+    enableGrouping: true,
+    enableColumnFilters: false,
+    enableColumnActions: false,
+    enableStickyHeader: true,
+    enablePinning: true,
+    muiTableContainerProps: {
+      sx: { maxHeight: "650px", overflowY: "auto" },
+    },
+    // muiTableBodyRowProps: {
+    //   style: { cursor: "default" }, // Changed cursor to default since row is not clickable
+    // },
+    muiTableHeadCellProps: {
+      sx: {
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
+      },
+    },
+  });
   return (
     <div style={{ width: "100%" }}>
       <MaterialReactTable table={table} />

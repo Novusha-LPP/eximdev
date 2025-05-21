@@ -47,7 +47,6 @@ function useLrColumns(props) {
   const [truckNos, setTruckNos] = useState([]);
   const [elockOptions, setElockOptions] = useState([]);
   // Add this near the top of the useLrColumns function with other state declarations
-  const [trackingStatusOptions, setTrackingStatusOptions] = useState([]);
 
   // Validate container number format: 4 uppercase letters followed by 7 digits
   const isValidContainerNumber = (value) => {
@@ -68,24 +67,6 @@ function useLrColumns(props) {
     }
 
     getVehicleTypes();
-  }, []);
-  // Add this with other useEffect hooks
-  useEffect(() => {
-    const fetchTrackingStatus = async () => {
-      try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/lr-tracking-stages/all`
-        );
-        // Map the response data to get just the names from the tracking stages
-        const options = response.data.map((stage) => stage.name);
-        setTrackingStatusOptions(options);
-      } catch (error) {
-        console.error("Error fetching tracking stages:", error);
-        setTrackingStatusOptions([]);
-      }
-    };
-
-    fetchTrackingStatus();
   }, []);
 
   async function getData() {
@@ -788,30 +769,7 @@ function useLrColumns(props) {
         />
       ),
     },
-    {
-      accessorKey: "tracking_status",
-      header: "Tracking Status",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell, row }) => (
-        <TextField
-          select
-          sx={{ width: "100%" }}
-          size="small"
-          value={cell.getValue() || ""}
-          onChange={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-          disabled={!rows[row.index]?.isValidContainer}
-        >
-          {trackingStatusOptions.map((option) => (
-            <MenuItem key={option} value={option}>
-              {option}
-            </MenuItem>
-          ))}
-        </TextField>
-      ),
-    },
+
     {
       accessorKey: "action",
       header: "Save",

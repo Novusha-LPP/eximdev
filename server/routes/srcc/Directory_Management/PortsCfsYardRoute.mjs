@@ -76,12 +76,12 @@ router.get("/api/get-port-types", async (req, res) => {
   }
 });
 
-// READ one by ICD code
-router.get("/api/get-port-type/:icd_code", async (req, res) => {
-  const { icd_code } = req.params;
+// READ one by ID
+router.get("/api/get-port-type/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
-    const port = await PortICDcode.findOne({ icd_code });
+    const port = await PortICDcode.findById(id);
 
     if (!port) {
       return res.status(404).json({ error: "Port/CFS/Yard not found" });
@@ -94,9 +94,9 @@ router.get("/api/get-port-type/:icd_code", async (req, res) => {
   }
 });
 
-// UPDATE by ICD code
-router.put("/api/update-port-type/:icd_code", async (req, res) => {
-  const { icd_code } = req.params;
+// UPDATE by ID
+router.put("/api/update-port-type/:id", async (req, res) => {
+  const { id } = req.params;
   const {
     organisation,
     name,
@@ -107,9 +107,10 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
     contactPersonName,
     contactPersonEmail,
     contactPersonPhone,
-    isBranch, // Add this field
+    isBranch,
     prefix,
     suffix,
+    icd_code,
   } = req.body;
 
   try {
@@ -119,8 +120,20 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
         .json({ error: "Organisation (_id and name) is required" });
     }
 
-    const updatedPort = await PortICDcode.findOneAndUpdate(
-      { icd_code },
+    // Check for duplicate icd_code if it's changing
+    if (icd_code) {
+      const existingPort = await PortICDcode.findOne({
+        icd_code,
+        _id: { $ne: id },
+      });
+
+      if (existingPort) {
+        return res.status(400).json({ error: "ICD code already exists" });
+      }
+    }
+
+    const updatedPort = await PortICDcode.findByIdAndUpdate(
+      id,
       {
         organisation,
         name,
@@ -131,9 +144,10 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
         contactPersonName,
         contactPersonEmail,
         contactPersonPhone,
-        isBranch, // Add this field
+        isBranch,
         prefix,
         suffix,
+        icd_code,
       },
       { new: true }
     );
@@ -148,16 +162,19 @@ router.put("/api/update-port-type/:icd_code", async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating Port:", error);
+    if (error.code === 11000 && error.keyPattern?.icd_code) {
+      return res.status(400).json({ error: "ICD code must be unique" });
+    }
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// DELETE by ICD code
-router.delete("/api/delete-port-type/:icd_code", async (req, res) => {
-  const { icd_code } = req.params;
+// DELETE by ID
+router.delete("/api/delete-port-type/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
-    const deletedPort = await PortICDcode.findOneAndDelete({ icd_code });
+    const deletedPort = await PortICDcode.findByIdAndDelete(id);
 
     if (!deletedPort) {
       return res.status(404).json({ error: "Port/CFS/Yard not found" });

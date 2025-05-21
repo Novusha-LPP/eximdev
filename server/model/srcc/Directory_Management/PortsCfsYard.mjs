@@ -15,7 +15,7 @@ const PortsCfsYardSchema = new mongoose.Schema(
       },
     },
     name: { type: String, required: true, trim: true },
-    icd_code: { type: String, required: true, trim: true },
+    icd_code: { type: String, required: true, trim: true, unique: true },
     state: { type: String, required: true, trim: true },
     country: { type: String, required: true, trim: true },
     active: { type: Boolean, default: true },

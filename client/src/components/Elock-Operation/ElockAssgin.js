@@ -71,7 +71,12 @@ const ElockAssign = () => {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/elock/get-elocks`
       );
-      setElockOptions(res.data.data.map((elock) => elock.ElockNumber) || []);
+
+      const availableElocks = res.data.data
+        .filter((elock) => elock.status === "AVAILABLE") // Only include AVAILABLE elocks
+        .map((elock) => elock.FAssetID); // Map to FAssetID
+
+      setElockOptions(availableElocks || []);
     } catch (err) {
       console.error("Error fetching available elocks:", err);
     }
@@ -164,6 +169,31 @@ const ElockAssign = () => {
       pinned: "left",
     },
     {
+      accessorKey: "elock_no",
+      header: "E-lock No",
+      Cell: ({ row }) => {
+        if (editingRow === row.id) {
+          return (
+            <Autocomplete
+              freeSolo
+              options={elockOptions}
+              value={editValues.elock_no}
+              onChange={(_, newValue) =>
+                setEditValues({ ...editValues, elock_no: newValue })
+              }
+              onInputChange={(_, newInputValue) =>
+                setEditValues({ ...editValues, elock_no: newInputValue })
+              }
+              renderInput={(params) => (
+                <TextField {...params} size="small" fullWidth />
+              )}
+            />
+          );
+        }
+        return row.original.elock_no;
+      },
+    },
+    {
       accessorKey: "elock_assign_status",
       header: "Elock Status",
       Cell: ({ row }) => {
@@ -192,31 +222,7 @@ const ElockAssign = () => {
         return row.original.elock_assign_status;
       },
     },
-    {
-      accessorKey: "elock_no",
-      header: "E-lock No",
-      Cell: ({ row }) => {
-        if (editingRow === row.id) {
-          return (
-            <Autocomplete
-              freeSolo
-              options={elockOptions}
-              value={editValues.elock_no}
-              onChange={(_, newValue) =>
-                setEditValues({ ...editValues, elock_no: newValue })
-              }
-              onInputChange={(_, newInputValue) =>
-                setEditValues({ ...editValues, elock_no: newInputValue })
-              }
-              renderInput={(params) => (
-                <TextField {...params} size="small" fullWidth />
-              )}
-            />
-          );
-        }
-        return row.original.elock_no;
-      },
-    },
+
     { accessorKey: "pr_no", header: "PR No" },
     { accessorKey: "branch", header: "Branch" },
     { accessorKey: "container_number", header: "Container No" },

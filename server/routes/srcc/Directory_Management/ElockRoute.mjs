@@ -2,19 +2,18 @@ import express from "express";
 import Elock from "../../../model/srcc/Directory_Management/Elock.mjs";
 
 const router = express.Router();
-
 // Create a new Elock
 router.post("/api/elock/create-elock", async (req, res) => {
   try {
-    const { ElockNumber } = req.body;
+    const { FAssetID, status } = req.body;
 
-    // Prevent duplicate ElockNumber
-    const exists = await Elock.findOne({ ElockNumber });
+    // Prevent duplicate FAssetID
+    const exists = await Elock.findOne({ FAssetID });
     if (exists) {
       return res.status(409).json({ message: "Elock already exists" });
     }
 
-    const newElock = new Elock({ ElockNumber });
+    const newElock = new Elock({ FAssetID, status });
     await newElock.save();
 
     res.status(201).json({
@@ -61,18 +60,22 @@ router.get("/api/elock/get-elock/:id", async (req, res) => {
 router.put("/api/elock/update-elock/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { ElockNumber } = req.body;
+    const { FAssetID, status } = req.body;
+
     const updatedElock = await Elock.findByIdAndUpdate(
       id,
-      { ElockNumber },
+      { FAssetID, status },
       { new: true }
     );
+
     if (!updatedElock) {
       return res.status(404).json({ message: "Elock not found" });
     }
-    res
-      .status(200)
-      .json({ message: "Elock updated successfully", data: updatedElock });
+
+    res.status(200).json({
+      message: "Elock updated successfully",
+      data: updatedElock,
+    });
   } catch (error) {
     console.error("Error updating Elock:", error);
     res.status(500).json({ message: "Error updating Elock", error });

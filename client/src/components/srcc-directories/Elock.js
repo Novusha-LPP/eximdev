@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  MenuItem,
 } from "@mui/material";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
@@ -23,7 +24,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 const validationSchema = Yup.object({
-  ElockNumber: Yup.string()
+  FAssetID: Yup.string()
     .required("Elock Number is required")
     .matches(/^\d+$/, "Only numbers allowed"),
 });
@@ -104,13 +105,15 @@ const Elock = () => {
           <TableHead>
             <TableRow>
               <TableCell>Elock Number</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {elocks.map((elock) => (
               <TableRow key={elock._id}>
-                <TableCell>{elock.ElockNumber}</TableCell>
+                <TableCell>{elock.FAssetID}</TableCell>
+                <TableCell>{elock.status}</TableCell>
                 <TableCell>
                   <IconButton color="primary" onClick={() => handleEdit(elock)}>
                     <EditIcon />
@@ -133,7 +136,8 @@ const Elock = () => {
         <DialogContent>
           <Formik
             initialValues={{
-              ElockNumber: selected?.ElockNumber || "",
+              FAssetID: selected?.FAssetID || "",
+              status: selected?.status || "",
             }}
             validationSchema={validationSchema}
             onSubmit={handleSubmit}
@@ -142,16 +146,33 @@ const Elock = () => {
             {({ values, handleChange, handleBlur, errors, touched }) => (
               <Form>
                 <TextField
-                  name="ElockNumber"
+                  name="FAssetID"
                   label="Elock Number"
-                  value={values.ElockNumber}
+                  value={values.FAssetID}
                   onChange={handleChange}
                   onBlur={handleBlur}
                   fullWidth
                   margin="normal"
-                  error={touched.ElockNumber && Boolean(errors.ElockNumber)}
-                  helperText={touched.ElockNumber && errors.ElockNumber}
+                  error={touched.FAssetID && Boolean(errors.FAssetID)}
+                  helperText={touched.FAssetID && errors.FAssetID}
                 />
+                <TextField
+                  select
+                  name="status"
+                  label="Status"
+                  value={values.status}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  fullWidth
+                  margin="normal"
+                >
+                  {["AVAILABLE", "MAINTENANCE", "LOST"].map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
                 <DialogActions>
                   <Button onClick={() => setOpen(false)}>Cancel</Button>
                   <Button type="submit" variant="contained">

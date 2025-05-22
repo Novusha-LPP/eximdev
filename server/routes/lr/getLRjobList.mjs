@@ -106,7 +106,7 @@ router.get("/api/lr-job-list", async (req, res) => {
           "container_details.sr_cel_id": {
             $ifNull: ["$containers.sr_cel_id", null],
           },
-          "container_details.elock": { $ifNull: ["$containers.elock", null] },
+          "container_details.elock": { $ifNull: ["$containers.elock_no", null] },
           "container_details.status": { $ifNull: ["$containers.status", null] },
           "container_details.lr_completed": {
             $ifNull: ["$containers.lr_completed", false],

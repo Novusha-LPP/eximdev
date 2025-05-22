@@ -188,11 +188,11 @@ PrDataSchema.index({ status: 1 });
 
 // Enable population of the `elock` field
 PrDataSchema.pre("find", function () {
-  this.populate("containers.elock");
+  this.populate("containers.elock_no");
 });
 
 PrDataSchema.pre("findOne", function () {
-  this.populate("containers.elock");
+  this.populate("containers.elock_no");
 });
 
 const PrData = new mongoose.model("PrData", PrDataSchema);

@@ -82,6 +82,32 @@ router.put("/api/elock/update-elock/:id", async (req, res) => {
   }
 });
 
+// PATCH: Update only status of Elock by ID
+router.patch("/api/elock/update-status/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ message: "Status is required" });
+    }
+    const updatedElock = await Elock.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    if (!updatedElock) {
+      return res.status(404).json({ message: "Elock not found" });
+    }
+    res.status(200).json({
+      message: "Elock status updated successfully",
+      data: updatedElock,
+    });
+  } catch (error) {
+    console.error("Error updating Elock status:", error);
+    res.status(500).json({ message: "Error updating Elock status", error });
+  }
+});
+
 // Delete an Elock
 router.delete("/api/elock/delete-elock/:id", async (req, res) => {
   try {

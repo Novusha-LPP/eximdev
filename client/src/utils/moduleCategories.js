@@ -1,5 +1,5 @@
 export const moduleCategories = {
-  "Accounts": "Accounts",
+  Accounts: "Accounts",
   "Import - Billing": "Accounts",
 
   "Employee Onboarding": "HR & Management",
@@ -15,10 +15,13 @@ export const moduleCategories = {
   "LR Operations": "SRCC",
   "Inward Register": "Inward and Outward Register",
   "Outward Register": "Inward and Outward Register",
+  "Elock-Operation": "Elock Management",
   "Exit Feedback": "HR & Management",
   "Tyre Maintenance": "SRCC",
   "SRCC Directories": "SRCC",
+  Directories: "Directories Mgt.",
   "SR CEL": "SRCC",
+  "Elock Operation": "SRCC",
   RTO: "SRCC",
   Export: "Export",
   Screen1: "Screens",

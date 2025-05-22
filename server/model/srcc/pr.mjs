@@ -135,9 +135,8 @@ const PrDataSchema = new mongoose.Schema(
         sr_cel_id: {
           type: String,
         },
-        elock: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Elock", // Reference the Elock model
+        elock_no: {
+          type: String,
         },
         tracking_status: {
           type: String,
@@ -145,6 +144,11 @@ const PrDataSchema = new mongoose.Schema(
         tracking_status_history: {
           type: [TrackingHistorySchema],
           default: [],
+        },
+        elock_assign_status:{
+          type: String,
+          enum: ["ASSIGNED", "UNASSIGNED", "RETURNED", "NOT RETURNED"],
+          default: "UNASSIGNED",
         },
         lr_completed: {
           type: Boolean,

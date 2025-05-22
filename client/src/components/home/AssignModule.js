@@ -29,6 +29,8 @@ const allModules = [
   "e-Sanchit",
   "Tyre Maintenance",
   "SRCC Directories",
+  "Directories",
+  "Elock-Operation",
   "Documentation",
   "Submission",
   "RTO",
@@ -37,9 +39,6 @@ const allModules = [
   "Screen2",
   "Screen3",
   "Screen4",
-
-  // "Screen5",
-  // "Screen6",
 ];
 
 function not(a, b) {

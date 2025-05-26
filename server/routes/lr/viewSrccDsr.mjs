@@ -96,31 +96,47 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
 }); // GET /api/elock-assign endpoint - Fixed to return proper container IDs
 router.get("/api/elock-assign", async (req, res) => {
   try {
-    const { page = 1, limit = 100, search = "" } = req.query;
+    const { page = 1, limit = 100, search = "", elock_assign_status, sort } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build search query
+    // Build match query
     let matchQuery = {};
+    let orArray = [];
+
+    // If explicit filter for RETURNED
+    if (elock_assign_status === "RETURNED" || sort === "RETURNED") {
+      matchQuery["containers.elock_assign_status"] = "RETURNED";
+    } else {
+      // Default: Exclude RETURNED
+      matchQuery["containers.elock_assign_status"] = { $ne: "RETURNED" };
+    }
+
     if (search) {
       const searchRegex = new RegExp(search, "i");
-      matchQuery = {
-        $or: [
-          { pr_no: searchRegex },
-          { branch: searchRegex },
-          { "containers.tr_no": searchRegex },
-          { "containers.container_number": searchRegex },
-          { "containers.driver_name": searchRegex },
-          { "containers.driver_phone": searchRegex },
-          { "containers.vehicle_no": searchRegex },
-          { "containers.elock_no": searchRegex },
-        ],
-      };
+      orArray = [
+        { pr_no: searchRegex },
+        { branch: searchRegex },
+        { "containers.tr_no": searchRegex },
+        { "containers.container_number": searchRegex },
+        { "containers.driver_name": searchRegex },
+        { "containers.driver_phone": searchRegex },
+        { "containers.vehicle_no": searchRegex },
+        { "containers.elock_no": searchRegex },
+      ];
+    }
+
+    // Merge $or if present
+    let matchStage = {};
+    if (orArray.length > 0) {
+      matchStage = { $and: [matchQuery, { $or: orArray }] };
+    } else {
+      matchStage = matchQuery;
     }
 
     // Aggregation pipeline to flatten containers with proper IDs
     const pipeline = [
-      { $match: matchQuery },
       { $unwind: "$containers" },
+      { $match: matchStage },
       {
         $project: {
           // PR level fields

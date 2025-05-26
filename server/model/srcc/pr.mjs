@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Elock from "./Directory_Management/Elock.mjs";
+
 
 const TrackingHistorySchema = new mongoose.Schema({
   status: {

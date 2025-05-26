@@ -55,7 +55,6 @@ const ElockAssign = () => {
             page,
             limit: 100,
             search: debouncedSearchQuery,
-            
           },
         }
       );
@@ -67,15 +66,49 @@ const ElockAssign = () => {
     }
   };
 
+  // Fetch available elocks from new endpoint
   const fetchAvailableElocks = async () => {
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/elock/get-elocks`
+        `${process.env.REACT_APP_API_STRING}/available-elocks`
       );
-    
-      setElockOptions(res.data.data || []);
+      setElockOptions(res.data || []);
     } catch (err) {
       console.error("Error fetching available elocks:", err);
+    }
+  };
+
+  // Save row using new assign-elock endpoint
+  // Save row using new assign-elock endpoint
+  // Save row using new assign-elock endpoint - FIXED VERSION
+  const handleSaveRow = async (row) => {
+    try {
+      console.log("Row data:", row.original); // Debug log
+
+      const payload = {
+        prId: row.original.pr_id || row.original._id, // Use pr_id (the actual PR ID)
+        containerId: row.original.container_id || row.original._id, // Use container_id (the actual container ID)
+        newElockNo: editValues.elock_no,
+        elockAssignStatus: editValues.elock_assign_status,
+      };
+
+      console.log("Payload being sent:", payload); // Debug log
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/assign-elock`,
+        payload
+      );
+
+      console.log("Response:", response.data); // Debug log
+
+      setEditingRow(null);
+      fetchElockData();
+      fetchAvailableElocks(); // Refresh dropdown
+    } catch (error) {
+      console.error("Error updating status:", error);
+      console.error("Error response:", error.response?.data); // Debug log
+      // Show user-friendly error message
+      alert(`Error: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -85,28 +118,6 @@ const ElockAssign = () => {
       elock_assign_status: row.original.elock_assign_status || "",
       elock_no: row.original.elock_no || "",
     });
-  };
-
-  const handleSaveRow = async (row) => {
-    try {
-      const payload = {
-        pr_no: row.original.pr_no,
-        container_number: row.original.container_number,
-        elock_assign_status: editValues.elock_assign_status,
-        elock_no: editValues.elock_no,
-       
-      };
-      await axios.put(
-        `${process.env.REACT_APP_API_STRING}/elock-assign/update-status`,
-        payload
-      );
-      
-
-      setEditingRow(null);
-      fetchElockData();
-    } catch (error) {
-      console.error("Error updating status:", error);
-    }
   };
 
   const handleCancelEdit = () => {
@@ -171,11 +182,26 @@ const ElockAssign = () => {
       header: "E-lock No",
       Cell: ({ row }) => {
         if (editingRow === row.id) {
+          // Ensure the current value is always in the options
+          let mergedOptions = elockOptions;
+          if (
+            editValues.elock_no &&
+            !elockOptions.some((opt) => opt.FAssetID === editValues.elock_no)
+          ) {
+            mergedOptions = [
+              { FAssetID: editValues.elock_no, label: editValues.elock_no },
+              ...elockOptions,
+            ];
+          }
           return (
             <Autocomplete
-              options={elockOptions}
-              getOptionLabel={(option) => option.FAssetID || ""}
-              value={elockOptions.find(opt => opt.FAssetID === editValues.elock_no) || null}
+              options={mergedOptions}
+              getOptionLabel={(option) => option.FAssetID || option.label || ""}
+              value={
+                mergedOptions.find(
+                  (opt) => opt.FAssetID === editValues.elock_no
+                ) || null
+              }
               onChange={(_, newValue) =>
                 setEditValues({
                   ...editValues,

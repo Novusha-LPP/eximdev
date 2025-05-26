@@ -96,11 +96,19 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
 }); // GET /api/elock-assign endpoint - Fixed to return proper container IDs
 router.get("/api/elock-assign", async (req, res) => {
   try {
-    const { page = 1, limit = 100, search = "", elock_assign_status, sort } = req.query;
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      elock_assign_status,
+      sort,
+    } = req.query;
     const skip = (page - 1) * limit;
 
     // Build match query
-    let matchQuery = {};
+    let matchQuery = {
+      "containers.tr_no": { $exists: true, $ne: "" }, // Only containers with non-empty tr_no
+    };
     let orArray = [];
 
     // If explicit filter for RETURNED

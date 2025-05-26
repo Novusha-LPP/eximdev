@@ -1,5 +1,6 @@
 import express from "express";
 import PrData from "../../model/srcc/pr.mjs";
+import Elock from "../../model/srcc/Directory_Management/Elock.mjs";
 
 const router = express.Router();
 
@@ -185,41 +186,5 @@ router.get("/api/elock-assign", async (req, res) => {
   }
 });
 
-// Update E-Lock Assignment Status
-router.put("/api/elock-assign/update-status", async (req, res) => {
-  try {
-    const { pr_no, container_number, elock_assign_status, elock_no } = req.body;
-
-    if (!pr_no || !container_number || !elock_assign_status || !elock_no) {
-      return res.status(400).json({
-        message:
-          "pr_no, container_number, elock_assign_status, and elock_no are required",
-      });
-    }
-
-    const updated = await PrData.findOneAndUpdate(
-      { pr_no, "containers.container_number": container_number },
-      {
-        $set: {
-          "containers.$.elock_assign_status": elock_assign_status,
-          "containers.$.elock_no": elock_no,
-        },
-      },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ message: "PR or container not found" });
-    }
-
-    res.status(200).json({
-      message: "E-lock assign status and number updated successfully",
-      data: updated,
-    });
-  } catch (error) {
-    console.error("Error updating elock assign status:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
 
 export default router;

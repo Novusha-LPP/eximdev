@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
 import {
   Button,
@@ -11,7 +11,9 @@ import {
   IconButton,
   Pagination,
 } from "@mui/material";
+import ElockGPSOperation from "./ElockGPSOperation.js";
 import SearchIcon from "@mui/icons-material/Search";
+import PlaceIcon from "@mui/icons-material/Place";
 import axios from "axios";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED", "NOT RETURNED"];
@@ -24,29 +26,15 @@ const ElockAssign = () => {
     elock_assign_status: "",
     elock_no: "",
   });
+  const [isGPSModalOpen, setIsGPSModalOpen] = useState(false);
+  const [selectedElockNo, setSelectedElockNo] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
 
-  useEffect(() => {
-    const timerId = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page when search changes
-    }, 500);
-
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [searchQuery]);
-
-  useEffect(() => {
-    fetchElockData();
-    fetchAvailableElocks();
-  }, [debouncedSearchQuery, page]);
-
-  const fetchElockData = async () => {
+  const fetchElockData = useCallback(async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/elock-assign`,
@@ -64,10 +52,9 @@ const ElockAssign = () => {
     } catch (err) {
       console.error("Error fetching Elock Assign data:", err);
     }
-  };
+  }, [page, debouncedSearchQuery]);
 
-  // Fetch available elocks from new endpoint
-  const fetchAvailableElocks = async () => {
+  const fetchAvailableElocks = useCallback(async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/available-elocks`
@@ -76,7 +63,22 @@ const ElockAssign = () => {
     } catch (err) {
       console.error("Error fetching available elocks:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchQuery]);
+  useEffect(() => {
+    fetchElockData();
+    fetchAvailableElocks();
+  }, [debouncedSearchQuery, page, fetchElockData, fetchAvailableElocks]);
 
   // Save row using new assign-elock endpoint
   // Save row using new assign-elock endpoint
@@ -252,6 +254,28 @@ const ElockAssign = () => {
 
     { accessorKey: "pr_no", header: "PR No" },
     { accessorKey: "branch", header: "Branch" },
+    {
+      accessorKey: "elock_gps",
+      header: "Elock GPS",
+      Cell: ({ row }) => {
+        const elockNo = row.original.elock_no;
+        return (
+          <Box>
+            <IconButton
+              onClick={() => {
+                setSelectedElockNo(elockNo);
+                setIsGPSModalOpen(true);
+              }}
+              disabled={!elockNo || elockNo.trim() === ""}
+              size="small"
+              color="primary"
+            >
+              <PlaceIcon />
+            </IconButton>
+          </Box>
+        );
+      },
+    },
     { accessorKey: "container_number", header: "Container No" },
     { accessorKey: "driver_name", header: "Driver Name" },
     { accessorKey: "driver_phone", header: "Driver Phone" },
@@ -340,6 +364,12 @@ const ElockAssign = () => {
           showLastButton
         />
       </Box>
+
+      <ElockGPSOperation
+        isOpen={isGPSModalOpen}
+        onClose={() => setIsGPSModalOpen(false)}
+        elockNo={selectedElockNo}
+      />
     </Box>
   );
 };

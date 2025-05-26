@@ -23,7 +23,6 @@ const ElockAssign = () => {
   const [editValues, setEditValues] = useState({
     elock_assign_status: "",
     elock_no: "",
-    elock_obj: null, // Store full elock object
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -56,6 +55,7 @@ const ElockAssign = () => {
             page,
             limit: 100,
             search: debouncedSearchQuery,
+            
           },
         }
       );
@@ -72,11 +72,8 @@ const ElockAssign = () => {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/elock/get-elocks`
       );
-      // Store full elock objects
-      const availableElocks = res.data.data.filter(
-        (elock) => elock.status === "AVAILABLE"
-      );
-      setElockOptions(availableElocks || []);
+    
+      setElockOptions(res.data.data || []);
     } catch (err) {
       console.error("Error fetching available elocks:", err);
     }
@@ -84,13 +81,9 @@ const ElockAssign = () => {
 
   const handleEditRow = (row) => {
     setEditingRow(row.id);
-    // Find the elock object for the current elock_no
-    const selectedElock =
-      elockOptions.find((e) => e.FAssetID === row.original.elock_no) || null;
     setEditValues({
-      elock_assign_status: row.original.elock_assign_status || "UNASSIGNED",
+      elock_assign_status: row.original.elock_assign_status || "",
       elock_no: row.original.elock_no || "",
-      elock_obj: selectedElock,
     });
   };
 
@@ -101,28 +94,13 @@ const ElockAssign = () => {
         container_number: row.original.container_number,
         elock_assign_status: editValues.elock_assign_status,
         elock_no: editValues.elock_no,
-        elock_id: editValues.elock_obj?._id || null,
+       
       };
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/elock-assign/update-status`,
         payload
       );
-      const { elock_assign_status, elock_obj } = editValues;
-
-      if (
-        (elock_assign_status === "RETURNED" ||
-          elock_assign_status === "ASSIGNED") &&
-        elock_obj &&
-        elock_obj._id
-      ) {
-        const status =
-          elock_assign_status === "RETURNED" ? "AVAILABLE" : "ASSIGNED";
-
-        await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/elock/update-status/${elock_obj._id}`,
-          { status }
-        );
-      }
+      
 
       setEditingRow(null);
       fetchElockData();
@@ -197,17 +175,17 @@ const ElockAssign = () => {
             <Autocomplete
               options={elockOptions}
               getOptionLabel={(option) => option.FAssetID || ""}
-              value={editValues.elock_obj}
+              value={elockOptions.find(opt => opt.FAssetID === editValues.elock_no) || null}
               onChange={(_, newValue) =>
                 setEditValues({
                   ...editValues,
                   elock_no: newValue ? newValue.FAssetID : "",
-                  elock_obj: newValue || null,
                 })
               }
               renderInput={(params) => (
-                <TextField {...params} size="small" fullWidth />
+                <TextField {...params} variant="standard" />
               )}
+              sx={{ width: 150 }}
             />
           );
         }
@@ -225,6 +203,8 @@ const ElockAssign = () => {
               fullWidth
               size="small"
               value={editValues.elock_assign_status}
+              variant="standard"
+              sx={{ width: 150 }}
               onChange={(e) =>
                 setEditValues({
                   ...editValues,

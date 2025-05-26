@@ -95,14 +95,13 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
 });
 router.get("/api/elock-assign", async (req, res) => {
   try {
-    const { page = 1, limit = 100, search } = req.query;
+    const { page = 1, limit = 100, search, sort } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
     const buildSearchQuery = (search) => {
       if (!search) return {};
-
       return {
         $or: [
           { "containers.container_number": { $regex: search, $options: "i" } },
@@ -114,7 +113,10 @@ router.get("/api/elock-assign", async (req, res) => {
           { "containers.vehicle_no": { $regex: search, $options: "i" } },
           { "containers.elock_no": { $regex: search, $options: "i" } },
           {
-            "containers.elock_assign_status": { $regex: search, $options: "i" },
+            "containers.elock_assign_status": {
+              $regex: search,
+              $options: "i",
+            },
           },
         ],
       };
@@ -122,14 +124,21 @@ router.get("/api/elock-assign", async (req, res) => {
 
     const searchQuery = buildSearchQuery(search);
 
+    const baseMatch = {
+      "containers.tr_no": { $exists: true, $ne: "" },
+      ...searchQuery,
+    };
+
+    // ❌ Exclude "RETURNED" unless explicitly included via `sort=RETURNED`
+    if (!sort) {
+      baseMatch["containers.elock_assign_status"] = { $ne: "RETURNED" };
+    } else {
+      baseMatch["containers.elock_assign_status"] = sort;
+    }
+
     const pipeline = [
       { $unwind: "$containers" },
-      {
-        $match: {
-          "containers.tr_no": { $exists: true, $ne: "" },
-          ...searchQuery,
-        },
-      },
+      { $match: baseMatch },
       {
         $facet: {
           data: [
@@ -171,10 +180,11 @@ router.get("/api/elock-assign", async (req, res) => {
       currentPage: pageNum,
     });
   } catch (error) {
-    console.error("Error fetching driver basic list:", error);
+    console.error("Error fetching elock-assign data:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 // Update E-Lock Assignment Status
 router.put("/api/elock-assign/update-status", async (req, res) => {
   try {

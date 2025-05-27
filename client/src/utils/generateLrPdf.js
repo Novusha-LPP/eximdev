@@ -5,7 +5,10 @@ import axios from "axios";
 import dayjs from "dayjs";
 
 export const generateLrPdf = async (data, lrData) => {
-  console.log(lrData);
+  console.log("=== PDF Generation Debug ===");
+  console.log("Data:", data);
+  console.log("LR Data:", lrData);
+
   if (data.length === 0) {
     alert("No Container Selected");
     return;
@@ -15,12 +18,24 @@ export const generateLrPdf = async (data, lrData) => {
 
   async function getAddress() {
     try {
-      // Handle populated consignor object
-      const consignorName =
-        typeof lrData.consignor === "object" &&
-        lrData.consignor?.organisation_name
-          ? lrData.consignor.organisation_name
-          : lrData.consignor;
+      // Handle populated consignor object with comprehensive fallback
+      const consignorName = (() => {
+        console.log("Processing consignor for address:", lrData.consignor);
+        if (typeof lrData.consignor === "object" && lrData.consignor !== null) {
+          return (
+            lrData.consignor.organisation_name ||
+            lrData.consignor.name ||
+            lrData.consignor.companyName ||
+            null
+          );
+        }
+        return lrData.consignor || null;
+      })();
+
+      if (!consignorName) {
+        console.log("No consignor name found for address lookup");
+        return;
+      }
 
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/get-organisation-data`,
@@ -51,7 +66,10 @@ export const generateLrPdf = async (data, lrData) => {
   await getAddress();
 
   // Loop through each item in the data array
-  data.forEach((item) => {
+  data.forEach((item, index) => {
+    console.log(`=== Processing PDF for item ${index + 1} ===`);
+    console.log("Item data:", item);
+
     const pdf = new jsPDF("p", "pt", "a4", true);
 
     pdf.setFillColor("#ffffff"); // Set fill color to white
@@ -113,17 +131,34 @@ export const generateLrPdf = async (data, lrData) => {
       "Consignee Name and Address",
     ];
 
-    // Handle populated objects for consignor and consignee
-    const consignorName =
-      typeof lrData.consignor === "object" &&
-      lrData.consignor?.organisation_name
-        ? lrData.consignor.organisation_name
-        : lrData.consignor;
-    const consigneeName =
-      typeof lrData.consignee === "object" &&
-      lrData.consignee?.organisation_name
-        ? lrData.consignee.organisation_name
-        : lrData.consignee;
+    // Handle populated objects for consignor and consignee with comprehensive fallback
+    const consignorName = (() => {
+      console.log("Processing consignor:", lrData.consignor);
+      if (typeof lrData.consignor === "object" && lrData.consignor !== null) {
+        return (
+          lrData.consignor.organisation_name ||
+          lrData.consignor.name ||
+          lrData.consignor.companyName ||
+          lrData.consignor.toString() ||
+          "Consignor not found"
+        );
+      }
+      return lrData.consignor || "No consignor";
+    })();
+
+    const consigneeName = (() => {
+      console.log("Processing consignee:", lrData.consignee);
+      if (typeof lrData.consignee === "object" && lrData.consignee !== null) {
+        return (
+          lrData.consignee.organisation_name ||
+          lrData.consignee.name ||
+          lrData.consignee.companyName ||
+          lrData.consignee.toString() ||
+          "Consignee not found"
+        );
+      }
+      return lrData.consignee || "No consignee";
+    })();
 
     const rowsData = [
       [consignorName + "\n" + address, consigneeName + "\n" + address],
@@ -158,21 +193,65 @@ export const generateLrPdf = async (data, lrData) => {
     const firstTableHeight = pdf.previousAutoTable.finalY;
     const headers2 = ["Container Pickup", "Empty Offloading", "Shipping Line"];
 
-    // Handle populated objects for locations and shipping line
-    const containerLoading =
-      typeof lrData.container_loading === "object" &&
-      lrData.container_loading?.location_name
-        ? lrData.container_loading.location_name
-        : lrData.container_loading;
-    const containerOffloading =
-      typeof lrData.container_offloading === "object" &&
-      lrData.container_offloading?.location_name
-        ? lrData.container_offloading.location_name
-        : lrData.container_offloading;
-    const shippingLine =
-      typeof lrData.shipping_line === "object" && lrData.shipping_line?.name
-        ? lrData.shipping_line.name
-        : lrData.shipping_line;
+    // Handle populated objects for locations and shipping line with comprehensive fallback
+    const containerLoading = (() => {
+      console.log("Processing container_loading:", lrData.container_loading);
+      if (
+        typeof lrData.container_loading === "object" &&
+        lrData.container_loading !== null
+      ) {
+        // Backend doesn't populate container_loading/container_offloading in getTrs.mjs
+        // These are direct fields in lrData, likely populated by getPrData.mjs which uses different populate
+        return (
+          lrData.container_loading.name ||
+          lrData.container_loading.location_name ||
+          lrData.container_loading.locationName ||
+          lrData.container_loading.toString() ||
+          "Location not found"
+        );
+      }
+      return lrData.container_loading || "No loading location";
+    })();
+
+    const containerOffloading = (() => {
+      console.log(
+        "Processing container_offloading:",
+        lrData.container_offloading
+      );
+      if (
+        typeof lrData.container_offloading === "object" &&
+        lrData.container_offloading !== null
+      ) {
+        // Backend doesn't populate container_offloading in getTrs.mjs
+        // These are direct fields in lrData, likely populated by getPrData.mjs which uses different populate
+        return (
+          lrData.container_offloading.name ||
+          lrData.container_offloading.location_name ||
+          lrData.container_offloading.locationName ||
+          lrData.container_offloading.toString() ||
+          "Location not found"
+        );
+      }
+      return lrData.container_offloading || "No offloading location";
+    })();
+
+    const shippingLine = (() => {
+      console.log("Processing shipping_line:", lrData.shipping_line);
+      if (
+        typeof lrData.shipping_line === "object" &&
+        lrData.shipping_line !== null
+      ) {
+        // Backend populates ShippingLine with 'name' field
+        return (
+          lrData.shipping_line.name ||
+          lrData.shipping_line.organisation_name ||
+          lrData.shipping_line.companyName ||
+          lrData.shipping_line.toString() ||
+          "Shipping line not found"
+        );
+      }
+      return lrData.shipping_line || "No shipping line";
+    })();
 
     const rowsData2 = [[containerLoading, containerOffloading, shippingLine]];
     const columnWidth2 = tableWidth / headers2.length;
@@ -202,16 +281,39 @@ export const generateLrPdf = async (data, lrData) => {
     const secondTableHeight = pdf.previousAutoTable.finalY;
     const headers3 = ["From", "To"];
 
-    // Handle populated objects or string values
-    const fromLocation =
-      typeof item.goods_pickup === "object" && item.goods_pickup?.location_name
-        ? item.goods_pickup.location_name
-        : item.goods_pickup;
-    const toLocation =
-      typeof item.goods_delivery === "object" &&
-      item.goods_delivery?.location_name
-        ? item.goods_delivery.location_name
-        : item.goods_delivery;
+    // Handle populated objects or string values with comprehensive fallback
+    const fromLocation = (() => {
+      console.log("Processing goods_pickup:", item.goods_pickup);
+      if (typeof item.goods_pickup === "object" && item.goods_pickup !== null) {
+        // Backend populates with Location model that has 'name' field
+        return (
+          item.goods_pickup.name ||
+          item.goods_pickup.location_name ||
+          item.goods_pickup.locationName ||
+          item.goods_pickup.toString() ||
+          "Location not found"
+        );
+      }
+      return item.goods_pickup || "No pickup location";
+    })();
+
+    const toLocation = (() => {
+      console.log("Processing goods_delivery:", item.goods_delivery);
+      if (
+        typeof item.goods_delivery === "object" &&
+        item.goods_delivery !== null
+      ) {
+        // Backend populates with Location model that has 'name' field
+        return (
+          item.goods_delivery.name ||
+          item.goods_delivery.location_name ||
+          item.goods_delivery.locationName ||
+          item.goods_delivery.toString() ||
+          "Location not found"
+        );
+      }
+      return item.goods_delivery || "No delivery location";
+    })();
 
     const rowsData3 = [[fromLocation, toLocation]];
     const columnWidth3 = tableWidth / headers3.length;
@@ -247,12 +349,23 @@ export const generateLrPdf = async (data, lrData) => {
       "Amount To Pay",
     ];
 
-    // Handle populated container_type object
-    const containerType =
-      typeof lrData.container_type === "object" &&
-      lrData.container_type?.container_type
-        ? lrData.container_type.container_type
-        : lrData.container_type;
+    // Handle populated container_type object with comprehensive fallback
+    const containerType = (() => {
+      console.log("Processing container_type:", lrData.container_type);
+      if (
+        typeof lrData.container_type === "object" &&
+        lrData.container_type !== null
+      ) {
+        return (
+          lrData.container_type.container_type ||
+          lrData.container_type.type ||
+          lrData.container_type.name ||
+          lrData.container_type.toString() ||
+          "Container type not found"
+        );
+      }
+      return lrData.container_type || "No container type";
+    })();
 
     const rowsData4 = [
       [
@@ -458,18 +571,36 @@ export const generateLrPdf = async (data, lrData) => {
       ],
       [
         `Date: ${new Date().toLocaleDateString()}`,
-        `From: ${
-          typeof item.goods_pickup === "object" &&
-          item.goods_pickup?.location_name
-            ? item.goods_pickup.location_name
-            : item.goods_pickup
-        }`,
-        `To: ${
-          typeof item.goods_delivery === "object" &&
-          item.goods_delivery?.location_name
-            ? item.goods_delivery.location_name
-            : item.goods_delivery
-        }`,
+        `From: ${(() => {
+          if (
+            typeof item.goods_pickup === "object" &&
+            item.goods_pickup !== null
+          ) {
+            // Backend populates with Location model that has 'name' field
+            return (
+              item.goods_pickup.name ||
+              item.goods_pickup.location_name ||
+              item.goods_pickup.locationName ||
+              "Location not found"
+            );
+          }
+          return item.goods_pickup || "No pickup location";
+        })()}`,
+        `To: ${(() => {
+          if (
+            typeof item.goods_delivery === "object" &&
+            item.goods_delivery !== null
+          ) {
+            // Backend populates with Location model that has 'name' field
+            return (
+              item.goods_delivery.name ||
+              item.goods_delivery.location_name ||
+              item.goods_delivery.locationName ||
+              "Location not found"
+            );
+          }
+          return item.goods_delivery || "No delivery location";
+        })()}`,
       ],
       [
         {

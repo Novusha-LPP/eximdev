@@ -1,57 +1,92 @@
-import React, { useEffect, useState } from "react";
-import {
-  TextField,
-  IconButton,
-  MenuItem,
-  Card,
-  Button,
-  Box,
-} from "@mui/material";
+import React, { useEffect, useState, useCallback } from "react";
+import { TextField, IconButton, MenuItem } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Checkbox from "@mui/material/Checkbox";
 import axios from "axios";
 import SaveIcon from "@mui/icons-material/Save";
 import Autocomplete from "@mui/material/Autocomplete";
 import { handleSaveLr } from "../utils/handleSaveLr";
-import { lrContainerPlanningStatus } from "../assets/data/dsrDetailedStatus";
-import Tooltip from "@mui/material/Tooltip";
-import { styled } from "@mui/system";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
-import LocationDialog from "../components/srcel/LocationDialog";
-
-const GlassCard = styled(Card)(({ theme }) => ({
-  background: "rgba(255, 255, 255, 0.1)",
-  backdropFilter: "blur(10px)",
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-  transition: "all 0.3s ease-in-out",
-  "&:hover": {
-    transform: "translateY(-5px)",
-    boxShadow: "0 8px 12px rgba(0, 0, 0, 0.2)",
-  },
-}));
-
-const StyledButton = styled(Button)(({ theme }) => ({
-  backdropFilter: "blur(5px)",
-  borderRadius: theme.shape.borderRadius,
-  transition: "all 0.3s ease-in-out",
-  "&:hover": {
-    transform: "scale(1.05)",
-    background: "linear-gradient(45deg, #111B21 30%, #2A7D7B 90%)",
-  },
-}));
 
 function useLrColumns(props) {
   const [rows, setRows] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [truckNos, setTruckNos] = useState([]);
-  const [elockOptions, setElockOptions] = useState([]);
   // Add this near the top of the useLrColumns function with other state declarations
 
-  // Validate container number format: 4 uppercase letters followed by 7 digits
+  // ISO 6346 Container Number Validation with Check Digit
   const isValidContainerNumber = (value) => {
-    const regex = /^[A-Z]{4}\d{7}$/;
-    return regex.test(value);
+    if (!value) return false;
+
+    const containerNumber = value.toUpperCase();
+    const containerNumberRegex = /^[A-Z]{3}[UJZ][A-Z0-9]{6}\d$/;
+
+    if (!containerNumberRegex.test(containerNumber)) {
+      return false;
+    }
+
+    // Validate check digit
+    const checkDigit = calculateCheckDigit(containerNumber.slice(0, 10));
+    const lastDigit = parseInt(containerNumber[10], 10);
+
+    return checkDigit === lastDigit;
+  };
+
+  // Helper function for check digit calculation
+  const calculateCheckDigit = (containerNumber) => {
+    if (containerNumber.length !== 10) return null;
+
+    const weightingFactors = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+    let total = 0;
+
+    for (let i = 0; i < containerNumber.length; i++) {
+      total += equivalentValue(containerNumber[i]) * weightingFactors[i];
+    }
+
+    const subTotal = Math.floor(total / 11);
+    return total - subTotal * 11;
+  };
+
+  // Helper function for character equivalences
+  const equivalentValue = (char) => {
+    const equivalences = {
+      A: 10,
+      B: 12,
+      C: 13,
+      D: 14,
+      E: 15,
+      F: 16,
+      G: 17,
+      H: 18,
+      I: 19,
+      J: 20,
+      K: 21,
+      L: 23,
+      M: 24,
+      N: 25,
+      O: 26,
+      P: 27,
+      Q: 28,
+      R: 29,
+      S: 30,
+      T: 31,
+      U: 32,
+      V: 34,
+      W: 35,
+      X: 36,
+      Y: 37,
+      Z: 38,
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+      5: 5,
+      6: 6,
+      7: 7,
+      8: 8,
+      9: 9,
+      0: 0,
+    };
+    return equivalences[char] || 0;
   };
 
   useEffect(() => {
@@ -69,32 +104,43 @@ function useLrColumns(props) {
     getVehicleTypes();
   }, []);
 
-  async function getData() {
+  const getData = useCallback(async () => {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/get-trs`,
         { pr_no: props.pr_no }
       );
 
+      console.log("🔍 Raw TR data from backend:", res.data);
+
       // Set the new data with container validation flag
       setRows(
-        res.data.map((row) => ({
-          ...row,
-          availableVehicles: [],
-          availableDrivers: [],
-          vehicleIds: {},
-          isValidContainer: isValidContainerNumber(row.container_number || ""),
-        }))
+        res.data.map((row) => {
+          console.log("🔍 Processing row:", row);
+          console.log("🔍 goods_pickup:", row.goods_pickup);
+          console.log("🔍 goods_delivery:", row.goods_delivery);
+          console.log("🔍 type_of_vehicle:", row.type_of_vehicle);
+
+          return {
+            ...row,
+            availableVehicles: [],
+            availableDrivers: [],
+            vehicleIds: {},
+            isValidContainer: isValidContainerNumber(
+              row.container_number || ""
+            ),
+          };
+        })
       );
     } catch (error) {
       console.error("Error fetching TR data:", error);
       setRows([]);
     }
-  }
+  }, [props.pr_no]);
 
   useEffect(() => {
     getData();
-  }, [props.prData, props.pr_no]);
+  }, [getData]);
 
   const handleInputChange = (event, rowIndex, columnId) => {
     const { value } = event.target;
@@ -122,7 +168,14 @@ function useLrColumns(props) {
       else if (columnId === "type_of_vehicle") {
         if (newRows[rowIndex].own_hired === "Own") {
           // For Own vehicles, fetch vehicle numbers from API
-          fetchVehiclesByType(value, newRows, rowIndex);
+          // Extract vehicleType from the selected value (could be ObjectId or vehicleType string)
+          let vehicleTypeString = value;
+          if (typeof value === "string" && value.length === 24) {
+            // If it's an ObjectId, find the vehicleType from truckNos
+            const vehicleObj = truckNos.find((truck) => truck._id === value);
+            vehicleTypeString = vehicleObj?.vehicleType || value;
+          }
+          fetchVehiclesByType(vehicleTypeString, newRows, rowIndex);
         }
       }
       // If vehicle number is selected (for Own vehicles)
@@ -480,48 +533,82 @@ function useLrColumns(props) {
       header: "Goods Pickup",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={props.locations}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.goods_pickup || null}
-          onChange={(event, newValue) =>
-            handleInputChange(
-              { target: { value: newValue } },
-              row.index,
-              cell.column.id
-            )
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.goods_pickup || "";
+        const selectedOption = props.locations?.find((location) => {
+          // Handle both ObjectId strings and populated objects
+          if (typeof currentValue === "object" && currentValue?.name) {
+            return location.location_name === currentValue.name;
           }
-          renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={!rows[row.index]?.isValidContainer}
-        />
-      ),
+          if (typeof currentValue === "object" && currentValue?._id) {
+            return location._id === currentValue._id;
+          }
+          return (
+            location._id === currentValue ||
+            location.location_name === currentValue
+          );
+        });
+
+        return (
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={props.locations || []}
+            getOptionLabel={(option) => option.location_name || option}
+            value={selectedOption || null}
+            onChange={(event, newValue) =>
+              handleInputChange(
+                { target: { value: newValue?._id || newValue || "" } },
+                row.index,
+                cell.column.id
+              )
+            }
+            renderInput={(params) => <TextField {...params} size="small" />}
+            disabled={!rows[row.index]?.isValidContainer}
+          />
+        );
+      },
     },
     {
       accessorKey: "goods_delivery",
       header: "Goods Delivery",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          fullWidth
-          disablePortal={false}
-          options={props.locations}
-          getOptionLabel={(option) => option}
-          value={rows[row.index]?.goods_delivery || null}
-          onChange={(event, newValue) =>
-            handleInputChange(
-              { target: { value: newValue } },
-              row.index,
-              cell.column.id
-            )
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.goods_delivery || "";
+        const selectedOption = props.locations?.find((location) => {
+          // Handle both ObjectId strings and populated objects
+          if (typeof currentValue === "object" && currentValue?.name) {
+            return location.location_name === currentValue.name;
           }
-          renderInput={(params) => <TextField {...params} size="small" />}
-          disabled={!rows[row.index]?.isValidContainer}
-        />
-      ),
+          if (typeof currentValue === "object" && currentValue?._id) {
+            return location._id === currentValue._id;
+          }
+          return (
+            location._id === currentValue ||
+            location.location_name === currentValue
+          );
+        });
+
+        return (
+          <Autocomplete
+            fullWidth
+            disablePortal={false}
+            options={props.locations || []}
+            getOptionLabel={(option) => option.location_name || option}
+            value={selectedOption || null}
+            onChange={(event, newValue) =>
+              handleInputChange(
+                { target: { value: newValue?._id || newValue || "" } },
+                row.index,
+                cell.column.id
+              )
+            }
+            renderInput={(params) => <TextField {...params} size="small" />}
+            disabled={!rows[row.index]?.isValidContainer}
+          />
+        );
+      },
     },
     {
       accessorKey: "own_hired",
@@ -554,41 +641,55 @@ function useLrColumns(props) {
       header: "Type of Vehicle",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) => (
-        <Autocomplete
-          options={truckNos.map((vehicle) => vehicle.vehicleType)} // Extract vehicle types
-          getOptionLabel={(option) => option || ""}
-          value={cell.getValue() || null}
-          onChange={(event, newValue) =>
-            handleInputChange(
-              { target: { value: newValue } },
-              row.index,
-              cell.column.id
-            )
+      Cell: ({ cell, row }) => {
+        const currentValue = rows[row.index]?.type_of_vehicle || "";
+        const selectedOption = truckNos.find((vehicle) => {
+          // Handle both ObjectId strings and populated objects
+          if (typeof currentValue === "object" && currentValue?.vehicleType) {
+            return vehicle.vehicleType === currentValue.vehicleType;
           }
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              size="small"
-              placeholder="Select vehicle type"
-              error={
-                !rows[row.index]?.isValidContainer ||
-                !rows[row.index]?.own_hired
-              }
-              // helperText={
-              //   !rows[row.index]?.isValidContainer ||
-              //   !rows[row.index]?.own_hired
-              //     ? "Select Own/Hired and ensure container is valid"
-              //     : ""
-              // }
-            />
-          )}
-          disabled={
-            !rows[row.index]?.isValidContainer || !rows[row.index]?.own_hired
+          if (typeof currentValue === "object" && currentValue?._id) {
+            return vehicle._id === currentValue._id;
           }
-          fullWidth
-        />
-      ),
+          return (
+            vehicle._id === currentValue || vehicle.vehicleType === currentValue
+          );
+        });
+
+        return (
+          <Autocomplete
+            options={truckNos}
+            getOptionLabel={(option) => option.vehicleType || ""}
+            value={selectedOption || null}
+            onChange={(event, newValue) =>
+              handleInputChange(
+                {
+                  target: {
+                    value: newValue?._id || newValue?.vehicleType || "",
+                  },
+                },
+                row.index,
+                cell.column.id
+              )
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                size="small"
+                placeholder="Select vehicle type"
+                error={
+                  !rows[row.index]?.isValidContainer ||
+                  !rows[row.index]?.own_hired
+                }
+              />
+            )}
+            disabled={
+              !rows[row.index]?.isValidContainer || !rows[row.index]?.own_hired
+            }
+            fullWidth
+          />
+        );
+      },
     },
     {
       accessorKey: "vehicle_no",

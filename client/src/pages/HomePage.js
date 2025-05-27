@@ -57,6 +57,8 @@ import OperationListJob from "../components/import-operations/OperationListJob.j
 // Import add
 import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 
+// Import Utility Tool
+import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
 // import billing 
 import ImportBilling from "../components/Import-billing/ImportBilling.js";
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
@@ -87,6 +89,8 @@ import Screen3 from "../components/Screens/Screen3.js";
 import Screen4 from "../components/Screens/Screen4.js";
 import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
+import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
+import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 
 
 const drawerWidth = 60;
@@ -223,7 +227,12 @@ function HomePage() {
             {/* ImportersInfo */}
 
             <Route path="/ImportersInfo" element={<ImportersInfo />} />
-
+<Route
+              path="/import-utility-tool"
+              element={<ImportUtilityTool />}
+            />
+            <Route path="/duty-calculator" element={<DutyCalculator />} />
+            <Route path="/utilities" element={<UtilityParent />} />
             {/* import billing */}
             <Route path="/import-billing" element={<ImportBilling />} />
             <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />

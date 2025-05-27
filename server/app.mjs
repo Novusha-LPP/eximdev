@@ -239,6 +239,12 @@ import getTyreDetails from "./routes/tyre-maintenance/getTyreDetails.mjs";
 import getTruckDetails from "./routes/tyre-maintenance/getTruckDetails.mjs";
 import JobModel from "./model/jobModel.mjs";
 
+//import utility tool
+import getCthSearch from "./routes/srcc/Directory_Management/CthUtil/getChtSearch.js";
+import dutyCalculator from "./routes/srcc/Directory_Management/CthUtil/dutycalculator.mjs";
+
+
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -470,6 +476,10 @@ if (cluster.isPrimary) {
 
       // import billing
       app.use(getImportBilling)
+
+          // import cth search
+        app.use(getCthSearch);
+      app.use(dutyCalculator)
 
       // Inward Register
       app.use(addInwardRegister);

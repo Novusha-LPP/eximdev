@@ -33,9 +33,20 @@ export const handleSavePr = async (row, getPrData) => {
     return;
   }
 
+  // Prepare the data for submission
+  const submitData = { ...row };
+
+  // Handle container_type - if it's an object with _id, send the _id
+  if (
+    submitData.container_type &&
+    typeof submitData.container_type === "object"
+  ) {
+    submitData.container_type = submitData.container_type._id;
+  }
+
   const res = await axios.post(
     `${process.env.REACT_APP_API_STRING}/update-pr`,
-    row
+    submitData
   );
   alert(res.data.message);
   getPrData();

@@ -1,6 +1,8 @@
 import express from "express";
+import mongoose from "mongoose";
 import PrData from "../../model/srcc/pr.mjs";
 import PrModel from "../../model/srcc/prModel.mjs";
+import ContainerType from "../../model/srcc/containerType.mjs";
 
 const router = express.Router();
 
@@ -22,6 +24,35 @@ router.post("/api/update-pr", async (req, res) => {
   } = req.body;
 
   try {
+    // Validate container_type if provided
+    if (updatedJobData.container_type) {
+      // Check if container_type is a valid ObjectId
+      if (!mongoose.Types.ObjectId.isValid(updatedJobData.container_type)) {
+        // If it's not a valid ObjectId, try to find by container_type name
+        const containerType = await ContainerType.findOne({
+          container_type: updatedJobData.container_type,
+        });
+
+        if (!containerType) {
+          return res.status(400).send({
+            error: "Invalid container type",
+          });
+        }
+
+        updatedJobData.container_type = containerType._id;
+      } else {
+        // If it's a valid ObjectId, verify it exists
+        const containerType = await ContainerType.findById(
+          updatedJobData.container_type
+        );
+        if (!containerType) {
+          return res.status(400).send({
+            error: "Container type not found",
+          });
+        }
+      }
+    }
+
     let prDataToUpdate = await PrData.findOne({ pr_no }).sort({ _id: -1 });
 
     if (prDataToUpdate) {

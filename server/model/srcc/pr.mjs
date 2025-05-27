@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+import ContainerType from "./containerType.mjs";
 
 const TrackingHistorySchema = new mongoose.Schema({
   status: {
@@ -33,7 +33,8 @@ const PrDataSchema = new mongoose.Schema(
       type: String,
     },
     container_type: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ContainerType",
     },
     container_count: {
       type: String,
@@ -145,7 +146,7 @@ const PrDataSchema = new mongoose.Schema(
           type: [TrackingHistorySchema],
           default: [],
         },
-        elock_assign_status:{
+        elock_assign_status: {
           type: String,
           enum: ["ASSIGNED", "UNASSIGNED", "RETURNED", "NOT RETURNED"],
           default: "UNASSIGNED",

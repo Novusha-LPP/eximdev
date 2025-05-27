@@ -1,10 +1,4 @@
-import React, {
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -451,14 +445,20 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             options={containerTypes}
             getOptionLabel={(option) => option.container_type || ""}
             value={
-              containerTypes.find(
-                (type) =>
-                  type.container_type === rows[row.index]?.container_type
-              ) || null
+              containerTypes.find((type) => {
+                const rowValue = rows[row.index]?.container_type;
+                // Handle both ObjectId string and populated object
+                if (typeof rowValue === "object" && rowValue?._id) {
+                  return type._id === rowValue._id;
+                }
+                return (
+                  type._id === rowValue || type.container_type === rowValue
+                );
+              }) || null
             }
             onChange={(_, newValue) =>
               handleInputChange(
-                { target: { value: newValue?.container_type || "" } },
+                { target: { value: newValue?._id || "" } },
                 row.index,
                 cell.column.id
               )
@@ -832,7 +832,19 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         ),
       },
     ],
-    [handleDeletePr, handleSavePr, handleInputChange, rows]
+    [
+      handleDeletePr,
+      handleSavePr,
+      handleInputChange,
+      handleTextInputChange,
+      rows,
+      branchOptions,
+      containerTypes,
+      locations,
+      organisations,
+      shippingLines,
+      truckTypes,
+    ]
   );
 
   return {

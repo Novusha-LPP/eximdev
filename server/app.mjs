@@ -260,7 +260,6 @@ const MONGODB_URI =
 //     : process.env.DEV_CLIENT_URI;
 
 const numOfCPU = os.availableParallelism();
-console.log(`hello check first re baba***************** ${MONGODB_URI}`);
 if (cluster.isPrimary) {
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
@@ -294,7 +293,7 @@ if (cluster.isPrimary) {
 
     next();
   });
-  app.use(cors({ origin: "http://eximdev.s3-website.ap-south-1.amazonaws.com", credentials: true }));
+  app.use(cors({ origin: ["http://eximdev.s3-website.ap-south-1.amazonaws.com","http://localhost:3000"], credentials: true }));
 
   app.use(compression({ level: 9 }));
 

@@ -78,7 +78,7 @@ PORT=5000
 MONGO_URI=your_mongo_db_uri
 JWT_SECRET=your_jwt_secret
 EMAIL_SERVICE_API_KEY=your_email_service_api_key
-AWS_ACCESS_KEY_ID=your_aws_access_key
+REACT_APP_ACCESS_KEY_ID=your_REACT_APP_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY=your_aws_secret_key
 
 ### Run the Application

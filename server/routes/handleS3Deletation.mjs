@@ -17,18 +17,10 @@ if (!process.env.REACT_APP_ACCESS_KEY || !process.env.REACT_APP_SECRET_ACCESS_KE
 
 const s3 = new S3Client({
   region: process.env.REACT_APP_AWS_REGION,
-<<<<<<< Updated upstream
-  credentials: () =>
-    Promise.resolve({
-      accessKeyId: process.env.REACT_APP_ACCESS_KEY || "",
-      secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY || "",
-    }),
-=======
   credentials: {
     accessKeyId: process.env.REACT_APP_ACCESS_KEY,
     secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
   },
->>>>>>> Stashed changes
 });
 
 router.post("/api/delete-s3-file", async (req, res) => {

@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "server",
+      "name": "production",
       "script": "app.mjs",
       "watch": true,
       "env": {

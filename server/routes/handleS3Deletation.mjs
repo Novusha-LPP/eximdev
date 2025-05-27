@@ -2,14 +2,35 @@ import express from "express";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const router = express.Router();
+
+// Debug: Log available environment variables
+console.log("Available env vars:");
+console.log("REACT_APP_ACCESS_KEY:", process.env.REACT_APP_ACCESS_KEY ? "SET" : "NOT SET");
+console.log("REACT_APP_SECRET_ACCESS_KEY:", process.env.REACT_APP_SECRET_ACCESS_KEY ? "SET" : "NOT SET");
+console.log("REACT_APP_AWS_REGION:", process.env.REACT_APP_AWS_REGION ? "SET" : "NOT SET");
+console.log("REACT_APP_S3_BUCKET:", process.env.REACT_APP_S3_BUCKET ? "SET" : "NOT SET");
+
+// Check for required environment variables first
+if (!process.env.REACT_APP_ACCESS_KEY || !process.env.REACT_APP_SECRET_ACCESS_KEY || !process.env.REACT_APP_AWS_REGION) {
+  throw new Error("Missing AWS credentials or region in environment variables.");
+}
+
 const s3 = new S3Client({
   region: process.env.REACT_APP_AWS_REGION,
+<<<<<<< Updated upstream
   credentials: () =>
     Promise.resolve({
       accessKeyId: process.env.REACT_APP_ACCESS_KEY || "",
       secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY || "",
     }),
+=======
+  credentials: {
+    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
+    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
+  },
+>>>>>>> Stashed changes
 });
+
 router.post("/api/delete-s3-file", async (req, res) => {
   const rawKey = req.body.key;
   if (!rawKey) {
@@ -18,17 +39,13 @@ router.post("/api/delete-s3-file", async (req, res) => {
 
   const key = decodeURIComponent(rawKey);
 
-  if (!process.env.REACT_APP_ACCESS_KEY || !process.env.REACT_APP_SECRET_ACCESS_KEY) {
-    throw new Error("Missing AWS credentials in environment variables.");
-  }
-
   const command = new DeleteObjectCommand({
     Bucket: process.env.REACT_APP_S3_BUCKET,
     Key: key,
   });
 
   try {
-    console.log("Deleting key:", key); // Confirm this matches your actual S3 object key
+    console.log("Deleting key:", key);
     await s3.send(command);
     res.status(200).json({ message: "File deleted successfully" });
   } catch (err) {

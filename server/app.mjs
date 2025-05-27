@@ -276,7 +276,7 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  
+
   app.use((req, res, next) => {
     const isBrowserRequest =
       req.headers["user-agent"] &&
@@ -294,7 +294,7 @@ if (cluster.isPrimary) {
 
     next();
   });
-  // app.use(cors({ origin: CLIENT_URI, credentials: true }));
+  app.use(cors({ origin: "http://eximdev.s3-website.ap-south-1.amazonaws.com", credentials: true }));
 
   app.use(compression({ level: 9 }));
 

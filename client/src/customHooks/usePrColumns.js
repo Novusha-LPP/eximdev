@@ -56,6 +56,7 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       const response = await axios.get(`${API_BASE_URL}/get-shipping-line`);
       setShippingLines(
         response.data.data.map((item) => ({
+          _id: item._id,
           code: item.code || "",
           name: item.name || "",
         }))
@@ -474,20 +475,32 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         size: calculateColumnWidth(rows, "consignor"),
         Cell: ({ cell, row }) => {
           const currentValue = rows[row.index]?.consignor || "";
-          const selectedOption = organisations.find(
-            (org) => org === currentValue
-          );
+          const selectedOption = organisations.find((org) => {
+            // Handle both ObjectId strings and populated objects
+            if (
+              typeof currentValue === "object" &&
+              currentValue?.organisation_name
+            ) {
+              return org.organisation_name === currentValue.organisation_name;
+            }
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return org._id === currentValue._id;
+            }
+            return (
+              org.organisation_name === currentValue || org._id === currentValue
+            );
+          });
 
           return (
             <Autocomplete
               fullWidth
               disablePortal={false}
               options={organisations}
-              getOptionLabel={(option) => option || ""}
-              value={selectedOption || currentValue}
+              getOptionLabel={(option) => option.organisation_name || ""}
+              value={selectedOption || null}
               onChange={(_, newValue) => {
                 handleInputChange(
-                  { target: { value: newValue || "" } },
+                  { target: { value: newValue?._id || "" } },
                   row.index,
                   cell.column.id
                 );
@@ -511,20 +524,32 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         size: calculateColumnWidth(rows, "consignee"),
         Cell: ({ cell, row }) => {
           const currentValue = rows[row.index]?.consignee || "";
-          const selectedOption = organisations.find(
-            (org) => org === currentValue
-          );
+          const selectedOption = organisations.find((org) => {
+            // Handle both ObjectId strings and populated objects
+            if (
+              typeof currentValue === "object" &&
+              currentValue?.organisation_name
+            ) {
+              return org.organisation_name === currentValue.organisation_name;
+            }
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return org._id === currentValue._id;
+            }
+            return (
+              org.organisation_name === currentValue || org._id === currentValue
+            );
+          });
 
           return (
             <Autocomplete
               fullWidth
               disablePortal={false}
               options={organisations}
-              getOptionLabel={(option) => option || ""}
-              value={selectedOption || currentValue}
+              getOptionLabel={(option) => option.organisation_name || ""}
+              value={selectedOption || null}
               onChange={(_, newValue) => {
                 handleInputChange(
-                  { target: { value: newValue || "" } },
+                  { target: { value: newValue?._id || "" } },
                   row.index,
                   cell.column.id
                 );
@@ -548,9 +573,20 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         size: calculateColumnWidth(rows, "shipping_line"),
         Cell: ({ cell, row }) => {
           const currentValue = rows[row.index]?.shipping_line || "";
-          const selectedOption = shippingLines.find(
-            (line) => line.code === currentValue
-          );
+          const selectedOption = shippingLines.find((line) => {
+            // Handle both ObjectId strings and populated objects
+            if (typeof currentValue === "object" && currentValue?.name) {
+              return line.name === currentValue.name;
+            }
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return line._id === currentValue._id;
+            }
+            return (
+              line.name === currentValue ||
+              line._id === currentValue ||
+              line.code === currentValue
+            );
+          });
 
           return (
             <Autocomplete
@@ -558,10 +594,10 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
               disablePortal={false}
               options={shippingLines}
               getOptionLabel={(option) => option.name || ""}
-              value={selectedOption || { name: currentValue }}
+              value={selectedOption || null}
               onChange={(_, newValue) => {
                 handleInputChange(
-                  { target: { value: newValue?.code || "" } },
+                  { target: { value: newValue?._id || "" } },
                   row.index,
                   cell.column.id
                 );
@@ -604,115 +640,212 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         header: "Goods Pickup",
         enableSorting: false,
         size: calculateColumnWidth(rows, "goods_pickup"),
-        Cell: ({ cell, row }) => (
-          <Autocomplete
-            fullWidth
-            disablePortal={false}
-            options={locations}
-            getOptionLabel={(option) => option}
-            value={rows[row.index]?.goods_pickup || null}
-            onChange={(_, newValue) =>
-              handleInputChange(
-                { target: { value: newValue || "" } },
-                row.index,
-                cell.column.id
-              )
+        Cell: ({ cell, row }) => {
+          const currentValue = rows[row.index]?.goods_pickup || "";
+          const selectedOption = locations.find((location) => {
+            // Handle both ObjectId strings and populated objects
+            if (
+              typeof currentValue === "object" &&
+              currentValue?.location_name
+            ) {
+              return location.location_name === currentValue.location_name;
             }
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-        ),
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return location._id === currentValue._id;
+            }
+            return (
+              location._id === currentValue ||
+              location.location_name === currentValue
+            );
+          });
+
+          return (
+            <Autocomplete
+              fullWidth
+              disablePortal={false}
+              options={locations}
+              getOptionLabel={(option) => option.location_name || option}
+              value={selectedOption || null}
+              onChange={(_, newValue) =>
+                handleInputChange(
+                  { target: { value: newValue?._id || newValue || "" } },
+                  row.index,
+                  cell.column.id
+                )
+              }
+              renderInput={(params) => <TextField {...params} size="small" />}
+            />
+          );
+        },
       },
       {
         accessorKey: "goods_delivery",
         header: "Goods Delivery",
         enableSorting: false,
         size: calculateColumnWidth(rows, "goods_delivery"),
-        Cell: ({ cell, row }) => (
-          <Autocomplete
-            fullWidth
-            disablePortal={false}
-            options={locations}
-            getOptionLabel={(option) => option}
-            value={rows[row.index]?.goods_delivery || null}
-            onChange={(_, newValue) =>
-              handleInputChange(
-                { target: { value: newValue || "" } },
-                row.index,
-                cell.column.id
-              )
+        Cell: ({ cell, row }) => {
+          const currentValue = rows[row.index]?.goods_delivery || "";
+          const selectedOption = locations.find((location) => {
+            // Handle both ObjectId strings and populated objects
+            if (
+              typeof currentValue === "object" &&
+              currentValue?.location_name
+            ) {
+              return location.location_name === currentValue.location_name;
             }
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-        ),
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return location._id === currentValue._id;
+            }
+            return (
+              location._id === currentValue ||
+              location.location_name === currentValue
+            );
+          });
+
+          return (
+            <Autocomplete
+              fullWidth
+              disablePortal={false}
+              options={locations}
+              getOptionLabel={(option) => option.location_name || option}
+              value={selectedOption || null}
+              onChange={(_, newValue) =>
+                handleInputChange(
+                  { target: { value: newValue?._id || newValue || "" } },
+                  row.index,
+                  cell.column.id
+                )
+              }
+              renderInput={(params) => <TextField {...params} size="small" />}
+            />
+          );
+        },
       },
       {
         accessorKey: "container_offloading",
         header: "Container Offloading",
         enableSorting: false,
         size: calculateColumnWidth(rows, "container_offloading"),
-        Cell: ({ cell, row }) => (
-          <Autocomplete
-            fullWidth
-            disablePortal={false}
-            options={locations}
-            getOptionLabel={(option) => option}
-            value={rows[row.index]?.container_offloading || null}
-            onChange={(_, newValue) =>
-              handleInputChange(
-                { target: { value: newValue || "" } },
-                row.index,
-                cell.column.id
-              )
+        Cell: ({ cell, row }) => {
+          const currentValue = rows[row.index]?.container_offloading || "";
+          const selectedOption = locations.find((location) => {
+            // Handle both ObjectId strings and populated objects
+            if (
+              typeof currentValue === "object" &&
+              currentValue?.location_name
+            ) {
+              return location.location_name === currentValue.location_name;
             }
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-        ),
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return location._id === currentValue._id;
+            }
+            return (
+              location.location_name === currentValue ||
+              location._id === currentValue
+            );
+          });
+
+          return (
+            <Autocomplete
+              fullWidth
+              disablePortal={false}
+              options={locations}
+              getOptionLabel={(option) => option.location_name || ""}
+              value={selectedOption || null}
+              onChange={(_, newValue) =>
+                handleInputChange(
+                  { target: { value: newValue?._id || "" } },
+                  row.index,
+                  cell.column.id
+                )
+              }
+              renderInput={(params) => <TextField {...params} size="small" />}
+            />
+          );
+        },
       },
       {
         accessorKey: "container_loading",
         header: "Container Loading",
         enableSorting: false,
         size: calculateColumnWidth(rows, "container_loading"),
-        Cell: ({ cell, row }) => (
-          <Autocomplete
-            fullWidth
-            disablePortal={false}
-            options={locations}
-            getOptionLabel={(option) => option}
-            value={rows[row.index]?.container_loading || null}
-            onChange={(_, newValue) =>
-              handleInputChange(
-                { target: { value: newValue || "" } },
-                row.index,
-                cell.column.id
-              )
+        Cell: ({ cell, row }) => {
+          const currentValue = rows[row.index]?.container_loading || "";
+          const selectedOption = locations.find((location) => {
+            // Handle both ObjectId strings and populated objects
+            if (
+              typeof currentValue === "object" &&
+              currentValue?.location_name
+            ) {
+              return location.location_name === currentValue.location_name;
             }
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-        ),
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return location._id === currentValue._id;
+            }
+            return (
+              location.location_name === currentValue ||
+              location._id === currentValue
+            );
+          });
+
+          return (
+            <Autocomplete
+              fullWidth
+              disablePortal={false}
+              options={locations}
+              getOptionLabel={(option) => option.location_name || ""}
+              value={selectedOption || null}
+              onChange={(_, newValue) =>
+                handleInputChange(
+                  { target: { value: newValue?._id || "" } },
+                  row.index,
+                  cell.column.id
+                )
+              }
+              renderInput={(params) => <TextField {...params} size="small" />}
+            />
+          );
+        },
       },
       {
         accessorKey: "type_of_vehicle",
         header: "Type of Vehicle",
         enableSorting: false,
         size: 200,
-        Cell: ({ cell, row }) => (
-          <Autocomplete
-            fullWidth
-            disablePortal={false}
-            options={truckTypes}
-            getOptionLabel={(option) => option}
-            value={rows[row.index]?.type_of_vehicle || null}
-            onChange={(_, newValue) =>
-              handleInputChange(
-                { target: { value: newValue || "" } },
-                row.index,
-                cell.column.id
-              )
+        Cell: ({ cell, row }) => {
+          const currentValue = rows[row.index]?.type_of_vehicle || "";
+          const selectedOption = truckTypes.find((vehicle) => {
+            // Handle both ObjectId strings and populated objects
+            if (typeof currentValue === "object" && currentValue?.vehicleType) {
+              return vehicle.vehicleType === currentValue.vehicleType;
             }
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-        ),
+            if (typeof currentValue === "object" && currentValue?._id) {
+              return vehicle._id === currentValue._id;
+            }
+            return (
+              vehicle.vehicleType === currentValue ||
+              vehicle._id === currentValue
+            );
+          });
+
+          return (
+            <Autocomplete
+              fullWidth
+              disablePortal={false}
+              options={truckTypes}
+              getOptionLabel={(option) => option.vehicleType || ""}
+              value={selectedOption || null}
+              onChange={(_, newValue) =>
+                handleInputChange(
+                  { target: { value: newValue?._id || "" } },
+                  row.index,
+                  cell.column.id
+                )
+              }
+              renderInput={(params) => <TextField {...params} size="small" />}
+            />
+          );
+        },
       },
       {
         accessorKey: "document_no",

@@ -9,40 +9,69 @@ function usePrData() {
 
   useEffect(() => {
     async function fetchData() {
-      // const res = await axios.get(
-      //   `${process.env.REACT_APP_API_STRING}/get-organisations`
-      // );
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/organisations/names`
-      );
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/organisations`
+        );
 
-      setOrganisations(res.data);
+        // Map organisations to the correct format with organisation_name field
+        const formattedOrganisations = res.data.data.map((org) => ({
+          _id: org._id,
+          organisation_name: org.name,
+          ...org,
+        }));
+
+        setOrganisations(formattedOrganisations);
+        console.log("✅ Organisations loaded:", formattedOrganisations);
+      } catch (error) {
+        console.error("❌ Error fetching organisations:", error);
+      }
     }
 
     async function getContainerTypes() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/get-container-types`
-      );
-      setContainerTypes(res.data);
+      try {
+        const res = await axios(
+          `${process.env.REACT_APP_API_STRING}/get-container-types`
+        );
+        setContainerTypes(res.data);
+        console.log("✅ Container types loaded:", res.data);
+      } catch (error) {
+        console.error("❌ Error fetching container types:", error);
+      }
     }
 
     async function getLocationMasters() {
-      const res = await axios(
-        `${process.env.REACT_APP_API_STRING}/location-names`
-      );
-      setLocations(res.data);
+      try {
+        const res = await axios(
+          `${process.env.REACT_APP_API_STRING}/get-location`
+        );
+
+        // Map locations to the correct format with location_name field
+        const formattedLocations = res.data.map((location) => ({
+          _id: location._id,
+          location_name: location.name,
+          ...location,
+        }));
+
+        setLocations(formattedLocations);
+        console.log("✅ Locations loaded:", formattedLocations);
+      } catch (error) {
+        console.error("❌ Error fetching locations:", error);
+      }
     }
 
     const getTruckTypes = async () => {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/vehicle-types`
-      );
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/vehicle-types`
+        );
 
-      // Extract just the vehicleType field from each object
-      const vehicleTypeArray = res.data.data.map((item) => item.vehicleType);
-
-      // Now your truckTypes state is just an array of strings
-      setTruckTypes(vehicleTypeArray);
+        // Keep the full objects instead of just extracting vehicleType strings
+        setTruckTypes(res.data.data);
+        console.log("✅ Vehicle types loaded:", res.data.data);
+      } catch (error) {
+        console.error("❌ Error fetching vehicle types:", error);
+      }
     };
 
     fetchData();

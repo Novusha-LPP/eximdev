@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 import ContainerType from "./containerType.mjs";
+import Organisation from "./Directory_Management/Organisation.mjs";
+import Location from "./Directory_Management/location.mjs";
+import ShippingLine from "./Directory_Management/ShippingLine.mjs";
+import VehicleType from "./Directory_Management/VehicleType.mjs";
 
 const TrackingHistorySchema = new mongoose.Schema({
   status: {
@@ -27,10 +31,12 @@ const PrDataSchema = new mongoose.Schema(
       type: String,
     },
     consignor: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organisation",
     },
     consignee: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organisation",
     },
     container_type: {
       type: mongoose.Schema.Types.ObjectId,
@@ -43,7 +49,8 @@ const PrDataSchema = new mongoose.Schema(
       type: String,
     },
     type_of_vehicle: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VehicleType",
     },
     no_of_vehicle: {
       type: String,
@@ -52,13 +59,16 @@ const PrDataSchema = new mongoose.Schema(
       type: String,
     },
     shipping_line: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ShippingLine",
     },
     container_loading: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
     },
     container_offloading: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
     },
     do_validity: {
       type: String,
@@ -73,10 +83,12 @@ const PrDataSchema = new mongoose.Schema(
       type: String,
     },
     goods_pickup: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
     },
     goods_delivery: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
     },
     suffix: { type: String, required: false },
     prefix: { type: String, required: false },
@@ -101,16 +113,19 @@ const PrDataSchema = new mongoose.Schema(
           type: String,
         },
         goods_pickup: {
-          type: String,
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Location",
         },
         goods_delivery: {
-          type: String,
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Location",
         },
         own_hired: {
           type: String,
         },
         type_of_vehicle: {
-          type: String,
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "VehicleType",
         },
         vehicle_no: {
           type: String,

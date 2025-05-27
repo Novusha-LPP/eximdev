@@ -96,12 +96,58 @@ router.get("/api/get-pr-data/:branch", async (req, res) => {
 
     let data = result[0].data || [];
 
-    // Populate container_type for each document
+    // Populate all ObjectId references for each document
     if (data.length > 0) {
-      data = await PrData.populate(data, {
-        path: "container_type",
-        model: "ContainerType",
-      });
+      data = await PrData.populate(data, [
+        {
+          path: "container_type",
+          model: "ContainerType",
+        },
+        {
+          path: "consignor",
+          model: "Organisation",
+        },
+        {
+          path: "consignee",
+          model: "Organisation",
+        },
+        {
+          path: "shipping_line",
+          model: "ShippingLine",
+        },
+        {
+          path: "type_of_vehicle",
+          model: "VehicleType",
+        },
+        {
+          path: "goods_pickup",
+          model: "Location",
+        },
+        {
+          path: "goods_delivery",
+          model: "Location",
+        },
+        {
+          path: "container_loading",
+          model: "Location",
+        },
+        {
+          path: "container_offloading",
+          model: "Location",
+        },
+        {
+          path: "containers.type_of_vehicle",
+          model: "VehicleType",
+        },
+        {
+          path: "containers.goods_pickup",
+          model: "Location",
+        },
+        {
+          path: "containers.goods_delivery",
+          model: "Location",
+        },
+      ]);
     }
 
     const total = result[0].totalCount[0]?.count || 0;

@@ -15,9 +15,16 @@ export const generateLrPdf = async (data, lrData) => {
 
   async function getAddress() {
     try {
+      // Handle populated consignor object
+      const consignorName =
+        typeof lrData.consignor === "object" &&
+        lrData.consignor?.organisation_name
+          ? lrData.consignor.organisation_name
+          : lrData.consignor;
+
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/get-organisation-data`,
-        { name: lrData.consignor }
+        { name: consignorName }
       );
       const defaultBranch = res.data.branches?.find(
         (branch) => branch?.default
@@ -105,8 +112,21 @@ export const generateLrPdf = async (data, lrData) => {
       "Consignor's Name and Address",
       "Consignee Name and Address",
     ];
+
+    // Handle populated objects for consignor and consignee
+    const consignorName =
+      typeof lrData.consignor === "object" &&
+      lrData.consignor?.organisation_name
+        ? lrData.consignor.organisation_name
+        : lrData.consignor;
+    const consigneeName =
+      typeof lrData.consignee === "object" &&
+      lrData.consignee?.organisation_name
+        ? lrData.consignee.organisation_name
+        : lrData.consignee;
+
     const rowsData = [
-      [lrData.consignor + "\n" + address, lrData.consignee + "\n" + address],
+      [consignorName + "\n" + address, consigneeName + "\n" + address],
     ];
 
     const tableWidth = pdf.internal.pageSize.getWidth() - 80;
@@ -137,13 +157,24 @@ export const generateLrPdf = async (data, lrData) => {
     // Container pickup and destuff
     const firstTableHeight = pdf.previousAutoTable.finalY;
     const headers2 = ["Container Pickup", "Empty Offloading", "Shipping Line"];
-    const rowsData2 = [
-      [
-        lrData.container_loading,
-        lrData.container_offloading,
-        lrData.shipping_line,
-      ],
-    ];
+
+    // Handle populated objects for locations and shipping line
+    const containerLoading =
+      typeof lrData.container_loading === "object" &&
+      lrData.container_loading?.location_name
+        ? lrData.container_loading.location_name
+        : lrData.container_loading;
+    const containerOffloading =
+      typeof lrData.container_offloading === "object" &&
+      lrData.container_offloading?.location_name
+        ? lrData.container_offloading.location_name
+        : lrData.container_offloading;
+    const shippingLine =
+      typeof lrData.shipping_line === "object" && lrData.shipping_line?.name
+        ? lrData.shipping_line.name
+        : lrData.shipping_line;
+
+    const rowsData2 = [[containerLoading, containerOffloading, shippingLine]];
     const columnWidth2 = tableWidth / headers2.length;
 
     // Add the table
@@ -170,7 +201,19 @@ export const generateLrPdf = async (data, lrData) => {
     // From and To
     const secondTableHeight = pdf.previousAutoTable.finalY;
     const headers3 = ["From", "To"];
-    const rowsData3 = [[item.goods_pickup, item.goods_delivery]];
+
+    // Handle populated objects or string values
+    const fromLocation =
+      typeof item.goods_pickup === "object" && item.goods_pickup?.location_name
+        ? item.goods_pickup.location_name
+        : item.goods_pickup;
+    const toLocation =
+      typeof item.goods_delivery === "object" &&
+      item.goods_delivery?.location_name
+        ? item.goods_delivery.location_name
+        : item.goods_delivery;
+
+    const rowsData3 = [[fromLocation, toLocation]];
     const columnWidth3 = tableWidth / headers3.length;
 
     // Add the table
@@ -204,9 +247,16 @@ export const generateLrPdf = async (data, lrData) => {
       "Amount To Pay",
     ];
 
+    // Handle populated container_type object
+    const containerType =
+      typeof lrData.container_type === "object" &&
+      lrData.container_type?.container_type
+        ? lrData.container_type.container_type
+        : lrData.container_type;
+
     const rowsData4 = [
       [
-        `${item.container_number} (${lrData.container_type})`,
+        `${item.container_number} (${containerType})`,
         item.seal_no,
         lrData.description,
         "As Agreed",
@@ -408,8 +458,18 @@ export const generateLrPdf = async (data, lrData) => {
       ],
       [
         `Date: ${new Date().toLocaleDateString()}`,
-        `From: ${item.goods_pickup}`,
-        `To: ${item.goods_delivery}`,
+        `From: ${
+          typeof item.goods_pickup === "object" &&
+          item.goods_pickup?.location_name
+            ? item.goods_pickup.location_name
+            : item.goods_pickup
+        }`,
+        `To: ${
+          typeof item.goods_delivery === "object" &&
+          item.goods_delivery?.location_name
+            ? item.goods_delivery.location_name
+            : item.goods_delivery
+        }`,
       ],
       [
         {

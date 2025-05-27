@@ -308,7 +308,7 @@ function useLrColumns(props) {
         return (
           <Checkbox
             style={{ padding: 0 }}
-            disabled={!(hasTrNo && isValidContainer)} // Only enabled if both are true
+            disabled={!hasTrNo} // Only enabled if both are true
             onChange={() => handleCheckboxChange(row.original)}
           />
         );
@@ -374,7 +374,7 @@ function useLrColumns(props) {
             helperText={
               !!rows[row.index]?.container_number &&
               !rows[row.index]?.isValidContainer
-                ? "Format: ABCD1234567 (4 uppercase letters + 7 digits)"
+                ? "Format: ABCD1234567 (4 uppercase letters + 7 digits) or Not a Real Container Number"
                 : ""
             }
             inputProps={{
@@ -418,7 +418,6 @@ function useLrColumns(props) {
               ? "Seal No must be up to 30 characters"
               : ""
           }
-          disabled={!rows[row.index]?.isValidContainer}
         />
       ),
     },
@@ -454,7 +453,6 @@ function useLrColumns(props) {
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
-          disabled={!rows[row.index]?.isValidContainer}
         />
       ),
     },
@@ -489,7 +487,6 @@ function useLrColumns(props) {
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
-          disabled={!rows[row.index]?.isValidContainer}
         />
       ),
     },
@@ -524,7 +521,6 @@ function useLrColumns(props) {
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
-          disabled={!rows[row.index]?.isValidContainer}
         />
       ),
     },
@@ -564,7 +560,6 @@ function useLrColumns(props) {
               )
             }
             renderInput={(params) => <TextField {...params} size="small" />}
-            disabled={!rows[row.index]?.isValidContainer}
           />
         );
       },
@@ -605,7 +600,6 @@ function useLrColumns(props) {
               )
             }
             renderInput={(params) => <TextField {...params} size="small" />}
-            disabled={!rows[row.index]?.isValidContainer}
           />
         );
       },
@@ -629,7 +623,6 @@ function useLrColumns(props) {
             });
             handleInputChange(e, row.index, cell.column.id);
           }}
-          disabled={!rows[row.index]?.isValidContainer}
         >
           <MenuItem value="Own">Own</MenuItem>
           <MenuItem value="Hired">Hired</MenuItem>
@@ -677,15 +670,10 @@ function useLrColumns(props) {
                 {...params}
                 size="small"
                 placeholder="Select vehicle type"
-                error={
-                  !rows[row.index]?.isValidContainer ||
-                  !rows[row.index]?.own_hired
-                }
+                error={!rows[row.index]?.own_hired}
               />
             )}
-            disabled={
-              !rows[row.index]?.isValidContainer || !rows[row.index]?.own_hired
-            }
+            disabled={!rows[row.index]?.own_hired}
             fullWidth
           />
         );
@@ -782,7 +770,6 @@ function useLrColumns(props) {
                 }
               }}
               placeholder="Enter driver name"
-              disabled={!rows[row.index]?.isValidContainer}
             />
           );
         }
@@ -829,7 +816,6 @@ function useLrColumns(props) {
                   ? "Enter a valid 10-digit phone number"
                   : ""
               }
-              disabled={!rows[row.index]?.isValidContainer}
             />
           );
         }
@@ -866,7 +852,6 @@ function useLrColumns(props) {
           onBlur={(event) =>
             handleInputChange(event, row.index, cell.column.id)
           }
-          disabled={!rows[row.index]?.isValidContainer}
         />
       ),
     },
@@ -883,13 +868,10 @@ function useLrColumns(props) {
               await handleSaveLr(row.original, props);
               await getData(); // Refresh rows after saving
             }}
-            disabled={!rows[row.index]?.isValidContainer}
           >
             <SaveIcon
               sx={{
-                color: rows[row.index]?.isValidContainer
-                  ? "#015C4B"
-                  : "#9E9E9E",
+                color: "#015C4B",
               }}
             />
           </IconButton>

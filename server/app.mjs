@@ -276,40 +276,7 @@ if (cluster.isPrimary) {
   app.use(bodyParser.json({ limit: "100mb" }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-
-  const allowedOrigins = [
-    "http://eximdev.s3-website.ap-south-1.amazonaws.com",
-    "http://eximit.s3-website.ap-south-1.amazonaws.com",
-    "http://localhost:3000",
-    "https://exim.alvision.in",
-    "https://eximapi.alvision.in",
-    "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com"
-
-  ];
- app.use(
-    cors({
-      origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, Postman)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        } else {
-          return callback(new Error("Not allowed by CORS"));
-        }
-      },
-      credentials: true, // Important for cookies
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-      allowedHeaders: [
-        "Origin",
-        "X-Requested-With",
-        "Content-Type",
-        "Accept",
-        "Authorization", // Add this to allow the Authorization header
-      ],
-      exposedHeaders: ["set-cookie"],
-      maxAge: 86400,
-    })
-  );
+  
   app.use((req, res, next) => {
     const isBrowserRequest =
       req.headers["user-agent"] &&

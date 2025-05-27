@@ -14,6 +14,27 @@ export const generateLrPdf = async (data, lrData) => {
     return;
   }
 
+  // Check if popup blocker might be active
+  let popupBlocked = false;
+  const testPopup = window.open('', '_blank', 'width=1,height=1');
+  if (!testPopup || testPopup.closed || typeof testPopup.closed === 'undefined') {
+    popupBlocked = true;
+  } else {
+    testPopup.close();
+  }
+  if (popupBlocked && data.length > 1) {
+    const userChoice = window.confirm(
+      `You have ${data.length} containers selected. Since popup blocker is active, would you like to:\n` +
+      `- Click OK to download all PDFs as files\n` +
+      `- Click Cancel to generate only the first container PDF`
+    );
+    
+    if (!userChoice) {
+      // User chose to process only first item
+      data = data.slice(0, 1);
+    }
+  }
+
   let address = "";
 
   async function getAddress() {
@@ -485,17 +506,25 @@ export const generateLrPdf = async (data, lrData) => {
 
     // Subject to Ahmedabad Jurisdiction
     pdf.setFontSize(14);
-    pdf.text("Subject to Ahmedabad Jurisdiction", 40, footerStartY + 80);
-
-    const pdfDataUri = pdf.output("datauristring");
+    pdf.text("Subject to Ahmedabad Jurisdiction", 40, footerStartY + 80);    const pdfDataUri = pdf.output("datauristring");
     // Open the PDF in a new tab
     const newTab = window.open();
-    newTab.document.write(
-      `<html><head><title>${subTitleText}</title><style>
-         body, html { margin: 0; padding: 0; }
-         iframe { border: none; width: 100%; height: 100%; }
-       </style></head><body><embed width='100%' height='100%' src='${pdfDataUri}'></embed></body></html>`
-    );
+    if (newTab) {
+      newTab.document.write(
+        `<html><head><title>${subTitleText}</title><style>
+           body, html { margin: 0; padding: 0; }
+           iframe { border: none; width: 100%; height: 100%; }
+         </style></head><body><embed width='100%' height='100%' src='${pdfDataUri}'></embed></body></html>`
+      );
+    } else {
+      // Fallback: Download the PDF if popup is blocked
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `${subTitleText || 'LR-Report'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
     ////////////////////////////////////////////////////////////////////////////////
     // Cash Report
@@ -666,17 +695,25 @@ export const generateLrPdf = async (data, lrData) => {
       head: cashData.slice(0, 2),
       body: cashData.slice(2),
       ...options,
-    });
-
-    const cashReportPdfUri = pdf2.output("datauristring");
+    });    const cashReportPdfUri = pdf2.output("datauristring");
 
     // Open the PDF in a new tab
     const newTab2 = window.open();
-    newTab2.document.write(
-      `<html><head><title>${subTitleText} - Cash Memo</title><style>
-         body, html { margin: 0; padding: 0; }
-         iframe { border: none; width: 100%; height: 100%; }
-       </style></head><body><embed width='100%' height='100%' src='${cashReportPdfUri}'></embed></body></html>`
-    );
+    if (newTab2) {
+      newTab2.document.write(
+        `<html><head><title>${subTitleText} - Cash Memo</title><style>
+           body, html { margin: 0; padding: 0; }
+           iframe { border: none; width: 100%; height: 100%; }
+         </style></head><body><embed width='100%' height='100%' src='${cashReportPdfUri}'></embed></body></html>`
+      );
+    } else {
+      // Fallback: Download the PDF if popup is blocked
+      const link = document.createElement('a');
+      link.href = cashReportPdfUri;
+      link.download = `${subTitleText || 'LR-Report'}-Cash-Memo.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   });
 };

@@ -1,6 +1,7 @@
 import express from "express";
 import PrData from "../../model/srcc/pr.mjs";
 import Elock from "../../model/srcc/Directory_Management/Elock.mjs";
+import LrTrackingStages from "../../model/srcc/Directory_Management/LrTrackingStages.mjs";
 
 const router = express.Router();
 
@@ -9,9 +10,7 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
     const { page = 1, limit = 100 } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
-
-    const pipeline = [
+    const skip = (pageNum - 1) * limitNum;    const pipeline = [
       {
         $unwind: "$containers",
       },
@@ -39,6 +38,105 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
       {
         $sort: { tr_no_numeric: -1 },
       },
+      // Add lookups for population
+      {
+        $lookup: {
+          from: "parties",
+          localField: "consignor",
+          foreignField: "_id",
+          as: "consignor_data",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                "organisation.name": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "parties",
+          localField: "consignee",
+          foreignField: "_id",
+          as: "consignee_data",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                "organisation.name": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "parties",
+          localField: "shipping_line",
+          foreignField: "_id",
+          as: "shipping_line_data",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                "organisation.name": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "parties",
+          localField: "container_offloading",
+          foreignField: "_id",
+          as: "container_offloading_data",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                city: 1,
+                state: 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "parties",
+          localField: "containers.goods_delivery",
+          foreignField: "_id",
+          as: "goods_delivery_data",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                city: 1,
+                state: 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "lrtrackingstages",
+          localField: "containers.tracking_status",
+          foreignField: "_id",
+          as: "tracking_status_data",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                description: 1
+              }
+            }
+          ]
+        }
+      },
       {
         $facet: {
           data: [
@@ -48,9 +146,9 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
               $project: {
                 tr_no: "$containers.tr_no",
                 container_number: "$containers.container_number",
-                consignor: 1,
-                consignee: 1,
-                goods_delivery: "$containers.goods_delivery",
+                consignor: { $arrayElemAt: ["$consignor_data", 0] },
+                consignee: { $arrayElemAt: ["$consignee_data", 0] },
+                goods_delivery: { $arrayElemAt: ["$goods_delivery_data", 0] },
                 branch: 1,
                 vehicle_no: "$containers.vehicle_no",
                 driver_name: "$containers.driver_name",
@@ -58,9 +156,9 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
                 sr_cel_no: "$containers.sr_cel_no",
                 sr_cel_FGUID: "$containers.sr_cel_FGUID",
                 sr_cel_id: "$containers.sr_cel_id",
-                tracking_status: "$containers.tracking_status",
-                shipping_line: 1,
-                container_offloading: 1,
+                tracking_status: { $arrayElemAt: ["$tracking_status_data", 0] },
+                shipping_line: { $arrayElemAt: ["$shipping_line_data", 0] },
+                container_offloading: { $arrayElemAt: ["$container_offloading_data", 0] },
                 do_validity: 1,
                 status: "$containers.status",
                 lr_completed: {
@@ -76,10 +174,7 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
           ],
         },
       },
-    ];
-
-    const result = await PrData.aggregate(pipeline);
-
+    ];    const result = await PrData.aggregate(pipeline);
     const data = result[0]?.data || [];
     const total = result[0]?.totalCount[0]?.count || 0;
 
@@ -299,6 +394,16 @@ router.get("/api/available-elocks", async (req, res) => {
     const elocks = await Elock.find({ status: "AVAILABLE" });
     res.status(200).json(elocks);
   } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });  }
+});
+
+// Get tracking status options for dropdown
+router.get("/api/lr-tracking-status", async (req, res) => {
+  try {
+    const trackingStages = await LrTrackingStages.find().select('_id name description');
+    res.status(200).json(trackingStages);
+  } catch (error) {
+    console.error("Error fetching tracking status options:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

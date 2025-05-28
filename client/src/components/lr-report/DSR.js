@@ -50,17 +50,15 @@ function DSR() {
       console.error("Failed to fetch data:", err);
     }
   }, []);
-
   // Fetch tracking status options
   const fetchTrackingStatus = useCallback(async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/lr-tracking-stages/all`
+        `${process.env.REACT_APP_API_STRING}/lr-tracking-status`
       );
 
       if (Array.isArray(response.data)) {
-        const options = response.data.map((stage) => stage.name);
-        setTrackingStatusOptions(options);
+        setTrackingStatusOptions(response.data);
       } else {
         console.error("Invalid data structure received:", response.data);
         setTrackingStatusOptions([]);
@@ -118,14 +116,12 @@ function DSR() {
 
       setSaving(true);
 
-      let dataToSend;
-
-      if (dialog) {
+      let dataToSend;      if (dialog) {
         // If dialog data is present, send all dialog-related fields
         dataToSend = {
           tr_no: row.tr_no,
           lr_completed: row.lr_completed,
-          tracking_status: dialog.tracking_status || row.tracking_status, // Use dialog tracking status if available
+          tracking_status: dialog.tracking_status || (typeof row.tracking_status === 'object' && row.tracking_status?._id ? row.tracking_status._id : row.tracking_status),
           offloading_date_time: dialog.offloading_date_time,
           detention_days: dialog.detention_days,
           reason_of_detention: dialog.reason_of_detention,
@@ -137,7 +133,7 @@ function DSR() {
         dataToSend = {
           tr_no: row.tr_no,
           lr_completed: row.lr_completed,
-          tracking_status: row.tracking_status,
+          tracking_status: typeof row.tracking_status === 'object' && row.tracking_status?._id ? row.tracking_status._id : row.tracking_status,
         };
       }
 
@@ -176,8 +172,7 @@ function DSR() {
     async (row) => {
       await saveRowData(row);
     },
-    [saveRowData]
-  );
+    [saveRowData]  );
 
   // Click handler for save button
   const handleSaveClick = useCallback(
@@ -185,6 +180,9 @@ function DSR() {
       if (row.lr_completed) {
         setDialogData({
           ...row,
+          tracking_status: (typeof row.tracking_status === 'object' && row.tracking_status?._id) 
+            ? row.tracking_status._id 
+            : row.tracking_status || "",
           document_attachment: null,
         });
         setDialogOpen(true);
@@ -222,14 +220,15 @@ function DSR() {
         accessorKey: "tracking_status",
         header: "Tracking Status",
         enableSorting: false,
-        size: 200,
-        Cell: ({ cell, row }) => {
+        size: 200,        Cell: ({ cell, row }) => {
           // Get the current value either from edited state or original data
           const rowIndex = row.index;
           const currentValue =
             editedRows[rowIndex]?.tracking_status !== undefined
               ? editedRows[rowIndex].tracking_status
-              : cell.getValue() || "";
+              : (typeof cell.getValue() === 'object' && cell.getValue()?._id) 
+                ? cell.getValue()._id 
+                : cell.getValue() || "";
 
           return (
             <TextField
@@ -246,8 +245,8 @@ function DSR() {
               }
             >
               {trackingStatusOptions.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {option}
+                <MenuItem key={option._id} value={option._id}>
+                  {option.name}
                 </MenuItem>
               ))}
             </TextField>
@@ -265,24 +264,41 @@ function DSR() {
         header: "E-Lock No",
         enableSorting: false,
         size: 150,
-      },
-      {
+      },      {
         accessorKey: "consignor",
         header: "Consignor",
         enableSorting: false,
         size: 250,
+        Cell: ({ cell }) => {
+          const value = cell.getValue();
+          return typeof value === 'object' && value?.organisation?.name 
+            ? value.organisation.name 
+            : (typeof value === 'object' && value?.name ? value.name : value || "");
+        },
       },
       {
         accessorKey: "consignee",
         header: "Consignee",
         enableSorting: false,
         size: 250,
+        Cell: ({ cell }) => {
+          const value = cell.getValue();
+          return typeof value === 'object' && value?.organisation?.name 
+            ? value.organisation.name 
+            : (typeof value === 'object' && value?.name ? value.name : value || "");
+        },
       },
       {
         accessorKey: "goods_delivery",
         header: "Goods Delivery",
         enableSorting: false,
         size: 150,
+        Cell: ({ cell }) => {
+          const value = cell.getValue();
+          return typeof value === 'object' && value?.name 
+            ? value.name 
+            : value || "";
+        },
       },
       {
         accessorKey: "branch",
@@ -307,18 +323,29 @@ function DSR() {
         header: "Driver Phone",
         enableSorting: false,
         size: 130,
-      },
-      {
+      },      {
         accessorKey: "shipping_line",
         header: "Shipping Line",
         enableSorting: false,
         size: 200,
+        Cell: ({ cell }) => {
+          const value = cell.getValue();
+          return typeof value === 'object' && value?.name 
+            ? value.name 
+            : value || "";
+        },
       },
       {
         accessorKey: "container_offloading",
         header: "Container Offloading",
         enableSorting: false,
         size: 200,
+        Cell: ({ cell }) => {
+          const value = cell.getValue();
+          return typeof value === 'object' && value?.name 
+            ? value.name 
+            : value || "";
+        },
       },
       {
         accessorKey: "do_validity",
@@ -406,9 +433,12 @@ function DSR() {
         fullWidth
       >
         <DialogTitle>Additional Details</DialogTitle>
-        <DialogContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Container Offloading: {dialogData.container_offloading || "N/A"}
+        <DialogContent>          <Typography variant="h6" sx={{ mb: 2 }}>
+            Container Offloading: {
+              typeof dialogData.container_offloading === 'object' && dialogData.container_offloading?.name 
+                ? dialogData.container_offloading.name 
+                : dialogData.container_offloading || "N/A"
+            }
           </Typography>
 
           {/* Add tracking status to dialog */}
@@ -420,10 +450,9 @@ function DSR() {
             onChange={handleDialogInputChange}
             fullWidth
             margin="normal"
-          >
-            {trackingStatusOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
+          >            {trackingStatusOptions.map((option) => (
+              <MenuItem key={option._id} value={option._id}>
+                {option.name}
               </MenuItem>
             ))}
           </TextField>

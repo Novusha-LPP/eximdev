@@ -4,6 +4,7 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import JobList from "./JobList";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function CustomTabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -36,8 +37,19 @@ function a11yProps(index) {
 
 function JobTabs() {
   const [value, setValue] = React.useState(0);
+  const { 
+    setSearchQuery,
+    setDetailedStatus,
+    setSelectedICD,
+    setSelectedImporter 
+  } = useSearchQuery();
 
   const handleChange = (event, newValue) => {
+    // Clear search parameters when switching tabs
+    setSearchQuery("");
+    setDetailedStatus("all");
+    setSelectedICD("all");
+    setSelectedImporter("");
     setValue(newValue);
   };
 

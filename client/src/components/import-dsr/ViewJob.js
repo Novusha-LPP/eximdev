@@ -1,6 +1,7 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { Row, Col } from "react-bootstrap";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 // import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import {
@@ -30,6 +31,7 @@ import { handleGrossWeightChange } from "../../utils/handleNetWeightChange";
 import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import {
   Dialog,
@@ -38,14 +40,78 @@ import {
   DialogContentText,
   DialogTitle,
   Button,
+  Box,
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 
 function JobDetails() {
   const params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { setTabValue } = React.useContext(TabValueContext);
+  const { 
+    setSearchQuery,
+    setDetailedStatus,
+    setSelectedICD,
+    setSelectedImporter
+  } = useSearchQuery();
+  
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  
+  useEffect(() => {
+    if (location.state && location.state.fromJobList) {
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        detailedStatus,
+        selectedICD,
+        selectedImporter
+      });
+    }
+  }, [location.state]);
+
+  // const handleBackClick = () => {
+  //   navigate('/import-dsr', {
+  //     state: {
+  //       fromJobDetails: true,
+  //       ...(storedSearchParams && {
+  //         searchQuery: storedSearchParams.searchQuery,
+  //         detailedStatus: storedSearchParams.detailedStatus,
+  //         selectedICD: storedSearchParams.selectedICD,
+  //         selectedImporter: storedSearchParams.selectedImporter
+  //       })
+  //     }
+  //   });
+  // };
+
+  const handleBackClick = () => {
+    navigate('/import-dsr', {
+      state: {
+        fromJobDetails: true,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          detailedStatus: storedSearchParams.detailedStatus,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedImporter: storedSearchParams.selectedImporter
+        })
+      }
+    });
+  };
+  
+  useEffect(() => {
+    if (location.state && location.state.fromJobList) {
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter } = location.state;
+      // Store parameters but don't set them in context yet
+      setStoredSearchParams({
+        searchQuery,
+        detailedStatus,
+        selectedICD,
+        selectedImporter
+      });
+    }
+  }, [location.state]);
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
   const [selectedRegNo, setSelectedRegNo] = useState();
@@ -635,10 +701,20 @@ function JobDetails() {
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
 
+
   return (
     <>
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
+          <Box sx={{ mb: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBackClick}
+            >
+              Back to Job List
+            </Button>
+          </Box>
           {/* Importer info start*/}
           <JobDetailsStaticData
             data={data}

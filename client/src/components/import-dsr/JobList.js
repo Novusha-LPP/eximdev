@@ -25,24 +25,42 @@ import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { useImportersContext } from "../../contexts/importersContext";
 import { YearContext } from "../../contexts/yearContext.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 
 function JobList(props) {
   const [years, setYears] = useState([]);
- const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const [detailedStatus, setDetailedStatus] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { 
+    searchQuery, setSearchQuery,
+    detailedStatus, setDetailedStatus,
+    selectedICD, setSelectedICD,
+    selectedImporter, setSelectedImporter
+  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const columns = useJobColumns(detailedStatus);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
-    const [selectedICD, setSelectedICD] = useState("all");
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Clear search state unless coming back from job details
+  React.useEffect(() => {
+    if (!(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setDetailedStatus("all");
+      setSelectedICD("all");
+      setSelectedImporter("");
+    }
+    // Optionally clear the state from history so it doesn't persist
+    if (location.state && location.state.fromJobDetails) {
+      window.history.replaceState({}, document.title);
+    }
+  }, []);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -57,7 +75,7 @@ function JobList(props) {
   }, [selectedYearState]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
-
+console.log("searchQuery", searchQuery);
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
     const uniqueImporters = new Set();
@@ -285,7 +303,7 @@ function JobList(props) {
 
       <SelectImporterModal
         open={open}
-        handleClose={handleClose}
+        // handleClose={handleClose}
         status={props.status}
         detailedStatus={detailedStatus}
       />

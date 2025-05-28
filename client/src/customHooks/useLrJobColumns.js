@@ -113,12 +113,12 @@ const usePrJobColumns = () => {
       enableColumnFilter: true,
     },
 
-    {
-      accessorKey: "container_details.lr_completed",
-      header: "LR Completed",
-      size: 150,
-      enableColumnFilter: true,
-    },
+    // {
+    //   accessorKey: "container_details.lr_completed",
+    //   header: "LR Completed",
+    //   size: 150,
+    //   enableColumnFilter: true,
+    // },
   ];
   return columns;
 };

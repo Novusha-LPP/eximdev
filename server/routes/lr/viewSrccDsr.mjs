@@ -10,7 +10,8 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
     const { page = 1, limit = 100 } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;    const pipeline = [
+    const skip = (pageNum - 1) * limitNum;
+    const pipeline = [
       {
         $unwind: "$containers",
       },
@@ -49,11 +50,11 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
             {
               $project: {
                 name: 1,
-                "organisation.name": 1
-              }
-            }
-          ]
-        }
+                "organisation.name": 1,
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -65,11 +66,11 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
             {
               $project: {
                 name: 1,
-                "organisation.name": 1
-              }
-            }
-          ]
-        }
+                "organisation.name": 1,
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -81,11 +82,11 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
             {
               $project: {
                 name: 1,
-                "organisation.name": 1
-              }
-            }
-          ]
-        }
+                "organisation.name": 1,
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -98,11 +99,11 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
               $project: {
                 name: 1,
                 city: 1,
-                state: 1
-              }
-            }
-          ]
-        }
+                state: 1,
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -115,11 +116,11 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
               $project: {
                 name: 1,
                 city: 1,
-                state: 1
-              }
-            }
-          ]
-        }
+                state: 1,
+              },
+            },
+          ],
+        },
       },
       {
         $lookup: {
@@ -131,11 +132,11 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
             {
               $project: {
                 name: 1,
-                description: 1
-              }
-            }
-          ]
-        }
+                description: 1,
+              },
+            },
+          ],
+        },
       },
       {
         $facet: {
@@ -158,7 +159,9 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
                 sr_cel_id: "$containers.sr_cel_id",
                 tracking_status: { $arrayElemAt: ["$tracking_status_data", 0] },
                 shipping_line: { $arrayElemAt: ["$shipping_line_data", 0] },
-                container_offloading: { $arrayElemAt: ["$container_offloading_data", 0] },
+                container_offloading: {
+                  $arrayElemAt: ["$container_offloading_data", 0],
+                },
                 do_validity: 1,
                 status: "$containers.status",
                 lr_completed: {
@@ -174,7 +177,8 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
           ],
         },
       },
-    ];    const result = await PrData.aggregate(pipeline);
+    ];
+    const result = await PrData.aggregate(pipeline);
     const data = result[0]?.data || [];
     const total = result[0]?.totalCount[0]?.count || 0;
 
@@ -394,13 +398,16 @@ router.get("/api/available-elocks", async (req, res) => {
     const elocks = await Elock.find({ status: "AVAILABLE" });
     res.status(200).json(elocks);
   } catch (error) {
-    res.status(500).json({ error: "Internal Server Error" });  }
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // Get tracking status options for dropdown
 router.get("/api/lr-tracking-status", async (req, res) => {
   try {
-    const trackingStages = await LrTrackingStages.find().select('_id name description');
+    const trackingStages = await LrTrackingStages.find().select(
+      "_id name description"
+    );
     res.status(200).json(trackingStages);
   } catch (error) {
     console.error("Error fetching tracking status options:", error);

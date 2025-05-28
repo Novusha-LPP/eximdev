@@ -116,12 +116,17 @@ function DSR() {
 
       setSaving(true);
 
-      let dataToSend;      if (dialog) {
+      let dataToSend;
+      if (dialog) {
         // If dialog data is present, send all dialog-related fields
         dataToSend = {
           tr_no: row.tr_no,
           lr_completed: row.lr_completed,
-          tracking_status: dialog.tracking_status || (typeof row.tracking_status === 'object' && row.tracking_status?._id ? row.tracking_status._id : row.tracking_status),
+          tracking_status:
+            dialog.tracking_status ||
+            (typeof row.tracking_status === "object" && row.tracking_status?._id
+              ? row.tracking_status._id
+              : row.tracking_status),
           offloading_date_time: dialog.offloading_date_time,
           detention_days: dialog.detention_days,
           reason_of_detention: dialog.reason_of_detention,
@@ -133,7 +138,10 @@ function DSR() {
         dataToSend = {
           tr_no: row.tr_no,
           lr_completed: row.lr_completed,
-          tracking_status: typeof row.tracking_status === 'object' && row.tracking_status?._id ? row.tracking_status._id : row.tracking_status,
+          tracking_status:
+            typeof row.tracking_status === "object" && row.tracking_status?._id
+              ? row.tracking_status._id
+              : row.tracking_status,
         };
       }
 
@@ -172,7 +180,8 @@ function DSR() {
     async (row) => {
       await saveRowData(row);
     },
-    [saveRowData]  );
+    [saveRowData]
+  );
 
   // Click handler for save button
   const handleSaveClick = useCallback(
@@ -180,9 +189,10 @@ function DSR() {
       if (row.lr_completed) {
         setDialogData({
           ...row,
-          tracking_status: (typeof row.tracking_status === 'object' && row.tracking_status?._id) 
-            ? row.tracking_status._id 
-            : row.tracking_status || "",
+          tracking_status:
+            typeof row.tracking_status === "object" && row.tracking_status?._id
+              ? row.tracking_status._id
+              : row.tracking_status || "",
           document_attachment: null,
         });
         setDialogOpen(true);
@@ -220,15 +230,16 @@ function DSR() {
         accessorKey: "tracking_status",
         header: "Tracking Status",
         enableSorting: false,
-        size: 200,        Cell: ({ cell, row }) => {
+        size: 200,
+        Cell: ({ cell, row }) => {
           // Get the current value either from edited state or original data
           const rowIndex = row.index;
           const currentValue =
             editedRows[rowIndex]?.tracking_status !== undefined
               ? editedRows[rowIndex].tracking_status
-              : (typeof cell.getValue() === 'object' && cell.getValue()?._id) 
-                ? cell.getValue()._id 
-                : cell.getValue() || "";
+              : typeof cell.getValue() === "object" && cell.getValue()?._id
+              ? cell.getValue()._id
+              : cell.getValue() || "";
 
           return (
             <TextField
@@ -264,16 +275,19 @@ function DSR() {
         header: "E-Lock No",
         enableSorting: false,
         size: 150,
-      },      {
+      },
+      {
         accessorKey: "consignor",
         header: "Consignor",
         enableSorting: false,
         size: 250,
         Cell: ({ cell }) => {
           const value = cell.getValue();
-          return typeof value === 'object' && value?.organisation?.name 
-            ? value.organisation.name 
-            : (typeof value === 'object' && value?.name ? value.name : value || "");
+          return typeof value === "object" && value?.organisation?.name
+            ? value.organisation.name
+            : typeof value === "object" && value?.name
+            ? value.name
+            : value || "";
         },
       },
       {
@@ -283,9 +297,11 @@ function DSR() {
         size: 250,
         Cell: ({ cell }) => {
           const value = cell.getValue();
-          return typeof value === 'object' && value?.organisation?.name 
-            ? value.organisation.name 
-            : (typeof value === 'object' && value?.name ? value.name : value || "");
+          return typeof value === "object" && value?.organisation?.name
+            ? value.organisation.name
+            : typeof value === "object" && value?.name
+            ? value.name
+            : value || "";
         },
       },
       {
@@ -295,8 +311,8 @@ function DSR() {
         size: 150,
         Cell: ({ cell }) => {
           const value = cell.getValue();
-          return typeof value === 'object' && value?.name 
-            ? value.name 
+          return typeof value === "object" && value?.name
+            ? value.name
             : value || "";
         },
       },
@@ -323,15 +339,16 @@ function DSR() {
         header: "Driver Phone",
         enableSorting: false,
         size: 130,
-      },      {
+      },
+      {
         accessorKey: "shipping_line",
         header: "Shipping Line",
         enableSorting: false,
         size: 200,
         Cell: ({ cell }) => {
           const value = cell.getValue();
-          return typeof value === 'object' && value?.name 
-            ? value.name 
+          return typeof value === "object" && value?.name
+            ? value.name
             : value || "";
         },
       },
@@ -342,8 +359,8 @@ function DSR() {
         size: 200,
         Cell: ({ cell }) => {
           const value = cell.getValue();
-          return typeof value === 'object' && value?.name 
-            ? value.name 
+          return typeof value === "object" && value?.name
+            ? value.name
             : value || "";
         },
       },
@@ -433,14 +450,15 @@ function DSR() {
         fullWidth
       >
         <DialogTitle>Additional Details</DialogTitle>
-        <DialogContent>          <Typography variant="h6" sx={{ mb: 2 }}>
-            Container Offloading: {
-              typeof dialogData.container_offloading === 'object' && dialogData.container_offloading?.name 
-                ? dialogData.container_offloading.name 
-                : dialogData.container_offloading || "N/A"
-            }
+        <DialogContent>
+          {" "}
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Container Offloading:{" "}
+            {typeof dialogData.container_offloading === "object" &&
+            dialogData.container_offloading?.name
+              ? dialogData.container_offloading.name
+              : dialogData.container_offloading || "N/A"}
           </Typography>
-
           {/* Add tracking status to dialog */}
           <TextField
             select
@@ -450,13 +468,14 @@ function DSR() {
             onChange={handleDialogInputChange}
             fullWidth
             margin="normal"
-          >            {trackingStatusOptions.map((option) => (
+          >
+            {" "}
+            {trackingStatusOptions.map((option) => (
               <MenuItem key={option._id} value={option._id}>
                 {option.name}
               </MenuItem>
             ))}
           </TextField>
-
           <TextField
             label="Offloading Date and Time"
             type="datetime-local"

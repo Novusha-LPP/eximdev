@@ -154,7 +154,8 @@ const PrDataSchema = new mongoose.Schema(
         },
         elock_no: {
           type: String,
-        },        tracking_status: {
+        },
+        tracking_status: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "LrTrackingStages",
         },

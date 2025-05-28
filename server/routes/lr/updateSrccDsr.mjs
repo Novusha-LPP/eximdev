@@ -147,10 +147,13 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
     if (lr_completed !== undefined) {
       updateFields["lr_completed"] = lr_completed;
       console.log("lr_completed set to:", lr_completed);
-    }    if (tracking_status !== undefined) {
+    }
+    if (tracking_status !== undefined) {
       // Validate if tracking_status is a valid ObjectId
       if (tracking_status && mongoose.Types.ObjectId.isValid(tracking_status)) {
-        updateFields["tracking_status"] = new mongoose.Types.ObjectId(tracking_status);
+        updateFields["tracking_status"] = new mongoose.Types.ObjectId(
+          tracking_status
+        );
       } else if (tracking_status === null || tracking_status === "") {
         updateFields["tracking_status"] = null;
       }

@@ -134,9 +134,11 @@ function useFileUpload(inputRef, alt, setAlt) {
             modifiedItem.assbl_value = item[key];
           } else if (modifiedKey === "ex_rate") {
             modifiedItem.exrate = item[key];
-          } else if (modifiedKey === "bill_no") {
-            modifiedItem.bill_no = item[key].split(",")[0];
-          } else if (modifiedKey === "consignment_type") {
+          }
+          //  else if (modifiedKey === "bill_no") {
+          //   modifiedItem.bill_no = item[key].split(",")[0];
+          // } 
+          else if (modifiedKey === "consignment_type") {
             modifiedItem.consignment_type = item[key].split(",")[0];
           } else if (modifiedKey === "hss_name") {
             modifiedItem.hss_name = item[key];

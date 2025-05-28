@@ -934,6 +934,75 @@ function JobDetails() {
                 </Col>
               )}
             </Row>
+            <Row style={{ marginTop: "20px" }}>
+              {/* Bill Document Sent */}
+              <Col xs={14} lg={3}>
+                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                  <div className="flex items-center">
+                    <strong>Bill document sent to account team:&nbsp;</strong>
+                    <span className="text-gray-900">
+                      {data.bill_document_sent_to_accounts
+                        ? new Date(
+                            data.bill_document_sent_to_accounts
+                          ).toLocaleString("en-US", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+              </Col>
+{/* Bill Agency No */}
+<Col xs={14} lg={3}>
+  <div className="flex items-center">
+    <strong>Bill Agency:&nbsp;</strong>
+    <span className="text-gray-900">
+      {(data.bill_no?.split(",")[0] || "").trim()}
+    </span>
+  </div>
+</Col>
+
+{/* Bill Reimbursement No */}
+<Col xs={14} lg={3}>
+  <div className="flex items-center">
+    <strong>Bill Reimbursement:&nbsp;</strong>
+    <span className="text-gray-900">
+      {(data.bill_no?.split(",")[1] || "").trim()}
+    </span>
+  </div>
+</Col>
+
+
+              {/* Bill Date (First Only) */}
+              <Col xs={12} lg={3}>
+                <div className="flex items-center">
+                  <strong>Bill Date:&nbsp;</strong>
+                  <span className="text-gray-900">
+                    {(() => {
+                      const firstDateStr = (data.bill_date || "")
+                        .split(",")[0]
+                        ?.trim();
+                      const firstDate = new Date(firstDateStr);
+                      return firstDate instanceof Date && !isNaN(firstDate)
+                        ? firstDate.toLocaleString("en-US", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
+                        : "";
+                    })()}
+                  </span>
+                </div>
+              </Col>
+            </Row>
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={2}>
                 <div className="job-detail-input-container">
@@ -1158,7 +1227,7 @@ function JobDetails() {
                   {/* HSS Field */}
                   <strong>HSS:&nbsp;</strong>
                   <TextField
-                    fullWidth       
+                    fullWidth
                     select
                     size="small"
                     variant="outlined"
@@ -1224,7 +1293,7 @@ function JobDetails() {
                 </div>
               </Col>
               <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
+                <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
@@ -1265,7 +1334,6 @@ function JobDetails() {
                     />
                   </div>
                 </Col>
-
               </Row>
             </Row>
             <Row style={{ marginTop: "20px" }}>

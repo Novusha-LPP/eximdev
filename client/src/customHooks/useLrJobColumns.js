@@ -14,6 +14,13 @@ const usePrJobColumns = () => {
       Cell: ({ row }) => row.original.consignor?.name || "-",
     },
     {
+      accessorKey: "consignee",
+      header: "Consignor",
+      size: 150,
+      enableColumnFilter: true,
+      Cell: ({ row }) => row.original.consignee?.name || "-",
+    },
+    {
       accessorKey: "container_details.tr_no",
       header: "LR No",
       size: 170,

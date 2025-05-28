@@ -11,176 +11,82 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
-    const pipeline = [
-      {
-        $unwind: "$containers",
-      },
-      {
-        $match: {
-          $or: [
-            { "containers.lr_completed": false },
-            { "containers.lr_completed": { $exists: false } },
-          ],
-          "containers.tr_no": { $exists: true, $ne: "" },
-        },
-      },
-      {
-        $addFields: {
-          tr_no_split: { $split: ["$containers.tr_no", "/"] },
-        },
-      },
-      {
-        $addFields: {
-          tr_no_numeric: {
-            $toInt: { $arrayElemAt: ["$tr_no_split", 2] },
+
+    // Build query with populated fields (same as getLRjobList.mjs)
+    let baseQuery = PrData.find({})
+      .populate("consignor", "name")
+      .populate("consignee", "name")
+      .populate("container_type", "container_type")
+      .populate("shipping_line", "name")
+      .populate("goods_pickup", "name")
+      .populate("goods_delivery", "name")
+      .populate("type_of_vehicle", "vehicleType")
+      .populate("container_loading", "name")
+      .populate("container_offloading", "name")
+      .populate("containers.goods_pickup", "name")
+      .populate("containers.goods_delivery", "name")
+      .populate("containers.type_of_vehicle", "vehicleType")
+      .populate("containers.tracking_status", "name description");
+
+    // Get all data first
+    let allData = await baseQuery.exec();
+
+    // Filter and flatten containers based on DSR criteria
+    let flattenedData = [];
+
+    allData.forEach((prItem) => {
+      prItem.containers.forEach((container) => {
+        // Check DSR conditions: tr_no exists and not empty, lr_completed is false or doesn't exist
+        if (!container.tr_no || container.tr_no === "") return;
+        if (container.lr_completed === true) return;
+
+        flattenedData.push({
+          tr_no: container.tr_no,
+          container_number: container.container_number,
+          consignor: prItem.consignor,
+          consignee: prItem.consignee,
+          container_type: prItem.container_type,
+          shipping_line: prItem.shipping_line,
+          goods_pickup: prItem.goods_pickup,
+          goods_delivery: prItem.goods_delivery,
+          type_of_vehicle: prItem.type_of_vehicle,
+          container_loading: prItem.container_loading,
+          container_offloading: prItem.container_offloading,
+          container_details: {
+            goods_pickup: container.goods_pickup,
+            goods_delivery: container.goods_delivery,
+            type_of_vehicle: container.type_of_vehicle,
           },
-        },
-      },
-      {
-        $sort: { tr_no_numeric: -1 },
-      },
-      // Add lookups for population
-      {
-        $lookup: {
-          from: "parties",
-          localField: "consignor",
-          foreignField: "_id",
-          as: "consignor_data",
-          pipeline: [
-            {
-              $project: {
-                name: 1,
-                "organisation.name": 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: "parties",
-          localField: "consignee",
-          foreignField: "_id",
-          as: "consignee_data",
-          pipeline: [
-            {
-              $project: {
-                name: 1,
-                "organisation.name": 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: "parties",
-          localField: "shipping_line",
-          foreignField: "_id",
-          as: "shipping_line_data",
-          pipeline: [
-            {
-              $project: {
-                name: 1,
-                "organisation.name": 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: "parties",
-          localField: "container_offloading",
-          foreignField: "_id",
-          as: "container_offloading_data",
-          pipeline: [
-            {
-              $project: {
-                name: 1,
-                city: 1,
-                state: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: "parties",
-          localField: "containers.goods_delivery",
-          foreignField: "_id",
-          as: "goods_delivery_data",
-          pipeline: [
-            {
-              $project: {
-                name: 1,
-                city: 1,
-                state: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: "lrtrackingstages",
-          localField: "containers.tracking_status",
-          foreignField: "_id",
-          as: "tracking_status_data",
-          pipeline: [
-            {
-              $project: {
-                name: 1,
-                description: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $facet: {
-          data: [
-            { $skip: skip },
-            { $limit: limitNum },
-            {
-              $project: {
-                tr_no: "$containers.tr_no",
-                container_number: "$containers.container_number",
-                consignor: { $arrayElemAt: ["$consignor_data", 0] },
-                consignee: { $arrayElemAt: ["$consignee_data", 0] },
-                goods_delivery: { $arrayElemAt: ["$goods_delivery_data", 0] },
-                branch: 1,
-                vehicle_no: "$containers.vehicle_no",
-                driver_name: "$containers.driver_name",
-                driver_phone: "$containers.driver_phone",
-                sr_cel_no: "$containers.sr_cel_no",
-                sr_cel_FGUID: "$containers.sr_cel_FGUID",
-                sr_cel_id: "$containers.sr_cel_id",
-                tracking_status: { $arrayElemAt: ["$tracking_status_data", 0] },
-                shipping_line: { $arrayElemAt: ["$shipping_line_data", 0] },
-                container_offloading: {
-                  $arrayElemAt: ["$container_offloading_data", 0],
-                },
-                do_validity: 1,
-                status: "$containers.status",
-                lr_completed: {
-                  $ifNull: ["$containers.lr_completed", false],
-                },
-              },
-            },
-          ],
-          totalCount: [
-            {
-              $count: "count",
-            },
-          ],
-        },
-      },
-    ];
-    const result = await PrData.aggregate(pipeline);
-    const data = result[0]?.data || [];
-    const total = result[0]?.totalCount[0]?.count || 0;
+          branch: prItem.branch,
+          vehicle_no: container.vehicle_no,
+          driver_name: container.driver_name,
+          driver_phone: container.driver_phone,
+          sr_cel_no: container.sr_cel_no,
+          sr_cel_FGUID: container.sr_cel_FGUID,
+          sr_cel_id: container.sr_cel_id,
+          tracking_status: container.tracking_status,
+          do_validity: prItem.do_validity,
+          status: container.status,
+          lr_completed: container.lr_completed || false,
+        });
+      });
+    });
+
+    // Sort by tr_no (descending) - extract numeric part for proper sorting
+    flattenedData.sort((a, b) => {
+      const getNumericPart = (trNo) => {
+        if (!trNo) return 0;
+        const parts = trNo.split("/");
+        return parseInt(parts[2]) || 0;
+      };
+      return getNumericPart(b.tr_no) - getNumericPart(a.tr_no);
+    });
+
+    // Calculate total after all filters
+    const total = flattenedData.length;
+
+    // Apply pagination
+    const data = flattenedData.slice(skip, skip + limitNum);
 
     res.status(200).json({
       data,

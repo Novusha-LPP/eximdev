@@ -38,52 +38,78 @@ router.get("/api/pr-job-list", async (req, res) => {
       };
     } else if (status?.toLowerCase() === "all") {
       matchCondition = {}; // No filtering, include all jobs
+    } // Generate search query with escaped regex
+    const escapeRegex = (string) => {
+      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"); // Escaping special regex characters
+    };
+    const buildSearchQuery = (search) => ({
+      $or: [
+        { pr_no: { $regex: escapeRegex(search), $options: "i" } },
+        { branch: { $regex: escapeRegex(search), $options: "i" } },
+        { import_export: { $regex: escapeRegex(search), $options: "i" } },
+        { type_of_vehicle: { $regex: escapeRegex(search), $options: "i" } },
+        { description: { $regex: escapeRegex(search), $options: "i" } },
+        { container_loading: { $regex: escapeRegex(search), $options: "i" } },
+        {
+          container_offloading: { $regex: escapeRegex(search), $options: "i" },
+        },
+        { instructions: { $regex: escapeRegex(search), $options: "i" } },
+        { document_no: { $regex: escapeRegex(search), $options: "i" } },
+        { status: { $regex: escapeRegex(search), $options: "i" } },
+      ],
+    });
+
+    // Build initial query with status condition
+    let query = PrData.find(matchCondition);
+
+    // Populate referenced fields first
+    query = query
+      .populate("consignor", "name")
+      .populate("consignee", "name")
+      .populate("container_type", "container_type")
+      .populate("shipping_line", "name")
+      .populate("goods_pickup", "name")
+      .populate("goods_delivery", "name")
+      .populate("type_of_vehicle", "vehicleType")
+      .populate("container_loading", "name")
+      .populate("container_offloading", "name")
+      .populate("containers.goods_pickup", "name")
+      .populate("containers.goods_delivery", "name")
+      .populate("containers.type_of_vehicle", "vehicleType");
+
+    // Get all data first if search is provided (for filtering populated fields)
+    let allData = await query.exec();
+
+    // Apply search filter on populated data if search is provided
+    if (search) {
+      const searchRegex = new RegExp(escapeRegex(search), "i");
+      allData = allData.filter((item) => {
+        return (
+          searchRegex.test(item.pr_no || "") ||
+          searchRegex.test(item.branch || "") ||
+          searchRegex.test(item.import_export || "") ||
+          searchRegex.test(item.description || "") ||
+          searchRegex.test(item.instructions || "") ||
+          searchRegex.test(item.document_no || "") ||
+          searchRegex.test(item.status || "") ||
+          searchRegex.test(item.consignor?.name || "") ||
+          searchRegex.test(item.consignee?.name || "") ||
+          searchRegex.test(item.container_type?.container_type || "") ||
+          searchRegex.test(item.shipping_line?.name || "") ||
+          searchRegex.test(item.goods_pickup?.name || "") ||
+          searchRegex.test(item.goods_delivery?.name || "") ||
+          searchRegex.test(item.type_of_vehicle?.vehicleType || "") ||
+          searchRegex.test(item.container_loading?.name || "") ||
+          searchRegex.test(item.container_offloading?.name || "")
+        );
+      });
     }
 
-    const pipeline = [
-      { $match: matchCondition },
-      {
-        $match: {
-          $or: [
-            { pr_no: { $regex: search, $options: "i" } },
-            { consignor: { $regex: search, $options: "i" } },
-            { consignee: { $regex: search, $options: "i" } },
-          ],
-        },
-      },
-      { $skip: skip },
-      { $limit: parseInt(limit) },
-      {
-        $project: {
-          // Include all fields from the schema
-          pr_no: 1,
-          pr_date: 1,
-          import_export: 1,
-          branch: 1,
-          consignor: 1,
-          consignee: 1,
-          container_type: 1,
-          container_count: 1,
-          gross_weight: 1,
-          type_of_vehicle: 1,
-          no_of_vehicle: 1,
-          description: 1,
-          shipping_line: 1,
-          container_loading: 1,
-          container_offloading: 1,
-          do_validity: 1,
-          instructions: 1,
-          document_no: 1,
-          document_date: 1,
-          goods_pickup: 1,
-          goods_delivery: 1,
-          status: 1,
-        },
-      },
-    ];
+    // Calculate total after search filter
+    const total = allData.length;
 
-    const data = await PrData.aggregate(pipeline);
-    const total = await PrData.countDocuments(matchCondition);
+    // Apply pagination to filtered results
+    const data = allData.slice(skip, skip + parseInt(limit));
 
     res.json({
       data,

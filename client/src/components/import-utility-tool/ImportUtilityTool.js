@@ -35,8 +35,7 @@ const ImportUtilityTool = () => {
   const [searchResults, setSearchResults] = useState(null);
   const [multipleResults, setMultipleResults] = useState([]);
   const [multipleResultsSource, setMultipleResultsSource] = useState("cth");
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);  const [activeTab, setActiveTab] = useState(1); // Default to Recent Searches tab
   const [recentSearches, setRecentSearches] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [contextItems, setContextItems] = useState([]);
@@ -100,7 +99,6 @@ const ImportUtilityTool = () => {
       setContextItems([]);
     }
   }, [API_URL]);
-
   // Perform search
   const performSearch = useCallback(async (query, addToRecent = false) => {
     setIsLoading(true);
@@ -108,6 +106,9 @@ const ImportUtilityTool = () => {
       const response = await axios.get(
         `${API_URL}/search?query=${encodeURIComponent(query)}&addToRecent=${addToRecent}`
       );
+
+      // Switch to Search Results tab when API call is made
+      setActiveTab(0);
 
       // Handle context items
       if (response.data.contextItems && response.data.contextItems.length > 0) {
@@ -147,6 +148,9 @@ const ImportUtilityTool = () => {
         }
       }
     } catch (error) {
+      // Still switch to Search Results tab even on error to show "No results found"
+      setActiveTab(0);
+      
       if (error.response && error.response.status === 404) {
         setSearchResults(null);
         setMultipleResults([]);

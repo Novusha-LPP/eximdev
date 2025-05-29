@@ -3,7 +3,16 @@ import PropTypes from "prop-types";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
+import ToolboxIcon from "@mui/icons-material/BuildCircle";
 import JobList from "./JobList";
+import ImportUtilityTool from "../import-utility-tool/ImportUtilityTool";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function CustomTabPanel(props) {
@@ -37,6 +46,7 @@ function a11yProps(index) {
 
 function JobTabs() {
   const [value, setValue] = React.useState(0);
+  const [openUtilityTool, setOpenUtilityTool] = React.useState(false);
   const { 
     setSearchQuery,
     setDetailedStatus,
@@ -53,9 +63,22 @@ function JobTabs() {
     setValue(newValue);
   };
 
+  const handleOpenUtilityTool = () => {
+    setOpenUtilityTool(true);
+  };
+
+  const handleCloseUtilityTool = () => {
+    setOpenUtilityTool(false);
+  };
   return (
     <Box sx={{ width: "100%" }}>
-      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+      <Box sx={{ 
+        borderBottom: 1, 
+        borderColor: "divider",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}>
         <Tabs
           value={value}
           onChange={handleChange}
@@ -67,6 +90,21 @@ function JobTabs() {
           <Tab label="Cancelled" {...a11yProps(2)} key={2} />
           ,]
         </Tabs>
+        
+        <Button
+          variant="contained"
+          startIcon={<ToolboxIcon />}
+          onClick={handleOpenUtilityTool}
+          sx={{
+            marginRight: 2,
+            backgroundColor: "#1976d2",
+            "&:hover": {
+              backgroundColor: "#1565c0",
+            },
+          }}
+        >
+          Utility Tool
+        </Button>
       </Box>
 
       <CustomTabPanel value={value} index={0}>
@@ -78,6 +116,40 @@ function JobTabs() {
       <CustomTabPanel value={value} index={2}>
         <JobList status="Cancelled" />
       </CustomTabPanel>
+
+      {/* Utility Tool Modal */}
+      <Dialog
+        open={openUtilityTool}
+        onClose={handleCloseUtilityTool}
+        maxWidth="lg"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            width: "85%",
+            height: "85%",
+            maxHeight: "90vh",
+          },
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider"
+        }}>
+          Import Utility Tool
+          <IconButton
+            onClick={handleCloseUtilityTool}
+            sx={{ color: "grey.500" }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ padding: 0 }}>
+          <ImportUtilityTool />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

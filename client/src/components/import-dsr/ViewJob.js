@@ -51,23 +51,24 @@ function JobDetails() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { setTabValue } = React.useContext(TabValueContext);
-  const { 
+  const {
     setSearchQuery,
     setDetailedStatus,
     setSelectedICD,
-    setSelectedImporter
+    setSelectedImporter,
   } = useSearchQuery();
-  
+
   const [storedSearchParams, setStoredSearchParams] = useState(null);
-  
+
   useEffect(() => {
     if (location.state && location.state.fromJobList) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter } = location.state;
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
+        location.state;
       setStoredSearchParams({
         searchQuery,
         detailedStatus,
         selectedICD,
-        selectedImporter
+        selectedImporter,
       });
     }
   }, [location.state]);
@@ -87,28 +88,29 @@ function JobDetails() {
   // };
 
   const handleBackClick = () => {
-    navigate('/import-dsr', {
+    navigate("/import-dsr", {
       state: {
         fromJobDetails: true,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           detailedStatus: storedSearchParams.detailedStatus,
           selectedICD: storedSearchParams.selectedICD,
-          selectedImporter: storedSearchParams.selectedImporter
-        })
-      }
+          selectedImporter: storedSearchParams.selectedImporter,
+        }),
+      },
     });
   };
-  
+
   useEffect(() => {
     if (location.state && location.state.fromJobList) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter } = location.state;
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
+        location.state;
       // Store parameters but don't set them in context yet
       setStoredSearchParams({
         searchQuery,
         detailedStatus,
         selectedICD,
-        selectedImporter
+        selectedImporter,
       });
     }
   }, [location.state]);
@@ -701,39 +703,38 @@ function JobDetails() {
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
 
-
   return (
     <>
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
-        <Box sx={{ position: 'fixed', top: 80, left: 80, zIndex: 999 }}>
-  <Button
-    variant="contained"
-    startIcon={<ArrowBackIcon />}
-    onClick={handleBackClick}
-    sx={{
-      // fontWeight: 'bold',
-      backgroundColor: 'black',
-      color: 'white',
-      '&:hover': {
-        backgroundColor: '#333',
-      },
-    }}
-  >
-    Back to Job List
-  </Button>
-</Box>
+          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+            <Button
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBackClick}
+              sx={{
+                // fontWeight: 'bold',
+                backgroundColor: "black",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              }}
+            >
+              Back to Job List
+            </Button>
+          </Box>
 
           {/* Importer info start*/}
           <div style={{ marginTop: "70px" }}>
-          <JobDetailsStaticData
-            data={data}
-            params={params}
-            bl_no_ref={bl_no_ref}
-            setSnackbar={setSnackbar}
-            container_nos={formik.values.container_nos}
-            // Passing be_no from formik
-          />
+            <JobDetailsStaticData
+              data={data}
+              params={params}
+              bl_no_ref={bl_no_ref}
+              setSnackbar={setSnackbar}
+              container_nos={formik.values.container_nos}
+              // Passing be_no from formik
+            />
           </div>
           {/* Importer info End*/}
           {/* completion status start*/}
@@ -1044,26 +1045,25 @@ function JobDetails() {
                   </div>
                 </div>
               </Col>
-{/* Bill Agency No */}
-<Col xs={14} lg={3}>
-  <div className="flex items-center">
-    <strong>Bill Agency:&nbsp;</strong>
-    <span className="text-gray-900">
-      {(data.bill_no?.split(",")[0] || "").trim()}
-    </span>
-  </div>
-</Col>
+              {/* Bill Agency No */}
+              <Col xs={14} lg={3}>
+                <div className="flex items-center">
+                  <strong>Bill Agency:&nbsp;</strong>
+                  <span className="text-gray-900">
+                    {(data.bill_no?.split(",")[0] || "").trim()}
+                  </span>
+                </div>
+              </Col>
 
-{/* Bill Reimbursement No */}
-<Col xs={14} lg={3}>
-  <div className="flex items-center">
-    <strong>Bill Reimbursement:&nbsp;</strong>
-    <span className="text-gray-900">
-      {(data.bill_no?.split(",")[1] || "").trim()}
-    </span>
-  </div>
-</Col>
-
+              {/* Bill Reimbursement No */}
+              <Col xs={14} lg={3}>
+                <div className="flex items-center">
+                  <strong>Bill Reimbursement:&nbsp;</strong>
+                  <span className="text-gray-900">
+                    {(data.bill_no?.split(",")[1] || "").trim()}
+                  </span>
+                </div>
+              </Col>
 
               {/* Bill Date (First Only) */}
               <Col xs={12} lg={3}>
@@ -3283,25 +3283,24 @@ function JobDetails() {
                         </div>
                       </Col>
 
-                    {LCLFlag && (
-  <Col xs={12} md={4} lg={3} className="mb-2">
-    <div className="job-detail-input-container">
-      <strong>By Road Movement Date:&nbsp;</strong>
-      <TextField
-        fullWidth
-        size="small"
-        variant="outlined"
-        type="datetime-local"
-        id={`by_road_movement_date${index}`}
-        name={`container_nos[${index}].by_road_movement_date`}
-        value={container.by_road_movement_date}
-        disabled={ExBondflag} // Optional: Disable if ExBondflag is true
-        onChange={formik.handleChange}
-      />
-    </div>
-  </Col>
-)}
-
+                      {LCLFlag && (
+                        <Col xs={12} md={4} lg={3} className="mb-2">
+                          <div className="job-detail-input-container">
+                            <strong>By Road Movement Date:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              type="datetime-local"
+                              id={`by_road_movement_date${index}`}
+                              name={`container_nos[${index}].by_road_movement_date`}
+                              value={container.by_road_movement_date}
+                              disabled={ExBondflag} // Optional: Disable if ExBondflag is true
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                        </Col>
+                      )}
                     </Row>
 
                     <br />
@@ -3616,9 +3615,7 @@ function JobDetails() {
                     >
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
-                          <strong>
-                            Delivery Date:&nbsp;
-                          </strong>
+                          <strong>Delivery Date:&nbsp;</strong>
                           <TextField
                             fullWidth
                             size="small"

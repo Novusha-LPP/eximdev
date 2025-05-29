@@ -198,6 +198,9 @@ const EditableDateCell = ({ cell }) => {
     if (field === "container_rail_out_date" && tempTimeValue) {
       finalValue = `${tempDateValue}T${tempTimeValue}`;
     }
+    if (field === "by_road_movement_date" && tempTimeValue) {
+      finalValue = `${tempDateValue}T${tempTimeValue}`;
+    }
 
     if (index !== null) {
       const updatedContainers = containers.map((container, i) => {
@@ -424,6 +427,52 @@ const EditableDateCell = ({ cell }) => {
                           style={styles.submitButton}
                           onClick={() =>
                             handleDateSubmit("container_rail_out_date", id)
+                          }
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && (
+                          <div style={styles.errorText}>{dateError}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+            {consignment_type == "LCL" && (
+              <>
+                {/* Container Dates */}
+                {containers.map((container, id) => (
+                  <div key={id}>
+                    <strong>By Road Movement Date :</strong>{" "}
+                    {container.by_road_movement_date
+                      ?.slice(0, 10)
+                      .replace("T", " ") || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() =>
+                        handleEditStart("by_road_movement_date", id)
+                      }
+                    />
+                    {editable === `by_road_movement_date${id}` && (
+                      <div>
+                        <input
+                          type="datetime-local"
+                          value={tempDateValue}
+                          onChange={handleCombinedDateTimeChange}
+                          style={dateError ? styles.errorInput : {}}
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() =>
+                            handleDateSubmit("by_road_movement_date", id)
                           }
                         >
                           ✓

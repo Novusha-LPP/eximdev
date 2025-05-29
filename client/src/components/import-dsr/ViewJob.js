@@ -706,16 +706,26 @@ function JobDetails() {
     <>
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
-          <Box sx={{ mb: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              onClick={handleBackClick}
-            >
-              Back to Job List
-            </Button>
-          </Box>
+        <Box sx={{ position: 'fixed', top: 80, left: 80, zIndex: 999 }}>
+  <Button
+    variant="contained"
+    startIcon={<ArrowBackIcon />}
+    onClick={handleBackClick}
+    sx={{
+      // fontWeight: 'bold',
+      backgroundColor: 'black',
+      color: 'white',
+      '&:hover': {
+        backgroundColor: '#333',
+      },
+    }}
+  >
+    Back to Job List
+  </Button>
+</Box>
+
           {/* Importer info start*/}
+          <div style={{ marginTop: "70px" }}>
           <JobDetailsStaticData
             data={data}
             params={params}
@@ -724,6 +734,7 @@ function JobDetails() {
             container_nos={formik.values.container_nos}
             // Passing be_no from formik
           />
+          </div>
           {/* Importer info End*/}
           {/* completion status start*/}
           <div className="job-details-container">
@@ -3271,6 +3282,26 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
+
+                    {LCLFlag && (
+  <Col xs={12} md={4} lg={3} className="mb-2">
+    <div className="job-detail-input-container">
+      <strong>By Road Movement Date:&nbsp;</strong>
+      <TextField
+        fullWidth
+        size="small"
+        variant="outlined"
+        type="datetime-local"
+        id={`by_road_movement_date${index}`}
+        name={`container_nos[${index}].by_road_movement_date`}
+        value={container.by_road_movement_date}
+        disabled={ExBondflag} // Optional: Disable if ExBondflag is true
+        onChange={formik.handleChange}
+      />
+    </div>
+  </Col>
+)}
+
                     </Row>
 
                     <br />
@@ -3586,7 +3617,7 @@ function JobDetails() {
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>
-                            Delivery Date:&nbsp;{container.delivery_date}
+                            Delivery Date:&nbsp;
                           </strong>
                           <TextField
                             fullWidth

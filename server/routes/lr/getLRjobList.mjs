@@ -9,134 +9,136 @@ router.get("/api/lr-job-list", async (req, res) => {
     const { page = 1, limit = 100, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
-    let statusMatchCondition = {};
-
-    if (status?.toLowerCase() === "pending") {
-      statusMatchCondition = {
-        $or: [
-          { "containers.lr_completed": { $exists: false } },
-          { "containers.lr_completed": false },
-        ],
-      };
-    } else if (status?.toLowerCase() === "completed") {
-      statusMatchCondition = { "containers.lr_completed": true };
-    } else if (status?.toLowerCase() === "all" || !status) {
-      statusMatchCondition = {}; // No filter — include all containers
-    }
-
-    // Add additional match condition to filter out empty or null tr_no values
-    const trNoMatchCondition = {
-      "containers.tr_no": {
-        $exists: true,
-        $ne: null,
-        $ne: "",
-      },
+    // Generate search query with escaped regex
+    const escapeRegex = (string) => {
+      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
     };
 
-    const pipeline = [
-      { $unwind: "$containers" }, // Flatten the containers array
-      { $match: statusMatchCondition }, // Apply status match condition
-      { $match: trNoMatchCondition }, // Filter out empty or null tr_no values
-      {
-        $match: {
-          $or: [
-            { pr_no: { $regex: search, $options: "i" } },
-            { consignor: { $regex: search, $options: "i" } },
-            { consignee: { $regex: search, $options: "i" } },
-          ],
-        },
-      },
-      {
-        $project: {
-          pr_no: 1,
-          pr_date: 1,
-          branch: 1,
-          consignor: 1,
-          container_count: 1,
-          no_of_vehicle: 1,
-          "container_details.tr_no": "$containers.tr_no",
-          "container_details.container_number": {
-            $ifNull: ["$containers.container_number", null],
-          },
-          "container_details.seal_no": {
-            $ifNull: ["$containers.seal_no", null],
-          },
-          "container_details.gross_weight": {
-            $ifNull: ["$containers.gross_weight", null],
-          },
-          "container_details.tare_weight": {
-            $ifNull: ["$containers.tare_weight", null],
-          },
-          "container_details.net_weight": {
-            $ifNull: ["$containers.net_weight", null],
-          },
-          "container_details.goods_pickup": {
-            $ifNull: ["$containers.goods_pickup", null],
-          },
-          "container_details.goods_delivery": {
-            $ifNull: ["$containers.goods_delivery", null],
-          },
-          "container_details.own_hired": {
-            $ifNull: ["$containers.own_hired", null],
-          },
-          "container_details.type_of_vehicle": {
-            $ifNull: ["$containers.type_of_vehicle", null],
-          },
-          "container_details.vehicle_no": {
-            $ifNull: ["$containers.vehicle_no", null],
-          },
-          "container_details.driver_name": {
-            $ifNull: ["$containers.driver_name", null],
-          },
-          "container_details.driver_phone": {
-            $ifNull: ["$containers.driver_phone", null],
-          },
-          "container_details.eWay_bill": {
-            $ifNull: ["$containers.eWay_bill", null],
-          },
-          "container_details.isOccupied": {
-            $ifNull: ["$containers.isOccupied", false],
-          },
-          "container_details.sr_cel_no": {
-            $ifNull: ["$containers.sr_cel_no", null],
-          },
-          "container_details.sr_cel_FGUID": {
-            $ifNull: ["$containers.sr_cel_FGUID", null],
-          },
-          "container_details.sr_cel_id": {
-            $ifNull: ["$containers.sr_cel_id", null],
-          },
-          "container_details.elock": { $ifNull: ["$containers.elock_no", null] },
-          "container_details.status": { $ifNull: ["$containers.status", null] },
-          "container_details.lr_completed": {
-            $ifNull: ["$containers.lr_completed", false],
-          },
-        },
-      },
-      { $skip: skip },
-      { $limit: parseInt(limit) },
-    ];
+    // Build initial query with populated fields
+    let baseQuery = PrData.find({})
+      .populate("consignor", "name")
+      .populate("consignee", "name")
+      .populate("container_type", "container_type")
+      .populate("shipping_line", "name")
+      .populate("goods_pickup", "name")
+      .populate("goods_delivery", "name")
+      .populate("type_of_vehicle", "vehicleType")
+      .populate("container_loading", "name")
+      .populate("container_offloading", "name")
+      .populate("containers.goods_pickup", "name")
+      .populate("containers.goods_delivery", "name")
+      .populate("containers.type_of_vehicle", "vehicleType");
 
-    const data = await PrData.aggregate(pipeline);
+    // Get all data first
+    let allData = await baseQuery.exec();
 
-    // Update total count pipeline to include the tr_no filter
-    const totalPipeline = [
-      { $unwind: "$containers" },
-      { $match: statusMatchCondition },
-      { $match: trNoMatchCondition },
-      { $count: "total" },
-    ];
+    // Filter and flatten containers based on status and tr_no conditions
+    let flattenedData = [];
 
-    const total = await PrData.aggregate(totalPipeline);
+    allData.forEach((prItem) => {
+      prItem.containers.forEach((container) => {
+        // Check tr_no condition - must exist and not be empty
+        if (!container.tr_no || container.tr_no === "") return;
+
+        // Check status condition
+        let includeContainer = false;
+        if (status?.toLowerCase() === "pending") {
+          includeContainer = !container.lr_completed;
+        } else if (status?.toLowerCase() === "completed") {
+          includeContainer = container.lr_completed === true;
+        } else if (status?.toLowerCase() === "all" || !status) {
+          includeContainer = true;
+        }
+
+        if (includeContainer) {
+          flattenedData.push({
+            _id: prItem._id,
+            pr_no: prItem.pr_no,
+            pr_date: prItem.pr_date,
+            branch: prItem.branch,
+            consignor: prItem.consignor,
+            consignee: prItem.consignee,
+            container_type: prItem.container_type,
+            shipping_line: prItem.shipping_line,
+            goods_pickup: prItem.goods_pickup,
+            goods_delivery: prItem.goods_delivery,
+            container_count: prItem.container_count,
+            no_of_vehicle: prItem.no_of_vehicle,
+            container_details: {
+              tr_no: container.tr_no,
+              container_number: container.container_number || null,
+              seal_no: container.seal_no || null,
+              gross_weight: container.gross_weight || null,
+              tare_weight: container.tare_weight || null,
+              net_weight: container.net_weight || null,
+              goods_pickup: container.goods_pickup || null,
+              goods_delivery: container.goods_delivery || null,
+              own_hired: container.own_hired || null,
+              type_of_vehicle: container.type_of_vehicle || null,
+              vehicle_no: container.vehicle_no || null,
+              driver_name: container.driver_name || null,
+              driver_phone: container.driver_phone || null,
+              eWay_bill: container.eWay_bill || null,
+              isOccupied: container.isOccupied || false,
+              sr_cel_no: container.sr_cel_no || null,
+              sr_cel_FGUID: container.sr_cel_FGUID || null,
+              sr_cel_id: container.sr_cel_id || null,
+              elock: container.elock_no || null,
+              status: container.status || null,
+              lr_completed: container.lr_completed || false,
+            },
+          });
+        }
+      });
+    });
+
+    // Apply search filter if provided
+    if (search) {
+      const searchRegex = new RegExp(escapeRegex(search), "i");
+      flattenedData = flattenedData.filter((item) => {
+        return (
+          searchRegex.test(item.pr_no || "") ||
+          searchRegex.test(item.branch || "") ||
+          searchRegex.test(item.consignor?.name || "") ||
+          searchRegex.test(item.consignee?.name || "") ||
+          searchRegex.test(item.container_type?.container_type || "") ||
+          searchRegex.test(item.shipping_line?.name || "") ||
+          searchRegex.test(item.goods_pickup?.name || "") ||
+          searchRegex.test(item.goods_delivery?.name || "") ||
+          searchRegex.test(item.container_details.tr_no || "") ||
+          searchRegex.test(item.container_details.container_number || "") ||
+          searchRegex.test(item.container_details.seal_no || "") ||
+          searchRegex.test(item.container_details.own_hired || "") ||
+          searchRegex.test(item.container_details.vehicle_no || "") ||
+          searchRegex.test(item.container_details.driver_name || "") ||
+          searchRegex.test(item.container_details.driver_phone || "") ||
+          searchRegex.test(item.container_details.eWay_bill || "") ||
+          searchRegex.test(item.container_details.sr_cel_no || "") ||
+          searchRegex.test(item.container_details.elock || "") ||
+          searchRegex.test(item.container_details.status || "") ||
+          searchRegex.test(item.container_details.goods_pickup?.name || "") ||
+          searchRegex.test(item.container_details.goods_delivery?.name || "") ||
+          searchRegex.test(
+            item.container_details.type_of_vehicle?.vehicleType || ""
+          )
+        );
+      });
+    }
+
+    // Calculate total after all filters
+    const total = flattenedData.length;
+
+    // Apply pagination
+    const data = flattenedData.slice(skip, skip + parseInt(limit));
 
     res.json({
       data,
-      total: total[0]?.total || 0,
-      totalPages: Math.ceil((total[0]?.total || 0) / limit),
+      total,
+      totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error in LR job list API:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

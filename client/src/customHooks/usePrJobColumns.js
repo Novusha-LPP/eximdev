@@ -1,5 +1,3 @@
-import React from "react";
-
 const usePrJobColumns = () => {
   const columns = [
     {
@@ -8,24 +6,15 @@ const usePrJobColumns = () => {
       size: 170,
       enableColumnFilter: false,
     },
-    {
-      accessorKey: "importer",
-      header: "Importer",
-      size: 150,
-      enableColumnFilter: true,
-    },
+
     {
       accessorKey: "consignee",
       header: "Consignee",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.consignee?.name || "-",
     },
-    {
-      accessorKey: "status",
-      header: "Status",
-      size: 100,
-      enableColumnFilter: true,
-    },
+
     {
       accessorKey: "pr_date",
       header: "PR Date",
@@ -49,12 +38,14 @@ const usePrJobColumns = () => {
       header: "Consignor",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.consignor?.name || "-",
     },
     {
       accessorKey: "container_type",
       header: "Container Type",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.container_type?.container_type || "-",
     },
     {
       accessorKey: "container_count",
@@ -63,23 +54,13 @@ const usePrJobColumns = () => {
       enableColumnFilter: true,
     },
     {
-      accessorKey: "gross_weight",
-      header: "Gross Weight",
-      size: 150,
-      enableColumnFilter: true,
-    },
-    {
       accessorKey: "type_of_vehicle",
       header: "Type of Vehicle",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.type_of_vehicle?.vehicleType || "-",
     },
-    {
-      accessorKey: "no_of_vehicle",
-      header: "No. of Vehicles",
-      size: 150,
-      enableColumnFilter: true,
-    },
+    
     {
       accessorKey: "description",
       header: "Description",
@@ -91,18 +72,21 @@ const usePrJobColumns = () => {
       header: "Shipping Line",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.shipping_line?.name || "-",
     },
     {
       accessorKey: "container_loading",
       header: "Container Loading",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.container_loading?.name || "-",
     },
     {
       accessorKey: "container_offloading",
       header: "Container Offloading",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.container_offloading?.name || "-",
     },
     {
       accessorKey: "do_validity",
@@ -133,12 +117,14 @@ const usePrJobColumns = () => {
       header: "Goods Pickup",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.goods_pickup?.name || "-",
     },
     {
       accessorKey: "goods_delivery",
       header: "Goods Delivery",
       size: 150,
       enableColumnFilter: true,
+      Cell: ({ row }) => row.original.goods_delivery?.name || "-",
     },
   ];
   return columns;

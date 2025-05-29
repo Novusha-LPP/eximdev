@@ -1,6 +1,7 @@
 import express from "express";
-import PrData from "../../model/srcc/pr.mjs";
 import AWS from "aws-sdk";
+import PrData from "../../model/srcc/pr.mjs";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -148,7 +149,14 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
       console.log("lr_completed set to:", lr_completed);
     }
     if (tracking_status !== undefined) {
-      updateFields["tracking_status"] = tracking_status;
+      // Validate if tracking_status is a valid ObjectId
+      if (tracking_status && mongoose.Types.ObjectId.isValid(tracking_status)) {
+        updateFields["tracking_status"] = new mongoose.Types.ObjectId(
+          tracking_status
+        );
+      } else if (tracking_status === null || tracking_status === "") {
+        updateFields["tracking_status"] = null;
+      }
       console.log("tracking_status set to:", tracking_status);
     }
 

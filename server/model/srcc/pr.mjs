@@ -4,6 +4,7 @@ import Organisation from "./Directory_Management/Organisation.mjs";
 import Location from "./Directory_Management/location.mjs";
 import ShippingLine from "./Directory_Management/ShippingLine.mjs";
 import VehicleType from "./Directory_Management/VehicleType.mjs";
+import LrTrackingStages from "./Directory_Management/LrTrackingStages.mjs";
 
 const TrackingHistorySchema = new mongoose.Schema({
   status: {
@@ -155,7 +156,8 @@ const PrDataSchema = new mongoose.Schema(
           type: String,
         },
         tracking_status: {
-          type: String,
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "LrTrackingStages",
         },
         tracking_status_history: {
           type: [TrackingHistorySchema],

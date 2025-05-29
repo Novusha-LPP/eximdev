@@ -10,9 +10,7 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
     const { page = 1, limit = 100 } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
-
-    // Build query with populated fields (same as getLRjobList.mjs)
+    const skip = (pageNum - 1) * limitNum; // Build query with populated fields (same as getLRjobList.mjs)
     let baseQuery = PrData.find({})
       .populate("consignor", "name")
       .populate("consignee", "name")
@@ -26,7 +24,8 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
       .populate("containers.goods_pickup", "name")
       .populate("containers.goods_delivery", "name")
       .populate("containers.type_of_vehicle", "vehicleType")
-      .populate("containers.tracking_status", "name description");
+      .populate("containers.tracking_status", "name description")
+      .populate("containers.elock_no", "_id FAssetID status");
 
     // Get all data first
     let allData = await baseQuery.exec();
@@ -123,7 +122,6 @@ router.get("/api/elock-assign", async (req, res) => {
       // Default: Exclude RETURNED
       matchQuery["containers.elock_assign_status"] = { $ne: "RETURNED" };
     }
-
     if (search) {
       const searchRegex = new RegExp(search, "i");
       orArray = [
@@ -134,7 +132,8 @@ router.get("/api/elock-assign", async (req, res) => {
         { "containers.driver_name": searchRegex },
         { "containers.driver_phone": searchRegex },
         { "containers.vehicle_no": searchRegex },
-        { "containers.elock_no": searchRegex },
+        // Remove direct elock_no search since it's now an ObjectId
+        // We'll handle elock search through the lookup stage
       ];
     }
 
@@ -144,12 +143,42 @@ router.get("/api/elock-assign", async (req, res) => {
       matchStage = { $and: [matchQuery, { $or: orArray }] };
     } else {
       matchStage = matchQuery;
-    }
-
-    // Aggregation pipeline to flatten containers with proper IDs
+    } // Aggregation pipeline to flatten containers with proper IDs
     const pipeline = [
       { $unwind: "$containers" },
+      {
+        $lookup: {
+          from: "elocks",
+          localField: "containers.elock_no",
+          foreignField: "_id",
+          as: "containers.elock_no_details",
+        },
+      },
       { $match: matchStage },
+      // Add additional search match after lookup for elock FAssetID
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { pr_no: new RegExp(search, "i") },
+                  { branch: new RegExp(search, "i") },
+                  { "containers.tr_no": new RegExp(search, "i") },
+                  { "containers.container_number": new RegExp(search, "i") },
+                  { "containers.driver_name": new RegExp(search, "i") },
+                  { "containers.driver_phone": new RegExp(search, "i") },
+                  { "containers.vehicle_no": new RegExp(search, "i") },
+                  {
+                    "containers.elock_no_details.FAssetID": new RegExp(
+                      search,
+                      "i"
+                    ),
+                  },
+                ],
+              },
+            },
+          ]
+        : []),
       {
         $project: {
           // PR level fields
@@ -164,7 +193,19 @@ router.get("/api/elock-assign", async (req, res) => {
           driver_name: "$containers.driver_name",
           driver_phone: "$containers.driver_phone",
           vehicle_no: "$containers.vehicle_no",
-          elock_no: "$containers.elock_no",
+          elock_no: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.elock_no_details" }, 0] },
+              then: {
+                $arrayElemAt: ["$containers.elock_no_details.FAssetID", 0],
+              },
+              else: null,
+            },
+          },
+          elock_no_id: "$containers.elock_no",
+          elock_no_details: {
+            $arrayElemAt: ["$containers.elock_no_details", 0],
+          },
           elock_assign_status: "$containers.elock_assign_status",
           // Add other container fields you need
           seal_no: "$containers.seal_no",
@@ -256,36 +297,26 @@ router.post("/api/assign-elock", async (req, res) => {
     }
 
     console.log("Container found:", container._id);
-
     const oldElockNo = container.elock_no;
     const oldAssignStatus = container.elock_assign_status;
 
     // If elock is changed, set old elock status to AVAILABLE
-    if (oldElockNo && oldElockNo !== newElockNo) {
-      await Elock.findOneAndUpdate(
-        { FAssetID: oldElockNo },
-        { status: "AVAILABLE" }
-      );
+    if (oldElockNo && oldElockNo.toString() !== newElockNo) {
+      await Elock.findByIdAndUpdate(oldElockNo, { status: "AVAILABLE" });
     }
 
     // If elock is returned, set elock status to AVAILABLE
     if (elockAssignStatus === "RETURNED" && oldElockNo) {
-      await Elock.findOneAndUpdate(
-        { FAssetID: oldElockNo },
-        { status: "AVAILABLE" }
-      );
+      await Elock.findByIdAndUpdate(oldElockNo, { status: "AVAILABLE" });
     }
 
     // If assigning a new elock, set its status to ASSIGNED
     if (newElockNo && elockAssignStatus === "ASSIGNED") {
-      await Elock.findOneAndUpdate(
-        { FAssetID: newElockNo },
-        { status: "ASSIGNED" }
-      );
+      await Elock.findByIdAndUpdate(newElockNo, { status: "ASSIGNED" });
     }
 
     // Update container fields
-    container.elock_no = newElockNo;
+    container.elock_no = newElockNo || null;
     container.elock_assign_status = elockAssignStatus;
     await pr.save();
 

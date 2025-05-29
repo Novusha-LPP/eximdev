@@ -113,12 +113,11 @@ const ElockAssign = () => {
       alert(`Error: ${error.response?.data?.error || error.message}`);
     }
   };
-
   const handleEditRow = (row) => {
     setEditingRow(row.id);
     setEditValues({
       elock_assign_status: row.original.elock_assign_status || "",
-      elock_no: row.original.elock_no || "",
+      elock_no: row.original.elock_no_id || "", // Use the ObjectId for editing
     });
   };
 
@@ -188,26 +187,27 @@ const ElockAssign = () => {
           let mergedOptions = elockOptions;
           if (
             editValues.elock_no &&
-            !elockOptions.some((opt) => opt.FAssetID === editValues.elock_no)
+            !elockOptions.some((opt) => opt._id === editValues.elock_no)
           ) {
-            mergedOptions = [
-              { FAssetID: editValues.elock_no, label: editValues.elock_no },
-              ...elockOptions,
-            ];
+            // If current value is not in available options, add it
+            const currentElock = {
+              _id: editValues.elock_no,
+              FAssetID: row.original.elock_no || editValues.elock_no,
+            };
+            mergedOptions = [currentElock, ...elockOptions];
           }
           return (
             <Autocomplete
               options={mergedOptions}
-              getOptionLabel={(option) => option.FAssetID || option.label || ""}
+              getOptionLabel={(option) => option.FAssetID || ""}
               value={
-                mergedOptions.find(
-                  (opt) => opt.FAssetID === editValues.elock_no
-                ) || null
+                mergedOptions.find((opt) => opt._id === editValues.elock_no) ||
+                null
               }
               onChange={(_, newValue) =>
                 setEditValues({
                   ...editValues,
-                  elock_no: newValue ? newValue.FAssetID : "",
+                  elock_no: newValue ? newValue._id : "",
                 })
               }
               renderInput={(params) => (

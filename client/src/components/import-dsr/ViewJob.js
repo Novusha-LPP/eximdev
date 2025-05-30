@@ -182,8 +182,8 @@ function JobDetails() {
     // be_date,
     // setBeDate,
     // ooc_copies,
-    // setOocCopies,
-    beTypeOptions,
+    // setOocCopies,  
+      beTypeOptions,
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
@@ -193,7 +193,8 @@ function JobDetails() {
     checked,
     setSelectedRegNo,
     setTabValue,
-    setFileSnackbar
+    setFileSnackbar,
+    storedSearchParams
   );
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);

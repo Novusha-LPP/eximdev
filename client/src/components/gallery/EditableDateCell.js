@@ -461,7 +461,7 @@ const EditableDateCell = ({ cell }) => {
                         handleEditStart("by_road_movement_date", id)
                       }
                     />
-                    {editable === `by_road_movement_date${id}` && (
+                    {editable === `by_road_movement_date_${id}` && (
                       <div>
                         <input
                           type="datetime-local"

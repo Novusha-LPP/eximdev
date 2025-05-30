@@ -42,7 +42,8 @@ function useFetchJobDetails(
   checked,
   setSelectedRegNo,
   setTabValue,
-  setFileSnackbar
+  setFileSnackbar,
+  storedSearchParams
 ) {
   const [data, setData] = useState(null);
   const [detentionFrom, setDetentionFrom] = useState([]);
@@ -374,6 +375,7 @@ function useFetchJobDetails(
       checked: false,
       type_of_Do: "",
       documentation_completed_date_time: "",
+
       submission_completed_date_time: "",
       completed_operation_date: "",
       esanchit_completed_date_time: "",
@@ -474,11 +476,19 @@ function useFetchJobDetails(
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
           do_completed: values.do_completed,
         }
-      );
-
-      localStorage.setItem("tab_value", 1);
+      );      localStorage.setItem("tab_value", 1);
       setTabValue(1);
-      navigate("/import-dsr");
+      navigate("/import-dsr", {
+        state: {
+          fromJobDetails: true,
+          ...(storedSearchParams && {
+            searchQuery: storedSearchParams.searchQuery,
+            detailedStatus: storedSearchParams.detailedStatus,
+            selectedICD: storedSearchParams.selectedICD,
+            selectedImporter: storedSearchParams.selectedImporter,
+          }),
+        },
+      });
     },
   });
   const filteredClearanceOptions =
@@ -556,6 +566,10 @@ function useFetchJobDetails(
           container.container_rail_out_date === undefined
             ? ""
             : container.container_rail_out_date,
+        by_road_movement_date:
+          container.by_road_movement_date === undefined
+            ? ""
+            : container.by_road_movement_date,
         delivery_date:
           container.delivery_date === undefined ? "" : container.delivery_date,
         emptyContainerOffLoadDate:

@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useMemo, useCallback } from "react";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -27,6 +27,39 @@ import { useImportersContext } from "../../contexts/importersContext";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+
+// Memoized search input to prevent unnecessary re-renders
+const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs }) => {
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value);
+  }, [setSearchQuery]);
+
+  const handleSearchClick = useCallback(() => {
+    fetchJobs(1);
+  }, [fetchJobs]);
+
+  return (
+    <TextField
+      placeholder="Search by Job No, Importer, or AWB/BL Number"
+      size="small"
+      variant="outlined"
+      value={searchQuery}
+      onChange={handleSearchChange}
+      InputProps={{
+        endAdornment: (
+          <InputAdornment position="end">
+            <IconButton onClick={handleSearchClick}>
+              <SearchIcon />
+            </IconButton>
+          </InputAdornment>
+        ),
+      }}
+      sx={{ width: "300px", marginRight: "20px" }}
+    />
+  );
+});
+
+SearchInput.displayName = 'SearchInput';
 
 
 function JobList(props) {
@@ -73,9 +106,6 @@ function JobList(props) {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
-console.log("searchQuery", searchQuery);
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
     const uniqueImporters = new Set();
@@ -141,22 +171,35 @@ console.log("searchQuery", searchQuery);
       }
     }
     getYears();
-  }, [selectedYearState, setSelectedYearState]); 
-  useEffect(() => {
+  }, [selectedYearState, setSelectedYearState]);  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 500);
+    }, 300); // Reduced from 500ms to 300ms for more responsive search
     return () => clearTimeout(handler);
   }, [searchQuery]);
+  // Memoize the data transformation to prevent expensive re-calculations on every render
+  const tableData = useMemo(() => {
+    return rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` }));
+  }, [rows]);
 
+  // Memoize the row props function to prevent re-creation on every render
+  const getRowProps = useMemo(
+    () => ({ row }) => ({
+      className: getTableRowsClassname(row),
+      sx: { textAlign: "center" },
+    }),
+    []
+  );
   const table = useMaterialReactTable({
     columns,
-    data: rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` })),
+    data: tableData,
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,
     enableBottomToolbar: false,
     enableDensityToggle: false,
+    enableRowVirtualization: true, // Enable row virtualization for better performance
+    rowVirtualizerOptions: { overscan: 8 }, // Render a few extra rows for smoother scrolling
     initialState: {
       density: "compact",
       columnPinning: { left: ["job_no"] },
@@ -169,11 +212,7 @@ console.log("searchQuery", searchQuery);
     enablePinning: true,
     muiTableContainerProps: {
       sx: { maxHeight: "590px", overflowY: "auto" },
-    },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-      sx: { textAlign: "center" },
-    }),
+    },    muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -262,25 +301,12 @@ console.log("searchQuery", searchQuery);
             >
               {option.name}
             </MenuItem>
-          ))}
-        </TextField>
+          ))}        </TextField>
 
-        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs(1)}>
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: "300px", marginRight: "20px" }}
+        <SearchInput 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          fetchJobs={fetchJobs}
         />
         <IconButton onClick={handleOpen}>
           <DownloadIcon />

@@ -301,9 +301,9 @@ console.log("searchQuery", searchQuery);
         sx={{ mt: 2, display: "flex", justifyContent: "center" }}
       />
 
-      <SelectImporterModal
+ <SelectImporterModal
         open={open}
-        // handleClose={handleClose}
+        handleClose={handleClose}
         status={props.status}
         detailedStatus={detailedStatus}
       />

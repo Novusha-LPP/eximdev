@@ -14,6 +14,8 @@ import FormGroup from "@mui/material/FormGroup";
 import { useImportersContext } from "../../contexts/importersContext";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 
 const style = {
   position: "absolute",
@@ -46,6 +48,7 @@ export default function SelectImporterModal(props) {
     }
     getImporterList();
   }, [selectedYearState]);
+
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -118,10 +121,28 @@ export default function SelectImporterModal(props) {
         aria-describedby="modal-modal-description"
       >
         <Box sx={style}>
-          <Typography id="modal-modal-title" variant="h6" component="h2">
-            Select an importer to download DSR
-          </Typography>
-          <br />
+          {/* Header with title and close button */}
+          <Box sx={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center",
+            marginBottom: 2
+          }}>
+            <Typography id="modal-modal-title" variant="h6" component="h2">
+              Select an importer to download DSR
+            </Typography>
+            <IconButton
+              onClick={props.handleClose}
+              sx={{ 
+                color: "grey.500",
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                }
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
 
           <FormGroup>
             <FormControlLabel
@@ -163,21 +184,21 @@ export default function SelectImporterModal(props) {
           <br />
           {!checked && (
             <Autocomplete
-                     sx={{ width: "300px", marginRight: "20px" }}
-                     freeSolo
-                     options={importerNames.map((option) => option.label)}
-                     value={selectedImporter || ""} // Controlled value
-                     onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-                     renderInput={(params) => (
-                       <TextField
-                         {...params}
-                         variant="outlined"
-                         size="small"
-                         fullWidth
-                         label="Select Importer" // Placeholder text
-                       />
-                     )}
-                   />
+              sx={{ width: "300px", marginRight: "20px" }}
+              freeSolo
+              options={importerNames.map((option) => option.label)}
+              value={selectedImporter || ""} // Controlled value
+              onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  label="Select Importer" // Placeholder text
+                />
+              )}
+            />
           )}
 
           <button

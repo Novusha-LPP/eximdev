@@ -9,6 +9,8 @@ const router = express.Router();
 
 const searchCache = new NodeCache({ stdTTL: 300 });
 
+
+
 async function getHsCodeWithContext(hsCode, Model) {
   try {
     // Find the main document with the HS code
@@ -69,42 +71,45 @@ router.get('/api/search', async (req, res) => {
       return res.status(400).json({ message: 'Search query is required' });
     }
 
-    // Generate a cache key
     const cacheKey = `search_${query}_${addToRecent}`;
-    
-    // Check if result is in cache
     const cachedResult = searchCache.get(cacheKey);
     if (cachedResult) {
       console.log('Search cache hit for:', query);
       return res.status(200).json(cachedResult);
     }
 
-    // Parse the query to determine if it's an HS code (numeric) or description
     const isHsCodeSearch = /^\d+/.test(query);
-    
-    // Optimize the query based on what's being searched
     let searchCondition;
-    let results;
-    
+    let results = [];
+
     if (isHsCodeSearch) {
-      // For HS codes, use exact prefix match which is faster than regex
-      // This is much more efficient for indexed fields
+      // Exact prefix match for numeric codes
       searchCondition = { hs_code: new RegExp(`^${query}`) };
       results = await CthModel.find(searchCondition)
         .lean()
-        .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit'); // Only select fields we need
+        .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
     } else {
-      // For descriptive text, use text search which is optimized if you have text indexes
-      // Fall back to regex if the string is too short for text search
       if (query.length >= 3) {
-        // Use text index search for longer queries
-        searchCondition = { $text: { $search: query } };
-        results = await CthModel.find(searchCondition)
-          .lean()
-          .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit')
-          .sort({ score: { $meta: "textScore" } }); // Sort by text relevance
+        try {
+          // Attempt $text search
+          searchCondition = { $text: { $search: query } };
+          results = await CthModel.find(searchCondition)
+            .lean()
+            .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit')
+            .sort({ score: { $meta: "textScore" } });
+        } catch (err) {
+          if (err.code === 27) {
+            console.warn('Text index not found, falling back to regex search.');
+            searchCondition = { item_description: new RegExp(query, 'i') };
+            results = await CthModel.find(searchCondition)
+              .lean()
+              .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
+          } else {
+            throw err;
+          }
+        }
       } else {
-        // Use regex for short queries
+        // Fallback regex for very short queries
         searchCondition = { item_description: new RegExp(query, 'i') };
         results = await CthModel.find(searchCondition)
           .lean()
@@ -113,18 +118,18 @@ router.get('/api/search', async (req, res) => {
     }
 
     if (!results.length) {
-      // If no results with optimized query, try a more flexible search as fallback
+      // Flexible fallback if initial search returns nothing
       searchCondition = {
         $or: [
           { item_description: new RegExp(query, 'i') },
           { hs_code: new RegExp(query, 'i') }
         ]
       };
-      
+
       results = await CthModel.find(searchCondition)
         .lean()
         .select('hs_code item_description basic_duty_sch basic_duty_ntfn specific_duty_rs igst sws_10_percent total_duty_with_sws total_duty_specific pref_duty_a import_policy non_tariff_barriers export_policy remark favourite level unit');
-      
+
       if (!results.length) {
         return res.status(404).json({
           message: 'No document found matching the search criteria'
@@ -133,38 +138,31 @@ router.get('/api/search', async (req, res) => {
     }
 
     const sourceCollection = 'cth';
-    const mainItem = results[0]; // pick first for context extraction
+    const mainItem = results[0];
 
-    // Get context items in parallel with adding to recent
     const contextPromise = mainItem.hs_code
       ? getHsCodeWithContext(mainItem.hs_code, CthModel)
       : Promise.resolve([]);
 
-    // Add to recent if requested - in parallel
     const recentPromise = addToRecent
       ? addToRecentCollection(mainItem)
       : Promise.resolve();
 
-    // Wait for both operations to complete
     const [contextResults] = await Promise.all([contextPromise, recentPromise]);
 
-    // Process context items
     let contextItems = [];
     if (contextResults && contextResults.length > 0) {
-      // Filter out the main item from context
-      contextItems = contextResults.filter(item => 
+      contextItems = contextResults.filter(item =>
         item._id.toString() !== mainItem._id.toString()
       );
     }
 
-    // Prepare response object
     const responseData = {
       results,
       contextItems,
       source: sourceCollection
     };
 
-    // Save to cache
     searchCache.set(cacheKey, responseData);
 
     return res.status(200).json(responseData);
@@ -177,6 +175,7 @@ router.get('/api/search', async (req, res) => {
     });
   }
 });
+
 
 const recentCache = new NodeCache({ stdTTL: 600 });
 const favoritesCache = new NodeCache({ stdTTL: 600 });

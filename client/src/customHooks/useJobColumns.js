@@ -102,8 +102,7 @@ function useJobColumns() {
         accessorKey: "job_no",
         header: "Job No",
         size: 150,
-        Cell: ({ cell }) => {
-          const {
+        Cell: ({ cell }) => {          const {
             job_no,
             year,
             type_of_b_e,
@@ -113,7 +112,6 @@ function useJobColumns() {
             detailed_status,
             custom_house,
             // delivery_date,
-            emptyContainerOffLoadDate,
           } = cell.row.original;
 
           // Default background and text colors
@@ -146,27 +144,33 @@ function useJobColumns() {
                 textColor = "black";
               }
             }
-          }
-          // Check if the detailed status is "Billing Pending"
-          if (detailed_status === "Billing Pending") {
-            const daysDifference = calculateDaysDifference(
-              emptyContainerOffLoadDate
-            );
+          }          // Check if the detailed status is "Billing Pending"
+          if (detailed_status === "Billing Pending" && container_nos) {
+            container_nos.forEach((container) => {
+              // Choose the appropriate date based on consignment type
+              const targetDate = consignment_type === "LCL" 
+                ? container.delivery_date 
+                : container.emptyContainerOffLoadDate;
+              
+              if (targetDate) {
+                const daysDifference = calculateDaysDifference(targetDate);
 
-            // Apply colors based on past and current dates only
-            if (daysDifference <= 0 && daysDifference >= -5) {
-              // delivery_date up to the next 5 days - White background for current and past dates
-              bgColor = "white";
-              textColor = "blue";
-            } else if (daysDifference <= -6 && daysDifference >= -10) {
-              // 5 days following the white period - Orange background for past dates
-              bgColor = "orange";
-              textColor = "black";
-            } else if (daysDifference < -10) {
-              // Any date beyond the orange period - Red background for past dates
-              bgColor = "red";
-              textColor = "white";
-            }
+                // Apply colors based on past and current dates only
+                if (daysDifference <= 0 && daysDifference >= -5) {
+                  // delivery_date up to the next 5 days - White background for current and past dates
+                  bgColor = "white";
+                  textColor = "blue";
+                } else if (daysDifference <= -6 && daysDifference >= -10) {
+                  // 5 days following the white period - Orange background for past dates
+                  bgColor = "orange";
+                  textColor = "black";
+                } else if (daysDifference < -10) {
+                  // Any date beyond the orange period - Red background for past dates
+                  bgColor = "red";
+                  textColor = "white";
+                }
+              }
+            });
           }
 
           // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"

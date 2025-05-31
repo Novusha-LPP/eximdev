@@ -16,6 +16,20 @@ router.post("/api/add-unit-measurement", async (req, res) => {
       return res.status(400).json({ error: "Unit measurement already exists" });
     }
 
+    // Check for duplicate measurements within the same category
+    if (measurements && measurements.length > 0) {
+      const unitSymbolPairs = new Set();
+      for (const measurement of measurements) {
+        const pair = `${measurement.unit}-${measurement.symbol}`;
+        if (unitSymbolPairs.has(pair)) {
+          return res.status(400).json({
+            error: `Duplicate measurement found: ${measurement.unit} (${measurement.symbol})`,
+          });
+        }
+        unitSymbolPairs.add(pair);
+      }
+    }
+
     const newUnit = await UnitMeasurement.create({ name, measurements });
     res
       .status(201)
@@ -73,6 +87,20 @@ router.put("/api/update-unit-measurement/:id", async (req, res) => {
       return res
         .status(400)
         .json({ error: "Unit measurement with this name already exists" });
+    }
+
+    // Check for duplicate measurements within the same category
+    if (measurements && measurements.length > 0) {
+      const unitSymbolPairs = new Set();
+      for (const measurement of measurements) {
+        const pair = `${measurement.unit}-${measurement.symbol}`;
+        if (unitSymbolPairs.has(pair)) {
+          return res.status(400).json({
+            error: `Duplicate measurement found: ${measurement.unit} (${measurement.symbol})`,
+          });
+        }
+        unitSymbolPairs.add(pair);
+      }
     }
 
     const updatedUnit = await UnitMeasurement.findByIdAndUpdate(

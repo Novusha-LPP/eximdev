@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -30,7 +30,6 @@ function UnitMeasurementDirectory() {
   const [modalMode, setModalMode] = useState("add");
   const [editData, setEditData] = useState(null);
   const [formData, setFormData] = useState({ name: "", measurements: [] });
-  const [selectedUnit, setSelectedUnit] = useState(null);
   const [newMeasurement, setNewMeasurement] = useState({
     unit: "",
     symbol: "",
@@ -41,34 +40,28 @@ function UnitMeasurementDirectory() {
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
-
-  const fetchUnits = async () => {
+  const fetchUnits = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
       setUnits(response.data);
     } catch (error) {
       console.error("Error fetching unit measurements:", error);
     }
-  };
-
+  }, [API_URL]);
   useEffect(() => {
     fetchUnits();
-  }, []);
-
+  }, [fetchUnits]);
   const handleAdd = () => {
     setModalMode("add");
     setFormData({ name: "", measurements: [] });
     setOpenModal(true);
-    setSelectedUnit(null);
     setErrors({});
   };
-
   const handleEdit = (unit) => {
     setModalMode("edit");
     setFormData({ name: unit.name, measurements: unit.measurements });
     setEditData(unit);
     setOpenModal(true);
-    setSelectedUnit(unit);
     setErrors({});
   };
 
@@ -84,7 +77,6 @@ function UnitMeasurementDirectory() {
       }
     }
   };
-
   const handleSave = async () => {
     if (!formData.name.trim()) {
       setErrors({ name: "Category name is required" });
@@ -94,6 +86,22 @@ function UnitMeasurementDirectory() {
       setErrors({ measurements: "At least one measurement is required" });
       return;
     }
+
+    // Client-side duplicate check before sending to server
+    const unitSymbolPairs = new Set();
+    for (const measurement of formData.measurements) {
+      const pair = `${measurement.unit
+        .toLowerCase()
+        .trim()}-${measurement.symbol.toLowerCase().trim()}`;
+      if (unitSymbolPairs.has(pair)) {
+        setErrors({
+          measurements: `Duplicate measurement found: ${measurement.unit} (${measurement.symbol})`,
+        });
+        return;
+      }
+      unitSymbolPairs.add(pair);
+    }
+
     try {
       if (modalMode === "add") {
         await axios.post(`${API_URL}/add-unit-measurement`, formData);
@@ -104,28 +112,60 @@ function UnitMeasurementDirectory() {
         );
       }
       setOpenModal(false);
+      setFormData({ name: "", measurements: [] });
+      setErrors({});
       fetchUnits();
     } catch (error) {
       console.error("Error saving unit measurement:", error);
-      alert(error.response?.data?.error || "An error occurred");
+      const errorMessage = error.response?.data?.error || "An error occurred";
+      setErrors({ server: errorMessage });
     }
   };
-
   const handleAddMeasurement = () => {
     const { unit, symbol, decimal_places } = newMeasurement;
     if (!unit.trim() || !symbol.trim() || decimal_places === "") {
       setErrors({ newMeasurement: "All measurement fields are required" });
       return;
     }
+
+    // Check for duplicate measurements - both unit and symbol combination should be unique
+    const isDuplicate = formData.measurements.some((measurement, index) => {
+      // Skip the current editing measurement when checking for duplicates
+      if (
+        editingMeasurementIndex !== null &&
+        index === editingMeasurementIndex
+      ) {
+        return false;
+      }
+      return (
+        measurement.unit.toLowerCase().trim() === unit.toLowerCase().trim() &&
+        measurement.symbol.toLowerCase().trim() === symbol.toLowerCase().trim()
+      );
+    });
+
+    if (isDuplicate) {
+      setErrors({
+        newMeasurement: `Measurement "${unit.trim()} (${symbol.trim()})" already exists in this category`,
+      });
+      return;
+    }
+
+    // Trim whitespace from inputs
+    const trimmedMeasurement = {
+      unit: unit.trim(),
+      symbol: symbol.trim(),
+      decimal_places: parseInt(decimal_places),
+    };
+
     if (editingMeasurementIndex !== null) {
       const updated = [...formData.measurements];
-      updated[editingMeasurementIndex] = newMeasurement;
+      updated[editingMeasurementIndex] = trimmedMeasurement;
       setFormData({ ...formData, measurements: updated });
       setEditingMeasurementIndex(null);
     } else {
       setFormData((prev) => ({
         ...prev,
-        measurements: [...prev.measurements, newMeasurement],
+        measurements: [...prev.measurements, trimmedMeasurement],
       }));
     }
     setNewMeasurement({ unit: "", symbol: "", decimal_places: 2 });
@@ -222,7 +262,6 @@ function UnitMeasurementDirectory() {
             error={!!errors.name}
             helperText={errors.name}
           />
-
           <Typography variant="h6" sx={{ mt: 2 }}>
             Measurements
           </Typography>
@@ -261,7 +300,6 @@ function UnitMeasurementDirectory() {
               </ListItem>
             ))}
           </List>
-
           <Box display="flex" gap={2} mt={2}>
             <TextField
               label="Unit"
@@ -285,10 +323,15 @@ function UnitMeasurementDirectory() {
             <Button onClick={handleAddMeasurement} variant="outlined">
               {editingMeasurementIndex !== null ? "Update" : "Add"}
             </Button>
-          </Box>
+          </Box>{" "}
           {errors.newMeasurement && (
             <Typography color="error" variant="body2" mt={1}>
               {errors.newMeasurement}
+            </Typography>
+          )}
+          {errors.server && (
+            <Typography color="error" variant="body2" mt={1}>
+              {errors.server}
             </Typography>
           )}
         </DialogContent>

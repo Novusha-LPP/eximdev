@@ -35,6 +35,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InfoIcon from "@mui/icons-material/Info";
 import CalculateIcon from "@mui/icons-material/Calculate";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 
 const ImportUtilityTool = () => {
@@ -77,16 +78,58 @@ const ImportUtilityTool = () => {
   // Handle close notification
   const handleCloseNotification = useCallback(() => {
     setNotification(prev => ({ ...prev, open: false }));
-  }, []);
-
-  // Handle duty calculator modal
+  }, []);  // Handle duty calculator modal
   const handleOpenDutyCalculator = useCallback((item) => {
-    setSelectedItemForDuty(item);    setDutyCalculatorForm({
+    setSelectedItemForDuty(item);
+    
+    // Debug: Log the item data to see what's available
+    console.log('Item data:', item);
+    console.log('basic_duty_sch:', item.basic_duty_sch);
+    console.log('basic_duty_ntfn:', item.basic_duty_ntfn);
+    console.log('igst:', item.igst);
+    
+    // Logic to select the appropriate duty rate
+    let selectedDuty = '';
+    
+    // Helper function to check if a value is valid (not null, not empty, not "nan")
+    const isValidDuty = (value) => {
+      return value != null && value !== '' && value !== 'nan' && value !== 'NaN' && !isNaN(parseFloat(value));
+    };
+    
+    const hasBasicDuty = isValidDuty(item.basic_duty_sch);
+    const hasNotificationDuty = isValidDuty(item.basic_duty_ntfn);
+    
+    // Check if both basic_duty_sch and basic_duty_ntfn are available
+    if (hasBasicDuty && hasNotificationDuty) {
+      // Both available - choose whichever is smaller
+      const basicDuty = parseFloat(item.basic_duty_sch);
+      const notificationDuty = parseFloat(item.basic_duty_ntfn);
+      selectedDuty = Math.min(basicDuty, notificationDuty).toString();
+      console.log('Both available - selected smaller:', selectedDuty);
+    }
+    // If only notification duty is available
+    else if (hasNotificationDuty) {
+      selectedDuty = item.basic_duty_ntfn;
+      console.log('Only notification duty available:', selectedDuty);
+    }
+    // If only basic duty is available
+    else if (hasBasicDuty) {
+      selectedDuty = item.basic_duty_sch;
+      console.log('Only basic duty available:', selectedDuty);
+    }
+    // If neither is available, selectedDuty remains empty string
+    else {
+      console.log('No duty values available');
+    }
+    
+    console.log('Final selectedDuty:', selectedDuty);
+    
+    setDutyCalculatorForm({
       importTerms: 'CIF',
       cifValue: '',
       freight: '',
       insurance: '',
-      bcdRate: item.basic_duty_sch || item.basic_duty_ntfn || '',
+      bcdRate: selectedDuty,
       swsRate: '10',
       igstRate: item.igst || ''
     });
@@ -105,12 +148,22 @@ const ImportUtilityTool = () => {
       igstRate: ''
     });
   }, []);
-
   // Handle duty form changes
   const handleDutyFormChange = useCallback((field, value) => {
     setDutyCalculatorForm(prev => ({
       ...prev,
       [field]: value
+    }));
+  }, []);
+
+  // Clear user-entered values only (preserve CTH API values)
+  const handleClearUserValues = useCallback(() => {
+    setDutyCalculatorForm(prev => ({
+      ...prev,
+      cifValue: '',
+      freight: '',
+      insurance: ''
+      // Keep importTerms, bcdRate, swsRate, igstRate as they come from CTH API
     }));
   }, []);
   // Calculate duties
@@ -1181,19 +1234,36 @@ const ImportUtilityTool = () => {
                 </Box>
               </Box>            </Box>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 2, pb: 2 }}>
+        </DialogContent>        <DialogActions sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="caption" sx={{ 
             fontSize: '10px', 
             color: '#666', 
-            fontStyle: 'italic',
-            flex: 1
+            fontStyle: 'italic'
           }}>
             ⚠️ Estimated calculation only
           </Typography>
-          <Button onClick={handleCloseDutyCalculator} size="small" variant="outlined">
-            Close
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              onClick={handleClearUserValues} 
+              size="small" 
+              variant="outlined"
+              color="secondary"
+              sx={{
+                fontSize: '11px',
+                padding: '4px 12px',
+                minWidth: 'auto'
+              }}
+            >
+              Clear All
+            </Button>
+            <Button 
+              onClick={handleCloseDutyCalculator} 
+              size="small" 
+              variant="outlined"
+            >
+              Close
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>

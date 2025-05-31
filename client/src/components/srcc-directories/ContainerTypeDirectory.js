@@ -120,7 +120,7 @@ const ContainerTypeDirectory = () => {
       );
       if (volumeCategory) setVolumeUnits(volumeCategory.measurements);
       const weightCategory = response.data.find(
-        (item) => item.name === "Weight"
+        (item) => item.name === "Weights"
       );
       if (weightCategory) setWeightUnits(weightCategory.measurements);
     } catch (error) {
@@ -394,13 +394,13 @@ const ContainerTypeDirectory = () => {
                         Boolean(errors.outer_dimension?.unit)
                       }
                     >
-                      <InputLabel>Unit</InputLabel>
+                      <InputLabel>(Unit) Lengths</InputLabel>
                       <Select
                         name="outer_dimension.unit"
                         value={values.outer_dimension.unit}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        label="Unit"
+                        label="(Unit) Lengths"
                       >
                         {lengthUnits.map((u) => (
                           <MenuItem key={u._id} value={u.symbol}>
@@ -428,7 +428,7 @@ const ContainerTypeDirectory = () => {
 
                 {/* Cubic Capacity (Volume) Fields */}
                 <Box sx={{ mt: 2, mb: 1 }}>
-                  <strong>Volume (Cubic Capacity)</strong>
+                  <strong>Volumes (Cubic Capacity)</strong>
                 </Box>
 
                 <Grid container spacing={2}>
@@ -461,13 +461,13 @@ const ContainerTypeDirectory = () => {
                         Boolean(errors.cubic_capacity?.unit)
                       }
                     >
-                      <InputLabel>Volume Unit</InputLabel>
+                      <InputLabel>Unit (Volumes)</InputLabel>
                       <Select
                         name="cubic_capacity.unit"
                         value={values.cubic_capacity.unit}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        label="Volume Unit"
+                        label="Unit (Volumes)"
                       >
                         {volumeUnits.map((u) => (
                           <MenuItem key={u._id} value={u.symbol}>
@@ -496,7 +496,7 @@ const ContainerTypeDirectory = () => {
                   <Grid item xs={6}>
                     <TextField
                       name="tare_weight.value"
-                      label="Tare Weight"
+                      label="Tare Weights"
                       fullWidth
                       margin="normal"
                       type="number"
@@ -521,7 +521,7 @@ const ContainerTypeDirectory = () => {
                         Boolean(errors.tare_weight?.unit)
                       }
                     >
-                      <InputLabel>Tare Weight Unit</InputLabel>
+                      <InputLabel>Unit (Weights)</InputLabel>
                       <Select
                         name="tare_weight.unit"
                         value={values.tare_weight.unit}
@@ -549,7 +549,7 @@ const ContainerTypeDirectory = () => {
 
                 {/* Payload Fields */}
                 <Box sx={{ mt: 2, mb: 1 }}>
-                  <strong>Payload</strong>
+                  <strong>Payload Weights</strong>
                 </Box>
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
@@ -579,7 +579,7 @@ const ContainerTypeDirectory = () => {
                         touched.payload?.unit && Boolean(errors.payload?.unit)
                       }
                     >
-                      <InputLabel>Payload Unit</InputLabel>
+                      <InputLabel>Unit (Weights)</InputLabel>
                       <Select
                         name="payload.unit"
                         value={values.payload.unit}

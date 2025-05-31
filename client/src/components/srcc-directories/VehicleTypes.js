@@ -101,7 +101,7 @@ const VehicleTypes = () => {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
       // Find "Weight" category for load capacity
       const weightCategory = response.data.find(
-        (item) => item.name === "Weight"
+        (item) => item.name === "Weights"
       );
       if (weightCategory) {
         setLoadUnits(weightCategory.measurements);
@@ -403,7 +403,7 @@ const VehicleTypes = () => {
                           onBlur={handleBlur}
                         >
                           <MenuItem value="">
-                            <em>Select Unit</em>
+                            <em>Unit (Weights)</em>
                           </MenuItem>
                           {loadUnits.map((u) => (
                             <MenuItem key={u._id} value={u.symbol}>

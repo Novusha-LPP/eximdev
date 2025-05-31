@@ -19,6 +19,14 @@ import {
   Alert,
   Button,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
@@ -26,6 +34,7 @@ import StarBorderIcon from "@mui/icons-material/StarBorder";
 import HistoryIcon from "@mui/icons-material/History";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InfoIcon from "@mui/icons-material/Info";
+import CalculateIcon from "@mui/icons-material/Calculate";
 import axios from "axios";
 
 const ImportUtilityTool = () => {
@@ -38,11 +47,20 @@ const ImportUtilityTool = () => {
   const [isLoading, setIsLoading] = useState(false);  const [activeTab, setActiveTab] = useState(1); // Default to Recent Searches tab
   const [recentSearches, setRecentSearches] = useState([]);
   const [favorites, setFavorites] = useState([]);
-  const [contextItems, setContextItems] = useState([]);
-  const [notification, setNotification] = useState({
+  const [contextItems, setContextItems] = useState([]);  const [notification, setNotification] = useState({
     open: false,
     message: "",
     severity: "success",
+  });
+  const [dutyCalculatorOpen, setDutyCalculatorOpen] = useState(false);
+  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);  const [dutyCalculatorForm, setDutyCalculatorForm] = useState({
+    importTerms: 'CIF',
+    cifValue: '',
+    freight: '',
+    insurance: '',
+    bcdRate: '',
+    swsRate: '10',
+    igstRate: ''
   });
 
   // API base URL
@@ -56,11 +74,100 @@ const ImportUtilityTool = () => {
       severity,
     });
   }, []);
-
   // Handle close notification
   const handleCloseNotification = useCallback(() => {
     setNotification(prev => ({ ...prev, open: false }));
   }, []);
+
+  // Handle duty calculator modal
+  const handleOpenDutyCalculator = useCallback((item) => {
+    setSelectedItemForDuty(item);    setDutyCalculatorForm({
+      importTerms: 'CIF',
+      cifValue: '',
+      freight: '',
+      insurance: '',
+      bcdRate: item.basic_duty_sch || item.basic_duty_ntfn || '',
+      swsRate: '10',
+      igstRate: item.igst || ''
+    });
+    setDutyCalculatorOpen(true);
+  }, []);
+  const handleCloseDutyCalculator = useCallback(() => {
+    setDutyCalculatorOpen(false);
+    setSelectedItemForDuty(null);
+    setDutyCalculatorForm({
+      importTerms: 'CIF',
+      cifValue: '',
+      freight: '',
+      insurance: '',
+      bcdRate: '',
+      swsRate: '10',
+      igstRate: ''
+    });
+  }, []);
+
+  // Handle duty form changes
+  const handleDutyFormChange = useCallback((field, value) => {
+    setDutyCalculatorForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+  // Calculate duties
+  const calculateDuties = useCallback(() => {
+    const { importTerms, cifValue, freight, insurance, bcdRate, swsRate, igstRate } = dutyCalculatorForm;
+    
+    // Calculate assessable value based on import terms
+    let assessableValue = 0;
+    
+    switch (importTerms) {
+      case 'CIF':
+        assessableValue = parseFloat(cifValue) || 0;
+        break;
+      case 'FOB':
+        const fobValue = parseFloat(cifValue) || 0;
+        const freightValue = parseFloat(freight) || 0;
+        const insuranceValue = parseFloat(insurance) || 0;
+        assessableValue = fobValue + freightValue + insuranceValue;
+        break;
+      case 'CF':
+        const cfValue = parseFloat(cifValue) || 0;
+        const cfInsuranceValue = parseFloat(insurance) || 0;
+        assessableValue = cfValue + cfInsuranceValue;
+        break;
+      case 'CI':
+        const ciValue = parseFloat(cifValue) || 0;
+        const ciFreightValue = parseFloat(freight) || 0;
+        assessableValue = ciValue + ciFreightValue;
+        break;
+      default:
+        assessableValue = parseFloat(cifValue) || 0;
+    }
+    
+    if (!assessableValue || !bcdRate || !igstRate) {
+      return { bcd: 0, sws: 0, igst: 0, total: 0, assessableValue: 0 };
+    }
+
+    const bcdPercentage = parseFloat(bcdRate) / 100 || 0;
+    const swsPercentage = parseFloat(swsRate) / 100 || 0;
+    const igstPercentage = parseFloat(igstRate) / 100 || 0;
+    
+    const bcd = assessableValue * bcdPercentage;
+    const sws = bcd * swsPercentage;
+    const finalAssessableValue = assessableValue + bcd + sws;
+    const igst = finalAssessableValue * igstPercentage;
+    const total = bcd + sws + igst;
+
+    return {
+      bcd: bcd.toFixed(2),
+      sws: sws.toFixed(2),
+      igst: igst.toFixed(2),
+      total: total.toFixed(2),
+      assessableValue: assessableValue.toFixed(2)
+    };
+  }, [dutyCalculatorForm]);
+
+  const calculatedDuties = calculateDuties();
 
   // Fetch recent searches
   const fetchRecentSearches = useCallback(async () => {
@@ -529,9 +636,18 @@ const ImportUtilityTool = () => {
               >
                 <TableCell>{item.hs_code}</TableCell>
                 <TableCell>{item.item_description}</TableCell>
-                <TableCell>{item.total_duty_with_sws}%</TableCell>
-                <TableCell>{item.igst}%</TableCell>
+                <TableCell>{item.total_duty_with_sws}%</TableCell>                <TableCell>{item.igst}%</TableCell>
                 <TableCell>
+                  <IconButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDutyCalculator(item);
+                    }}
+                    color="primary"
+                    title="Calculate Duty"
+                  >
+                    <CalculateIcon />
+                  </IconButton>
                   <IconButton
                     onClick={(e) => {
                       e.stopPropagation();
@@ -545,10 +661,9 @@ const ImportUtilityTool = () => {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
-      </TableContainer>
+        </Table>      </TableContainer>
     );
-  }, [handleSelectResult, handleToggleFavorite, multipleResults, multipleResultsSource]);
+  }, [handleSelectResult, handleToggleFavorite, multipleResults, multipleResultsSource, handleOpenDutyCalculator]);
 
   // Render item
   const renderItem = useCallback((item, source) => {
@@ -579,8 +694,19 @@ const ImportUtilityTool = () => {
           <Typography variant="body2" color="text.secondary">
             Duty: {item.total_duty_with_sws}% | IGST: {item.igst}%
           </Typography>
-        </Box>
-        <Box display="flex" alignItems="center">
+        </Box>        <Box display="flex" alignItems="center">
+          {/* Calculate Duty button */}
+          <IconButton
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenDutyCalculator(item);
+            }}
+            color="primary"
+            title="Calculate Duty"
+          >
+            <CalculateIcon />
+          </IconButton>
+
           {/* Favorite icon */}
           <IconButton
             onClick={(e) => {
@@ -604,10 +730,9 @@ const ImportUtilityTool = () => {
               <DeleteIcon />
             </IconButton>
           )}
-        </Box>
-      </Paper>
+        </Box>      </Paper>
     );
-  }, [handleDeleteItem, handleItemClick, handleToggleFavorite]);
+  }, [handleDeleteItem, handleItemClick, handleToggleFavorite, handleOpenDutyCalculator]);
 
   return (
     <Box sx={{ maxWidth: 1500, margin: "0 auto", p: 3 }}>
@@ -672,22 +797,32 @@ const ImportUtilityTool = () => {
               </Typography>
               {renderMultipleResults()}
             </Box>
-          )}
-
-          {/* Display single result if available */}
+          )}          {/* Display single result if available */}
           {searchResults && searchResults.result && (
             <Box>
-              <Box display="flex" alignItems="center" mb={1}>
-                <Typography variant="subtitle1">
-                  Found in {searchResults.source} collection
-                </Typography>
-                <IconButton
-                  onClick={() => handleToggleFavorite(searchResults.result, searchResults.source)}
-                  color={searchResults.result.favourite ? "warning" : "default"}
-                  sx={{ ml: 1 }}
+              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                <Box display="flex" alignItems="center">
+                  <Typography variant="subtitle1">
+                    Found in {searchResults.source} collection
+                  </Typography>
+                  <IconButton
+                    onClick={() => handleToggleFavorite(searchResults.result, searchResults.source)}
+                    color={searchResults.result.favourite ? "warning" : "default"}
+                    sx={{ ml: 1 }}
+                  >
+                    {searchResults.result.favourite ? <StarIcon /> : <StarBorderIcon />}
+                  </IconButton>
+                </Box>
+                
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<CalculateIcon />}
+                  onClick={() => handleOpenDutyCalculator(searchResults.result)}
+                  sx={{ ml: 2 }}
                 >
-                  {searchResults.result.favourite ? <StarIcon /> : <StarBorderIcon />}
-                </IconButton>
+                  Calculate Duty
+                </Button>
               </Box>
 
               {/* Context-aware search result */}
@@ -781,9 +916,7 @@ const ImportUtilityTool = () => {
             </Typography>
           )}
         </Box>
-      )}
-
-      <Snackbar
+      )}      <Snackbar
         open={notification.open}
         autoHideDuration={4000}
         onClose={handleCloseNotification}
@@ -796,7 +929,273 @@ const ImportUtilityTool = () => {
         >
           {notification.message}
         </Alert>
-      </Snackbar>
+      </Snackbar>      {/* Duty Calculator Modal */}
+      <Dialog
+        open={dutyCalculatorOpen}
+        onClose={handleCloseDutyCalculator}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '8px',
+            background: '#fff',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box sx={{ fontSize: '16px', fontWeight: 600, color: '#34495e' }}>
+              💸 Duty Calculator
+            </Box>
+            {selectedItemForDuty && (
+              <Chip 
+                label={`HS: ${selectedItemForDuty.hs_code}`}
+                size="small"
+                sx={{ 
+                  fontSize: '12px', 
+                  fontWeight: 600,
+                  backgroundColor: '#e3f2fd',
+                  color: '#1976d2'
+                }}
+              />
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2, pt: 1 }}>
+          {selectedItemForDuty && (
+            <Box>              <Box sx={{ 
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 1.5,
+                '& .field-group': {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.5
+                },
+                '& .field-label': {
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#555'
+                },
+                '& input, & .MuiOutlinedInput-root': {
+                  padding: '6px 8px',
+                  fontSize: '13px',
+                  borderRadius: '4px',
+                  border: '1px solid #ddd',
+                  '&:focus': {
+                    borderColor: '#007bff',
+                    outline: 'none'
+                  }
+                },
+                '& .MuiFormControl-root': {
+                  minWidth: '100%'
+                },
+                '& .calculated-value': {
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#28a745',
+                  marginTop: '2px'
+                },
+                '& .full-width': {
+                  gridColumn: '1 / -1'
+                }
+              }}>
+                
+                {/* HS Code & Description */}
+                <Box className="field-group full-width" sx={{ 
+                  p: 1.5, 
+                  backgroundColor: '#f8f9fa', 
+                  borderRadius: '4px',
+                  mb: 1
+                }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '13px', color: '#2c3e50' }}>
+                    {selectedItemForDuty.hs_code} - {selectedItemForDuty.item_description}
+                  </Typography>
+                </Box>                {/* Import Terms */}
+                <Box className="field-group full-width">
+                  <Typography className="field-label">Import Terms</Typography>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    gap: 1, 
+                    flexWrap: 'wrap',
+                    mt: 0.5
+                  }}>
+                    {[
+                      { value: 'CIF', label: 'CIF', color: '#2563eb' },
+                      { value: 'FOB', label: 'FOB', color: '#059669' },
+                      { value: 'CF', label: 'C&F', color: '#dc2626' },
+                      { value: 'CI', label: 'C&I', color: '#7c3aed' }
+                    ].map((option) => (
+                      <Box
+                        key={option.value}
+                        onClick={() => handleDutyFormChange('importTerms', option.value)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: `1px solid ${dutyCalculatorForm.importTerms === option.value ? option.color : '#d1d5db'}`,
+                          backgroundColor: dutyCalculatorForm.importTerms === option.value ? option.color : '#ffffff',
+                          color: dutyCalculatorForm.importTerms === option.value ? '#ffffff' : '#374151',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          minWidth: '60px',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                          boxShadow: dutyCalculatorForm.importTerms === option.value ? `0 2px 4px ${option.color}20` : 'none',
+                          '&:hover': {
+                            borderColor: option.color,
+                            backgroundColor: dutyCalculatorForm.importTerms === option.value ? option.color : `${option.color}08`,
+                            transform: 'translateY(-1px)',
+                            boxShadow: `0 3px 6px ${option.color}20`
+                          }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            border: `2px solid ${dutyCalculatorForm.importTerms === option.value ? '#ffffff' : option.color}`,
+                            backgroundColor: dutyCalculatorForm.importTerms === option.value ? '#ffffff' : 'transparent',
+                            marginRight: '8px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        />
+                        {option.label}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+
+                {/* Base Value */}
+                <Box className="field-group">
+                  <Typography className="field-label">{dutyCalculatorForm.importTerms} Value (₹)</Typography>
+                  <input
+                    type="number"
+                    value={dutyCalculatorForm.cifValue}
+                    onChange={(e) => handleDutyFormChange('cifValue', e.target.value)}
+                    placeholder="Enter value"
+                  />
+                </Box>
+
+                {/* Conditional Fields */}
+                {(dutyCalculatorForm.importTerms === 'FOB' || dutyCalculatorForm.importTerms === 'CI') && (
+                  <Box className="field-group">
+                    <Typography className="field-label">Freight (₹)</Typography>
+                    <input
+                      type="number"
+                      value={dutyCalculatorForm.freight}
+                      onChange={(e) => handleDutyFormChange('freight', e.target.value)}
+                      placeholder="Freight"
+                    />
+                  </Box>
+                )}
+
+                {(dutyCalculatorForm.importTerms === 'FOB' || dutyCalculatorForm.importTerms === 'CF') && (
+                  <Box className="field-group">
+                    <Typography className="field-label">Insurance (₹)</Typography>
+                    <input
+                      type="number"
+                      value={dutyCalculatorForm.insurance}
+                      onChange={(e) => handleDutyFormChange('insurance', e.target.value)}
+                      placeholder="Insurance"
+                    />
+                  </Box>
+                )}
+
+                {/* BCD */}
+                <Box className="field-group">
+                  <Typography className="field-label">
+                    BCD (%) <span style={{ color: '#007bff', cursor: 'help' }} title="Basic Customs Duty">ℹ️</span>
+                  </Typography>
+                  <input
+                    type="number"
+                    value={dutyCalculatorForm.bcdRate}
+                    onChange={(e) => handleDutyFormChange('bcdRate', e.target.value)}
+                    placeholder="BCD rate"
+                  />
+                  <div className="calculated-value">₹{parseFloat(calculatedDuties.bcd || 0).toFixed(2)}</div>
+                </Box>
+
+                {/* SWS */}
+                <Box className="field-group">
+                  <Typography className="field-label">
+                    SWS (%) <span style={{ color: '#007bff', cursor: 'help' }} title="10% of BCD">ℹ️</span>
+                  </Typography>
+                  <input
+                    type="number"
+                    value={dutyCalculatorForm.swsRate}
+                    onChange={(e) => handleDutyFormChange('swsRate', e.target.value)}
+                    style={{ backgroundColor: '#f8f9fa' }}
+                  />
+                  <div className="calculated-value">₹{parseFloat(calculatedDuties.sws || 0).toFixed(2)}</div>
+                </Box>
+
+                {/* IGST */}
+                <Box className="field-group">
+                  <Typography className="field-label">
+                    IGST (%) <span style={{ color: '#007bff', cursor: 'help' }} title="Integrated GST">ℹ️</span>
+                  </Typography>
+                  <input
+                    type="number"
+                    value={dutyCalculatorForm.igstRate}
+                    onChange={(e) => handleDutyFormChange('igstRate', e.target.value)}
+                    placeholder="IGST rate"
+                  />
+                  <div className="calculated-value">₹{parseFloat(calculatedDuties.igst || 0).toFixed(2)}</div>
+                </Box>
+
+                {/* Assessable Value */}
+                <Box className="field-group">
+                  <Typography className="field-label">Assessable Value</Typography>
+                  <Box sx={{ 
+                    p: 1, 
+                    backgroundColor: '#e8f5e8', 
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#155724',
+                    textAlign: 'center'
+                  }}>
+                    ₹{parseFloat(calculatedDuties.assessableValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </Box>
+                </Box>
+
+                {/* Total Duty */}
+                <Box className="field-group">
+                  <Typography className="field-label">💰 Total Duty</Typography>
+                  <Box sx={{ 
+                    p: 1, 
+                    backgroundColor: '#ffeaa7', 
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: '#2d3436',
+                    textAlign: 'center'
+                  }}>
+                    ₹{parseFloat(calculatedDuties.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </Box>
+                </Box>
+              </Box>            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2, pb: 2 }}>
+          <Typography variant="caption" sx={{ 
+            fontSize: '10px', 
+            color: '#666', 
+            fontStyle: 'italic',
+            flex: 1
+          }}>
+            ⚠️ Estimated calculation only
+          </Typography>
+          <Button onClick={handleCloseDutyCalculator} size="small" variant="outlined">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

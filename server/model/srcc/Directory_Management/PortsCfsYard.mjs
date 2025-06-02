@@ -8,11 +8,6 @@ const PortsCfsYardSchema = new mongoose.Schema(
         ref: "Organisation",
         required: true,
       },
-      name: {
-        type: String,
-        required: true,
-        trim: true,
-      },
     },
     name: { type: String, required: true, trim: true },
     icd_code: { type: String, required: true, trim: true, unique: true },

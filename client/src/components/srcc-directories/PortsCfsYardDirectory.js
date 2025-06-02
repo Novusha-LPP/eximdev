@@ -105,11 +105,20 @@ function PortsCfsYardDirectory() {
     });
     setOpenModal(true);
   };
-
   const handleEdit = (port) => {
     setModalMode("edit");
+    // Handle nested organisation structure
+    const organisationData =
+      port.organisation && port.organisation._id
+        ? {
+            _id: port.organisation._id._id || port.organisation._id,
+            name: port.organisation._id.name || port.organisation.name || "",
+          }
+        : { _id: "", name: "" };
+
     setFormData({
       ...port,
+      organisation: organisationData,
       active: port.active === true,
     });
     setOpenModal(true);
@@ -153,8 +162,10 @@ function PortsCfsYardDirectory() {
 
       <TableContainer component={Paper}>
         <Table>
+          {" "}
           <TableHead>
             <TableRow>
+              <TableCell>Organisation</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Code</TableCell>
               <TableCell>State</TableCell>
@@ -167,10 +178,15 @@ function PortsCfsYardDirectory() {
               <TableCell>Is Branch</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
-          </TableHead>
+          </TableHead>{" "}
           <TableBody>
             {portsData.map((port) => (
               <TableRow key={port._id}>
+                <TableCell>
+                  {port.organisation?.name ||
+                    port.organisation?._id?.name ||
+                    "No Organisation"}
+                </TableCell>
                 <TableCell>{port.name}</TableCell>
                 <TableCell>{port.icd_code}</TableCell>
                 <TableCell>{port.state}</TableCell>

@@ -26,10 +26,10 @@ router.post("/api/add-port-type", async (req, res) => {
       return res.status(400).json({ error: "ICD code is required" });
     }
 
-    if (!organisation || !organisation._id || !organisation.name) {
+    if (!organisation || !organisation._id ) {
       return res
         .status(400)
-        .json({ error: "Organisation (_id and name) is required" });
+        .json({ error: "Organisation (_id) is required" });
     }
 
     const existingICDCode = await PortICDcode.findOne({ icd_code });
@@ -67,8 +67,9 @@ router.post("/api/add-port-type", async (req, res) => {
 
 // READ all
 router.get("/api/get-port-types", async (req, res) => {
+  // i want to apply populate
   try {
-    const ports = await PortICDcode.find();
+    const ports = await PortICDcode.find().populate("organisation._id", "name");
     res.status(200).json({ data: ports });
   } catch (error) {
     console.error("Error fetching Ports:", error);
@@ -81,7 +82,7 @@ router.get("/api/get-port-type/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const port = await PortICDcode.findById(id);
+    const port = await PortICDcode.findById(id).populate("organisation._id", "name"); 
 
     if (!port) {
       return res.status(404).json({ error: "Port/CFS/Yard not found" });
@@ -114,7 +115,7 @@ router.put("/api/update-port-type/:id", async (req, res) => {
   } = req.body;
 
   try {
-    if (!organisation || !organisation._id || !organisation.name) {
+    if (!organisation || !organisation._id ) {
       return res
         .status(400)
         .json({ error: "Organisation (_id and name) is required" });

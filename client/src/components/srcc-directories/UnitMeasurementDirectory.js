@@ -40,6 +40,7 @@ function UnitMeasurementDirectory() {
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+  
   const fetchUnits = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
@@ -48,18 +49,32 @@ function UnitMeasurementDirectory() {
       console.error("Error fetching unit measurements:", error);
     }
   }, [API_URL]);
+  
   useEffect(() => {
     fetchUnits();
   }, [fetchUnits]);
+  
   const handleAdd = () => {
     setModalMode("add");
     setFormData({ name: "", measurements: [] });
     setOpenModal(true);
     setErrors({});
   };
+  
   const handleEdit = (unit) => {
     setModalMode("edit");
-    setFormData({ name: unit.name, measurements: unit.measurements });
+    // IMPORTANT: Include _id for each measurement to preserve IDs during update
+    const measurementsWithIds = unit.measurements.map(measurement => ({
+      _id: measurement._id, // Preserve existing ID
+      unit: measurement.unit,
+      symbol: measurement.symbol,
+      decimal_places: measurement.decimal_places
+    }));
+    
+    setFormData({ 
+      name: unit.name, 
+      measurements: measurementsWithIds 
+    });
     setEditData(unit);
     setOpenModal(true);
     setErrors({});
@@ -77,6 +92,7 @@ function UnitMeasurementDirectory() {
       }
     }
   };
+  
   const handleSave = async () => {
     if (!formData.name.trim()) {
       setErrors({ name: "Category name is required" });
@@ -106,6 +122,7 @@ function UnitMeasurementDirectory() {
       if (modalMode === "add") {
         await axios.post(`${API_URL}/add-unit-measurement`, formData);
       } else {
+        // For update, send measurements with their _id to preserve existing IDs
         await axios.put(
           `${API_URL}/update-unit-measurement/${editData._id}`,
           formData
@@ -121,6 +138,7 @@ function UnitMeasurementDirectory() {
       setErrors({ server: errorMessage });
     }
   };
+  
   const handleAddMeasurement = () => {
     const { unit, symbol, decimal_places } = newMeasurement;
     if (!unit.trim() || !symbol.trim() || decimal_places === "") {
@@ -159,10 +177,15 @@ function UnitMeasurementDirectory() {
 
     if (editingMeasurementIndex !== null) {
       const updated = [...formData.measurements];
+      // IMPORTANT: Preserve the _id when updating existing measurement
+      if (updated[editingMeasurementIndex]._id) {
+        trimmedMeasurement._id = updated[editingMeasurementIndex]._id;
+      }
       updated[editingMeasurementIndex] = trimmedMeasurement;
       setFormData({ ...formData, measurements: updated });
       setEditingMeasurementIndex(null);
     } else {
+      // New measurement - no _id needed, backend will generate it
       setFormData((prev) => ({
         ...prev,
         measurements: [...prev.measurements, trimmedMeasurement],
@@ -173,7 +196,12 @@ function UnitMeasurementDirectory() {
   };
 
   const handleEditMeasurement = (index) => {
-    setNewMeasurement(formData.measurements[index]);
+    const measurement = formData.measurements[index];
+    setNewMeasurement({
+      unit: measurement.unit,
+      symbol: measurement.symbol,
+      decimal_places: measurement.decimal_places
+    });
     setEditingMeasurementIndex(index);
   };
 
@@ -273,7 +301,7 @@ function UnitMeasurementDirectory() {
           <List dense>
             {formData.measurements.map((m, index) => (
               <ListItem
-                key={index}
+                key={m._id || index} // Use _id if available, fallback to index
                 secondaryAction={
                   <>
                     <IconButton
@@ -295,7 +323,7 @@ function UnitMeasurementDirectory() {
               >
                 <ListItemText
                   primary={`${m.unit} (${m.symbol})`}
-                  secondary={`Decimal Places: ${m.decimal_places}`}
+                  secondary={`Decimal Places: ${m.decimal_places}${m._id ? ` | ID: ${m._id}` : ' | New'}`}
                 />
               </ListItem>
             ))}
@@ -323,12 +351,12 @@ function UnitMeasurementDirectory() {
             <Button onClick={handleAddMeasurement} variant="outlined">
               {editingMeasurementIndex !== null ? "Update" : "Add"}
             </Button>
-          </Box>{" "}
+          </Box>
           {errors.newMeasurement && (
             <Typography color="error" variant="body2" mt={1}>
               {errors.newMeasurement}
             </Typography>
-          )}
+            )}
           {errors.server && (
             <Typography color="error" variant="body2" mt={1}>
               {errors.server}

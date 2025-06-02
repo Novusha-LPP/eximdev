@@ -73,7 +73,7 @@ router.get("/api/get-unit-measurement/:id", async (req, res) => {
 
 /**
  * @route PUT /api/update-unit-measurement/:id
- * @desc Update a unit measurement category and its measurements
+ * @desc Update a unit measurement category and its measurements (preserving existing measurement IDs)
  */
 router.put("/api/update-unit-measurement/:id", async (req, res) => {
   try {
@@ -103,15 +103,48 @@ router.put("/api/update-unit-measurement/:id", async (req, res) => {
       }
     }
 
-    const updatedUnit = await UnitMeasurement.findByIdAndUpdate(
-      req.params.id,
-      { name, measurements },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedUnit) {
+    // Get the existing document
+    const existingDoc = await UnitMeasurement.findById(req.params.id);
+    if (!existingDoc) {
       return res.status(404).json({ error: "Unit measurement not found" });
     }
+
+    // Update category name
+    existingDoc.name = name;
+
+    // Handle measurements update while preserving existing IDs
+    if (measurements && measurements.length > 0) {
+      const updatedMeasurements = [];
+
+      for (const incomingMeasurement of measurements) {
+        if (incomingMeasurement._id) {
+          // This is an existing measurement - find and update it
+          const existingMeasurement = existingDoc.measurements.id(incomingMeasurement._id);
+          if (existingMeasurement) {
+            // Update existing measurement properties
+            existingMeasurement.unit = incomingMeasurement.unit;
+            existingMeasurement.symbol = incomingMeasurement.symbol;
+            existingMeasurement.decimal_places = incomingMeasurement.decimal_places;
+            updatedMeasurements.push(existingMeasurement);
+          }
+        } else {
+          // This is a new measurement - add it
+          updatedMeasurements.push({
+            unit: incomingMeasurement.unit,
+            symbol: incomingMeasurement.symbol,
+            decimal_places: incomingMeasurement.decimal_places
+          });
+        }
+      }
+
+      // Replace the measurements array with updated one
+      existingDoc.measurements = updatedMeasurements;
+    } else {
+      existingDoc.measurements = [];
+    }
+
+    // Save the document
+    const updatedUnit = await existingDoc.save();
 
     res.status(200).json({
       message: "Unit measurement updated successfully",

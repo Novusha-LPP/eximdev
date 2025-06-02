@@ -9,7 +9,8 @@ const useCommodities = (API_URL) => {
   useEffect(() => {
     const fetchCommodities = async () => {
       try {
-        const response = await axios.get(`${API_URL}/get-commodity-type`);        setCommodities(
+        const response = await axios.get(`${API_URL}/get-commodity-type`);
+        setCommodities(
           response.data.data.map((item) => ({
             label: `${item.hsn_code} - ${item.name}`,
             value: item._id, // Use ObjectId instead of hsn_code

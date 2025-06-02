@@ -121,7 +121,7 @@ const VehicleTypes = () => {
   useEffect(() => {
     fetchVehicles();
     fetchUnits();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // -----------------------------------------------------
@@ -157,7 +157,7 @@ const VehicleTypes = () => {
     // Helper function to get commodity IDs from populated commodity data
     const getCommodityIds = (commodityData) => {
       if (!commodityData || !Array.isArray(commodityData)) return [];
-      return commodityData.map(commodity => {
+      return commodityData.map((commodity) => {
         if (typeof commodity === "object" && commodity._id) {
           return commodity._id; // Populated object
         }
@@ -293,7 +293,8 @@ const VehicleTypes = () => {
             {vehicles.map((vehicle) => (
               <TableRow key={vehicle._id}>
                 <TableCell>{vehicle.vehicleType}</TableCell>
-                <TableCell>{vehicle.shortName}</TableCell>                <TableCell>
+                <TableCell>{vehicle.shortName}</TableCell>{" "}
+                <TableCell>
                   {vehicle.loadCapacity?.value}{" "}
                   {typeof vehicle.loadCapacity?.unit === "object"
                     ? vehicle.loadCapacity?.unit?.symbol
@@ -309,9 +310,10 @@ const VehicleTypes = () => {
                   {vehicle.cargoTypeAllowed?.length
                     ? vehicle.cargoTypeAllowed.join(", ")
                     : "N/A"}
-                </TableCell>                <TableCell>
+                </TableCell>{" "}
+                <TableCell>
                   {vehicle.CommodityCarry?.length
-                    ? vehicle.CommodityCarry.map(commodity => 
+                    ? vehicle.CommodityCarry.map((commodity) =>
                         typeof commodity === "object" && commodity.name
                           ? commodity.name
                           : commodity
@@ -429,7 +431,8 @@ const VehicleTypes = () => {
                         >
                           <MenuItem value="">
                             <em>Unit (Weights)</em>
-                          </MenuItem>                          {(loadUnits || []).map((u) => (
+                          </MenuItem>{" "}
+                          {(loadUnits || []).map((u) => (
                             <MenuItem key={u._id} value={u._id}>
                               {u.unit} ({u.symbol})
                             </MenuItem>
@@ -482,7 +485,8 @@ const VehicleTypes = () => {
                         >
                           <MenuItem value="">
                             <em>Select Unit</em>
-                          </MenuItem>                          {(engineUnits || []).map((u) => (
+                          </MenuItem>{" "}
+                          {(engineUnits || []).map((u) => (
                             <MenuItem key={u._id} value={u._id}>
                               {u.unit} ({u.symbol})
                             </MenuItem>

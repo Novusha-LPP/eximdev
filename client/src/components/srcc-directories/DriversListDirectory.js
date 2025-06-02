@@ -16,7 +16,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Typography,  Grid,
+  Typography,
+  Grid,
   FormControl,
   Autocomplete,
   Checkbox,
@@ -55,7 +56,8 @@ const validationSchema = Yup.object({
   phoneNumber: Yup.string()
     .matches(/^\d{10}$/, "Phone Number must be exactly 10 digits")
     .required("Phone Number is required"),
-  residentialAddress: Yup.string().required("Residential Address is required"),  drivingVehicleTypes: Yup.array()
+  residentialAddress: Yup.string().required("Residential Address is required"),
+  drivingVehicleTypes: Yup.array()
     .min(1, "Select at least one vehicle type")
     .required("Driving vehicle types are required"),
   drivingExperience: Yup.string().required("Driving Experience is required"),
@@ -85,7 +87,8 @@ const initialFormData = {
   licenseNumber: "",
   licenseIssueAuthority: "",
   licenseExpiryDate: "",
-  phoneNumber: "",  alternateNumber: "",
+  phoneNumber: "",
+  alternateNumber: "",
   residentialAddress: "",
   drivingVehicleTypes: [],
   drivingExperience: "",
@@ -137,11 +140,11 @@ const DriversListDirectory = () => {
   };
   const handleEdit = (driver) => {
     setModalMode("edit");
-    
+
     // Extract ObjectIds from populated drivingVehicleTypes
     let drivingVehicleTypesIds = [];
     if (driver.drivingVehicleTypes?.length > 0) {
-      drivingVehicleTypesIds = driver.drivingVehicleTypes.map(vehicleType => {
+      drivingVehicleTypesIds = driver.drivingVehicleTypes.map((vehicleType) => {
         // Handle both populated objects and raw ObjectIds
         if (typeof vehicleType === "object" && vehicleType._id) {
           return vehicleType._id; // Extract ObjectId from populated object
@@ -149,7 +152,7 @@ const DriversListDirectory = () => {
         return vehicleType; // Assume it's already an ObjectId string
       });
     }
-    
+
     // Format licenseExpiryDate as YYYY-MM-DD if available
     const formattedDriver = {
       ...driver,
@@ -228,7 +231,9 @@ const DriversListDirectory = () => {
 
       <TableContainer component={Paper} sx={{ mt: 2 }}>
         <Table>
-          <TableHead>            <TableRow>
+          <TableHead>
+            {" "}
+            <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Alias</TableCell>
               <TableCell>License Number</TableCell>
@@ -244,13 +249,17 @@ const DriversListDirectory = () => {
                 <TableCell>{driver.name}</TableCell>
                 <TableCell>{driver.alias}</TableCell>
                 <TableCell>{driver.licenseNumber}</TableCell>
-                <TableCell>{driver.phoneNumber}</TableCell>                <TableCell>
+                <TableCell>{driver.phoneNumber}</TableCell>{" "}
+                <TableCell>
                   {driver.drivingVehicleTypes?.length
-                    ? driver.drivingVehicleTypes.map(vehicleType => 
-                        typeof vehicleType === "object" && vehicleType.vehicleType
-                          ? vehicleType.vehicleType
-                          : vehicleType
-                      ).join(", ")
+                    ? driver.drivingVehicleTypes
+                        .map((vehicleType) =>
+                          typeof vehicleType === "object" &&
+                          vehicleType.vehicleType
+                            ? vehicleType.vehicleType
+                            : vehicleType
+                        )
+                        .join(", ")
                     : "N/A"}
                 </TableCell>
                 <TableCell>{driver.drivingExperience || "N/A"}</TableCell>
@@ -298,7 +307,14 @@ const DriversListDirectory = () => {
             onSubmit={handleSave}
             enableReinitialize={true}
           >
-            {({ values, handleChange, handleBlur, setFieldValue, errors, touched }) => (
+            {({
+              values,
+              handleChange,
+              handleBlur,
+              setFieldValue,
+              errors,
+              touched,
+            }) => (
               <Form>
                 <Grid container spacing={2}>
                   {/* Left Column: Text & Date Fields */}
@@ -457,7 +473,8 @@ const DriversListDirectory = () => {
                         color="error"
                         variant="caption"
                       />
-                    </Box> */}                    <FormControl fullWidth sx={{ mb: 2 }} required>
+                    </Box> */}{" "}
+                    <FormControl fullWidth sx={{ mb: 2 }} required>
                       <Autocomplete
                         multiple
                         id="drivingVehicleTypes"
@@ -497,9 +514,9 @@ const DriversListDirectory = () => {
                               errors.drivingVehicleTypes
                             }
                           />
-                        )}                      />
+                        )}
+                      />
                     </FormControl>
-
                     <Box sx={{ mb: 2 }}>
                       <TextField
                         name="drivingExperience"
@@ -517,7 +534,6 @@ const DriversListDirectory = () => {
                         variant="caption"
                       />
                     </Box>
-
                     <Box sx={{ mb: 2 }}>
                       <TextField
                         name="remarks"
@@ -535,7 +551,6 @@ const DriversListDirectory = () => {
                         variant="caption"
                       />
                     </Box>
-
                     {/* Notes Section */}
                     <FieldArray name="notes">
                       {({ push, remove }) => (

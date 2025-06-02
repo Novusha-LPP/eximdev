@@ -7,17 +7,19 @@ const router = express.Router();
 // Helper function to populate vehicle type data
 const populateDriverData = async (driver) => {
   const driverObj = driver.toObject();
-  
+
   // Populate drivingVehicleTypes
   if (driverObj.drivingVehicleTypes?.length > 0) {
-    const vehicleTypes = await VehicleType.find({ _id: { $in: driverObj.drivingVehicleTypes } });
-    driverObj.drivingVehicleTypes = vehicleTypes.map(vehicleType => ({
+    const vehicleTypes = await VehicleType.find({
+      _id: { $in: driverObj.drivingVehicleTypes },
+    });
+    driverObj.drivingVehicleTypes = vehicleTypes.map((vehicleType) => ({
       _id: vehicleType._id,
       vehicleType: vehicleType.vehicleType,
-      shortName: vehicleType.shortName
+      shortName: vehicleType.shortName,
     }));
   }
-  
+
   return driverObj;
 };
 
@@ -84,7 +86,7 @@ router.get("/api/all-drivers", async (req, res) => {
   try {
     const drivers = await DriverType.find();
     const populatedDrivers = await Promise.all(
-      drivers.map(driver => populateDriverData(driver))
+      drivers.map((driver) => populateDriverData(driver))
     );
     return res.status(200).json(populatedDrivers);
   } catch (error) {
@@ -175,7 +177,7 @@ router.get("/api/available-drivers/:type", async (req, res) => {
 
     // First find vehicle types that match the provided type
     const matchingVehicleTypes = await VehicleType.find({
-      vehicleType: { $regex: type, $options: "i" } // Case-insensitive regex match
+      vehicleType: { $regex: type, $options: "i" }, // Case-insensitive regex match
     });
 
     if (matchingVehicleTypes.length === 0) {
@@ -185,7 +187,7 @@ router.get("/api/available-drivers/:type", async (req, res) => {
     }
 
     // Extract the ObjectIds of matching vehicle types
-    const vehicleTypeIds = matchingVehicleTypes.map(vt => vt._id);
+    const vehicleTypeIds = matchingVehicleTypes.map((vt) => vt._id);
 
     // Find drivers who can drive these vehicle types and are not assigned
     const drivers = await DriverType.find({
@@ -202,7 +204,7 @@ router.get("/api/available-drivers/:type", async (req, res) => {
     }
 
     const populatedDrivers = await Promise.all(
-      drivers.map(driver => populateDriverData(driver))
+      drivers.map((driver) => populateDriverData(driver))
     );
 
     return res.status(200).json(populatedDrivers);

@@ -1,7 +1,25 @@
 import express from "express";
 import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
+import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
 
 const router = express.Router();
+
+// Helper function to populate vehicle type data
+const populateDriverData = async (driver) => {
+  const driverObj = driver.toObject();
+  
+  // Populate drivingVehicleTypes
+  if (driverObj.drivingVehicleTypes?.length > 0) {
+    const vehicleTypes = await VehicleType.find({ _id: { $in: driverObj.drivingVehicleTypes } });
+    driverObj.drivingVehicleTypes = vehicleTypes.map(vehicleType => ({
+      _id: vehicleType._id,
+      vehicleType: vehicleType.vehicleType,
+      shortName: vehicleType.shortName
+    }));
+  }
+  
+  return driverObj;
+};
 
 // License Number Validation (2 letters, 13 digits)
 const validateLicenseNumber = (licenseNumber) =>
@@ -53,7 +71,8 @@ router.post("/api/create-driver", async (req, res) => {
   try {
     const newDriver = new DriverType(req.body);
     await newDriver.save();
-    return res.status(201).json(newDriver);
+    const populatedDriver = await populateDriverData(newDriver);
+    return res.status(201).json(populatedDriver);
   } catch (error) {
     return res
       .status(400)
@@ -64,7 +83,10 @@ router.post("/api/create-driver", async (req, res) => {
 router.get("/api/all-drivers", async (req, res) => {
   try {
     const drivers = await DriverType.find();
-    return res.status(200).json(drivers);
+    const populatedDrivers = await Promise.all(
+      drivers.map(driver => populateDriverData(driver))
+    );
+    return res.status(200).json(populatedDrivers);
   } catch (error) {
     return res
       .status(400)
@@ -80,7 +102,8 @@ router.get("/api/get-driver/:id", async (req, res) => {
     if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    return res.status(200).json(driver);
+    const populatedDriver = await populateDriverData(driver);
+    return res.status(200).json(populatedDriver);
   } catch (error) {
     return res
       .status(400)
@@ -114,7 +137,8 @@ router.put("/api/update-driver/:id", async (req, res) => {
     if (!updatedDriver) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    return res.status(200).json(updatedDriver);
+    const populatedDriver = await populateDriverData(updatedDriver);
+    return res.status(200).json(populatedDriver);
   } catch (error) {
     return res
       .status(400)
@@ -138,7 +162,7 @@ router.delete("/api/delete-driver/:id", async (req, res) => {
   }
 });
 
-// New GET route to retrieve drivers by typerouter.get("/api/drivers-by-type/:type", async (req, res) => {
+// New GET route to retrieve drivers by type
 router.get("/api/available-drivers/:type", async (req, res) => {
   const { type } = req.params;
 
@@ -149,8 +173,23 @@ router.get("/api/available-drivers/:type", async (req, res) => {
   try {
     console.log("Received type:", type); // Log the type for debugging
 
+    // First find vehicle types that match the provided type
+    const matchingVehicleTypes = await VehicleType.find({
+      vehicleType: { $regex: type, $options: "i" } // Case-insensitive regex match
+    });
+
+    if (matchingVehicleTypes.length === 0) {
+      return res
+        .status(404)
+        .json({ message: `No vehicle types found for: ${type}` });
+    }
+
+    // Extract the ObjectIds of matching vehicle types
+    const vehicleTypeIds = matchingVehicleTypes.map(vt => vt._id);
+
+    // Find drivers who can drive these vehicle types and are not assigned
     const drivers = await DriverType.find({
-      drivingVehicleTypes: { $regex: type, $options: "i" }, // Case-insensitive regex match
+      drivingVehicleTypes: { $in: vehicleTypeIds },
       isAssigned: false, // Ensure driver is not assigned
     });
 
@@ -162,7 +201,11 @@ router.get("/api/available-drivers/:type", async (req, res) => {
         .json({ message: `No available drivers for type: ${type}` });
     }
 
-    return res.status(200).json(drivers);
+    const populatedDrivers = await Promise.all(
+      drivers.map(driver => populateDriverData(driver))
+    );
+
+    return res.status(200).json(populatedDrivers);
   } catch (error) {
     console.error("Error fetching available drivers:", error);
     return res.status(500).json({

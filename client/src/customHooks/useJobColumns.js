@@ -1,12 +1,14 @@
 import React, { useCallback, useMemo } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
+import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
 // Custom hook to manage job columns configuration
 function useJobColumns() {
@@ -439,14 +441,14 @@ function useJobColumns() {
         header: "BE Number and Date",
         size: 200,
         Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
-      },
-
-      {
+      },      {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
         size: 200,
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
+          const jobData = cell.row.original;
+          
           return (
             <React.Fragment>
               {containerNos?.map((container, id) => (
@@ -459,16 +461,25 @@ function useJobColumns() {
                     {container.container_number}
                   </a>
                   | "{container.size}"
-                  <IconButton
-                    size="small"
-                    onClick={(event) =>
-                      handleCopy(event, container.container_number)
-                    }
-                  >
-                    <abbr title="Copy Container Number">
-                      <ContentCopyIcon fontSize="inherit" />
-                    </abbr>
-                  </IconButton>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <IconButton
+                      size="small"
+                      onClick={(event) =>
+                        handleCopy(event, container.container_number)
+                      }
+                    >
+                      <abbr title="Copy Container Number">
+                        <ContentCopyIcon fontSize="inherit" />
+                      </abbr>
+                    </IconButton>
+                      {/* Delivery Challan Download Icon */}
+                    <DeliveryChallanPdf 
+                      year={jobData.year} 
+                      jobNo={jobData.job_no}
+                      containerIndex={id}
+                      renderAsIcon={true}
+                    />
+                  </div>
                 </div>
               ))}
             </React.Fragment>

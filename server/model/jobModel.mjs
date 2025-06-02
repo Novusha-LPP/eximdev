@@ -114,10 +114,13 @@ const jobSchema = new mongoose.Schema({
       container_rail_out_date: {type: String, trim: true},
       by_road_movement_date: { type: String, trim: true },
       emptyContainerOffLoadDate: { type: String, trim: true },
+       net_weight_as_per_PL_document: { type: String, trim: true },
+       delivery_chalan_file: { type: String, trim: true },
       delivery_date: {
         type: String,
         trim: true,
       },
+        
       do_revalidation: [
         {
           do_revalidation_upto: { type: String },

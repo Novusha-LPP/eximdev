@@ -18,8 +18,8 @@ const EditableDateCell = ({ cell }) => {
     container_nos = [],
     detailed_status,
     be_no,
+    duty_paid_date,
   } = cell.row.original;
-
   const [dates, setDates] = useState({
     assessment_date,
     vessel_berthing,
@@ -27,6 +27,7 @@ const EditableDateCell = ({ cell }) => {
     discharge_date,
     pcv_date,
     out_of_charge,
+    duty_paid_date,
   });
 
   const [localStatus, setLocalStatus] = useState(detailed_status);
@@ -43,7 +44,6 @@ const EditableDateCell = ({ cell }) => {
   const handleCombinedDateTimeChange = (e) => {
     setTempDateValue(e.target.value);
   };
-
   // Reset data when row changes
   useEffect(() => {
     setDates({
@@ -53,6 +53,7 @@ const EditableDateCell = ({ cell }) => {
       discharge_date,
       pcv_date,
       out_of_charge,
+      duty_paid_date,
     });
     setContainers([...container_nos]);
     setLocalStatus(detailed_status);
@@ -626,8 +627,7 @@ const EditableDateCell = ({ cell }) => {
           </div>
         )}
         <br />
-        
-        <strong>PCV :</strong>{" "}
+          <strong>PCV :</strong>{" "}
         {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
@@ -644,6 +644,36 @@ const EditableDateCell = ({ cell }) => {
             <button
               style={styles.submitButton}
               onClick={() => handleDateSubmit("pcv_date")}
+            >
+              ✓
+            </button>
+            <button
+              style={styles.cancelButton}
+              onClick={() => setEditable(null)}
+            >
+              ✕
+            </button>
+            {dateError && <div style={styles.errorText}>{dateError}</div>}
+          </div>
+        )}
+        <br />
+        <strong>Duty Paid :</strong>{" "}
+        {dates.duty_paid_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+        <FcCalendar
+          style={styles.icon}
+          onClick={() => handleEditStart("duty_paid_date")}
+        />
+        {editable === "duty_paid_date" && (
+          <div>
+            <input
+              type="datetime-local"
+              value={tempDateValue}
+              onChange={handleDateInputChange}
+              style={dateError ? styles.errorInput : {}}
+            />
+            <button
+              style={styles.submitButton}
+              onClick={() => handleDateSubmit("duty_paid_date")}
             >
               ✓
             </button>

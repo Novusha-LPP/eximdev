@@ -44,6 +44,7 @@ import {
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
+import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 
 function JobDetails() {
   const params = useParams();
@@ -59,7 +60,6 @@ function JobDetails() {
   } = useSearchQuery();
 
   const [storedSearchParams, setStoredSearchParams] = useState(null);
-
   useEffect(() => {
     if (location.state && location.state.fromJobList) {
       const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
@@ -1916,7 +1916,7 @@ function JobDetails() {
                     size="small"
                     margin="normal"
                     variant="outlined"
-                    type="date"
+                    type="datetime-local"
                     id="assessment_date"
                     name="assessment_date"
                     value={formik.values.assessment_date}
@@ -2269,7 +2269,7 @@ function JobDetails() {
                     size="small"
                     margin="normal"
                     variant="outlined"
-                    type="date"
+                    type="datetime-local"
                     id="duty_paid_date"
                     name="duty_paid_date"
                     value={formik.values.duty_paid_date}
@@ -3736,6 +3736,10 @@ function JobDetails() {
                       </Col>
                     </Row>
                   </div>
+                   <div className="flex gap-2">
+        <DeliveryChallanPdf year={params.selected_year} jobNo={params.job_no}   containerIndex={id} />
+        {/* You can add other buttons here */}
+      </div>
 
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}

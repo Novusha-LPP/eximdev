@@ -10,29 +10,75 @@ const router = express.Router();
 
 // Helper function to populate vehicle registration data
 const populateVehicleRegistrationData = async (vehicleRegistration) => {
+  const vehicleObj = vehicleRegistration.toObject();
+
   try {
-    const populated = await VehicleRegistration.populate(vehicleRegistration, [
-      {
-        path: "type",
-        select: "_id vehicleType shortName",
-      },
-      {
-        path: "depotName",
-        select: "_id name icd_code state country",
-      },
-      {
-        path: "initialOdometer.unit",
-        select: "_id name measurements",
-      },
-      {
-        path: "loadCapacity.unit",
-        select: "_id name measurements",
-      },
-    ]);
-    return populated;
+    // Populate type
+    if (vehicleObj.type) {
+      const typeData = await VehicleType.findById(vehicleObj.type);
+      if (typeData) {
+        vehicleObj.type = {
+          _id: typeData._id,
+          vehicleType: typeData.vehicleType,
+          shortName: typeData.shortName,
+        };
+      }
+    }
+
+    // Populate depotName
+    if (vehicleObj.depotName) {
+      const depotData = await PortICDcode.findById(vehicleObj.depotName);
+      if (depotData) {
+        vehicleObj.depotName = {
+          _id: depotData._id,
+          name: depotData.name,
+          icd_code: depotData.icd_code,
+          state: depotData.state,
+          country: depotData.country,
+        };
+      }
+    }
+
+    // Function to find measurement by ID across all categories
+    const findMeasurementById = async (measurementId) => {
+      const allCategories = await UnitMeasurement.find();
+      for (const category of allCategories) {
+        const measurement = category.measurements.id(measurementId);
+        if (measurement) {
+          return {
+            _id: measurement._id,
+            unit: measurement.unit,
+            symbol: measurement.symbol,
+            decimal_places: measurement.decimal_places,
+            categoryName: category.name,
+          };
+        }
+      }
+      return null;
+    };
+
+    // Populate initialOdometer.unit
+    if (vehicleObj.initialOdometer?.unit) {
+      const unitData = await findMeasurementById(
+        vehicleObj.initialOdometer.unit
+      );
+      if (unitData) {
+        vehicleObj.initialOdometer.unit = unitData;
+      }
+    }
+
+    // Populate loadCapacity.unit
+    if (vehicleObj.loadCapacity?.unit) {
+      const unitData = await findMeasurementById(vehicleObj.loadCapacity.unit);
+      if (unitData) {
+        vehicleObj.loadCapacity.unit = unitData;
+      }
+    }
+
+    return vehicleObj;
   } catch (error) {
     console.error("Error populating vehicle registration data:", error);
-    return vehicleRegistration;
+    return vehicleObj;
   }
 };
 

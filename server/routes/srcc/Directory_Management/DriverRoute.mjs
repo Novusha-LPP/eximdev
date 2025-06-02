@@ -164,34 +164,37 @@ router.delete("/api/delete-driver/:id", async (req, res) => {
   }
 });
 
-// New GET route to retrieve drivers by type
-router.get("/api/available-drivers/:type", async (req, res) => {
-  const { type } = req.params;
+// New GET route to retrieve drivers by vehicle type ID
+router.get("/api/available-drivers/:typeId", async (req, res) => {
+  const { typeId } = req.params;
 
-  if (!type) {
-    return res.status(400).json({ message: "Type parameter is required" });
+  if (!typeId) {
+    return res
+      .status(400)
+      .json({ message: "Vehicle type ID parameter is required" });
   }
 
   try {
-    console.log("Received type:", type); // Log the type for debugging
+    console.log("Received vehicle type ID:", typeId); // Log the typeId for debugging
 
-    // First find vehicle types that match the provided type
-    const matchingVehicleTypes = await VehicleType.find({
-      vehicleType: { $regex: type, $options: "i" }, // Case-insensitive regex match
-    });
-
-    if (matchingVehicleTypes.length === 0) {
+    // Validate if the typeId is a valid ObjectId
+    if (!typeId.match(/^[0-9a-fA-F]{24}$/)) {
       return res
-        .status(404)
-        .json({ message: `No vehicle types found for: ${type}` });
+        .status(400)
+        .json({ message: "Invalid vehicle type ID format" });
     }
 
-    // Extract the ObjectIds of matching vehicle types
-    const vehicleTypeIds = matchingVehicleTypes.map((vt) => vt._id);
+    // Check if the vehicle type exists
+    const vehicleType = await VehicleType.findById(typeId);
+    if (!vehicleType) {
+      return res
+        .status(404)
+        .json({ message: `Vehicle type not found for ID: ${typeId}` });
+    }
 
-    // Find drivers who can drive these vehicle types and are not assigned
+    // Find drivers who can drive this vehicle type and are not assigned
     const drivers = await DriverType.find({
-      drivingVehicleTypes: { $in: vehicleTypeIds },
+      drivingVehicleTypes: typeId, // Direct ObjectId match
       isAssigned: false, // Ensure driver is not assigned
     });
 
@@ -200,7 +203,9 @@ router.get("/api/available-drivers/:type", async (req, res) => {
     if (drivers.length === 0) {
       return res
         .status(404)
-        .json({ message: `No available drivers for type: ${type}` });
+        .json({
+          message: `No available drivers for vehicle type: ${vehicleType.vehicleType}`,
+        });
     }
 
     const populatedDrivers = await Promise.all(

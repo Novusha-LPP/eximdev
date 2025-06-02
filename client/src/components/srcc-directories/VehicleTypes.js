@@ -392,10 +392,10 @@ const VehicleTypes = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <FormControl fullWidth>
-                        <InputLabel>Load Capacity Unit</InputLabel>
+                        <InputLabel>Unit (Weights)</InputLabel>
                         <Select
                           name="loadCapacityUnit"
-                          label="Load Capacity Unit"
+                          label="Unit (Weights)"
                           value={values.loadCapacityUnit || ""}
                           onChange={(e) =>
                             setFieldValue("loadCapacityUnit", e.target.value)
@@ -446,10 +446,10 @@ const VehicleTypes = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <FormControl fullWidth>
-                        <InputLabel>Engine Capacity Unit</InputLabel>
+                        <InputLabel>Unit (Volumes)</InputLabel>
                         <Select
                           name="engineCapacityUnit"
-                          label="Engine Capacity Unit"
+                          label="Unit (Volumes)"
                           value={values.engineCapacityUnit || ""}
                           onChange={(e) =>
                             setFieldValue("engineCapacityUnit", e.target.value)

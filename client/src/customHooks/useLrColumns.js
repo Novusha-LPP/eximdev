@@ -725,15 +725,28 @@ function useLrColumns(props) {
           );
         } else {
           // For Hired vehicles, show text input field
+          const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;
+          const value = cell.getValue() || "";
+          const isValidVehicleNo = vehicleNoRegex.test(value);
           return (
             <TextField
               sx={{ width: "100%" }}
               size="small"
-              value={cell.getValue() || ""}
+              value={value}
               onChange={(event) =>
                 handleInputChange(event, row.index, cell.column.id)
               }
               placeholder="Enter vehicle number"
+              inputProps={{
+                maxLength: 10, // optional limit
+                style: { textTransform: "uppercase" }, // make typing UPPERCASE
+              }}
+              error={!!value && !isValidVehicleNo}
+              helperText={
+                !!value && !isValidVehicleNo
+                  ? "Invalid format. Use: AA00AA0000 or similar"
+                  : ""
+              }
             />
           );
         }
@@ -783,6 +796,7 @@ function useLrColumns(props) {
       Cell: ({ cell, row }) => {
         const savedValue = cell.getValue() || "";
         const isValidPhoneNumber = /^[0-9]{10}$/.test(savedValue); // Validate 10-digit phone number
+        const indianMobileRegex = /^[6-9]\d{9}$/;
 
         if (row.original.own_hired === "Own") {
           // For Own vehicles, show auto-filled value
@@ -810,10 +824,10 @@ function useLrColumns(props) {
                 inputMode: "numeric", // mobile-friendly numeric keyboard
                 pattern: "[0-9]*", // regex pattern for numeric input
               }}
-              error={!isValidPhoneNumber && savedValue}
+              error={!!savedValue && !indianMobileRegex.test(savedValue)}
               helperText={
-                !isValidPhoneNumber && savedValue
-                  ? "Enter a valid 10-digit phone number"
+                !!savedValue && !indianMobileRegex.test(savedValue)
+                  ? "Driver phone must be 10 digits starting with 6-9"
                   : ""
               }
             />
@@ -827,35 +841,45 @@ function useLrColumns(props) {
       header: "E-Way Bill (only 12-digit)",
       enableSorting: false,
       size: 200,
-      Cell: ({ cell, row }) => (
-        <TextField
-          sx={{ width: "100%" }}
-          size="small"
-          value={rows[row.index]?.eWay_bill || ""}
-          placeholder="Enter E-Way Bill number"
-          inputProps={{
-            maxLength: 12,
-            inputMode: "numeric", // mobile-friendly numeric keyboard
-            pattern: "[0-9]*", // regex pattern for numeric input
-          }}
-          onChange={(e) => {
-            const value = e.target.value;
-            // Allow only digits and max 12 characters
-            if (/^\d{0,12}$/.test(value)) {
-              setRows((prevRows) => {
-                const updatedRows = [...prevRows];
-                updatedRows[row.index].eWay_bill = value;
-                return updatedRows;
-              });
-            }
-          }}
-          onBlur={(event) =>
-            handleInputChange(event, row.index, cell.column.id)
-          }
-        />
-      ),
-    },
+      Cell: ({ cell, row }) => {
+        const eWaybillRegex = /^\d{12}$/;
+        const eWayBillValue = rows[row.index]?.eWay_bill || "";
+        const isValidEWayBill = eWaybillRegex.test(eWayBillValue);
 
+        return (
+          <TextField
+            sx={{ width: "100%" }}
+            size="small"
+            value={eWayBillValue}
+            placeholder="Enter E-Way Bill number"
+            inputProps={{
+              maxLength: 12,
+              inputMode: "numeric",
+              pattern: "[0-9]*",
+            }}
+            error={!!eWayBillValue && !isValidEWayBill}
+            helperText={
+              !!eWayBillValue && !isValidEWayBill
+                ? "E-Way Bill must be exactly 12 digits"
+                : ""
+            }
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^\d{0,12}$/.test(value)) {
+                setRows((prevRows) => {
+                  const updatedRows = [...prevRows];
+                  updatedRows[row.index].eWay_bill = value;
+                  return updatedRows;
+                });
+              }
+            }}
+            onBlur={(event) =>
+              handleInputChange(event, row.index, cell.column.id)
+            }
+          />
+        );
+      },
+    },
     {
       accessorKey: "action",
       header: "Save",

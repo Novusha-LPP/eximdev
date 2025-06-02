@@ -109,8 +109,11 @@ const VehicleRegistration = () => {
     } catch (error) {
       console.error("❌ Error fetching vehicles:", error);
     }
-  }, [API_URL]);  // 4. Fetch drivers by selected vehicle type
-  const fetchDriversByType = async (selectedTypeId, currentVehicleId = null) => {
+  }, [API_URL]); // 4. Fetch drivers by selected vehicle type
+  const fetchDriversByType = async (
+    selectedTypeId,
+    currentVehicleId = null
+  ) => {
     try {
       if (!selectedTypeId) {
         console.error("❌ No vehicle type ID provided");
@@ -190,7 +193,8 @@ const VehicleRegistration = () => {
       purchase: vehicle.purchase
         ? new Date(vehicle.purchase).toISOString().split("T")[0]
         : "",
-      vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",    });
+      vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",
+    });
     if (vehicle.type?._id) {
       await fetchDriversByType(vehicle.type._id, vehicle._id); // Fetch drivers for the selected type, excluding current vehicle
     }

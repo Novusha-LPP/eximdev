@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -21,7 +21,6 @@ import {
   Select,
   MenuItem,
   Checkbox,
-  Typography,
   ListItemText,
   Autocomplete,
 } from "@mui/material";
@@ -46,15 +45,7 @@ const validationSchema = Yup.object({
     .min(0, "Cannot be negative"),
   secondPassTollBooth: Yup.string(),
   vehicleType: Yup.array()
-    .of(
-      Yup.object({
-        name: Yup.string().required("Vehicle name is required"),
-        shortName: Yup.string().required("Short name is required"),
-        GVW: Yup.number() // Ensuring GVW (Load Capacity) is a number
-          .typeError("GVW must be a number")
-          .min(1, "GVW must be greater than zero"),
-      })
-    )
+    .of(Yup.string())
     .min(1, "At least one vehicle type is required"),
 });
 
@@ -79,27 +70,28 @@ const TollData = () => {
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
   const { vehicleTypes } = useVehicleTypes(API_URL);
-
   // ---------------------------------------------------------
   // Fetch Toll Data
   // ---------------------------------------------------------
-  const fetchTollData = async () => {
+  const fetchTollData = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-toll-data`);
       setTollItems(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching toll data:", error);
     }
-  };
+  }, [API_URL]);
 
   useEffect(() => {
     fetchTollData();
-  }, []);
-
+  }, [fetchTollData]);
   // ---------------------------------------------------------
-  // Derive possible second pass names from tollItems
+  // Derive possible second pass options from tollItems
   // ---------------------------------------------------------
-  const tollBoothNames = tollItems.map((item) => item.tollBoothName);
+  const tollBoothOptions = tollItems.map((item) => ({
+    value: item._id,
+    label: item.tollBoothName,
+  }));
 
   // ---------------------------------------------------------
   // Handlers: Add, Edit, Delete
@@ -116,7 +108,6 @@ const TollData = () => {
     });
     setOpenModal(true);
   };
-
   const handleEdit = (item) => {
     setModalMode("edit");
     setFormData({
@@ -125,8 +116,11 @@ const TollData = () => {
       fastagClassId: item.fastagClassId || "",
       singleAmount: item.singleAmount?.toString() || "",
       returnAmount: item.returnAmount?.toString() || "",
-      secondPassTollBooth: item.secondPassTollBooth || "",
-      vehicleType: item.vehicleType || [],
+      secondPassTollBooth:
+        item.secondPassTollBooth?._id || item.secondPassTollBooth || "",
+      vehicleType: Array.isArray(item.vehicleType)
+        ? item.vehicleType.map((v) => v._id || v)
+        : [],
     });
     setOpenModal(true);
   };
@@ -145,7 +139,6 @@ const TollData = () => {
       console.error("❌ Error deleting toll data:", error);
     }
   };
-
   // ---------------------------------------------------------
   // Handle Save
   // ---------------------------------------------------------
@@ -157,14 +150,10 @@ const TollData = () => {
       ...restValues,
       tollBoothName: restValues.tollBoothName.trim(),
       fastagClassId: restValues.fastagClassId.trim(),
-      secondPassTollBooth: restValues.secondPassTollBooth?.trim() || "",
+      secondPassTollBooth: restValues.secondPassTollBooth?.trim() || null,
       singleAmount: Number(restValues.singleAmount),
       returnAmount: Number(restValues.returnAmount),
-      vehicleType: restValues.vehicleType.map((v) => ({
-        name: v.name,
-        shortName: v.shortName,
-        GVW: Number(v.loadCapacity || v.GVW), // handle both loadCapacity & GVW
-      })),
+      vehicleType: restValues.vehicleType, // Send ObjectIds directly
     };
 
     try {
@@ -230,18 +219,22 @@ const TollData = () => {
             {tollItems.map((item) => (
               <TableRow key={item._id}>
                 <TableCell>{item.tollBoothName}</TableCell>
-                {/* Display vehicleType as comma-separated */}
+                {/* Display vehicleType as comma-separated */}{" "}
                 <TableCell>
                   {Array.isArray(item.vehicleType)
                     ? item.vehicleType
-                        .map((v) => `${v.name} (${v.shortName}, GVW: ${v.GVW})`)
+                        .map(
+                          (v) => `${v.vehicleType || v.name} (${v.shortName})`
+                        )
                         .join(", ")
                     : ""}
                 </TableCell>
                 <TableCell>{item.fastagClassId}</TableCell>
                 <TableCell>{item.singleAmount}</TableCell>
                 <TableCell>{item.returnAmount}</TableCell>
-                <TableCell>{item.secondPassTollBooth || ""}</TableCell>
+                <TableCell>
+                  {item.secondPassTollBooth?.tollBoothName || ""}
+                </TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEdit(item)} color="primary">
                     <EditIcon />
@@ -303,8 +296,7 @@ const TollData = () => {
                       touched.tollBoothName && Boolean(errors.tollBoothName)
                     }
                     helperText={touched.tollBoothName && errors.tollBoothName}
-                  />
-
+                  />{" "}
                   {/* Vehicle Types (Multi-Select) */}
                   <FormControl fullWidth required>
                     <InputLabel>Vehicle Types</InputLabel>
@@ -312,57 +304,31 @@ const TollData = () => {
                       multiple
                       name="vehicleType"
                       label="Vehicle Types"
-                      value={values.vehicleType.map((v) => v.shortName)} // Use shortName for selection
+                      value={values.vehicleType || []}
                       onChange={(e) => {
-                        const selectedShortNames = e.target.value;
-                        const selectedVehicles = vehicleTypes.filter((v) =>
-                          selectedShortNames.includes(v.shortName)
-                        );
-                        setFieldValue("vehicleType", selectedVehicles);
+                        setFieldValue("vehicleType", e.target.value);
                       }}
-                      renderValue={(selected) =>
-                        selected
-                          .map((shortName) => {
+                      renderValue={(selected) => {
+                        return selected
+                          .map((selectedId) => {
                             const vehicle = vehicleTypes.find(
-                              (v) => v.shortName === shortName
+                              (v) => v.value === selectedId
                             );
-                            return vehicle ? vehicle.name : "";
+                            return vehicle ? vehicle.label : "";
                           })
-                          .join(", ")
-                      }
+                          .join(", ");
+                      }}
                     >
                       {vehicleTypes.map((v) => (
-                        <MenuItem key={v.shortName} value={v.shortName}>
+                        <MenuItem key={v.value} value={v.value}>
                           <Checkbox
-                            checked={values.vehicleType.some(
-                              (vt) => vt.shortName === v.shortName
-                            )}
+                            checked={values.vehicleType.includes(v.value)}
                           />
-                          <ListItemText
-                            primary={`${v.name} (${v.shortName}, GVW: ${v.loadCapacity})`}
-                          />
+                          <ListItemText primary={v.label} />
                         </MenuItem>
                       ))}
                     </Select>
-                  </FormControl>
-
-                  {/* Display selected vehicle details */}
-                  {values.vehicleType?.length > 0 && (
-                    <Box sx={{ mt: 1 }}>
-                      {values.vehicleType.map((selectedType) => (
-                        <Typography
-                          key={selectedType.shortName}
-                          variant="body2"
-                        >
-                          {selectedType.name} ({selectedType.shortName}) – GVW:{" "}
-                          {selectedType.loadCapacity
-                            ? `${selectedType.loadCapacity.value} ${selectedType.loadCapacity.unit}`
-                            : "N/A"}
-                        </Typography>
-                      ))}
-                    </Box>
-                  )}
-
+                  </FormControl>{" "}
                   {/* Fastag Class ID */}
                   <TextField
                     name="fastagClassId"
@@ -377,7 +343,6 @@ const TollData = () => {
                     }
                     helperText={touched.fastagClassId && errors.fastagClassId}
                   />
-
                   {/* Single Amount */}
                   <TextField
                     name="singleAmount"
@@ -390,7 +355,6 @@ const TollData = () => {
                     error={touched.singleAmount && Boolean(errors.singleAmount)}
                     helperText={touched.singleAmount && errors.singleAmount}
                   />
-
                   {/* Return Amount */}
                   <TextField
                     name="returnAmount"
@@ -402,15 +366,23 @@ const TollData = () => {
                     fullWidth
                     error={touched.returnAmount && Boolean(errors.returnAmount)}
                     helperText={touched.returnAmount && errors.returnAmount}
-                  />
-
+                  />{" "}
                   {/* Second Pass Toll Booth (Autocomplete) */}
                   <FormControl fullWidth>
                     <Autocomplete
-                      options={tollBoothNames}
-                      value={values.secondPassTollBooth || ""}
+                      options={tollBoothOptions}
+                      getOptionLabel={(option) => option.label || ""}
+                      value={
+                        tollBoothOptions.find(
+                          (option) =>
+                            option.value === values.secondPassTollBooth
+                        ) || null
+                      }
                       onChange={(event, newValue) => {
-                        setFieldValue("secondPassTollBooth", newValue || "");
+                        setFieldValue(
+                          "secondPassTollBooth",
+                          newValue?.value || ""
+                        );
                       }}
                       onBlur={handleBlur}
                       renderInput={(params) => (
@@ -430,7 +402,6 @@ const TollData = () => {
                       )}
                     />
                   </FormControl>
-
                   <DialogActions>
                     <Button onClick={() => setOpenModal(false)}>Cancel</Button>
                     <Button variant="contained" type="submit">

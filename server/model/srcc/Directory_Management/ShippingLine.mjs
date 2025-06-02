@@ -9,15 +9,9 @@ const ShippingLineSchema = new mongoose.Schema(
       unique: true,
     },
     organisation: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Organisation",
-        required: true,
-      },
-      name: {
-        type: String,
-        required: true,
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organisation",
+      required: true,
     },
     code: {
       type: String,

@@ -504,10 +504,10 @@ const VehicleRegistration = () => {
                     </Grid>{" "}
                     <Grid item xs={6}>
                       <FormControl fullWidth required>
-                        <InputLabel>Unit Category</InputLabel>
+                        <InputLabel>Unit (Lengths)</InputLabel>
                         <Select
                           name="initialOdometer.unit"
-                          label="Unit Category"
+                          label="Unit (Lengths)"
                           value={values.initialOdometer.unit || ""}
                           onChange={handleChange}
                           onBlur={handleBlur}
@@ -517,12 +517,10 @@ const VehicleRegistration = () => {
                           }
                         >
                           {unitMeasurements
-                            .filter(
-                              (category) => category.unitName === "Lengths"
-                            )
+                            .filter((unit) => unit.categoryName === "Lengths")
                             .map((unit) => (
                               <MenuItem key={unit._id} value={unit._id}>
-                                {unit.unitName}
+                                {unit.label}
                               </MenuItem>
                             ))}
                         </Select>
@@ -553,10 +551,10 @@ const VehicleRegistration = () => {
                     </Grid>{" "}
                     <Grid item xs={6}>
                       <FormControl fullWidth required>
-                        <InputLabel>Unit Category</InputLabel>
+                        <InputLabel>Unit (Weights)</InputLabel>
                         <Select
                           name="loadCapacity.unit"
-                          label="Unit Category"
+                          label="Unit (Weights)"
                           value={values.loadCapacity.unit || ""}
                           onChange={handleChange}
                           onBlur={handleBlur}
@@ -566,12 +564,10 @@ const VehicleRegistration = () => {
                           }
                         >
                           {unitMeasurements
-                            .filter(
-                              (category) => category.unitName === "Weights"
-                            )
+                            .filter((unit) => unit.categoryName === "Weights")
                             .map((unit) => (
                               <MenuItem key={unit._id} value={unit._id}>
-                                {unit.unitName}
+                                {unit.label}
                               </MenuItem>
                             ))}
                         </Select>

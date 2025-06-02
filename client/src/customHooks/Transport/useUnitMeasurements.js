@@ -12,17 +12,27 @@ const useUnitMeasurements = (API_URL) => {
         setLoading(true);
         const response = await axios.get(`${API_URL}/get-unit-measurements`);
         if (response.data && Array.isArray(response.data)) {
-          // Transform data for dropdown usage
-          const formattedUnits = response.data.map((unit) => ({
-            value: unit._id,
-            label: `${unit.name}`,
-            // Keep original data for reference
-            _id: unit._id,
-            unitName: unit.name, // Map 'name' to 'unitName' for frontend consistency
-            shortName: unit.name,
-            measurements: unit.measurements,
-          }));
-          setUnitMeasurements(formattedUnits);
+          // Flatten the measurements from all categories
+          const allMeasurements = [];
+
+          response.data.forEach((category) => {
+            if (category.measurements && Array.isArray(category.measurements)) {
+              category.measurements.forEach((measurement) => {
+                allMeasurements.push({
+                  value: measurement._id,
+                  label: `${measurement.unit} (${measurement.symbol})`,
+                  _id: measurement._id,
+                  unit: measurement.unit,
+                  symbol: measurement.symbol,
+                  decimal_places: measurement.decimal_places,
+                  categoryName: category.name, // Keep category reference
+                  categoryId: category._id,
+                });
+              });
+            }
+          });
+
+          setUnitMeasurements(allMeasurements);
         }
         setError(null);
       } catch (err) {

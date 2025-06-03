@@ -3737,7 +3737,7 @@ function JobDetails() {
                     </Row>
                   </div>
                    <div className="flex gap-2">
-        <DeliveryChallanPdf year={params.selected_year} jobNo={params.job_no}   containerIndex={id} />
+        <DeliveryChallanPdf year={params.selected_year} jobNo={params.job_no}   containerIndex={index} />
         {/* You can add other buttons here */}
       </div>
 

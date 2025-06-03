@@ -298,32 +298,73 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         });
       } catch (error) {
         console.warn('Error loading signature image:', error);
-      }
-      
-      // Signature line and text
+      }      // Signature line and text
       pdf.setFont('Times New Roman', 'bold');
       pdf.setFontSize(12);
       pdf.text('Authorized Signatory', leftMargin, signatureY + 80);
-        // Generate and display PDF
-      const pdfDataUri = pdf.output("datauristring");
+        // Generate filename in format: {container_number}({job_no})-DC
+      const containerNumber = container.container_number || `Container${containerIndex + 1}`;
+      const filename = `${containerNumber}(${jobData.job_no})-DC.pdf`;
       
-      // Open in new tab
-      const newTab = window.open();
+      // Generate PDF as blob
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      
+      // Create a new tab with custom HTML that includes download functionality
+      const newTab = window.open('', '_blank');
       if (newTab) {
         newTab.document.write(
           `<html>
             <head>
-              <title>Delivery Challan - Job ${jobData.job_no} - Container ${container.container_number || (containerIndex + 1)}</title>
+              <title>${filename}</title>
               <style>
-                body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+                body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+                .header { 
+                  background-color: #f5f5f5; 
+                  padding: 10px 20px; 
+                  border-bottom: 1px solid #ddd;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                }
+                .filename { font-weight: bold; color: #333; }
+                .download-btn {
+                  background-color: #007bff;
+                  color: white;
+                  border: none;
+                  padding: 8px 16px;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  text-decoration: none;
+                  font-size: 14px;
+                }
+                .download-btn:hover { background-color: #0056b3; }
+                .pdf-container { height: calc(100% - 50px); }
                 iframe { border: none; width: 100%; height: 100%; }
               </style>
             </head>
             <body>
-              <embed width='100%' height='100%' src='${pdfDataUri}' type='application/pdf'>
+              <div class="header">
+                <span class="filename">${filename}</span>
+                <a href="${blobUrl}" download="${filename}" class="download-btn">Download PDF</a>
+              </div>
+              <div class="pdf-container">
+                <iframe src="${blobUrl}" type="application/pdf"></iframe>
+              </div>
+              <script>
+                // Clean up blob URL when tab is closed
+                window.addEventListener('beforeunload', function() {
+                  URL.revokeObjectURL('${blobUrl}');
+                });
+              </script>
             </body>
           </html>`
         );
+        
+        // Clean up the blob URL after some time as backup
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+        }, 300000); // Clean up after 5 minutes
       }
       
     } catch (error) {
@@ -348,7 +389,7 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       ) : (
         <button 
           onClick={generateDeliveryChallan}
-          // className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           type="button"
         >
           Generate Delivery Challan

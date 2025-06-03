@@ -40,7 +40,7 @@ function UnitMeasurementDirectory() {
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
-  
+
   const fetchUnits = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
@@ -49,31 +49,31 @@ function UnitMeasurementDirectory() {
       console.error("Error fetching unit measurements:", error);
     }
   }, [API_URL]);
-  
+
   useEffect(() => {
     fetchUnits();
   }, [fetchUnits]);
-  
+
   const handleAdd = () => {
     setModalMode("add");
     setFormData({ name: "", measurements: [] });
     setOpenModal(true);
     setErrors({});
   };
-  
+
   const handleEdit = (unit) => {
     setModalMode("edit");
     // IMPORTANT: Include _id for each measurement to preserve IDs during update
-    const measurementsWithIds = unit.measurements.map(measurement => ({
+    const measurementsWithIds = unit.measurements.map((measurement) => ({
       _id: measurement._id, // Preserve existing ID
       unit: measurement.unit,
       symbol: measurement.symbol,
-      decimal_places: measurement.decimal_places
+      decimal_places: measurement.decimal_places,
     }));
-    
-    setFormData({ 
-      name: unit.name, 
-      measurements: measurementsWithIds 
+
+    setFormData({
+      name: unit.name,
+      measurements: measurementsWithIds,
     });
     setEditData(unit);
     setOpenModal(true);
@@ -92,7 +92,7 @@ function UnitMeasurementDirectory() {
       }
     }
   };
-  
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       setErrors({ name: "Category name is required" });
@@ -138,7 +138,7 @@ function UnitMeasurementDirectory() {
       setErrors({ server: errorMessage });
     }
   };
-  
+
   const handleAddMeasurement = () => {
     const { unit, symbol, decimal_places } = newMeasurement;
     if (!unit.trim() || !symbol.trim() || decimal_places === "") {
@@ -200,7 +200,7 @@ function UnitMeasurementDirectory() {
     setNewMeasurement({
       unit: measurement.unit,
       symbol: measurement.symbol,
-      decimal_places: measurement.decimal_places
+      decimal_places: measurement.decimal_places,
     });
     setEditingMeasurementIndex(index);
   };
@@ -323,7 +323,9 @@ function UnitMeasurementDirectory() {
               >
                 <ListItemText
                   primary={`${m.unit} (${m.symbol})`}
-                  secondary={`Decimal Places: ${m.decimal_places}${m._id ? ` | ID: ${m._id}` : ' | New'}`}
+                  secondary={`Decimal Places: ${m.decimal_places}${
+                    m._id ? ` | ID: ${m._id}` : " | New"
+                  }`}
                 />
               </ListItem>
             ))}
@@ -356,7 +358,7 @@ function UnitMeasurementDirectory() {
             <Typography color="error" variant="body2" mt={1}>
               {errors.newMeasurement}
             </Typography>
-            )}
+          )}
           {errors.server && (
             <Typography color="error" variant="body2" mt={1}>
               {errors.server}

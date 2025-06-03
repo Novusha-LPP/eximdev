@@ -33,6 +33,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import Switch from "@mui/material/Switch";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
+import AddIcon from "@mui/icons-material/Add";
 import {
   Dialog,
   DialogActions,
@@ -130,16 +131,11 @@ function JobDetails() {
   // delete modal
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  // const [dialogOpen, setDialogOpen] = useState(false);
-  // const [currentDocument, setCurrentDocument] = useState(null);
-  // Modal visibility state
-  // Loading state for downloading
-  // const [isDownloading, setIsDownloading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");  const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
+  const [dutyModalOpen, setDutyModalOpen] = useState(false);
 
   const formatDateTime = (date) => {
     return date ? new Date(date).toISOString().slice(0, 16) : "";
@@ -526,10 +522,30 @@ function JobDetails() {
       setCthDocuments((prevDocs) =>
         prevDocs.filter((doc) => doc !== currentDocument)
       );
-    }
-
-    handleCloseDialog();
+    }    handleCloseDialog();
   };
+
+  // Duty Modal Handlers
+  const handleOpenDutyModal = () => {
+    setDutyModalOpen(true);
+  };
+
+  const handleCloseDutyModal = () => {
+    setDutyModalOpen(false);
+  };
+
+  const handleDutySubmit = async () => {
+    try {
+      // Submit the form using existing formik submit
+      await formik.submitForm();
+      setDutyModalOpen(false);
+    } catch (error) {
+      console.error("Error submitting duty data:", error);
+    }
+  };
+
+  // Check if duty_paid_date should be disabled
+  const isDutyPaidDateDisabled = !formik.values.assessment_date || !formik.values.igst_ammount;
 
   //
   // Ref to JobStickerPDF component
@@ -2259,22 +2275,37 @@ function JobDetails() {
                     onChange={formik.handleChange}
                   />
                 </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
+              </Col>              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Duty Paid Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="duty_paid_date"
-                    name="duty_paid_date"
-                    value={formik.values.duty_paid_date}
-                    onChange={formik.handleChange}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      type="datetime-local"
+                      id="duty_paid_date"
+                      name="duty_paid_date"
+                      value={formik.values.duty_paid_date}
+                      onChange={formik.handleChange}
+                      disabled={isDutyPaidDateDisabled}
+                      sx={{ flex: 1 }}
+                    />
+                    <IconButton
+                      onClick={handleOpenDutyModal}
+                      size="small"
+                      sx={{ mt: 1 }}
+                      title="Add Duty Details"
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  </Box>
+                  {isDutyPaidDateDisabled && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                      Please fill Assessment Date and IGST Amount to enable this field
+                    </Typography>
+                  )}
                 </div>
               </Col>
             </Row>
@@ -3909,10 +3940,82 @@ function JobDetails() {
             ? undefined // No message for edit
             : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
         }
-        isEdit={isEditMode}
-        editValues={editValues}
+        isEdit={isEditMode}        editValues={editValues}
         onEditChange={setEditValues}
       />
+
+      {/* Duty Details Modal */}
+      <Dialog open={dutyModalOpen} onClose={handleCloseDutyModal} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+            Duty Payment Details
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Please fill in the duty payment details below. All amounts should be entered in INR.
+          </DialogContentText>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
+            <TextField
+              label="Assessable Amount (INR)"
+              name="assessable_ammount"
+              type="number"
+              value={formik.values.assessable_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="IGST Amount (INR)"
+              name="igst_ammount"
+              type="number"
+              value={formik.values.igst_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />            <TextField
+              label="Interest Amount (INR)"
+              name="intrest_ammount"
+              type="number"
+              value={formik.values.intrest_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="SWS Amount (INR)"
+              name="sws_ammount"
+              type="number"
+              value={formik.values.sws_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="BCD Amount (INR)"
+              name="bcd_ammount"
+              type="number"
+              value={formik.values.bcd_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDutyModal} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleDutySubmit} color="primary" variant="contained">
+            Save & Update
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

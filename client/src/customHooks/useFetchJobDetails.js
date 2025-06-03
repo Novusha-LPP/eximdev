@@ -381,7 +381,11 @@ function useFetchJobDetails(
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
       do_completed: "",
-      // container_rail_out_date: ""
+      // container_rail_out_date: ""      assessable_ammount: "",
+      igst_ammount: "",
+      sws_ammount: "",
+      bcd_ammount: "",
+      intrest_ammount: "",
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -474,7 +478,11 @@ function useFetchJobDetails(
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
-          do_completed: values.do_completed,
+          do_completed: values.do_completed,          assessable_ammount: values.assessable_ammount,
+          igst_ammount: values.igst_ammount,
+          sws_ammount: values.sws_ammount,
+          bcd_ammount: values.bcd_ammount,
+          intrest_ammount: values.intrest_ammount,
         }
       );      localStorage.setItem("tab_value", 1);
       setTabValue(1);
@@ -760,6 +768,13 @@ function useFetchJobDetails(
           data.clearanceValue === undefined ? "" : data.clearanceValue,
         duty_paid_date:
           data.duty_paid_date === undefined ? "" : data.duty_paid_date,
+          assessable_ammount:
+          data.assessable_ammount === undefined ? "" : data.assessable_ammount,        igst_ammount: data.igst_ammount === undefined ? "" : data.igst_ammount,
+        sws_ammount: data.sws_ammount === undefined ? "" : data.sws_ammount,
+        intrest_ammount:
+          data.intrest_ammount === undefined ? "" : data.intrest_ammount,
+          bcd_ammount: data.bcd_ammount === undefined ? "" : data.bcd_ammount,
+
         do_copies: data.do_copies === undefined ? [] : data.do_copies,
         do_queries: data.do_queries === undefined ? [] : data.do_queries,
         documentationQueries:

@@ -206,7 +206,7 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         { space: true },
         // Conditionally include CONTAINER NO. and SEAL NO. only if consignment_type is not LCL
         ...(jobData.consignment_type !== 'LCL' ? [
-          { label: 'CONTAINER NO.', value: `${container.container_number || ''} – 40'` },
+          { label: 'CONTAINER NO.', value: `${container.container_number || ''} – ${container.size || ''}` },
           { space: true },
           { label: 'SEAL NO.', value: container.seal_no || '' },
           { space: true }

@@ -229,7 +229,7 @@ const jobSchema = new mongoose.Schema({
   free_time: { type: Number, trim: true },
   is_free_time_updated: { type: Boolean, default: false },
   factory_weighment_slip: { type: String, trim: true },
-  assessable_date: { type: String, trim: true },
+  assessable_ammount: { type: String, trim: true },
   bcd_ammount: { type: String, trim: true },
   igst_ammount: { type: String, trim: true },
   sws_ammount: { type: String, trim: true },

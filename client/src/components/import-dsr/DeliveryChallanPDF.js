@@ -193,11 +193,10 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       
       // Details section - formatted exactly as in screenshot
       const detailsStartY = refY + 50;
-      pdf.setFontSize(12);
-        // Get container details (specific container by index)
+      pdf.setFontSize(12);      // Get container details (specific container by index)
       const container = jobData.container_nos && jobData.container_nos[containerIndex] ? jobData.container_nos[containerIndex] : {};
       
-      // Create details array with exact formatting
+      // Create details array with conditional formatting based on consignment type
       const details = [
         { label: 'B/E  No. & DATE', value: `${jobData.be_no || ''} DATE ${formatDate(jobData.be_date)}` },
         { space: true },
@@ -205,10 +204,13 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         { space: true },
         { label: 'INV. NO. & DATE', value: `${jobData.invoice_number || ''} Dt. ${formatDate(jobData.invoice_date)}` },
         { space: true },
-        { label: 'CONTAINER NO.', value: `${container.container_number || ''} – 40'` },
-        { space: true },
-        { label: 'SEAL NO.', value: container.seal_no || '' },
-        { space: true },
+        // Conditionally include CONTAINER NO. and SEAL NO. only if consignment_type is not LCL
+        ...(jobData.consignment_type !== 'LCL' ? [
+          { label: 'CONTAINER NO.', value: `${container.container_number || ''} – 40'` },
+          { space: true },
+          { label: 'SEAL NO.', value: container.seal_no || '' },
+          { space: true }
+        ] : []),
         { label: 'COMMODITY', value: `${jobData.description || ''}`.toUpperCase() },
         { space: true },
         { label: 'WT. AS PER DOCS', value: `${container.net_weight_as_per_PL_document|| ''} KGS GROSS WT` },

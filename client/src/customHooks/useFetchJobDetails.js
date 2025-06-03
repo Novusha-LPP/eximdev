@@ -562,6 +562,8 @@ function useFetchJobDetails(
         size: container.size === undefined ? "20" : container.size,
         seal_number:
           container.seal_number === undefined ? "" : container.seal_number,
+        net_weight_as_per_PL_document:
+          container.net_weight_as_per_PL_document === undefined ? "" : container.net_weight_as_per_PL_document,
         container_rail_out_date:
           container.container_rail_out_date === undefined
             ? ""

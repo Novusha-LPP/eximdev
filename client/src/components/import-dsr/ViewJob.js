@@ -3524,6 +3524,21 @@ function JobDetails() {
                           />
                         </div>
                       </Col>
+
+                         <Col xs={12} md={4} lg={3} className="mb-2">
+                        <div className="job-detail-input-container">
+                          <strong>Netweight As Per PL:&nbsp;</strong>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            id={`net_weight_as_per_PL_document${index}`}
+                            name={`container_nos[${index}].net_weight_as_per_PL_document`}
+                            value={container.net_weight_as_per_PL_document}
+                            onChange={formik.handleChange}
+                          />
+                        </div>
+                      </Col>
                       {/* <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>Weight as per Document:&nbsp;</strong>

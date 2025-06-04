@@ -9,6 +9,7 @@ import Tooltip from "@mui/material/Tooltip";
 import EditableDateCell from "../components/gallery/EditableDateCell";
 import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
 import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
+import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
 // Custom hook to manage job columns configuration
 function useJobColumns() {
@@ -472,8 +473,13 @@ function useJobColumns() {
                         <ContentCopyIcon fontSize="inherit" />
                       </abbr>
                     </IconButton>
-                      {/* Delivery Challan Download Icon */}
-                    <DeliveryChallanPdf 
+                      {/* Delivery Challan Download Icon */}                    <DeliveryChallanPdf 
+                      year={jobData.year} 
+                      jobNo={jobData.job_no}
+                      containerIndex={id}
+                      renderAsIcon={true}
+                    />
+                    <IgstCalculationPDF 
                       year={jobData.year} 
                       jobNo={jobData.job_no}
                       containerIndex={id}

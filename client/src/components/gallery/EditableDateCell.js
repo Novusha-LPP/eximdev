@@ -1,7 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
-import { TextField, MenuItem } from "@mui/material";
+import {
+  TextField,
+  MenuItem,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Box,
+  Typography,
+} from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 
 const EditableDateCell = ({ cell }) => {
   const {
@@ -19,6 +31,12 @@ const EditableDateCell = ({ cell }) => {
     detailed_status,
     be_no,
     duty_paid_date,
+    assessable_ammount,
+    igst_ammount,
+    igst_rate,
+    job_net_weight,
+    bcd_ammount,
+    sws_ammount,
   } = cell.row.original;
   const [dates, setDates] = useState({
     assessment_date,
@@ -38,6 +56,18 @@ const EditableDateCell = ({ cell }) => {
   const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
 
+  // Add state for the IGST modal
+  const [igstModalOpen, setIgstModalOpen] = useState(false);
+  const [igstValues, setIgstValues] = useState({
+    assessable_ammount: assessable_ammount || "",
+    igst_ammount: igst_ammount || "",
+    igst_rate: igst_rate || "18",
+    bcd_ammount: bcd_ammount || "",
+    sws_ammount: sws_ammount || "",
+  });
+
+
+  console.log(assessable_ammount)
   // Free time options
   const options = Array.from({ length: 25 }, (_, index) => index);
 
@@ -62,7 +92,41 @@ const EditableDateCell = ({ cell }) => {
     setTempDateValue("");
     setTempTimeValue("");
     setDateError("");
+    setIgstValues({
+      assessable_ammount: assessable_ammount || "",
+      igst_ammount: igst_ammount || "",
+      igst_rate: igst_rate || "18",
+      bcd_ammount: bcd_ammount || "",
+      sws_ammount: sws_ammount || "",
+    });
   }, [cell.row.original]);
+
+  // Handle IGST modal open and close
+  const handleOpenIgstModal = () => {
+    setIgstModalOpen(true);
+  };
+
+  const handleCloseIgstModal = () => {
+    setIgstModalOpen(false);
+  };
+
+  const handleIgstSubmit = async () => {
+    try {
+      // Make API call to update IGST values
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+        assessable_ammount: igstValues.assessable_ammount,
+        igst_ammount: igstValues.igst_ammount,
+        igst_rate: igstValues.igst_rate,
+        bcd_ammount: igstValues.bcd_ammount,
+        sws_ammount: igstValues.sws_ammount,
+      });
+
+      // Close the modal
+      setIgstModalOpen(false);
+    } catch (error) {
+      console.error("Error submitting IGST data:", error);
+    }
+  };
 
   const updateDetailedStatus = useCallback(async () => {
     const eta = dates.vessel_berthing;
@@ -304,6 +368,10 @@ const EditableDateCell = ({ cell }) => {
       })
       .catch((err) => console.error("Error Updating Free Time:", err));
   };
+
+  // Check if duty_paid_date or igst fields should be disabled
+  const isIgstFieldsAvailable = 
+    igstValues.assessable_ammount && igstValues.igst_ammount;
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -603,7 +671,7 @@ const EditableDateCell = ({ cell }) => {
           style={styles.icon}
           onClick={() => handleEditStart("assessment_date")}
         />
-{editable === "assessment_date" && (
+        {editable === "assessment_date" && (
           <div>
             <input
               type="datetime-local"
@@ -627,7 +695,7 @@ const EditableDateCell = ({ cell }) => {
           </div>
         )}
         <br />
-          <strong>PCV :</strong>{" "}
+        <strong>PCV :</strong>{" "}
         {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
         <FcCalendar
           style={styles.icon}
@@ -657,12 +725,22 @@ const EditableDateCell = ({ cell }) => {
           </div>
         )}
         <br />
-        <strong>Duty Paid :</strong>{" "}
-        {dates.duty_paid_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
-        <FcCalendar
-          style={styles.icon}
-          onClick={() => handleEditStart("duty_paid_date")}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+          <span>
+            <strong>Duty Paid :</strong>{" "}
+            {dates.duty_paid_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          </span>
+          <FcCalendar
+            style={{ ...styles.icon, marginRight: "5px" }}
+            onClick={() => handleEditStart("duty_paid_date")}
+          />
+          <AddIcon
+            fontSize="small"
+            style={{ cursor: "pointer" }}
+            onClick={handleOpenIgstModal}
+            title="Add IGST Details"
+          />
+        </div>
         {editable === "duty_paid_date" && (
           <div>
             <input
@@ -670,10 +748,12 @@ const EditableDateCell = ({ cell }) => {
               value={tempDateValue}
               onChange={handleDateInputChange}
               style={dateError ? styles.errorInput : {}}
+              disabled={!isIgstFieldsAvailable}
             />
             <button
               style={styles.submitButton}
               onClick={() => handleDateSubmit("duty_paid_date")}
+              disabled={!isIgstFieldsAvailable}
             >
               ✓
             </button>
@@ -683,6 +763,11 @@ const EditableDateCell = ({ cell }) => {
             >
               ✕
             </button>
+            {!isIgstFieldsAvailable && (
+              <div style={styles.errorText}>
+                Please add IGST and Assessable Amount details
+              </div>
+            )}
             {dateError && <div style={styles.errorText}>{dateError}</div>}
           </div>
         )}
@@ -794,6 +879,106 @@ const EditableDateCell = ({ cell }) => {
           </>
         )}
       </div>
+
+      {/* IGST Modal */}
+      <Dialog
+        open={igstModalOpen}
+        onClose={handleCloseIgstModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
+            Duty Payment Details
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Please fill in the duty payment details below. All amounts should be
+            entered in INR.
+          </DialogContentText>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            }}
+          >
+            <TextField
+              label="Assessable Amount (INR)"
+              name="assessable_ammount"
+              type="number"
+              value={igstValues.assessable_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, assessable_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="IGST Rate (%)"
+              name="igst_rate"
+              type="number"
+              value={igstValues.igst_rate}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, igst_rate: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="IGST Amount (INR)"
+              name="igst_ammount"
+              type="number"
+              value={igstValues.igst_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, igst_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="SWS Amount (INR)"
+              name="sws_ammount"
+              type="number"
+              value={igstValues.sws_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, sws_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="BCD Amount (INR)"
+              name="bcd_ammount"
+              type="number"
+              value={igstValues.bcd_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, bcd_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseIgstModal} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleIgstSubmit}
+            color="primary"
+            variant="contained"
+          >
+            Save & Update
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

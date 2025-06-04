@@ -46,6 +46,7 @@ import {
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
+import IgstCalculationPDF from "./IgstCalculationPDF.js";
 
 function JobDetails() {
   const params = useParams();
@@ -131,7 +132,8 @@ function JobDetails() {
   // delete modal
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
@@ -178,8 +180,8 @@ function JobDetails() {
     // be_date,
     // setBeDate,
     // ooc_copies,
-    // setOocCopies,  
-      beTypeOptions,
+    // setOocCopies,
+    beTypeOptions,
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
@@ -522,7 +524,8 @@ function JobDetails() {
       setCthDocuments((prevDocs) =>
         prevDocs.filter((doc) => doc !== currentDocument)
       );
-    }    handleCloseDialog();
+    }
+    handleCloseDialog();
   };
 
   // Duty Modal Handlers
@@ -545,7 +548,8 @@ function JobDetails() {
   };
 
   // Check if duty_paid_date should be disabled
-  const isDutyPaidDateDisabled = !formik.values.assessment_date || !formik.values.igst_ammount;
+  const isDutyPaidDateDisabled =
+    !formik.values.assessment_date || !formik.values.igst_ammount;
 
   //
   // Ref to JobStickerPDF component
@@ -2253,7 +2257,6 @@ function JobDetails() {
                   {data.examination_date ? data.examination_date : ""}
                 </div>
               </Col>
-
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>PCV Date:&nbsp;</strong>
@@ -2275,10 +2278,11 @@ function JobDetails() {
                     onChange={formik.handleChange}
                   />
                 </div>
-              </Col>              <Col xs={12} lg={4}>
+              </Col>{" "}
+              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Duty Paid Date:&nbsp;</strong>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -2302,8 +2306,13 @@ function JobDetails() {
                     </IconButton>
                   </Box>
                   {isDutyPaidDateDisabled && (
-                    <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                      Please fill Assessment Date and IGST Amount to enable this field
+                    <Typography
+                      variant="caption"
+                      color="error"
+                      sx={{ mt: 1, display: "block" }}
+                    >
+                      Please fill Assessment Date and IGST Amount to enable this
+                      field
                     </Typography>
                   )}
                 </div>
@@ -3556,7 +3565,7 @@ function JobDetails() {
                         </div>
                       </Col>
 
-                         <Col xs={12} md={4} lg={3} className="mb-2">
+                      <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Netweight As Per PL:&nbsp;</strong>
                           <TextField
@@ -3696,6 +3705,21 @@ function JobDetails() {
                     </Row>
 
                     <Row>
+                       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
+                    <DeliveryChallanPdf
+                      year={params.selected_year}
+                      jobNo={params.job_no}
+                      containerIndex={index}
+                    />
+                    <IgstCalculationPDF
+                      year={params.selected_year}
+                      jobNo={params.job_no}
+                      containerIndex={index}
+                    />
+                  </div>
+                    </Row>
+
+                    <Row>
                       <Col>
                         <br />
                         <label
@@ -3781,12 +3805,7 @@ function JobDetails() {
                         </div>
                       </Col>
                     </Row>
-                  </div>
-                   <div className="flex gap-2">
-        <DeliveryChallanPdf year={params.selected_year} jobNo={params.job_no}   containerIndex={index} />
-        {/* You can add other buttons here */}
-      </div>
-
+                  </div>{" "}
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
                   >
@@ -3940,22 +3959,36 @@ function JobDetails() {
             ? undefined // No message for edit
             : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
         }
-        isEdit={isEditMode}        editValues={editValues}
+        isEdit={isEditMode}
+        editValues={editValues}
         onEditChange={setEditValues}
       />
 
       {/* Duty Details Modal */}
-      <Dialog open={dutyModalOpen} onClose={handleCloseDutyModal} maxWidth="md" fullWidth>
+      <Dialog
+        open={dutyModalOpen}
+        onClose={handleCloseDutyModal}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
-          <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
             Duty Payment Details
           </Typography>
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Please fill in the duty payment details below. All amounts should be entered in INR.
+            Please fill in the duty payment details below. All amounts should be
+            entered in INR.
           </DialogContentText>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 2,
+              mt: 2,
+            }}
+          >
             <TextField
               label="Assessable Amount (INR)"
               name="assessable_ammount"
@@ -3975,7 +4008,8 @@ function JobDetails() {
               fullWidth
               variant="outlined"
               size="small"
-            />            <TextField
+            />{" "}
+            <TextField
               label="Interest Amount (INR)"
               name="intrest_ammount"
               type="number"
@@ -4011,7 +4045,11 @@ function JobDetails() {
           <Button onClick={handleCloseDutyModal} color="secondary">
             Cancel
           </Button>
-          <Button onClick={handleDutySubmit} color="primary" variant="contained">
+          <Button
+            onClick={handleDutySubmit}
+            color="primary"
+            variant="contained"
+          >
             Save & Update
           </Button>
         </DialogActions>

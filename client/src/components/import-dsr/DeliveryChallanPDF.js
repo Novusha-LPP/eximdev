@@ -2,7 +2,9 @@ import React from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import axios from 'axios';
-import { IconButton } from '@mui/material';
+import { IconButton,
+   Button,
+  Box,} from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 
 const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = false }) => {
@@ -389,13 +391,20 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
           </abbr>
         </IconButton>
       ) : (
-        <button 
+        <Button 
           onClick={generateDeliveryChallan}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           type="button"
+          sx={{  
+                // fontWeight: 'bold',
+                backgroundColor: "#111B21",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              }}
         >
           Generate Delivery Challan
-        </button>
+        </Button>
       )}
     </>
   );

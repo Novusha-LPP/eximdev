@@ -1,5 +1,5 @@
 import express from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
 import aws from "aws-sdk";
 import nodemailer from "nodemailer";

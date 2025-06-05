@@ -64,6 +64,7 @@ const OrganisationSchema = new mongoose.Schema(
         "Consignor",
         "Consignee",
         "Services",
+        "Transporter",
         "Agent",
         "Carrier",
         "Global",

@@ -55,19 +55,14 @@ const EditableDateCell = ({ cell }) => {
   const [tempDateValue, setTempDateValue] = useState("");
   const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
-
   // Add state for the IGST modal
-  const [igstModalOpen, setIgstModalOpen] = useState(false);
-  const [igstValues, setIgstValues] = useState({
+  const [igstModalOpen, setIgstModalOpen] = useState(false);  const [igstValues, setIgstValues] = useState({
     assessable_ammount: assessable_ammount || "",
     igst_ammount: igst_ammount || "",
-    igst_rate: igst_rate || "18",
     bcd_ammount: bcd_ammount || "",
     sws_ammount: sws_ammount || "",
+    intrest_ammount: cell.row.original.intrest_ammount || "",
   });
-
-
-  console.log(assessable_ammount)
   // Free time options
   const options = Array.from({ length: 25 }, (_, index) => index);
 
@@ -91,16 +86,14 @@ const EditableDateCell = ({ cell }) => {
     setEditable(null);
     setTempDateValue("");
     setTempTimeValue("");
-    setDateError("");
-    setIgstValues({
+    setDateError("");    setIgstValues({
       assessable_ammount: assessable_ammount || "",
       igst_ammount: igst_ammount || "",
-      igst_rate: igst_rate || "18",
       bcd_ammount: bcd_ammount || "",
       sws_ammount: sws_ammount || "",
+      intrest_ammount: cell.row.original.intrest_ammount || "",
     });
   }, [cell.row.original]);
-
   // Handle IGST modal open and close
   const handleOpenIgstModal = () => {
     setIgstModalOpen(true);
@@ -109,16 +102,15 @@ const EditableDateCell = ({ cell }) => {
   const handleCloseIgstModal = () => {
     setIgstModalOpen(false);
   };
-
   const handleIgstSubmit = async () => {
     try {
       // Make API call to update IGST values
       await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
         assessable_ammount: igstValues.assessable_ammount,
         igst_ammount: igstValues.igst_ammount,
-        igst_rate: igstValues.igst_rate,
         bcd_ammount: igstValues.bcd_ammount,
         sws_ammount: igstValues.sws_ammount,
+        intrest_ammount: igstValues.intrest_ammount,
       });
 
       // Close the modal
@@ -368,10 +360,18 @@ const EditableDateCell = ({ cell }) => {
       })
       .catch((err) => console.error("Error Updating Free Time:", err));
   };
-
   // Check if duty_paid_date or igst fields should be disabled
   const isIgstFieldsAvailable = 
     igstValues.assessable_ammount && igstValues.igst_ammount;
+
+  // Calculate total of all fields except assessable amount
+  const calculateTotal = () => {
+    const igst = parseFloat(igstValues.igst_ammount) || 0;
+    const bcd = parseFloat(igstValues.bcd_ammount) || 0;
+    const sws = parseFloat(igstValues.sws_ammount) || 0;
+    const interest = parseFloat(igstValues.intrest_ammount) || 0;
+    return (igst + bcd + sws + interest).toFixed(2);
+  };
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -903,26 +903,13 @@ const EditableDateCell = ({ cell }) => {
               gap: 2,
               gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
             }}
-          >
-            <TextField
+          >            <TextField
               label="Assessable Amount (INR)"
               name="assessable_ammount"
               type="number"
               value={igstValues.assessable_ammount}
               onChange={(e) =>
                 setIgstValues({ ...igstValues, assessable_ammount: e.target.value })
-              }
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="IGST Rate (%)"
-              name="igst_rate"
-              type="number"
-              value={igstValues.igst_rate}
-              onChange={(e) =>
-                setIgstValues({ ...igstValues, igst_rate: e.target.value })
               }
               fullWidth
               variant="outlined"
@@ -951,8 +938,7 @@ const EditableDateCell = ({ cell }) => {
               fullWidth
               variant="outlined"
               size="small"
-            />
-            <TextField
+            />            <TextField
               label="BCD Amount (INR)"
               name="bcd_ammount"
               type="number"
@@ -963,7 +949,31 @@ const EditableDateCell = ({ cell }) => {
               fullWidth
               variant="outlined"
               size="small"
+            />            <TextField
+              label="Interest Amount (INR)"
+              name="intrest_ammount"
+              type="number"
+              value={igstValues.intrest_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, intrest_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
             />
+          </Box>
+          
+          {/* Total Calculation Display */}
+          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+              Total Summary
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
+              IGST: ₹{igstValues.igst_ammount || "0.00"} + 
+              BCD: ₹{igstValues.bcd_ammount || "0.00"} + 
+              SWS: ₹{igstValues.sws_ammount || "0.00"} + 
+              Interest: ₹{igstValues.intrest_ammount || "0.00"}
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>

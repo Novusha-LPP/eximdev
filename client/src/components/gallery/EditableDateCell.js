@@ -68,8 +68,7 @@ const EditableDateCell = ({ cell }) => {
 
   const handleCombinedDateTimeChange = (e) => {
     setTempDateValue(e.target.value);
-  };
-  // Reset data when row changes
+  };  // Reset data when row changes, but avoid resetting status if we just updated it
   useEffect(() => {
     setDates({
       assessment_date,
@@ -81,19 +80,34 @@ const EditableDateCell = ({ cell }) => {
       duty_paid_date,
     });
     setContainers([...container_nos]);
-    setLocalStatus(detailed_status);
+    // Only reset local status if it's different from what we have and we're not in the middle of an update
+    if (detailed_status !== localStatus && !cell.row.original._updating) {
+      setLocalStatus(detailed_status);
+    }
     setLocalFreeTime(free_time);
     setEditable(null);
     setTempDateValue("");
     setTempTimeValue("");
-    setDateError("");    setIgstValues({
+    setDateError("");
+    setIgstValues({
       assessable_ammount: assessable_ammount || "",
       igst_ammount: igst_ammount || "",
       bcd_ammount: bcd_ammount || "",
       sws_ammount: sws_ammount || "",
       intrest_ammount: cell.row.original.intrest_ammount || "",
     });
-  }, [cell.row.original]);
+  }, [
+    _id, // Only reset when the actual job ID changes, not when status updates
+    assessment_date,
+    vessel_berthing,
+    gateway_igm_date,
+    discharge_date,
+    pcv_date,
+    out_of_charge,
+    duty_paid_date,
+    free_time,
+    // Remove detailed_status and cell.row.original from dependencies
+  ]);
   // Handle IGST modal open and close
   const handleOpenIgstModal = () => {
     setIgstModalOpen(true);
@@ -119,8 +133,12 @@ const EditableDateCell = ({ cell }) => {
       console.error("Error submitting IGST data:", error);
     }
   };
-
   const updateDetailedStatus = useCallback(async () => {
+    // Prevent status updates during ongoing updates to avoid race conditions
+    if (cell.row.original._updating) {
+      return;
+    }
+    
     const eta = dates.vessel_berthing;
     const gatewayIGMDate = dates.gateway_igm_date;
     const dischargeDate = dates.discharge_date;
@@ -172,32 +190,50 @@ const EditableDateCell = ({ cell }) => {
     } else if (gatewayIGMDate) {
       newStatus = "Gateway IGM Filed";
     } else if (!eta || eta === "Invalid Date") {
-      newStatus = "ETA Date Pending";
-    } else if (eta) {
+      newStatus = "ETA Date Pending";    } else if (eta) {
       newStatus = "Estimated Time of Arrival";
-    }
-
-    if (newStatus && newStatus !== localStatus) {
-      cell.row.original.detailed_status = newStatus;
+    }    
+    if (newStatus && newStatus !== cell.row.original.detailed_status) {
       try {
+        // Set updating flag to prevent race conditions
+        cell.row.original._updating = true;
+        
+        // Update local state first for immediate UI feedback
+        setLocalStatus(newStatus);
+        
+        // Make API call to update database
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
         });
-        setLocalStatus(newStatus);
+        
+        // Update the row data after successful API call
+        cell.row.original.detailed_status = newStatus;
+        
+        // Trigger table refresh with proper timing
+        if (typeof window.refreshJobTable === 'function') {
+          setTimeout(() => {
+            // Clear updating flag before refresh
+            cell.row.original._updating = false;
+            window.refreshJobTable();
+          }, 50);
+        } else {
+          cell.row.original._updating = false;
+        }
+        
       } catch (err) {
         console.error("Error updating status:", err);
+        // Revert local state on error
+        setLocalStatus(detailed_status);
+        cell.row.original._updating = false;
       }
-    }
-  }, [
+    }  }, [
     dates,
     containers,
     be_no,
     consignment_type,
     type_of_b_e,
-    localStatus,
     _id,
   ]);
-
   useEffect(() => {
     updateDetailedStatus();
   }, [
@@ -205,6 +241,7 @@ const EditableDateCell = ({ cell }) => {
     dates.gateway_igm_date,
     dates.discharge_date,
     dates.out_of_charge,
+    dates.pcv_date,
     dates.assessment_date,
     containers,
     updateDetailedStatus,

@@ -231,7 +231,6 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
           onClick={generateIgstCalculationPdf}
           type="button"
           sx={{
-            fontWeight: 'bold',
             backgroundColor: "black",
             color: "white",
             "&:hover": {

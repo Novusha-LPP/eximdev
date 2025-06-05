@@ -74,6 +74,7 @@ import DrawerComponent from "../components/home/DrawerComponent.js";
 import LrReport from "../components/lr-report/LrReport.js";
 // SRCC Directories
 import SrccDirectories from "../components/srcc-directories/SrccDirectories.js";
+import ElockOperation from "../components/Elock-Operation/ElockOperation.js";
 import ViewSrccOrganisationData from "../components/srcc-directories/view-data/ViewSrccOrganisationData.js";
 
 // Tyre Maintenance
@@ -262,6 +263,7 @@ function HomePage() {
 
             {/* SRCC Directories */}
             <Route path="/srcc-directories" element={<SrccDirectories />} />
+            <Route path="/elock-operation" element={<ElockOperation />} />
             <Route
               path="/view-srcc-organisation-data/:_id"
               element={<ViewSrccOrganisationData />}

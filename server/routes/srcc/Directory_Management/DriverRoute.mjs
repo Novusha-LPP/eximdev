@@ -1,7 +1,27 @@
 import express from "express";
 import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
+import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
 
 const router = express.Router();
+
+// Helper function to populate vehicle type data
+const populateDriverData = async (driver) => {
+  const driverObj = driver.toObject();
+
+  // Populate drivingVehicleTypes
+  if (driverObj.drivingVehicleTypes?.length > 0) {
+    const vehicleTypes = await VehicleType.find({
+      _id: { $in: driverObj.drivingVehicleTypes },
+    });
+    driverObj.drivingVehicleTypes = vehicleTypes.map((vehicleType) => ({
+      _id: vehicleType._id,
+      vehicleType: vehicleType.vehicleType,
+      shortName: vehicleType.shortName,
+    }));
+  }
+
+  return driverObj;
+};
 
 // License Number Validation (2 letters, 13 digits)
 const validateLicenseNumber = (licenseNumber) =>
@@ -53,7 +73,8 @@ router.post("/api/create-driver", async (req, res) => {
   try {
     const newDriver = new DriverType(req.body);
     await newDriver.save();
-    return res.status(201).json(newDriver);
+    const populatedDriver = await populateDriverData(newDriver);
+    return res.status(201).json(populatedDriver);
   } catch (error) {
     return res
       .status(400)
@@ -64,7 +85,10 @@ router.post("/api/create-driver", async (req, res) => {
 router.get("/api/all-drivers", async (req, res) => {
   try {
     const drivers = await DriverType.find();
-    return res.status(200).json(drivers);
+    const populatedDrivers = await Promise.all(
+      drivers.map((driver) => populateDriverData(driver))
+    );
+    return res.status(200).json(populatedDrivers);
   } catch (error) {
     return res
       .status(400)
@@ -80,7 +104,8 @@ router.get("/api/get-driver/:id", async (req, res) => {
     if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    return res.status(200).json(driver);
+    const populatedDriver = await populateDriverData(driver);
+    return res.status(200).json(populatedDriver);
   } catch (error) {
     return res
       .status(400)
@@ -114,7 +139,8 @@ router.put("/api/update-driver/:id", async (req, res) => {
     if (!updatedDriver) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    return res.status(200).json(updatedDriver);
+    const populatedDriver = await populateDriverData(updatedDriver);
+    return res.status(200).json(populatedDriver);
   } catch (error) {
     return res
       .status(400)
@@ -138,19 +164,37 @@ router.delete("/api/delete-driver/:id", async (req, res) => {
   }
 });
 
-// New GET route to retrieve drivers by typerouter.get("/api/drivers-by-type/:type", async (req, res) => {
-router.get("/api/available-drivers/:type", async (req, res) => {
-  const { type } = req.params;
+// New GET route to retrieve drivers by vehicle type ID
+router.get("/api/available-drivers/:typeId", async (req, res) => {
+  const { typeId } = req.params;
 
-  if (!type) {
-    return res.status(400).json({ message: "Type parameter is required" });
+  if (!typeId) {
+    return res
+      .status(400)
+      .json({ message: "Vehicle type ID parameter is required" });
   }
 
   try {
-    console.log("Received type:", type); // Log the type for debugging
+    console.log("Received vehicle type ID:", typeId); // Log the typeId for debugging
 
+    // Validate if the typeId is a valid ObjectId
+    if (!typeId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid vehicle type ID format" });
+    }
+
+    // Check if the vehicle type exists
+    const vehicleType = await VehicleType.findById(typeId);
+    if (!vehicleType) {
+      return res
+        .status(404)
+        .json({ message: `Vehicle type not found for ID: ${typeId}` });
+    }
+
+    // Find drivers who can drive this vehicle type and are not assigned
     const drivers = await DriverType.find({
-      drivingVehicleTypes: { $regex: type, $options: "i" }, // Case-insensitive regex match
+      drivingVehicleTypes: typeId, // Direct ObjectId match
       isAssigned: false, // Ensure driver is not assigned
     });
 
@@ -159,10 +203,16 @@ router.get("/api/available-drivers/:type", async (req, res) => {
     if (drivers.length === 0) {
       return res
         .status(404)
-        .json({ message: `No available drivers for type: ${type}` });
+        .json({
+          message: `No available drivers for vehicle type: ${vehicleType.vehicleType}`,
+        });
     }
 
-    return res.status(200).json(drivers);
+    const populatedDrivers = await Promise.all(
+      drivers.map((driver) => populateDriverData(driver))
+    );
+
+    return res.status(200).json(populatedDrivers);
   } catch (error) {
     console.error("Error fetching available drivers:", error);
     return res.status(500).json({

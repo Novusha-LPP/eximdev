@@ -10,22 +10,38 @@ const containerTypeSchema = new mongoose.Schema(
       length: { type: Number, required: true, min: 0 },
       breadth: { type: Number, required: true, min: 0 },
       height: { type: Number, required: true, min: 0 },
-      unit: { type: String, required: true, trim: true }, // e.g., cm, m
+      unit: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "UnitMeasurement",
+        required: true,
+      },
     },
 
     cubic_capacity: {
       capacity: { type: Number, required: true, min: 0 },
-      unit: { type: String, required: true, trim: true }, // e.g., CBM
+      unit: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "UnitMeasurement",
+        required: true,
+      },
     },
 
     tare_weight: {
       value: { type: Number, required: true, min: 0 },
-      unit: { type: String, required: true, trim: true }, // e.g., kg, ton
+      unit: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "UnitMeasurement",
+        required: true,
+      },
     },
 
     payload: {
       value: { type: Number, required: true, min: 0 },
-      unit: { type: String, required: true, trim: true }, // e.g., kg, ton
+      unit: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "UnitMeasurement",
+        required: true,
+      },
     },
 
     is_temp_controlled: { type: Boolean, default: false },

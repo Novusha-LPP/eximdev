@@ -32,8 +32,10 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/lr-report");
     case "Tyre Maintenance":
       return navigate("/tyre-maintenance");
-    case "SRCC Directories":
+    case "Directories":
       return navigate("/srcc-directories");
+    case "Elock-Operation":
+      return navigate("/elock-operation");
     case "RTO":
       return navigate("/rto");
     case "SR CEL":

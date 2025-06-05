@@ -19,13 +19,11 @@ import {
   MenuItem,
   Select,
   Checkbox,
-  ListItemText,
   FormControl,
   InputLabel,
   Grid,
   Autocomplete,
   Typography,
-  CircularProgress,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -101,7 +99,7 @@ const VehicleTypes = () => {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
       // Find "Weight" category for load capacity
       const weightCategory = response.data.find(
-        (item) => item.name === "Weight"
+        (item) => item.name === "Weights"
       );
       if (weightCategory) {
         setLoadUnits(weightCategory.measurements);
@@ -117,13 +115,13 @@ const VehicleTypes = () => {
       console.error("❌ Error fetching unit measurements:", err);
     }
   };
-
   // -----------------------------------------------------
   // useEffect: fetch vehicles & units on mount
   // -----------------------------------------------------
   useEffect(() => {
     fetchVehicles();
     fetchUnits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // -----------------------------------------------------
@@ -143,22 +141,41 @@ const VehicleTypes = () => {
     });
     setOpenModal(true);
   };
-
   // -----------------------------------------------------
   // Handler: Edit
   // -----------------------------------------------------
   const handleEdit = (vehicle) => {
+    // Helper function to get unit ID from populated unit data
+    const getUnitId = (unitData) => {
+      if (!unitData) return "";
+      if (typeof unitData === "object" && unitData._id) {
+        return unitData._id; // Populated object
+      }
+      return unitData; // String ID
+    };
+
+    // Helper function to get commodity IDs from populated commodity data
+    const getCommodityIds = (commodityData) => {
+      if (!commodityData || !Array.isArray(commodityData)) return [];
+      return commodityData.map((commodity) => {
+        if (typeof commodity === "object" && commodity._id) {
+          return commodity._id; // Populated object
+        }
+        return commodity; // String ID
+      });
+    };
+
     setModalMode("edit");
     setFormData({
       _id: vehicle._id,
       vehicleType: vehicle.vehicleType || "",
       shortName: vehicle.shortName || "",
       loadCapacityValue: vehicle.loadCapacity?.value || "",
-      loadCapacityUnit: vehicle.loadCapacity?.unit || "",
+      loadCapacityUnit: getUnitId(vehicle.loadCapacity?.unit),
       engineCapacityValue: vehicle.engineCapacity?.value || "",
-      engineCapacityUnit: vehicle.engineCapacity?.unit || "",
+      engineCapacityUnit: getUnitId(vehicle.engineCapacity?.unit),
       cargoTypeAllowed: vehicle.cargoTypeAllowed || [],
-      CommodityCarry: vehicle.CommodityCarry || [],
+      CommodityCarry: getCommodityIds(vehicle.CommodityCarry),
     });
     setOpenModal(true);
   };
@@ -276,21 +293,31 @@ const VehicleTypes = () => {
             {vehicles.map((vehicle) => (
               <TableRow key={vehicle._id}>
                 <TableCell>{vehicle.vehicleType}</TableCell>
-                <TableCell>{vehicle.shortName}</TableCell>
+                <TableCell>{vehicle.shortName}</TableCell>{" "}
                 <TableCell>
-                  {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
+                  {vehicle.loadCapacity?.value}{" "}
+                  {typeof vehicle.loadCapacity?.unit === "object"
+                    ? vehicle.loadCapacity?.unit?.symbol
+                    : vehicle.loadCapacity?.unit}
                 </TableCell>
                 <TableCell>
-                  {vehicle.engineCapacity?.value} {vehicle.engineCapacity?.unit}
+                  {vehicle.engineCapacity?.value}{" "}
+                  {typeof vehicle.engineCapacity?.unit === "object"
+                    ? vehicle.engineCapacity?.unit?.symbol
+                    : vehicle.engineCapacity?.unit}
                 </TableCell>
                 <TableCell>
                   {vehicle.cargoTypeAllowed?.length
                     ? vehicle.cargoTypeAllowed.join(", ")
                     : "N/A"}
-                </TableCell>
+                </TableCell>{" "}
                 <TableCell>
                   {vehicle.CommodityCarry?.length
-                    ? vehicle.CommodityCarry.join(", ")
+                    ? vehicle.CommodityCarry.map((commodity) =>
+                        typeof commodity === "object" && commodity.name
+                          ? commodity.name
+                          : commodity
+                      ).join(", ")
                     : "N/A"}
                 </TableCell>
                 <TableCell>
@@ -392,10 +419,10 @@ const VehicleTypes = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <FormControl fullWidth>
-                        <InputLabel>Load Capacity Unit</InputLabel>
+                        <InputLabel>Unit (Weights)</InputLabel>
                         <Select
                           name="loadCapacityUnit"
-                          label="Load Capacity Unit"
+                          label="Unit (Weights)"
                           value={values.loadCapacityUnit || ""}
                           onChange={(e) =>
                             setFieldValue("loadCapacityUnit", e.target.value)
@@ -403,10 +430,10 @@ const VehicleTypes = () => {
                           onBlur={handleBlur}
                         >
                           <MenuItem value="">
-                            <em>Select Unit</em>
-                          </MenuItem>
-                          {loadUnits.map((u) => (
-                            <MenuItem key={u._id} value={u.symbol}>
+                            <em>Unit (Weights)</em>
+                          </MenuItem>{" "}
+                          {(loadUnits || []).map((u) => (
+                            <MenuItem key={u._id} value={u._id}>
                               {u.unit} ({u.symbol})
                             </MenuItem>
                           ))}
@@ -446,10 +473,10 @@ const VehicleTypes = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <FormControl fullWidth>
-                        <InputLabel>Engine Capacity Unit</InputLabel>
+                        <InputLabel>Unit (Volumes)</InputLabel>
                         <Select
                           name="engineCapacityUnit"
-                          label="Engine Capacity Unit"
+                          label="Unit (Volumes)"
                           value={values.engineCapacityUnit || ""}
                           onChange={(e) =>
                             setFieldValue("engineCapacityUnit", e.target.value)
@@ -458,9 +485,9 @@ const VehicleTypes = () => {
                         >
                           <MenuItem value="">
                             <em>Select Unit</em>
-                          </MenuItem>
-                          {engineUnits.map((u) => (
-                            <MenuItem key={u._id} value={u.symbol}>
+                          </MenuItem>{" "}
+                          {(engineUnits || []).map((u) => (
+                            <MenuItem key={u._id} value={u._id}>
                               {u.unit} ({u.symbol})
                             </MenuItem>
                           ))}

@@ -2,8 +2,85 @@ import express from "express";
 import mongoose from "mongoose"; // Add this line
 import VehicleRegistration from "../../../model/srcc/Directory_Management/VehicleRegistration.mjs";
 import DriverType from "../../../model/srcc/Directory_Management/Driver.mjs";
+import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
+import PortICDcode from "../../../model/srcc/Directory_Management/PortsCfsYard.mjs";
+import UnitMeasurement from "../../../model/srcc/Directory_Management/UnitMeasurementModal.mjs";
 
 const router = express.Router();
+
+// Helper function to populate vehicle registration data
+const populateVehicleRegistrationData = async (vehicleRegistration) => {
+  const vehicleObj = vehicleRegistration.toObject();
+
+  try {
+    // Populate type
+    if (vehicleObj.type) {
+      const typeData = await VehicleType.findById(vehicleObj.type);
+      if (typeData) {
+        vehicleObj.type = {
+          _id: typeData._id,
+          vehicleType: typeData.vehicleType,
+          shortName: typeData.shortName,
+        };
+      }
+    }
+
+    // Populate depotName
+    if (vehicleObj.depotName) {
+      const depotData = await PortICDcode.findById(vehicleObj.depotName);
+      if (depotData) {
+        vehicleObj.depotName = {
+          _id: depotData._id,
+          name: depotData.name,
+          icd_code: depotData.icd_code,
+          state: depotData.state,
+          country: depotData.country,
+        };
+      }
+    }
+
+    // Function to find measurement by ID across all categories
+    const findMeasurementById = async (measurementId) => {
+      const allCategories = await UnitMeasurement.find();
+      for (const category of allCategories) {
+        const measurement = category.measurements.id(measurementId);
+        if (measurement) {
+          return {
+            _id: measurement._id,
+            unit: measurement.unit,
+            symbol: measurement.symbol,
+            decimal_places: measurement.decimal_places,
+            categoryName: category.name,
+          };
+        }
+      }
+      return null;
+    };
+
+    // Populate initialOdometer.unit
+    if (vehicleObj.initialOdometer?.unit) {
+      const unitData = await findMeasurementById(
+        vehicleObj.initialOdometer.unit
+      );
+      if (unitData) {
+        vehicleObj.initialOdometer.unit = unitData;
+      }
+    }
+
+    // Populate loadCapacity.unit
+    if (vehicleObj.loadCapacity?.unit) {
+      const unitData = await findMeasurementById(vehicleObj.loadCapacity.unit);
+      if (unitData) {
+        vehicleObj.loadCapacity.unit = unitData;
+      }
+    }
+
+    return vehicleObj;
+  } catch (error) {
+    console.error("Error populating vehicle registration data:", error);
+    return vehicleObj;
+  }
+};
 
 // Function to validate vehicle number format (MH12XX1234 or mh12xx1234)
 const isValidVehicleNumber = (vehicleNumber) => {
@@ -31,7 +108,6 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(type)) {
       return res.status(400).json({ error: "Invalid vehicle type ID" });
     }
-
     const newRegistration = await VehicleRegistration.create({
       vehicleNumber,
       registrationName,
@@ -45,9 +121,14 @@ router.post("/api/add-vehicle-registration", async (req, res) => {
       vehicleManufacturingDetails,
     });
 
+    // Populate the created vehicle registration data
+    const populatedRegistration = await populateVehicleRegistrationData(
+      newRegistration
+    );
+
     res.status(201).json({
       message: "Vehicle registration added successfully",
-      data: newRegistration,
+      data: populatedRegistration,
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -121,8 +202,16 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
 // READ all Vehicle Registrations
 router.get("/api/get-vehicle-registration", async (req, res) => {
   try {
-    const registrations = await VehicleRegistration.find().populate("type");
-    res.status(200).json({ data: registrations });
+    const registrations = await VehicleRegistration.find();
+
+    // Populate all vehicle registrations
+    const populatedRegistrations = await Promise.all(
+      registrations.map((registration) =>
+        populateVehicleRegistrationData(registration)
+      )
+    );
+
+    res.status(200).json({ data: populatedRegistrations });
   } catch (error) {
     console.error("Error fetching vehicle registrations:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -133,13 +222,17 @@ router.get("/api/get-vehicle-registration", async (req, res) => {
 router.get("/api/get-vehicle-registration/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const registration = await VehicleRegistration.findById(id).populate(
-      "type"
-    );
+    const registration = await VehicleRegistration.findById(id);
     if (!registration) {
       return res.status(404).json({ error: "Vehicle registration not found" });
     }
-    res.status(200).json({ data: registration });
+
+    // Populate the vehicle registration data
+    const populatedRegistration = await populateVehicleRegistrationData(
+      registration
+    );
+
+    res.status(200).json({ data: populatedRegistration });
   } catch (error) {
     console.error("Error fetching vehicle registration:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -214,9 +307,7 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
         { _id: driver._id },
         { isAssigned: true }
       );
-    }
-
-    // Update vehicle registration
+    } // Update vehicle registration
     const updatedRegistration = await VehicleRegistration.findByIdAndUpdate(
       id,
       {
@@ -234,9 +325,14 @@ router.put("/api/update-vehicle-registration/:id", async (req, res) => {
       { new: true }
     );
 
+    // Populate the updated vehicle registration data
+    const populatedRegistration = await populateVehicleRegistrationData(
+      updatedRegistration
+    );
+
     res.status(200).json({
       message: "Vehicle registration updated successfully",
-      data: updatedRegistration,
+      data: populatedRegistration,
     });
   } catch (error) {
     console.error("Error updating vehicle registration:", error);
@@ -282,14 +378,16 @@ router.get("/api/vehicles", async (req, res) => {
     if (!type_of_vehicle) {
       return res.status(400).json({ message: "type_of_vehicle is required" });
     }
+    const vehicles = await VehicleRegistration.find();
 
-    const vehicles = await VehicleRegistration.find()
-      .populate("type")
-      .populate("driver._id")
-      .lean();
-    console.log("Fetched vehicles:", vehicles); // Debugging log
+    // Populate all vehicle registrations
+    const populatedVehicles = await Promise.all(
+      vehicles.map((vehicle) => populateVehicleRegistrationData(vehicle))
+    );
 
-    const filteredVehicles = vehicles.filter(
+    console.log("Fetched vehicles:", populatedVehicles); // Debugging log
+
+    const filteredVehicles = populatedVehicles.filter(
       (vehicle) => vehicle.type?.vehicleType === type_of_vehicle
     );
 

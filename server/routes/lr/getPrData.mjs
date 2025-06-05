@@ -94,7 +94,62 @@ router.get("/api/get-pr-data/:branch", async (req, res) => {
       return res.status(404).json({ message: "No PR data found" });
     }
 
-    const data = result[0].data || [];
+    let data = result[0].data || [];
+
+    // Populate all ObjectId references for each document
+    if (data.length > 0) {
+      data = await PrData.populate(data, [
+        {
+          path: "container_type",
+          model: "ContainerType",
+        },
+        {
+          path: "consignor",
+          model: "Organisation",
+        },
+        {
+          path: "consignee",
+          model: "Organisation",
+        },
+        {
+          path: "shipping_line",
+          model: "ShippingLine",
+        },
+        {
+          path: "type_of_vehicle",
+          model: "VehicleType",
+        },
+        {
+          path: "goods_pickup",
+          model: "Location",
+        },
+        {
+          path: "goods_delivery",
+          model: "Location",
+        },
+        {
+          path: "container_loading",
+          model: "Location",
+        },
+        {
+          path: "container_offloading",
+          model: "Location",
+        },
+        {
+          path: "containers.type_of_vehicle",
+          model: "VehicleType",
+        },
+        {
+          path: "containers.goods_pickup",
+          model: "Location",
+        },
+        {
+          path: "containers.goods_delivery",
+          model: "Location",
+        },
+      ]);
+    }
+
     const total = result[0].totalCount[0]?.count || 0;
 
     res.status(200).json({

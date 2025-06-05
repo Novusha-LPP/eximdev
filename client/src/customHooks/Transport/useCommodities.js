@@ -13,7 +13,7 @@ const useCommodities = (API_URL) => {
         setCommodities(
           response.data.data.map((item) => ({
             label: `${item.hsn_code} - ${item.name}`,
-            value: item.hsn_code,
+            value: item._id, // Use ObjectId instead of hsn_code
           }))
         );
         setLoading(false);

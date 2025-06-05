@@ -1,3 +1,4 @@
+// models/Elock.js
 import mongoose from "mongoose";
 
 const ElockSchema = new mongoose.Schema(
@@ -7,24 +8,17 @@ const ElockSchema = new mongoose.Schema(
       required: true,
       trim: true,
       unique: true,
+      validate: {
+        validator: function (v) {
+          return /^\d+$/.test(v); // Only allows digits
+        },
+        message: (props) =>
+          `${props.value} is not a valid number! Only numbers are allowed.`,
+      },
     },
-    FAgentGUID: {
+    status: {
       type: String,
-      required: true,
-      trim: true,
-      unique: true,
-    },
-    AssetGUID: {
-      type: String,
-      required: true,
-      trim: true,
-      unique: true,
-    },
-    ElockCode: {
-      type: String,
-      required: true,
-      trim: true,
-      unique: true,
+      enum: ["AVAILABLE", "ASSIGNED", "MAINTENANCE", "LOST"],
     },
   },
   { timestamps: true }
@@ -32,4 +26,4 @@ const ElockSchema = new mongoose.Schema(
 
 const Elock = mongoose.model("Elock", ElockSchema);
 
-export default Elock; // Ensure the model is exported as default
+export default Elock;

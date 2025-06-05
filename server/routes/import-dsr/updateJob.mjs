@@ -75,61 +75,61 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
     }
 
     // 3. Check if the transporter is "SRCC" in the request body
-    if (req.body.container_nos) {
-      const transporterContainers = req.body.container_nos.filter(
-        (container) => container.transporter === "SRCC"
-      );
+    // if (req.body.container_nos) {
+    //   const transporterContainers = req.body.container_nos.filter(
+    //     (container) => container.transporter === "SRCC"
+    //   );
 
-      if (transporterContainers.length > 0) {
-        // 4. Fetch the last document from PrModel and generate a 5-digit number
-        const lastPr = await PrModel.findOne().sort({ _id: -1 });
+    //   if (transporterContainers.length > 0) {
+    //     // 4. Fetch the last document from PrModel and generate a 5-digit number
+    //     const lastPr = await PrModel.findOne().sort({ _id: -1 });
 
-        let lastPrNo;
-        if (lastPr) {
-          lastPrNo = parseInt(lastPr.pr_no) + 1;
-        } else {
-          lastPrNo = 1;
-        }
-        const paddedNo = lastPrNo.toString().padStart(5, "0");
-        const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
+    //     let lastPrNo;
+    //     if (lastPr) {
+    //       lastPrNo = parseInt(lastPr.pr_no) + 1;
+    //     } else {
+    //       lastPrNo = 1;
+    //     }
+    //     const paddedNo = lastPrNo.toString().padStart(5, "0");
+    //     const fiveDigitNo = "0".repeat(5 - paddedNo.length) + paddedNo;
 
-        // 5. Update the job model
-        matchingJob.pr_no = `PR/${branch_code}/${fiveDigitNo}/${matchingJob.year}`;
+    //     // 5. Update the job model
+    //     matchingJob.pr_no = `PR/${branch_code}/${fiveDigitNo}/${matchingJob.year}`;
 
-        // 6. Create a new document in PrData collection
-        const newPrData = new PrData({
-          pr_date: new Date().toLocaleDateString("en-GB"),
-          pr_no: matchingJob.pr_no,
-          branch: matchingJob.custom_house,
-          consignor: matchingJob.importer,
-          consignee: matchingJob.importer,
-          container_type: "",
-          container_count: transporterContainers.length,
-          gross_weight: matchingJob.gross_weight,
-          type_of_vehicle: "",
-          description: "",
-          shipping_line: matchingJob.shipping_line_airline,
-          container_loading: "",
-          container_offloading: "",
-          do_validity: matchingJob.do_validity,
-          document_no: matchingJob.be_no,
-          document_date: matchingJob.be_date,
-          goods_pickup: "",
-          goods_delivery: "",
-          containers: transporterContainers,
-        });
+    //     // 6. Create a new document in PrData collection
+    //     const newPrData = new PrData({
+    //       pr_date: new Date().toLocaleDateString("en-GB"),
+    //       pr_no: matchingJob.pr_no,
+    //       branch: matchingJob.custom_house,
+    //       consignor: matchingJob.importer,
+    //       consignee: matchingJob.importer,
+    //       container_type: "",
+    //       container_count: transporterContainers.length,
+    //       gross_weight: matchingJob.gross_weight,
+    //       type_of_vehicle: "",
+    //       description: "",
+    //       shipping_line: matchingJob.shipping_line_airline,
+    //       container_loading: "",
+    //       container_offloading: "",
+    //       do_validity: matchingJob.do_validity,
+    //       document_no: matchingJob.be_no,
+    //       document_date: matchingJob.be_date,
+    //       goods_pickup: "",
+    //       goods_delivery: "",
+    //       containers: transporterContainers,
+    //     });
 
-        // Save the new PrData document to the database
-        await newPrData.save();
+    //     // Save the new PrData document to the database
+    //     await newPrData.save();
 
-        const newPr = new PrModel({
-          pr_no: fiveDigitNo,
-        });
+    //     const newPr = new PrModel({
+    //       pr_no: fiveDigitNo,
+    //     });
 
-        // Save the new PrModel document to the database
-        await newPr.save();
-      }
-    }
+    //     // Save the new PrModel document to the database
+    //     await newPr.save();
+    //   }
+    // }
 
     // Step 6: Add remaining fields from req.body to matching job
     if (req.body.arrival_date && req.body.container_nos) {

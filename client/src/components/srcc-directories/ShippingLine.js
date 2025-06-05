@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -22,56 +22,51 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import useOrganisations from "../../customHooks/Transport/useOrganisations";
 
 const validationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
   code: Yup.string().required("Code is required"),
-  organization: Yup.object({
-    _id: Yup.string().required("Organization ID is required"),
-    name: Yup.string().required("Organization name is required"),
-  }).required("Organization is required"),
+  organization: Yup.string().required("Organization is required"),
 });
 
 const ShippingLine = () => {
   const [shippingLines, setShippingLines] = useState([]);
-  const [orgOptions, setOrgOptions] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [formData, setFormData] = useState({
     name: "",
     code: "",
-    organization: { _id: "", name: "" },
+    organization: "",
   });
 
+  const { organisations } = useOrganisations();
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
-
-  const fetchShippingLines = async () => {
+  const fetchShippingLines = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-shipping-line`);
       setShippingLines(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching shipping lines:", error);
     }
-  };
+  }, [API_URL]);
 
   useEffect(() => {
     fetchShippingLines();
-  }, []);
-
+  }, [fetchShippingLines]);
   const handleAdd = () => {
     setModalMode("add");
-    setFormData({ name: "", code: "", organization: { _id: "", name: "" } });
+    setFormData({ name: "", code: "", organization: "" });
     setOpenModal(true);
   };
-
   const handleEdit = (line) => {
     setModalMode("edit");
     setFormData({
       _id: line._id,
       name: line.name || "",
       code: line.code || "",
-      organization: line.organisation || { _id: "", name: "" },
+      organization: line.organisation?._id || "",
     });
     setOpenModal(true);
   };
@@ -90,7 +85,6 @@ const ShippingLine = () => {
       }
     }
   };
-
   const handleSave = async (values) => {
     const { _id, organization, ...restValues } = values;
     const payload = { ...restValues, organisation: organization };
@@ -209,7 +203,6 @@ const ShippingLine = () => {
                     error={touched.name && Boolean(errors.name)}
                     helperText={touched.name && errors.name}
                   />
-
                   <TextField
                     name="code"
                     label="Shipping Line Code"
@@ -220,32 +213,25 @@ const ShippingLine = () => {
                     required
                     error={touched.code && Boolean(errors.code)}
                     helperText={touched.code && errors.code}
-                  />
-
+                  />{" "}
                   <Autocomplete
-                    options={orgOptions}
+                    options={organisations}
                     getOptionLabel={(option) => option.name || ""}
-                    filterOptions={(x) => x}
-                    onInputChange={async (e, value) => {
-                      if (value.length < 2) return;
-                      try {
-                        const res = await axios.get(
-                          `${API_URL}/organisations/autocomplete?q=${value}`
-                        );
-                        setOrgOptions(res.data.data || []);
-                      } catch (err) {
-                        console.error("❌ Error searching organizations:", err);
-                      }
-                    }}
+                    isOptionEqualToValue={(option, value) =>
+                      option._id === value._id
+                    }
                     onChange={(event, newValue) => {
                       setFieldValue(
                         "organization",
-                        newValue || { _id: "", name: "" }
+                        newValue ? newValue._id : ""
                       );
                     }}
-                    value={values.organization || null}
-                    isOptionEqualToValue={(option, value) =>
-                      option._id === value._id
+                    value={
+                      values.organization
+                        ? organisations.find(
+                            (org) => org._id === values.organization
+                          ) || null
+                        : null
                     }
                     renderInput={(params) => (
                       <TextField
@@ -256,13 +242,10 @@ const ShippingLine = () => {
                         error={
                           touched.organization && Boolean(errors.organization)
                         }
-                        helperText={
-                          touched.organization && errors.organization?.name
-                        }
+                        helperText={touched.organization && errors.organization}
                       />
                     )}
                   />
-
                   <DialogActions>
                     <Button onClick={() => setOpenModal(false)}>Cancel</Button>
                     <Button variant="contained" type="submit">

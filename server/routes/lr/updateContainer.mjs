@@ -30,6 +30,7 @@ router.post("/api/update-container", async (req, res) => {
       pr_no,
       status,
       elock,
+      tracking_status,
     } = req.body;
 
     // Find the PR document
@@ -41,10 +42,13 @@ router.post("/api/update-container", async (req, res) => {
 
     console.log("📄 PR document found:", prDocument._id);
 
-    // Extract year from PR number
-    const prYear = pr_no?.split("/")[3]; // e.g., "25-26"
-    if (!prYear) {
-      console.error("❌ Year not found in PR number:", pr_no);
+    // Extract branch code and year from PR number
+    const prParts = pr_no?.split("/");
+    const branchCode = prParts[1]; // Get the branch code from PR number
+    const prYear = prParts[3]; // e.g., "25-26"
+
+    if (!prYear || !branchCode) {
+      console.error("❌ Branch code or year not found in PR number:", pr_no);
       return res.status(400).json({ message: "Invalid PR number format" });
     }
 
@@ -64,27 +68,39 @@ router.post("/api/update-container", async (req, res) => {
       console.log("🔄 Using existing TR:", newTrFull);
     } else {
       // Need to generate a new TR number
-      // Get the last TR for the specified year
-      const lastTrForYear = await Tr.findOne({ year: prYear })
+      // Get the last TR for the specific branch code and year combination
+      const lastTrForBranchAndYear = await Tr.findOne({
+        branch_code: branchCode,
+        year: prYear,
+      })
         .sort({ tr_no: -1 })
         .exec();
 
-      console.log("📋 Last TR for year", prYear, ":", lastTrForYear);
+      console.log(
+        `📋 Last TR for branch ${branchCode} and year ${prYear}:`,
+        lastTrForBranchAndYear
+      );
 
-      // Calculate the next TR number for this year
-      let lastTrNo = lastTrForYear ? parseInt(lastTrForYear.tr_no) : 0;
-      let nextTrNo = lastTrNo + 1;
+      // Calculate the next TR number for this branch and year
+      // If no previous TR exists for this specific branch and year, start from 1
+      let nextTrNo = 1;
+
+      if (lastTrForBranchAndYear) {
+        nextTrNo = parseInt(lastTrForBranchAndYear.tr_no) + 1;
+      }
+
       console.log("🔢 Next TR number:", nextTrNo);
 
       // Format TR number with leading zeros
       newTrNumber = nextTrNo.toString().padStart(5, "0");
-      newTrComplete = `${newTrNumber}/${prYear}`;
-      newTrFull = `TR/${pr_no?.split("/")[1]}/${newTrNumber}/${prYear}`;
+      newTrComplete = `${branchCode}/${newTrNumber}/${prYear}`;
+      newTrFull = `LR/${branchCode}/${newTrNumber}/${prYear}`;
 
       console.log("🆕 Generated new TR:", newTrFull);
 
-      // Create a new TR record in the database
+      // Create a new TR record in the database with branch code
       await Tr.create({
+        branch_code: branchCode,
         tr_no: newTrNumber,
         year: prYear,
         tr_no_complete: newTrComplete,
@@ -131,6 +147,7 @@ router.post("/api/update-container", async (req, res) => {
           status,
           tr_no: newTrFull,
           elock,
+          tracking_status,
         });
       } else {
         // Add new container
@@ -156,6 +173,7 @@ router.post("/api/update-container", async (req, res) => {
           status,
           tr_no: newTrFull,
           elock,
+          tracking_status,
         });
       }
     } else {
@@ -183,6 +201,7 @@ router.post("/api/update-container", async (req, res) => {
         vehicle_no,
         status,
         elock,
+        tracking_status,
       });
 
       // Assign TR if not already present

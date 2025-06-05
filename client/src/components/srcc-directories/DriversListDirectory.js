@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -19,9 +19,6 @@ import {
   Typography,
   Grid,
   FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Autocomplete,
   Checkbox,
 } from "@mui/material";
@@ -63,7 +60,7 @@ const validationSchema = Yup.object({
   drivingVehicleTypes: Yup.array()
     .min(1, "Select at least one vehicle type")
     .required("Driving vehicle types are required"),
-
+  drivingExperience: Yup.string().required("Driving Experience is required"),
   remarks: Yup.string(),
   // photoUpload: Yup.array().min(1, "At least one photo is required"),
   photoUpload: Yup.array(),
@@ -94,6 +91,7 @@ const initialFormData = {
   alternateNumber: "",
   residentialAddress: "",
   drivingVehicleTypes: [],
+  drivingExperience: "",
   remarks: "",
   photoUpload: [],
   licenseUpload: [],
@@ -114,23 +112,22 @@ const DriversListDirectory = () => {
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
-  const { vehicleTypes, loading, error } = useVehicleTypes(API_URL);
-
+  const { vehicleTypes } = useVehicleTypes(API_URL);
   // -------------------------
   // Fetch drivers from API
   // -------------------------
-  const fetchDrivers = async () => {
+  const fetchDrivers = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/all-drivers`);
       setDrivers(response.data || []);
     } catch (error) {
       console.error("❌ Error fetching drivers:", error);
     }
-  };
+  }, [API_URL]);
 
   useEffect(() => {
     fetchDrivers();
-  }, []);
+  }, [fetchDrivers]);
 
   // -------------------------
   // Handlers: Add, Edit, Delete
@@ -141,12 +138,25 @@ const DriversListDirectory = () => {
     setServerErrors("");
     setOpenModal(true);
   };
-
   const handleEdit = (driver) => {
     setModalMode("edit");
+
+    // Extract ObjectIds from populated drivingVehicleTypes
+    let drivingVehicleTypesIds = [];
+    if (driver.drivingVehicleTypes?.length > 0) {
+      drivingVehicleTypesIds = driver.drivingVehicleTypes.map((vehicleType) => {
+        // Handle both populated objects and raw ObjectIds
+        if (typeof vehicleType === "object" && vehicleType._id) {
+          return vehicleType._id; // Extract ObjectId from populated object
+        }
+        return vehicleType; // Assume it's already an ObjectId string
+      });
+    }
+
     // Format licenseExpiryDate as YYYY-MM-DD if available
     const formattedDriver = {
       ...driver,
+      drivingVehicleTypes: drivingVehicleTypesIds, // Use extracted ObjectIds
       licenseExpiryDate: driver.licenseExpiryDate
         ? new Date(driver.licenseExpiryDate).toISOString().split("T")[0]
         : "",
@@ -222,12 +232,14 @@ const DriversListDirectory = () => {
       <TableContainer component={Paper} sx={{ mt: 2 }}>
         <Table>
           <TableHead>
+            {" "}
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Alias</TableCell>
               <TableCell>License Number</TableCell>
               <TableCell>Phone Number</TableCell>
               <TableCell>Vehicle Types</TableCell>
+              <TableCell>Experience</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -237,10 +249,20 @@ const DriversListDirectory = () => {
                 <TableCell>{driver.name}</TableCell>
                 <TableCell>{driver.alias}</TableCell>
                 <TableCell>{driver.licenseNumber}</TableCell>
-                <TableCell>{driver.phoneNumber}</TableCell>
+                <TableCell>{driver.phoneNumber}</TableCell>{" "}
                 <TableCell>
-                  {driver.drivingVehicleTypes?.join(", ") || "N/A"}
+                  {driver.drivingVehicleTypes?.length
+                    ? driver.drivingVehicleTypes
+                        .map((vehicleType) =>
+                          typeof vehicleType === "object" &&
+                          vehicleType.vehicleType
+                            ? vehicleType.vehicleType
+                            : vehicleType
+                        )
+                        .join(", ")
+                    : "N/A"}
                 </TableCell>
+                <TableCell>{driver.drivingExperience || "N/A"}</TableCell>
                 <TableCell>
                   <IconButton
                     onClick={() => handleEdit(driver)}
@@ -285,7 +307,14 @@ const DriversListDirectory = () => {
             onSubmit={handleSave}
             enableReinitialize={true}
           >
-            {({ values, handleChange, handleBlur, setFieldValue, errors, touched }) => (
+            {({
+              values,
+              handleChange,
+              handleBlur,
+              setFieldValue,
+              errors,
+              touched,
+            }) => (
               <Form>
                 <Grid container spacing={2}>
                   {/* Left Column: Text & Date Fields */}
@@ -444,7 +473,7 @@ const DriversListDirectory = () => {
                         color="error"
                         variant="caption"
                       />
-                    </Box> */}
+                    </Box> */}{" "}
                     <FormControl fullWidth sx={{ mb: 2 }} required>
                       <Autocomplete
                         multiple
@@ -454,12 +483,12 @@ const DriversListDirectory = () => {
                         getOptionLabel={(option) => option.label}
                         value={
                           vehicleTypes.filter((v) =>
-                            values.drivingVehicleTypes?.includes(v.name)
+                            values.drivingVehicleTypes?.includes(v.value)
                           ) || []
                         }
                         onChange={(event, newValue) => {
-                          const selectedNames = newValue.map((v) => v.name);
-                          setFieldValue("drivingVehicleTypes", selectedNames);
+                          const selectedIds = newValue.map((v) => v.value);
+                          setFieldValue("drivingVehicleTypes", selectedIds);
                         }}
                         renderOption={(props, option, { selected }) => (
                           <li {...props}>
@@ -488,7 +517,23 @@ const DriversListDirectory = () => {
                         )}
                       />
                     </FormControl>
-
+                    <Box sx={{ mb: 2 }}>
+                      <TextField
+                        name="drivingExperience"
+                        label="Driving Experience (years)"
+                        value={values.drivingExperience}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        fullWidth
+                        required
+                      />
+                      <ErrorMessage
+                        name="drivingExperience"
+                        component={Typography}
+                        color="error"
+                        variant="caption"
+                      />
+                    </Box>
                     <Box sx={{ mb: 2 }}>
                       <TextField
                         name="remarks"
@@ -506,7 +551,6 @@ const DriversListDirectory = () => {
                         variant="caption"
                       />
                     </Box>
-
                     {/* Notes Section */}
                     <FieldArray name="notes">
                       {({ push, remove }) => (

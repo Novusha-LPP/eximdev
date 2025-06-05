@@ -52,7 +52,6 @@ function PortsCfsYardDirectory() {
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [orgOptions, setOrgOptions] = useState([]);
-
   const [formData, setFormData] = useState({
     organisation: { _id: "", name: "" },
     name: "",
@@ -68,11 +67,10 @@ function PortsCfsYardDirectory() {
     prefix: "",
     suffix: "",
   });
-  const [existingPorts, setExistingPorts] = useState([]);
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
-
+  const [existingPorts, setExistingPorts] = useState([]);
   const fetchPorts = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-port-types`);
@@ -107,88 +105,50 @@ function PortsCfsYardDirectory() {
     });
     setOpenModal(true);
   };
-
   const handleEdit = (port) => {
     setModalMode("edit");
+    // Handle nested organisation structure
+    const organisationData =
+      port.organisation && port.organisation._id
+        ? {
+            _id: port.organisation._id._id || port.organisation._id,
+            name: port.organisation._id.name || port.organisation.name || "",
+          }
+        : { _id: "", name: "" };
+
     setFormData({
-      organisation: port.organisation || { _id: "", name: "" },
-      name: port.name,
-      icd_code: port.icd_code,
-      state: port.state,
-      country: port.country,
-      active: port.active,
-      type: port.type,
-      contactPersonName: port.contactPersonName,
-      contactPersonEmail: port.contactPersonEmail,
-      contactPersonPhone: port.contactPersonPhone,
-      isBranch: port.isBranch,
-      prefix: port.prefix || "",
-      suffix: port.suffix || "",
+      ...port,
+      organisation: organisationData,
+      active: port.active === true,
     });
     setOpenModal(true);
   };
 
-  const handleDelete = async (icd_code) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete port with ICD code: ${icd_code}?`
-      )
-    ) {
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this Port/CFS/Yard?")) {
       try {
-        await axios.delete(`${API_URL}/delete-port-type/${icd_code}`);
-        fetchPorts();
+        await axios.delete(`${API_URL}/delete-port-type/${id}`);
+        fetchPorts(); // Refresh the list
       } catch (error) {
-        console.error("❌ Error deleting port:", error);
+        console.error("Error deleting port:", error);
       }
     }
   };
 
   const handleSave = async (values) => {
     try {
-      const formattedData = {
-        ...values,
-        icd_code: values.icd_code.trim(),
-        name: values.name.trim(),
-        state: values.state.trim(),
-        country: values.country.trim(),
-        contactPersonName: values.contactPersonName.trim(),
-        contactPersonEmail: values.contactPersonEmail.trim(),
-        contactPersonPhone: values.contactPersonPhone.trim(),
-        prefix: values.isBranch ? values.prefix.trim() : "",
-        suffix: values.isBranch ? values.suffix.trim() : "",
-      };
-
-      if (
-        modalMode === "add" &&
-        existingPorts.includes(formattedData.icd_code.toLowerCase())
-      ) {
-        alert(
-          `⚠️ "${formattedData.icd_code}" already exists! Try a different ICD code.`
-        );
-        return;
-      }
-
       if (modalMode === "add") {
-        const response = await axios.post(
-          `${API_URL}/add-port-type`,
-          formattedData
-        );
-        if (response.status === 201) {
-          setOpenModal(false);
-          fetchPorts();
-        }
+        await axios.post(`${API_URL}/add-port-type`, values);
       } else {
-        const response = await axios.put(
-          `${API_URL}/update-port-type/${formattedData.icd_code}`,
-          formattedData
-        );
-        if (response.status === 200) {
-          setOpenModal(false);
-          fetchPorts();
-        }
+        await axios.put(`${API_URL}/update-port-type/${values._id}`, values);
       }
+      setOpenModal(false);
+      fetchPorts(); // Refresh the list
     } catch (error) {
-      console.error("❌ Error saving port:", error);
+      alert(
+        "Error: Port with this ICD code already exists. Please use a different code."
+      );
+      console.error("Error saving port:", error);
     }
   };
 
@@ -202,8 +162,10 @@ function PortsCfsYardDirectory() {
 
       <TableContainer component={Paper}>
         <Table>
+          {" "}
           <TableHead>
             <TableRow>
+              <TableCell>Organisation</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Code</TableCell>
               <TableCell>State</TableCell>
@@ -216,10 +178,15 @@ function PortsCfsYardDirectory() {
               <TableCell>Is Branch</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
-          </TableHead>
+          </TableHead>{" "}
           <TableBody>
             {portsData.map((port) => (
-              <TableRow key={port.icd_code}>
+              <TableRow key={port._id}>
+                <TableCell>
+                  {port.organisation?.name ||
+                    port.organisation?._id?.name ||
+                    "No Organisation"}
+                </TableCell>
                 <TableCell>{port.name}</TableCell>
                 <TableCell>{port.icd_code}</TableCell>
                 <TableCell>{port.state}</TableCell>
@@ -235,7 +202,7 @@ function PortsCfsYardDirectory() {
                     <EditIcon />
                   </IconButton>
                   <IconButton
-                    onClick={() => handleDelete(port.icd_code)}
+                    onClick={() => handleDelete(port._id)}
                     color="error"
                   >
                     <DeleteIcon />

@@ -29,7 +29,10 @@ const DriverSchema = new mongoose.Schema(
     alternateNumber: { type: String, trim: true }, // Alternate Number (10 Numeric)
 
     residentialAddress: { type: String, required: true, trim: true },
-    drivingVehicleTypes: [{ type: String, required: true }],
+    drivingVehicleTypes: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "VehicleType" },
+    ], // Reference to VehicleType model
+    drivingExperience: { type: String, required: true, trim: true }, // Driving Experience (in years)
     remarks: { type: String, trim: true },
     isAssigned: { type: Boolean, default: false },
     notes: [NoteSchema], // Use the NoteSchema for the notes array

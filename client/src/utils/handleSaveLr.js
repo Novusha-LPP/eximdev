@@ -78,35 +78,35 @@ export const handleSaveLr = async (row, props) => {
   }
 
   // Validate driver phone number
-  const indianMobileRegex = /^[6-9]\d{9}$/;
-  console.log("📱 Validating Driver Phone:", row.driver_phone);
-  if (row.driver_phone && !indianMobileRegex.test(row.driver_phone)) {
-    console.warn("❌ Invalid driver phone number.");
-    errors.push(
-      "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
-    );
-  }
+  // const indianMobileRegex = /^[6-9]\d{9}$/;
+  // console.log("📱 Validating Driver Phone:", row.driver_phone);
+  // if (row.driver_phone && !indianMobileRegex.test(row.driver_phone)) {
+  //   console.warn("❌ Invalid driver phone number.");
+  //   errors.push(
+  //     "Driver phone number is not valid. It should be a 10-digit Indian mobile number starting with 6-9."
+  //   );
+  // }
 
-  // Validate E-Way Bill
-  const eWaybillRegex = /^\d{12}$/;
-  if (row.eWay_bill) {
-    console.log("📄 Validating E-Way Bill:", row.eWay_bill);
-    if (!eWaybillRegex.test(row.eWay_bill)) {
-      errors.push("E-Way Bill number must be exactly 12 digits.");
-    }
-  }
+  // // Validate E-Way Bill
+  // const eWaybillRegex = /^\d{12}$/;
+  // if (row.eWay_bill) {
+  //   console.log("📄 Validating E-Way Bill:", row.eWay_bill);
+  //   if (!eWaybillRegex.test(row.eWay_bill)) {
+  //     errors.push("E-Way Bill number must be exactly 12 digits.");
+  //   }
+  // }
 
   // Validate Vehicle Number
-  const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;
-  if (row.vehicle_no) {
-    console.log("🚗 Validating Vehicle Number:", row.vehicle_no);
-    if (!vehicleNoRegex.test(row.vehicle_no)) {
-      console.warn("❌ Vehicle number format invalid.");
-      errors.push(
-        "Vehicle number is not valid. Format should be AA00AA0000, aa00aa0000, AA00A0000, or aa00a0000."
-      );
-    }
-  }
+  // const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;
+  // if (row.vehicle_no) {
+  //   console.log("🚗 Validating Vehicle Number:", row.vehicle_no);
+  //   if (!vehicleNoRegex.test(row.vehicle_no)) {
+  //     console.warn("❌ Vehicle number format invalid.");
+  //     errors.push(
+  //       "Vehicle number is not valid. Format should be AA00AA0000, aa00aa0000, AA00A0000, or aa00a0000."
+  //     );
+  //   }
+  // }
 
   if (errors.length > 0) {
     console.error("❌ Validation Errors:", errors);

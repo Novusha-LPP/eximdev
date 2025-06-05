@@ -20,9 +20,8 @@ const AdvanceToDriverSchema = new mongoose.Schema(
     // This can be a string referencing the actual "vehicleType" name. 
     // If you want to store the ObjectId, you can do that instead.
     vehicleType: {
-      type: String,
-      required: true,
-      trim: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VehicleType",
     },
     loadVehicleKms: {
       type: Number,

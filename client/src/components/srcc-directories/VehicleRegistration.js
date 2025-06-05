@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -26,6 +26,9 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import useVehicleTypes from "../../customHooks/Transport/useVehicleTypes";
+import useDepots from "../../customHooks/Transport/useDepots";
+import useUnitMeasurements from "../../customHooks/Transport/useUnitMeasurements";
 
 // Date Picker
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -72,20 +75,19 @@ const validationSchema = Yup.object({
 
 const VehicleRegistration = () => {
   const [vehicles, setVehicles] = useState([]);
-  const [vehicleTypes, setVehicleTypes] = useState([]);
-  const [depots, setDepots] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [lengthUnits, setLengthUnits] = useState([]);
-  const [weightUnits, setWeightUnits] = useState([]);
-  const [unitMeasurements, setUnitMeasurements] = useState([]);
-
-  // Toggles for "More..." logic
-  const [showAllUnits, setShowAllUnits] = useState(false);
-  const [showAllWeightUnits, setShowAllWeightUnits] = useState(false);
 
   const [modalMode, setModalMode] = useState("add");
   const [openModal, setOpenModal] = useState(false);
 
+  // Adjust this URL to match your actual endpoints
+  const API_URL =
+    process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
+
+  // Use custom hooks for data fetching
+  const { vehicleTypes } = useVehicleTypes(API_URL);
+  const { depots } = useDepots(API_URL);
+  const { unitMeasurements } = useUnitMeasurements(API_URL);
   // Default form data (Formik will override these with initialValues if set differently)
   const [formData, setFormData] = useState({
     vehicleNumber: "",
@@ -99,56 +101,36 @@ const VehicleRegistration = () => {
     purchase: "",
     vehicleManufacturingDetails: "",
   });
-
-  // Adjust this URL to match your actual endpoints
-  const API_URL =
-    process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
-
   // 1. Fetch existing vehicles
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-vehicle-registration`);
       setVehicles(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching vehicles:", error);
     }
-  };
-
-  // 2. Fetch vehicle types for Type dropdown
-  const fetchVehicleTypes = async () => {
+  }, [API_URL]); // 4. Fetch drivers by selected vehicle type
+  const fetchDriversByType = async (
+    selectedTypeId,
+    currentVehicleId = null
+  ) => {
     try {
-      const response = await axios.get(`${API_URL}/vehicle-types`);
-      setVehicleTypes(response.data.data || []);
-    } catch (error) {
-      console.error("❌ Error fetching vehicle types:", error);
-    }
-  };
-
-  // 3. Fetch Depots
-  const fetchDepots = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/get-port-types`);
-      setDepots(response.data.data || []);
-    } catch (error) {
-      console.error("❌ Error fetching depots:", error);
-    }
-  };
-
-  // 4. Fetch drivers by selected vehicle type
-  const fetchDriversByType = async (selectedTypeId) => {
-    try {
-      const selectedType = vehicleTypes.find((v) => v._id === selectedTypeId);
-      if (!selectedType) {
-        console.error("❌ Selected type not found in vehicleTypes");
+      if (!selectedTypeId) {
+        console.error("❌ No vehicle type ID provided");
+        setDrivers([]);
         return;
       }
 
+      // Use the vehicle type ObjectId directly instead of the name
       const response = await axios.get(
-        `${API_URL}/available-drivers/${selectedType.vehicleType}` // Pass the vehicleType string
+        `${API_URL}/available-drivers/${selectedTypeId}`
       );
 
       // Filter out drivers already assigned to existing vehicles
-      const assignedDriverIds = vehicles.map((vehicle) => vehicle.driver?._id);
+      // But exclude the current vehicle being edited so its driver remains available
+      const assignedDriverIds = vehicles
+        .filter((vehicle) => vehicle._id !== currentVehicleId)
+        .map((vehicle) => vehicle.driver?._id);
       const availableDrivers = response.data.filter(
         (driver) => !assignedDriverIds.includes(driver._id)
       );
@@ -159,38 +141,10 @@ const VehicleRegistration = () => {
       setDrivers([]);
     }
   };
-
-  // 5. Fetch UnitMeasurements
-  const fetchUnitMeasurements = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/get-unit-measurements`);
-      setUnitMeasurements(response.data);
-
-      const lengthCategory = response.data.find(
-        (item) => item.name === "Lengths"
-      );
-      if (lengthCategory) {
-        setLengthUnits(lengthCategory.measurements);
-      }
-
-      const weightCategory = response.data.find(
-        (item) => item.name === "Weight"
-      );
-      if (weightCategory) {
-        setWeightUnits(weightCategory.measurements);
-      }
-    } catch (error) {
-      console.error("❌ Error fetching unit measurements:", error);
-    }
-  };
-
   // useEffect: initial fetch calls
   useEffect(() => {
     fetchVehicles();
-    fetchVehicleTypes();
-    fetchDepots();
-    fetchUnitMeasurements();
-  }, []);
+  }, [fetchVehicles]);
 
   // CRUD Handlers
   const handleAdd = () => {
@@ -203,48 +157,47 @@ const VehicleRegistration = () => {
       type: "",
       shortName: "",
       depotName: "",
-      initialOdometer: { value: "", unit: "km" },
-      loadCapacity: { value: "", unit: "kg" },
+      initialOdometer: { value: "", unit: "" },
+      loadCapacity: { value: "", unit: "" },
       driver: { _id: "", name: "" },
       purchase: "",
       vehicleManufacturingDetails: "",
-    });
-
-    // Clear old driver list
+    }); // Clear old driver list
     setDrivers([]);
-    // Make sure toggles are reset
-    setShowAllUnits(false);
-    setShowAllWeightUnits(false);
 
     setOpenModal(true);
   };
 
   const handleEdit = async (vehicle) => {
     setModalMode("edit");
-
     setFormData({
       _id: vehicle._id,
       vehicleNumber: vehicle.vehicleNumber || "",
       registrationName: vehicle.registrationName || "",
-      type: vehicle.type?._id || "", // Ensure type is set to the ObjectId
+      type: vehicle.type?._id || "", // Extract ObjectId from populated data
       shortName: vehicle.shortName || "",
-      depotName: vehicle.depotName || "",
-      initialOdometer: vehicle.initialOdometer || { value: "", unit: "km" },
-      loadCapacity: vehicle.loadCapacity || { value: "", unit: "kg" },
-      driver: vehicle.driver || { _id: "", name: "" }, // Ensure driver is set correctly
+      depotName: vehicle.depotName?._id || "", // Extract ObjectId from populated data
+      initialOdometer: {
+        value: vehicle.initialOdometer?.value || "",
+        unit:
+          vehicle.initialOdometer?.unit?._id ||
+          vehicle.initialOdometer?.unit ||
+          "",
+      },
+      loadCapacity: {
+        value: vehicle.loadCapacity?.value || "",
+        unit:
+          vehicle.loadCapacity?.unit?._id || vehicle.loadCapacity?.unit || "",
+      },
+      driver: vehicle.driver || { _id: "", name: "" },
       purchase: vehicle.purchase
-        ? new Date(vehicle.purchase).toISOString()
+        ? new Date(vehicle.purchase).toISOString().split("T")[0]
         : "",
       vehicleManufacturingDetails: vehicle.vehicleManufacturingDetails || "",
     });
-
     if (vehicle.type?._id) {
-      await fetchDriversByType(vehicle.type._id); // Fetch drivers for the selected type
+      await fetchDriversByType(vehicle.type._id, vehicle._id); // Fetch drivers for the selected type, excluding current vehicle
     }
-
-    // Reset toggles
-    setShowAllUnits(false);
-    setShowAllWeightUnits(false);
 
     setOpenModal(true);
   };
@@ -364,11 +317,16 @@ const VehicleRegistration = () => {
           <TableBody>
             {vehicles.map((vehicle) => (
               <TableRow key={vehicle._id}>
+                {" "}
                 <TableCell>{vehicle.vehicleNumber}</TableCell>
                 <TableCell>{vehicle.registrationName}</TableCell>
                 <TableCell>{vehicle.type?.vehicleType}</TableCell>
-                <TableCell>{vehicle.type?.shortName}</TableCell>
-                <TableCell>{vehicle.depotName}</TableCell>
+                <TableCell>{vehicle.type?.shortName}</TableCell>{" "}
+                <TableCell>
+                  {vehicle.depotName?.name ||
+                    vehicle.depotName?.icd_code ||
+                    "N/A"}
+                </TableCell>
                 <TableCell>{vehicle.driver?.name}</TableCell>
                 <TableCell>
                   {vehicle.purchase
@@ -480,9 +438,10 @@ const VehicleRegistration = () => {
                       onBlur={handleBlur}
                       error={touched.type && Boolean(errors.type)}
                     >
+                      {" "}
                       {vehicleTypes.map((v) => (
-                        <MenuItem key={v._id} value={v._id}>
-                          {v.vehicleType} ({v.shortName})
+                        <MenuItem key={v.value} value={v.value}>
+                          {v.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -512,9 +471,10 @@ const VehicleRegistration = () => {
                       onBlur={handleBlur}
                       error={touched.depotName && Boolean(errors.depotName)}
                     >
+                      {" "}
                       {depots.map((d) => (
-                        <MenuItem key={d._id} value={d.name}>
-                          {d.name}
+                        <MenuItem key={d.value} value={d.value}>
+                          {d.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -541,14 +501,13 @@ const VehicleRegistration = () => {
                           errors.initialOdometer?.value
                         }
                       />
-                    </Grid>
-
+                    </Grid>{" "}
                     <Grid item xs={6}>
                       <FormControl fullWidth required>
-                        <InputLabel>Unit</InputLabel>
+                        <InputLabel>Unit (Lengths)</InputLabel>
                         <Select
                           name="initialOdometer.unit"
-                          label="Unit"
+                          label="Unit (Lengths)"
                           value={values.initialOdometer.unit || ""}
                           onChange={handleChange}
                           onBlur={handleBlur}
@@ -557,11 +516,13 @@ const VehicleRegistration = () => {
                             Boolean(errors.initialOdometer?.unit)
                           }
                         >
-                          {lengthUnits.map((u) => (
-                            <MenuItem key={u._id} value={u.symbol}>
-                              {u.unit} ({u.symbol})
-                            </MenuItem>
-                          ))}
+                          {unitMeasurements
+                            .filter((unit) => unit.categoryName === "Lengths")
+                            .map((unit) => (
+                              <MenuItem key={unit._id} value={unit._id}>
+                                {unit.label}
+                              </MenuItem>
+                            ))}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -587,14 +548,13 @@ const VehicleRegistration = () => {
                           errors.loadCapacity?.value
                         }
                       />
-                    </Grid>
-
+                    </Grid>{" "}
                     <Grid item xs={6}>
                       <FormControl fullWidth required>
-                        <InputLabel>Unit</InputLabel>
+                        <InputLabel>Unit (Weights)</InputLabel>
                         <Select
                           name="loadCapacity.unit"
-                          label="Unit"
+                          label="Unit (Weights)"
                           value={values.loadCapacity.unit || ""}
                           onChange={handleChange}
                           onBlur={handleBlur}
@@ -603,11 +563,13 @@ const VehicleRegistration = () => {
                             Boolean(errors.loadCapacity?.unit)
                           }
                         >
-                          {weightUnits.map((u) => (
-                            <MenuItem key={u._id} value={u.symbol}>
-                              {u.unit} ({u.symbol})
-                            </MenuItem>
-                          ))}
+                          {unitMeasurements
+                            .filter((unit) => unit.categoryName === "Weights")
+                            .map((unit) => (
+                              <MenuItem key={unit._id} value={unit._id}>
+                                {unit.label}
+                              </MenuItem>
+                            ))}
                         </Select>
                       </FormControl>
                     </Grid>

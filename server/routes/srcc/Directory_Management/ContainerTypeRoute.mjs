@@ -1,8 +1,68 @@
 import express from "express";
 import mongoose from "mongoose";
-import ContainerType from "../../../model/srcc/containerType.mjs"; // Ensure correct path
+import ContainerType from "../../../model/srcc/containerType.mjs";
+import UnitMeasurement from "../../../model/srcc/Directory_Management/UnitMeasurementModal.mjs";
 
 const router = express.Router();
+
+// Helper function to populate unit data manually
+const populateUnitData = async (containerTypes) => {
+  // Get all unit measurements
+  const allUnits = await UnitMeasurement.find({});
+  // Create a map of measurement ID to measurement data
+  const measurementMap = new Map();
+  allUnits.forEach((unitDoc) => {
+    unitDoc.measurements.forEach((measurement) => {
+      measurementMap.set(measurement._id.toString(), {
+        _id: measurement._id,
+        unit: measurement.unit,
+        symbol: measurement.symbol,
+        decimal_places: measurement.decimal_places,
+      });
+    });
+  });
+
+  // Populate the container types
+  const populatedContainers = containerTypes.map((container) => {
+    const containerObj = container.toObject ? container.toObject() : container;
+
+    // Populate outer_dimension.unit
+    if (containerObj.outer_dimension?.unit) {
+      const unitData = measurementMap.get(
+        containerObj.outer_dimension.unit.toString()
+      );
+      containerObj.outer_dimension.unit =
+        unitData || containerObj.outer_dimension.unit;
+    }
+
+    // Populate cubic_capacity.unit
+    if (containerObj.cubic_capacity?.unit) {
+      const unitData = measurementMap.get(
+        containerObj.cubic_capacity.unit.toString()
+      );
+      containerObj.cubic_capacity.unit =
+        unitData || containerObj.cubic_capacity.unit;
+    }
+
+    // Populate tare_weight.unit
+    if (containerObj.tare_weight?.unit) {
+      const unitData = measurementMap.get(
+        containerObj.tare_weight.unit.toString()
+      );
+      containerObj.tare_weight.unit = unitData || containerObj.tare_weight.unit;
+    }
+
+    // Populate payload.unit
+    if (containerObj.payload?.unit) {
+      const unitData = measurementMap.get(containerObj.payload.unit.toString());
+      containerObj.payload.unit = unitData || containerObj.payload.unit;
+    }
+
+    return containerObj;
+  });
+
+  return populatedContainers;
+};
 
 /**
  * @route POST /api/add-container-type
@@ -35,7 +95,6 @@ router.post("/api/add-container-type", async (req, res) => {
         .status(400)
         .json({ error: "Container type with this ISO code already exists" });
     }
-
     const newContainer = await ContainerType.create({
       container_type,
       iso_code,
@@ -49,9 +108,12 @@ router.post("/api/add-container-type", async (req, res) => {
       size, // added
     });
 
+    // Populate the unit references for the response
+    const populatedContainer = await populateUnitData([newContainer]);
+
     res.status(201).json({
       message: "Container Type added successfully",
-      data: newContainer,
+      data: populatedContainer[0],
     });
   } catch (error) {
     console.error("Error:", error);
@@ -66,7 +128,8 @@ router.post("/api/add-container-type", async (req, res) => {
 router.get("/api/get-container-types", async (req, res) => {
   try {
     const containerTypes = await ContainerType.find();
-    res.status(200).json(containerTypes);
+    const populatedContainers = await populateUnitData(containerTypes);
+    res.status(200).json(populatedContainers);
   } catch (error) {
     console.error("Error fetching container types:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -83,7 +146,8 @@ router.get("/api/get-container-type/:id", async (req, res) => {
     if (!containerType) {
       return res.status(404).json({ error: "Container type not found" });
     }
-    res.status(200).json(containerType);
+    const populatedContainer = await populateUnitData([containerType]);
+    res.status(200).json(populatedContainer[0]);
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -112,7 +176,6 @@ router.put("/api/update-container-type/:id", async (req, res) => {
     if (!req.params.id) {
       return res.status(400).json({ error: "Container type ID is required" });
     }
-
     const updatedContainer = await ContainerType.findByIdAndUpdate(
       req.params.id,
       {
@@ -134,9 +197,12 @@ router.put("/api/update-container-type/:id", async (req, res) => {
       return res.status(404).json({ error: "Container type not found" });
     }
 
+    // Populate the unit references for the response
+    const populatedContainer = await populateUnitData([updatedContainer]);
+
     res.status(200).json({
       message: "Container type updated successfully",
-      data: updatedContainer,
+      data: populatedContainer[0],
     });
   } catch (error) {
     console.error("Error:", error);

@@ -14,7 +14,7 @@ const useVehicleTypes = (API_URL) => {
         setVehicleTypes(
           response.data.data.map((item) => ({
             label: `${item.vehicleType} - ${item.shortName}`,
-            value: item.shortName, // Store shortName for selection
+            value: item._id, // Store _id for proper ObjectId reference
             name: item.vehicleType, // Full vehicle name
             shortName: item.shortName, // Short name
             loadCapacity: item.loadCapacity, // Corrected from loadCapacity to GVW

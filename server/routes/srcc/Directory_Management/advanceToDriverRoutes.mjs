@@ -1,16 +1,36 @@
 import express from "express";
-import AdvanceToDriver from "../../../model/srcc/Directory_Management/AdvanceToDriver.mjs"; 
-// ^ Adjust path as needed
+import AdvanceToDriver from "../../../model/srcc/Directory_Management/AdvanceToDriver.mjs";
+import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
 
 const router = express.Router();
+
+// Helper function to populate advance to driver data
+const populateAdvanceToDriverData = async (advanceData) => {
+  const advanceObj = advanceData.toObject();
+
+  // Populate vehicleType
+  if (advanceObj.vehicleType) {
+    const vehicleType = await VehicleType.findById(advanceObj.vehicleType);
+    if (vehicleType) {
+      advanceObj.vehicleType = {
+        _id: vehicleType._id,
+        vehicleType: vehicleType.vehicleType,
+        shortName: vehicleType.shortName,
+      };
+    }
+  }
+
+  return advanceObj;
+};
 
 // CREATE: Add new "Advance to Driver"
 router.post("/api/add-advance-to-driver", async (req, res) => {
   try {
     const advanceItem = await AdvanceToDriver.create(req.body);
+    const populatedAdvanceItem = await populateAdvanceToDriverData(advanceItem);
     res.status(201).json({
       message: "Advance to Driver added successfully",
-      data: advanceItem,
+      data: populatedAdvanceItem,
     });
   } catch (error) {
     console.error("❌ Error adding AdvanceToDriver:", error);
@@ -22,7 +42,10 @@ router.post("/api/add-advance-to-driver", async (req, res) => {
 router.get("/api/get-advance-to-driver", async (req, res) => {
   try {
     const dataList = await AdvanceToDriver.find();
-    res.status(200).json({ data: dataList });
+    const populatedDataList = await Promise.all(
+      dataList.map((advanceData) => populateAdvanceToDriverData(advanceData))
+    );
+    res.status(200).json({ data: populatedDataList });
   } catch (error) {
     console.error("❌ Error fetching AdvanceToDriver list:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -37,7 +60,8 @@ router.get("/api/get-advance-to-driver/:id", async (req, res) => {
     if (!dataItem) {
       return res.status(404).json({ error: "AdvanceToDriver not found" });
     }
-    res.status(200).json({ data: dataItem });
+    const populatedDataItem = await populateAdvanceToDriverData(dataItem);
+    res.status(200).json({ data: populatedDataItem });
   } catch (error) {
     console.error("❌ Error fetching AdvanceToDriver:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -56,9 +80,11 @@ router.put("/api/update-advance-to-driver/:id", async (req, res) => {
       return res.status(404).json({ error: "AdvanceToDriver not found" });
     }
 
+    const populatedUpdatedItem = await populateAdvanceToDriverData(updatedItem);
+
     res.status(200).json({
       message: "Advance to Driver updated successfully",
-      data: updatedItem,
+      data: populatedUpdatedItem,
     });
   } catch (error) {
     console.error("❌ Error updating AdvanceToDriver:", error);

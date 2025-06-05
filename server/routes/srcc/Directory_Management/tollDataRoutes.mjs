@@ -1,7 +1,41 @@
 import express from "express";
-import TollData from "../../../model/srcc/Directory_Management/TollData.mjs"; // Adjust the path to your model
+import TollData from "../../../model/srcc/Directory_Management/TollData.mjs";
+import VehicleType from "../../../model/srcc/Directory_Management/VehicleType.mjs";
 
 const router = express.Router();
+
+// Helper function to populate toll data references
+const populateTollData = async (tollData) => {
+  const tollDataObj = tollData.toObject();
+
+  // Populate vehicleType array
+  if (tollDataObj.vehicleType?.length > 0) {
+    const vehicleTypes = await VehicleType.find({
+      _id: { $in: tollDataObj.vehicleType },
+    });
+    tollDataObj.vehicleType = vehicleTypes.map((vehicleType) => ({
+      _id: vehicleType._id,
+      vehicleType: vehicleType.vehicleType,
+      shortName: vehicleType.shortName,
+    }));
+  }
+
+  // Populate secondPassTollBooth
+  if (tollDataObj.secondPassTollBooth) {
+    const secondPassToll = await TollData.findById(
+      tollDataObj.secondPassTollBooth
+    );
+    if (secondPassToll) {
+      tollDataObj.secondPassTollBooth = {
+        _id: secondPassToll._id,
+        tollBoothName: secondPassToll.tollBoothName,
+        fastagClassId: secondPassToll.fastagClassId,
+      };
+    }
+  }
+
+  return tollDataObj;
+};
 
 // CREATE: Add new Toll Data
 router.post("/api/add-toll-data", async (req, res) => {
@@ -24,12 +58,14 @@ router.post("/api/add-toll-data", async (req, res) => {
       fastagClassId,
       singleAmount,
       returnAmount,
-      secondPassTollBooth,
+      secondPassTollBooth: secondPassTollBooth || null,
     });
+
+    const populatedTollData = await populateTollData(newTollData);
 
     res.status(201).json({
       message: "Toll data added successfully",
-      data: newTollData,
+      data: populatedTollData,
     });
   } catch (error) {
     console.error("❌ Error adding Toll Data:", error);
@@ -41,7 +77,10 @@ router.post("/api/add-toll-data", async (req, res) => {
 router.get("/api/get-toll-data", async (req, res) => {
   try {
     const tollDataList = await TollData.find();
-    res.status(200).json({ data: tollDataList });
+    const populatedTollDataList = await Promise.all(
+      tollDataList.map((tollData) => populateTollData(tollData))
+    );
+    res.status(200).json({ data: populatedTollDataList });
   } catch (error) {
     console.error("❌ Error fetching Toll Data:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -56,7 +95,8 @@ router.get("/api/get-toll-data/:id", async (req, res) => {
     if (!tollDataItem) {
       return res.status(404).json({ error: "Toll data not found" });
     }
-    res.status(200).json({ data: tollDataItem });
+    const populatedTollData = await populateTollData(tollDataItem);
+    res.status(200).json({ data: populatedTollData });
   } catch (error) {
     console.error("❌ Error fetching Toll Data by ID:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -86,7 +126,7 @@ router.put("/api/update-toll-data/:id", async (req, res) => {
         fastagClassId,
         singleAmount,
         returnAmount,
-        secondPassTollBooth,
+        secondPassTollBooth: secondPassTollBooth || null,
       },
       { new: true }
     );
@@ -95,9 +135,11 @@ router.put("/api/update-toll-data/:id", async (req, res) => {
       return res.status(404).json({ error: "Toll data not found" });
     }
 
+    const populatedTollData = await populateTollData(updatedTollData);
+
     res.status(200).json({
       message: "Toll data updated successfully",
-      data: updatedTollData,
+      data: populatedTollData,
     });
   } catch (error) {
     console.error("❌ Error updating Toll Data:", error);

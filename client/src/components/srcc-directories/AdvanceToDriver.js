@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -25,6 +25,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import useVehicleTypes from "../../customHooks/Transport/useVehicleTypes";
 
 // -------------------
 // Validation Schema
@@ -83,7 +84,6 @@ const AdvanceToDriver = () => {
   // Local States
   // ---------------
   const [advanceData, setAdvanceData] = useState([]);
-  const [vehicleTypes, setVehicleTypes] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("add");
 
@@ -111,40 +111,26 @@ const AdvanceToDriver = () => {
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
 
+  // Use custom hook for vehicle types
+  const { vehicleTypes } = useVehicleTypes(API_URL);
+
   // ---------------
   // Fetch all
   // ---------------
-  const fetchAdvanceData = async () => {
+  const fetchAdvanceData = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/get-advance-to-driver`);
       setAdvanceData(response.data.data || []);
     } catch (error) {
       console.error("❌ Error fetching AdvanceToDriver:", error);
     }
-  };
-
-  // ---------------
-  // Fetch vehicle types
-  // ---------------
-  const fetchVehicleTypes = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/vehicle-types`);
-      // Typically response.data might be { data: [...]}
-      // Adjust if your API returns a different structure
-      const list = response.data.data || [];
-      setVehicleTypes(list);
-    } catch (error) {
-      console.error("❌ Error fetching vehicle types:", error);
-    }
-  };
-
+  }, [API_URL]);
   // ---------------
   // useEffect
   // ---------------
   useEffect(() => {
     fetchAdvanceData();
-    fetchVehicleTypes();
-  }, []);
+  }, [fetchAdvanceData]);
 
   // ---------------
   // CRUD Handlers
@@ -171,7 +157,6 @@ const AdvanceToDriver = () => {
     });
     setOpenModal(true);
   };
-
   // Handle Edit
   const handleEdit = (item) => {
     setModalMode("edit");
@@ -180,7 +165,7 @@ const AdvanceToDriver = () => {
       startingLocation: item.startingLocation || "",
       destinationLocation: item.destinationLocation || "",
       returnLocation: item.returnLocation || "",
-      vehicleType: item.vehicleType || "",
+      vehicleType: item.vehicleType?._id || item.vehicleType || "", // Extract ObjectId from populated data
       loadVehicleKms: item.loadVehicleKms ?? "",
       emptyVehicleKms: item.emptyVehicleKms ?? "",
       loadVehicleMileage: item.loadVehicleMileage ?? "",
@@ -301,10 +286,16 @@ const AdvanceToDriver = () => {
           <TableBody>
             {advanceData.map((item) => (
               <TableRow key={item._id}>
+                {" "}
                 <TableCell>{item.startingLocation}</TableCell>
                 <TableCell>{item.destinationLocation}</TableCell>
                 <TableCell>{item.returnLocation}</TableCell>
-                <TableCell>{item.vehicleType}</TableCell>
+                <TableCell>
+                  {item.vehicleType?.vehicleType ||
+                    item.vehicleType?.shortName ||
+                    item.vehicleType ||
+                    "N/A"}
+                </TableCell>
                 <TableCell>{item.loadVehicleKms}</TableCell>
                 <TableCell>{item.emptyVehicleKms}</TableCell>
                 <TableCell>{item.loadVehicleMileage}</TableCell>
@@ -374,7 +365,6 @@ const AdvanceToDriver = () => {
                       touched.startingLocation && errors.startingLocation
                     }
                   />
-
                   <TextField
                     name="destinationLocation"
                     label="Destination Location"
@@ -391,7 +381,6 @@ const AdvanceToDriver = () => {
                       touched.destinationLocation && errors.destinationLocation
                     }
                   />
-
                   <TextField
                     name="returnLocation"
                     label="Return Location"
@@ -404,8 +393,7 @@ const AdvanceToDriver = () => {
                       touched.returnLocation && Boolean(errors.returnLocation)
                     }
                     helperText={touched.returnLocation && errors.returnLocation}
-                  />
-
+                  />{" "}
                   {/* vehicleType dropdown */}
                   <FormControl fullWidth required>
                     <InputLabel>Vehicle Type</InputLabel>
@@ -418,13 +406,12 @@ const AdvanceToDriver = () => {
                       error={touched.vehicleType && Boolean(errors.vehicleType)}
                     >
                       {vehicleTypes.map((vt) => (
-                        <MenuItem key={vt._id} value={vt.vehicleType}>
-                          {vt.vehicleType}
+                        <MenuItem key={vt.value} value={vt.value}>
+                          {vt.label}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
-
                   <TextField
                     name="loadVehicleKms"
                     label="Load Vehicle kms"
@@ -439,7 +426,6 @@ const AdvanceToDriver = () => {
                     }
                     helperText={touched.loadVehicleKms && errors.loadVehicleKms}
                   />
-
                   <TextField
                     name="emptyVehicleKms"
                     label="Empty Vehicle kms"
@@ -456,7 +442,6 @@ const AdvanceToDriver = () => {
                       touched.emptyVehicleKms && errors.emptyVehicleKms
                     }
                   />
-
                   <TextField
                     name="loadVehicleMileage"
                     label="Load Vehicle Mileage"
@@ -474,7 +459,6 @@ const AdvanceToDriver = () => {
                       touched.loadVehicleMileage && errors.loadVehicleMileage
                     }
                   />
-
                   <TextField
                     name="emptyVehicleMileage"
                     label="Empty Vehicle Mileage"
@@ -492,7 +476,6 @@ const AdvanceToDriver = () => {
                       touched.emptyVehicleMileage && errors.emptyVehicleMileage
                     }
                   />
-
                   <TextField
                     name="loadingExtraFuelVolume"
                     label="Loading Extra Fuel"
@@ -511,7 +494,6 @@ const AdvanceToDriver = () => {
                       errors.loadingExtraFuelVolume
                     }
                   />
-
                   <TextField
                     name="unloadingExtraFuelVolume"
                     label="Unloading Extra Fuel"
@@ -530,7 +512,6 @@ const AdvanceToDriver = () => {
                       errors.unloadingExtraFuelVolume
                     }
                   />
-
                   <TextField
                     name="totalRequiredFuelVolume"
                     label="Total Required Fuel Volume"
@@ -549,7 +530,6 @@ const AdvanceToDriver = () => {
                       errors.totalRequiredFuelVolume
                     }
                   />
-
                   <TextField
                     name="fuelRate"
                     label="Fuel Rate"
@@ -562,7 +542,6 @@ const AdvanceToDriver = () => {
                     error={touched.fuelRate && Boolean(errors.fuelRate)}
                     helperText={touched.fuelRate && errors.fuelRate}
                   />
-
                   <TextField
                     name="cash"
                     label="Cash"
@@ -575,7 +554,6 @@ const AdvanceToDriver = () => {
                     error={touched.cash && Boolean(errors.cash)}
                     helperText={touched.cash && errors.cash}
                   />
-
                   <TextField
                     name="totalAdvancePayableAmount"
                     label="Total Advance Payable"
@@ -594,7 +572,6 @@ const AdvanceToDriver = () => {
                       errors.totalAdvancePayableAmount
                     }
                   />
-
                   <DialogActions>
                     <Button onClick={() => setOpenModal(false)}>Cancel</Button>
                     <Button variant="contained" type="submit">

@@ -23,19 +23,27 @@ const VehicleRegistrationSchema = new mongoose.Schema(
       trim: true,
     },
     depotName: {
-      type: String,
+        type: mongoose.Schema.Types.ObjectId,
+      ref: "PortICDcode", // Reference to the PortICDcode model
       required: true,
-      trim: true,
     },
     // Updated initialOdometer as an object with value and unit
     initialOdometer: {
       value: { type: Number, required: true, min: 0 },
-      unit: { type: String, required: true, trim: true },
+      unit:  {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "UnitMeasurement",
+              required: true,
+            },
     },
     // Updated loadCapacity as an object with value and unit
     loadCapacity: {
       value: { type: Number, required: true, min: 0 },
-      unit: { type: String, required: true, trim: true },
+       unit: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "UnitMeasurement",
+              required: true,
+            },
     },
     driver: {
       _id: {

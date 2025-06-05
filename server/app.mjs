@@ -41,7 +41,7 @@ import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
-import handleS3Deletation from "./routes/handleS3Deletation.mjs"
+import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -96,7 +96,7 @@ import getJobDetail from "./routes/e-sanchit/getJobDetail.mjs";
 import updateESanchitJob from "./routes/e-sanchit/updateESanchitJob.mjs";
 
 // import - billing
-import getImportBilling from "./routes/import-billing/getImportBilling.js"
+import getImportBilling from "./routes/import-billing/getImportBilling.js";
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -179,6 +179,7 @@ import updateSrccDsr from "./routes/lr/updateSrccDsr.mjs";
 
 // SRCC Directories
 import unitMeasurementRoute from "./routes/srcc/Directory_Management/UnitMeasurementRoute.mjs";
+import LrTrackingStagesRoutes from "./routes/srcc/Directory_Management/LrTrackingStagesRoutes.mjs";
 import organisationRoutes from "./routes/srcc/Directory_Management/organisationRoutes.mjs";
 import shippingLineRoutes from "./routes/srcc/Directory_Management/shippingLineRoutes.mjs";
 import advanceToDriverRoutes from "./routes/srcc/Directory_Management/advanceToDriverRoutes.mjs";
@@ -340,8 +341,8 @@ if (cluster.isPrimary) {
       app.use(getYears);
       app.use(login);
 
-      // handle delete 
-      app.use(handleS3Deletation)
+      // handle delete
+      app.use(handleS3Deletation);
 
       // Accounts
       app.use(addAdani);
@@ -441,7 +442,7 @@ if (cluster.isPrimary) {
       app.use(getOperationPlanningList);
 
       // import billing
-      app.use(getImportBilling)
+      app.use(getImportBilling);
 
           // import cth search
         app.use(getCthSearch);
@@ -483,6 +484,7 @@ if (cluster.isPrimary) {
 
       // SRCC Directories
       app.use(unitMeasurementRoute);
+      app.use(LrTrackingStagesRoutes);
       app.use(organisationRoutes);
       app.use(shippingLineRoutes);
       app.use(advanceToDriverRoutes);

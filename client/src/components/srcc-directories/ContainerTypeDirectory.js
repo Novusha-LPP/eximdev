@@ -87,8 +87,6 @@ const ContainerTypeDirectory = () => {
     is_tank_container: false,
     size: "",
   });
-
-  const [unitMeasurements, setUnitMeasurements] = useState([]);
   const [lengthUnits, setLengthUnits] = useState([]);
   const [volumeUnits, setVolumeUnits] = useState([]);
   const [weightUnits, setWeightUnits] = useState([]);
@@ -105,55 +103,64 @@ const ContainerTypeDirectory = () => {
       console.error("Error fetching container types:", error);
     }
   };
-
   // Fetch unit measurements for different categories
   const fetchUnitMeasurements = async () => {
     try {
       const response = await axios.get(`${API_URL}/get-unit-measurements`);
-      setUnitMeasurements(response.data);
-      const lengthCategory = response.data.find(
-        (item) => item.name === "Lengths"
-      );
+      const data = response.data;
+      const lengthCategory = data.find((item) => item.name === "Lengths");
       if (lengthCategory) setLengthUnits(lengthCategory.measurements);
-      const volumeCategory = response.data.find(
-        (item) => item.name === "Volumes"
-      );
+      const volumeCategory = data.find((item) => item.name === "Volumes");
       if (volumeCategory) setVolumeUnits(volumeCategory.measurements);
-      const weightCategory = response.data.find(
-        (item) => item.name === "Weight"
-      );
+      const weightCategory = data.find((item) => item.name === "Weights");
       if (weightCategory) setWeightUnits(weightCategory.measurements);
     } catch (error) {
       console.error("Error fetching unit measurements:", error);
     }
   };
-
   useEffect(() => {
     fetchContainerTypes();
     fetchUnitMeasurements();
   }, []);
-
-  // Open modal for add/edit; for edit, populate nested objects if available.
   const handleOpenModal = (mode, data = {}) => {
     setModalMode(mode);
+
+    // Helper function to extract unit ID whether it's a string or object
+    const getUnitId = (unit) => {
+      if (!unit) return "";
+      if (typeof unit === "string") return unit;
+      if (typeof unit === "object" && unit._id) return unit._id;
+      return "";
+    };
+
     setEditData({
       _id: data._id,
       container_type: data.container_type || "",
       iso_code: data.iso_code || "",
       teu: data.teu || "",
-      outer_dimension: data.outer_dimension || {
-        length: "",
-        breadth: "",
-        height: "",
-        unit: "",
+      outer_dimension: {
+        length: data.outer_dimension?.length || "",
+        breadth: data.outer_dimension?.breadth || "",
+        height: data.outer_dimension?.height || "",
+        unit: getUnitId(data.outer_dimension?.unit),
       },
-      cubic_capacity: data.cubic_capacity || { capacity: "", unit: "" },
-      tare_weight: data.tare_weight || { value: "", unit: "" },
-      payload: data.payload || { value: "", unit: "" },
+      cubic_capacity: {
+        capacity: data.cubic_capacity?.capacity || "",
+        unit: getUnitId(data.cubic_capacity?.unit),
+      },
+      tare_weight: {
+        value: data.tare_weight?.value || "",
+        unit: getUnitId(data.tare_weight?.unit),
+      },
+      payload: {
+        value: data.payload?.value || "",
+        unit: getUnitId(data.payload?.unit),
+      },
       is_temp_controlled: data.is_temp_controlled || false,
       is_tank_container: data.is_tank_container || false,
       size: data.size || "",
     });
+
     setOpenModal(true);
   };
 
@@ -215,22 +222,31 @@ const ContainerTypeDirectory = () => {
               <TableRow key={container._id}>
                 <TableCell>{container.container_type}</TableCell>
                 <TableCell>{container.iso_code}</TableCell>
-                <TableCell>{container.teu}</TableCell>
+                <TableCell>{container.teu}</TableCell>{" "}
                 <TableCell>
                   {container.outer_dimension?.length} x{" "}
                   {container.outer_dimension?.breadth} x{" "}
                   {container.outer_dimension?.height}{" "}
-                  {container.outer_dimension?.unit}
+                  {container.outer_dimension?.unit?.unit ||
+                    container.outer_dimension?.unit}{" "}
+                  ({container.outer_dimension?.unit?.symbol || ""})
                 </TableCell>
                 <TableCell>
                   {container.cubic_capacity?.capacity}{" "}
-                  {container.cubic_capacity?.unit}
+                  {container.cubic_capacity?.unit?.unit ||
+                    container.cubic_capacity?.unit}{" "}
+                  ({container.cubic_capacity?.unit?.symbol || ""})
                 </TableCell>
                 <TableCell>
-                  {container.tare_weight?.value} {container.tare_weight?.unit}
+                  {container.tare_weight?.value}{" "}
+                  {container.tare_weight?.unit?.unit ||
+                    container.tare_weight?.unit}{" "}
+                  ({container.tare_weight?.unit?.symbol || ""})
                 </TableCell>
                 <TableCell>
-                  {container.payload?.value} {container.payload?.unit}
+                  {container.payload?.value}{" "}
+                  {container.payload?.unit?.unit || container.payload?.unit} (
+                  {container.payload?.unit?.symbol || ""})
                 </TableCell>
                 <TableCell>
                   {container.is_temp_controlled ? "Yes" : "No"}
@@ -394,16 +410,17 @@ const ContainerTypeDirectory = () => {
                         Boolean(errors.outer_dimension?.unit)
                       }
                     >
-                      <InputLabel>Unit</InputLabel>
+                      <InputLabel>(Unit) Lengths</InputLabel>
                       <Select
                         name="outer_dimension.unit"
                         value={values.outer_dimension.unit}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        label="Unit"
+                        label="(Unit) Lengths"
                       >
-                        {lengthUnits.map((u) => (
-                          <MenuItem key={u._id} value={u.symbol}>
+                        {" "}
+                        {(lengthUnits || []).map((u) => (
+                          <MenuItem key={u._id} value={u._id}>
                             {u.unit} ({u.symbol})
                           </MenuItem>
                         ))}
@@ -428,7 +445,7 @@ const ContainerTypeDirectory = () => {
 
                 {/* Cubic Capacity (Volume) Fields */}
                 <Box sx={{ mt: 2, mb: 1 }}>
-                  <strong>Volume (Cubic Capacity)</strong>
+                  <strong>Volumes (Cubic Capacity)</strong>
                 </Box>
 
                 <Grid container spacing={2}>
@@ -461,16 +478,17 @@ const ContainerTypeDirectory = () => {
                         Boolean(errors.cubic_capacity?.unit)
                       }
                     >
-                      <InputLabel>Volume Unit</InputLabel>
+                      <InputLabel>Unit (Volumes)</InputLabel>
                       <Select
                         name="cubic_capacity.unit"
                         value={values.cubic_capacity.unit}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        label="Volume Unit"
+                        label="Unit (Volumes)"
                       >
-                        {volumeUnits.map((u) => (
-                          <MenuItem key={u._id} value={u.symbol}>
+                        {" "}
+                        {(volumeUnits || []).map((u) => (
+                          <MenuItem key={u._id} value={u._id}>
                             {u.unit} ({u.symbol})
                           </MenuItem>
                         ))}
@@ -496,7 +514,7 @@ const ContainerTypeDirectory = () => {
                   <Grid item xs={6}>
                     <TextField
                       name="tare_weight.value"
-                      label="Tare Weight"
+                      label="Tare Weights"
                       fullWidth
                       margin="normal"
                       type="number"
@@ -521,7 +539,7 @@ const ContainerTypeDirectory = () => {
                         Boolean(errors.tare_weight?.unit)
                       }
                     >
-                      <InputLabel>Tare Weight Unit</InputLabel>
+                      <InputLabel>Unit (Weights)</InputLabel>{" "}
                       <Select
                         name="tare_weight.unit"
                         value={values.tare_weight.unit}
@@ -529,8 +547,8 @@ const ContainerTypeDirectory = () => {
                         onBlur={handleBlur}
                         label="Tare Weight Unit"
                       >
-                        {weightUnits.map((u) => (
-                          <MenuItem key={u._id} value={u.symbol}>
+                        {(weightUnits || []).map((u) => (
+                          <MenuItem key={u._id} value={u._id}>
                             {u.unit} ({u.symbol})
                           </MenuItem>
                         ))}
@@ -549,7 +567,7 @@ const ContainerTypeDirectory = () => {
 
                 {/* Payload Fields */}
                 <Box sx={{ mt: 2, mb: 1 }}>
-                  <strong>Payload</strong>
+                  <strong>Payload Weights</strong>
                 </Box>
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
@@ -579,7 +597,7 @@ const ContainerTypeDirectory = () => {
                         touched.payload?.unit && Boolean(errors.payload?.unit)
                       }
                     >
-                      <InputLabel>Payload Unit</InputLabel>
+                      <InputLabel>Unit (Weights)</InputLabel>{" "}
                       <Select
                         name="payload.unit"
                         value={values.payload.unit}
@@ -587,8 +605,8 @@ const ContainerTypeDirectory = () => {
                         onBlur={handleBlur}
                         label="Payload Unit"
                       >
-                        {weightUnits.map((u) => (
-                          <MenuItem key={u._id} value={u.symbol}>
+                        {(weightUnits || []).map((u) => (
+                          <MenuItem key={u._id} value={u._id}>
                             {u.unit} ({u.symbol})
                           </MenuItem>
                         ))}

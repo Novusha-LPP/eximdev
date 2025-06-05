@@ -8,11 +8,10 @@ const TollDataSchema = new mongoose.Schema(
       trim: true,
     },
     vehicleType: [
-      {
-        name: { type: String, required: true, trim: true }, // Full name of vehicle
-        shortName: { type: String, required: true, trim: true }, // Short name (code)
-        GVW: { type: String, required: true, trim: true }, // Gross Vehicle Weight
-      },
+    {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "VehicleType",
+        }
     ],
     fastagClassId: {
       type: String,
@@ -26,8 +25,8 @@ const TollDataSchema = new mongoose.Schema(
       type: Number,
     },
     secondPassTollBooth: {
-      type: String,
-      trim: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TollData",
     },
   },
   { timestamps: true }

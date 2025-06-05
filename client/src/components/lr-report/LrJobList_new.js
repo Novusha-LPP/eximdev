@@ -77,9 +77,10 @@ function LrJobList(props) {
           sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
         >
           {props.status} Jobs: {total}
-        </Typography>{" "}
+        </Typography>
+
         <TextField
-          placeholder="Search by TR No, Container No, Vehicle No, Driver Name, Consignor, etc."
+          placeholder="Search by TR No, Container No, Vehicle No, Driver Name"
           size="small"
           variant="outlined"
           value={searchQuery}
@@ -110,13 +111,6 @@ function LrJobList(props) {
         color="primary"
         sx={{ mt: 2, display: "flex", justifyContent: "center" }}
       />
-      {/* 
-      <SelectImporterModal
-        open={open}
-        handleClose={handleClose}
-        status={props.status}
-        detailedStatus={detailedStatus}
-      /> */}
     </div>
   );
 }

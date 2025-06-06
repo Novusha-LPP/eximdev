@@ -14,6 +14,10 @@ import {
   Autocomplete,
   InputAdornment,
   Box,
+  useTheme,
+  useMediaQuery,
+  Stack,
+  Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
@@ -29,7 +33,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 // Memoized search input to prevent unnecessary re-renders
-const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs }) => {
+const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs, isMobile }) => {
   const handleSearchChange = useCallback((e) => {
     setSearchQuery(e.target.value);
   }, [setSearchQuery]);
@@ -40,7 +44,7 @@ const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs }) => {
 
   return (
     <TextField
-      placeholder="Search by Job No, Importer, or AWB/BL Number"
+      placeholder={isMobile ? "Search..." : "Search by Job No, Importer, or AWB/BL Number"}
       size="small"
       variant="outlined"
       value={searchQuery}
@@ -54,15 +58,323 @@ const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs }) => {
           </InputAdornment>
         ),
       }}
-      sx={{ width: "300px", marginRight: "20px" }}
+      sx={{ 
+        width: isMobile ? "100%" : "300px", 
+        marginRight: isMobile ? "0" : "20px",
+        marginBottom: isMobile ? "16px" : "0"
+      }}
     />
   );
 });
 
 SearchInput.displayName = 'SearchInput';
 
+// Responsive filter controls component
+const FilterControls = React.memo(({ 
+  selectedICD, setSelectedICD,
+  importerNames, selectedImporter, setSelectedImporter,
+  years, selectedYearState, setSelectedYearState,
+  detailedStatus, setDetailedStatus,
+  detailedStatusOptions,
+  searchQuery, setSearchQuery, fetchJobs,
+  handleOpen,
+  isMobile, isTablet,
+  status, total
+}) => {
+  if (isMobile) {
+    return (
+      <Stack spacing={2} sx={{ width: '100%' }}>        {/* Row 1: Title and Download */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+            {status} Jobs: {total}
+          </Typography>
+          <IconButton onClick={handleOpen} size="small">
+            <DownloadIcon />
+          </IconButton>
+        </Box>
+        
+        {/* Row 2: Search */}
+        <SearchInput 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          fetchJobs={fetchJobs}
+          isMobile={isMobile}
+        />
+        
+        {/* Row 3: ICD and Year */}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="ICD Code"
+            value={selectedICD}
+            onChange={(e) => setSelectedICD(e.target.value)}
+            sx={{ flex: 1 }}
+          >
+            <MenuItem value="all">All ICDs</MenuItem>
+            <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+            <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+            <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          </TextField>
+          
+          {years.length > 0 && (
+            <TextField
+              select
+              size="small"
+              value={selectedYearState}
+              onChange={(e) => setSelectedYearState(e.target.value)}
+              sx={{ flex: 1 }}
+              label="Year"
+            >
+              {years.map((year, index) => (
+                <MenuItem key={`year-${year}-${index}`} value={year}>
+                  {year}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        </Box>
+        
+        {/* Row 4: Importer */}
+        <Autocomplete
+          sx={{ width: "100%" }}
+          freeSolo
+          options={importerNames.map((option) => option.label)}
+          value={selectedImporter || ""}
+          onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer"
+            />
+          )}
+        />
+        
+        {/* Row 5: Status */}
+        <TextField
+          select
+          size="small"
+          value={detailedStatus}
+          onChange={(e) => setDetailedStatus(e.target.value)}
+          sx={{ width: "100%" }}
+          label="Status"
+        >
+          {detailedStatusOptions.map((option, index) => (
+            <MenuItem
+              key={`status-${option.id || option.value || index}`}
+              value={option.value}
+            >
+              {option.name}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
+    );
+  }
+
+  if (isTablet) {
+    return (
+      <Stack spacing={2} sx={{ width: '100%' }}>        {/* Row 1: Title and Download */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body1" sx={{ fontWeight: "bold", fontSize: "1.5rem" }}>
+            {status} Jobs: {total}
+          </Typography>
+          <IconButton onClick={handleOpen}>
+            <DownloadIcon />
+          </IconButton>
+        </Box>
+        
+        {/* Row 2: Controls */}
+        <Stack direction="row" spacing={2} flexWrap="wrap">
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="ICD Code"
+            value={selectedICD}
+            onChange={(e) => setSelectedICD(e.target.value)}
+            sx={{ minWidth: "150px" }}
+          >
+            <MenuItem value="all">All ICDs</MenuItem>
+            <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+            <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+            <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          </TextField>
+
+          <Autocomplete
+            sx={{ minWidth: "200px", flex: 1 }}
+            freeSolo
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                fullWidth
+                label="Select Importer"
+              />
+            )}
+          />
+
+          {years.length > 0 && (
+            <TextField
+              select
+              size="small"
+              value={selectedYearState}
+              onChange={(e) => setSelectedYearState(e.target.value)}
+              sx={{ minWidth: "80px" }}
+              label="Year"
+            >
+              {years.map((year, index) => (
+                <MenuItem key={`year-${year}-${index}`} value={year}>
+                  {year}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        </Stack>
+        
+        {/* Row 3: Status and Search */}
+        <Stack direction="row" spacing={2}>
+          <TextField
+            select
+            size="small"
+            value={detailedStatus}
+            onChange={(e) => setDetailedStatus(e.target.value)}
+            sx={{ minWidth: "200px" }}
+            label="Status"
+          >
+            {detailedStatusOptions.map((option, index) => (
+              <MenuItem
+                key={`status-${option.id || option.value || index}`}
+                value={option.value}
+              >
+                {option.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          
+          <SearchInput 
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            fetchJobs={fetchJobs}
+            isMobile={false}
+          />
+        </Stack>
+      </Stack>
+    );
+  }
+
+  // Desktop layout (original)
+  return (
+    <Box sx={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      width: "100%",
+    }}>
+      <Typography
+        variant="body1"
+        sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+      >
+        Jobs: {/* total will be passed from parent */}
+      </Typography>
+
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="ICD Code"
+          value={selectedICD}
+          onChange={(e) => setSelectedICD(e.target.value)}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="all">All ICDs</MenuItem>
+          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+        </TextField>
+
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={importerNames.map((option) => option.label)}
+          value={selectedImporter || ""}
+          onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer"
+            />
+          )}
+        />
+
+        {years.length > 0 && (
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            sx={{ width: "100px", marginRight: "20px" }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
+        <TextField
+          select
+          size="small"
+          value={detailedStatus}
+          onChange={(e) => setDetailedStatus(e.target.value)}
+          sx={{ width: "250px", marginRight: "20px" }}
+        >
+          {detailedStatusOptions.map((option, index) => (
+            <MenuItem
+              key={`status-${option.id || option.value || index}`}
+              value={option.value}
+            >
+              {option.name}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <SearchInput 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          fetchJobs={fetchJobs}
+          isMobile={false}
+        />
+        
+        <IconButton onClick={handleOpen}>
+          <DownloadIcon />
+        </IconButton>
+      </Box>
+    </Box>
+  );
+});
+
+FilterControls.displayName = 'FilterControls';
+
 
 function JobList(props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
+  
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { 
@@ -70,7 +382,8 @@ function JobList(props) {
     detailedStatus, setDetailedStatus,
     selectedICD, setSelectedICD,
     selectedImporter, setSelectedImporter  } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);  const [importers, setImporters] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const [importers, setImporters] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger state
 
   const [open, setOpen] = useState(false);
@@ -207,20 +520,29 @@ function JobList(props) {
     enablePagination: false,
     enableBottomToolbar: false,
     enableDensityToggle: false,
-    enableRowVirtualization: true, // Enable row virtualization for better performance
-    rowVirtualizerOptions: { overscan: 8 }, // Render a few extra rows for smoother scrolling
+    enableRowVirtualization: !isMobile, // Disable virtualization on mobile for better scrolling
+    rowVirtualizerOptions: { overscan: isMobile ? 4 : 8 }, // Fewer overscan on mobile
     initialState: {
-      density: "compact",
-      columnPinning: { left: ["job_no"] },
+      density: isMobile ? "comfortable" : "compact",
+      columnPinning: { left: isMobile ? [] : ["job_no"] }, // No pinning on mobile
+      columnVisibility: isMobile ? {
+        // Hide some columns on mobile to improve readability
+        detailed_status: false,
+        // Add other columns to hide on mobile as needed
+      } : {},
     },
     enableGlobalFilter: false,
-    enableGrouping: true,
+    enableGrouping: !isMobile, // Disable grouping on mobile
     enableColumnFilters: false,
-    enableColumnActions: false,
+    enableColumnActions: !isMobile, // Disable column actions on mobile
     enableStickyHeader: true,
-    enablePinning: true,
+    enablePinning: !isMobile, // Disable pinning on mobile
     muiTableContainerProps: {
-      sx: { maxHeight: "590px", overflowY: "auto" },
+      sx: { 
+        maxHeight: isMobile ? "400px" : "590px", 
+        overflowY: "auto",
+        overflowX: "auto", // Allow horizontal scroll on mobile
+      },
     },
     muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: {
@@ -228,100 +550,41 @@ function JobList(props) {
         position: "sticky",
         top: 0,
         zIndex: 1,
+        fontSize: isMobile ? "0.75rem" : "0.875rem",
+        padding: isMobile ? "8px 4px" : "16px",
       },
     },
+    muiTableBodyCellProps: {
+      sx: {
+        fontSize: isMobile ? "0.75rem" : "0.875rem",
+        padding: isMobile ? "8px 4px" : "16px",
+      },
+    },
+    muiTableProps: {
+      sx: {
+        minWidth: isMobile ? "100%" : "auto",
+      }
+    },
     renderTopToolbarCustomActions: () => (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
-        >
-          {props.status} Jobs: {total}
-        </Typography>
-
-         <TextField
-                  select
-                  size="small"
-                  variant="outlined"
-                  label="ICD Code"
-                  value={selectedICD}
-                  onChange={(e) => {
-                    setSelectedICD(e.target.value); // Update the selected ICD code
-                  }}
-                  sx={{ width: "200px", marginRight: "20px" }}
-                >
-                  <MenuItem value="all">All ICDs</MenuItem>
-                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-                </TextField>
-
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer" // Placeholder text
-            />
-          )}
-        />
-
-{years.length > 0 && (
-  <TextField
-    select
-    size="small"
-    value={selectedYearState}
-    onChange={(e) => setSelectedYearState(e.target.value)}
-    sx={{ width: "100px", marginRight: "20px" }}
-  >
-    {years.map((year, index) => (
-      <MenuItem key={`year-${year}-${index}`} value={year}>
-        {year}
-      </MenuItem>
-    ))}
-  </TextField>
-)}
-
-
-        <TextField
-          select
-          size="small"
-          value={detailedStatus}
-          onChange={(e) => setDetailedStatus(e.target.value)}
-          sx={{ width: "250px" }}
-        >
-          {detailedStatusOptions.map((option, index) => (
-            <MenuItem
-              key={`status-${option.id || option.value || index}`}
-              value={option.value}
-            >
-              {option.name}
-            </MenuItem>
-          ))}        </TextField>
-
-        <SearchInput 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          fetchJobs={fetchJobs}
-        />
-        <IconButton onClick={handleOpen}>
-          <DownloadIcon />
-        </IconButton>
-      </div>
+      <FilterControls
+        selectedICD={selectedICD}
+        setSelectedICD={setSelectedICD}
+        importerNames={importerNames}
+        selectedImporter={selectedImporter}
+        setSelectedImporter={setSelectedImporter}
+        years={years}
+        selectedYearState={selectedYearState}
+        setSelectedYearState={setSelectedYearState}
+        detailedStatus={detailedStatus}
+        setDetailedStatus={setDetailedStatus}
+        detailedStatusOptions={detailedStatusOptions}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        fetchJobs={fetchJobs}
+        handleOpen={handleOpen}
+        isMobile={isMobile}
+        isTablet={isTablet}
+      />
     ),
   });
 

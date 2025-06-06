@@ -12,8 +12,6 @@ import {
   DialogActions,
   Box,
   Typography,
-  Snackbar,
-  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 
@@ -55,11 +53,10 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   const [editable, setEditable] = useState(null);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
-  const [tempTimeValue, setTempTimeValue] = useState("");  const [dateError, setDateError] = useState("");
+  const [tempTimeValue, setTempTimeValue] = useState("");
+  const [dateError, setDateError] = useState("");
   // Add state for the IGST modal
-  const [igstModalOpen, setIgstModalOpen] = useState(false);
-  // Add notification state
-  const [notification, setNotification] = useState({ open: false, message: "", severity: "success" });const [igstValues, setIgstValues] = useState({
+  const [igstModalOpen, setIgstModalOpen] = useState(false);  const [igstValues, setIgstValues] = useState({
     assessable_ammount: assessable_ammount || "",
     igst_ammount: igst_ammount || "",
     bcd_ammount: bcd_ammount || "",
@@ -71,43 +68,59 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
 
   const handleCombinedDateTimeChange = (e) => {
     setTempDateValue(e.target.value);
-  };
-  // Reset data when row changes
+  };  // Reset data when row ID changes (prevents resetting during status updates)
   useEffect(() => {
-    setDates({
-      assessment_date,
-      vessel_berthing,
-      gateway_igm_date,
-      discharge_date,
-      pcv_date,
-      out_of_charge,
-      duty_paid_date,
-    });
-    setContainers([...container_nos]);
-    setLocalStatus(detailed_status);
-    setLocalFreeTime(free_time);
-    setEditable(null);
-    setTempDateValue("");
-    setTempTimeValue("");
-    setDateError("");    setIgstValues({
-      assessable_ammount: assessable_ammount || "",
-      igst_ammount: igst_ammount || "",
-      bcd_ammount: bcd_ammount || "",
-      sws_ammount: sws_ammount || "",
-      intrest_ammount: cell.row.original.intrest_ammount || "",
-    });
-  }, [cell.row.original]);
+    if (cell && cell.row && cell.row.original) {
+      const {
+        assessment_date,
+        vessel_berthing,
+        gateway_igm_date,
+        discharge_date,
+        pcv_date,
+        out_of_charge,
+        duty_paid_date,
+        container_nos = [],
+        detailed_status,
+        free_time,
+        assessable_ammount,
+        igst_ammount,
+        bcd_ammount,
+        sws_ammount,
+        intrest_ammount,
+      } = cell.row.original;
+
+      setDates({
+        assessment_date,
+        vessel_berthing,
+        gateway_igm_date,
+        discharge_date,
+        pcv_date,
+        out_of_charge,
+        duty_paid_date,
+      });
+      setContainers([...container_nos]);
+      setLocalStatus(detailed_status);
+      setLocalFreeTime(free_time);
+      setEditable(null);
+      setTempDateValue("");
+      setTempTimeValue("");
+      setDateError("");
+      setIgstValues({
+        assessable_ammount: assessable_ammount || "",
+        igst_ammount: igst_ammount || "",
+        bcd_ammount: bcd_ammount || "",
+        sws_ammount: sws_ammount || "",
+        intrest_ammount: intrest_ammount || "",
+      });
+    }
+  }, [_id]); // Only reset when the row ID changes, not on every data update
   // Handle IGST modal open and close
   const handleOpenIgstModal = () => {
     setIgstModalOpen(true);
   };
+
   const handleCloseIgstModal = () => {
     setIgstModalOpen(false);
-  };
-
-  // Handle notification close
-  const handleCloseNotification = () => {
-    setNotification({ open: false, message: "", severity: "success" });
   };
   const handleIgstSubmit = async () => {
     try {
@@ -268,22 +281,10 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     // Add time component for rail-out if available
     if (field === "container_rail_out_date" && tempTimeValue) {
       finalValue = `${tempDateValue}T${tempTimeValue}`;
-    }    if (field === "by_road_movement_date" && tempTimeValue) {
+    }
+    if (field === "by_road_movement_date" && tempTimeValue) {
       finalValue = `${tempDateValue}T${tempTimeValue}`;
     }
-
-    // Function to show notification
-    const showNotification = (fieldName) => {
-      let displayName = fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      if (index !== null) {
-        displayName = `Container ${index + 1} ${displayName}`;
-      }
-      setNotification({
-        open: true,
-        message: `${displayName} has been updated successfully!`,
-        severity: "success"
-      });
-    };
 
     if (index !== null) {
       const updatedContainers = containers.map((container, i) => {
@@ -313,43 +314,31 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         return container;
       });
 
-      setContainers(updatedContainers);      axios
+      setContainers(updatedContainers);
+
+      axios
         .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
         })
         .then(() => {
-          setEditable(null); // Auto-collapse date picker
-          showNotification(field); // Show success notification
+          setEditable(null);
           updateDetailedStatus();
         })
-        .catch((err) => {
-          console.error("Error Updating:", err);
-          setNotification({
-            open: true,
-            message: `Failed to update ${field.replace(/_/g, ' ')}. Please try again.`,
-            severity: "error"
-          });
-        });
+        .catch((err) => console.error("Error Updating:", err));
     } else {
       // Handle non-container fields
       setDates((prev) => {
-        const newDates = { ...prev, [field]: finalValue };        axios
+        const newDates = { ...prev, [field]: finalValue };
+
+        axios
           .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
             [field]: finalValue,
           })
           .then(() => {
-            setEditable(null); // Auto-collapse date picker
-            showNotification(field); // Show success notification
+            setEditable(null);
             updateDetailedStatus();
           })
-          .catch((err) => {
-            console.error("Error Updating:", err);
-            setNotification({
-              open: true,
-              message: `Failed to update ${field.replace(/_/g, ' ')}. Please try again.`,
-              severity: "error"
-            });
-          });
+          .catch((err) => console.error("Error Updating:", err));
 
         return newDates;
       });
@@ -1024,28 +1013,9 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
             variant="contained"
           >
             Save & Update
-          </Button>        </DialogActions>
+          </Button>
+        </DialogActions>
       </Dialog>
-
-      {/* Notification Snackbar */}
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={1000}
-        onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: "top", horizontal: "left" }}
-        sx={{
-          zIndex: 1500, // above other content like forms
-          ml: 65, // add margin from top (adjust as needed)
-        }}
-      >
-        <Alert
-          onClose={handleCloseNotification}
-          severity={notification.severity}
-          sx={{ width: "100%" }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
     </div>
   );
 };

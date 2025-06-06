@@ -20,14 +20,6 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       const container = jobData.container_nos && jobData.container_nos[containerIndex] 
         ? jobData.container_nos[containerIndex] 
         : {};
-<<<<<<< HEAD
-          // Calculate values based on the formula
-      const netWeightAsPerPL = parseFloat(container.net_weight_as_per_PL_document) || 0;
-      const assessableAmount = parseFloat(jobData.assessable_ammount) || 0;
-      const igstAmount = parseFloat(jobData.igst_ammount) || 0;
-      const netWeight = parseFloat(jobData.job_net_weight) || parseFloat(container.net_weight) || 1; // Fallback to 1 to avoid division by zero
-
-=======
         // Enhanced validation for required fields
       const assessableAmount = parseFloat(jobData.assessable_ammount);
       const igstAmount = parseFloat(jobData.igst_ammount);
@@ -63,7 +55,6 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       // Ensure netWeight is not zero to avoid division by zero errors
       // Calculate values based on the formula
      
->>>>>>> origin/Testing
       // Convert netWeightAsPerPL from KGS to MTS if not already in MTS
       const netWeightAsPerPLInMTS = netWeightAsPerPL / 1000; 
       

@@ -3976,19 +3976,11 @@ function JobDetails() {
             Duty Payment Details
           </Typography>
         </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ mb: 2 }}>
+        <DialogContent>          <DialogContentText sx={{ mb: 2 }}>
             Please fill in the duty payment details below. All amounts should be
             entered in INR.
-          </DialogContentText>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 2,
-              mt: 2,
-            }}
-          >
+          </DialogContentText>          {/* Assessable Amount - Full Width at Top */}
+          <Box sx={{ mb: 2, mt: 3 }}>
             <TextField
               label="Assessable Amount (INR)"
               name="assessable_ammount"
@@ -3999,21 +3991,31 @@ function JobDetails() {
               variant="outlined"
               size="small"
             />
+          </Box>
+
+          {/* Other Fields in 2x2 Grid */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 2,
+            }}
+          >
+            <TextField
+              label="BCD Amount (INR)"
+              name="bcd_ammount"
+              type="number"
+              value={formik.values.bcd_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
             <TextField
               label="IGST Amount (INR)"
               name="igst_ammount"
               type="number"
               value={formik.values.igst_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />{" "}
-            <TextField
-              label="Interest Amount (INR)"
-              name="intrest_ammount"
-              type="number"
-              value={formik.values.intrest_ammount}
               onChange={formik.handleChange}
               fullWidth
               variant="outlined"
@@ -4030,15 +4032,36 @@ function JobDetails() {
               size="small"
             />
             <TextField
-              label="BCD Amount (INR)"
-              name="bcd_ammount"
+              label="Interest Amount (INR)"
+              name="intrest_ammount"
               type="number"
-              value={formik.values.bcd_ammount}
+              value={formik.values.intrest_ammount}
               onChange={formik.handleChange}
               fullWidth
               variant="outlined"
               size="small"
             />
+          </Box>
+          
+          {/* Total Calculation Display */}
+          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+              Total Summary
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
+              BCD: ₹{formik.values.bcd_ammount || "0.00"} + 
+              IGST: ₹{formik.values.igst_ammount || "0.00"} + 
+              SWS: ₹{formik.values.sws_ammount || "0.00"} +
+              Interest: ₹{formik.values.intrest_ammount || "0.00"}
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: "bold", mt: 2, color: "primary.main" }}>
+              Total Duty: ₹{(
+                parseFloat(formik.values.bcd_ammount || 0) +
+                parseFloat(formik.values.igst_ammount || 0) +
+                parseFloat(formik.values.sws_ammount || 0) +
+                parseFloat(formik.values.intrest_ammount || 0)
+              ).toFixed(2)}
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>

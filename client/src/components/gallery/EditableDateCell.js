@@ -919,24 +919,40 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
             Duty Payment Details
           </Typography>
         </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ mb: 2 }}>
+        <DialogContent>          <DialogContentText sx={{ mb: 2 }}>
             Please fill in the duty payment details below. All amounts should be
             entered in INR.
-          </DialogContentText>
-          <Box
-            sx={{
-              display: "grid",
-              gap: 2,
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            }}
-          >            <TextField
+          </DialogContentText>          {/* Assessable Amount - Full Width at Top */}
+          <Box sx={{ mb: 2, mt: 3 }}>
+            <TextField
               label="Assessable Amount (INR)"
               name="assessable_ammount"
               type="number"
               value={igstValues.assessable_ammount}
               onChange={(e) =>
                 setIgstValues({ ...igstValues, assessable_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+          </Box>
+
+          {/* Other Fields in 2x2 Grid */}
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            }}
+          >
+            <TextField
+              label="BCD Amount (INR)"
+              name="bcd_ammount"
+              type="number"
+              value={igstValues.bcd_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, bcd_ammount: e.target.value })
               }
               fullWidth
               variant="outlined"
@@ -965,18 +981,8 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
               fullWidth
               variant="outlined"
               size="small"
-            />            <TextField
-              label="BCD Amount (INR)"
-              name="bcd_ammount"
-              type="number"
-              value={igstValues.bcd_ammount}
-              onChange={(e) =>
-                setIgstValues({ ...igstValues, bcd_ammount: e.target.value })
-              }
-              fullWidth
-              variant="outlined"
-              size="small"
-            />            <TextField
+            />
+            <TextField
               label="Interest Amount (INR)"
               name="intrest_ammount"
               type="number"

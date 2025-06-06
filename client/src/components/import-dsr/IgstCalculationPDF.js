@@ -20,24 +20,41 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       const container = jobData.container_nos && jobData.container_nos[containerIndex] 
         ? jobData.container_nos[containerIndex] 
         : {};
-      
-      // Check if required values are present
+        // Enhanced validation for required fields
       const assessableAmount = parseFloat(jobData.assessable_ammount);
       const igstAmount = parseFloat(jobData.igst_ammount);
-      const net_weight_as_per_PL_document = parseFloat(jobData.net_weight_as_per_PL_document) || 0;
-       const netWeight = parseFloat(jobData.job_net_weight) || parseFloat(container.net_weight) || 1; // Fallback to 1 to avoid division by zero
+      const netWeightAsPerPL = parseFloat(container.net_weight_as_per_PL_document);
+      const netWeight = parseFloat(jobData.job_net_weight) || parseFloat(container.net_weight);
       
-      if (isNaN(assessableAmount) || isNaN(igstAmount) || isNaN(net_weight_as_per_PL_document) || isNaN(netWeight)) {
-        alert("Cannot generate PDF: Assessable amount or IGST amount is missing or invalid");
+      // Comprehensive validation with specific error messages
+      const missingFields = [];
+      
+      if (isNaN(assessableAmount) || assessableAmount <= 0) {
+        missingFields.push("Assessable Amount");
+      }
+      
+      if (isNaN(igstAmount) || igstAmount <= 0) {
+        missingFields.push("IGST Amount");
+      }
+      
+      if (isNaN(netWeight) || netWeight <= 0) {
+        missingFields.push("Net Weight (Job or Container)");
+      }
+      
+      if (isNaN(netWeightAsPerPL) || netWeightAsPerPL <= 0) {
+        missingFields.push("Net Weight as per PL Document");
+      }
+      
+      if (missingFields.length > 0) {
+        const errorMessage = `Cannot generate PDF. The following required fields are missing or invalid:\n\n${missingFields.map(field => `• ${field}`).join('\n')}\n\nPlease ensure all duty payment details are properly filled before generating the PDF.`;
+        alert(errorMessage);
         return;
       }
-
-      console.log("Job Data:", netWeight, assessableAmount, igstAmount, net_weight_as_per_PL_document);
       
+      console.log("Job Data:", assessableAmount, igstAmount, netWeightAsPerPL, netWeight);
+      // Ensure netWeight is not zero to avoid division by zero errors
       // Calculate values based on the formula
-      const netWeightAsPerPL = parseFloat(container.net_weight_as_per_PL_document) || 0;
      
-  
       // Convert netWeightAsPerPL from KGS to MTS if not already in MTS
       const netWeightAsPerPLInMTS = netWeightAsPerPL / 1000; 
       

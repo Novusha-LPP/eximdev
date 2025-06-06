@@ -22,6 +22,8 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import EditableArrivalDate from "./EditableArrivalDate";
+import EditableDateCell from "../gallery/EditableDateCell";
 
 function OperationsList() {
   const [selectedICD, setSelectedICD] = useState("");
@@ -479,6 +481,14 @@ function OperationsList() {
             ))}
           </div>
         );
+      },    },
+    {
+      accessorKey: "dates",
+      header: "Dates",
+      enableSorting: false,
+      size: 300,      Cell: ({ cell }) => {
+        // Use the custom EditableArrivalDate component to allow date editing
+        return <EditableArrivalDate cell={cell} />;
       },
     },
     {

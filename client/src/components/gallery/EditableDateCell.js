@@ -12,10 +12,12 @@ import {
   DialogActions,
   Box,
   Typography,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 
-const EditableDateCell = ({ cell }) => {
+const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   const {
     _id,
     assessment_date,
@@ -53,10 +55,11 @@ const EditableDateCell = ({ cell }) => {
   const [editable, setEditable] = useState(null);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
-  const [tempTimeValue, setTempTimeValue] = useState("");
-  const [dateError, setDateError] = useState("");
+  const [tempTimeValue, setTempTimeValue] = useState("");  const [dateError, setDateError] = useState("");
   // Add state for the IGST modal
-  const [igstModalOpen, setIgstModalOpen] = useState(false);  const [igstValues, setIgstValues] = useState({
+  const [igstModalOpen, setIgstModalOpen] = useState(false);
+  // Add notification state
+  const [notification, setNotification] = useState({ open: false, message: "", severity: "success" });const [igstValues, setIgstValues] = useState({
     assessable_ammount: assessable_ammount || "",
     igst_ammount: igst_ammount || "",
     bcd_ammount: bcd_ammount || "",
@@ -68,7 +71,8 @@ const EditableDateCell = ({ cell }) => {
 
   const handleCombinedDateTimeChange = (e) => {
     setTempDateValue(e.target.value);
-  };  // Reset data when row changes, but avoid resetting status if we just updated it
+  };
+  // Reset data when row changes
   useEffect(() => {
     setDates({
       assessment_date,
@@ -80,41 +84,30 @@ const EditableDateCell = ({ cell }) => {
       duty_paid_date,
     });
     setContainers([...container_nos]);
-    // Only reset local status if it's different from what we have and we're not in the middle of an update
-    if (detailed_status !== localStatus && !cell.row.original._updating) {
-      setLocalStatus(detailed_status);
-    }
+    setLocalStatus(detailed_status);
     setLocalFreeTime(free_time);
     setEditable(null);
     setTempDateValue("");
     setTempTimeValue("");
-    setDateError("");
-    setIgstValues({
+    setDateError("");    setIgstValues({
       assessable_ammount: assessable_ammount || "",
       igst_ammount: igst_ammount || "",
       bcd_ammount: bcd_ammount || "",
       sws_ammount: sws_ammount || "",
       intrest_ammount: cell.row.original.intrest_ammount || "",
     });
-  }, [
-    _id, // Only reset when the actual job ID changes, not when status updates
-    assessment_date,
-    vessel_berthing,
-    gateway_igm_date,
-    discharge_date,
-    pcv_date,
-    out_of_charge,
-    duty_paid_date,
-    free_time,
-    // Remove detailed_status and cell.row.original from dependencies
-  ]);
+  }, [cell.row.original]);
   // Handle IGST modal open and close
   const handleOpenIgstModal = () => {
     setIgstModalOpen(true);
   };
-
   const handleCloseIgstModal = () => {
     setIgstModalOpen(false);
+  };
+
+  // Handle notification close
+  const handleCloseNotification = () => {
+    setNotification({ open: false, message: "", severity: "success" });
   };
   const handleIgstSubmit = async () => {
     try {
@@ -133,12 +126,8 @@ const EditableDateCell = ({ cell }) => {
       console.error("Error submitting IGST data:", error);
     }
   };
+
   const updateDetailedStatus = useCallback(async () => {
-    // Prevent status updates during ongoing updates to avoid race conditions
-    if (cell.row.original._updating) {
-      return;
-    }
-    
     const eta = dates.vessel_berthing;
     const gatewayIGMDate = dates.gateway_igm_date;
     const dischargeDate = dates.discharge_date;
@@ -190,50 +179,39 @@ const EditableDateCell = ({ cell }) => {
     } else if (gatewayIGMDate) {
       newStatus = "Gateway IGM Filed";
     } else if (!eta || eta === "Invalid Date") {
-      newStatus = "ETA Date Pending";    } else if (eta) {
+      newStatus = "ETA Date Pending";
+    } else if (eta) {
       newStatus = "Estimated Time of Arrival";
-    }    
-    if (newStatus && newStatus !== cell.row.original.detailed_status) {
+    }    if (newStatus && newStatus !== localStatus) {
+      // Update the row data immediately for instant UI feedback
+      cell.row.original.detailed_status = newStatus;
+      
       try {
-        // Set updating flag to prevent race conditions
-        cell.row.original._updating = true;
-        
-        // Update local state first for immediate UI feedback
-        setLocalStatus(newStatus);
-        
-        // Make API call to update database
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
         });
-        
-        // Update the row data after successful API call
-        cell.row.original.detailed_status = newStatus;
-        
-        // Trigger table refresh with proper timing
-        if (typeof window.refreshJobTable === 'function') {
-          setTimeout(() => {
-            // Clear updating flag before refresh
-            cell.row.original._updating = false;
-            window.refreshJobTable();
-          }, 50);
-        } else {
-          cell.row.original._updating = false;
+        setLocalStatus(newStatus);
+          // Force table re-render by triggering a state change
+        // This ensures the row color updates immediately
+        if (typeof onRowDataUpdate === 'function') {
+          onRowDataUpdate(_id, newStatus);
         }
-        
       } catch (err) {
         console.error("Error updating status:", err);
-        // Revert local state on error
-        setLocalStatus(detailed_status);
-        cell.row.original._updating = false;
+        // Revert the change if API call fails
+        cell.row.original.detailed_status = localStatus;
       }
-    }  }, [
+    }
+  }, [
     dates,
     containers,
     be_no,
     consignment_type,
     type_of_b_e,
+    localStatus,
     _id,
   ]);
+
   useEffect(() => {
     updateDetailedStatus();
   }, [
@@ -241,7 +219,6 @@ const EditableDateCell = ({ cell }) => {
     dates.gateway_igm_date,
     dates.discharge_date,
     dates.out_of_charge,
-    dates.pcv_date,
     dates.assessment_date,
     containers,
     updateDetailedStatus,
@@ -291,10 +268,22 @@ const EditableDateCell = ({ cell }) => {
     // Add time component for rail-out if available
     if (field === "container_rail_out_date" && tempTimeValue) {
       finalValue = `${tempDateValue}T${tempTimeValue}`;
-    }
-    if (field === "by_road_movement_date" && tempTimeValue) {
+    }    if (field === "by_road_movement_date" && tempTimeValue) {
       finalValue = `${tempDateValue}T${tempTimeValue}`;
     }
+
+    // Function to show notification
+    const showNotification = (fieldName) => {
+      let displayName = fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      if (index !== null) {
+        displayName = `Container ${index + 1} ${displayName}`;
+      }
+      setNotification({
+        open: true,
+        message: `${displayName} has been updated successfully!`,
+        severity: "success"
+      });
+    };
 
     if (index !== null) {
       const updatedContainers = containers.map((container, i) => {
@@ -324,31 +313,43 @@ const EditableDateCell = ({ cell }) => {
         return container;
       });
 
-      setContainers(updatedContainers);
-
-      axios
+      setContainers(updatedContainers);      axios
         .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
         })
         .then(() => {
-          setEditable(null);
+          setEditable(null); // Auto-collapse date picker
+          showNotification(field); // Show success notification
           updateDetailedStatus();
         })
-        .catch((err) => console.error("Error Updating:", err));
+        .catch((err) => {
+          console.error("Error Updating:", err);
+          setNotification({
+            open: true,
+            message: `Failed to update ${field.replace(/_/g, ' ')}. Please try again.`,
+            severity: "error"
+          });
+        });
     } else {
       // Handle non-container fields
       setDates((prev) => {
-        const newDates = { ...prev, [field]: finalValue };
-
-        axios
+        const newDates = { ...prev, [field]: finalValue };        axios
           .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
             [field]: finalValue,
           })
           .then(() => {
-            setEditable(null);
+            setEditable(null); // Auto-collapse date picker
+            showNotification(field); // Show success notification
             updateDetailedStatus();
           })
-          .catch((err) => console.error("Error Updating:", err));
+          .catch((err) => {
+            console.error("Error Updating:", err);
+            setNotification({
+              open: true,
+              message: `Failed to update ${field.replace(/_/g, ' ')}. Please try again.`,
+              severity: "error"
+            });
+          });
 
         return newDates;
       });
@@ -1023,9 +1024,28 @@ const EditableDateCell = ({ cell }) => {
             variant="contained"
           >
             Save & Update
-          </Button>
-        </DialogActions>
+          </Button>        </DialogActions>
       </Dialog>
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={1000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: "top", horizontal: "left" }}
+        sx={{
+          zIndex: 1500, // above other content like forms
+          ml: 65, // add margin from top (adjust as needed)
+        }}
+      >
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          sx={{ width: "100%" }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

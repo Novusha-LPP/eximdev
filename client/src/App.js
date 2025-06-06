@@ -36,7 +36,9 @@ function App() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [navigate]);  return (
+  }, [navigate]);
+
+  return (
     <UserContext.Provider value={{ user, setUser }}>
       <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
     </UserContext.Provider>

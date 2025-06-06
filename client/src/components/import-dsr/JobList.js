@@ -64,17 +64,14 @@ SearchInput.displayName = 'SearchInput';
 
 function JobList(props) {
   const [years, setYears] = useState([]);
-  const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { 
     searchQuery, setSearchQuery,
     detailedStatus, setDetailedStatus,
     selectedICD, setSelectedICD,
-    selectedImporter, setSelectedImporter
-  } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
-  const columns = useJobColumns(detailedStatus);
-  const [importers, setImporters] = useState("");
+    selectedImporter, setSelectedImporter  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);  const [importers, setImporters] = useState("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger state
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
@@ -123,14 +120,13 @@ function JobList(props) {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
-
   // useEffect(() => {
   //   if (!selectedImporter) {
   //     setSelectedImporter("Select Importer");
   //   }
   // }, [importerNames]);
 
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs } =
+  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows } =
     useFetchJobList(
       detailedStatus,
       selectedYearState,
@@ -139,6 +135,21 @@ function JobList(props) {
       debouncedSearchQuery,
       selectedImporter
     );
+
+  // Callback to update row data when status changes in EditableDateCell
+  const handleRowDataUpdate = useCallback((jobId, newStatus) => {
+    setRows(prevRows => 
+      prevRows.map(row => 
+        row._id === jobId 
+          ? { ...row, detailed_status: newStatus }
+          : row
+      )
+    );
+    // Also increment refreshTrigger to force getRowProps to recalculate
+    setRefreshTrigger(prev => prev + 1);
+  }, [setRows]);
+
+  const columns = useJobColumns(handleRowDataUpdate);
 
   useEffect(() => {
     async function getYears() {
@@ -177,39 +188,18 @@ function JobList(props) {
       setDebouncedSearchQuery(searchQuery);
     }, 300); // Reduced from 500ms to 300ms for more responsive search
     return () => clearTimeout(handler);
-  }, [searchQuery]);  // Memoize the data transformation to prevent expensive re-calculations on every render
+  }, [searchQuery]);
+  // Memoize the data transformation to prevent expensive re-calculations on every render
   const tableData = useMemo(() => {
-    return rows.map((row, index) => ({ 
-      ...row, 
-      id: row._id || `row-${index}`,
-      // Simple key for change detection without causing infinite renders
-      _tableKey: `${row._id}_${row.detailed_status}_${forceUpdate}`
-    }));
-  }, [rows, forceUpdate]);  // Create a refresh function that can be called from child components
-  const refreshTable = useCallback(() => {
-    setForceUpdate(prev => prev + 1); // Force component re-render
-    fetchJobs(currentPage); // Refetch data to get latest from database
-  }, [fetchJobs, currentPage]);
-
-  // Expose refresh function globally for EditableDateCell to use
-  useEffect(() => {
-    window.refreshJobTable = refreshTable;
-    return () => {
-      delete window.refreshJobTable;
-    };
-  }, [refreshTable]);
-  // Remove empty dependency array and depend on tableData to ensure re-evaluation when data changes
-  const getRowProps = useCallback(
-    ({ row }) => ({
+    return rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` }));
+  }, [rows]);  // Memoize the row props function to prevent re-creation on every render
+  const getRowProps = useMemo(
+    () => ({ row }) => ({
       className: getTableRowsClassname(row),
       sx: { textAlign: "center" },
-      // Add data attributes to help with debugging
-      'data-status': row.original.detailed_status,
-      'data-row-id': row.original._id,
     }),
-    [] // Remove tableData dependency to avoid infinite re-renders, but keep it responsive
-  );
-    const table = useMaterialReactTable({
+    [rows, refreshTrigger] // Add refreshTrigger as dependency to force re-calculation
+  );  const table = useMaterialReactTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
@@ -217,7 +207,8 @@ function JobList(props) {
     enablePagination: false,
     enableBottomToolbar: false,
     enableDensityToggle: false,
-    enableRowVirtualization: false, // Disable row virtualization to ensure immediate updates
+    enableRowVirtualization: true, // Enable row virtualization for better performance
+    rowVirtualizerOptions: { overscan: 8 }, // Render a few extra rows for smoother scrolling
     initialState: {
       density: "compact",
       columnPinning: { left: ["job_no"] },
@@ -228,13 +219,10 @@ function JobList(props) {
     enableColumnActions: false,
     enableStickyHeader: true,
     enablePinning: true,
-    // Add meta data for callbacks
-    meta: {
-      refetch: refreshTable,
-    },
     muiTableContainerProps: {
       sx: { maxHeight: "590px", overflowY: "auto" },
-    },muiTableBodyRowProps: getRowProps,
+    },
+    muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

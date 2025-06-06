@@ -69,9 +69,11 @@ function JobList(props) {
     searchQuery, setSearchQuery,
     detailedStatus, setDetailedStatus,
     selectedICD, setSelectedICD,
-    selectedImporter, setSelectedImporter  } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);  const [importers, setImporters] = useState("");
-  const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger state
+    selectedImporter, setSelectedImporter
+  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const columns = useJobColumns(detailedStatus);
+  const [importers, setImporters] = useState("");
 
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
@@ -120,13 +122,14 @@ function JobList(props) {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
+
   // useEffect(() => {
   //   if (!selectedImporter) {
   //     setSelectedImporter("Select Importer");
   //   }
   // }, [importerNames]);
 
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows } =
+  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs } =
     useFetchJobList(
       detailedStatus,
       selectedYearState,
@@ -135,21 +138,6 @@ function JobList(props) {
       debouncedSearchQuery,
       selectedImporter
     );
-
-  // Callback to update row data when status changes in EditableDateCell
-  const handleRowDataUpdate = useCallback((jobId, newStatus) => {
-    setRows(prevRows => 
-      prevRows.map(row => 
-        row._id === jobId 
-          ? { ...row, detailed_status: newStatus }
-          : row
-      )
-    );
-    // Also increment refreshTrigger to force getRowProps to recalculate
-    setRefreshTrigger(prev => prev + 1);
-  }, [setRows]);
-
-  const columns = useJobColumns(handleRowDataUpdate);
 
   useEffect(() => {
     async function getYears() {
@@ -192,14 +180,17 @@ function JobList(props) {
   // Memoize the data transformation to prevent expensive re-calculations on every render
   const tableData = useMemo(() => {
     return rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` }));
-  }, [rows]);  // Memoize the row props function to prevent re-creation on every render
+  }, [rows]);
+
+  // Memoize the row props function to prevent re-creation on every render
   const getRowProps = useMemo(
     () => ({ row }) => ({
       className: getTableRowsClassname(row),
       sx: { textAlign: "center" },
     }),
-    [rows, refreshTrigger] // Add refreshTrigger as dependency to force re-calculation
-  );  const table = useMaterialReactTable({
+    []
+  );
+  const table = useMaterialReactTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
@@ -221,8 +212,7 @@ function JobList(props) {
     enablePinning: true,
     muiTableContainerProps: {
       sx: { maxHeight: "590px", overflowY: "auto" },
-    },
-    muiTableBodyRowProps: getRowProps,
+    },    muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

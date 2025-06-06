@@ -20,30 +20,25 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       const container = jobData.container_nos && jobData.container_nos[containerIndex] 
         ? jobData.container_nos[containerIndex] 
         : {};
-      
-      // Check if required values are present
-      const assessableAmount = parseFloat(jobData.assessable_ammount);
-      const igstAmount = parseFloat(jobData.igst_ammount);
-      const net_weight_as_per_PL_document = parseFloat(jobData.net_weight_as_per_PL_document) || 0;
-       const netWeight = parseFloat(jobData.job_net_weight) || parseFloat(container.net_weight) || 1; // Fallback to 1 to avoid division by zero
-      
-      if (isNaN(assessableAmount) || isNaN(igstAmount) || isNaN(net_weight_as_per_PL_document) || isNaN(netWeight)) {
-        alert("Cannot generate PDF: Assessable amount or IGST amount is missing or invalid");
-        return;
-      }
-
-      console.log("Job Data:", netWeight, assessableAmount, igstAmount, net_weight_as_per_PL_document);
-      
-      // Calculate values based on the formula
+          // Calculate values based on the formula
       const netWeightAsPerPL = parseFloat(container.net_weight_as_per_PL_document) || 0;
-     
-  
+      const assessableAmount = parseFloat(jobData.assessable_ammount) || 0;
+      const igstAmount = parseFloat(jobData.igst_ammount) || 0;
+      const netWeight = parseFloat(jobData.job_net_weight) || parseFloat(container.net_weight) || 1; // Fallback to 1 to avoid division by zero
+
       // Convert netWeightAsPerPL from KGS to MTS if not already in MTS
       const netWeightAsPerPLInMTS = netWeightAsPerPL / 1000; 
       
       // Calculate assessable value and IGST value
       const assessableValue = (assessableAmount / netWeight) * netWeightAsPerPL;
       const igstValue = (igstAmount / netWeight) * netWeightAsPerPL;
+
+      // Log the calculation results
+      console.log('Calculation - assessableValue:', assessableValue);
+      console.log('Calculation - igstValue:', igstValue);
+      console.log('Calculation formula used:');
+      console.log(`assessableValue = (${assessableAmount} / ${netWeight}) * ${netWeightAsPerPL}`);
+      console.log(`igstValue = (${igstAmount} / ${netWeight}) * ${netWeightAsPerPL}`);
       
       // Format values for display
       const formattedAssessableValue = assessableValue.toFixed(2);
@@ -233,7 +228,8 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
           onClick={generateIgstCalculationPdf}
           type="button"
           sx={{
-            backgroundColor: "black",
+            fontWeight: 'bold',
+            backgroundColor: "#111B21",
             color: "white",
             "&:hover": {
               backgroundColor: "#333",

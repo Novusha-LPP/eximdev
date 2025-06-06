@@ -12,7 +12,7 @@ import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
 // Custom hook to manage job columns configuration
-function useJobColumns(handleRowDataUpdate) {
+function useJobColumns() {
   const navigate = useNavigate();
   const location = useLocation();
   const { 
@@ -429,11 +429,12 @@ function useJobColumns(handleRowDataUpdate) {
             </React.Fragment>
           );
         },
-      },      {
+      },
+      {
         accessorKey: "dates",
         header: "Dates",
         size: 470,
-        Cell: ({ cell }) => <EditableDateCell cell={cell} onRowDataUpdate={handleRowDataUpdate} />,
+        Cell: EditableDateCell,
       },
 
       {

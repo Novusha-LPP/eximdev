@@ -1,0 +1,8 @@
+{
+  "env": {
+    "NODE_ENV": "server"
+  },
+  "watch": ["app.mjs", "readMail.mjs", ".env", "logger.js"],
+  "ext": "js,json,mjs",
+  "exec": "node app.mjs"
+}

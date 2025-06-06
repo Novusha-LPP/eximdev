@@ -61,9 +61,9 @@ function useFetchJobList(
   ]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
+
   return {
     rows,
-    setRows, // Export setRows so parent components can update row data
     total,
     totalPages,
     currentPage,

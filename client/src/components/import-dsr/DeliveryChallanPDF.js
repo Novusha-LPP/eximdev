@@ -198,7 +198,6 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       pdf.setFontSize(12);      // Get container details (specific container by index)
       const container = jobData.container_nos && jobData.container_nos[containerIndex] ? jobData.container_nos[containerIndex] : {};
       
-      console.log(container)
       // Create details array with conditional formatting based on consignment type
       const details = [
         { label: 'B/E  No. & DATE', value: `${jobData.be_no || ''} DATE ${formatDate(jobData.be_date)}` },
@@ -211,12 +210,12 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         ...(jobData.consignment_type !== 'LCL' ? [
           { label: 'CONTAINER NO.', value: `${container.container_number || ''} – ${container.size || ''}` },
           { space: true },
-          { label: 'SEAL NO.', value: container.seal_number || '' },
+          { label: 'SEAL NO.', value: container.seal_no || '' },
           { space: true }
         ] : []),
         { label: 'COMMODITY', value: `${jobData.description || ''}`.toUpperCase() },
         { space: true },
-        { label: 'WT. AS PER DOCS', value: `${container.container_gross_weight|| ''} KGS GROSS WT` },
+        { label: 'WT. AS PER DOCS', value: `${container.net_weight_as_per_PL_document|| ''} KGS GROSS WT` },
         { space: true },
         { label: 'TRANSPORTER', value: container.transporter || '' },
         { space: true },

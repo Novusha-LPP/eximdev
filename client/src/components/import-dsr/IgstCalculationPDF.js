@@ -31,6 +31,8 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         alert("Cannot generate PDF: Assessable amount or IGST amount is missing or invalid");
         return;
       }
+
+      console.log("Job Data:", netWeight, assessableAmount, igstAmount, net_weight_as_per_PL_document);
       
       // Calculate values based on the formula
       const netWeightAsPerPL = parseFloat(container.net_weight_as_per_PL_document) || 0;

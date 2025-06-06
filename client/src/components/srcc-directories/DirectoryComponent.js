@@ -47,9 +47,9 @@ function DirectoryComponent({ directoryType }) {
         return <TollData />;
       case "Advance To Driver": // ✅ Added Commoditys Directory
         return <AdvanceToDriver />;
-      case "shipping Line": // ✅ Added Commoditys Directory
+      case "Shipping Line": // ✅ Added Commoditys Directory
         return <ShippingLine />;
-      case "Lr Tracking Stages": // ✅ Added Commoditys Directory
+      case "LR Tracking Stages": // ✅ Added Commoditys Directory
         return <LrTrackingStagesDirectorie />;
       case "Elock": // ✅ Added Commoditys Directory
         return <Elock />;

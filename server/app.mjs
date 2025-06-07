@@ -176,6 +176,7 @@ import getTrs from "./routes/lr/getTrs.mjs";
 import getOrganisationData from "./routes/lr/getOrganisationData.mjs";
 import viewSrccDsr from "./routes/lr/viewSrccDsr.mjs";
 import updateSrccDsr from "./routes/lr/updateSrccDsr.mjs";
+import elockAssignOthers from "./routes/lr/elockAssignOthers.mjs";
 
 // SRCC Directories
 import unitMeasurementRoute from "./routes/srcc/Directory_Management/UnitMeasurementRoute.mjs";
@@ -244,8 +245,6 @@ import JobModel from "./model/jobModel.mjs";
 import getCthSearch from "./routes/srcc/Directory_Management/CthUtil/getChtSearch.js";
 import dutyCalculator from "./routes/srcc/Directory_Management/CthUtil/dutycalculator.mjs";
 
-
-
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -294,7 +293,16 @@ if (cluster.isPrimary) {
 
     next();
   });
-  app.use(cors({ origin: ["http://eximdev.s3-website.ap-south-1.amazonaws.com","http://localhost:3000","http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com"], credentials: true }));
+  app.use(
+    cors({
+      origin: [
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://localhost:3000",
+        "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
+      ],
+      credentials: true,
+    })
+  );
 
   app.use(compression({ level: 9 }));
 
@@ -444,9 +452,9 @@ if (cluster.isPrimary) {
       // import billing
       app.use(getImportBilling);
 
-          // import cth search
-        app.use(getCthSearch);
-      app.use(dutyCalculator)
+      // import cth search
+      app.use(getCthSearch);
+      app.use(dutyCalculator);
 
       // Inward Register
       app.use(addInwardRegister);
@@ -481,6 +489,7 @@ if (cluster.isPrimary) {
       app.use(getOrganisationData);
       app.use(viewSrccDsr);
       app.use(updateSrccDsr);
+      app.use(elockAssignOthers);
 
       // SRCC Directories
       app.use(unitMeasurementRoute);

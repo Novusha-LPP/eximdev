@@ -10,11 +10,6 @@ import {
   InputAdornment,
   IconButton,
   Pagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
 } from "@mui/material";
 import ElockGPSOperation from "./ElockGPSOperation.js";
 import SearchIcon from "@mui/icons-material/Search";
@@ -31,7 +26,7 @@ const ElockAssignOthers = () => {
   const [organisationOptions, setOrganisationOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
   const [editingRow, setEditingRow] = useState(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isInlineCreating, setIsInlineCreating] = useState(false);
   const [editValues, setEditValues] = useState({
     transporter: "",
     client: "",
@@ -44,7 +39,7 @@ const ElockAssignOthers = () => {
     goods_pickup: "",
     goods_delivery: "",
   });
-  const [createValues, setCreateValues] = useState({
+  const [inlineCreateValues, setInlineCreateValues] = useState({
     transporter: "",
     client: "",
     lr_no: "",
@@ -87,7 +82,7 @@ const ElockAssignOthers = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearchQuery]);  // Fetch available elocks
+  }, [page, debouncedSearchQuery]); // Fetch available elocks
   const fetchAvailableElocks = useCallback(async () => {
     try {
       const res = await axios.get(
@@ -101,7 +96,7 @@ const ElockAssignOthers = () => {
       console.error("Error fetching available elocks:", err);
       setElockOptions([]); // Set empty array on error
     }
-  }, []);// Fetch organisations
+  }, []); // Fetch organisations
   const fetchOrganisations = useCallback(async () => {
     try {
       const res = await axios.get(
@@ -173,18 +168,32 @@ const ElockAssignOthers = () => {
     } finally {
       setLoading(false);
     }
+  }; // Inline create functions
+  const handleStartInlineCreate = () => {
+    setIsInlineCreating(true);
+    setInlineCreateValues({
+      transporter: "",
+      client: "",
+      lr_no: "",
+      container_number: "",
+      driver_name: "",
+      driver_phone: "",
+      elock_no: "",
+      elock_assign_status: "UNASSIGNED",
+      goods_pickup: "",
+      goods_delivery: "",
+    });
   };
 
-  // Create new record
-  const handleCreateRecord = async () => {
+  const handleSaveInlineCreate = async () => {
     try {
       setLoading(true);
       await axios.post(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others`,
-        createValues
+        inlineCreateValues
       );
-      setIsCreateDialogOpen(false);
-      setCreateValues({
+      setIsInlineCreating(false);
+      setInlineCreateValues({
         transporter: "",
         client: "",
         lr_no: "",
@@ -204,6 +213,22 @@ const ElockAssignOthers = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelInlineCreate = () => {
+    setIsInlineCreating(false);
+    setInlineCreateValues({
+      transporter: "",
+      client: "",
+      lr_no: "",
+      container_number: "",
+      driver_name: "",
+      driver_phone: "",
+      elock_no: "",
+      elock_assign_status: "UNASSIGNED",
+      goods_pickup: "",
+      goods_delivery: "",
+    });
   };
 
   // Delete record
@@ -252,23 +277,27 @@ const ElockAssignOthers = () => {
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
-
   const columns = [
     {
       header: "Actions",
       accessorKey: "actions",
       size: 200,
       pinned: "left",
-      Cell: ({ row }) => (
-        <Box display="flex" gap={1}>
-          {editingRow === row.id ? (
-            <>
+      Cell: ({ row }) => {
+        // Check if this is the inline create row
+        if (row.original._id === "inline-create") {
+          return (
+            <Box display="flex" gap={1}>
               <Button
                 variant="contained"
                 color="success"
                 size="small"
-                onClick={() => handleSaveRow(row)}
-                disabled={loading}
+                onClick={handleSaveInlineCreate}
+                disabled={
+                  loading ||
+                  !inlineCreateValues.transporter ||
+                  !inlineCreateValues.client
+                }
               >
                 Save
               </Button>
@@ -276,41 +305,86 @@ const ElockAssignOthers = () => {
                 variant="outlined"
                 color="error"
                 size="small"
-                onClick={handleCancelEdit}
+                onClick={handleCancelInlineCreate}
                 disabled={loading}
               >
                 Cancel
               </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                onClick={() => handleEditRow(row)}
-                disabled={loading}
-              >
-                Edit
-              </Button>
-              <IconButton
-                color="error"
-                size="small"
-                onClick={() => handleDeleteRow(row)}
-                disabled={loading}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </>
-          )}
-        </Box>
-      ),
+            </Box>
+          );
+        }
+
+        return (
+          <Box display="flex" gap={1}>
+            {editingRow === row.id ? (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  onClick={() => handleSaveRow(row)}
+                  disabled={loading}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  onClick={handleCancelEdit}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={() => handleEditRow(row)}
+                  disabled={loading || isInlineCreating}
+                >
+                  Edit
+                </Button>
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleDeleteRow(row)}
+                  disabled={loading || isInlineCreating}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </>
+            )}
+          </Box>
+        );
+      },
     },
     {
       accessorKey: "lr_no",
       header: "LR No",
       pinned: "left",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <TextField
+              variant="standard"
+              size="small"
+              value={inlineCreateValues.lr_no}
+              onChange={(e) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  lr_no: e.target.value,
+                })
+              }
+              sx={{ width: 120 }}
+              placeholder="Enter LR No"
+            />
+          );
+        }
+
         if (editingRow === row.id) {
           return (
             <TextField
@@ -331,12 +405,48 @@ const ElockAssignOthers = () => {
       accessorKey: "transporter",
       header: "Transporter",
       Cell: ({ row }) => {
-        if (editingRow === row.id) {
-          return (            <Autocomplete
-              options={Array.isArray(organisationOptions) ? organisationOptions : []}
+        if (row.original._id === "inline-create") {
+          return (
+            <Autocomplete
+              options={
+                Array.isArray(organisationOptions) ? organisationOptions : []
+              }
               getOptionLabel={(option) => option.name || ""}
               value={
-                Array.isArray(organisationOptions) 
+                Array.isArray(organisationOptions)
+                  ? organisationOptions.find(
+                      (opt) => opt._id === inlineCreateValues.transporter
+                    ) || null
+                  : null
+              }
+              onChange={(_, newValue) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  transporter: newValue ? newValue._id : "",
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  size="small"
+                  placeholder="Select Transporter *"
+                />
+              )}
+              sx={{ width: 200 }}
+            />
+          );
+        }
+
+        if (editingRow === row.id) {
+          return (
+            <Autocomplete
+              options={
+                Array.isArray(organisationOptions) ? organisationOptions : []
+              }
+              getOptionLabel={(option) => option.name || ""}
+              value={
+                Array.isArray(organisationOptions)
                   ? organisationOptions.find(
                       (opt) => opt._id === editValues.transporter
                     ) || null
@@ -362,13 +472,51 @@ const ElockAssignOthers = () => {
       accessorKey: "client",
       header: "Client",
       Cell: ({ row }) => {
-        if (editingRow === row.id) {
-          return (            <Autocomplete
-              options={Array.isArray(organisationOptions) ? organisationOptions : []}
+        if (row.original._id === "inline-create") {
+          return (
+            <Autocomplete
+              options={
+                Array.isArray(organisationOptions) ? organisationOptions : []
+              }
               getOptionLabel={(option) => option.name || ""}
               value={
                 Array.isArray(organisationOptions)
-                  ? organisationOptions.find((opt) => opt._id === editValues.client) || null
+                  ? organisationOptions.find(
+                      (opt) => opt._id === inlineCreateValues.client
+                    ) || null
+                  : null
+              }
+              onChange={(_, newValue) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  client: newValue ? newValue._id : "",
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  size="small"
+                  placeholder="Select Client *"
+                />
+              )}
+              sx={{ width: 200 }}
+            />
+          );
+        }
+
+        if (editingRow === row.id) {
+          return (
+            <Autocomplete
+              options={
+                Array.isArray(organisationOptions) ? organisationOptions : []
+              }
+              getOptionLabel={(option) => option.name || ""}
+              value={
+                Array.isArray(organisationOptions)
+                  ? organisationOptions.find(
+                      (opt) => opt._id === editValues.client
+                    ) || null
                   : null
               }
               onChange={(_, newValue) =>
@@ -391,6 +539,24 @@ const ElockAssignOthers = () => {
       accessorKey: "container_number",
       header: "Container No",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <TextField
+              variant="standard"
+              size="small"
+              value={inlineCreateValues.container_number}
+              onChange={(e) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  container_number: e.target.value,
+                })
+              }
+              sx={{ width: 150 }}
+              placeholder="Container No"
+            />
+          );
+        }
+
         if (editingRow === row.id) {
           return (
             <TextField
@@ -414,6 +580,24 @@ const ElockAssignOthers = () => {
       accessorKey: "driver_name",
       header: "Driver Name",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <TextField
+              variant="standard"
+              size="small"
+              value={inlineCreateValues.driver_name}
+              onChange={(e) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  driver_name: e.target.value,
+                })
+              }
+              sx={{ width: 150 }}
+              placeholder="Driver Name"
+            />
+          );
+        }
+
         if (editingRow === row.id) {
           return (
             <TextField
@@ -434,6 +618,24 @@ const ElockAssignOthers = () => {
       accessorKey: "driver_phone",
       header: "Driver Phone",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <TextField
+              variant="standard"
+              size="small"
+              value={inlineCreateValues.driver_phone}
+              onChange={(e) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  driver_phone: e.target.value,
+                })
+              }
+              sx={{ width: 150 }}
+              placeholder="Driver Phone"
+            />
+          );
+        }
+
         if (editingRow === row.id) {
           return (
             <TextField
@@ -454,7 +656,39 @@ const ElockAssignOthers = () => {
       accessorKey: "elock_no",
       header: "E-lock No",
       Cell: ({ row }) => {
-        if (editingRow === row.id) {          // Merge current elock with available elocks for editing
+        if (row.original._id === "inline-create") {
+          return (
+            <Autocomplete
+              options={Array.isArray(elockOptions) ? elockOptions : []}
+              getOptionLabel={(option) => option.FAssetID || ""}
+              value={
+                Array.isArray(elockOptions)
+                  ? elockOptions.find(
+                      (opt) => opt._id === inlineCreateValues.elock_no
+                    ) || null
+                  : null
+              }
+              onChange={(_, newValue) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  elock_no: newValue ? newValue._id : "",
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  size="small"
+                  placeholder="Select E-lock"
+                />
+              )}
+              sx={{ width: 150 }}
+            />
+          );
+        }
+
+        if (editingRow === row.id) {
+          // Merge current elock with available elocks for editing
           let mergedOptions = Array.isArray(elockOptions) ? elockOptions : [];
           if (
             editValues.elock_no &&
@@ -494,6 +728,31 @@ const ElockAssignOthers = () => {
       accessorKey: "elock_assign_status",
       header: "Elock Status",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <TextField
+              select
+              fullWidth
+              size="small"
+              value={inlineCreateValues.elock_assign_status}
+              variant="standard"
+              sx={{ width: 150 }}
+              onChange={(e) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  elock_assign_status: e.target.value,
+                })
+              }
+            >
+              {statusOptions.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status}
+                </MenuItem>
+              ))}
+            </TextField>
+          );
+        }
+
         if (editingRow === row.id) {
           return (
             <TextField
@@ -525,8 +784,40 @@ const ElockAssignOthers = () => {
       accessorKey: "goods_pickup",
       header: "Pickup Location",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <Autocomplete
+              options={Array.isArray(locationOptions) ? locationOptions : []}
+              getOptionLabel={(option) => option.name || ""}
+              value={
+                Array.isArray(locationOptions)
+                  ? locationOptions.find(
+                      (opt) => opt._id === inlineCreateValues.goods_pickup
+                    ) || null
+                  : null
+              }
+              onChange={(_, newValue) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  goods_pickup: newValue ? newValue._id : "",
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  size="small"
+                  placeholder="Select Pickup"
+                />
+              )}
+              sx={{ width: 180 }}
+            />
+          );
+        }
+
         if (editingRow === row.id) {
-          return (            <Autocomplete
+          return (
+            <Autocomplete
               options={Array.isArray(locationOptions) ? locationOptions : []}
               getOptionLabel={(option) => option.name || ""}
               value={
@@ -554,7 +845,39 @@ const ElockAssignOthers = () => {
     },
     {
       accessorKey: "goods_delivery",
-      header: "Delivery Location",      Cell: ({ row }) => {
+      header: "Delivery Location",
+      Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <Autocomplete
+              options={Array.isArray(locationOptions) ? locationOptions : []}
+              getOptionLabel={(option) => option.name || ""}
+              value={
+                Array.isArray(locationOptions)
+                  ? locationOptions.find(
+                      (opt) => opt._id === inlineCreateValues.goods_delivery
+                    ) || null
+                  : null
+              }
+              onChange={(_, newValue) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  goods_delivery: newValue ? newValue._id : "",
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  size="small"
+                  placeholder="Select Delivery"
+                />
+              )}
+              sx={{ width: 180 }}
+            />
+          );
+        }
+
         if (editingRow === row.id) {
           return (
             <Autocomplete
@@ -587,6 +910,16 @@ const ElockAssignOthers = () => {
       accessorKey: "elock_gps",
       header: "Elock GPS",
       Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <Box>
+              <IconButton disabled={true} size="small" color="primary">
+                <PlaceIcon />
+              </IconButton>
+            </Box>
+          );
+        }
+
         const elockNo = row.original.elock_no?.FAssetID;
         return (
           <Box>
@@ -607,11 +940,32 @@ const ElockAssignOthers = () => {
     },
   ];
 
+  // Create table data with inline create row if needed
+  const tableData = React.useMemo(() => {
+    if (isInlineCreating) {
+      const inlineCreateRow = {
+        _id: "inline-create",
+        lr_no: "",
+        transporter: null,
+        client: null,
+        container_number: "",
+        driver_name: "",
+        driver_phone: "",
+        elock_no: null,
+        elock_assign_status: "UNASSIGNED",
+        goods_pickup: null,
+        goods_delivery: null,
+      };
+      return [inlineCreateRow, ...data];
+    }
+    return data;
+  }, [isInlineCreating, data]);
+
   return (
     <Box sx={{ p: 2 }}>
       <MaterialReactTable
         columns={columns}
-        data={data}
+        data={tableData}
         enableColumnResizing
         enableColumnOrdering
         enablePagination={false} // Handled manually via MUI Pagination
@@ -656,19 +1010,17 @@ const ElockAssignOthers = () => {
               p: 1,
             }}
           >
+            {" "}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: "bold" }}
-              >
+              <Typography variant="h6" sx={{ fontWeight: "bold" }}>
                 Others Count: {totalJobs}
               </Typography>
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
-                onClick={() => setIsCreateDialogOpen(true)}
-                disabled={loading}
+                onClick={handleStartInlineCreate}
+                disabled={loading || isInlineCreating || editingRow !== null}
               >
                 Add New Record
               </Button>
@@ -693,7 +1045,7 @@ const ElockAssignOthers = () => {
           </Box>
         )}
       />
-      
+
       <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
         <Pagination
           count={totalPages}
@@ -703,250 +1055,8 @@ const ElockAssignOthers = () => {
           showFirstButton
           showLastButton
           disabled={loading}
-        />
+        />{" "}
       </Box>
-
-      {/* Create Dialog */}
-      <Dialog 
-        open={isCreateDialogOpen} 
-        onClose={() => setIsCreateDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Create New Elock Assignment (Others)</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>              <Autocomplete
-                options={Array.isArray(organisationOptions) ? organisationOptions : []}
-                getOptionLabel={(option) => option.name || ""}
-                value={
-                  Array.isArray(organisationOptions)
-                    ? organisationOptions.find(
-                        (opt) => opt._id === createValues.transporter
-                      ) || null
-                    : null
-                }
-                onChange={(_, newValue) =>
-                  setCreateValues({
-                    ...createValues,
-                    transporter: newValue ? newValue._id : "",
-                  })
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Transporter *"
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>              <Autocomplete
-                options={Array.isArray(organisationOptions) ? organisationOptions : []}
-                getOptionLabel={(option) => option.name || ""}
-                value={
-                  Array.isArray(organisationOptions)
-                    ? organisationOptions.find(
-                        (opt) => opt._id === createValues.client
-                      ) || null
-                    : null
-                }
-                onChange={(_, newValue) =>
-                  setCreateValues({
-                    ...createValues,
-                    client: newValue ? newValue._id : "",
-                  })
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Client *"
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="LR No"
-                variant="outlined"
-                size="small"
-                fullWidth
-                value={createValues.lr_no}
-                onChange={(e) =>
-                  setCreateValues({ ...createValues, lr_no: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Container Number"
-                variant="outlined"
-                size="small"
-                fullWidth
-                value={createValues.container_number}
-                onChange={(e) =>
-                  setCreateValues({
-                    ...createValues,
-                    container_number: e.target.value,
-                  })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Driver Name"
-                variant="outlined"
-                size="small"
-                fullWidth
-                value={createValues.driver_name}
-                onChange={(e) =>
-                  setCreateValues({
-                    ...createValues,
-                    driver_name: e.target.value,
-                  })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Driver Phone"
-                variant="outlined"
-                size="small"
-                fullWidth
-                value={createValues.driver_phone}
-                onChange={(e) =>
-                  setCreateValues({
-                    ...createValues,
-                    driver_phone: e.target.value,
-                  })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>              <Autocomplete
-                options={Array.isArray(elockOptions) ? elockOptions : []}
-                getOptionLabel={(option) => option.FAssetID || ""}
-                value={
-                  Array.isArray(elockOptions)
-                    ? elockOptions.find((opt) => opt._id === createValues.elock_no) || null
-                    : null
-                }
-                onChange={(_, newValue) =>
-                  setCreateValues({
-                    ...createValues,
-                    elock_no: newValue ? newValue._id : "",
-                  })
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="E-lock No"
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                select
-                label="Elock Status"
-                variant="outlined"
-                size="small"
-                fullWidth
-                value={createValues.elock_assign_status}
-                onChange={(e) =>
-                  setCreateValues({
-                    ...createValues,
-                    elock_assign_status: e.target.value,
-                  })
-                }
-              >
-                {statusOptions.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {status}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={6}>              <Autocomplete
-                options={Array.isArray(locationOptions) ? locationOptions : []}
-                getOptionLabel={(option) => option.name || ""}
-                value={
-                  Array.isArray(locationOptions)
-                    ? locationOptions.find(
-                        (opt) => opt._id === createValues.goods_pickup
-                      ) || null
-                    : null
-                }
-                onChange={(_, newValue) =>
-                  setCreateValues({
-                    ...createValues,
-                    goods_pickup: newValue ? newValue._id : "",
-                  })
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Pickup Location"
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>              <Autocomplete
-                options={Array.isArray(locationOptions) ? locationOptions : []}
-                getOptionLabel={(option) => option.name || ""}
-                value={
-                  Array.isArray(locationOptions)
-                    ? locationOptions.find(
-                        (opt) => opt._id === createValues.goods_delivery
-                      ) || null
-                    : null
-                }
-                onChange={(_, newValue) =>
-                  setCreateValues({
-                    ...createValues,
-                    goods_delivery: newValue ? newValue._id : "",
-                  })
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Delivery Location"
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setIsCreateDialogOpen(false)}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleCreateRecord}
-            disabled={loading || !createValues.transporter || !createValues.client}
-          >
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <ElockGPSOperation
         isOpen={isGPSModalOpen}

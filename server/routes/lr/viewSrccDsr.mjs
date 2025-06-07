@@ -98,7 +98,7 @@ router.get("/api/view-srcc-dsr", async (req, res) => {
     console.error("Error fetching optimized DSR data:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-}); // GET /api/elock-assign endpoint - Fixed to return proper container IDs
+}); // GET /api/elock-assign endpoint - Fixed to return proper container IDs and include ElockAssignOthers data
 router.get("/api/elock-assign", async (req, res) => {
   try {
     const {
@@ -110,22 +110,28 @@ router.get("/api/elock-assign", async (req, res) => {
     } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build match query
-    let matchQuery = {
+    // Build match query for containers
+    let containerMatchQuery = {
       "containers.tr_no": { $exists: true, $ne: "" }, // Only containers with non-empty tr_no
     };
-    let orArray = [];
+    let containerOrArray = [];
+
+    // Build match query for ElockAssignOthers
+    let othersMatchQuery = {};
 
     // If explicit filter for RETURNED
     if (elock_assign_status === "RETURNED" || sort === "RETURNED") {
-      matchQuery["containers.elock_assign_status"] = "RETURNED";
+      containerMatchQuery["containers.elock_assign_status"] = "RETURNED";
+      othersMatchQuery["elock_assign_status"] = "RETURNED";
     } else {
       // Default: Exclude RETURNED
-      matchQuery["containers.elock_assign_status"] = { $ne: "RETURNED" };
+      containerMatchQuery["containers.elock_assign_status"] = { $ne: "RETURNED" };
+      othersMatchQuery["elock_assign_status"] = { $ne: "RETURNED" };
     }
+
     if (search) {
       const searchRegex = new RegExp(search, "i");
-      orArray = [
+      containerOrArray = [
         { pr_no: searchRegex },
         { branch: searchRegex },
         { "containers.tr_no": searchRegex },
@@ -133,19 +139,19 @@ router.get("/api/elock-assign", async (req, res) => {
         { "containers.driver_name": searchRegex },
         { "containers.driver_phone": searchRegex },
         { "containers.vehicle_no": searchRegex },
-        // Remove direct elock_no search since it's now an ObjectId
-        // We'll handle elock search through the lookup stage
       ];
     }
 
-    // Merge $or if present
-    let matchStage = {};
-    if (orArray.length > 0) {
-      matchStage = { $and: [matchQuery, { $or: orArray }] };
+    // Merge $or if present for containers
+    let containerMatchStage = {};
+    if (containerOrArray.length > 0) {
+      containerMatchStage = { $and: [containerMatchQuery, { $or: containerOrArray }] };
     } else {
-      matchStage = matchQuery;
-    } // Aggregation pipeline to flatten containers with proper IDs
-    const pipeline = [
+      containerMatchStage = containerMatchQuery;
+    }
+
+    // Aggregation pipeline for containers
+    const containersPipeline = [
       { $unwind: "$containers" },
       {
         $lookup: {
@@ -155,7 +161,7 @@ router.get("/api/elock-assign", async (req, res) => {
           as: "containers.elock_no_details",
         },
       },
-      { $match: matchStage },
+      { $match: containerMatchStage },
       // Add additional search match after lookup for elock FAssetID
       ...(search
         ? [
@@ -213,24 +219,195 @@ router.get("/api/elock-assign", async (req, res) => {
           gross_weight: "$containers.gross_weight",
           tare_weight: "$containers.tare_weight",
           net_weight: "$containers.net_weight",
-        },
-      },
-      {
-        $facet: {
-          data: [{ $skip: skip }, { $limit: parseInt(limit) }],
-          totalCount: [{ $count: "count" }],
+          // Add source identifier
+          source: { $literal: "containers" },
+          transporter: null,
+          client: null,
+          lr_no: null,
         },
       },
     ];
 
-    const result = await PrData.aggregate(pipeline);
-    const data = result[0].data || [];
-    const totalCount = result[0].totalCount[0]?.count || 0;
-    const totalPages = Math.ceil(totalCount / limit);
+    // Aggregation pipeline for ElockAssignOthers
+    const escapeRegex = (string) => {
+      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+    };
+
+    const othersPipeline = [
+      // Lookup for transporter
+      {
+        $lookup: {
+          from: "organisations",
+          localField: "transporter",
+          foreignField: "_id",
+          as: "transporter_details",
+        },
+      },
+      // Lookup for client
+      {
+        $lookup: {
+          from: "organisations",
+          localField: "client",
+          foreignField: "_id",
+          as: "client_details",
+        },
+      },
+      // Lookup for elock
+      {
+        $lookup: {
+          from: "elocks",
+          localField: "elock_no",
+          foreignField: "_id",
+          as: "elock_details",
+        },
+      },
+      // Lookup for goods_pickup location
+      {
+        $lookup: {
+          from: "locations",
+          localField: "goods_pickup",
+          foreignField: "_id",
+          as: "goods_pickup_details",
+        },
+      },
+      // Lookup for goods_delivery location
+      {
+        $lookup: {
+          from: "locations",
+          localField: "goods_delivery",
+          foreignField: "_id",
+          as: "goods_delivery_details",
+        },
+      },
+      // Match stage for status filtering
+      {
+        $match: othersMatchQuery,
+      },
+      // Additional search match after lookups
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { lr_no: new RegExp(escapeRegex(search), "i") },
+                  { container_number: new RegExp(escapeRegex(search), "i") },
+                  { driver_name: new RegExp(escapeRegex(search), "i") },
+                  { driver_phone: new RegExp(escapeRegex(search), "i") },
+                  {
+                    "transporter_details.name": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
+                  },
+                  {
+                    "client_details.name": new RegExp(escapeRegex(search), "i"),
+                  },
+                  {
+                    "elock_details.FAssetID": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
+                  },
+                  {
+                    "goods_pickup_details.name": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
+                  },
+                  {
+                    "goods_delivery_details.name": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
+                  },
+                ],
+              },
+            },
+          ]
+        : []),
+      {
+        $project: {
+          _id: 1,
+          container_id: "$_id", // Use same field name for consistency
+          pr_id: null,
+          pr_no: null,
+          branch: null,
+          lr_no: 1,
+          container_number: 1,
+          driver_name: 1,
+          driver_phone: 1,
+          vehicle_no: null,
+          elock_assign_status: 1,
+          elock_no: {
+            $cond: {
+              if: { $gt: [{ $size: "$elock_details" }, 0] },
+              then: { $arrayElemAt: ["$elock_details.FAssetID", 0] },
+              else: null,
+            },
+          },
+          elock_no_id: "$elock_no",
+          elock_no_details: {
+            $arrayElemAt: ["$elock_details", 0],
+          },
+          seal_no: null,
+          gross_weight: null,
+          tare_weight: null,
+          net_weight: null,
+          tr_no: null,
+          // Add source identifier
+          source: { $literal: "others" },
+          transporter: {
+            $cond: {
+              if: { $gt: [{ $size: "$transporter_details" }, 0] },
+              then: { $arrayElemAt: ["$transporter_details", 0] },
+              else: null,
+            },
+          },
+          client: {
+            $cond: {
+              if: { $gt: [{ $size: "$client_details" }, 0] },
+              then: { $arrayElemAt: ["$client_details", 0] },
+              else: null,
+            },
+          },
+        },
+      },
+    ];
+
+    // Execute both pipelines
+    const [containersResult, othersResult] = await Promise.all([
+      PrData.aggregate(containersPipeline),
+      ElockAssginOthersModel.aggregate(othersPipeline),
+    ]);
+
+    // Combine results
+    const combinedData = [...containersResult, ...othersResult];
+
+    // Sort combined data by creation date (newest first) or by elock_assign_status
+    combinedData.sort((a, b) => {
+      // First sort by status priority (ASSIGNED > UNASSIGNED > RETURNED)
+      const statusPriority = { "ASSIGNED": 3, "UNASSIGNED": 2, "RETURNED": 1, "NOT RETURNED": 1 };
+      const aPriority = statusPriority[a.elock_assign_status] || 0;
+      const bPriority = statusPriority[b.elock_assign_status] || 0;
+      
+      if (aPriority !== bPriority) {
+        return bPriority - aPriority;
+      }
+      
+      // Then sort by tr_no or lr_no
+      const aRef = a.tr_no || a.lr_no || "";
+      const bRef = b.tr_no || b.lr_no || "";
+      return bRef.localeCompare(aRef);
+    });
+
+    // Calculate total and apply pagination
+    const total = combinedData.length;
+    const paginatedData = combinedData.slice(skip, skip + parseInt(limit));
+    const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
-      data,
-      total: totalCount,
+      data: paginatedData,
+      total,
       totalPages,
       currentPage: parseInt(page),
     });

@@ -46,7 +46,7 @@ function ElockOperation() {
           >
             <Tab label="Elock Assign" {...a11yProps(0)} key="tab-0" />
             <Tab label="Elock Assign Others" {...a11yProps(1)} key="tab-1" />
-            <Tab label="Elock History" {...a11yProps(2)} key="tab-2" />
+            <Tab label="Elock Return History" {...a11yProps(2)} key="tab-2" />
             {/* Future Tabs can be added here */}
           </Tabs>
         </Box>

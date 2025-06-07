@@ -77,8 +77,6 @@ const ElockHistory = () => {
       accessorKey: "elock_no",
       header: "elock_no",
     },
-    { accessorKey: "pr_no", header: "PR No" },
-    { accessorKey: "branch", header: "Branch" },
 
     { accessorKey: "driver_name", header: "Driver Name" },
     { accessorKey: "driver_phone", header: "Driver Phone" },

@@ -288,11 +288,11 @@ router.get("/api/elock-assign", async (req, res) => {
         ? [
             {
               $match: {
-                $or: [
-                  { lr_no: new RegExp(escapeRegex(search), "i") },
+                $or: [                  { lr_no: new RegExp(escapeRegex(search), "i") },
                   { container_number: new RegExp(escapeRegex(search), "i") },
                   { driver_name: new RegExp(escapeRegex(search), "i") },
                   { driver_phone: new RegExp(escapeRegex(search), "i") },
+                  { vehicle_no: new RegExp(escapeRegex(search), "i") },
                   {
                     "transporter_details.name": new RegExp(
                       escapeRegex(search),
@@ -332,11 +332,10 @@ router.get("/api/elock-assign", async (req, res) => {
           pr_id: null,
           pr_no: null,
           branch: null,
-          lr_no: 1,
-          container_number: 1,
+          lr_no: 1,          container_number: 1,
           driver_name: 1,
           driver_phone: 1,
-          vehicle_no: null,
+          vehicle_no: 1,
           elock_assign_status: 1,
           elock_no: {
             $cond: {

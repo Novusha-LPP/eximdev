@@ -19,6 +19,10 @@ const ElockAssignOthersSchema = new mongoose.Schema(
     container_number: {
       type: String,
     },
+    vehicle_no: {
+      type: String,
+      index: true, // Add index if you frequently query by vehicle_no
+    },
     driver_name: {
       type: String,
     },

@@ -32,6 +32,7 @@ const ElockAssignOthers = () => {
     client: "",
     lr_no: "",
     container_number: "",
+    vehicle_no: "",
     driver_name: "",
     driver_phone: "",
     elock_no: "",
@@ -44,6 +45,7 @@ const ElockAssignOthers = () => {
     client: "",
     lr_no: "",
     container_number: "",
+    vehicle_no: "",
     driver_name: "",
     driver_phone: "",
     elock_no: "",
@@ -176,6 +178,7 @@ const ElockAssignOthers = () => {
       client: "",
       lr_no: "",
       container_number: "",
+      vehicle_no: "",
       driver_name: "",
       driver_phone: "",
       elock_no: "",
@@ -198,6 +201,7 @@ const ElockAssignOthers = () => {
         client: "",
         lr_no: "",
         container_number: "",
+        vehicle_no: "",
         driver_name: "",
         driver_phone: "",
         elock_no: "",
@@ -222,6 +226,7 @@ const ElockAssignOthers = () => {
       client: "",
       lr_no: "",
       container_number: "",
+      vehicle_no: "",
       driver_name: "",
       driver_phone: "",
       elock_no: "",
@@ -257,6 +262,7 @@ const ElockAssignOthers = () => {
       client: row.original.client?._id || "",
       lr_no: row.original.lr_no || "",
       container_number: row.original.container_number || "",
+      vehicle_no: row.original.vehicle_no || "",
       driver_name: row.original.driver_name || "",
       driver_phone: row.original.driver_phone || "",
       elock_no: row.original.elock_no?._id || "",
@@ -574,6 +580,47 @@ const ElockAssignOthers = () => {
           );
         }
         return row.original.container_number;
+      },
+    },
+    {
+      accessorKey: "vehicle_no",
+      header: "Vehicle No",
+      Cell: ({ row }) => {
+        if (row.original._id === "inline-create") {
+          return (
+            <TextField
+              variant="standard"
+              size="small"
+              value={inlineCreateValues.vehicle_no}
+              onChange={(e) =>
+                setInlineCreateValues({
+                  ...inlineCreateValues,
+                  vehicle_no: e.target.value,
+                })
+              }
+              sx={{ width: 150 }}
+              placeholder="Vehicle No"
+            />
+          );
+        }
+
+        if (editingRow === row.id) {
+          return (
+            <TextField
+              variant="standard"
+              size="small"
+              value={editValues.vehicle_no}
+              onChange={(e) =>
+                setEditValues({
+                  ...editValues,
+                  vehicle_no: e.target.value,
+                })
+              }
+              sx={{ width: 150 }}
+            />
+          );
+        }
+        return row.original.vehicle_no;
       },
     },
     {

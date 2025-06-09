@@ -113,13 +113,13 @@ const Elock = () => {
             {elocks.map((elock) => (
               <TableRow key={elock._id}>
                 <TableCell>{elock.FAssetID}</TableCell>
-                <TableCell>{elock.status}</TableCell>
-                <TableCell>
+                <TableCell>{elock.status}</TableCell>                <TableCell>
                   <IconButton color="primary" onClick={() => handleEdit(elock)}>
                     <EditIcon />
                   </IconButton>
                   <IconButton
                     color="error"
+                    disabled={elock.status === "ASSIGNED"}
                     onClick={() => handleDelete(elock._id)}
                   >
                     <DeleteIcon />

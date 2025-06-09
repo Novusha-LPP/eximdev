@@ -16,6 +16,10 @@ import SearchIcon from "@mui/icons-material/Search";
 import PlaceIcon from "@mui/icons-material/Place";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
+import EditIcon from "@mui/icons-material/Edit";
+import SaveIcon from "@mui/icons-material/Save";
+import CancelIcon from "@mui/icons-material/Cancel";
 import axios from "axios";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED", "NOT RETURNED"];
@@ -63,6 +67,12 @@ const ElockAssignOthers = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Constants for external API
+  const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
+  const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
+  const INSTRUCTION_API_URL =
+    "http://icloud.assetscontrols.com:8092/OpenApi/Instruction";
 
   // Fetch main data
   const fetchElockAssignOthersData = useCallback(async () => {
@@ -281,9 +291,78 @@ const ElockAssignOthers = () => {
   const handleSearchInputChange = (e) => {
     setSearchQuery(e.target.value);
   };
-
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
+  };
+
+  // Handle unlock operation
+  const handleUnlockElock = async (elockNo) => {
+    if (!elockNo || elockNo.trim() === "") {
+      alert("No E-lock number available for unlock operation");
+      return;
+    }
+
+    const confirmUnlock = window.confirm(
+      `Are you sure you want to unlock E-lock: ${elockNo}?`
+    );
+
+    if (!confirmUnlock) return;
+
+    try {
+      // First, get the asset data to retrieve the FGUID
+      const assetResponse = await fetch(ADMIN_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          FAction: "QueryAdminAssetByAssetId",
+          FTokenID: TOKEN_ID,
+          FAssetID: elockNo,
+        }),
+      });
+
+      if (!assetResponse.ok) {
+        throw new Error(
+          `Failed to fetch asset data: ${assetResponse.statusText}`
+        );
+      }
+
+      const assetResult = await assetResponse.json();
+      if (!assetResult.FObject?.length) {
+        throw new Error("Asset not found in external system");
+      }
+
+      const assetData = assetResult.FObject[0];
+
+      // Now send the unlock command
+      const unlockResponse = await fetch(INSTRUCTION_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          FTokenID: TOKEN_ID,
+          FAction: "OpenLockControl",
+          FAssetGUID: assetData.FGUID,
+        }),
+      });
+
+      if (!unlockResponse.ok) {
+        throw new Error(`Unlock request failed: ${unlockResponse.statusText}`);
+      }
+
+      const unlockResult = await unlockResponse.json();
+
+      if (unlockResult.Result === 200) {
+        alert("Unlock instruction sent successfully!");
+      } else {
+        alert(
+          `Failed to send unlock instruction: ${
+            unlockResult.Message || "Unknown error"
+          }`
+        );
+      }
+    } catch (error) {
+      console.error("Error during unlock operation:", error);
+      alert(`Error: ${error.message}`);
+    }
   };
   const columns = [
     {
@@ -327,6 +406,7 @@ const ElockAssignOthers = () => {
     {
       accessorKey: "transporter",
       header: "Transporter",
+      size: 200,
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
           return (
@@ -394,6 +474,7 @@ const ElockAssignOthers = () => {
     {
       accessorKey: "client",
       header: "Client",
+      size: 200,
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
           return (
@@ -876,9 +957,12 @@ const ElockAssignOthers = () => {
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
           return (
-            <Box>
+            <Box display="flex" gap={1}>
               <IconButton disabled={true} size="small" color="primary">
                 <PlaceIcon />
+              </IconButton>
+              <IconButton disabled={true} size="small" color="secondary">
+                <LockOpenIcon />
               </IconButton>
             </Box>
           );
@@ -886,7 +970,7 @@ const ElockAssignOthers = () => {
 
         const elockNo = row.original.elock_no?.FAssetID;
         return (
-          <Box>
+          <Box display="flex" gap={1}>
             <IconButton
               onClick={() => {
                 setSelectedElockNo(elockNo);
@@ -895,8 +979,18 @@ const ElockAssignOthers = () => {
               disabled={!elockNo || elockNo.trim() === ""}
               size="small"
               color="primary"
+              title="View GPS Location"
             >
               <PlaceIcon />
+            </IconButton>
+            <IconButton
+              onClick={() => handleUnlockElock(elockNo)}
+              disabled={!elockNo || elockNo.trim() === ""}
+              size="small"
+              color="secondary"
+              title="Unlock E-lock"
+            >
+              <LockOpenIcon />
             </IconButton>
           </Box>
         );
@@ -922,18 +1016,16 @@ const ElockAssignOthers = () => {
                   !inlineCreateValues.transporter ||
                   !inlineCreateValues.client
                 }
-              >
-                Save
-              </Button>
+                startIcon={<SaveIcon />}
+              ></Button>
               <Button
                 variant="outlined"
                 color="error"
                 size="small"
                 onClick={handleCancelInlineCreate}
                 disabled={loading}
-              >
-                Cancel
-              </Button>
+                startIcon={<CancelIcon />}
+              ></Button>
             </Box>
           );
         }
@@ -948,18 +1040,16 @@ const ElockAssignOthers = () => {
                   size="small"
                   onClick={() => handleSaveRow(row)}
                   disabled={loading}
-                >
-                  Save
-                </Button>
+                  startIcon={<SaveIcon />}
+                ></Button>
                 <Button
                   variant="outlined"
                   color="error"
                   size="small"
                   onClick={handleCancelEdit}
                   disabled={loading}
-                >
-                  Cancel
-                </Button>
+                  startIcon={<CancelIcon />}
+                ></Button>
               </>
             ) : (
               <>
@@ -969,9 +1059,8 @@ const ElockAssignOthers = () => {
                   size="small"
                   onClick={() => handleEditRow(row)}
                   disabled={loading || isInlineCreating}
-                >
-                  Edit
-                </Button>
+                  startIcon={<EditIcon />}
+                ></Button>
                 <IconButton
                   color="error"
                   size="small"

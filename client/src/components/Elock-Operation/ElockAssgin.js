@@ -14,6 +14,10 @@ import {
 import ElockGPSOperation from "./ElockGPSOperation.js";
 import SearchIcon from "@mui/icons-material/Search";
 import PlaceIcon from "@mui/icons-material/Place";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
+import EditIcon from "@mui/icons-material/Edit";
+import SaveIcon from "@mui/icons-material/Save";
+import CancelIcon from "@mui/icons-material/Cancel";
 import axios from "axios";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED", "NOT RETURNED"];
@@ -33,6 +37,12 @@ const ElockAssign = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
+
+  // Constants for external API
+  const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
+  const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
+  const INSTRUCTION_API_URL =
+    "http://icloud.assetscontrols.com:8092/OpenApi/Instruction";
 
   const fetchElockData = useCallback(async () => {
     try {
@@ -128,9 +138,78 @@ const ElockAssign = () => {
   const handleSearchInputChange = (e) => {
     setSearchQuery(e.target.value);
   };
-
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
+  };
+
+  // Handle unlock operation
+  const handleUnlockElock = async (elockNo) => {
+    if (!elockNo || elockNo.trim() === "") {
+      alert("No E-lock number available for unlock operation");
+      return;
+    }
+
+    const confirmUnlock = window.confirm(
+      `Are you sure you want to unlock E-lock: ${elockNo}?`
+    );
+
+    if (!confirmUnlock) return;
+
+    try {
+      // First, get the asset data to retrieve the FGUID
+      const assetResponse = await fetch(ADMIN_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          FAction: "QueryAdminAssetByAssetId",
+          FTokenID: TOKEN_ID,
+          FAssetID: elockNo,
+        }),
+      });
+
+      if (!assetResponse.ok) {
+        throw new Error(
+          `Failed to fetch asset data: ${assetResponse.statusText}`
+        );
+      }
+
+      const assetResult = await assetResponse.json();
+      if (!assetResult.FObject?.length) {
+        throw new Error("Asset not found in external system");
+      }
+
+      const assetData = assetResult.FObject[0];
+
+      // Now send the unlock command
+      const unlockResponse = await fetch(INSTRUCTION_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          FTokenID: TOKEN_ID,
+          FAction: "OpenLockControl",
+          FAssetGUID: assetData.FGUID,
+        }),
+      });
+
+      if (!unlockResponse.ok) {
+        throw new Error(`Unlock request failed: ${unlockResponse.statusText}`);
+      }
+
+      const unlockResult = await unlockResponse.json();
+
+      if (unlockResult.Result === 200) {
+        alert("Unlock instruction sent successfully!");
+      } else {
+        alert(
+          `Failed to send unlock instruction: ${
+            unlockResult.Message || "Unknown error"
+          }`
+        );
+      }
+    } catch (error) {
+      console.error("Error during unlock operation:", error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   const columns = [
@@ -148,17 +227,15 @@ const ElockAssign = () => {
                 color="success"
                 size="small"
                 onClick={() => handleSaveRow(row)}
-              >
-                Save
-              </Button>
+                startIcon={<SaveIcon />}
+              ></Button>
               <Button
                 variant="outlined"
                 color="error"
                 size="small"
                 onClick={handleCancelEdit}
-              >
-                Cancel
-              </Button>
+                startIcon={<CancelIcon />}
+              ></Button>
             </>
           ) : (
             <Button
@@ -166,9 +243,8 @@ const ElockAssign = () => {
               color="primary"
               size="small"
               onClick={() => handleEditRow(row)}
-            >
-              Edit
-            </Button>
+              startIcon={<EditIcon />}
+            ></Button>
           )}
         </Box>
       ),
@@ -260,7 +336,7 @@ const ElockAssign = () => {
       Cell: ({ row }) => {
         const elockNo = row.original.elock_no;
         return (
-          <Box>
+          <Box display="flex" gap={1}>
             <IconButton
               onClick={() => {
                 setSelectedElockNo(elockNo);
@@ -269,8 +345,18 @@ const ElockAssign = () => {
               disabled={!elockNo || elockNo.trim() === ""}
               size="small"
               color="primary"
+              title="View GPS Location"
             >
               <PlaceIcon />
+            </IconButton>
+            <IconButton
+              onClick={() => handleUnlockElock(elockNo)}
+              disabled={!elockNo || elockNo.trim() === ""}
+              size="small"
+              color="secondary"
+              title="Unlock E-lock"
+            >
+              <LockOpenIcon />
             </IconButton>
           </Box>
         );

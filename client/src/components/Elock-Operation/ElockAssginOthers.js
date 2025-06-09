@@ -287,91 +287,6 @@ const ElockAssignOthers = () => {
   };
   const columns = [
     {
-      header: "Actions",
-      accessorKey: "actions",
-      size: 200,
-      pinned: "left",
-      Cell: ({ row }) => {
-        // Check if this is the inline create row
-        if (row.original._id === "inline-create") {
-          return (
-            <Box display="flex" gap={1}>
-              <Button
-                variant="contained"
-                color="success"
-                size="small"
-                onClick={handleSaveInlineCreate}
-                disabled={
-                  loading ||
-                  !inlineCreateValues.transporter ||
-                  !inlineCreateValues.client
-                }
-              >
-                Save
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                onClick={handleCancelInlineCreate}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-            </Box>
-          );
-        }
-
-        return (
-          <Box display="flex" gap={1}>
-            {editingRow === row.id ? (
-              <>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="small"
-                  onClick={() => handleSaveRow(row)}
-                  disabled={loading}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  onClick={handleCancelEdit}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  onClick={() => handleEditRow(row)}
-                  disabled={loading || isInlineCreating}
-                >
-                  Edit
-                </Button>
-                <IconButton
-                  color="error"
-                  size="small"
-                  onClick={() => handleDeleteRow(row)}
-                  disabled={loading || isInlineCreating}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </>
-            )}
-          </Box>
-        );
-      },
-    },
-
-    {
       accessorKey: "tr_no",
       header: "LR No",
       Cell: ({ row }) => {
@@ -987,6 +902,90 @@ const ElockAssignOthers = () => {
         );
       },
     },
+    {
+      header: "Actions",
+      accessorKey: "actions",
+      size: 200,
+      pinned: "left",
+      Cell: ({ row }) => {
+        // Check if this is the inline create row
+        if (row.original._id === "inline-create") {
+          return (
+            <Box display="flex" gap={1}>
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                onClick={handleSaveInlineCreate}
+                disabled={
+                  loading ||
+                  !inlineCreateValues.transporter ||
+                  !inlineCreateValues.client
+                }
+              >
+                Save
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                onClick={handleCancelInlineCreate}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+            </Box>
+          );
+        }
+
+        return (
+          <Box display="flex" gap={1}>
+            {editingRow === row.id ? (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  onClick={() => handleSaveRow(row)}
+                  disabled={loading}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  onClick={handleCancelEdit}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={() => handleEditRow(row)}
+                  disabled={loading || isInlineCreating}
+                >
+                  Edit
+                </Button>
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleDeleteRow(row)}
+                  disabled={loading || isInlineCreating}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </>
+            )}
+          </Box>
+        );
+      },
+    },
   ];
 
   // Create table data with inline create row if needed
@@ -1023,7 +1022,7 @@ const ElockAssignOthers = () => {
         enableDensityToggle={false}
         initialState={{
           density: "compact",
-          columnPinning: { left: ["actions", "tr_no"] },
+          columnPinning: { left: ["tr_no"], right: ["actions"] },
         }}
         enableGlobalFilter={false}
         enableGrouping

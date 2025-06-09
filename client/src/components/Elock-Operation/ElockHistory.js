@@ -40,7 +40,7 @@ const ElockHistory = () => {
   const fetchElockData = async () => {
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/elock-assign`,
+        `${process.env.REACT_APP_API_STRING}/elock-assign&other-history`,
         {
           params: {
             page,

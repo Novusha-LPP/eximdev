@@ -30,7 +30,8 @@ const ElockAssignOthers = () => {
   const [editValues, setEditValues] = useState({
     transporter: "",
     client: "",
-    lr_no: "",
+  
+    tr_no: "",
     container_number: "",
     vehicle_no: "",
     driver_name: "",
@@ -43,7 +44,8 @@ const ElockAssignOthers = () => {
   const [inlineCreateValues, setInlineCreateValues] = useState({
     transporter: "",
     client: "",
-    lr_no: "",
+   
+    tr_no: "",
     container_number: "",
     vehicle_no: "",
     driver_name: "",
@@ -176,7 +178,7 @@ const ElockAssignOthers = () => {
     setInlineCreateValues({
       transporter: "",
       client: "",
-      lr_no: "",
+
       container_number: "",
       vehicle_no: "",
       driver_name: "",
@@ -199,7 +201,7 @@ const ElockAssignOthers = () => {
       setInlineCreateValues({
         transporter: "",
         client: "",
-        lr_no: "",
+
         container_number: "",
         vehicle_no: "",
         driver_name: "",
@@ -224,7 +226,7 @@ const ElockAssignOthers = () => {
     setInlineCreateValues({
       transporter: "",
       client: "",
-      lr_no: "",
+
       container_number: "",
       vehicle_no: "",
       driver_name: "",
@@ -254,13 +256,13 @@ const ElockAssignOthers = () => {
       }
     }
   };
-
   const handleEditRow = (row) => {
     setEditingRow(row.id);
     setEditValues({
       transporter: row.original.transporter?._id || "",
       client: row.original.client?._id || "",
-      lr_no: row.original.lr_no || "",
+   
+      tr_no: row.original.tr_no || "",
       container_number: row.original.container_number || "",
       vehicle_no: row.original.vehicle_no || "",
       driver_name: row.original.driver_name || "",
@@ -368,25 +370,25 @@ const ElockAssignOthers = () => {
         );
       },
     },
+   
     {
-      accessorKey: "lr_no",
-      header: "LR No",
-      pinned: "left",
+      accessorKey: "tr_no",
+      header: "TR No",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
           return (
             <TextField
               variant="standard"
               size="small"
-              value={inlineCreateValues.lr_no}
+              value={inlineCreateValues.tr_no}
               onChange={(e) =>
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  lr_no: e.target.value,
+                  tr_no: e.target.value,
                 })
               }
               sx={{ width: 120 }}
-              placeholder="Enter LR No"
+              placeholder="Enter TR No"
             />
           );
         }
@@ -396,15 +398,15 @@ const ElockAssignOthers = () => {
             <TextField
               variant="standard"
               size="small"
-              value={editValues.lr_no}
+              value={editValues.tr_no}
               onChange={(e) =>
-                setEditValues({ ...editValues, lr_no: e.target.value })
+                setEditValues({ ...editValues, tr_no: e.target.value })
               }
               sx={{ width: 120 }}
             />
           );
         }
-        return row.original.lr_no;
+        return row.original.tr_no;
       },
     },
     {
@@ -992,7 +994,8 @@ const ElockAssignOthers = () => {
     if (isInlineCreating) {
       const inlineCreateRow = {
         _id: "inline-create",
-        lr_no: "",
+       
+        tr_no: "",
         transporter: null,
         client: null,
         container_number: "",
@@ -1020,7 +1023,7 @@ const ElockAssignOthers = () => {
         enableDensityToggle={false}
         initialState={{
           density: "compact",
-          columnPinning: { left: ["actions", "lr_no"] },
+          columnPinning: { left: ["actions", "tr_no"] },
         }}
         enableGlobalFilter={false}
         enableGrouping

@@ -12,9 +12,10 @@ const ElockAssignOthersSchema = new mongoose.Schema(
       ref: "Organisation",
       required: true,
     },
-    lr_no: {
+   
+    tr_no: {
       type: String,
-      index: true, // Add index if you frequently query by lr_no
+      index: true, // Add index if you frequently query by tr_no
     },
     container_number: {
       type: String,

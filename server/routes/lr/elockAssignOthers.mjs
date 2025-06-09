@@ -36,7 +36,7 @@ router.get("/api/elock/assign-others", async (req, res) => {
     if (search) {
       const searchRegex = new RegExp(escapeRegex(search), "i");
       searchConditions = [
-        { lr_no: searchRegex },
+        
         // We'll add populated field searches in the aggregation pipeline
       ];
     }
@@ -98,7 +98,8 @@ router.get("/api/elock/assign-others", async (req, res) => {
             {
               $match: {
                 $or: [
-                  { lr_no: new RegExp(escapeRegex(search), "i") },
+                  
+                  { tr_no: new RegExp(escapeRegex(search), "i") },
                   { container_number: new RegExp(escapeRegex(search), "i") },
                   { vehicle_no: new RegExp(escapeRegex(search), "i") },
                   { driver_name: new RegExp(escapeRegex(search), "i") },
@@ -139,7 +140,8 @@ router.get("/api/elock/assign-others", async (req, res) => {
       {
         $project: {
           _id: 1,
-          lr_no: 1,
+        
+          tr_no: 1,
           container_number: 1,
           vehicle_no: 1,
           driver_name: 1,
@@ -220,7 +222,8 @@ router.post("/api/elock/assign-others", async (req, res) => {
     const {
       transporter,
       client,
-      lr_no,
+      
+      tr_no,
       container_number,
       vehicle_no,
       driver_name,
@@ -245,7 +248,8 @@ router.post("/api/elock/assign-others", async (req, res) => {
     const newRecord = await ElockAssginOthersModel.create({
       transporter,
       client,
-      lr_no,
+     
+      tr_no,
       container_number,
       vehicle_no,
       driver_name,
@@ -272,7 +276,8 @@ router.put("/api/elock/assign-others/:id", async (req, res) => {
     const {
       transporter,
       client,
-      lr_no,
+  
+      tr_no,
       container_number,
       vehicle_no,
       driver_name,
@@ -311,7 +316,8 @@ router.put("/api/elock/assign-others/:id", async (req, res) => {
       {
         transporter,
         client,
-        lr_no,
+
+        tr_no,
         container_number,
         vehicle_no,
         driver_name,

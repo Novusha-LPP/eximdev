@@ -30,7 +30,7 @@ const ElockAssignOthers = () => {
   const [editValues, setEditValues] = useState({
     transporter: "",
     client: "",
-  
+
     tr_no: "",
     container_number: "",
     vehicle_no: "",
@@ -44,7 +44,7 @@ const ElockAssignOthers = () => {
   const [inlineCreateValues, setInlineCreateValues] = useState({
     transporter: "",
     client: "",
-   
+
     tr_no: "",
     container_number: "",
     vehicle_no: "",
@@ -261,7 +261,7 @@ const ElockAssignOthers = () => {
     setEditValues({
       transporter: row.original.transporter?._id || "",
       client: row.original.client?._id || "",
-   
+
       tr_no: row.original.tr_no || "",
       container_number: row.original.container_number || "",
       vehicle_no: row.original.vehicle_no || "",
@@ -370,10 +370,10 @@ const ElockAssignOthers = () => {
         );
       },
     },
-   
+
     {
       accessorKey: "tr_no",
-      header: "TR No",
+      header: "LR No",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
           return (
@@ -994,7 +994,7 @@ const ElockAssignOthers = () => {
     if (isInlineCreating) {
       const inlineCreateRow = {
         _id: "inline-create",
-       
+
         tr_no: "",
         transporter: null,
         client: null,

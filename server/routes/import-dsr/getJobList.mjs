@@ -167,11 +167,19 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
     const rankedJobs = jobs.filter((job) => statusRank[job.detailed_status]);
     const unrankedJobs = jobs.filter((job) => !statusRank[job.detailed_status]);
 
+    // Custom: LCL Billing Pending jobs first
+    const lclBillingPending = rankedJobs.filter(
+      (job) => job.detailed_status === "Billing Pending" && job.consignment_type === "LCL"
+    );
+    const otherRankedJobs = rankedJobs.filter(
+      (job) => !(job.detailed_status === "Billing Pending" && job.consignment_type === "LCL")
+    );
+
     // Sort ranked jobs by status rank and date field
     const sortedRankedJobs = Object.entries(statusRank).reduce(
       (acc, [status, { field }]) => [
         ...acc,
-        ...rankedJobs
+        ...otherRankedJobs
           .filter((job) => job.detailed_status === status)
           .sort(
             (a, b) =>
@@ -182,8 +190,8 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
       []
     );
 
-    // Combine ranked and unranked jobs
-    const allJobs = [...sortedRankedJobs, ...unrankedJobs];
+    // Combine: LCL Billing Pending first, then rest
+    const allJobs = [...lclBillingPending, ...sortedRankedJobs, ...unrankedJobs];
 
     // Paginate results
     const paginatedJobs = allJobs.slice(skip, skip + parseInt(limit));

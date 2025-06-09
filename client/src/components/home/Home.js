@@ -67,7 +67,7 @@ function Home() {
               </h6>
               <hr style={{ margin: "5px 0" }} />
               <Row>
-                {(category === "Import"
+                {(category === "DSR Module"
                   ? sortImports(categorizedModules[category])
                   : categorizedModules[category].sort()
                 ).map((module, id) => (

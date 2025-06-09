@@ -22,7 +22,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import axios from "axios";
 
-const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED", "NOT RETURNED"];
+const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED"];
 
 const ElockAssignOthers = () => {
   const [data, setData] = useState([]);
@@ -163,15 +163,24 @@ const ElockAssignOthers = () => {
     fetchAvailableElocks();
     fetchOrganisations();
     fetchLocations();
-  }, [fetchAvailableElocks, fetchOrganisations, fetchLocations]);
-
-  // Save edited row
+  }, [fetchAvailableElocks, fetchOrganisations, fetchLocations]); // Save edited row
   const handleSaveRow = async (row) => {
     try {
       setLoading(true);
+
+      // If elock_no is empty, set status to UNASSIGNED
+      // If status is UNASSIGNED, clear elock_no
+      let finalEditValues = { ...editValues };
+
+      if (!editValues.elock_no || editValues.elock_no.trim() === "") {
+        finalEditValues.elock_assign_status = "UNASSIGNED";
+      } else if (editValues.elock_assign_status === "UNASSIGNED") {
+        finalEditValues.elock_no = "";
+      }
+
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others/${row.original._id}`,
-        editValues
+        finalEditValues
       );
       setEditingRow(null);
       fetchElockAssignOthersData();
@@ -268,6 +277,7 @@ const ElockAssignOthers = () => {
   };
   const handleEditRow = (row) => {
     setEditingRow(row.id);
+    const elockNo = row.original.elock_no?._id || "";
     setEditValues({
       transporter: row.original.transporter?._id || "",
       client: row.original.client?._id || "",
@@ -277,8 +287,11 @@ const ElockAssignOthers = () => {
       vehicle_no: row.original.vehicle_no || "",
       driver_name: row.original.driver_name || "",
       driver_phone: row.original.driver_phone || "",
-      elock_no: row.original.elock_no?._id || "",
-      elock_assign_status: row.original.elock_assign_status || "UNASSIGNED",
+      elock_no: elockNo,
+      elock_assign_status:
+        !elockNo || elockNo.trim() === ""
+          ? "UNASSIGNED"
+          : row.original.elock_assign_status || "UNASSIGNED",
       goods_pickup: row.original.goods_pickup?._id || "",
       goods_delivery: row.original.goods_delivery?._id || "",
     });
@@ -753,12 +766,17 @@ const ElockAssignOthers = () => {
                 mergedOptions.find((opt) => opt._id === editValues.elock_no) ||
                 null
               }
-              onChange={(_, newValue) =>
+              onChange={(_, newValue) => {
+                const newElockNo = newValue ? newValue._id : "";
                 setEditValues({
                   ...editValues,
-                  elock_no: newValue ? newValue._id : "",
-                })
-              }
+                  elock_no: newElockNo,
+                  elock_assign_status:
+                    !newElockNo || newElockNo.trim() === ""
+                      ? "UNASSIGNED"
+                      : editValues.elock_assign_status,
+                });
+              }}
               renderInput={(params) => (
                 <TextField {...params} variant="standard" size="small" />
               )}
@@ -807,12 +825,15 @@ const ElockAssignOthers = () => {
               value={editValues.elock_assign_status}
               variant="standard"
               sx={{ width: 150 }}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newStatus = e.target.value;
                 setEditValues({
                   ...editValues,
-                  elock_assign_status: e.target.value,
-                })
-              }
+                  elock_assign_status: newStatus,
+                  elock_no:
+                    newStatus === "UNASSIGNED" ? "" : editValues.elock_no,
+                });
+              }}
             >
               {statusOptions.map((status) => (
                 <MenuItem key={status} value={status}>

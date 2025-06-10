@@ -458,14 +458,11 @@ router.get("/api/elock-assign", async (req, res) => {
         $ne: "RETURNED",
       };
     }
-
     if (search) {
       const searchRegex = new RegExp(search, "i");
       containerOrArray = [
         { pr_no: searchRegex },
         { branch: searchRegex },
-        { "consignor_details.name": searchRegex },
-        { "consignee_details.name": searchRegex },
         { "containers.tr_no": searchRegex },
         { "containers.container_number": searchRegex },
         { "containers.driver_name": searchRegex },
@@ -482,9 +479,7 @@ router.get("/api/elock-assign", async (req, res) => {
       };
     } else {
       containerMatchStage = containerMatchQuery;
-    }
-
-    // Aggregation pipeline for containers only
+    } // Aggregation pipeline for containers only
     const containersPipeline = [
       // Lookup for consignor
       {
@@ -513,8 +508,25 @@ router.get("/api/elock-assign", async (req, res) => {
           as: "containers.elock_no_details",
         },
       },
-      { $match: containerMatchStage },
-      // Add additional search match after lookup for elock FAssetID and populated fields
+      // Lookup container.goods_pickup after unwind
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_pickup",
+          foreignField: "_id",
+          as: "containers.goods_pickup_details",
+        },
+      },
+      // Lookup container.goods_delivery after unwind
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_delivery",
+          foreignField: "_id",
+          as: "containers.goods_delivery_details",
+        },
+      },
+      { $match: containerMatchStage }, // Add additional search match after lookup for elock FAssetID and populated fields
       ...(search
         ? [
             {
@@ -524,6 +536,18 @@ router.get("/api/elock-assign", async (req, res) => {
                   { branch: new RegExp(search, "i") },
                   { "consignor_details.name": new RegExp(search, "i") },
                   { "consignee_details.name": new RegExp(search, "i") },
+                  {
+                    "containers.goods_pickup_details.name": new RegExp(
+                      search,
+                      "i"
+                    ),
+                  },
+                  {
+                    "containers.goods_delivery_details.name": new RegExp(
+                      search,
+                      "i"
+                    ),
+                  },
                   { "containers.tr_no": new RegExp(search, "i") },
                   { "containers.container_number": new RegExp(search, "i") },
                   { "containers.driver_name": new RegExp(search, "i") },
@@ -557,6 +581,20 @@ router.get("/api/elock-assign", async (req, res) => {
             $cond: {
               if: { $gt: [{ $size: "$consignee_details" }, 0] },
               then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
+          goods_pickup: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_pickup_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_pickup_details", 0] },
+              else: null,
+            },
+          },
+          goods_delivery: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_delivery_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_delivery_details", 0] },
               else: null,
             },
           },

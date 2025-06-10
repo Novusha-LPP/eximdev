@@ -353,6 +353,16 @@ const ElockAssign = () => {
     // { accessorKey: "branch", header: "Branch" },
     { accessorKey: "consignor.name", header: "Consignor" },
     { accessorKey: "consignee.name", header: "Consignee" },
+    {
+      accessorKey: "goods_pickup.name",
+      header: "Pickup Location",
+      Cell: ({ row }) => row.original.goods_pickup?.name || "N/A",
+    },
+    {
+      accessorKey: "goods_delivery.name",
+      header: "Delivery Location",
+      Cell: ({ row }) => row.original.goods_delivery?.name || "N/A",
+    },
 
     {
       accessorKey: "elock_gps",

@@ -223,7 +223,6 @@ router.post("/api/elock/assign-others", async (req, res) => {
     const {
       consignor,
       consignee,
-
       tr_no,
       container_number,
       vehicle_no,

@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   TextField,
   InputAdornment,
@@ -18,7 +18,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
-
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -28,12 +28,13 @@ function ESanchit() {
   const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
-  const [searchQuery, setSearchQuery] = useState(""); // User input for search
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
+  // Use context for searchQuery and selectedImporter
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
-  const [selectedImporter, setSelectedImporter] = useState("");
+  const location = useLocation();
   const [importers, setImporters] = useState("");
 
   // Get importer list for MUI autocomplete
@@ -146,6 +147,14 @@ function ESanchit() {
     },
     [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
   );
+  // Add this useEffect in your ESanchit component
+React.useEffect(() => {
+  // Clear search state when this tab becomes active, unless coming from job details
+  if (currentTab === 0 && !(location.state && location.state.fromJobDetails)) {
+    setSearchQuery("");
+    setSelectedImporter("");
+  }
+}, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
 
  useEffect(() => {
    if (selectedYearState) {
@@ -170,14 +179,14 @@ function ESanchit() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Handle page change
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
-
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+  };
+
+  // Handle page change
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
   };
 
   // Handle copy functionality (can be abstracted if used multiple times)
@@ -231,11 +240,17 @@ function ESanchit() {
             consignment_type,
             custom_house,
             priorityColor, // Add priorityColor from API response
-          } = cell.row.original;
-
-          return (
+          } = cell.row.original;          return (
             <div
-              onClick={() => navigate(`/esanchit-job/${job_no}/${year}`)}
+              onClick={() =>
+                navigate(`/esanchit-job/${job_no}/${year}`, {
+                  state: {
+                    searchQuery,
+                    selectedImporter,
+                    currentTab: 0,
+                  },
+                })
+              }
               style={{
                 cursor: "pointer",
                 color: "blue",
@@ -428,7 +443,7 @@ function ESanchit() {
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
+          value={selectedImporter || ""} // Controlled value from context
           onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
           renderInput={(params) => (
             <TextField

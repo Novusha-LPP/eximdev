@@ -12,9 +12,7 @@ export const TabContext = React.createContext({
   navigate: () => {},
 });
 
-
-
-function DocumentationTab() {
+function ESanchitTab() {
   const location = useLocation();
   const navigate = useNavigate();
   const { a11yProps, CustomTabPanel } = useTabs();
@@ -47,7 +45,7 @@ function DocumentationTab() {
       navigate,
     }),
     [value, navigate]
-    );
+  );
 
   return (
     <TabContext.Provider value={contextValue}>
@@ -77,4 +75,4 @@ function DocumentationTab() {
 }
 
 // Memoized for performance optimization
-export default React.memo(DocumentationTab);
+export default React.memo(ESanchitTab);

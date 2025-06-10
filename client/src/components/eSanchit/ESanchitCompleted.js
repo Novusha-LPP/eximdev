@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
-import { Link, useNavigate } from "react-router-dom";
-import { TabContext } from "../eSanchit/ESanchitTab.js";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   TextField,
   InputAdornment,
@@ -15,7 +14,10 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
+import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchitCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -25,13 +27,14 @@ function ESanchitCompleted() {
   const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
-  const [searchQuery, setSearchQuery] = useState(""); // User input for search
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
+  // Use context for searchQuery and selectedImporter
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
-  const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState(""); 
+  const location = useLocation();
+  const [importers, setImporters] = useState("");
   
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -158,6 +161,14 @@ useEffect(() => {
   fetchJobs,
 ]);
 
+// Add this useEffect in your ESanchitCompleted component
+React.useEffect(() => {
+  // Clear search state when this tab becomes active, but not when returning from job details
+  if (currentTab === 1 && !location.state?.fromJobDetails) {
+    setSearchQuery("");
+    setSelectedImporter("");
+  }
+}, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -172,7 +183,6 @@ useEffect(() => {
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
-
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
@@ -229,13 +239,15 @@ useEffect(() => {
             consignment_type,
             custom_house,
             priorityColor, // Add priorityColor from API response
-          } = cell.row.original;
-
-          return (
+          } = cell.row.original;            return (
             <div
               onClick={() =>
                 navigate(`/esanchit-job/${job_no}/${year}`, {
-                  state: { currentTab: 1 },
+                  state: {
+                    searchQuery,
+                    selectedImporter,
+                    currentTab: 1,
+                  },
                 })
               }
               style={{

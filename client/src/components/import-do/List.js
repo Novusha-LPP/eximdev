@@ -15,18 +15,19 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Box,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function List() {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const navigate = useNavigate();
@@ -40,7 +41,8 @@ function List() {
   const [loading, setLoading] = useState(false);
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const [selectedImporter, setSelectedImporter] = useState("");
+  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
 
@@ -197,15 +199,30 @@ function List() {
     selectedYearState,
     selectedICD,
     selectedImporter,
-    fetchJobs,
-  ]);
+    fetchJobs,  ]);
+
+  // Clear search state when this tab becomes active, unless coming from job details
+  React.useEffect(() => {
+    if (location.state && !location.state.fromJobDetails) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state]);
+
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 500);
+      setPage(1); // Reset to first page on new search
+    }, 300); // 500ms delay
+
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
@@ -239,15 +256,19 @@ function List() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}
-            onClick={() => {
+            }}            onClick={() => {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
 
-              // 2) Navigate to the detail page, and pass selectedJobId
+              // 2) Navigate to the detail page, and pass search/filter state
               navigate(`/edit-do-list/${_id}`, {
                 state: {
                   selectedJobId: _id,
+                  searchQuery,
+                  selectedImporter,
+                  selectedICD,
+                  selectedYearState,
+                  fromJobList: true,
                 },
               });
             }}
@@ -732,19 +753,22 @@ function List() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>
-
-        {/* Search Field */}
+        </TextField>        {/* Search Field */}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs(1)}>
+                <IconButton 
+                  onClick={() => {
+                    setDebouncedSearchQuery(searchQuery);
+                    setPage(1);
+                  }}
+                >
                   <SearchIcon />
                 </IconButton>
               </InputAdornment>

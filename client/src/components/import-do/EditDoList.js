@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { Checkbox, FormControlLabel } from "@mui/material";
+import { Checkbox, FormControlLabel, Button, Box } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "axios";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -19,9 +19,35 @@ function EditDoList() {
   });
   const kycDocsRef = React.useRef();
   const location = useLocation();
+  const navigate = useNavigate();
   const { setCurrentTab } = useContext(TabContext);
-  // This might be the job you're editing...
-  const { selectedJobId } = location.state || {};
+  
+  // Get search/filter state from navigation
+  const { 
+    selectedJobId, 
+    searchQuery, 
+    selectedImporter, 
+    selectedICD, 
+    selectedYearState,
+    fromJobList 
+  } = location.state || {};
+
+  // Handle back to job list navigation
+  const handleBackToJobList = () => {
+    // Navigate back to the Import DO tab (List tab is index 1)
+    navigate("/import-do", {
+      state: {
+        tabIndex: 1, // List tab index
+        fromJobDetails: true,
+        searchQuery,
+        selectedImporter,
+        selectedICD,
+        selectedYearState,
+        selectedJobId,
+      },
+    });
+    setCurrentTab(1); // Set to List tab
+  };
 
   React.useEffect(() => {
     async function getData() {
@@ -106,9 +132,25 @@ function EditDoList() {
   //       });
 
   //       setCurrentTab(2); // Update the active tab in context
-
   return (
     <div>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackToJobList}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       <h3>
         <abbr title="Job Number" style={{ textDecoration: "none" }}>
           {jobDetails.job_no}

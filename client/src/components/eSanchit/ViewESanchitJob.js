@@ -48,10 +48,10 @@ function ViewESanchitJob() {
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
-  const [editDocument, setEditDocument] = useState(null);
-  const params = useParams();
+  const [editDocument, setEditDocument] = useState(null);  const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const { setCurrentTab } = useContext(TabContext);
   const isTrue = routeLocation.state?.currentTab || false;
   
   // Add stored search parameters state
@@ -75,19 +75,22 @@ function ViewESanchitJob() {
       });
     }
   }, [routeLocation.state]);
-
   // Handle back click function
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0;
     navigate("/e-sanchit", {
       state: {
         fromJobDetails: true,
+        tabIndex: tabIndex, // Use tabIndex instead of currentTab
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
-          currentTab: storedSearchParams.currentTab,
+          selectedJobId: params.job_no,
         }),
       },
     });
+    // Set the current tab in context
+    setCurrentTab(tabIndex);
   };
 
   // Fetch data

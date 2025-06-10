@@ -6,11 +6,12 @@ import {
   Typography,
   Checkbox,
   FormControlLabel,
+  Button,
 } from "@mui/material";
 import { Formik, Form, Field, ErrorMessage, useFormikContext } from "formik";
 import * as Yup from "yup"; // For form validation
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import { Row, Col } from "react-bootstrap";
@@ -79,6 +80,36 @@ const SubmissionJob = () => {
   const [jobStickerUploads, setJobStickerUploads] = useState([]);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+
+  // Store search parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      const { searchQuery, selectedImporter, selectedJobId } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+      });
+    }
+  }, [location.state]);
+
+  // Handle back click function
+  const handleBackClick = () => {
+    navigate("/submission", {
+      state: {
+        fromJobDetails: true,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedJobId: storedSearchParams.selectedJobId,
+        }),
+      },
+    });
+  };
 
   const extractFileName = (url) => {
     try {
@@ -132,11 +163,18 @@ const SubmissionJob = () => {
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
         payload
-      );
-
-      // Optionally, show a success message
+      );      // Optionally, show a success message
       // alert("Job details updated successfully!");
-      navigate("/submission");
+      navigate("/submission", {
+        state: {
+          fromJobDetails: true,
+          ...(storedSearchParams && {
+            searchQuery: storedSearchParams.searchQuery,
+            selectedImporter: storedSearchParams.selectedImporter,
+            selectedJobId: storedSearchParams.selectedJobId,
+          }),
+        },
+      });
       await fetchJobDetails();
     } catch (error) {
       console.error("Error updating job details:", error);
@@ -266,9 +304,25 @@ const SubmissionJob = () => {
       </Box>
     );
   };
-
   return (
     <div>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null ? (
         <>
           <JobDetailsStaticData

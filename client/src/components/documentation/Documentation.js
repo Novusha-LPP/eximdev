@@ -18,9 +18,9 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // En
 import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
-import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -30,13 +30,14 @@ function Documentation() {
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [page, setPage] = React.useState(1);
-  // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
-  const [selectedJobId, setSelectedJobId] = useState("");
+  const location = useLocation();
   const limit = 100; // Number of items per page
+  
+  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -69,7 +70,6 @@ function Documentation() {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
-
   useEffect(() => {
     async function getYears() {
       try {
@@ -103,6 +103,27 @@ function Documentation() {
     }
     getYears();
   }, [selectedYearState, setSelectedYearState]);
+
+  // Clear search state when this component becomes active, unless coming from job details
+  React.useEffect(() => {
+    if (!(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+
+  // Handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+    }
+  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, setSearchQuery, setSelectedImporter]);
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
@@ -202,12 +223,15 @@ function Documentation() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
-        } = cell.row.original;
-
-        return (
+        } = cell.row.original;        return (
           <div
             onClick={() =>
-              navigate(`/documentationJob/view-job/${job_no}/${year}`)
+              navigate(`/documentationJob/view-job/${job_no}/${year}`, {
+                state: {
+                  searchQuery,
+                  selectedImporter,
+                },
+              })
             }
             style={{
               cursor: "pointer",

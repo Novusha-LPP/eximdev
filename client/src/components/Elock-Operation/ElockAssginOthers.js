@@ -1,26 +1,28 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
 import {
-  Button,
   Box,
+  Button,
   TextField,
   Autocomplete,
   MenuItem,
+  IconButton,
   Typography,
   InputAdornment,
-  IconButton,
   Pagination,
 } from "@mui/material";
-import ElockGPSOperation from "./ElockGPSOperation.js";
-import SearchIcon from "@mui/icons-material/Search";
-import PlaceIcon from "@mui/icons-material/Place";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import CancelIcon from "@mui/icons-material/Cancel";
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+  Search as SearchIcon,
+  Place as PlaceIcon,
+  LockOpen as LockOpenIcon,
+} from "@mui/icons-material";
 import axios from "axios";
+import ElockGPSOperation from "./ElockGPSOperation";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED"];
 
@@ -31,6 +33,89 @@ const ElockAssignOthers = () => {
   const [locationOptions, setLocationOptions] = useState([]);
   const [editingRow, setEditingRow] = useState(null);
   const [isInlineCreating, setIsInlineCreating] = useState(false);
+
+  // Validation functions
+  // ISO 6346 Container Number Validation with Check Digit
+  const isValidContainerNumber = (value) => {
+    if (!value) return false;
+
+    const containerNumber = value.toUpperCase();
+    const containerNumberRegex = /^[A-Z]{3}[UJZ][A-Z0-9]{6}\d$/;
+
+    if (!containerNumberRegex.test(containerNumber)) {
+      return false;
+    }
+
+    // Validate check digit
+    const checkDigit = calculateCheckDigit(containerNumber.slice(0, 10));
+    const lastDigit = parseInt(containerNumber[10], 10);
+
+    return checkDigit === lastDigit;
+  };
+
+  // Helper function for check digit calculation
+  const calculateCheckDigit = (containerNumber) => {
+    if (containerNumber.length !== 10) return null;
+
+    const weightingFactors = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+    let total = 0;
+
+    for (let i = 0; i < containerNumber.length; i++) {
+      total += equivalentValue(containerNumber[i]) * weightingFactors[i];
+    }
+
+    const subTotal = Math.floor(total / 11);
+    return total - subTotal * 11;
+  };
+
+  // Helper function for character equivalences
+  const equivalentValue = (char) => {
+    const equivalences = {
+      A: 10,
+      B: 12,
+      C: 13,
+      D: 14,
+      E: 15,
+      F: 16,
+      G: 17,
+      H: 18,
+      I: 19,
+      J: 20,
+      K: 21,
+      L: 23,
+      M: 24,
+      N: 25,
+      O: 26,
+      P: 27,
+      Q: 28,
+      R: 29,
+      S: 30,
+      T: 31,
+      U: 32,
+      V: 34,
+      W: 35,
+      X: 36,
+      Y: 37,
+      Z: 38,
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+      5: 5,
+      6: 6,
+      7: 7,
+      8: 8,
+      9: 9,
+      0: 0,
+    };
+    return equivalences[char] || 0;
+  };
+
+  // Vehicle number validation regex
+  const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;
+
+  // Indian mobile number validation regex
+  const indianMobileRegex = /^[6-9]\d{9}$/;
   const [editValues, setEditValues] = useState({
     consignor: "",
     consignee: "",
@@ -161,30 +246,220 @@ const ElockAssignOthers = () => {
     fetchOrganisations();
     fetchLocations();
   }, [fetchAvailableElocks, fetchOrganisations, fetchLocations]);
+  // Function to format user-friendly error messages
+  const formatErrorMessage = (error) => {
+    if (error.response?.data?.message) {
+      const message = error.response.data.message;
 
+      // Handle validation errors
+      if (message.includes("validation failed")) {
+        let errorMessages = [];
+
+        if (message.includes("consignor") && message.includes("required")) {
+          errorMessages.push("Consignor is required");
+        }
+        if (message.includes("consignee") && message.includes("required")) {
+          errorMessages.push("Consignee is required");
+        }
+        if (
+          message.includes("goods_pickup") &&
+          message.includes("Cast to ObjectId failed")
+        ) {
+          errorMessages.push("Please select a valid pickup location");
+        }
+        if (
+          message.includes("goods_delivery") &&
+          message.includes("Cast to ObjectId failed")
+        ) {
+          errorMessages.push("Please select a valid delivery location");
+        }
+        if (
+          message.includes("elock_no") &&
+          message.includes("Cast to ObjectId failed")
+        ) {
+          errorMessages.push("Please select a valid e-lock");
+        }
+        if (message.includes("container_number")) {
+          errorMessages.push("Container number format is invalid");
+        }
+        if (message.includes("vehicle_no")) {
+          errorMessages.push("Vehicle number format is invalid");
+        }
+        if (message.includes("driver_phone")) {
+          errorMessages.push(
+            "Driver phone number must be 10 digits starting with 6-9"
+          );
+        }
+
+        return errorMessages.length > 0
+          ? errorMessages.join("\n• ")
+          : "Please check all required fields and try again";
+      }
+
+      // Handle duplicate key errors
+      if (message.includes("duplicate key") || message.includes("E11000")) {
+        if (message.includes("tr_no")) {
+          return "This TR number already exists";
+        }
+        if (message.includes("container_number")) {
+          return "This container number already exists";
+        }
+        if (message.includes("vehicle_no")) {
+          return "This vehicle number is already assigned";
+        }
+        return "Record with this information already exists";
+      }
+    }
+
+    return (
+      error.response?.data?.error ||
+      error.message ||
+      "An unexpected error occurred"
+    );
+  };
+
+  // Function to clean data before sending to backend
+  const cleanDataForSubmission = (data) => {
+    const cleanedData = { ...data };
+
+    // Convert empty strings to null for ObjectId fields
+    if (!cleanedData.goods_pickup || cleanedData.goods_pickup.trim() === "") {
+      cleanedData.goods_pickup = null;
+    }
+    if (
+      !cleanedData.goods_delivery ||
+      cleanedData.goods_delivery.trim() === ""
+    ) {
+      cleanedData.goods_delivery = null;
+    }
+    if (!cleanedData.elock_no || cleanedData.elock_no.trim() === "") {
+      cleanedData.elock_no = null;
+    }
+    if (!cleanedData.consignor || cleanedData.consignor.trim() === "") {
+      delete cleanedData.consignor; // Will trigger required validation
+    }
+    if (!cleanedData.consignee || cleanedData.consignee.trim() === "") {
+      delete cleanedData.consignee; // Will trigger required validation
+    }
+
+    return cleanedData;
+  };
+  // Client-side validation based on schema
+  const validateData = (data) => {
+    const errors = [];
+
+    // Required fields validation
+    if (!data.consignor || data.consignor.trim() === "") {
+      errors.push("Consignor is required");
+    }
+    if (!data.consignee || data.consignee.trim() === "") {
+      errors.push("Consignee is required");
+    }
+
+    // // Container number validation
+    // if (data.container_number && !isValidContainerNumber(data.container_number)) {
+    //   errors.push('Container number format is invalid (Format: ABCD1234567)');
+    // }
+
+    // Vehicle number validation
+    if (data.vehicle_no && !vehicleNoRegex.test(data.vehicle_no)) {
+      errors.push("Vehicle number format is invalid (Format: AA00AA0000)");
+    }
+
+    // Driver phone validation
+    if (data.driver_phone && !indianMobileRegex.test(data.driver_phone)) {
+      errors.push("Driver phone must be 10 digits starting with 6-9");
+    }
+
+    // Driver name validation (only alphabetic characters)
+    if (data.driver_name && !/^[a-zA-Z\s]*$/.test(data.driver_name)) {
+      errors.push("Driver name should contain only letters and spaces");
+    }
+
+    return errors;
+  };
+  // Function to check for missing optional fields and confirm with user
+  const confirmMissingOptionalFields = (data) => {
+    const missingFields = [];
+
+    // Check all optional fields
+    if (!data.tr_no || data.tr_no.trim() === "") {
+      missingFields.push("LR Number");
+    }
+    if (!data.container_number || data.container_number.trim() === "") {
+      missingFields.push("Container Number");
+    }
+    if (!data.vehicle_no || data.vehicle_no.trim() === "") {
+      missingFields.push("Vehicle Number");
+    }
+    if (!data.driver_name || data.driver_name.trim() === "") {
+      missingFields.push("Driver Name");
+    }
+    if (!data.driver_phone || data.driver_phone.trim() === "") {
+      missingFields.push("Driver Phone");
+    }
+    if (!data.goods_pickup || data.goods_pickup.trim() === "") {
+      missingFields.push("Pickup Location");
+    }
+    if (!data.goods_delivery || data.goods_delivery.trim() === "") {
+      missingFields.push("Delivery Location");
+    }
+    if (!data.elock_no || data.elock_no.trim() === "") {
+      missingFields.push("E-lock Number");
+    }
+
+    if (missingFields.length > 0) {
+      const message = `The following optional fields are empty:\n• ${missingFields.join(
+        "\n• "
+      )}\n\nDo you want to continue saving without these fields?\n\nClick "OK" to save anyway, or "Cancel" to go back and fill these fields.`;
+      return window.confirm(message);
+    }
+
+    return true; // No missing fields, proceed
+  };
   // Save edited row
   const handleSaveRow = async (row) => {
     try {
       setLoading(true);
 
+      // Client-side validation
+      const validationErrors = validateData(editValues);
+      if (validationErrors.length > 0) {
+        alert(
+          "Please fix the following errors:\n• " + validationErrors.join("\n• ")
+        );
+        return;
+      }
+
+      // Check for missing optional fields and get user confirmation
+      const shouldContinue = confirmMissingOptionalFields(editValues);
+      if (!shouldContinue) {
+        return; // User chose to go back and fill the fields
+      }
+
       let finalEditValues = { ...editValues };
 
+      // Handle elock assignment logic
       if (!editValues.elock_no || editValues.elock_no.trim() === "") {
         finalEditValues.elock_assign_status = "UNASSIGNED";
       } else if (editValues.elock_assign_status === "UNASSIGNED") {
-        finalEditValues.elock_no = "";
+        finalEditValues.elock_no = null;
       }
+
+      // Clean data before submission
+      const cleanedData = cleanDataForSubmission(finalEditValues);
 
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others/${row.original._id}`,
-        finalEditValues
+        cleanedData
       );
       setEditingRow(null);
       fetchElockAssignOthersData();
       fetchAvailableElocks();
     } catch (error) {
       console.error("Error updating record:", error);
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      const userFriendlyMessage = formatErrorMessage(error);
+      alert(`Failed to update record:\n\n${userFriendlyMessage}`);
     } finally {
       setLoading(false);
     }
@@ -207,13 +482,31 @@ const ElockAssignOthers = () => {
       goods_delivery: "",
     });
   };
-
   const handleSaveInlineCreate = async () => {
     try {
       setLoading(true);
+
+      // Client-side validation
+      const validationErrors = validateData(inlineCreateValues);
+      if (validationErrors.length > 0) {
+        alert(
+          "Please fix the following errors:\n• " + validationErrors.join("\n• ")
+        );
+        return;
+      }
+
+      // Check for missing optional fields and get user confirmation
+      const shouldContinue = confirmMissingOptionalFields(inlineCreateValues);
+      if (!shouldContinue) {
+        return; // User chose to go back and fill the fields
+      }
+
+      // Clean data before submission
+      const cleanedData = cleanDataForSubmission(inlineCreateValues);
+
       await axios.post(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others`,
-        inlineCreateValues
+        cleanedData
       );
       setIsInlineCreating(false);
       setInlineCreateValues({
@@ -233,7 +526,8 @@ const ElockAssignOthers = () => {
       fetchAvailableElocks();
     } catch (error) {
       console.error("Error creating record:", error);
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      const userFriendlyMessage = formatErrorMessage(error);
+      alert(`Failed to create record:\n\n${userFriendlyMessage}`);
     } finally {
       setLoading(false);
     }
@@ -557,36 +851,62 @@ const ElockAssignOthers = () => {
       header: "Container No",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
+          const isValidContainer = isValidContainerNumber(
+            inlineCreateValues.container_number
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={inlineCreateValues.container_number}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newValue = e.target.value.toUpperCase();
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  container_number: e.target.value,
-                })
-              }
+                  container_number: newValue,
+                });
+              }}
               sx={{ width: 150 }}
-              placeholder="Container No"
+              placeholder="ABCD1234567"
+              error={!!inlineCreateValues.container_number && !isValidContainer}
+              helperText={
+                !!inlineCreateValues.container_number && !isValidContainer
+                  ? "Format: ABCD1234567 (4 uppercase letters + 7 digits) or Not a Real Container Number"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 11,
+              }}
             />
           );
         }
 
         if (editingRow === row.id) {
+          const isValidContainer = isValidContainerNumber(
+            editValues.container_number
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.container_number}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newValue = e.target.value.toUpperCase();
                 setEditValues({
                   ...editValues,
-                  container_number: e.target.value,
-                })
-              }
+                  container_number: newValue,
+                });
+              }}
               sx={{ width: 150 }}
+              error={!!editValues.container_number && !isValidContainer}
+              helperText={
+                !!editValues.container_number && !isValidContainer
+                  ? "Format: ABCD1234567 (4 uppercase letters + 7 digits) or Not a Real Container Number"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 11,
+              }}
             />
           );
         }
@@ -598,36 +918,62 @@ const ElockAssignOthers = () => {
       header: "Vehicle No",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
+          const isValidVehicle = vehicleNoRegex.test(
+            inlineCreateValues.vehicle_no
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={inlineCreateValues.vehicle_no}
-              onChange={(e) =>
+              onChange={(e) => {
+                const inputValue = e.target.value.toUpperCase();
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  vehicle_no: e.target.value,
-                })
-              }
+                  vehicle_no: inputValue,
+                });
+              }}
               sx={{ width: 150 }}
-              placeholder="Vehicle No"
+              placeholder="AA00AA0000"
+              error={!!inlineCreateValues.vehicle_no && !isValidVehicle}
+              helperText={
+                !!inlineCreateValues.vehicle_no && !isValidVehicle
+                  ? "Invalid format. Use: AA00AA0000 or similar"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                style: { textTransform: "uppercase" },
+              }}
             />
           );
         }
 
         if (editingRow === row.id) {
+          const isValidVehicle = vehicleNoRegex.test(editValues.vehicle_no);
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.vehicle_no}
-              onChange={(e) =>
+              onChange={(e) => {
+                const inputValue = e.target.value.toUpperCase();
                 setEditValues({
                   ...editValues,
-                  vehicle_no: e.target.value,
-                })
-              }
+                  vehicle_no: inputValue,
+                });
+              }}
               sx={{ width: 150 }}
+              error={!!editValues.vehicle_no && !isValidVehicle}
+              helperText={
+                !!editValues.vehicle_no && !isValidVehicle
+                  ? "Invalid format. Use: AA00AA0000 or similar"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                style: { textTransform: "uppercase" },
+              }}
             />
           );
         }
@@ -644,27 +990,34 @@ const ElockAssignOthers = () => {
               variant="standard"
               size="small"
               value={inlineCreateValues.driver_name}
-              onChange={(e) =>
-                setInlineCreateValues({
-                  ...inlineCreateValues,
-                  driver_name: e.target.value,
-                })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only alphabetic characters and spaces
+                if (/^[a-zA-Z\s]*$/.test(inputValue)) {
+                  setInlineCreateValues({
+                    ...inlineCreateValues,
+                    driver_name: inputValue,
+                  });
+                }
+              }}
               sx={{ width: 150 }}
               placeholder="Driver Name"
             />
           );
         }
-
         if (editingRow === row.id) {
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.driver_name}
-              onChange={(e) =>
-                setEditValues({ ...editValues, driver_name: e.target.value })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only alphabetic characters and spaces
+                if (/^[a-zA-Z\s]*$/.test(inputValue)) {
+                  setEditValues({ ...editValues, driver_name: inputValue });
+                }
+              }}
               sx={{ width: 150 }}
             />
           );
@@ -677,33 +1030,67 @@ const ElockAssignOthers = () => {
       header: "Driver Phone",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
+          const isValidPhone = indianMobileRegex.test(
+            inlineCreateValues.driver_phone
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={inlineCreateValues.driver_phone}
-              onChange={(e) =>
-                setInlineCreateValues({
-                  ...inlineCreateValues,
-                  driver_phone: e.target.value,
-                })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only numeric input
+                if (/^[0-9]*$/.test(inputValue) && inputValue.length <= 10) {
+                  setInlineCreateValues({
+                    ...inlineCreateValues,
+                    driver_phone: inputValue,
+                  });
+                }
+              }}
               sx={{ width: 150 }}
-              placeholder="Driver Phone"
+              placeholder="9876543210"
+              error={!!inlineCreateValues.driver_phone && !isValidPhone}
+              helperText={
+                !!inlineCreateValues.driver_phone && !isValidPhone
+                  ? "Driver phone must be 10 digits starting with 6-9"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+              }}
             />
           );
         }
 
         if (editingRow === row.id) {
+          const isValidPhone = indianMobileRegex.test(editValues.driver_phone);
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.driver_phone}
-              onChange={(e) =>
-                setEditValues({ ...editValues, driver_phone: e.target.value })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only numeric input
+                if (/^[0-9]*$/.test(inputValue) && inputValue.length <= 10) {
+                  setEditValues({ ...editValues, driver_phone: inputValue });
+                }
+              }}
               sx={{ width: 150 }}
+              error={!!editValues.driver_phone && !isValidPhone}
+              helperText={
+                !!editValues.driver_phone && !isValidPhone
+                  ? "Driver phone must be 10 digits starting with 6-9"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+              }}
             />
           );
         }

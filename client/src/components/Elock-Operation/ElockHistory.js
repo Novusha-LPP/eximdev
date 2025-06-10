@@ -71,7 +71,7 @@ const ElockHistory = () => {
     },
     {
       accessorKey: "elock_no",
-      header: "elock_no",
+      header: "Elock No.",
     },
     {
       accessorKey: "consignor.name",

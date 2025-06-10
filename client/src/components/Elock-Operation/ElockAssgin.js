@@ -351,6 +351,9 @@ const ElockAssign = () => {
 
     // { accessorKey: "pr_no", header: "PR No" },
     // { accessorKey: "branch", header: "Branch" },
+    { accessorKey: "consignor.name", header: "Consignor" },
+    { accessorKey: "consignee.name", header: "Consignee" },
+
     {
       accessorKey: "elock_gps",
       header: "Elock GPS",

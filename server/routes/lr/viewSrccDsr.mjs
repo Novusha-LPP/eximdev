@@ -229,7 +229,6 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           source: { $literal: "containers" },
           transporter: null,
           client: null,
-         
         },
       },
     ];
@@ -295,7 +294,6 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
             {
               $match: {
                 $or: [
-                 
                   { tr_no: new RegExp(escapeRegex(search), "i") },
                   { container_number: new RegExp(escapeRegex(search), "i") },
                   { driver_name: new RegExp(escapeRegex(search), "i") },
@@ -340,7 +338,7 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           pr_id: null,
           pr_no: null,
           branch: null,
-      
+
           tr_no: 1,
           container_number: 1,
           driver_name: 1,
@@ -409,8 +407,8 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
       }
 
       // Then sort by tr_no or lr_no
-      const aRef = a.tr_no ||  "";
-      const bRef = b.tr_no ||  "";
+      const aRef = a.tr_no || "";
+      const bRef = b.tr_no || "";
       return bRef.localeCompare(aRef);
     });
 
@@ -463,6 +461,8 @@ router.get("/api/elock-assign", async (req, res) => {
       containerOrArray = [
         { pr_no: searchRegex },
         { branch: searchRegex },
+        { "consignor_details.name": searchRegex },
+        { "consignee_details.name": searchRegex },
         { "containers.tr_no": searchRegex },
         { "containers.container_number": searchRegex },
         { "containers.driver_name": searchRegex },
@@ -483,6 +483,24 @@ router.get("/api/elock-assign", async (req, res) => {
 
     // Aggregation pipeline for containers only
     const containersPipeline = [
+      // Lookup for consignor
+      {
+        $lookup: {
+          from: "organisations", // Adjust collection name if different
+          localField: "consignor",
+          foreignField: "_id",
+          as: "consignor_details",
+        },
+      },
+      // Lookup for consignee
+      {
+        $lookup: {
+          from: "organisations", // Adjust collection name if different
+          localField: "consignee",
+          foreignField: "_id",
+          as: "consignee_details",
+        },
+      },
       { $unwind: "$containers" },
       {
         $lookup: {
@@ -493,7 +511,7 @@ router.get("/api/elock-assign", async (req, res) => {
         },
       },
       { $match: containerMatchStage },
-      // Add additional search match after lookup for elock FAssetID
+      // Add additional search match after lookup for elock FAssetID and populated fields
       ...(search
         ? [
             {
@@ -501,6 +519,8 @@ router.get("/api/elock-assign", async (req, res) => {
                 $or: [
                   { pr_no: new RegExp(search, "i") },
                   { branch: new RegExp(search, "i") },
+                  { "consignor_details.name": new RegExp(search, "i") },
+                  { "consignee_details.name": new RegExp(search, "i") },
                   { "containers.tr_no": new RegExp(search, "i") },
                   { "containers.container_number": new RegExp(search, "i") },
                   { "containers.driver_name": new RegExp(search, "i") },
@@ -523,6 +543,20 @@ router.get("/api/elock-assign", async (req, res) => {
           pr_id: "$_id", // Keep the original PR ID
           pr_no: 1,
           branch: 1,
+          consignor: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
+              else: null,
+            },
+          },
+          consignee: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
           // Container level fields
           _id: "$containers._id", // Use container's actual _id
           container_id: "$containers._id", // Also provide as container_id for clarity

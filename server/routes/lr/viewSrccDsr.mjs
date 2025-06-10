@@ -109,6 +109,7 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
       search = "",
       elock_assign_status,
       sort,
+      status, // Add status parameter from frontend
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -121,12 +122,16 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
     // Build match query for ElockAssignOthers
     let othersMatchQuery = {};
 
-    // If explicit filter for RETURNED
-    if (elock_assign_status === "RETURNED" || sort === "RETURNED") {
+    // Handle status filtering
+    if (status === "ALL") {
+      // Show all records (no status filter)
+      // Don't add any elock_assign_status filter
+    } else if (status === "RETURNED" || elock_assign_status === "RETURNED" || sort === "RETURNED") {
+      // Show only RETURNED records
       containerMatchQuery["containers.elock_assign_status"] = "RETURNED";
       othersMatchQuery["elock_assign_status"] = "RETURNED";
     } else {
-      // Default: Exclude RETURNED
+      // Default: Exclude RETURNED (show only non-RETURNED)
       containerMatchQuery["containers.elock_assign_status"] = {
         $ne: "RETURNED",
       };
@@ -515,6 +520,7 @@ router.get("/api/elock-assign", async (req, res) => {
       search = "",
       elock_assign_status,
       sort,
+      status, // Add status parameter from frontend
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -524,11 +530,15 @@ router.get("/api/elock-assign", async (req, res) => {
     };
     let containerOrArray = [];
 
-    // If explicit filter for RETURNED
-    if (elock_assign_status === "RETURNED" || sort === "RETURNED") {
+    // Handle status filtering
+    if (status === "ALL") {
+      // Show all records (no status filter)
+      // Don't add any elock_assign_status filter
+    } else if (status === "RETURNED" || elock_assign_status === "RETURNED" || sort === "RETURNED") {
+      // Show only RETURNED records
       containerMatchQuery["containers.elock_assign_status"] = "RETURNED";
     } else {
-      // Default: Exclude RETURNED
+      // Default: Exclude RETURNED (show only non-RETURNED)
       containerMatchQuery["containers.elock_assign_status"] = {
         $ne: "RETURNED",
       };

@@ -3361,7 +3361,7 @@ function JobDetails() {
                               size="small"
                               margin="normal"
                               variant="outlined"
-                              type="date"
+                              type="datetime-local"
                               id={`arrival_date_${index}`}
                               name={`container_nos[${index}].arrival_date`}
                               disabled={ExBondflag}

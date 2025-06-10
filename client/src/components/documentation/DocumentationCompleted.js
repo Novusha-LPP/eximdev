@@ -16,24 +16,26 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DocumentationCompletedd() {
 
     const { currentTab } = useContext(TabContext); // Access context
  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [page, setPage] = React.useState(1);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("");
+  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const limit = 100; // Number of items per page
 
   // Get importer list for MUI autocomplete
@@ -160,7 +162,6 @@ function DocumentationCompletedd() {
    selectedYearState,
    fetchJobs,
  ]);
-
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -170,6 +171,27 @@ function DocumentationCompletedd() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Clear search state when this tab becomes active, but not when returning from job details
+  React.useEffect(() => {
+    if (!(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+
+  // Handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+    }
+  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, setSearchQuery, setSelectedImporter]);
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
@@ -193,13 +215,15 @@ function DocumentationCompletedd() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
-        } = cell.row.original;
-
-        return (
+        } = cell.row.original;        return (
           <div
             onClick={() =>
               navigate(`/documentationJob/view-job/${job_no}/${year}`, {
-                state: { currentTab: 1 },
+                state: { 
+                  currentTab: 1,
+                  searchQuery,
+                  selectedImporter,
+                },
               })
             }
             style={{

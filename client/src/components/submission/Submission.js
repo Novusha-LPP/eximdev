@@ -4,7 +4,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   TextField,
   Box,
@@ -19,23 +19,49 @@ import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function Submission() {
  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
 
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [page, setPage] = React.useState(1);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("");
+  // Use context for search functionality like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [selectedJobId, setSelectedJobId] = useState(
+    location.state?.selectedJobId || ""
+  );
 
   const limit = 10; // Number of items per page
+
+  // Add this useEffect to handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+    } else {
+      // Clear search state when this tab becomes active fresh (not from job details)
+      setSearchQuery("");
+      setSelectedImporter("");
+      setSelectedJobId("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -106,9 +132,22 @@ function Submission() {
       } catch (error) {
         console.error("Error fetching years:", error);
       }
-    }
-    getYears();
+    }    getYears();
   }, [selectedYearState, setSelectedYearState]);
+
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  // Debounce search query to reduce excessive API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPage(1); // Reset to first page on new search
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler); // Cleanup on unmount
+  }, [searchQuery]);
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
@@ -174,13 +213,8 @@ function Submission() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
-
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
-  };
-
-  const handleSearchInputChange = (event) => {
-    setSearchQuery(event.target.value);
   };
 
   const columns = [
@@ -199,9 +233,14 @@ function Submission() {
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;
 
-        return (
-          <div
-            onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
+        return (          <div
+            onClick={() => navigate(`/submission-job/${job_no}/${year}`, {
+              state: {
+                selectedJobId: job_no,
+                searchQuery,
+                selectedImporter,
+              },
+            })}
             style={{
               cursor: "pointer",
               color: "blue",

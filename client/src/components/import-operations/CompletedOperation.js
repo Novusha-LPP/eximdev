@@ -20,11 +20,13 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { TabContext } from "./ImportOperations.js";
 
 function CompletedOperations() {
-   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { currentTab } = useContext(TabContext); // Access context for tab state
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
@@ -35,15 +37,42 @@ function CompletedOperations() {
   const [totalPages, setTotalPages] = useState(1); // Total pages
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
 
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
+  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
   const limit = 100; // Rows per page
-
   const location = useLocation();
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
+
+  // Add state persistence logic similar to E-Sanchit
+  React.useEffect(() => {
+    // Clear search state when this tab becomes active, unless coming from job details
+    if (currentTab === 2 && !(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
+  // Handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+      if (location.state?.selectedICD !== undefined) {
+        setSelectedICD(location.state.selectedICD);
+      }
+    }
+  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, location.state?.selectedICD, setSearchQuery, setSelectedImporter]);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -143,8 +172,7 @@ function CompletedOperations() {
       console.error("Error fetching rows:", error);
       setRows([]); // Reset rows if an error occurs
       setTotalPages(1); // Reset pagination
-    }
-  };
+    }  };
 
   // Fetch rows when dependencies change
   useEffect(() => {
@@ -163,11 +191,6 @@ function CompletedOperations() {
     selectedImporter,
   ]);
 
-  useEffect(() => {
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-    }
-  }, [location.state?.searchQuery]);
   // Handle search input with debounce
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -258,16 +281,20 @@ function CompletedOperations() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}
-            onClick={() => {
+            }}            onClick={() => {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(jobNo);
 
-              // 2) Navigate to the detail page, and pass selectedJobId
+              // 2) Navigate to the detail page, and pass comprehensive search state
               navigate(`/import-operations/view-job/${jobNo}/${year}`, {
                 state: {
                   selectedJobId: jobNo,
                   searchQuery,
+                  selectedImporter,
+                  selectedICD,
+                  selectedYearState,
+                  currentTab: 2, // Completed Operation tab index
+                  fromJobList: true,
                 },
               });
             }}

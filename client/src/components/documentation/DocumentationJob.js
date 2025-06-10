@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 const DocumentationJob = () => {
   const routeLocation = useLocation()
@@ -25,6 +26,42 @@ const DocumentationJob = () => {
   const [data, setData] = useState(null);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  const {
+    setSearchQuery,
+    setSelectedImporter,
+  } = useSearchQuery();
+
+  const isTrue = routeLocation.state?.currentTab || false;
+  const isAdmin = user.role === "Admin"; // Check if user is an Admin
+  const isDisabled = (!isAdmin && isTrue === 1);
+    // Store search parameters from location state
+  useEffect(() => {
+    if (routeLocation.state) {
+      const { searchQuery, selectedImporter, currentTab } = routeLocation.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        currentTab,
+      });
+    }
+  }, [routeLocation.state]);
+  // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0;
+    navigate("/documentation", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex, // Use tabIndex instead of currentTab
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+        }),
+      },
+    });
+  };
   
   const extractFileName = (url) => {
     try {
@@ -35,10 +72,6 @@ const DocumentationJob = () => {
       return url; // Fallback to original URL
     }
   };
-  
-  const isTrue = routeLocation.state?.currentTab || false;
-  const isAdmin = user.role === "Admin"; // Check if user is an Admin
-  const isDisabled = (!isAdmin && isTrue === 1);
   
   // Check if checklist exists and has items
   const hasChecklist = data?.checklist && data.checklist.length > 0;
@@ -90,7 +123,6 @@ const DocumentationJob = () => {
       documentation_completed_date_time: newValue,
     }));
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
   
@@ -101,7 +133,19 @@ const DocumentationJob = () => {
           documentation_completed_date_time: data.documentation_completed_date_time,
         }
       );
-      navigate("/documentation");
+        // Navigate back with preserved search parameters
+      const tabIndex = storedSearchParams?.currentTab ?? 0;
+      navigate("/documentation", {
+        state: {
+          fromJobDetails: true,
+          tabIndex: tabIndex, // Use tabIndex instead of currentTab
+          ...(storedSearchParams && {
+            searchQuery: storedSearchParams.searchQuery,
+            selectedImporter: storedSearchParams.selectedImporter,
+          }),
+        },
+      });
+      
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation data:", error);
@@ -229,9 +273,25 @@ const DocumentationJob = () => {
       </Box>
     );
   };
-  
-  return (
+    return (
     <div>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null ? (
         <>
           <JobDetailsStaticData

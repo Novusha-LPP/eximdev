@@ -9,6 +9,8 @@ import {
   Snackbar,
   Checkbox,
   FormControlLabel,
+  Button,
+  Box,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Row, Col } from "react-bootstrap";
@@ -29,10 +31,39 @@ function EditBillingSheet() {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
-
   const { setCurrentTab } = useContext(TabContext);
   // This might be the job you're editing...
   const { selectedJobId } = location.state || {};
+
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = React.useState(null);
+
+  // Store search parameters from location state
+  React.useEffect(() => {
+    if (location.state) {
+      const { searchQuery, selectedImporter, selectedJobId } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+      });
+    }
+  }, [location.state]);
+
+  // Handle back click function
+  const handleBackClick = () => {
+    navigate("/import-do", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: 3, // BillingSheet tab index
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedJobId: storedSearchParams.selectedJobId,
+        }),
+      },
+    });
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -62,14 +93,14 @@ function EditBillingSheet() {
         });
         // Navigate back to the BillingSheet tab after submission
         const currentState = window.history.state || {};
-        const scrollPosition = currentState.scrollPosition || 0;
-
-        navigate("/import-do", {
+        const scrollPosition = currentState.scrollPosition || 0;        navigate("/import-do", {
           state: {
+            fromJobDetails: true,
             tabIndex: 3, // BillingSheet tab index
             scrollPosition, // Preserve scroll position
             selectedJobId,
             searchQuery: location.state?.searchQuery || "", // Preserve search query
+            selectedImporter: location.state?.selectedImporter || "", // Preserve selected importer
           },
         });
 
@@ -117,9 +148,25 @@ function EditBillingSheet() {
 
   if (loading) return <p>Loading data...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
-
   return (
     <div style={{ margin: "20px" }}>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data && (
         <div className="job-details-container">
           <Row>

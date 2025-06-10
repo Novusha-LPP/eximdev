@@ -20,6 +20,8 @@ import {
   FormControlLabel,
   TextField,
   IconButton,
+  Button,
+  Box,
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 
@@ -46,6 +48,8 @@ function EditDoPlanning() {
   // This might be the job you're editing...
   const { selectedJobId } = location.state || {};
 
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
   // Helper function to get local datetime string in 'YYYY-MM-DDTHH:MM' format
   const getLocalDatetimeString = () => {
     const now = new Date();
@@ -55,6 +59,33 @@ function EditDoPlanning() {
     const hours = `0${now.getHours()}`.slice(-2);
     const minutes = `0${now.getMinutes()}`.slice(-2);
     return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  // Store search parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      const { searchQuery, selectedImporter, selectedJobId } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+      });
+    }
+  }, [location.state]);
+
+  // Handle back click function
+  const handleBackClick = () => {
+    navigate("/import-do", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: 2, // DoPlanning tab index
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedJobId: storedSearchParams.selectedJobId,
+        }),
+      },
+    });
   };
 
   // Helper function to convert date to 'YYYY-MM-DD' format
@@ -165,14 +196,14 @@ function EditDoPlanning() {
         );
         resetForm(); // Reset the form
         const currentState = window.history.state || {};
-        const scrollPosition = currentState.scrollPosition || 0;
-
-        navigate("/import-do", {
+        const scrollPosition = currentState.scrollPosition || 0;        navigate("/import-do", {
           state: {
+            fromJobDetails: true,
             tabIndex: 2, // BillingSheet tab index
             scrollPosition, // Preserve scroll position
             selectedJobId,
             searchQuery: location.state?.searchQuery || "", // Preserve search query
+            selectedImporter: location.state?.selectedImporter || "", // Preserve selected importer
           },
         });
 
@@ -396,9 +427,25 @@ function EditDoPlanning() {
   console.log("shipping_line_invoice:", formik.values.shipping_line_invoice);
   console.log("do_validity:", formik.values.do_validity);
   console.log("do_copies:", formik.values.do_copies);
-
   return (
     <>
+      {/* Back Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>

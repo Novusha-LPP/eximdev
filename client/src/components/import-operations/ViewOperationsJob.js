@@ -3,7 +3,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, TextField, Box, Typography } from "@mui/material";
+import { IconButton, TextField, Box, Typography, Button } from "@mui/material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import FileUpload from "../../components/gallery/FileUpload.js"; // Reusable FileUpload component
@@ -41,7 +41,42 @@ function ViewOperationsJob() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { selectedJobId, searchQuery, page } = location.state || {};
+
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  // Store search parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, selectedICD, selectedYearState } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        selectedICD,
+        selectedYearState,
+      });
+    }
+  }, [location.state]);
+  // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to Examination Planning tab
+    navigate("/import-operations", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedJobId: storedSearchParams.selectedJobId,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedYearState: storedSearchParams.selectedYearState,
+        }),
+      },
+    });
+  };
 
   const { data, formik } = useFetchOperationTeamJob(params);
 
@@ -269,9 +304,25 @@ function ViewOperationsJob() {
       </Box>
     );
   };
-
   return (
     <>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
           <JobDetailsStaticData

@@ -11,6 +11,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Button,
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import FileUpload from "../../components/gallery/FileUpload.js";
@@ -20,6 +21,7 @@ import { useFormik } from "formik";
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { useLocation } from "react-router-dom";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 const cth_Dropdown = [
   { document_name: "Certificate of Origin", document_code: "861000" },
@@ -46,19 +48,51 @@ function ViewESanchitJob() {
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
-  const [editDocument, setEditDocument] = useState(null);
-  const params = useParams();
+  const [editDocument, setEditDocument] = useState(null);  const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const { setCurrentTab } = useContext(TabContext);
   const isTrue = routeLocation.state?.currentTab || false;
-
- const isAdmin = user.role === "Admin"; // Check if user is an Admin
- const isDisabled = (!isAdmin && isTrue === 1);
-
   
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  const {
+    setSearchQuery,
+    setSelectedImporter,
+  } = useSearchQuery();
 
-  console.log(isDisabled);
-  console.log(isTrue === 1);
+  const isAdmin = user.role === "Admin"; // Check if user is an Admin
+  const isDisabled = (!isAdmin && isTrue === 1);
+
+  // Store search parameters from location state
+  useEffect(() => {
+    if (routeLocation.state) {
+      const { searchQuery, selectedImporter, currentTab } = routeLocation.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        currentTab,
+      });
+    }
+  }, [routeLocation.state]);
+  // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0;
+    navigate("/e-sanchit", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex, // Use tabIndex instead of currentTab
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedJobId: params.job_no,
+        }),
+      },
+    });
+    // Set the current tab in context
+    setCurrentTab(tabIndex);
+  };
+
   // Fetch data
   useEffect(() => {
     async function getData() {
@@ -89,14 +123,23 @@ function ViewESanchitJob() {
           eSachitQueries: values.queries, // Send queries as `eSachitQueries`
           esanchit_completed_date_time:
             values.esanchit_completed_date_time || "", // Send `null` if cleared
-        };
-
-        await axios.patch(
+        };        await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
           formattedData
         );
         setSnackbar(true);
-        navigate("/e-sanchit");
+        
+        // Navigate back with preserved search parameters
+        navigate("/e-sanchit", {
+          state: {
+            fromJobDetails: true,
+            ...(storedSearchParams && {
+              searchQuery: storedSearchParams.searchQuery,
+              selectedImporter: storedSearchParams.selectedImporter,
+              currentTab: storedSearchParams.currentTab,
+            }),
+          },
+        });
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -257,6 +300,23 @@ function ViewESanchitJob() {
 
   return (
     <form onSubmit={formik.handleSubmit}>
+      {/* Back Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       <div style={{ margin: "20px 0" }}>
         {data && (
           <>
@@ -625,15 +685,25 @@ function ViewESanchitJob() {
               </Row>
             </div>
 
-            {!isDisabled && (
-              <button
-                className="btn sticky-btn"
-                style={{ float: "right", margin: "20px" }}
-                type="submit"
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleBackClick}
+                style={{ margin: "20px 0", flex: "0 0 auto" }}
               >
-                Submit
-              </button>
-            )}
+                Back
+              </Button>
+              {!isDisabled && (
+                <button
+                  className="btn sticky-btn"
+                  style={{ float: "right", margin: "20px" }}
+                  type="submit"
+                >
+                  Submit
+                </button>
+              )}
+            </div>
 
             {/* <ConfirmDialog
               open={dialogOpen}

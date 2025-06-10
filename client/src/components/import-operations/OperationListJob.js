@@ -7,13 +7,12 @@ import {
   Button,
 } from "@mui/material";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import { Checkbox } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
-import { useNavigate } from "react-router-dom";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 
 const OperationListJob = () => {
@@ -22,6 +21,43 @@ const OperationListJob = () => {
   const [data, setData] = useState(null);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+
+  // Store search parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      const { searchQuery, selectedImporter, selectedICD, selectedYearState, currentTab } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedICD,
+        selectedYearState,
+        currentTab,
+      });
+    }
+  }, [location.state]);
+
+  // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0;
+    navigate("/import-operations", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedYearState: storedSearchParams.selectedYearState,
+          selectedJobId: job_no,
+        }),
+      },
+    });
+  };
+
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -76,7 +112,6 @@ const OperationListJob = () => {
       documentation_completed_date_time: newValue,
     }));
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -88,7 +123,23 @@ const OperationListJob = () => {
             data.documentation_completed_date_time,
         }
       );
-      navigate("/documentation");
+      
+      // Navigate back with preserved search parameters
+      const tabIndex = storedSearchParams?.currentTab ?? 0;
+      navigate("/import-operations", {
+        state: {
+          fromJobDetails: true,
+          tabIndex: tabIndex,
+          ...(storedSearchParams && {
+            searchQuery: storedSearchParams.searchQuery,
+            selectedImporter: storedSearchParams.selectedImporter,
+            selectedICD: storedSearchParams.selectedICD,
+            selectedYearState: storedSearchParams.selectedYearState,
+            selectedJobId: job_no,
+          }),
+        },
+      });
+      
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation date:", error);
@@ -214,9 +265,25 @@ const OperationListJob = () => {
         ))}
       </Box>
     );
-  };
-  return (
+  };  return (
     <div>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null ? (
         <>
           <JobDetailsStaticData

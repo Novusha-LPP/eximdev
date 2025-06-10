@@ -19,15 +19,17 @@ import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { YearContext } from "../../contexts/yearContext.js";
 import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
+import { TabContext } from "./ImportOperations.js";
 
 function ImportOperations() {
+  const { currentTab } = useContext(TabContext); // Access context for tab state
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
@@ -39,14 +41,42 @@ function ImportOperations() {
   const [totalPages, setTotalPages] = useState(1); // Total pages
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
 
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
   const limit = 100; // Rows per page
   const location = useLocation();
+  
+  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
+
+  // Add state persistence logic similar to E-Sanchit
+  React.useEffect(() => {
+    // Clear search state when this tab becomes active, unless coming from job details
+    if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
+
+  // Handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+    }
+  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, setSearchQuery, setSelectedImporter]);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -277,17 +307,21 @@ function ImportOperations() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}
-            onClick={() => {
+            }}            onClick={() => {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(jobNo);
 
-              // 2) Navigate to the detail page, and pass selectedJobId
+              // 2) Navigate to the detail page, and pass search/filter state
               navigate(`/import-operations/view-job/${jobNo}/${year}`, {
                 state: {
                   selectedJobId: jobNo,
-                  tab_number: 1,
                   searchQuery,
+                  selectedImporter,
+                  selectedICD,
+                  selectedYearState,
+                  detailedStatusExPlan,
+                  currentTab: 1, // Examination Planning tab index
+                  fromJobList: true,
                 },
               });
             }}

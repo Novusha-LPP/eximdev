@@ -22,6 +22,7 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
 
@@ -29,7 +30,6 @@ function OperationsList() {
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = React.useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
@@ -38,10 +38,17 @@ function OperationsList() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-    const location = useLocation();
+  const location = useLocation();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const limit = 100;
+
+  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+
+  const [selectedJobId, setSelectedJobId] = useState(
+    // If you previously stored a job ID in location.state, retrieve it
+    location.state?.selectedJobId || null
+  );
 
   const navigate = useNavigate();
 
@@ -159,7 +166,6 @@ function OperationsList() {
     },
     [limit] // Dependencies (limit is included if it changes)
   );
-
   // Fetch jobs when dependencies change
   useEffect(() => {
     if (selectedYearState) {
@@ -179,6 +185,30 @@ function OperationsList() {
     selectedImporter,
     fetchJobs,
   ]);
+
+  // Clear search state when this tab becomes active, unless coming from job details
+  React.useEffect(() => {
+    if (location.state && !location.state.fromJobDetails) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state]);
+
+  // Handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+    }
+  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, setSearchQuery, setSelectedImporter]);
 
    // Handle search input with debounce
     useEffect(() => {
@@ -264,16 +294,32 @@ function OperationsList() {
       size: 150,
       Cell: ({ row }) => {
         const { job_no, year, type_of_b_e, consignment_type, custom_house } =
-          row.original;
-
-        return (
+          row.original;        return (
           <div
-            onClick={() =>
+            onClick={() => {
+              // 1) Set the selected job in state so we can highlight it
+              setSelectedJobId(job_no);
+
+              // 2) Navigate to the detail page, and pass search/filter state
               navigate(
-                `/import-operations/list-operation-job/${job_no}/${year}`
-              )
-            }
+                `/import-operations/list-operation-job/${job_no}/${year}`,
+                {
+                  state: {
+                    selectedJobId: job_no,
+                    searchQuery,
+                    selectedImporter,
+                    selectedICD,
+                    selectedYearState,
+                    currentTab: 0, // Operations List tab index
+                    fromJobList: true,
+                  },
+                }
+              );
+            }}
             style={{
+              // If the row matches the selected ID, give it a highlight
+              backgroundColor:
+                selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
             }}

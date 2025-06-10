@@ -154,9 +154,7 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
       };
     } else {
       containerMatchStage = containerMatchQuery;
-    }
-
-    // Aggregation pipeline for containers
+    } // Aggregation pipeline for containers
     const containersPipeline = [
       { $unwind: "$containers" },
       {
@@ -165,6 +163,42 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           localField: "containers.elock_no",
           foreignField: "_id",
           as: "containers.elock_no_details",
+        },
+      },
+      // Lookup for containers.goods_pickup
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_pickup",
+          foreignField: "_id",
+          as: "containers.goods_pickup_details",
+        },
+      },
+      // Lookup for containers.goods_delivery
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_delivery",
+          foreignField: "_id",
+          as: "containers.goods_delivery_details",
+        },
+      },
+      // Lookup for consignor
+      {
+        $lookup: {
+          from: "organisations",
+          localField: "consignor",
+          foreignField: "_id",
+          as: "consignor_details",
+        },
+      },
+      // Lookup for consignee
+      {
+        $lookup: {
+          from: "organisations",
+          localField: "consignee",
+          foreignField: "_id",
+          as: "consignee_details",
         },
       },
       { $match: containerMatchStage },
@@ -227,8 +261,36 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           net_weight: "$containers.net_weight",
           // Add source identifier
           source: { $literal: "containers" },
-          consignor: null,
-          consignee: null,
+          // Add consignor and consignee from PR level
+          consignor: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
+              else: null,
+            },
+          },
+          consignee: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
+          // Add goods_pickup and goods_delivery from containers
+          goods_pickup: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_pickup_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_pickup_details", 0] },
+              else: null,
+            },
+          },
+          goods_delivery: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_delivery_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_delivery_details", 0] },
+              else: null,
+            },
+          },
         },
       },
     ];
@@ -363,7 +425,6 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           gross_weight: null,
           tare_weight: null,
           net_weight: null,
-          tr_no: 1,
           // Add source identifier
           source: { $literal: "others" },
           consignor: {
@@ -377,6 +438,20 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
             $cond: {
               if: { $gt: [{ $size: "$consignee_details" }, 0] },
               then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
+          goods_pickup: {
+            $cond: {
+              if: { $gt: [{ $size: "$goods_pickup_details" }, 0] },
+              then: { $arrayElemAt: ["$goods_pickup_details", 0] },
+              else: null,
+            },
+          },
+          goods_delivery: {
+            $cond: {
+              if: { $gt: [{ $size: "$goods_delivery_details" }, 0] },
+              then: { $arrayElemAt: ["$goods_delivery_details", 0] },
               else: null,
             },
           },

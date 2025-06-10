@@ -1,11 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
 import {
-  Button,
   Box,
   TextField,
-  Autocomplete,
-  MenuItem,
   Typography,
   InputAdornment,
   IconButton,
@@ -21,7 +18,6 @@ const ElockHistory = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -33,11 +29,7 @@ const ElockHistory = () => {
     };
   }, [searchQuery]);
 
-  useEffect(() => {
-    fetchElockData();
-  }, [debouncedSearchQuery, page]);
-
-  const fetchElockData = async () => {
+  const fetchElockData = useCallback(async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/elock-assign&other-history`,
@@ -56,7 +48,11 @@ const ElockHistory = () => {
     } catch (err) {
       console.error("Error fetching Elock Assign data:", err);
     }
-  };
+  }, [page, debouncedSearchQuery]);
+
+  useEffect(() => {
+    fetchElockData();
+  }, [fetchElockData]);
   const handleSearchInputChange = (e) => {
     setSearchQuery(e.target.value);
   };
@@ -77,10 +73,35 @@ const ElockHistory = () => {
       accessorKey: "elock_no",
       header: "elock_no",
     },
-
+    {
+      accessorKey: "consignor.name",
+      header: "Consignor",
+      Cell: ({ row }) => row.original.consignor?.name || "N/A",
+    },
+    {
+      accessorKey: "consignee.name",
+      header: "Consignee",
+      Cell: ({ row }) => row.original.consignee?.name || "N/A",
+    },
+    {
+      accessorKey: "goods_pickup.name",
+      header: "Pickup Location",
+      Cell: ({ row }) => row.original.goods_pickup?.name || "N/A",
+    },
+    {
+      accessorKey: "goods_delivery.name",
+      header: "Delivery Location",
+      Cell: ({ row }) => row.original.goods_delivery?.name || "N/A",
+    },
     { accessorKey: "driver_name", header: "Driver Name" },
     { accessorKey: "driver_phone", header: "Driver Phone" },
     { accessorKey: "vehicle_no", header: "Vehicle No" },
+    {
+      accessorKey: "source",
+      header: "Ownership",
+      Cell: ({ row }) =>
+        row.original.source === "containers" ? "SR" : "Others",
+    },
   ];
   return (
     <Box sx={{ p: 2 }}>

@@ -20,19 +20,20 @@ import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DoPlanning() {
    const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
+  // Use context for search functionality like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
   const [totalJobs, setTotalJobs] = React.useState(0);
@@ -41,7 +42,26 @@ function DoPlanning() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  // Add this useEffect to handle search state restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      // Restore search state when returning from job details
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+    } else {
+      // Clear search state when this tab becomes active fresh (not from job details)
+      setSearchQuery("");
+      setSelectedImporter("");
+      setSelectedJobId(null);
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -202,17 +222,15 @@ function DoPlanning() {
     selectedImporter,
     fetchJobs,
   ]);
-
-  useEffect(() => {
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-    }
-  }, [location.state?.searchQuery]);
-
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
+      setPage(1); // Reset to first page on new search
     }, 500); // 500ms debounce delay
     return () => clearTimeout(handler); // Cleanup on unmount
   }, [searchQuery]);
@@ -242,13 +260,12 @@ function DoPlanning() {
             }}
             onClick={() => {
               // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);
-
-              // 2) Navigate to the detail page, and pass selectedJobId
+              setSelectedJobId(_id);              // 2) Navigate to the detail page, and pass selectedJobId and search state
               navigate(`/edit-do-planning/${_id}`, {
                 state: {
                   selectedJobId: _id,
                   searchQuery,
+                  selectedImporter,
                 },
               });
             }}
@@ -803,17 +820,21 @@ function DoPlanning() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>
-        <TextField
+        </TextField>        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs(1)}>
+                <IconButton
+                  onClick={() => {
+                    setDebouncedSearchQuery(searchQuery);
+                    setPage(1);
+                  }}
+                >
                   <SearchIcon />
                 </IconButton>
               </InputAdornment>

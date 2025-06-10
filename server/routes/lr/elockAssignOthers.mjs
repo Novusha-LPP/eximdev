@@ -36,29 +36,28 @@ router.get("/api/elock/assign-others", async (req, res) => {
     if (search) {
       const searchRegex = new RegExp(escapeRegex(search), "i");
       searchConditions = [
-        
         // We'll add populated field searches in the aggregation pipeline
       ];
     }
 
     // Aggregation pipeline
     const pipeline = [
-      // Lookup for transporter
+      // Lookup for consignor
       {
         $lookup: {
           from: "organisations",
-          localField: "transporter",
+          localField: "consignor",
           foreignField: "_id",
-          as: "transporter_details",
+          as: "consignor_details",
         },
       },
-      // Lookup for client
+      // Lookup for consignee
       {
         $lookup: {
           from: "organisations",
-          localField: "client",
+          localField: "consignee",
           foreignField: "_id",
-          as: "client_details",
+          as: "consignee_details",
         },
       },
       // Lookup for elock
@@ -98,20 +97,22 @@ router.get("/api/elock/assign-others", async (req, res) => {
             {
               $match: {
                 $or: [
-                  
                   { tr_no: new RegExp(escapeRegex(search), "i") },
                   { container_number: new RegExp(escapeRegex(search), "i") },
                   { vehicle_no: new RegExp(escapeRegex(search), "i") },
                   { driver_name: new RegExp(escapeRegex(search), "i") },
                   { driver_phone: new RegExp(escapeRegex(search), "i") },
                   {
-                    "transporter_details.name": new RegExp(
+                    "consignor_details.name": new RegExp(
                       escapeRegex(search),
                       "i"
                     ),
                   },
                   {
-                    "client_details.name": new RegExp(escapeRegex(search), "i"),
+                    "consignee_details.name": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
                   },
                   {
                     "elock_details.FAssetID": new RegExp(
@@ -140,7 +141,7 @@ router.get("/api/elock/assign-others", async (req, res) => {
       {
         $project: {
           _id: 1,
-        
+
           tr_no: 1,
           container_number: 1,
           vehicle_no: 1,
@@ -149,17 +150,17 @@ router.get("/api/elock/assign-others", async (req, res) => {
           elock_assign_status: 1,
           createdAt: 1,
           updatedAt: 1,
-          transporter: {
+          consignor: {
             $cond: {
-              if: { $gt: [{ $size: "$transporter_details" }, 0] },
-              then: { $arrayElemAt: ["$transporter_details", 0] },
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
               else: null,
             },
           },
-          client: {
+          consignee: {
             $cond: {
-              if: { $gt: [{ $size: "$client_details" }, 0] },
-              then: { $arrayElemAt: ["$client_details", 0] },
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
               else: null,
             },
           },
@@ -220,9 +221,8 @@ router.get("/api/elock/assign-others", async (req, res) => {
 router.post("/api/elock/assign-others", async (req, res) => {
   try {
     const {
-      transporter,
-      client,
-      
+      consignor,
+      consignee,
       tr_no,
       container_number,
       vehicle_no,
@@ -235,10 +235,10 @@ router.post("/api/elock/assign-others", async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!transporter || !client) {
+    if (!consignor || !consignee) {
       return res
         .status(400)
-        .json({ error: "Transporter and Client are required" });
+        .json({ error: "Consignor and Consignee are required" });
     }
 
     // If assigning an elock, update its status
@@ -246,9 +246,9 @@ router.post("/api/elock/assign-others", async (req, res) => {
       await Elock.findByIdAndUpdate(elock_no, { status: "ASSIGNED" });
     }
     const newRecord = await ElockAssginOthersModel.create({
-      transporter,
-      client,
-     
+      consignor,
+      consignee,
+
       tr_no,
       container_number,
       vehicle_no,
@@ -274,9 +274,9 @@ router.put("/api/elock/assign-others/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      transporter,
-      client,
-  
+      consignor,
+      consignee,
+
       tr_no,
       container_number,
       vehicle_no,
@@ -314,8 +314,8 @@ router.put("/api/elock/assign-others/:id", async (req, res) => {
     const updatedRecord = await ElockAssginOthersModel.findByIdAndUpdate(
       id,
       {
-        transporter,
-        client,
+        consignor,
+        consignee,
 
         tr_no,
         container_number,

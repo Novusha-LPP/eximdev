@@ -1,26 +1,29 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
 import {
-  Button,
   Box,
+  Button,
   TextField,
   Autocomplete,
   MenuItem,
+  IconButton,
   Typography,
   InputAdornment,
-  IconButton,
   Pagination,
 } from "@mui/material";
-import ElockGPSOperation from "./ElockGPSOperation.js";
-import SearchIcon from "@mui/icons-material/Search";
-import PlaceIcon from "@mui/icons-material/Place";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import CancelIcon from "@mui/icons-material/Cancel";
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+  Search as SearchIcon,
+  Place as PlaceIcon,
+  LockOpen as LockOpenIcon,
+} from "@mui/icons-material";
 import axios from "axios";
+import Swal from "sweetalert2";
+import ElockGPSOperation from "./ElockGPSOperation";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED"];
 
@@ -31,10 +34,92 @@ const ElockAssignOthers = () => {
   const [locationOptions, setLocationOptions] = useState([]);
   const [editingRow, setEditingRow] = useState(null);
   const [isInlineCreating, setIsInlineCreating] = useState(false);
-  const [editValues, setEditValues] = useState({
-    transporter: "",
-    client: "",
 
+  // Validation functions
+  // ISO 6346 Container Number Validation with Check Digit
+  const isValidContainerNumber = (value) => {
+    if (!value) return false;
+
+    const containerNumber = value.toUpperCase();
+    const containerNumberRegex = /^[A-Z]{3}[UJZ][A-Z0-9]{6}\d$/;
+
+    if (!containerNumberRegex.test(containerNumber)) {
+      return false;
+    }
+
+    // Validate check digit
+    const checkDigit = calculateCheckDigit(containerNumber.slice(0, 10));
+    const lastDigit = parseInt(containerNumber[10], 10);
+
+    return checkDigit === lastDigit;
+  };
+
+  // Helper function for check digit calculation
+  const calculateCheckDigit = (containerNumber) => {
+    if (containerNumber.length !== 10) return null;
+
+    const weightingFactors = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+    let total = 0;
+
+    for (let i = 0; i < containerNumber.length; i++) {
+      total += equivalentValue(containerNumber[i]) * weightingFactors[i];
+    }
+
+    const subTotal = Math.floor(total / 11);
+    return total - subTotal * 11;
+  };
+
+  // Helper function for character equivalences
+  const equivalentValue = (char) => {
+    const equivalences = {
+      A: 10,
+      B: 12,
+      C: 13,
+      D: 14,
+      E: 15,
+      F: 16,
+      G: 17,
+      H: 18,
+      I: 19,
+      J: 20,
+      K: 21,
+      L: 23,
+      M: 24,
+      N: 25,
+      O: 26,
+      P: 27,
+      Q: 28,
+      R: 29,
+      S: 30,
+      T: 31,
+      U: 32,
+      V: 34,
+      W: 35,
+      X: 36,
+      Y: 37,
+      Z: 38,
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+      5: 5,
+      6: 6,
+      7: 7,
+      8: 8,
+      9: 9,
+      0: 0,
+    };
+    return equivalences[char] || 0;
+  };
+
+  // Vehicle number validation regex
+  const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;
+
+  // Indian mobile number validation regex
+  const indianMobileRegex = /^[6-9]\d{9}$/;
+  const [editValues, setEditValues] = useState({
+    consignor: "",
+    consignee: "",
     tr_no: "",
     container_number: "",
     vehicle_no: "",
@@ -46,9 +131,8 @@ const ElockAssignOthers = () => {
     goods_delivery: "",
   });
   const [inlineCreateValues, setInlineCreateValues] = useState({
-    transporter: "",
-    client: "",
-
+    consignor: "",
+    consignee: "",
     tr_no: "",
     container_number: "",
     vehicle_no: "",
@@ -96,48 +180,47 @@ const ElockAssignOthers = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearchQuery]); // Fetch available elocks
+  }, [page, debouncedSearchQuery]);
+
+  // Fetch available elocks
   const fetchAvailableElocks = useCallback(async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/available-elocks`
       );
-      // Handle the nested data structure from the API response
       const elocks = res.data?.data || res.data?.elocks || res.data || [];
       setElockOptions(Array.isArray(elocks) ? elocks : []);
-      console.log("Fetched elocks:", elocks); // Debug log
     } catch (err) {
       console.error("Error fetching available elocks:", err);
-      setElockOptions([]); // Set empty array on error
+      setElockOptions([]);
     }
-  }, []); // Fetch organisations
+  }, []);
+
+  // Fetch organisations
   const fetchOrganisations = useCallback(async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/organisations`
       );
-      // Handle the nested data structure from the API response
       const orgs = res.data?.data || res.data?.organisations || res.data || [];
       setOrganisationOptions(Array.isArray(orgs) ? orgs : []);
-      console.log("Fetched organisations:", orgs); // Debug log
     } catch (err) {
       console.error("Error fetching organisations:", err);
-      setOrganisationOptions([]); // Set empty array on error
+      setOrganisationOptions([]);
     }
   }, []);
+
   // Fetch locations
   const fetchLocations = useCallback(async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-location`
       );
-      // Handle the nested data structure from the API response
       const locations = res.data?.data || res.data?.locations || res.data || [];
       setLocationOptions(Array.isArray(locations) ? locations : []);
-      console.log("Fetched locations:", locations); // Debug log
     } catch (err) {
       console.error("Error fetching locations:", err);
-      setLocationOptions([]); // Set empty array on error
+      setLocationOptions([]);
     }
   }, []);
 
@@ -145,7 +228,7 @@ const ElockAssignOthers = () => {
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page when search changes
+      setPage(1);
     }, 500);
 
     return () => {
@@ -163,41 +246,254 @@ const ElockAssignOthers = () => {
     fetchAvailableElocks();
     fetchOrganisations();
     fetchLocations();
-  }, [fetchAvailableElocks, fetchOrganisations, fetchLocations]); // Save edited row
+  }, [fetchAvailableElocks, fetchOrganisations, fetchLocations]);
+  // Function to format user-friendly error messages
+  const formatErrorMessage = (error) => {
+    if (error.response?.data?.message) {
+      const message = error.response.data.message;
+
+      // Handle validation errors
+      if (message.includes("validation failed")) {
+        let errorMessages = [];
+
+        if (message.includes("consignor") && message.includes("required")) {
+          errorMessages.push("Consignor is required");
+        }
+        if (message.includes("consignee") && message.includes("required")) {
+          errorMessages.push("Consignee is required");
+        }
+        if (
+          message.includes("goods_pickup") &&
+          message.includes("Cast to ObjectId failed")
+        ) {
+          errorMessages.push("Please select a valid pickup location");
+        }
+        if (
+          message.includes("goods_delivery") &&
+          message.includes("Cast to ObjectId failed")
+        ) {
+          errorMessages.push("Please select a valid delivery location");
+        }
+        if (
+          message.includes("elock_no") &&
+          message.includes("Cast to ObjectId failed")
+        ) {
+          errorMessages.push("Please select a valid e-lock");
+        }
+        if (message.includes("container_number")) {
+          errorMessages.push("Container number format is invalid");
+        }
+        if (message.includes("vehicle_no")) {
+          errorMessages.push("Vehicle number format is invalid");
+        }
+        if (message.includes("driver_phone")) {
+          errorMessages.push(
+            "Driver phone number must be 10 digits starting with 6-9"
+          );
+        }
+
+        return errorMessages.length > 0
+          ? errorMessages.join("\n• ")
+          : "Please check all required fields and try again";
+      }
+
+      // Handle duplicate key errors
+      if (message.includes("duplicate key") || message.includes("E11000")) {
+        if (message.includes("tr_no")) {
+          return "This TR number already exists";
+        }
+        if (message.includes("container_number")) {
+          return "This container number already exists";
+        }
+        if (message.includes("vehicle_no")) {
+          return "This vehicle number is already assigned";
+        }
+        return "Record with this information already exists";
+      }
+    }
+
+    return (
+      error.response?.data?.error ||
+      error.message ||
+      "An unexpected error occurred"
+    );
+  };
+
+  // Function to clean data before sending to backend
+  const cleanDataForSubmission = (data) => {
+    const cleanedData = { ...data };
+
+    // Convert empty strings to null for ObjectId fields
+    if (!cleanedData.goods_pickup || cleanedData.goods_pickup.trim() === "") {
+      cleanedData.goods_pickup = null;
+    }
+    if (
+      !cleanedData.goods_delivery ||
+      cleanedData.goods_delivery.trim() === ""
+    ) {
+      cleanedData.goods_delivery = null;
+    }
+    if (!cleanedData.elock_no || cleanedData.elock_no.trim() === "") {
+      cleanedData.elock_no = null;
+    }
+    if (!cleanedData.consignor || cleanedData.consignor.trim() === "") {
+      delete cleanedData.consignor; // Will trigger required validation
+    }
+    if (!cleanedData.consignee || cleanedData.consignee.trim() === "") {
+      delete cleanedData.consignee; // Will trigger required validation
+    }
+
+    return cleanedData;
+  };
+  // Client-side validation based on schema
+  const validateData = (data) => {
+    const errors = [];
+
+    // Required fields validation
+    if (!data.consignor || data.consignor.trim() === "") {
+      errors.push("Consignor is required");
+    }
+    if (!data.consignee || data.consignee.trim() === "") {
+      errors.push("Consignee is required");
+    }
+
+    // // Container number validation
+    // if (data.container_number && !isValidContainerNumber(data.container_number)) {
+    //   errors.push('Container number format is invalid (Format: ABCD1234567)');
+    // }
+
+    // Vehicle number validation
+    if (data.vehicle_no && !vehicleNoRegex.test(data.vehicle_no)) {
+      errors.push("Vehicle number format is invalid (Format: AA00AA0000)");
+    }
+
+    // Driver phone validation
+    if (data.driver_phone && !indianMobileRegex.test(data.driver_phone)) {
+      errors.push("Driver phone must be 10 digits starting with 6-9");
+    }
+
+    // Driver name validation (only alphabetic characters)
+    if (data.driver_name && !/^[a-zA-Z\s]*$/.test(data.driver_name)) {
+      errors.push("Driver name should contain only letters and spaces");
+    }
+
+    return errors;
+  }; // Function to check for missing optional fields and confirm with user
+  const confirmMissingOptionalFields = async (data) => {
+    const missingFields = [];
+
+    // Check all optional fields
+    if (!data.tr_no || data.tr_no.trim() === "") {
+      missingFields.push("LR Number");
+    }
+    if (!data.container_number || data.container_number.trim() === "") {
+      missingFields.push("Container Number");
+    }
+    if (!data.vehicle_no || data.vehicle_no.trim() === "") {
+      missingFields.push("Vehicle Number");
+    }
+    if (!data.driver_name || data.driver_name.trim() === "") {
+      missingFields.push("Driver Name");
+    }
+    if (!data.driver_phone || data.driver_phone.trim() === "") {
+      missingFields.push("Driver Phone");
+    }
+    if (!data.goods_pickup || data.goods_pickup.trim() === "") {
+      missingFields.push("Pickup Location");
+    }
+    if (!data.goods_delivery || data.goods_delivery.trim() === "") {
+      missingFields.push("Delivery Location");
+    }
+    if (!data.elock_no || data.elock_no.trim() === "") {
+      missingFields.push("E-lock Number");
+    }
+
+    if (missingFields.length > 0) {
+      const result = await Swal.fire({
+        icon: "warning",
+        title: "Missing Optional Fields",
+        html: `The following optional fields are empty:<br>• ${missingFields.join(
+          "<br>• "
+        )}<br><br>Do you want to continue saving without these fields?`,
+        showCancelButton: true,
+        confirmButtonText: "Yes, Save Anyway",
+        cancelButtonText: "No, Go Back",
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+      });
+      return result.isConfirmed;
+    }
+
+    return true; // No missing fields, proceed
+  };
+  // Save edited row
   const handleSaveRow = async (row) => {
     try {
-      setLoading(true);
+      setLoading(true); // Client-side validation
+      const validationErrors = validateData(editValues);
+      if (validationErrors.length > 0) {
+        await Swal.fire({
+          icon: "error",
+          title: "Validation Error",
+          html: `Please fix the following errors:<br>• ${validationErrors.join(
+            "<br>• "
+          )}`,
+          confirmButtonText: "OK",
+        });
+        return;
+      } // Check for missing optional fields and get user confirmation
+      const shouldContinue = await confirmMissingOptionalFields(editValues);
+      if (!shouldContinue) {
+        return; // User chose to go back and fill the fields
+      }
 
-      // If elock_no is empty, set status to UNASSIGNED
-      // If status is UNASSIGNED, clear elock_no
       let finalEditValues = { ...editValues };
 
+      // Handle elock assignment logic
       if (!editValues.elock_no || editValues.elock_no.trim() === "") {
         finalEditValues.elock_assign_status = "UNASSIGNED";
       } else if (editValues.elock_assign_status === "UNASSIGNED") {
-        finalEditValues.elock_no = "";
+        finalEditValues.elock_no = null;
       }
 
+      // Clean data before submission
+      const cleanedData = cleanDataForSubmission(finalEditValues);
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others/${row.original._id}`,
-        finalEditValues
+        cleanedData
       );
       setEditingRow(null);
       fetchElockAssignOthersData();
-      fetchAvailableElocks(); // Refresh dropdown
+      fetchAvailableElocks();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Record updated successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Error updating record:", error);
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      const userFriendlyMessage = formatErrorMessage(error);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Update Record",
+        text: userFriendlyMessage,
+        confirmButtonText: "OK",
+      });
     } finally {
       setLoading(false);
     }
-  }; // Inline create functions
+  };
+
+  // Inline create functions
   const handleStartInlineCreate = () => {
     setIsInlineCreating(true);
     setInlineCreateValues({
-      transporter: "",
-      client: "",
-
+      consignor: "",
+      consignee: "",
+      tr_no: "",
       container_number: "",
       vehicle_no: "",
       driver_name: "",
@@ -208,19 +504,41 @@ const ElockAssignOthers = () => {
       goods_delivery: "",
     });
   };
-
   const handleSaveInlineCreate = async () => {
     try {
-      setLoading(true);
+      setLoading(true); // Client-side validation
+      const validationErrors = validateData(inlineCreateValues);
+      if (validationErrors.length > 0) {
+        await Swal.fire({
+          icon: "error",
+          title: "Validation Error",
+          html: `Please fix the following errors:<br>• ${validationErrors.join(
+            "<br>• "
+          )}`,
+          confirmButtonText: "OK",
+        });
+        return;
+      }
+
+      // Check for missing optional fields and get user confirmation
+      const shouldContinue = await confirmMissingOptionalFields(
+        inlineCreateValues
+      );
+      if (!shouldContinue) {
+        return; // User chose to go back and fill the fields
+      }
+
+      // Clean data before submission
+      const cleanedData = cleanDataForSubmission(inlineCreateValues);
       await axios.post(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others`,
-        inlineCreateValues
+        cleanedData
       );
       setIsInlineCreating(false);
       setInlineCreateValues({
-        transporter: "",
-        client: "",
-
+        consignor: "",
+        consignee: "",
+        tr_no: "",
         container_number: "",
         vehicle_no: "",
         driver_name: "",
@@ -231,10 +549,24 @@ const ElockAssignOthers = () => {
         goods_delivery: "",
       });
       fetchElockAssignOthersData();
-      fetchAvailableElocks(); // Refresh dropdown
+      fetchAvailableElocks();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Record created successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Error creating record:", error);
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      const userFriendlyMessage = formatErrorMessage(error);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Create Record",
+        text: userFriendlyMessage,
+        confirmButtonText: "OK",
+      });
     } finally {
       setLoading(false);
     }
@@ -243,9 +575,9 @@ const ElockAssignOthers = () => {
   const handleCancelInlineCreate = () => {
     setIsInlineCreating(false);
     setInlineCreateValues({
-      transporter: "",
-      client: "",
-
+      consignor: "",
+      consignee: "",
+      tr_no: "",
       container_number: "",
       vehicle_no: "",
       driver_name: "",
@@ -256,32 +588,53 @@ const ElockAssignOthers = () => {
       goods_delivery: "",
     });
   };
-
   // Delete record
   const handleDeleteRow = async (row) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to delete this record? This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
       try {
         setLoading(true);
         await axios.delete(
           `${process.env.REACT_APP_API_STRING}/elock/assign-others/${row.original._id}`
         );
         fetchElockAssignOthersData();
-        fetchAvailableElocks(); // Refresh dropdown
+        fetchAvailableElocks();
+        await Swal.fire({
+          title: "Deleted!",
+          text: "The record has been deleted successfully.",
+          icon: "success",
+          confirmButtonText: "OK",
+        });
       } catch (error) {
         console.error("Error deleting record:", error);
-        alert(`Error: ${error.response?.data?.error || error.message}`);
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Delete Record",
+          text: error.response?.data?.error || error.message,
+          confirmButtonText: "OK",
+        });
       } finally {
         setLoading(false);
       }
     }
   };
+
   const handleEditRow = (row) => {
     setEditingRow(row.id);
     const elockNo = row.original.elock_no?._id || "";
     setEditValues({
-      transporter: row.original.transporter?._id || "",
-      client: row.original.client?._id || "",
-
+      consignor: row.original.consignor?._id || "",
+      consignee: row.original.consignee?._id || "",
       tr_no: row.original.tr_no || "",
       container_number: row.original.container_number || "",
       vehicle_no: row.original.vehicle_no || "",
@@ -304,25 +657,36 @@ const ElockAssignOthers = () => {
   const handleSearchInputChange = (e) => {
     setSearchQuery(e.target.value);
   };
+
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
-
   // Handle unlock operation
   const handleUnlockElock = async (elockNo) => {
     if (!elockNo || elockNo.trim() === "") {
-      alert("No E-lock number available for unlock operation");
+      await Swal.fire({
+        icon: "warning",
+        title: "No E-lock Available",
+        text: "No E-lock number available for unlock operation",
+        confirmButtonText: "OK",
+      });
       return;
     }
 
-    const confirmUnlock = window.confirm(
-      `Are you sure you want to unlock E-lock: ${elockNo}?`
-    );
+    const result = await Swal.fire({
+      title: "Unlock E-lock?",
+      text: `Are you sure you want to unlock E-lock: ${elockNo}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, unlock it!",
+      cancelButtonText: "Cancel",
+    });
 
-    if (!confirmUnlock) return;
+    if (!result.isConfirmed) return;
 
     try {
-      // First, get the asset data to retrieve the FGUID
       const assetResponse = await fetch(ADMIN_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -346,7 +710,6 @@ const ElockAssignOthers = () => {
 
       const assetData = assetResult.FObject[0];
 
-      // Now send the unlock command
       const unlockResponse = await fetch(INSTRUCTION_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -364,19 +727,31 @@ const ElockAssignOthers = () => {
       const unlockResult = await unlockResponse.json();
 
       if (unlockResult.Result === 200) {
-        alert("Unlock instruction sent successfully!");
+        await Swal.fire({
+          icon: "success",
+          title: "Success!",
+          text: "Unlock instruction sent successfully!",
+          confirmButtonText: "OK",
+        });
       } else {
-        alert(
-          `Failed to send unlock instruction: ${
-            unlockResult.Message || "Unknown error"
-          }`
-        );
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Send Unlock Instruction",
+          text: unlockResult.Message || "Unknown error",
+          confirmButtonText: "OK",
+        });
       }
     } catch (error) {
       console.error("Error during unlock operation:", error);
-      alert(`Error: ${error.message}`);
+      await Swal.fire({
+        icon: "error",
+        title: "Unlock Operation Failed",
+        text: error.message,
+        confirmButtonText: "OK",
+      });
     }
   };
+
   const columns = [
     {
       accessorKey: "tr_no",
@@ -417,8 +792,8 @@ const ElockAssignOthers = () => {
       },
     },
     {
-      accessorKey: "transporter",
-      header: "Transporter",
+      accessorKey: "consignor",
+      header: "Consignor",
       size: 200,
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
@@ -431,14 +806,14 @@ const ElockAssignOthers = () => {
               value={
                 Array.isArray(organisationOptions)
                   ? organisationOptions.find(
-                      (opt) => opt._id === inlineCreateValues.transporter
+                      (opt) => opt._id === inlineCreateValues.consignor
                     ) || null
                   : null
               }
               onChange={(_, newValue) =>
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  transporter: newValue ? newValue._id : "",
+                  consignor: newValue ? newValue._id : "",
                 })
               }
               renderInput={(params) => (
@@ -446,7 +821,7 @@ const ElockAssignOthers = () => {
                   {...params}
                   variant="standard"
                   size="small"
-                  placeholder="Select Transporter *"
+                  placeholder="Select Consignor *"
                 />
               )}
               sx={{ width: 200 }}
@@ -464,14 +839,14 @@ const ElockAssignOthers = () => {
               value={
                 Array.isArray(organisationOptions)
                   ? organisationOptions.find(
-                      (opt) => opt._id === editValues.transporter
+                      (opt) => opt._id === editValues.consignor
                     ) || null
                   : null
               }
               onChange={(_, newValue) =>
                 setEditValues({
                   ...editValues,
-                  transporter: newValue ? newValue._id : "",
+                  consignor: newValue ? newValue._id : "",
                 })
               }
               renderInput={(params) => (
@@ -481,12 +856,12 @@ const ElockAssignOthers = () => {
             />
           );
         }
-        return row.original.transporter?.name || "";
+        return row.original.consignor?.name || "";
       },
     },
     {
-      accessorKey: "client",
-      header: "Client",
+      accessorKey: "consignee",
+      header: "Consignee",
       size: 200,
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
@@ -499,14 +874,14 @@ const ElockAssignOthers = () => {
               value={
                 Array.isArray(organisationOptions)
                   ? organisationOptions.find(
-                      (opt) => opt._id === inlineCreateValues.client
+                      (opt) => opt._id === inlineCreateValues.consignee
                     ) || null
                   : null
               }
               onChange={(_, newValue) =>
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  client: newValue ? newValue._id : "",
+                  consignee: newValue ? newValue._id : "",
                 })
               }
               renderInput={(params) => (
@@ -514,7 +889,7 @@ const ElockAssignOthers = () => {
                   {...params}
                   variant="standard"
                   size="small"
-                  placeholder="Select Client *"
+                  placeholder="Select Consignee *"
                 />
               )}
               sx={{ width: 200 }}
@@ -532,14 +907,14 @@ const ElockAssignOthers = () => {
               value={
                 Array.isArray(organisationOptions)
                   ? organisationOptions.find(
-                      (opt) => opt._id === editValues.client
+                      (opt) => opt._id === editValues.consignee
                     ) || null
                   : null
               }
               onChange={(_, newValue) =>
                 setEditValues({
                   ...editValues,
-                  client: newValue ? newValue._id : "",
+                  consignee: newValue ? newValue._id : "",
                 })
               }
               renderInput={(params) => (
@@ -549,44 +924,71 @@ const ElockAssignOthers = () => {
             />
           );
         }
-        return row.original.client?.name || "";
+        return row.original.consignee?.name || "";
       },
     },
+    // ...existing code for other columns...
     {
       accessorKey: "container_number",
       header: "Container No",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
+          const isValidContainer = isValidContainerNumber(
+            inlineCreateValues.container_number
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={inlineCreateValues.container_number}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newValue = e.target.value.toUpperCase();
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  container_number: e.target.value,
-                })
-              }
+                  container_number: newValue,
+                });
+              }}
               sx={{ width: 150 }}
-              placeholder="Container No"
+              placeholder="ABCD1234567"
+              error={!!inlineCreateValues.container_number && !isValidContainer}
+              helperText={
+                !!inlineCreateValues.container_number && !isValidContainer
+                  ? "Format: ABCD1234567 (4 uppercase letters + 7 digits) or Not a Real Container Number"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 11,
+              }}
             />
           );
         }
 
         if (editingRow === row.id) {
+          const isValidContainer = isValidContainerNumber(
+            editValues.container_number
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.container_number}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newValue = e.target.value.toUpperCase();
                 setEditValues({
                   ...editValues,
-                  container_number: e.target.value,
-                })
-              }
+                  container_number: newValue,
+                });
+              }}
               sx={{ width: 150 }}
+              error={!!editValues.container_number && !isValidContainer}
+              helperText={
+                !!editValues.container_number && !isValidContainer
+                  ? "Format: ABCD1234567 (4 uppercase letters + 7 digits) or Not a Real Container Number"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 11,
+              }}
             />
           );
         }
@@ -598,36 +1000,62 @@ const ElockAssignOthers = () => {
       header: "Vehicle No",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
+          const isValidVehicle = vehicleNoRegex.test(
+            inlineCreateValues.vehicle_no
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={inlineCreateValues.vehicle_no}
-              onChange={(e) =>
+              onChange={(e) => {
+                const inputValue = e.target.value.toUpperCase();
                 setInlineCreateValues({
                   ...inlineCreateValues,
-                  vehicle_no: e.target.value,
-                })
-              }
+                  vehicle_no: inputValue,
+                });
+              }}
               sx={{ width: 150 }}
-              placeholder="Vehicle No"
+              placeholder="AA00AA0000"
+              error={!!inlineCreateValues.vehicle_no && !isValidVehicle}
+              helperText={
+                !!inlineCreateValues.vehicle_no && !isValidVehicle
+                  ? "Invalid format. Use: AA00AA0000 or similar"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                style: { textTransform: "uppercase" },
+              }}
             />
           );
         }
 
         if (editingRow === row.id) {
+          const isValidVehicle = vehicleNoRegex.test(editValues.vehicle_no);
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.vehicle_no}
-              onChange={(e) =>
+              onChange={(e) => {
+                const inputValue = e.target.value.toUpperCase();
                 setEditValues({
                   ...editValues,
-                  vehicle_no: e.target.value,
-                })
-              }
+                  vehicle_no: inputValue,
+                });
+              }}
               sx={{ width: 150 }}
+              error={!!editValues.vehicle_no && !isValidVehicle}
+              helperText={
+                !!editValues.vehicle_no && !isValidVehicle
+                  ? "Invalid format. Use: AA00AA0000 or similar"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                style: { textTransform: "uppercase" },
+              }}
             />
           );
         }
@@ -644,27 +1072,34 @@ const ElockAssignOthers = () => {
               variant="standard"
               size="small"
               value={inlineCreateValues.driver_name}
-              onChange={(e) =>
-                setInlineCreateValues({
-                  ...inlineCreateValues,
-                  driver_name: e.target.value,
-                })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only alphabetic characters and spaces
+                if (/^[a-zA-Z\s]*$/.test(inputValue)) {
+                  setInlineCreateValues({
+                    ...inlineCreateValues,
+                    driver_name: inputValue,
+                  });
+                }
+              }}
               sx={{ width: 150 }}
               placeholder="Driver Name"
             />
           );
         }
-
         if (editingRow === row.id) {
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.driver_name}
-              onChange={(e) =>
-                setEditValues({ ...editValues, driver_name: e.target.value })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only alphabetic characters and spaces
+                if (/^[a-zA-Z\s]*$/.test(inputValue)) {
+                  setEditValues({ ...editValues, driver_name: inputValue });
+                }
+              }}
               sx={{ width: 150 }}
             />
           );
@@ -677,33 +1112,67 @@ const ElockAssignOthers = () => {
       header: "Driver Phone",
       Cell: ({ row }) => {
         if (row.original._id === "inline-create") {
+          const isValidPhone = indianMobileRegex.test(
+            inlineCreateValues.driver_phone
+          );
           return (
             <TextField
               variant="standard"
               size="small"
               value={inlineCreateValues.driver_phone}
-              onChange={(e) =>
-                setInlineCreateValues({
-                  ...inlineCreateValues,
-                  driver_phone: e.target.value,
-                })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only numeric input
+                if (/^[0-9]*$/.test(inputValue) && inputValue.length <= 10) {
+                  setInlineCreateValues({
+                    ...inlineCreateValues,
+                    driver_phone: inputValue,
+                  });
+                }
+              }}
               sx={{ width: 150 }}
-              placeholder="Driver Phone"
+              placeholder="9876543210"
+              error={!!inlineCreateValues.driver_phone && !isValidPhone}
+              helperText={
+                !!inlineCreateValues.driver_phone && !isValidPhone
+                  ? "Driver phone must be 10 digits starting with 6-9"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+              }}
             />
           );
         }
 
         if (editingRow === row.id) {
+          const isValidPhone = indianMobileRegex.test(editValues.driver_phone);
           return (
             <TextField
               variant="standard"
               size="small"
               value={editValues.driver_phone}
-              onChange={(e) =>
-                setEditValues({ ...editValues, driver_phone: e.target.value })
-              }
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                // Allow only numeric input
+                if (/^[0-9]*$/.test(inputValue) && inputValue.length <= 10) {
+                  setEditValues({ ...editValues, driver_phone: inputValue });
+                }
+              }}
               sx={{ width: 150 }}
+              error={!!editValues.driver_phone && !isValidPhone}
+              helperText={
+                !!editValues.driver_phone && !isValidPhone
+                  ? "Driver phone must be 10 digits starting with 6-9"
+                  : ""
+              }
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+              }}
             />
           );
         }
@@ -746,7 +1215,6 @@ const ElockAssignOthers = () => {
         }
 
         if (editingRow === row.id) {
-          // Merge current elock with available elocks for editing
           let mergedOptions = Array.isArray(elockOptions) ? elockOptions : [];
           if (
             editValues.elock_no &&
@@ -1023,7 +1491,6 @@ const ElockAssignOthers = () => {
       size: 200,
       pinned: "left",
       Cell: ({ row }) => {
-        // Check if this is the inline create row
         if (row.original._id === "inline-create") {
           return (
             <Box display="flex" gap={1}>
@@ -1034,8 +1501,8 @@ const ElockAssignOthers = () => {
                 onClick={handleSaveInlineCreate}
                 disabled={
                   loading ||
-                  !inlineCreateValues.transporter ||
-                  !inlineCreateValues.client
+                  !inlineCreateValues.consignor ||
+                  !inlineCreateValues.consignee
                 }
                 startIcon={<SaveIcon />}
               ></Button>
@@ -1103,10 +1570,9 @@ const ElockAssignOthers = () => {
     if (isInlineCreating) {
       const inlineCreateRow = {
         _id: "inline-create",
-
         tr_no: "",
-        transporter: null,
-        client: null,
+        consignor: null,
+        consignee: null,
         container_number: "",
         driver_name: "",
         driver_phone: "",
@@ -1127,7 +1593,7 @@ const ElockAssignOthers = () => {
         data={tableData}
         enableColumnResizing
         enableColumnOrdering
-        enablePagination={false} // Handled manually via MUI Pagination
+        enablePagination={false}
         enableBottomToolbar={false}
         enableDensityToggle={false}
         initialState={{
@@ -1169,7 +1635,6 @@ const ElockAssignOthers = () => {
               p: 1,
             }}
           >
-            {" "}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: "bold" }}>
                 Others Count: {totalJobs}
@@ -1214,7 +1679,7 @@ const ElockAssignOthers = () => {
           showFirstButton
           showLastButton
           disabled={loading}
-        />{" "}
+        />
       </Box>
 
       <ElockGPSOperation

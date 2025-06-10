@@ -109,6 +109,7 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
       search = "",
       elock_assign_status,
       sort,
+      status, // Add status parameter from frontend
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -121,12 +122,16 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
     // Build match query for ElockAssignOthers
     let othersMatchQuery = {};
 
-    // If explicit filter for RETURNED
-    if (elock_assign_status === "RETURNED" || sort === "RETURNED") {
+    // Handle status filtering
+    if (status === "ALL") {
+      // Show all records (no status filter)
+      // Don't add any elock_assign_status filter
+    } else if (status === "RETURNED" || elock_assign_status === "RETURNED" || sort === "RETURNED") {
+      // Show only RETURNED records
       containerMatchQuery["containers.elock_assign_status"] = "RETURNED";
       othersMatchQuery["elock_assign_status"] = "RETURNED";
     } else {
-      // Default: Exclude RETURNED
+      // Default: Exclude RETURNED (show only non-RETURNED)
       containerMatchQuery["containers.elock_assign_status"] = {
         $ne: "RETURNED",
       };
@@ -154,9 +159,7 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
       };
     } else {
       containerMatchStage = containerMatchQuery;
-    }
-
-    // Aggregation pipeline for containers
+    } // Aggregation pipeline for containers
     const containersPipeline = [
       { $unwind: "$containers" },
       {
@@ -165,6 +168,42 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           localField: "containers.elock_no",
           foreignField: "_id",
           as: "containers.elock_no_details",
+        },
+      },
+      // Lookup for containers.goods_pickup
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_pickup",
+          foreignField: "_id",
+          as: "containers.goods_pickup_details",
+        },
+      },
+      // Lookup for containers.goods_delivery
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_delivery",
+          foreignField: "_id",
+          as: "containers.goods_delivery_details",
+        },
+      },
+      // Lookup for consignor
+      {
+        $lookup: {
+          from: "organisations",
+          localField: "consignor",
+          foreignField: "_id",
+          as: "consignor_details",
+        },
+      },
+      // Lookup for consignee
+      {
+        $lookup: {
+          from: "organisations",
+          localField: "consignee",
+          foreignField: "_id",
+          as: "consignee_details",
         },
       },
       { $match: containerMatchStage },
@@ -227,9 +266,36 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           net_weight: "$containers.net_weight",
           // Add source identifier
           source: { $literal: "containers" },
-          transporter: null,
-          client: null,
-         
+          // Add consignor and consignee from PR level
+          consignor: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
+              else: null,
+            },
+          },
+          consignee: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
+          // Add goods_pickup and goods_delivery from containers
+          goods_pickup: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_pickup_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_pickup_details", 0] },
+              else: null,
+            },
+          },
+          goods_delivery: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_delivery_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_delivery_details", 0] },
+              else: null,
+            },
+          },
         },
       },
     ];
@@ -240,22 +306,22 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
     };
 
     const othersPipeline = [
-      // Lookup for transporter
+      // Lookup for consignor
       {
         $lookup: {
           from: "organisations",
-          localField: "transporter",
+          localField: "consignor",
           foreignField: "_id",
-          as: "transporter_details",
+          as: "consignor_details",
         },
       },
-      // Lookup for client
+      // Lookup for consignee
       {
         $lookup: {
           from: "organisations",
-          localField: "client",
+          localField: "consignee",
           foreignField: "_id",
-          as: "client_details",
+          as: "consignee_details",
         },
       },
       // Lookup for elock
@@ -295,20 +361,22 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
             {
               $match: {
                 $or: [
-                 
                   { tr_no: new RegExp(escapeRegex(search), "i") },
                   { container_number: new RegExp(escapeRegex(search), "i") },
                   { driver_name: new RegExp(escapeRegex(search), "i") },
                   { driver_phone: new RegExp(escapeRegex(search), "i") },
                   { vehicle_no: new RegExp(escapeRegex(search), "i") },
                   {
-                    "transporter_details.name": new RegExp(
+                    "consignor_details.name": new RegExp(
                       escapeRegex(search),
                       "i"
                     ),
                   },
                   {
-                    "client_details.name": new RegExp(escapeRegex(search), "i"),
+                    "consignee_details.name": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
                   },
                   {
                     "elock_details.FAssetID": new RegExp(
@@ -340,7 +408,7 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           pr_id: null,
           pr_no: null,
           branch: null,
-      
+
           tr_no: 1,
           container_number: 1,
           driver_name: 1,
@@ -362,20 +430,33 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           gross_weight: null,
           tare_weight: null,
           net_weight: null,
-          tr_no: 1,
           // Add source identifier
           source: { $literal: "others" },
-          transporter: {
+          consignor: {
             $cond: {
-              if: { $gt: [{ $size: "$transporter_details" }, 0] },
-              then: { $arrayElemAt: ["$transporter_details", 0] },
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
               else: null,
             },
           },
-          client: {
+          consignee: {
             $cond: {
-              if: { $gt: [{ $size: "$client_details" }, 0] },
-              then: { $arrayElemAt: ["$client_details", 0] },
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
+          goods_pickup: {
+            $cond: {
+              if: { $gt: [{ $size: "$goods_pickup_details" }, 0] },
+              then: { $arrayElemAt: ["$goods_pickup_details", 0] },
+              else: null,
+            },
+          },
+          goods_delivery: {
+            $cond: {
+              if: { $gt: [{ $size: "$goods_delivery_details" }, 0] },
+              then: { $arrayElemAt: ["$goods_delivery_details", 0] },
               else: null,
             },
           },
@@ -409,8 +490,8 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
       }
 
       // Then sort by tr_no or lr_no
-      const aRef = a.tr_no ||  "";
-      const bRef = b.tr_no ||  "";
+      const aRef = a.tr_no || "";
+      const bRef = b.tr_no || "";
       return bRef.localeCompare(aRef);
     });
 
@@ -439,6 +520,7 @@ router.get("/api/elock-assign", async (req, res) => {
       search = "",
       elock_assign_status,
       sort,
+      status, // Add status parameter from frontend
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -448,16 +530,19 @@ router.get("/api/elock-assign", async (req, res) => {
     };
     let containerOrArray = [];
 
-    // If explicit filter for RETURNED
-    if (elock_assign_status === "RETURNED" || sort === "RETURNED") {
+    // Handle status filtering
+    if (status === "ALL") {
+      // Show all records (no status filter)
+      // Don't add any elock_assign_status filter
+    } else if (status === "RETURNED" || elock_assign_status === "RETURNED" || sort === "RETURNED") {
+      // Show only RETURNED records
       containerMatchQuery["containers.elock_assign_status"] = "RETURNED";
     } else {
-      // Default: Exclude RETURNED
+      // Default: Exclude RETURNED (show only non-RETURNED)
       containerMatchQuery["containers.elock_assign_status"] = {
         $ne: "RETURNED",
       };
     }
-
     if (search) {
       const searchRegex = new RegExp(search, "i");
       containerOrArray = [
@@ -479,10 +564,26 @@ router.get("/api/elock-assign", async (req, res) => {
       };
     } else {
       containerMatchStage = containerMatchQuery;
-    }
-
-    // Aggregation pipeline for containers only
+    } // Aggregation pipeline for containers only
     const containersPipeline = [
+      // Lookup for consignor
+      {
+        $lookup: {
+          from: "organisations", // Adjust collection name if different
+          localField: "consignor",
+          foreignField: "_id",
+          as: "consignor_details",
+        },
+      },
+      // Lookup for consignee
+      {
+        $lookup: {
+          from: "organisations", // Adjust collection name if different
+          localField: "consignee",
+          foreignField: "_id",
+          as: "consignee_details",
+        },
+      },
       { $unwind: "$containers" },
       {
         $lookup: {
@@ -492,8 +593,25 @@ router.get("/api/elock-assign", async (req, res) => {
           as: "containers.elock_no_details",
         },
       },
-      { $match: containerMatchStage },
-      // Add additional search match after lookup for elock FAssetID
+      // Lookup container.goods_pickup after unwind
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_pickup",
+          foreignField: "_id",
+          as: "containers.goods_pickup_details",
+        },
+      },
+      // Lookup container.goods_delivery after unwind
+      {
+        $lookup: {
+          from: "locations",
+          localField: "containers.goods_delivery",
+          foreignField: "_id",
+          as: "containers.goods_delivery_details",
+        },
+      },
+      { $match: containerMatchStage }, // Add additional search match after lookup for elock FAssetID and populated fields
       ...(search
         ? [
             {
@@ -501,6 +619,20 @@ router.get("/api/elock-assign", async (req, res) => {
                 $or: [
                   { pr_no: new RegExp(search, "i") },
                   { branch: new RegExp(search, "i") },
+                  { "consignor_details.name": new RegExp(search, "i") },
+                  { "consignee_details.name": new RegExp(search, "i") },
+                  {
+                    "containers.goods_pickup_details.name": new RegExp(
+                      search,
+                      "i"
+                    ),
+                  },
+                  {
+                    "containers.goods_delivery_details.name": new RegExp(
+                      search,
+                      "i"
+                    ),
+                  },
                   { "containers.tr_no": new RegExp(search, "i") },
                   { "containers.container_number": new RegExp(search, "i") },
                   { "containers.driver_name": new RegExp(search, "i") },
@@ -523,6 +655,34 @@ router.get("/api/elock-assign", async (req, res) => {
           pr_id: "$_id", // Keep the original PR ID
           pr_no: 1,
           branch: 1,
+          consignor: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
+              else: null,
+            },
+          },
+          consignee: {
+            $cond: {
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
+              else: null,
+            },
+          },
+          goods_pickup: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_pickup_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_pickup_details", 0] },
+              else: null,
+            },
+          },
+          goods_delivery: {
+            $cond: {
+              if: { $gt: [{ $size: "$containers.goods_delivery_details" }, 0] },
+              then: { $arrayElemAt: ["$containers.goods_delivery_details", 0] },
+              else: null,
+            },
+          },
           // Container level fields
           _id: "$containers._id", // Use container's actual _id
           container_id: "$containers._id", // Also provide as container_id for clarity

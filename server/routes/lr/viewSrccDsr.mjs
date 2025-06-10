@@ -227,8 +227,8 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           net_weight: "$containers.net_weight",
           // Add source identifier
           source: { $literal: "containers" },
-          transporter: null,
-          client: null,
+          consignor: null,
+          consignee: null,
         },
       },
     ];
@@ -239,22 +239,22 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
     };
 
     const othersPipeline = [
-      // Lookup for transporter
+      // Lookup for consignor
       {
         $lookup: {
           from: "organisations",
-          localField: "transporter",
+          localField: "consignor",
           foreignField: "_id",
-          as: "transporter_details",
+          as: "consignor_details",
         },
       },
-      // Lookup for client
+      // Lookup for consignee
       {
         $lookup: {
           from: "organisations",
-          localField: "client",
+          localField: "consignee",
           foreignField: "_id",
-          as: "client_details",
+          as: "consignee_details",
         },
       },
       // Lookup for elock
@@ -300,13 +300,16 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
                   { driver_phone: new RegExp(escapeRegex(search), "i") },
                   { vehicle_no: new RegExp(escapeRegex(search), "i") },
                   {
-                    "transporter_details.name": new RegExp(
+                    "consignor_details.name": new RegExp(
                       escapeRegex(search),
                       "i"
                     ),
                   },
                   {
-                    "client_details.name": new RegExp(escapeRegex(search), "i"),
+                    "consignee_details.name": new RegExp(
+                      escapeRegex(search),
+                      "i"
+                    ),
                   },
                   {
                     "elock_details.FAssetID": new RegExp(
@@ -363,17 +366,17 @@ router.get("/api/elock-assign&other-history", async (req, res) => {
           tr_no: 1,
           // Add source identifier
           source: { $literal: "others" },
-          transporter: {
+          consignor: {
             $cond: {
-              if: { $gt: [{ $size: "$transporter_details" }, 0] },
-              then: { $arrayElemAt: ["$transporter_details", 0] },
+              if: { $gt: [{ $size: "$consignor_details" }, 0] },
+              then: { $arrayElemAt: ["$consignor_details", 0] },
               else: null,
             },
           },
-          client: {
+          consignee: {
             $cond: {
-              if: { $gt: [{ $size: "$client_details" }, 0] },
-              then: { $arrayElemAt: ["$client_details", 0] },
+              if: { $gt: [{ $size: "$consignee_details" }, 0] },
+              then: { $arrayElemAt: ["$consignee_details", 0] },
               else: null,
             },
           },

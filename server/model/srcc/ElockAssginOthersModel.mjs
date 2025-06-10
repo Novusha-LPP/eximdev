@@ -2,17 +2,17 @@ import mongoose from "mongoose";
 
 const ElockAssignOthersSchema = new mongoose.Schema(
   {
-    transporter: {
+    consignor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organisation",
       required: true,
     },
-    client: {
+    consignee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organisation",
       required: true,
     },
-   
+
     tr_no: {
       type: String,
       index: true, // Add index if you frequently query by tr_no

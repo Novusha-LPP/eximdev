@@ -22,6 +22,7 @@ import {
   LockOpen as LockOpenIcon,
 } from "@mui/icons-material";
 import axios from "axios";
+import Swal from "sweetalert2";
 import ElockGPSOperation from "./ElockGPSOperation";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED"];
@@ -377,9 +378,8 @@ const ElockAssignOthers = () => {
     }
 
     return errors;
-  };
-  // Function to check for missing optional fields and confirm with user
-  const confirmMissingOptionalFields = (data) => {
+  }; // Function to check for missing optional fields and confirm with user
+  const confirmMissingOptionalFields = async (data) => {
     const missingFields = [];
 
     // Check all optional fields
@@ -409,10 +409,19 @@ const ElockAssignOthers = () => {
     }
 
     if (missingFields.length > 0) {
-      const message = `The following optional fields are empty:\n• ${missingFields.join(
-        "\n• "
-      )}\n\nDo you want to continue saving without these fields?\n\nClick "OK" to save anyway, or "Cancel" to go back and fill these fields.`;
-      return window.confirm(message);
+      const result = await Swal.fire({
+        icon: "warning",
+        title: "Missing Optional Fields",
+        html: `The following optional fields are empty:<br>• ${missingFields.join(
+          "<br>• "
+        )}<br><br>Do you want to continue saving without these fields?`,
+        showCancelButton: true,
+        confirmButtonText: "Yes, Save Anyway",
+        cancelButtonText: "No, Go Back",
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+      });
+      return result.isConfirmed;
     }
 
     return true; // No missing fields, proceed
@@ -420,19 +429,20 @@ const ElockAssignOthers = () => {
   // Save edited row
   const handleSaveRow = async (row) => {
     try {
-      setLoading(true);
-
-      // Client-side validation
+      setLoading(true); // Client-side validation
       const validationErrors = validateData(editValues);
       if (validationErrors.length > 0) {
-        alert(
-          "Please fix the following errors:\n• " + validationErrors.join("\n• ")
-        );
+        await Swal.fire({
+          icon: "error",
+          title: "Validation Error",
+          html: `Please fix the following errors:<br>• ${validationErrors.join(
+            "<br>• "
+          )}`,
+          confirmButtonText: "OK",
+        });
         return;
-      }
-
-      // Check for missing optional fields and get user confirmation
-      const shouldContinue = confirmMissingOptionalFields(editValues);
+      } // Check for missing optional fields and get user confirmation
+      const shouldContinue = await confirmMissingOptionalFields(editValues);
       if (!shouldContinue) {
         return; // User chose to go back and fill the fields
       }
@@ -448,7 +458,6 @@ const ElockAssignOthers = () => {
 
       // Clean data before submission
       const cleanedData = cleanDataForSubmission(finalEditValues);
-
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others/${row.original._id}`,
         cleanedData
@@ -456,10 +465,23 @@ const ElockAssignOthers = () => {
       setEditingRow(null);
       fetchElockAssignOthersData();
       fetchAvailableElocks();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Record updated successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Error updating record:", error);
       const userFriendlyMessage = formatErrorMessage(error);
-      alert(`Failed to update record:\n\n${userFriendlyMessage}`);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Update Record",
+        text: userFriendlyMessage,
+        confirmButtonText: "OK",
+      });
     } finally {
       setLoading(false);
     }
@@ -484,26 +506,30 @@ const ElockAssignOthers = () => {
   };
   const handleSaveInlineCreate = async () => {
     try {
-      setLoading(true);
-
-      // Client-side validation
+      setLoading(true); // Client-side validation
       const validationErrors = validateData(inlineCreateValues);
       if (validationErrors.length > 0) {
-        alert(
-          "Please fix the following errors:\n• " + validationErrors.join("\n• ")
-        );
+        await Swal.fire({
+          icon: "error",
+          title: "Validation Error",
+          html: `Please fix the following errors:<br>• ${validationErrors.join(
+            "<br>• "
+          )}`,
+          confirmButtonText: "OK",
+        });
         return;
       }
 
       // Check for missing optional fields and get user confirmation
-      const shouldContinue = confirmMissingOptionalFields(inlineCreateValues);
+      const shouldContinue = await confirmMissingOptionalFields(
+        inlineCreateValues
+      );
       if (!shouldContinue) {
         return; // User chose to go back and fill the fields
       }
 
       // Clean data before submission
       const cleanedData = cleanDataForSubmission(inlineCreateValues);
-
       await axios.post(
         `${process.env.REACT_APP_API_STRING}/elock/assign-others`,
         cleanedData
@@ -524,10 +550,23 @@ const ElockAssignOthers = () => {
       });
       fetchElockAssignOthersData();
       fetchAvailableElocks();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Record created successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Error creating record:", error);
       const userFriendlyMessage = formatErrorMessage(error);
-      alert(`Failed to create record:\n\n${userFriendlyMessage}`);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Create Record",
+        text: userFriendlyMessage,
+        confirmButtonText: "OK",
+      });
     } finally {
       setLoading(false);
     }
@@ -549,10 +588,20 @@ const ElockAssignOthers = () => {
       goods_delivery: "",
     });
   };
-
   // Delete record
   const handleDeleteRow = async (row) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to delete this record? This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
       try {
         setLoading(true);
         await axios.delete(
@@ -560,9 +609,20 @@ const ElockAssignOthers = () => {
         );
         fetchElockAssignOthersData();
         fetchAvailableElocks();
+        await Swal.fire({
+          title: "Deleted!",
+          text: "The record has been deleted successfully.",
+          icon: "success",
+          confirmButtonText: "OK",
+        });
       } catch (error) {
         console.error("Error deleting record:", error);
-        alert(`Error: ${error.response?.data?.error || error.message}`);
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Delete Record",
+          text: error.response?.data?.error || error.message,
+          confirmButtonText: "OK",
+        });
       } finally {
         setLoading(false);
       }
@@ -601,19 +661,30 @@ const ElockAssignOthers = () => {
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
-
   // Handle unlock operation
   const handleUnlockElock = async (elockNo) => {
     if (!elockNo || elockNo.trim() === "") {
-      alert("No E-lock number available for unlock operation");
+      await Swal.fire({
+        icon: "warning",
+        title: "No E-lock Available",
+        text: "No E-lock number available for unlock operation",
+        confirmButtonText: "OK",
+      });
       return;
     }
 
-    const confirmUnlock = window.confirm(
-      `Are you sure you want to unlock E-lock: ${elockNo}?`
-    );
+    const result = await Swal.fire({
+      title: "Unlock E-lock?",
+      text: `Are you sure you want to unlock E-lock: ${elockNo}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, unlock it!",
+      cancelButtonText: "Cancel",
+    });
 
-    if (!confirmUnlock) return;
+    if (!result.isConfirmed) return;
 
     try {
       const assetResponse = await fetch(ADMIN_API_URL, {
@@ -656,17 +727,28 @@ const ElockAssignOthers = () => {
       const unlockResult = await unlockResponse.json();
 
       if (unlockResult.Result === 200) {
-        alert("Unlock instruction sent successfully!");
+        await Swal.fire({
+          icon: "success",
+          title: "Success!",
+          text: "Unlock instruction sent successfully!",
+          confirmButtonText: "OK",
+        });
       } else {
-        alert(
-          `Failed to send unlock instruction: ${
-            unlockResult.Message || "Unknown error"
-          }`
-        );
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Send Unlock Instruction",
+          text: unlockResult.Message || "Unknown error",
+          confirmButtonText: "OK",
+        });
       }
     } catch (error) {
       console.error("Error during unlock operation:", error);
-      alert(`Error: ${error.message}`);
+      await Swal.fire({
+        icon: "error",
+        title: "Unlock Operation Failed",
+        text: error.message,
+        confirmButtonText: "OK",
+      });
     }
   };
 

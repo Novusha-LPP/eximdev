@@ -22,9 +22,11 @@ const DocumentationJob = () => {
   const routeLocation = useLocation()
   const { job_no, year } = useParams();
   const bl_no_ref = useRef();
-  const [data, setData] = useState(null);
-  const { user } = useContext(UserContext);
+  const [data, setData] = useState(null);  const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
   
   const extractFileName = (url) => {
     try {
@@ -42,9 +44,34 @@ const DocumentationJob = () => {
   
   // Check if checklist exists and has items
   const hasChecklist = data?.checklist && data.checklist.length > 0;
-  
-  // Combined disabled state - disable if isDisabled OR no checklist
+    // Combined disabled state - disable if isDisabled OR no checklist
   const isFieldDisabled = isDisabled || !hasChecklist;
+
+  // Store search parameters from location state
+  useEffect(() => {
+    if (routeLocation.state) {
+      const { searchQuery, selectedImporter, selectedJobId } = routeLocation.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+      });
+    }
+  }, [routeLocation.state]);
+
+  // Handle back click function
+  const handleBackClick = () => {
+    navigate("/documentation", {
+      state: {
+        fromJobDetails: true,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedJobId: storedSearchParams.selectedJobId,
+        }),
+      },
+    });
+  };
 
   useEffect(() => {
     fetchJobDetails();
@@ -90,7 +117,6 @@ const DocumentationJob = () => {
       documentation_completed_date_time: newValue,
     }));
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
   
@@ -101,7 +127,16 @@ const DocumentationJob = () => {
           documentation_completed_date_time: data.documentation_completed_date_time,
         }
       );
-      navigate("/documentation");
+      navigate("/documentation", {
+        state: {
+          fromJobDetails: true,
+          ...(storedSearchParams && {
+            searchQuery: storedSearchParams.searchQuery,
+            selectedImporter: storedSearchParams.selectedImporter,
+            selectedJobId: storedSearchParams.selectedJobId,
+          }),
+        },
+      });
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation data:", error);
@@ -229,9 +264,25 @@ const DocumentationJob = () => {
       </Box>
     );
   };
-  
-  return (
+    return (
     <div>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2, mt: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null ? (
         <>
           <JobDetailsStaticData

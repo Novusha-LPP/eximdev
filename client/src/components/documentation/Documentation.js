@@ -15,25 +15,27 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
 
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [page, setPage] = React.useState(1);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("");
+  // Use context for search functionality like E-Sanchit
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
+  const [selectedJobId, setSelectedJobId] = useState("");
   const limit = 100; // Number of items per page
 
   // Get importer list for MUI autocomplete

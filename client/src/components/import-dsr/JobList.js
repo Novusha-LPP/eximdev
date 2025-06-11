@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
@@ -25,7 +26,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { useImportersContext } from "../../contexts/importersContext";
 import { YearContext } from "../../contexts/yearContext.js";
-import { useNavigate, useLocation } from "react-router-dom";
+// import { useNavigate, useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 // Memoized search input to prevent unnecessary re-renders
@@ -146,10 +147,33 @@ function JobList(props) {
       )
     );
     // Also increment refreshTrigger to force getRowProps to recalculate
-    setRefreshTrigger(prev => prev + 1);
-  }, [setRows]);
+    setRefreshTrigger(prev => prev + 1);  }, [setRows]);
 
-  const columns = useJobColumns(handleRowDataUpdate);
+  // Determine current tab index based on status
+  const getCurrentTabIndex = () => {
+    switch (props.status) {
+      case "Pending": return 0;
+      case "Completed": return 1;
+      case "Cancelled": return 2;
+      default: return 0;
+    }
+  };
+
+  // Custom navigation handler for DSR job details
+  const handleJobNavigation = (job_no, year) => {
+    navigate(`/import-dsr/job/${job_no}/${year}`, {
+      state: {
+        fromJobList: true,
+        currentTab: getCurrentTabIndex(),
+        searchQuery,
+        detailedStatus,
+        selectedICD,
+        selectedImporter,
+      },
+    });
+  };
+
+  const columns = useJobColumns(handleRowDataUpdate, handleJobNavigation);
 
   useEffect(() => {
     async function getYears() {

@@ -211,10 +211,9 @@ function HomePage() {
             <Route
               path="/edit-billing-sheet/:_id"
               element={<EditBillingSheet />}
-            />
-
-            {/* Import DSR */}
+            />            {/* Import DSR */}
             <Route path="/import-dsr" element={<ImportDSR />} />
+            <Route path="/import-dsr/job/:job_no/:selected_year" element={<ViewJob />} />
             <Route path="/job/:job_no/:selected_year" element={<ViewJob />} />
 
             {/* Import Operations */}

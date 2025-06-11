@@ -14,6 +14,7 @@ import ToolboxIcon from "@mui/icons-material/BuildCircle";
 import JobList from "./JobList";
 import ImportUtilityTool from "../import-utility-tool/ImportUtilityTool";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { useLocation } from "react-router-dom";
 
 function CustomTabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -47,12 +48,22 @@ function a11yProps(index) {
 function JobTabs() {
   const [value, setValue] = React.useState(0);
   const [openUtilityTool, setOpenUtilityTool] = React.useState(false);
+  const location = useLocation();
   const { 
     setSearchQuery,
     setDetailedStatus,
     setSelectedICD,
     setSelectedImporter 
   } = useSearchQuery();
+
+  // Handle tab restoration when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails && location.state?.tabIndex !== undefined) {
+      setValue(location.state.tabIndex);
+      // Clear the state from history so it doesn't persist
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleChange = (event, newValue) => {
     // Clear search parameters when switching tabs

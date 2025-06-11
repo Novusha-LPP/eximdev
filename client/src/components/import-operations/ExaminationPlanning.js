@@ -42,6 +42,7 @@ function ImportOperations() {
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
+  const [isRestoringState, setIsRestoringState] = useState(false); // Flag to track state restoration
   const limit = 100; // Rows per page
   const location = useLocation();
   
@@ -61,13 +62,16 @@ function ImportOperations() {
       setSelectedImporter("");
     }
   }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
-
   // Handle search state restoration when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails) {
+      setIsRestoringState(true); // Set flag to prevent debounce trigger
+      
       // Restore search state when returning from job details
       if (location.state?.searchQuery !== undefined) {
         setSearchQuery(location.state.searchQuery);
+        // Immediately update debounced search query to avoid delay and prevent multiple API calls
+        setDebouncedSearchQuery(location.state.searchQuery);
       }
       if (location.state?.selectedImporter !== undefined) {
         setSelectedImporter(location.state.selectedImporter);
@@ -75,8 +79,21 @@ function ImportOperations() {
       if (location.state?.selectedJobId !== undefined) {
         setSelectedJobId(location.state.selectedJobId);
       }
+        // Reset the flag after state restoration is complete and make explicit API call
+      setTimeout(() => {
+        setIsRestoringState(false);
+        
+        // Make explicit API call with restored search parameters
+        console.log('🎯 Making explicit API call with restored search parameters');
+        fetchJobs(
+          1, // Reset to first page
+          location.state?.searchQuery || "",
+          selectedYearState,
+          location.state?.selectedImporter || ""
+        );
+      }, 150);
     }
-  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, setSearchQuery, setSelectedImporter]);
+  }, [location.state?.fromJobDetails, setSearchQuery, setSelectedImporter, selectedYearState, fetchJobs]);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -211,14 +228,16 @@ function ImportOperations() {
     selectedImporter,
     fetchJobs,
   ]);
-
   // Handle search input with debounce
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms debounce delay
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+    // Only trigger debounce if we're not in the middle of restoring state
+    if (!isRestoringState) {
+      const handler = setTimeout(() => {
+        setDebouncedSearchQuery(searchQuery);
+      }, 500); // 500ms debounce delay
+      return () => clearTimeout(handler);
+    }
+  }, [searchQuery, isRestoringState]);
   useEffect(() => {
     if (location.state?.searchQuery) {
       setSearchQuery(location.state.searchQuery);

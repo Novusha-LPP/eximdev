@@ -61,16 +61,16 @@ function JobDetails() {
     setSelectedImporter,
   } = useSearchQuery();
 
-  const [storedSearchParams, setStoredSearchParams] = useState(null);
-  useEffect(() => {
+  const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
     if (location.state && location.state.fromJobList) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter, currentTab } =
         location.state;
       setStoredSearchParams({
         searchQuery,
         detailedStatus,
         selectedICD,
         selectedImporter,
+        currentTab,
       });
     }
   }, [location.state]);
@@ -88,11 +88,12 @@ function JobDetails() {
   //     }
   //   });
   // };
-
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to Completed tab (index 1)
     navigate("/import-dsr", {
       state: {
         fromJobDetails: true,
+        tabIndex: tabIndex,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           detailedStatus: storedSearchParams.detailedStatus,
@@ -100,22 +101,8 @@ function JobDetails() {
           selectedImporter: storedSearchParams.selectedImporter,
         }),
       },
-    });
-  };
+    });  };
 
-  useEffect(() => {
-    if (location.state && location.state.fromJobList) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
-        location.state;
-      // Store parameters but don't set them in context yet
-      setStoredSearchParams({
-        searchQuery,
-        detailedStatus,
-        selectedICD,
-        selectedImporter,
-      });
-    }
-  }, [location.state]);
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
   const [selectedRegNo, setSelectedRegNo] = useState();

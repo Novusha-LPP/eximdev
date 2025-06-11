@@ -12,7 +12,7 @@ import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
 // Custom hook to manage job columns configuration
-function useJobColumns(handleRowDataUpdate) {
+function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   const navigate = useNavigate();
   const location = useLocation();
   const { 
@@ -209,17 +209,22 @@ function useJobColumns(handleRowDataUpdate) {
             });
           }
 
-          return (
-            <div
-              onClick={() => navigate(`/job/${job_no}/${year}`, {
-                state: {
-                  searchQuery,
-                  detailedStatus,
-                  selectedICD,
-                  selectedImporter,
-                  fromJobList: true
+          return (            <div
+              onClick={() => {
+                if (customNavigation) {
+                  customNavigation(job_no, year);
+                } else {
+                  navigate(`/job/${job_no}/${year}`, {
+                    state: {
+                      searchQuery,
+                      detailedStatus,
+                      selectedICD,
+                      selectedImporter,
+                      fromJobList: true
+                    }
+                  });
                 }
-              })}
+              }}
               style={{
                 cursor: "pointer",
                 color: textColor,

@@ -193,13 +193,14 @@ function OperationsList() {
       setSelectedImporter("");
     }
   }, [setSearchQuery, setSelectedImporter, location.state]);
-
   // Handle search state restoration when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails) {
       // Restore search state when returning from job details
       if (location.state?.searchQuery !== undefined) {
         setSearchQuery(location.state.searchQuery);
+        // Immediately update debounced search query to avoid delay
+        setDebouncedSearchQuery(location.state.searchQuery);
       }
       if (location.state?.selectedImporter !== undefined) {
         setSelectedImporter(location.state.selectedImporter);
@@ -208,20 +209,13 @@ function OperationsList() {
         setSelectedJobId(location.state.selectedJobId);
       }
     }
-  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, setSearchQuery, setSelectedImporter]);
-
-   // Handle search input with debounce
+  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, setSearchQuery, setSelectedImporter]);   // Handle search input with debounce
     useEffect(() => {
       const handler = setTimeout(() => {
         setDebouncedSearchQuery(searchQuery);
       }, 500); // 500ms debounce delay
       return () => clearTimeout(handler);
     }, [searchQuery]);
-    useEffect(() => {
-      if (location.state?.searchQuery) {
-        setSearchQuery(location.state.searchQuery);
-      }
-    }, [location.state?.searchQuery]);
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage);

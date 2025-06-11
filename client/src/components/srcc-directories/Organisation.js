@@ -303,9 +303,9 @@ const Organisation = () => {
                   >
                     <EditIcon />
                   </IconButton>
-                  <IconButton color="error" onClick={() => handleDelete(org)}>
-                    <DeleteIcon />
-                  </IconButton>
+                    {/* <IconButton color="error" onClick={() => handleDelete(org)}>
+                      <DeleteIcon />
+                    </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

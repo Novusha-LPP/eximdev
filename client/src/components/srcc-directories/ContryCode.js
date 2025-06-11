@@ -179,12 +179,12 @@ function CountryCode() {
                   >
                     <EditIcon />
                   </IconButton>
-                  <IconButton
+                  {/* <IconButton
                     onClick={() => handleDelete(country._id)}
                     color="error"
                   >
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

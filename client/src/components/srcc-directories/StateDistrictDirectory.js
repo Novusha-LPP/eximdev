@@ -151,12 +151,12 @@ function StateDistrictDirectory() {
                   <IconButton onClick={() => handleEdit(state)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton
+                  {/* <IconButton
                     onClick={() => handleDelete(state.state)}
                     color="error"
                   >
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

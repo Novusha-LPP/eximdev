@@ -310,9 +310,9 @@ const AdvanceToDriver = () => {
                   <IconButton onClick={() => handleEdit(item)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(item)} color="error">
+                  {/* <IconButton onClick={() => handleDelete(item)} color="error">
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

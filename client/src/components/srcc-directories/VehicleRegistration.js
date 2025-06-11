@@ -341,12 +341,12 @@ const VehicleRegistration = () => {
                   >
                     <EditIcon />
                   </IconButton>
-                  <IconButton
+                  {/* <IconButton
                     onClick={() => handleDelete(vehicle)}
                     color="error"
                   >
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

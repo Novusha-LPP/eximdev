@@ -149,9 +149,9 @@ const ShippingLine = () => {
                   <IconButton onClick={() => handleEdit(line)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(line)} color="error">
+                  {/* <IconButton onClick={() => handleDelete(line)} color="error">
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

@@ -118,13 +118,13 @@ const Elock = () => {
                   <IconButton color="primary" onClick={() => handleEdit(elock)}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton
+                  {/* <IconButton
                     color="error"
                     disabled={elock.status === "ASSIGNED"}
                     onClick={() => handleDelete(elock._id)}
                   >
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

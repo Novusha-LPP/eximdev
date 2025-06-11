@@ -201,12 +201,12 @@ function PortsCfsYardDirectory() {
                   <IconButton onClick={() => handleEdit(port)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton
+                  {/* <IconButton
                     onClick={() => handleDelete(port._id)}
                     color="error"
                   >
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

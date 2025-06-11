@@ -137,12 +137,12 @@ function LocationDirectory() {
                     >
                       <EditIcon />
                     </IconButton>
-                    <IconButton
+                    {/* <IconButton
                       onClick={() => handleDelete(location._id)}
                       color="error"
                     >
                       <DeleteIcon />
-                    </IconButton>
+                    </IconButton> */}
                   </TableCell>
                 </TableRow>
               ))

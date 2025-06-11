@@ -256,12 +256,12 @@ function UnitMeasurementDirectory() {
                   <IconButton onClick={() => handleEdit(unit)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton
+                  {/* <IconButton
                     onClick={() => handleDelete(unit._id)}
                     color="error"
                   >
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}
@@ -311,13 +311,13 @@ function UnitMeasurementDirectory() {
                     >
                       <EditIcon />
                     </IconButton>
-                    <IconButton
+                    {/* <IconButton
                       edge="end"
                       color="error"
                       onClick={() => handleDeleteMeasurement(index)}
                     >
                       <DeleteIcon />
-                    </IconButton>
+                    </IconButton> */}
                   </>
                 }
               >

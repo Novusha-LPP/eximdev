@@ -142,9 +142,9 @@ const LrTrackingStagesDirectorie = () => {
                   <IconButton onClick={() => handleEdit(stage)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(stage)} color="error">
+                  {/* <IconButton onClick={() => handleDelete(stage)} color="error">
                     <DeleteIcon />
-                  </IconButton>
+                  </IconButton> */}
                 </TableCell>
               </TableRow>
             ))}

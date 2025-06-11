@@ -30,13 +30,14 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     container_nos = [],
     detailed_status,
     be_no,
-    duty_paid_date,
-    assessable_ammount,
+    duty_paid_date,    assessable_ammount,
     igst_ammount,
     igst_rate,
     job_net_weight,
     bcd_ammount,
     sws_ammount,
+    penalty_ammount,
+    fine_ammount,
   } = cell.row.original;
   const [dates, setDates] = useState({
     assessment_date,
@@ -62,6 +63,8 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     bcd_ammount: bcd_ammount || "",
     sws_ammount: sws_ammount || "",
     intrest_ammount: cell.row.original.intrest_ammount || "",
+    penalty_ammount: penalty_ammount || "",
+    fine_ammount: fine_ammount || "",
   });
   // Free time options
   const options = Array.from({ length: 25 }, (_, index) => index);
@@ -83,10 +86,11 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         detailed_status,
         free_time,
         assessable_ammount,
-        igst_ammount,
-        bcd_ammount,
+        igst_ammount,        bcd_ammount,
         sws_ammount,
         intrest_ammount,
+        penalty_ammount,
+        fine_ammount,
       } = cell.row.original;
 
       setDates({
@@ -111,6 +115,8 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         bcd_ammount: bcd_ammount || "",
         sws_ammount: sws_ammount || "",
         intrest_ammount: intrest_ammount || "",
+        penalty_ammount: penalty_ammount || "",
+        fine_ammount: fine_ammount || "",
       });
     }
   }, [_id]); // Only reset when the row ID changes, not on every data update
@@ -123,14 +129,15 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     setIgstModalOpen(false);
   };
   const handleIgstSubmit = async () => {
-    try {
-      // Make API call to update IGST values
+    try {      // Make API call to update IGST values
       await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
         assessable_ammount: igstValues.assessable_ammount,
         igst_ammount: igstValues.igst_ammount,
         bcd_ammount: igstValues.bcd_ammount,
         sws_ammount: igstValues.sws_ammount,
         intrest_ammount: igstValues.intrest_ammount,
+        penalty_ammount: igstValues.penalty_ammount,
+        fine_ammount: igstValues.fine_ammount,
       });
 
       // Close the modal
@@ -936,9 +943,7 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
               variant="outlined"
               size="small"
             />
-          </Box>
-
-          {/* Other Fields in 2x2 Grid */}
+          </Box>          {/* Other Fields in 3x2 Grid */}
           <Box
             sx={{
               display: "grid",
@@ -994,18 +999,53 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
               variant="outlined"
               size="small"
             />
+            <TextField
+              label="Penalty Amount (INR)"
+              name="penalty_ammount"
+              type="number"
+              value={igstValues.penalty_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, penalty_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="Fine Amount (INR)"
+              name="fine_ammount"
+              type="number"
+              value={igstValues.fine_ammount}
+              onChange={(e) =>
+                setIgstValues({ ...igstValues, fine_ammount: e.target.value })
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
           </Box>
-          
-          {/* Total Calculation Display */}
+            {/* Total Calculation Display */}
           <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
               Total Summary
             </Typography>
             <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-              IGST: ₹{igstValues.igst_ammount || "0.00"} + 
               BCD: ₹{igstValues.bcd_ammount || "0.00"} + 
+              IGST: ₹{igstValues.igst_ammount || "0.00"} + 
               SWS: ₹{igstValues.sws_ammount || "0.00"} + 
-              Interest: ₹{igstValues.intrest_ammount || "0.00"}
+              Interest: ₹{igstValues.intrest_ammount || "0.00"} + 
+              Penalty: ₹{igstValues.penalty_ammount || "0.00"} + 
+              Fine: ₹{igstValues.fine_ammount || "0.00"}
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: "bold", mt: 1, color: "primary.main" }}>
+              Total Duty: ₹{(
+                parseFloat(igstValues.bcd_ammount || 0) +
+                parseFloat(igstValues.igst_ammount || 0) +
+                parseFloat(igstValues.sws_ammount || 0) +
+                parseFloat(igstValues.intrest_ammount || 0) +
+                parseFloat(igstValues.penalty_ammount || 0) +
+                parseFloat(igstValues.fine_ammount || 0)
+              ).toFixed(2)}
             </Typography>
           </Box>
         </DialogContent>

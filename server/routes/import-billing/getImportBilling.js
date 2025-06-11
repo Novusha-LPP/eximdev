@@ -13,7 +13,10 @@ const buildSearchQuery = (search) => ({
     { consignment_type: { $regex: search, $options: "i" } },
     { type_of_b_e: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { be_no: { $regex: search, $options: "i" } },
+    { detailed_status: { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
+    { "container_nos.size": { $regex: search, $options: "i" } },
     // Add more fields as needed for search!
   ],
 });
@@ -40,10 +43,7 @@ router.get("/api/get-billing-import-job", async (req, res) => {
 
   try {
     // Calculate pagination skip value
-    const skip = (pageNumber - 1) * limitNumber;
-
-    // Build search query if provided
-    const searchQuery = search ? buildSearchQuery(search) : {};
+    const skip = (pageNumber - 1) * limitNumber;    // Build the base query with required conditions
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
@@ -62,7 +62,11 @@ router.get("/api/get-billing-import-job", async (req, res) => {
         },
       ],
     };
-    
+
+    // ✅ Apply Search Filter if Provided
+    if (search && search.trim()) {
+      baseQuery.$and.push(buildSearchQuery(search.trim()));
+    }
 
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
@@ -79,7 +83,7 @@ router.get("/api/get-billing-import-job", async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy"
+        "priorityJob eta  delivery_date detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy"
       )
       .sort({ gateway_igm_date: 1 });
 

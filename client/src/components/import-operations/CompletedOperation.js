@@ -46,11 +46,10 @@ function CompletedOperations() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
-
   // Add state persistence logic similar to E-Sanchit
   React.useEffect(() => {
     // Clear search state when this tab becomes active, unless coming from job details
-    if (currentTab === 2 && !(location.state && location.state.fromJobDetails)) {
+    if (currentTab === 2 && !location.state?.fromJobDetails) {
       setSearchQuery("");
       setSelectedImporter("");
     }

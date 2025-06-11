@@ -25,8 +25,10 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
+import { TabContext } from "./ImportOperations.js";
 
 function OperationsList() {
+  const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = React.useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -184,15 +186,14 @@ function OperationsList() {
     selectedICD,
     selectedImporter,
     fetchJobs,
-  ]);
-
-  // Clear search state when this tab becomes active, unless coming from job details
+  ]);  // Clear search state when this tab becomes active, unless coming from job details
   React.useEffect(() => {
-    if (location.state && !location.state.fromJobDetails) {
+    // Clear search state when this tab becomes active, but not when returning from job details
+    if (currentTab === 0 && !location.state?.fromJobDetails) {
       setSearchQuery("");
       setSelectedImporter("");
     }
-  }, [setSearchQuery, setSelectedImporter, location.state]);
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
   // Handle search state restoration when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails) {

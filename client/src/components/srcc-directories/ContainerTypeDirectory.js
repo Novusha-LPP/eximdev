@@ -28,6 +28,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import Swal from "sweetalert2";
 
 // Updated validation schema with nested objects
 const validationSchema = Yup.object({
@@ -93,7 +94,6 @@ const ContainerTypeDirectory = () => {
 
   const API_URL =
     process.env.REACT_APP_API_STRING || "http://localhost:9000/api";
-
   // Fetch container types
   const fetchContainerTypes = async () => {
     try {
@@ -101,8 +101,15 @@ const ContainerTypeDirectory = () => {
       setContainerTypes(response.data || []);
     } catch (error) {
       console.error("Error fetching container types:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Load Data",
+        text: "Unable to fetch container types. Please refresh the page and try again.",
+        confirmButtonText: "OK",
+      });
     }
   };
+
   // Fetch unit measurements for different categories
   const fetchUnitMeasurements = async () => {
     try {
@@ -116,12 +123,20 @@ const ContainerTypeDirectory = () => {
       if (weightCategory) setWeightUnits(weightCategory.measurements);
     } catch (error) {
       console.error("Error fetching unit measurements:", error);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Load Units",
+        text: "Unable to fetch unit measurements. Some dropdown options may not be available.",
+        confirmButtonText: "OK",
+      });
     }
   };
   useEffect(() => {
     fetchContainerTypes();
     fetchUnitMeasurements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const handleOpenModal = (mode, data = {}) => {
     setModalMode(mode);
 
@@ -173,25 +188,78 @@ const ContainerTypeDirectory = () => {
       await axios[modalMode === "add" ? "post" : "put"](url, values);
       fetchContainerTypes(); // Refresh list after save
       setOpenModal(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text:
+          modalMode === "add"
+            ? "Container type created successfully!"
+            : "Container type updated successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (error) {
+      console.error("Error saving container type:", error);
+
       if (
         error.response &&
         error.response.data?.error ===
           "Container type with this ISO code already exists"
       ) {
-        alert("Error: Container type with this ISO code already exists.");
+        await Swal.fire({
+          icon: "error",
+          title: "Duplicate ISO Code",
+          text: "Container type with this ISO code already exists. Please use a different ISO code.",
+          confirmButtonText: "OK",
+        });
       } else {
-        console.error("Error saving container type:", error);
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Save",
+          text:
+            error.response?.data?.error ||
+            error.message ||
+            "An error occurred while saving the container type",
+          confirmButtonText: "OK",
+        });
       }
     }
   };
-
   const handleDelete = async (id) => {
-    if (
-      window.confirm("Are you sure you want to delete this container type?")
-    ) {
-      await axios.delete(`${API_URL}/delete-container-type/${id}`);
-      fetchContainerTypes(); // Refresh list after deletion
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to delete this container type? This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API_URL}/delete-container-type/${id}`);
+        fetchContainerTypes(); // Refresh list after deletion
+        await Swal.fire({
+          title: "Deleted!",
+          text: "The container type has been deleted successfully.",
+          icon: "success",
+          confirmButtonText: "OK",
+        });
+      } catch (error) {
+        console.error("Error deleting container type:", error);
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Delete",
+          text:
+            error.response?.data?.error ||
+            error.message ||
+            "An error occurred while deleting the container type",
+          confirmButtonText: "OK",
+        });
+      }
     }
   };
 
@@ -254,7 +322,7 @@ const ContainerTypeDirectory = () => {
                 <TableCell>
                   {container.is_tank_container ? "Yes" : "No"}
                 </TableCell>
-                <TableCell>{container.size}</TableCell>
+                <TableCell>{container.size}</TableCell>{" "}
                 <TableCell>
                   <IconButton
                     onClick={() => handleOpenModal("edit", container)}

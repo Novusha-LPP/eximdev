@@ -4,6 +4,7 @@ import {
   Box,
   FormControlLabel,
   Typography,
+  Button,
 } from "@mui/material";
 import { useFormik } from "formik";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
@@ -26,6 +27,33 @@ const ViewBillingJob = () => {
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  
+  // Add stored search parameters state for consistency with SubmissionJob.js
+  const [storedSearchParams, setStoredSearchParams] = useState(null);  // Store search parameters from location state
+  useEffect(() => {
+    if (routeLocation.state) {
+      const { searchQuery, selectedImporter, selectedJobId, currentTab } = routeLocation.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab
+      });
+    }
+  }, [routeLocation.state]);
+  const handleBackClick = () => {
+    navigate("/import-billing", {
+      state: {
+        fromJobDetails: true,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery || "",
+          selectedImporter: storedSearchParams.selectedImporter || "",
+          selectedJobId: storedSearchParams.selectedJobId || "",
+          currentTab: storedSearchParams.currentTab || 1
+        }),
+      }
+    });
+  };
   
   const isAdmin = user.role === "Admin";
   const isDisabled = (!isAdmin);
@@ -108,9 +136,18 @@ onSubmit: async (values) => {
     
     // Refresh data to confirm changes were saved
     fetchJobDetails();
-    
-    // Navigate back to billing list page
-    navigate("/import-billing");
+      // Navigate back to billing list page with search state preservation
+    navigate("/import-billing", {
+      state: {
+        fromJobDetails: true,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery || "",
+          selectedImporter: storedSearchParams.selectedImporter || "",
+          selectedJobId: storedSearchParams.selectedJobId || "",
+          currentTab: storedSearchParams.currentTab || 1
+        }),
+      }
+    });
   } catch (error) {
     console.error("Error updating billing details:", error);
     alert("Failed to update billing details.");
@@ -266,11 +303,27 @@ onSubmit: async (values) => {
       </Box>
     );
   };
-  
-  return (
+    return (
     <div>
       {data !== null ? (
-        <form onSubmit={formik.handleSubmit}>
+        <>
+          <Box sx={{ mb: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={handleBackClick}
+              sx={{
+                backgroundColor: "#1976d2",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              }}
+            >
+              ← Back to Job List
+            </Button>
+          </Box>
+          
+          <form onSubmit={formik.handleSubmit}>
           <JobDetailsStaticData
             data={data}
             bl_no_ref={bl_no_ref}
@@ -458,10 +511,7 @@ onSubmit: async (values) => {
                 </Col>
               )}
             </Row>
-          </div>
-
-
-            <button
+          </div>            <button
               className="btn sticky-btn"
               style={{ float: "right", margin: "20px" }}
               type="submit"
@@ -472,7 +522,8 @@ onSubmit: async (values) => {
           {fileSnackbar && (
             <div className="snackbar show">File uploaded successfully!</div>
           )}
-        </form>
+          </form>
+        </>
       ) : (
         <p>Loading job details...</p>
       )}

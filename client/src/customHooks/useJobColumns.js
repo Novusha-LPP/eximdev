@@ -101,23 +101,24 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   // Optimized columns array
   const columns = useMemo(
     () => [
-      {
+   {
         accessorKey: "job_no",
         header: "Job No",
-        size: 150,
-        Cell: ({ cell }) => {          const {
+        enableSorting: false,
+        size: 150,        Cell: ({ cell }) => {
+          const {
             job_no,
             year,
+            _id,
             type_of_b_e,
             consignment_type,
-            vessel_berthing,
-            container_nos, // Assume this field holds an array of container objects
-            detailed_status,
             custom_house,
-            // delivery_date,
+            detailed_status,
+            vessel_berthing,
+            container_nos,
           } = cell.row.original;
 
-          // Default background and text colors
+          // Color-coding logic based on job status and dates
           let bgColor = "";
           let textColor = "blue"; // Default text color
 
@@ -147,14 +148,17 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 textColor = "black";
               }
             }
-          }          // Check if the detailed status is "Billing Pending"
+          }
+
+          // Check if the detailed status is "Billing Pending"
           if (detailed_status === "Billing Pending" && container_nos) {
             container_nos.forEach((container) => {
               // Choose the appropriate date based on consignment type
-              const targetDate = consignment_type === "LCL" 
-                ? container.delivery_date 
-                : container.emptyContainerOffLoadDate;
-              
+              const targetDate =
+                consignment_type === "LCL"
+                  ? container.delivery_date
+                  : container.emptyContainerOffLoadDate;
+
               if (targetDate) {
                 const daysDifference = calculateDaysDifference(targetDate);
 
@@ -178,8 +182,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
 
           // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
           if (
-            (detailed_status === "Custom Clearance Completed" &&
-              container_nos) ||
+            (detailed_status === "Custom Clearance Completed" && container_nos) ||
             detailed_status === "BE Noted, Clearance Pending" ||
             detailed_status === "PCV Done, Duty Payment Pending"
           ) {
@@ -209,31 +212,24 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             });
           }
 
-          return (            <div
-              onClick={() => {
-                if (customNavigation) {
-                  customNavigation(job_no, year);
-                } else {
-                  navigate(`/job/${job_no}/${year}`, {
-                    state: {
-                      searchQuery,
-                      detailedStatus,
-                      selectedICD,
-                      selectedImporter,
-                      fromJobList: true
-                    }
-                  });
-                }
-              }}
+          return (
+            <div
+              onClick={() =>
+                navigate(`/view-billing-job/${job_no}/${year}`, {
+                  state: { currentTab: 1 },
+                })
+              }
               style={{
                 cursor: "pointer",
                 color: textColor,
-                backgroundColor: bgColor,
+                backgroundColor: bgColor || "transparent",
+                padding: "10px",
+                borderRadius: "5px",
+                textAlign: "center",
               }}
             >
               {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
-              <br />
             </div>
           );
         },

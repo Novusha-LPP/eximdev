@@ -47,8 +47,6 @@ function ImportBilling() {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -66,6 +64,32 @@ function ImportBilling() {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
+  
+  // Search state restoration logic
+  useEffect(() => {
+    console.log("ImportBilling - location.state:", location.state);
+    if (location.state?.fromJobDetails) {
+      console.log("ImportBilling - Restoring search state from job details");
+      // Restore search state when returning from job details
+      if (location.state.searchQuery !== undefined) {
+        console.log("ImportBilling - Restoring searchQuery:", location.state.searchQuery);
+        setSearchQuery(location.state.searchQuery);
+        setDebouncedSearchQuery(location.state.searchQuery);
+      }
+      if (location.state.selectedImporter !== undefined) {
+        console.log("ImportBilling - Restoring selectedImporter:", location.state.selectedImporter);
+        setSelectedImporter(location.state.selectedImporter);
+      }
+    } else {
+      console.log("ImportBilling - Clearing search state (fresh load)");
+      // Clear search state when this component becomes active fresh (not from job details)
+      // This includes: page refresh, direct navigation, tab switching, etc.
+      setSearchQuery("");
+      setDebouncedSearchQuery("");
+      setSelectedImporter("");
+      setPage(1);
+    }
+  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
 
   useEffect(() => {
     async function getYears() {
@@ -147,18 +171,18 @@ function ImportBilling() {
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
-useEffect(() => {
-  if (selectedYearState) {
-    // Ensure year is available before calling API
-    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
-  }
-}, [
-  page,
-  debouncedSearchQuery,
-  selectedImporter,
-  selectedYearState,
-  fetchJobs,
-]);
+  useEffect(() => {
+    if (selectedYearState) {
+      // Ensure year is available before calling API
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+    }
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedImporter,
+    selectedYearState,
+    fetchJobs,
+  ]);
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
@@ -222,7 +246,8 @@ useEffect(() => {
         accessorKey: "job_no",
         header: "Job No",
         enableSorting: false,
-        size: 150,        Cell: ({ cell }) => {
+        size: 150,
+        Cell: ({ cell }) => {
           const {
             job_no,
             year,
@@ -331,11 +356,23 @@ useEffect(() => {
 
           return (
             <div
-              onClick={() =>
+              onClick={() => {
+                console.log("ImportBilling - Navigating to job with state:", {
+                  searchQuery,
+                  selectedImporter,
+                  selectedJobId: job_no,
+                  currentTab: 1
+                });
                 navigate(`/view-billing-job/${job_no}/${year}`, {
-                  state: { currentTab: 1 },
-                })
-              }
+                  state: {
+                    fromJobDetails: true,
+                    searchQuery,
+                    selectedImporter,
+                    selectedJobId: job_no,
+                    currentTab: 1 // Import Billing tab index
+                  },
+                });
+              }}
               style={{
                 cursor: "pointer",
                 color: textColor,
@@ -443,9 +480,6 @@ useEffect(() => {
         textAlign: "left", // Align all body cell content to the left
       },
     },
-    // muiTableBodyRowProps: ({ row }) => ({
-    //   className: getTableRowsClassname(row),
-    // }),
     renderTopToolbarCustomActions: () => (
       <div
         style={{
@@ -540,4 +574,3 @@ useEffect(() => {
 }
 
 export default ImportBilling;
-

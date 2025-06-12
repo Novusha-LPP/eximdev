@@ -430,7 +430,7 @@ function useFetchJobDetails(
           hss: values.hss,
           saller_name: values.saller_name,
           adCode: values.adCode,
-          bank_name: values.bank_name, 
+          bank_name: values.bank_name,
           fristCheck: values.fristCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
@@ -478,13 +478,17 @@ function useFetchJobDetails(
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
-          do_completed: values.do_completed,          assessable_ammount: values.assessable_ammount,
+          do_completed: values.do_completed,
+          assessable_ammount: values.assessable_ammount,
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
           bcd_ammount: values.bcd_ammount,
           intrest_ammount: values.intrest_ammount,
+          fine_ammount: values.fine_ammount,
+          penalty_ammount: values.penalty_ammount,
         }
-      );      localStorage.setItem("tab_value", 1);
+      );
+      localStorage.setItem("tab_value", 1);
       setTabValue(1);
       navigate("/import-dsr", {
         state: {
@@ -571,7 +575,9 @@ function useFetchJobDetails(
         seal_number:
           container.seal_number === undefined ? "" : container.seal_number,
         net_weight_as_per_PL_document:
-          container.net_weight_as_per_PL_document === undefined ? "" : container.net_weight_as_per_PL_document,
+          container.net_weight_as_per_PL_document === undefined
+            ? ""
+            : container.net_weight_as_per_PL_document,
         container_rail_out_date:
           container.container_rail_out_date === undefined
             ? ""
@@ -768,12 +774,17 @@ function useFetchJobDetails(
           data.clearanceValue === undefined ? "" : data.clearanceValue,
         duty_paid_date:
           data.duty_paid_date === undefined ? "" : data.duty_paid_date,
-          assessable_ammount:
-          data.assessable_ammount === undefined ? "" : data.assessable_ammount,        igst_ammount: data.igst_ammount === undefined ? "" : data.igst_ammount,
+        assessable_ammount:
+          data.assessable_ammount === undefined ? "" : data.assessable_ammount,
+        penalty_ammount:
+          data.penalty_ammount === undefined ? "" : data.penalty_ammount,
+        fine_ammount:
+          data.fine_ammount === undefined ? "" : data.fine_ammount,
+        igst_ammount: data.igst_ammount === undefined ? "" : data.igst_ammount,
         sws_ammount: data.sws_ammount === undefined ? "" : data.sws_ammount,
         intrest_ammount:
           data.intrest_ammount === undefined ? "" : data.intrest_ammount,
-          bcd_ammount: data.bcd_ammount === undefined ? "" : data.bcd_ammount,
+        bcd_ammount: data.bcd_ammount === undefined ? "" : data.bcd_ammount,
 
         do_copies: data.do_copies === undefined ? [] : data.do_copies,
         do_queries: data.do_queries === undefined ? [] : data.do_queries,

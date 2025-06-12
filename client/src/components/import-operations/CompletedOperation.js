@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useEffect,
   useContext,
+  useRef,
 } from "react";
 import "../../styles/import-dsr.scss";
 import {
@@ -24,7 +25,7 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { TabContext } from "./ImportOperations.js";
 
 function CompletedOperations() {
-  const { currentTab } = useContext(TabContext); // Access context for tab state
+  const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
@@ -33,81 +34,170 @@ function CompletedOperations() {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
 
-  const [page, setPage] = useState(1); // Current page
-  const [totalPages, setTotalPages] = useState(1); // Total pages
-  const [totalJobs, setTotalJobs] = useState(0); // Total job count
-
-  // Use context for searchQuery and selectedImporter like E-Sanchit
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
-  const limit = 100; // Rows per page
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [isInitialized, setIsInitialized] = useState(false);
+  
   const location = useLocation();
   const [selectedJobId, setSelectedJobId] = useState(
-    // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
 
-  // Add state persistence logic similar to E-Sanchit
-  React.useEffect(() => {
-    // Clear search state when this tab becomes active, unless coming from job details
-    if (currentTab === 2 && !(location.state && location.state.fromJobDetails)) {
-      setSearchQuery("");
-      setSelectedImporter("");
-    }
-  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
-  // Handle search state restoration when returning from job details
-  React.useEffect(() => {
-    if (location.state?.fromJobDetails) {
-      // Restore search state when returning from job details
-      if (location.state?.searchQuery !== undefined) {
-        setSearchQuery(location.state.searchQuery);
-      }
-      if (location.state?.selectedImporter !== undefined) {
-        setSelectedImporter(location.state.selectedImporter);
-      }
-      if (location.state?.selectedJobId !== undefined) {
-        setSelectedJobId(location.state.selectedJobId);
-      }
-      if (location.state?.selectedICD !== undefined) {
-        setSelectedICD(location.state.selectedICD);
-      }
-    }
-  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, location.state?.selectedICD, setSearchQuery, setSelectedImporter]);
+  // Use refs to track current request and prevent race conditions
+  const abortControllerRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
+  const isFromJobDetailsRef = useRef(false);
 
-  React.useEffect(() => {
+  const limit = 100;
+
+  // Initialize component and handle navigation state
+  useEffect(() => {
+    const fromJobDetails = location.state?.fromJobDetails;
+    isFromJobDetailsRef.current = fromJobDetails;
+
+    if (currentTab === 2) {
+      if (fromJobDetails) {
+        // Restore state from job details navigation
+        console.log('🔄 Restoring search state from job details navigation');
+        
+        if (location.state?.searchQuery !== undefined) {
+          setSearchQuery(location.state.searchQuery);
+          setDebouncedSearchQuery(location.state.searchQuery);
+        }
+        if (location.state?.selectedImporter !== undefined) {
+          setSelectedImporter(location.state.selectedImporter);
+        }
+        if (location.state?.selectedJobId !== undefined) {
+          setSelectedJobId(location.state.selectedJobId);
+        }
+        if (location.state?.selectedICD !== undefined) {
+          setSelectedICD(location.state.selectedICD);
+        }
+      } else {
+        // Clear search state when coming from other tabs (not job details)
+        console.log('🧹 Clearing search state - new tab access');
+        setSearchQuery("");
+        setSelectedImporter("");
+        setDebouncedSearchQuery("");
+        setSelectedICD("");
+        setPage(1);
+      }
+    }
+
+    setIsInitialized(true);
+  }, [currentTab, location.state, setSearchQuery, setSelectedImporter]);
+
+  // Cleanup function to cancel ongoing requests
+  const cancelPreviousRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  // Optimized fetch function with proper cancellation
+  const fetchRows = useCallback(async (
+    page,
+    searchQuery,
+    year,
+    selectedICD,
+    selectedImporter
+  ) => {
+    // Don't make API calls if component isn't initialized
+    if (!isInitialized || !year) {
+      return;
+    }
+
+    cancelPreviousRequest();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      console.log('📡 Making API call:', { page, searchQuery, year, selectedICD, selectedImporter });
+      
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
+        {
+          params: {
+            page,
+            limit,
+            search: searchQuery,
+            year,
+            selectedICD,
+            importer: selectedImporter?.trim() || "",
+          },
+          signal: controller.signal,
+        }
+      );
+
+      // Only update state if this is still the current request
+      if (abortControllerRef.current === controller) {
+        setRows(res.data.jobs);
+        setTotalPages(res.data.totalPages);
+        setTotalJobs(res.data.totalJobs);
+        abortControllerRef.current = null;
+      }
+    } catch (error) {
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        console.log('🚫 Request cancelled');
+        return;
+      }
+      console.error("Error fetching rows:", error);
+      
+      // Only update state if this is still the current request
+      if (abortControllerRef.current === controller) {
+        setRows([]);
+        setTotalPages(1);
+        setTotalJobs(0);
+        abortControllerRef.current = null;
+      }
+    }
+  }, [isInitialized, user.username, limit, cancelPreviousRequest]);
+
+  // Handle search debouncing
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPage(1); // Reset to first page on new search
+    }, 500);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, isInitialized]);
+
+  // Fetch importers when year changes
+  useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
-        );
-        setImporters(res.data);
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+          );
+          setImporters(res.data);
+        } catch (error) {
+          console.error("Error fetching importers:", error);
+        }
       }
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
-  const getUniqueImporterNames = (importerData) => {
-    if (!importerData || !Array.isArray(importerData)) return [];
-    const uniqueImporters = new Set();
-    return importerData
-      .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
-        return true;
-      })
-      .map((importer, index) => ({
-        label: importer.importer,
-        key: `${importer.importer}-${index}`,
-      }));
-  };
-
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
-
-  // Fetch available years for filtering
+  // Fetch available years
   useEffect(() => {
     async function getYears() {
       try {
@@ -142,67 +232,62 @@ function CompletedOperations() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Fetch rows data
-  const fetchRows = async (
-    page,
-    searchQuery,
-    year,
-    selectedICD,
-    selectedImporter
-  ) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
-        {
-          params: {
-            page,
-            limit,
-            search: searchQuery,
-            year,
-            selectedICD, // Matches backend expectation
-            importer: selectedImporter?.trim() || "", // ✅ Ensure correct parameter name
-          },
-        }
-      );
-
-      setRows(res.data.jobs); // Set rows data
-      setTotalPages(res.data.totalPages); // Set total pages
-      setTotalJobs(res.data.totalJobs); // Set total job count
-    } catch (error) {
-      console.error("Error fetching rows:", error);
-      setRows([]); // Reset rows if an error occurs
-      setTotalPages(1); // Reset pagination
-    }  };
-
-  // Fetch rows when dependencies change
+  // Main effect to fetch data - consolidated and optimized
   useEffect(() => {
-    fetchRows(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    // Special handling for restoration from job details
+    if (isFromJobDetailsRef.current && isInitialized) {
+      console.log('🎯 Making API call with restored search parameters');
+      
+      // Use a small delay to ensure all state is properly restored
+      const timeoutId = setTimeout(() => {
+        fetchRows(
+          1, // Reset to first page when restoring
+          location.state?.searchQuery || "",
+          selectedYearState,
+          location.state?.selectedICD || "",
+          location.state?.selectedImporter || ""
+        );
+        isFromJobDetailsRef.current = false; // Reset flag
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Regular data fetching
+    if (isInitialized && !isFromJobDetailsRef.current) {
+      fetchRows(
+        page,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
+    fetchRows,
     page,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    isInitialized,
+    location.state
   ]);
 
-  // Handle search input with debounce
+  // Cleanup on unmount
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms debounce delay
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+    return () => {
+      cancelPreviousRequest();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [cancelPreviousRequest]);
 
   // Handle pagination change
-  const handlePageChange = (event, newPage) => {
+  const handlePageChange = useCallback((event, newPage) => {
     setPage(newPage);
-  };
+  }, []);
 
   // Handle copy functionality
   const handleCopy = useCallback((event, text) => {
@@ -261,7 +346,27 @@ function CompletedOperations() {
     return `${year}/${month}/${day}`;
   }, []);
 
-  const columns = [
+  // Memoized importer names to prevent unnecessary recalculations
+  const getUniqueImporterNames = useCallback((importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  }, []);
+
+  const importerNames = useMemo(() => [
+    ...getUniqueImporterNames(importers),
+  ], [importers, getUniqueImporterNames]);
+
+  const columns = useMemo(() => [
     {
       accessorKey: "job_no",
       header: "Job No & ICD Code",
@@ -275,17 +380,15 @@ function CompletedOperations() {
         return (
           <div
             style={{
-              // If the row matches the selected ID, give it a highlight
               backgroundColor:
                 selectedJobId === jobNo ? "#ffffcc" : "transparent",
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
+            }}
+            onClick={() => {
               setSelectedJobId(jobNo);
-
-              // 2) Navigate to the detail page, and pass comprehensive search state
+              
               navigate(`/import-operations/view-job/${jobNo}/${year}`, {
                 state: {
                   selectedJobId: jobNo,
@@ -293,7 +396,7 @@ function CompletedOperations() {
                   selectedImporter,
                   selectedICD,
                   selectedYearState,
-                  currentTab: 2, // Completed Operation tab index
+                  currentTab: 2,
                   fromJobList: true,
                 },
               });
@@ -393,7 +496,7 @@ function CompletedOperations() {
       },
     },
     {
-      accessorKey: "container_nos", // Access the nested container_nos array
+      accessorKey: "container_nos",
       header: "Arrival Date",
       enableSorting: false,
       size: 150,
@@ -432,11 +535,11 @@ function CompletedOperations() {
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
     },
-  ];
+  ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, handleCopy, formatDate, getCustomHouseLocation, navigate]);
 
-  const tableConfig = {
+  const tableConfig = useMemo(() => ({
     columns,
-    data: rows, // Use rows directly as backend handles sorting
+    data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,
@@ -455,7 +558,7 @@ function CompletedOperations() {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
-      className: row.original.row_color || "", // Apply row color
+      className: row.original.row_color || "",
     }),
     muiTableHeadCellProps: {
       sx: {
@@ -473,7 +576,6 @@ function CompletedOperations() {
           width: "100%",
         }}
       >
-        {/* Job Count Display */}
         <Typography
           variant="body1"
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
@@ -485,15 +587,18 @@ function CompletedOperations() {
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          value={selectedImporter || ""}
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setPage(1);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
               variant="outlined"
               size="small"
               fullWidth
-              label="Select Importer" // Placeholder text
+              label="Select Importer"
             />
           )}
         />
@@ -502,7 +607,10 @@ function CompletedOperations() {
           select
           size="small"
           value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
+          onChange={(e) => {
+            setSelectedYearState(e.target.value);
+            setPage(1);
+          }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
@@ -511,7 +619,7 @@ function CompletedOperations() {
             </MenuItem>
           ))}
         </TextField>
-        {/* ICD Code Filter */}
+
         <TextField
           select
           size="small"
@@ -519,8 +627,8 @@ function CompletedOperations() {
           label="ICD Code"
           value={selectedICD}
           onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setSelectedICD(e.target.value);
+            setPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -529,7 +637,7 @@ function CompletedOperations() {
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
-        {/* Search Bar */}
+
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -540,14 +648,16 @@ function CompletedOperations() {
         />
       </div>
     ),
-  };
+  }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery]);
+
+  if (!isInitialized) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div style={{ height: "80%" }}>
-      {/* Table */}
       <MaterialReactTable {...tableConfig} />
 
-      {/* Pagination */}
       <Pagination
         count={totalPages}
         page={page}

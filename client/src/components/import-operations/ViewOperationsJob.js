@@ -45,11 +45,10 @@ function ViewOperationsJob() {
   const { selectedJobId, searchQuery, page } = location.state || {};
 
   // Add stored search parameters state
-  const [storedSearchParams, setStoredSearchParams] = useState(null);
-  // Store search parameters from location state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);  // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId, currentTab, selectedICD, selectedYearState } = location.state;
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, selectedICD, selectedYearState, detailedStatusExPlan } = location.state;
       setStoredSearchParams({
         searchQuery,
         selectedImporter,
@@ -57,12 +56,12 @@ function ViewOperationsJob() {
         currentTab,
         selectedICD,
         selectedYearState,
+        detailedStatusExPlan,
       });
     }
-  }, [location.state]);
-  // Handle back click function
+  }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
-    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to Examination Planning tab
+    const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab if coming from completed operations
     navigate("/import-operations", {
       state: {
         fromJobDetails: true,
@@ -73,6 +72,7 @@ function ViewOperationsJob() {
           selectedJobId: storedSearchParams.selectedJobId,
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
+          detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
         }),
       },
     });

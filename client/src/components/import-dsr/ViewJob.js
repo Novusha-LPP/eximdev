@@ -47,6 +47,7 @@ import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
+import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 
 function JobDetails() {
   const params = useParams();
@@ -61,16 +62,16 @@ function JobDetails() {
     setSelectedImporter,
   } = useSearchQuery();
 
-  const [storedSearchParams, setStoredSearchParams] = useState(null);
-  useEffect(() => {
+  const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
     if (location.state && location.state.fromJobList) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter, currentTab } =
         location.state;
       setStoredSearchParams({
         searchQuery,
         detailedStatus,
         selectedICD,
         selectedImporter,
+        currentTab,
       });
     }
   }, [location.state]);
@@ -88,11 +89,12 @@ function JobDetails() {
   //     }
   //   });
   // };
-
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to Completed tab (index 1)
     navigate("/import-dsr", {
       state: {
         fromJobDetails: true,
+        tabIndex: tabIndex,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           detailedStatus: storedSearchParams.detailedStatus,
@@ -100,22 +102,8 @@ function JobDetails() {
           selectedImporter: storedSearchParams.selectedImporter,
         }),
       },
-    });
-  };
+    });  };
 
-  useEffect(() => {
-    if (location.state && location.state.fromJobList) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
-        location.state;
-      // Store parameters but don't set them in context yet
-      setStoredSearchParams({
-        searchQuery,
-        detailedStatus,
-        selectedICD,
-        selectedImporter,
-      });
-    }
-  }, [location.state]);
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
   const [selectedRegNo, setSelectedRegNo] = useState();
@@ -3017,8 +3005,7 @@ function JobDetails() {
               </Col>
 
               {selectedDocument === "other" && (
-                <>
-                  <Col xs={12} lg={4}>
+                <>                  <Col xs={12} lg={4}>
                     <TextField
                       fullWidth
                       size="small"
@@ -3027,6 +3014,7 @@ function JobDetails() {
                       label="New Document Name"
                       value={newDocumentName}
                       onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
+                      onKeyDown={preventFormSubmitOnEnter}
                     />
                   </Col>
                   <Col xs={12} lg={3}>
@@ -3038,6 +3026,7 @@ function JobDetails() {
                       label="New Document Code"
                       value={newDocumentCode}
                       onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
+                      onKeyDown={preventFormSubmitOnEnter}
                     />
                   </Col>
                 </>
@@ -4030,12 +4019,31 @@ function JobDetails() {
               fullWidth
               variant="outlined"
               size="small"
-            />
-            <TextField
+            />            <TextField
               label="Interest Amount (INR)"
               name="intrest_ammount"
               type="number"
               value={formik.values.intrest_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="Penalty Amount (INR)"
+              name="penalty_ammount"
+              type="number"
+              value={formik.values.penalty_ammount}
+              onChange={formik.handleChange}
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+            <TextField
+              label="Fine Amount (INR)"
+              name="fine_ammount"
+              type="number"
+              value={formik.values.fine_ammount}
               onChange={formik.handleChange}
               fullWidth
               variant="outlined"
@@ -4047,19 +4055,22 @@ function JobDetails() {
           <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
               Total Summary
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
+            </Typography>            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
               BCD: ₹{formik.values.bcd_ammount || "0.00"} + 
               IGST: ₹{formik.values.igst_ammount || "0.00"} + 
               SWS: ₹{formik.values.sws_ammount || "0.00"} +
-              Interest: ₹{formik.values.intrest_ammount || "0.00"}
+              Interest: ₹{formik.values.intrest_ammount || "0.00"} +
+              Penalty: ₹{formik.values.penalty_ammount || "0.00"} +
+              Fine: ₹{formik.values.fine_ammount || "0.00"}
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: "bold", mt: 2, color: "primary.main" }}>
               Total Duty: ₹{(
                 parseFloat(formik.values.bcd_ammount || 0) +
                 parseFloat(formik.values.igst_ammount || 0) +
                 parseFloat(formik.values.sws_ammount || 0) +
-                parseFloat(formik.values.intrest_ammount || 0)
+                parseFloat(formik.values.intrest_ammount || 0) +
+                parseFloat(formik.values.penalty_ammount || 0) +
+                parseFloat(formik.values.fine_ammount || 0)
               ).toFixed(2)}
             </Typography>
           </Box>

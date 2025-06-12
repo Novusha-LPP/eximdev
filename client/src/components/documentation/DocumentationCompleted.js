@@ -171,14 +171,14 @@ function DocumentationCompletedd() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
-
-  // Clear search state when this tab becomes active, but not when returning from job details
+  // Clear search state when this tab becomes active, unless coming from job details
   React.useEffect(() => {
-    if (!(location.state && location.state.fromJobDetails)) {
+    // Clear search state when this tab becomes active, unless coming from job details
+    if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
       setSearchQuery("");
       setSelectedImporter("");
     }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
 
   // Handle search state restoration when returning from job details
   React.useEffect(() => {
@@ -186,6 +186,8 @@ function DocumentationCompletedd() {
       // Restore search state when returning from job details
       if (location.state?.searchQuery !== undefined) {
         setSearchQuery(location.state.searchQuery);
+        // Immediately update debounced search query to avoid delay
+        setDebouncedSearchQuery(location.state.searchQuery);
       }
       if (location.state?.selectedImporter !== undefined) {
         setSelectedImporter(location.state.selectedImporter);

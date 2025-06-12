@@ -234,6 +234,8 @@ const jobSchema = new mongoose.Schema({
   igst_ammount: { type: String, trim: true },
   sws_ammount: { type: String, trim: true },
   intrest_ammount: { type: String, trim: true },
+  fine_ammount: { type: String, trim: true },
+  penalty_ammount: { type: String, trim: true },
 
 
   ////////////////////////////////////////////////// E-sanchit

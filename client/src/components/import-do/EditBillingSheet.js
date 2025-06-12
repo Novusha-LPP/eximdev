@@ -55,7 +55,7 @@ function EditBillingSheet() {
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
-        tabIndex: 3, // BillingSheet tab index
+        tabIndex: 4, // BillingSheet tab index
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
@@ -90,13 +90,12 @@ function EditBillingSheet() {
         setFileSnackbar({
           open: true,
           message: "Billing details updated successfully!",
-        });
-        // Navigate back to the BillingSheet tab after submission
+        });        // Navigate back to the BillingSheet tab after submission
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;        navigate("/import-do", {
           state: {
             fromJobDetails: true,
-            tabIndex: 3, // BillingSheet tab index
+            tabIndex: 4, // BillingSheet tab index (was incorrectly set to 3)
             scrollPosition, // Preserve scroll position
             selectedJobId,
             searchQuery: location.state?.searchQuery || "", // Preserve search query
@@ -104,7 +103,7 @@ function EditBillingSheet() {
           },
         });
 
-        setCurrentTab(3); // Update the active tab in context
+        setCurrentTab(4); // Update the active tab in context (was incorrectly set to 3)
       } catch (error) {
         console.error("Error updating billing details:", error);
         setFileSnackbar({

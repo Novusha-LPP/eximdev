@@ -20,6 +20,7 @@ import {
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 
 function BillingSheet() {
    const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -257,44 +258,140 @@ function BillingSheet() {
     fetchJobs,
   ]);
 
-
   const columns = [
-    {
-      accessorKey: "job_no",
-      header: "Job No",
-      size: 120,
-      Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
-          cell.row.original;
-        return (
-          <div
-            style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === _id ? "#ffffcc" : "transparent",
-              textAlign: "center",
-              cursor: "pointer",
-              color: "blue",
-            }}            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);
+  {
+        accessorKey: "job_no",
+        header: "Job No",
+        enableSorting: false,
+        size: 150,        Cell: ({ cell }) => {
+          const {
+            job_no,
+            year,
+            _id,
+            type_of_b_e,
+            consignment_type,
+            custom_house,
+            detailed_status,
+            vessel_berthing,
+            container_nos,
+          } = cell.row.original;
 
-              // 2) Navigate to the detail page, and pass selectedJobId and search state
-              navigate(`/edit-billing-sheet/${_id}`, {
-                state: {
-                  selectedJobId: _id,
-                  searchQuery,
-                  selectedImporter,
-                },
-              });
-            }}
-          >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-          </div>
-        );
+          // Color-coding logic based on job status and dates
+          let bgColor = "";
+          let textColor = "blue"; // Default text color
+
+          const currentDate = new Date();
+
+          // Function to calculate the days difference
+          const calculateDaysDifference = (targetDate) => {
+            const date = new Date(targetDate);
+            const timeDifference = date.getTime() - currentDate.getTime();
+            return Math.ceil(timeDifference / (1000 * 3600 * 24));
+          };
+
+          // Check if the detailed status is "Estimated Time of Arrival"
+          if (detailed_status === "Estimated Time of Arrival") {
+            const daysDifference = calculateDaysDifference(vessel_berthing);
+
+            // Only apply the background color if the berthing date is today or in the future
+            if (daysDifference >= 0) {
+              if (daysDifference === 0) {
+                bgColor = "#ff1111";
+                textColor = "white";
+              } else if (daysDifference <= 2) {
+                bgColor = "#f85a5a";
+                textColor = "black";
+              } else if (daysDifference <= 5) {
+                bgColor = "#fd8e8e";
+                textColor = "black";
+              }
+            }
+          }
+
+          // Check if the detailed status is "Billing Pending"
+          if (detailed_status === "Billing Pending" && container_nos) {
+            container_nos.forEach((container) => {
+              // Choose the appropriate date based on consignment type
+              const targetDate =
+                consignment_type === "LCL"
+                  ? container.delivery_date
+                  : container.emptyContainerOffLoadDate;
+
+              if (targetDate) {
+                const daysDifference = calculateDaysDifference(targetDate);
+
+                // Apply colors based on past and current dates only
+                if (daysDifference <= 0 && daysDifference >= -5) {
+                  // delivery_date up to the next 5 days - White background for current and past dates
+                  bgColor = "white";
+                  textColor = "blue";
+                } else if (daysDifference <= -6 && daysDifference >= -10) {
+                  // 5 days following the white period - Orange background for past dates
+                  bgColor = "orange";
+                  textColor = "black";
+                } else if (daysDifference < -10) {
+                  // Any date beyond the orange period - Red background for past dates
+                  bgColor = "red";
+                  textColor = "white";
+                }
+              }
+            });
+          }
+
+          // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
+          if (
+            (detailed_status === "Custom Clearance Completed" && container_nos) ||
+            detailed_status === "BE Noted, Clearance Pending" ||
+            detailed_status === "PCV Done, Duty Payment Pending"
+          ) {
+            container_nos.forEach((container) => {
+              const daysDifference = calculateDaysDifference(
+                container.detention_from
+              );
+
+              // Apply background color based on the days difference before the current date
+              if (daysDifference <= 0) {
+                // Dark Red Background for current date or older detention dates
+                bgColor = "darkred";
+                textColor = "white"; // White text on dark red background
+              } else if (daysDifference === 1) {
+                // Red Background for 1 day before current date
+                bgColor = "red";
+                textColor = "white"; // White text on red background
+              } else if (daysDifference === 2) {
+                // Orange Background for 2 days before current date
+                bgColor = "orange";
+                textColor = "black"; // Black text on orange background
+              } else if (daysDifference === 3) {
+                // Yellow Background for 3 days before current date
+                bgColor = "yellow";
+                textColor = "black"; // Black text on yellow background
+              }
+            });
+          }
+
+          return (
+            <div
+              onClick={() =>
+                navigate(`/edit-billing-sheet/${_id}`, {
+                  state: { currentTab: 1 },
+                })
+              }
+              style={{
+                cursor: "pointer",
+                color: textColor,
+                backgroundColor: bgColor || "transparent",
+                padding: "10px",
+                borderRadius: "5px",
+                textAlign: "center",
+              }}
+            >
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
+            </div>
+          );
+        },
       },
-    },
     {
       accessorKey: "importer",
       header: "Party",
@@ -548,12 +645,6 @@ function BillingSheet() {
       </div>
     ),
   });
-
-  const getTableRowsClassname = (row) => {
-    const status = row.original.payment_made;
-    return status === "Yes" ? "payment_made" : "";
-  };
-
   const handlePageChange = (event, newPage) => setPage(newPage);
 
   return (

@@ -47,6 +47,7 @@ import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
+import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 
 function JobDetails() {
   const params = useParams();
@@ -3004,8 +3005,7 @@ function JobDetails() {
               </Col>
 
               {selectedDocument === "other" && (
-                <>
-                  <Col xs={12} lg={4}>
+                <>                  <Col xs={12} lg={4}>
                     <TextField
                       fullWidth
                       size="small"
@@ -3014,6 +3014,7 @@ function JobDetails() {
                       label="New Document Name"
                       value={newDocumentName}
                       onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
+                      onKeyDown={preventFormSubmitOnEnter}
                     />
                   </Col>
                   <Col xs={12} lg={3}>
@@ -3025,6 +3026,7 @@ function JobDetails() {
                       label="New Document Code"
                       value={newDocumentCode}
                       onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
+                      onKeyDown={preventFormSubmitOnEnter}
                     />
                   </Col>
                 </>

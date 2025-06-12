@@ -114,6 +114,23 @@ const ElockAssignOthers = () => {
 
   // Vehicle number validation regex
   const vehicleNoRegex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/i;
+  // Vehicle number validation
+  const isValidVehicleNumber = (value) => {
+    if (!value) return false;
+    return vehicleNoRegex.test(value);
+  };
+
+  // Driver name validation (only alphabetic characters and spaces)
+  const isValidDriverName = (value) => {
+    if (!value) return false;
+    return /^[a-zA-Z\s]+$/.test(value.trim());
+  };
+
+  // Indian mobile number validation
+  const isValidIndianMobile = (value) => {
+    if (!value) return false;
+    return indianMobileRegex.test(value);
+  };
 
   // Indian mobile number validation regex
   const indianMobileRegex = /^[6-9]\d{9}$/;
@@ -317,134 +334,129 @@ const ElockAssignOthers = () => {
       error.message ||
       "An unexpected error occurred"
     );
-  };
-
-  // Function to clean data before sending to backend
+  }; // Function to clean data before sending to backend
   const cleanDataForSubmission = (data) => {
     const cleanedData = { ...data };
 
-    // Convert empty strings to null for ObjectId fields
+    // Convert empty strings to null for ObjectId fields only if they're truly empty
+    // But since all fields are now mandatory, this should not happen after validation
     if (!cleanedData.goods_pickup || cleanedData.goods_pickup.trim() === "") {
-      cleanedData.goods_pickup = null;
+      delete cleanedData.goods_pickup; // Will trigger required validation on backend
     }
     if (
       !cleanedData.goods_delivery ||
       cleanedData.goods_delivery.trim() === ""
     ) {
-      cleanedData.goods_delivery = null;
+      delete cleanedData.goods_delivery; // Will trigger required validation on backend
     }
     if (!cleanedData.elock_no || cleanedData.elock_no.trim() === "") {
-      cleanedData.elock_no = null;
+      delete cleanedData.elock_no; // Will trigger required validation on backend
     }
     if (!cleanedData.consignor || cleanedData.consignor.trim() === "") {
-      delete cleanedData.consignor; // Will trigger required validation
+      delete cleanedData.consignor; // Will trigger required validation on backend
     }
     if (!cleanedData.consignee || cleanedData.consignee.trim() === "") {
-      delete cleanedData.consignee; // Will trigger required validation
+      delete cleanedData.consignee; // Will trigger required validation on backend
     }
 
     return cleanedData;
-  };
-  // Client-side validation based on schema
+  }; // Client-side validation based on schema - ALL FIELDS MANDATORY
   const validateData = (data) => {
     const errors = [];
 
-    // Required fields validation
+    // ALL fields are now required
     if (!data.consignor || data.consignor.trim() === "") {
       errors.push("Consignor is required");
     }
     if (!data.consignee || data.consignee.trim() === "") {
       errors.push("Consignee is required");
     }
-
-    // // Container number validation
-    // if (data.container_number && !isValidContainerNumber(data.container_number)) {
-    //   errors.push('Container number format is invalid (Format: ABCD1234567)');
-    // }
+    if (!data.tr_no || data.tr_no.trim() === "") {
+      errors.push("LR Number is required");
+    }
+    if (!data.container_number || data.container_number.trim() === "") {
+      errors.push("Container Number is required");
+    }
+    if (!data.vehicle_no || data.vehicle_no.trim() === "") {
+      errors.push("Vehicle Number is required");
+    }
+    if (!data.driver_name || data.driver_name.trim() === "") {
+      errors.push("Driver Name is required");
+    }
+    if (!data.driver_phone || data.driver_phone.trim() === "") {
+      errors.push("Driver Phone is required");
+    }
+    if (!data.goods_pickup || data.goods_pickup.trim() === "") {
+      errors.push("Pickup Location is required");
+    }
+    if (!data.goods_delivery || data.goods_delivery.trim() === "") {
+      errors.push("Delivery Location is required");
+    }
+    if (!data.elock_no || data.elock_no.trim() === "") {
+      errors.push("E-lock Number is required");
+    } // Format validation for filled fields
+    if (
+      data.container_number &&
+      !isValidContainerNumber(data.container_number)
+    ) {
+      errors.push("Container number format is invalid (Format: ABCD1234567)");
+    }
 
     // Vehicle number validation
-    if (data.vehicle_no && !vehicleNoRegex.test(data.vehicle_no)) {
+    if (data.vehicle_no && !isValidVehicleNumber(data.vehicle_no)) {
       errors.push("Vehicle number format is invalid (Format: AA00AA0000)");
     }
 
     // Driver phone validation
-    if (data.driver_phone && !indianMobileRegex.test(data.driver_phone)) {
+    if (data.driver_phone && !isValidIndianMobile(data.driver_phone)) {
       errors.push("Driver phone must be 10 digits starting with 6-9");
     }
 
     // Driver name validation (only alphabetic characters)
-    if (data.driver_name && !/^[a-zA-Z\s]*$/.test(data.driver_name)) {
+    if (data.driver_name && !isValidDriverName(data.driver_name)) {
       errors.push("Driver name should contain only letters and spaces");
     }
 
     return errors;
-  }; // Function to check for missing optional fields and confirm with user
-  const confirmMissingOptionalFields = async (data) => {
-    const missingFields = [];
-
-    // Check all optional fields
-    if (!data.tr_no || data.tr_no.trim() === "") {
-      missingFields.push("LR Number");
-    }
-    if (!data.container_number || data.container_number.trim() === "") {
-      missingFields.push("Container Number");
-    }
-    if (!data.vehicle_no || data.vehicle_no.trim() === "") {
-      missingFields.push("Vehicle Number");
-    }
-    if (!data.driver_name || data.driver_name.trim() === "") {
-      missingFields.push("Driver Name");
-    }
-    if (!data.driver_phone || data.driver_phone.trim() === "") {
-      missingFields.push("Driver Phone");
-    }
-    if (!data.goods_pickup || data.goods_pickup.trim() === "") {
-      missingFields.push("Pickup Location");
-    }
-    if (!data.goods_delivery || data.goods_delivery.trim() === "") {
-      missingFields.push("Delivery Location");
-    }
-    if (!data.elock_no || data.elock_no.trim() === "") {
-      missingFields.push("E-lock Number");
-    }
-
-    if (missingFields.length > 0) {
-      const result = await Swal.fire({
-        icon: "warning",
-        title: "Missing Optional Fields",
-        html: `The following optional fields are empty:<br>• ${missingFields.join(
-          "<br>• "
-        )}<br><br>Do you want to continue saving without these fields?`,
-        showCancelButton: true,
-        confirmButtonText: "Yes, Save Anyway",
-        cancelButtonText: "No, Go Back",
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-      });
-      return result.isConfirmed;
-    }
-
-    return true; // No missing fields, proceed
-  };
-  // Save edited row
+  }; // Save edited row
   const handleSaveRow = async (row) => {
     try {
-      setLoading(true); // Client-side validation
+      setLoading(true);
+
+      // Client-side validation - all fields are mandatory
       const validationErrors = validateData(editValues);
       if (validationErrors.length > 0) {
-        await Swal.fire({
-          icon: "error",
-          title: "Validation Error",
-          html: `Please fix the following errors:<br>• ${validationErrors.join(
-            "<br>• "
-          )}`,
-          confirmButtonText: "OK",
-        });
-        return;
-      } // Check for missing optional fields and get user confirmation
-      const shouldContinue = await confirmMissingOptionalFields(editValues);
-      if (!shouldContinue) {
-        return; // User chose to go back and fill the fields
+        // Special case: if only container number format error, ask for confirmation
+        if (
+          validationErrors.length === 1 &&
+          validationErrors[0].includes("Container number format is invalid")
+        ) {
+          const result = await Swal.fire({
+            title: "Container Number Format Warning",
+            text: "Container number format appears invalid. Do you want to continue anyway?",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#3085d6",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, continue",
+            cancelButtonText: "No, let me fix it",
+          });
+
+          if (!result.isConfirmed) {
+            return; // User chose to fix the container number
+          }
+        } else {
+          // For all other validation errors, show error and stop
+          await Swal.fire({
+            icon: "error",
+            title: "Validation Error",
+            html: `Please fix the following errors:<br>• ${validationErrors.join(
+              "<br>• "
+            )}`,
+            confirmButtonText: "OK",
+          });
+          return;
+        }
       }
 
       let finalEditValues = { ...editValues };
@@ -506,26 +518,42 @@ const ElockAssignOthers = () => {
   };
   const handleSaveInlineCreate = async () => {
     try {
-      setLoading(true); // Client-side validation
+      setLoading(true);
+
+      // Client-side validation - all fields are mandatory
       const validationErrors = validateData(inlineCreateValues);
       if (validationErrors.length > 0) {
-        await Swal.fire({
-          icon: "error",
-          title: "Validation Error",
-          html: `Please fix the following errors:<br>• ${validationErrors.join(
-            "<br>• "
-          )}`,
-          confirmButtonText: "OK",
-        });
-        return;
-      }
+        // Special case: if only container number format error, ask for confirmation
+        if (
+          validationErrors.length === 1 &&
+          validationErrors[0].includes("Container number format is invalid")
+        ) {
+          const result = await Swal.fire({
+            title: "Container Number Format Warning",
+            text: "Container number format appears invalid. Do you want to continue anyway?",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#3085d6",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, continue",
+            cancelButtonText: "No, let me fix it",
+          });
 
-      // Check for missing optional fields and get user confirmation
-      const shouldContinue = await confirmMissingOptionalFields(
-        inlineCreateValues
-      );
-      if (!shouldContinue) {
-        return; // User chose to go back and fill the fields
+          if (!result.isConfirmed) {
+            return; // User chose to fix the container number
+          }
+        } else {
+          // For all other validation errors, show error and stop
+          await Swal.fire({
+            icon: "error",
+            title: "Validation Error",
+            html: `Please fix the following errors:<br>• ${validationErrors.join(
+              "<br>• "
+            )}`,
+            confirmButtonText: "OK",
+          });
+          return;
+        }
       }
 
       // Clean data before submission

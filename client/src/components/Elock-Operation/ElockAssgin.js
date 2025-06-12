@@ -19,6 +19,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import axios from "axios";
+import Swal from "sweetalert2";
 
 const statusOptions = ["ASSIGNED", "UNASSIGNED", "RETURNED"];
 
@@ -37,6 +38,7 @@ const ElockAssign = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   // Constants for external API
   const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
@@ -85,14 +87,16 @@ const ElockAssign = () => {
       clearTimeout(timerId);
     };
   }, [searchQuery]);
+
   useEffect(() => {
     fetchElockData();
     fetchAvailableElocks();
-  }, [debouncedSearchQuery, page, fetchElockData, fetchAvailableElocks]); // Save row using new assign-elock endpoint
+  }, [debouncedSearchQuery, page, fetchElockData, fetchAvailableElocks]);
+
   // Save row using new assign-elock endpoint
-  // Save row using new assign-elock endpoint - FIXED VERSION
   const handleSaveRow = async (row) => {
     try {
+      setLoading(true);
       console.log("Row data:", row.original); // Debug log
 
       // If elock_no is empty, set status to UNASSIGNED
@@ -112,7 +116,6 @@ const ElockAssign = () => {
         newElockNo: finalElockNo,
         elockAssignStatus: finalStatus,
       };
-
       console.log("Payload being sent:", payload); // Debug log
 
       const response = await axios.post(
@@ -125,11 +128,25 @@ const ElockAssign = () => {
       setEditingRow(null);
       fetchElockData();
       fetchAvailableElocks(); // Refresh dropdown
+
+      await Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "E-lock assignment updated successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error("Error updating status:", error);
       console.error("Error response:", error.response?.data); // Debug log
-      // Show user-friendly error message
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed to Update E-lock Assignment",
+        text: error.response?.data?.error || error.message,
+        confirmButtonText: "OK",
+      });
+    } finally {
+      setLoading(false);
     }
   };
   const handleEditRow = (row) => {
@@ -154,19 +171,30 @@ const ElockAssign = () => {
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
-
   // Handle unlock operation
   const handleUnlockElock = async (elockNo) => {
     if (!elockNo || elockNo.trim() === "") {
-      alert("No E-lock number available for unlock operation");
+      await Swal.fire({
+        icon: "warning",
+        title: "No E-lock Available",
+        text: "No E-lock number available for unlock operation",
+        confirmButtonText: "OK",
+      });
       return;
     }
 
-    const confirmUnlock = window.confirm(
-      `Are you sure you want to unlock E-lock: ${elockNo}?`
-    );
+    const result = await Swal.fire({
+      title: "Unlock E-lock?",
+      text: `Are you sure you want to unlock E-lock: ${elockNo}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, unlock it!",
+      cancelButtonText: "Cancel",
+    });
 
-    if (!confirmUnlock) return;
+    if (!result.isConfirmed) return;
 
     try {
       // First, get the asset data to retrieve the FGUID
@@ -211,17 +239,28 @@ const ElockAssign = () => {
       const unlockResult = await unlockResponse.json();
 
       if (unlockResult.Result === 200) {
-        alert("Unlock instruction sent successfully!");
+        await Swal.fire({
+          icon: "success",
+          title: "Success!",
+          text: "Unlock instruction sent successfully!",
+          confirmButtonText: "OK",
+        });
       } else {
-        alert(
-          `Failed to send unlock instruction: ${
-            unlockResult.Message || "Unknown error"
-          }`
-        );
+        await Swal.fire({
+          icon: "error",
+          title: "Failed to Send Unlock Instruction",
+          text: unlockResult.Message || "Unknown error",
+          confirmButtonText: "OK",
+        });
       }
     } catch (error) {
       console.error("Error during unlock operation:", error);
-      alert(`Error: ${error.message}`);
+      await Swal.fire({
+        icon: "error",
+        title: "Unlock Operation Failed",
+        text: error.message,
+        confirmButtonText: "OK",
+      });
     }
   };
 
@@ -235,11 +274,13 @@ const ElockAssign = () => {
         <Box display="flex" gap={1}>
           {editingRow === row.id ? (
             <>
+              {" "}
               <Button
                 variant="contained"
                 color="success"
                 size="small"
                 onClick={() => handleSaveRow(row)}
+                disabled={loading}
                 startIcon={<SaveIcon />}
               ></Button>
               <Button
@@ -247,6 +288,7 @@ const ElockAssign = () => {
                 color="error"
                 size="small"
                 onClick={handleCancelEdit}
+                disabled={loading}
                 startIcon={<CancelIcon />}
               ></Button>
             </>
@@ -256,6 +298,7 @@ const ElockAssign = () => {
               color="primary"
               size="small"
               onClick={() => handleEditRow(row)}
+              disabled={loading}
               startIcon={<EditIcon />}
             ></Button>
           )}
@@ -437,6 +480,9 @@ const ElockAssign = () => {
           sx: {
             textAlign: "left",
           },
+        }}
+        state={{
+          isLoading: loading,
         }}
         renderTopToolbarCustomActions={() => (
           <Box

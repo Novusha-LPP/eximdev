@@ -9,7 +9,37 @@ function useFetchOperationTeamJob(params) {
   const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
-  // This might be the job you're editing...
+  
+  // Store search parameters from location state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  
+  useEffect(() => {
+    if (location.state) {
+      const { 
+        searchQuery, 
+        selectedImporter, 
+        selectedJobId, 
+        currentTab, 
+        selectedICD, 
+        selectedYearState, 
+        detailedStatusExPlan,
+        page,
+        tab_number
+      } = location.state;
+      
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab: currentTab || tab_number, // Handle both property names
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        page,
+      });
+    }
+  }, [location.state]);
+
   // Fetch data
   useEffect(() => {
     async function getJobDetails() {
@@ -48,15 +78,30 @@ function useFetchOperationTeamJob(params) {
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
           values
         );
+        
+        // Determine which tab to navigate to
+        const tabIndex = storedSearchParams?.currentTab ?? 2;
+        
+        // Set the current tab in context
+        setCurrentTab(tabIndex);
+        
+        // Navigate back with all the stored search parameters
         navigate("/import-operations", {
           state: {
-            tabIndex: location.state?.tab_number ?? 2,
+            fromJobDetails: true,
+            tabIndex: tabIndex,
             selectedJobId: params.job_no,
-            searchQuery: location.state?.searchQuery,
-            page: location.state?.page,
+            ...(storedSearchParams && {
+              searchQuery: storedSearchParams.searchQuery,
+              selectedImporter: storedSearchParams.selectedImporter,
+              selectedICD: storedSearchParams.selectedICD,
+              selectedYearState: storedSearchParams.selectedYearState,
+              detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+              page: storedSearchParams.page,
+            }),
           },
         });
-        setCurrentTab(1);
+        
       } catch (error) {
         console.error("Error updating job:", error);
       }

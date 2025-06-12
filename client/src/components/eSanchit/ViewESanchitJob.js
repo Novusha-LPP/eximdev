@@ -38,6 +38,7 @@ const cth_Dropdown = [
   },
   { document_name: "Certificate of Analysis", document_code: "001000" },
 ];
+
 function ViewESanchitJob() {
   const routeLocation = useLocation()
   const [snackbar, setSnackbar] = useState(false);
@@ -48,7 +49,9 @@ function ViewESanchitJob() {
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
-  const [editDocument, setEditDocument] = useState(null);  const params = useParams();
+  const [editDocument, setEditDocument] = useState(null);
+  
+  const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { setCurrentTab } = useContext(TabContext);
@@ -67,30 +70,53 @@ function ViewESanchitJob() {
   // Store search parameters from location state
   useEffect(() => {
     if (routeLocation.state) {
-      const { searchQuery, selectedImporter, currentTab } = routeLocation.state;
+      const { 
+        searchQuery, 
+        selectedImporter, 
+        currentTab,
+        selectedJobId,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        page,
+        tab_number
+      } = routeLocation.state;
+      
       setStoredSearchParams({
         searchQuery,
         selectedImporter,
-        currentTab,
+        currentTab: currentTab || tab_number, // Handle both property names
+        selectedJobId,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        page,
       });
     }
   }, [routeLocation.state]);
+
   // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
+    
+    // Set the current tab in context
+    setCurrentTab(tabIndex);
+    
     navigate("/e-sanchit", {
       state: {
         fromJobDetails: true,
-        tabIndex: tabIndex, // Use tabIndex instead of currentTab
+        tabIndex: tabIndex,
+        selectedJobId: params.job_no,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: params.job_no,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedYearState: storedSearchParams.selectedYearState,
+          detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+          page: storedSearchParams.page,
         }),
       },
     });
-    // Set the current tab in context
-    setCurrentTab(tabIndex);
   };
 
   // Fetch data
@@ -123,23 +149,37 @@ function ViewESanchitJob() {
           eSachitQueries: values.queries, // Send queries as `eSachitQueries`
           esanchit_completed_date_time:
             values.esanchit_completed_date_time || "", // Send `null` if cleared
-        };        await axios.patch(
+        };
+        
+        await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
           formattedData
         );
         setSnackbar(true);
         
-        // Navigate back with preserved search parameters
+        // Determine which tab to navigate to
+        const tabIndex = storedSearchParams?.currentTab ?? 0;
+        
+        // Set the current tab in context
+        setCurrentTab(tabIndex);
+        
+        // Navigate back with all the stored search parameters
         navigate("/e-sanchit", {
           state: {
             fromJobDetails: true,
+            tabIndex: tabIndex,
+            selectedJobId: params.job_no,
             ...(storedSearchParams && {
               searchQuery: storedSearchParams.searchQuery,
               selectedImporter: storedSearchParams.selectedImporter,
-              currentTab: storedSearchParams.currentTab,
+              selectedICD: storedSearchParams.selectedICD,
+              selectedYearState: storedSearchParams.selectedYearState,
+              detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+              page: storedSearchParams.page,
             }),
           },
         });
+        
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -173,19 +213,6 @@ function ViewESanchitJob() {
               minWidth: "250px", // Minimum width for smaller devices
             }}
           >
-            {/* <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-              }}
-            >
-              Document {index + 1}
-            </Typography> */}
             <Box mt={1} textAlign="center">
               <a
                 href={url}
@@ -201,6 +228,7 @@ function ViewESanchitJob() {
       </Box>
     );
   };
+
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -210,7 +238,7 @@ function ViewESanchitJob() {
       return url; // Fallback to original URL
     }
   };
-  // Check if all Approved checkboxes are true
+
   // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
   const areAllApproved = () => {
     return (
@@ -339,7 +367,6 @@ function ViewESanchitJob() {
                 >
                   <Row className="align-items-center">
                     {/* File Upload & Image Preview */}
-
                     <Col
                       xs={12}
                       lg={4}
@@ -705,16 +732,6 @@ function ViewESanchitJob() {
               )}
             </div>
 
-            {/* <ConfirmDialog
-              open={dialogOpen}
-              handleClose={() => setDialogOpen(false)}
-              handleConfirm={
-                dialogMode ? handleEditDocument : handleDeleteDocument
-              }
-              isEdit={dialogMode}
-              editValues={editDocument || {}}
-              onEditChange={setEditDocument}
-            /> */}
             <ConfirmDialog
               open={dialogOpen}
               handleClose={() => setDialogOpen(false)}
@@ -731,7 +748,7 @@ function ViewESanchitJob() {
               }
             />
 
-            {/* <Snackbar
+            <Snackbar
               open={snackbar || fileSnackbar}
               message={
                 snackbar
@@ -743,7 +760,7 @@ function ViewESanchitJob() {
                 setSnackbar(false);
                 setFileSnackbar(false);
               }}
-            /> */}
+            />
           </>
         )}
       </div>

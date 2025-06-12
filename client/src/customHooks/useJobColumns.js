@@ -215,7 +215,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           return (
             <div
               onClick={() =>
-                navigate(`/view-billing-job/${job_no}/${year}`, {
+                navigate(`/import-dsr/job/${job_no}/${year}`, {
                   state: { currentTab: 1 },
                 })
               }

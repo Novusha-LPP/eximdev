@@ -373,7 +373,7 @@ function BillingSheet() {
           return (
             <div
               onClick={() =>
-                navigate(`/view-billing-job/${job_no}/${year}`, {
+                navigate(`/edit-billing-sheet/${_id}`, {
                   state: { currentTab: 1 },
                 })
               }

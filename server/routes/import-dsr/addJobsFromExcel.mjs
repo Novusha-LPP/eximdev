@@ -168,6 +168,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         cif_amount,
         unit_price,
         vessel_berthing, // New value from Excel
+        gateway_igm_date,
         line_no,
         ie_code_no,
         container_nos, // Assume container data is part of the incoming job data
@@ -189,6 +190,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
       // Check if the job already exists in the database
       const existingJob = await JobModel.findOne(filter);
       let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+      let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
       let lineNoUpdate = existingJob?.line_no || "";
       let iceCodeUpdate = existingJob?.ie_code_no || "";
 
@@ -198,6 +200,12 @@ router.post("/api/jobs/add-job", async (req, res) => {
         (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
       ) {
         vesselBerthingToUpdate = vessel_berthing;
+      }
+      if (
+        gateway_igm_date && // Excel has a valid vessel_berthing date
+        (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
+      ) {
+        gateway_igm_dateUpdate = gateway_igm_date;
       }
       // Only update lineNoUpdate if it's empty in the database
       if (
@@ -234,6 +242,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
             ...data,
 
             vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
+            gateway_igm_date: gateway_igm_dateUpdate, // Ensure correct update logic
             line_no: lineNoUpdate, // Ensure correct update logic
             ie_code_no: iceCodeUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
@@ -273,6 +282,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
           $set: {
             ...data,
             vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
+            gateway_igm_date: gateway_igm_dateUpdate, // Ensure new jobs respect the logic
             status: computeStatus(sanitizedBillDate),
           },
         };

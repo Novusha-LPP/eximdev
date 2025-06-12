@@ -12,6 +12,7 @@ import { TabContext } from "./ImportDO";
 function EditDoList() {
   const { _id } = useParams();
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState(false);
   const [jobDetails, setJobDetails] = React.useState({
     job_no: "",
     importer: "",
@@ -22,31 +23,58 @@ function EditDoList() {
   const navigate = useNavigate();
   const { setCurrentTab } = useContext(TabContext);
   
-  // Get search/filter state from navigation
-  const { 
-    selectedJobId, 
-    searchQuery, 
-    selectedImporter, 
-    selectedICD, 
-    selectedYearState,
-    fromJobList 
-  } = location.state || {};
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
-  // Handle back to job list navigation
-  const handleBackToJobList = () => {
-    // Navigate back to the Import DO tab (List tab is index 1)
-    navigate("/import-do", {
-      state: {
-        tabIndex: 1, // List tab index
-        fromJobDetails: true,
+  // Store search parameters from location state
+  React.useEffect(() => {
+    if (location.state) {
+      const { 
+        selectedJobId, 
+        searchQuery, 
+        selectedImporter, 
+        selectedICD, 
+        selectedYearState,
+        fromJobList,
+        tabIndex,
+        page
+      } = location.state;
+      
+      setStoredSearchParams({
+        selectedJobId,
         searchQuery,
         selectedImporter,
         selectedICD,
         selectedYearState,
-        selectedJobId,
+        fromJobList,
+        tabIndex: tabIndex || 1, // Default to List tab (index 1)
+        page,
+      });
+    }
+  }, [location.state]);
+
+  // Handle back to job list navigation
+  const handleBackToJobList = () => {
+    const tabIndex = storedSearchParams?.tabIndex ?? 1; // Default to List tab (index 1)
+    
+    // Set the current tab in context
+    setCurrentTab(tabIndex);
+    
+    // Navigate back to the Import DO with all stored search parameters
+    navigate("/import-do", {
+      state: {
+        tabIndex: tabIndex,
+        fromJobDetails: true,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedYearState: storedSearchParams.selectedYearState,
+          selectedJobId: storedSearchParams.selectedJobId,
+          page: storedSearchParams.page,
+        }),
       },
     });
-    setCurrentTab(1); // Set to List tab
   };
 
   React.useEffect(() => {
@@ -97,41 +125,56 @@ function EditDoList() {
     },
 
     onSubmit: async (values, { resetForm }) => {
-      const data = {
-        ...values,
-        _id,
-        shipping_line_bond_completed: values.shipping_line_bond_completed
-          ? "Yes"
-          : "No",
-        shipping_line_kyc_completed: values.shipping_line_kyc_completed
-          ? "Yes"
-          : "No",
-        shipping_line_invoice_received: values.shipping_line_invoice_received
-          ? "Yes"
-          : "No",
-      };
+      try {
+        const data = {
+          ...values,
+          _id,
+          shipping_line_bond_completed: values.shipping_line_bond_completed
+            ? "Yes"
+            : "No",
+          shipping_line_kyc_completed: values.shipping_line_kyc_completed
+            ? "Yes"
+            : "No",
+          shipping_line_invoice_received: values.shipping_line_invoice_received
+            ? "Yes"
+            : "No",
+        };
 
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/update-do-list`,
-        data
-      );
-      alert(res.data.message);
-      resetForm();
+        await axios.post(
+          `${process.env.REACT_APP_API_STRING}/update-do-list`,
+          data
+        );
+        
+        setSnackbar(true);
+        
+        // Determine which tab to navigate to
+        const tabIndex = storedSearchParams?.tabIndex ?? 1; // Default to List tab (index 1)
+        
+        // Set the current tab in context
+        setCurrentTab(tabIndex);
+        
+        // Navigate back with all the stored search parameters
+        navigate("/import-do", {
+          state: {
+            fromJobDetails: true,
+            tabIndex: tabIndex,
+            ...(storedSearchParams && {
+              searchQuery: storedSearchParams.searchQuery,
+              selectedImporter: storedSearchParams.selectedImporter,
+              selectedICD: storedSearchParams.selectedICD,
+              selectedYearState: storedSearchParams.selectedYearState,
+              selectedJobId: storedSearchParams.selectedJobId,
+              page: storedSearchParams.page,
+            }),
+          },
+        });
+        
+      } catch (error) {
+        console.error("Error updating job:", error);
+      }
     },
   });
 
-  // const currentState = window.history.state || {};
-  //       const scrollPosition = currentState.scrollPosition || 0;
-
-  //       navigate("/import-do", {
-  //         state: {
-  //           tabIndex: 2, // BillingSheet tab index
-  //           scrollPosition, // Preserve scroll position
-  //           selectedJobId,
-  //         },
-  //       });
-
-  //       setCurrentTab(2); // Update the active tab in context
   return (
     <div>
       {/* Back to Job List Button */}
@@ -331,15 +374,30 @@ function EditDoList() {
           </Col>
         </Row>
         <br />
-        <button type="submit" className="btn">
-          Submit
-        </button>
+        
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <button
+            type="submit"
+            className="btn"
+            style={{ float: "right", margin: "20px" }}
+          >
+            Submit
+          </button>
+        </div>
       </form>
 
       <Snackbar
-        open={fileSnackbar}
-        message={"File uploaded successfully!"}
+        open={snackbar || fileSnackbar}
+        message={
+          snackbar
+            ? "Submitted successfully!"
+            : "File uploaded successfully!"
+        }
         sx={{ left: "auto !important", right: "24px !important" }}
+        onClose={() => {
+          setSnackbar(false);
+          setFileSnackbar(false);
+        }}
       />
     </div>
   );

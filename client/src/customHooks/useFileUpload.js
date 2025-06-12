@@ -213,17 +213,20 @@ function useFileUpload(inputRef, alt, setAlt) {
 
         const existingVesselBerthing =
           lastJobsDateRes.data?.vessel_berthing || "";
+          
+        const existingGatewayIGM =
+          lastJobsDateRes.data?.gateway_igm_date || "";
 
         // Modify the data before sending it to the backend
         const finalData = modifiedData.map((item) => {
           if (
-            item.vessel_berthing && // If Excel sheet has a vessel_berthing date
-            (!existingVesselBerthing || existingVesselBerthing.trim() === "") // And the existing value is empty or null
+            item.vessel_berthing && item.gateway_igm_date // If Excel sheet has a vessel_berthing date
+            (!existingVesselBerthing || existingVesselBerthing.trim() === "" && !existingGatewayIGM || existingGatewayIGM.trim() === "") // And the existing value is empty or null
           ) {
             return item; // Use the Excel sheet's vessel_berthing date
           } else {
             // Remove vessel_berthing to prevent overriding with Excel data
-            const { vessel_berthing, ...rest } = item;
+            const { vessel_berthing, gateway_igm_date, ...rest } = item;
             return rest;
           }
         });

@@ -45,11 +45,13 @@ import {
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
+import { TabContext } from "../documentation/DocumentationTab.js";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 
 function JobDetails() {
+   const { currentTab } = useContext(TabContext); // Access context
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,18 +65,21 @@ function JobDetails() {
   } = useSearchQuery();
 
   const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
-    if (location.state && location.state.fromJobList) {
+    if (location.state && (location.state.fromJobList || location.state.currentTab !== undefined)) {
       const { searchQuery, detailedStatus, selectedICD, selectedImporter, currentTab } =
         location.state;
+
       setStoredSearchParams({
-        searchQuery,
-        detailedStatus,
-        selectedICD,
-        selectedImporter,
+        searchQuery: searchQuery || "",
+        detailedStatus: detailedStatus || "",
+        selectedICD: selectedICD || "",
+        selectedImporter: selectedImporter || "",
         currentTab,
       });
     }
   }, [location.state]);
+
+
 
   // const handleBackClick = () => {
   //   navigate('/import-dsr', {
@@ -89,8 +94,14 @@ function JobDetails() {
   //     }
   //   });
   // };
-  const handleBackClick = () => {
-    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to Completed tab (index 1)
+  React.useEffect(() => {
+      // Clear search state when this tab becomes active, unless coming from job details
+      if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
+        setSearchQuery("");
+        setSelectedImporter("");
+      }
+    }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0; // Use the actual current tab
     navigate("/import-dsr", {
       state: {
         fromJobDetails: true,
@@ -102,7 +113,8 @@ function JobDetails() {
           selectedImporter: storedSearchParams.selectedImporter,
         }),
       },
-    });  };
+    });
+  };
 
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);

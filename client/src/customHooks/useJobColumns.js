@@ -210,15 +210,17 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 textColor = "black"; // Black text on yellow background
               }
             });
-          }
-
-          return (
+          }          return (
             <div
-              onClick={() =>
-                navigate(`/import-dsr/job/${job_no}/${year}`, {
-                  state: { currentTab: 1 },
-                })
-              }
+              onClick={() => {
+                if (customNavigation) {
+                  customNavigation(job_no, year);
+                } else {
+                  navigate(`/import-dsr/job/${job_no}/${year}`, {
+                    state: { currentTab: 1 },
+                  });
+                }
+              }}
               style={{
                 cursor: "pointer",
                 color: textColor,

@@ -134,11 +134,14 @@ function useFileUpload(inputRef, alt, setAlt) {
             modifiedItem.assbl_value = item[key];
           } else if (modifiedKey === "ex_rate") {
             modifiedItem.exrate = item[key];
-          }
-          //  else if (modifiedKey === "bill_no") {
-          //   modifiedItem.bill_no = item[key].split(",")[0];
-          // } 
-          else if (modifiedKey === "consignment_type") {
+          } else if (modifiedKey === "ie_code_no") {
+            // Format ie_code_no to ensure it's 10 characters long
+            let ieCodeValue = String(item[key] || "").trim();
+            if (ieCodeValue.length < 10 && ieCodeValue.length > 0) {
+              ieCodeValue = ieCodeValue.padStart(10, "0");
+            }
+            modifiedItem.ie_code_no = ieCodeValue;
+          } else if (modifiedKey === "consignment_type") {
             modifiedItem.consignment_type = item[key].split(",")[0];
           } else if (modifiedKey === "hss_name") {
             modifiedItem.hss_name = item[key];
@@ -202,54 +205,6 @@ function useFileUpload(inputRef, alt, setAlt) {
       inputRef.current.value = null;
     }
 
-    async function uploadExcelData() {
-      setLoading(true);
-
-      try {
-        // Fetch the existing LastJobsDate data to check the current vessel_berthing value
-        const lastJobsDateRes = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-last-jobs-date`
-        );
-
-        const existingVesselBerthing =
-          lastJobsDateRes.data?.vessel_berthing || "";
-          
-        const existingGatewayIGM =
-          lastJobsDateRes.data?.gateway_igm_date || "";
-
-        // Modify the data before sending it to the backend
-        const finalData = modifiedData.map((item) => {
-          if (
-            item.vessel_berthing && item.gateway_igm_date // If Excel sheet has a vessel_berthing date
-            (!existingVesselBerthing || existingVesselBerthing.trim() === "" && !existingGatewayIGM || existingGatewayIGM.trim() === "") // And the existing value is empty or null
-          ) {
-            return item; // Use the Excel sheet's vessel_berthing date
-          } else {
-            // Remove vessel_berthing to prevent overriding with Excel data
-            const { vessel_berthing, gateway_igm_date, ...rest } = item;
-            return rest;
-          }
-        });
-
-        // Now upload the final data to the backend
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-          finalData
-        );
-
-        console.log(`finalData: ${JSON.stringify(finalData)}`);
-        if (res.status === 200) {
-          setSnackbar(true);
-        } else {
-          alert("Something went wrong");
-        }
-      } catch (error) {
-        console.error("Error uploading data:", error);
-        alert("An error occurred while uploading the data.");
-      } finally {
-        setLoading(false);
-      }
-    }
     // Upload the Excel data and check the status
     await uploadAndCheckStatus(modifiedData);
   };
@@ -257,10 +212,37 @@ function useFileUpload(inputRef, alt, setAlt) {
   async function uploadAndCheckStatus(modifiedData) {
     setLoading(true);
     try {
+      // Fetch the existing LastJobsDate data to check the current vessel_berthing value
+      const lastJobsDateRes = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-last-jobs-date`
+      );
+
+      const existingVesselBerthing =
+        lastJobsDateRes.data?.vessel_berthing || "";
+        
+      const existingGatewayIGM =
+        lastJobsDateRes.data?.gateway_igm_date || "";
+
+      // Modify the data before sending it to the backend
+      const finalData = modifiedData.map((item) => {
+        if (
+          item.vessel_berthing && item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
+          ((!existingVesselBerthing || existingVesselBerthing.trim() === "") && (!existingGatewayIGM || existingGatewayIGM.trim() === "")) // And the existing value is empty or null
+        ) {
+          return item; // Use the Excel sheet's vessel_berthing date
+        } else {
+          // Remove vessel_berthing to prevent overriding with Excel data
+          const { vessel_berthing, gateway_igm_date, ...rest } = item;
+          return rest;
+        }
+      });
+
+      console.log(`finalData: ${JSON.stringify(finalData)}`);
+
       // First, upload the data
       const uploadResponse = await axios.post(
         `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-        modifiedData
+        finalData
       );
 
       if (uploadResponse.status === 200) {
@@ -269,9 +251,6 @@ function useFileUpload(inputRef, alt, setAlt) {
         const firstJobNo = modifiedData[0].job_no;
         console.log("Checking status for job_no:", firstJobNo); // Add log
 
-        // const checkStatusResponse = await axios.get(
-        //   `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
-        // );
         const checkStatusResponse = await axios.get(
           `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
         );

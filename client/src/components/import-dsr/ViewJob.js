@@ -51,7 +51,7 @@ import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 
 function JobDetails() {
-   const { currentTab } = useContext(TabContext); // Access context
+  const { currentTab } = useContext(TabContext); // Access context
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -64,10 +64,19 @@ function JobDetails() {
     setSelectedImporter,
   } = useSearchQuery();
 
-  const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
-    if (location.state && (location.state.fromJobList || location.state.currentTab !== undefined)) {
-      const { searchQuery, detailedStatus, selectedICD, selectedImporter, currentTab } =
-        location.state;
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  useEffect(() => {
+    if (
+      location.state &&
+      (location.state.fromJobList || location.state.currentTab !== undefined)
+    ) {
+      const {
+        searchQuery,
+        detailedStatus,
+        selectedICD,
+        selectedImporter,
+        currentTab,
+      } = location.state;
 
       setStoredSearchParams({
         searchQuery: searchQuery || "",
@@ -78,8 +87,6 @@ function JobDetails() {
       });
     }
   }, [location.state]);
-
-
 
   // const handleBackClick = () => {
   //   navigate('/import-dsr', {
@@ -95,12 +102,16 @@ function JobDetails() {
   //   });
   // };
   React.useEffect(() => {
-      // Clear search state when this tab becomes active, unless coming from job details
-      if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
-        setSearchQuery("");
-        setSelectedImporter("");
-      }
-    }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);  const handleBackClick = () => {
+    // Clear search state when this tab becomes active, unless coming from job details
+    if (
+      currentTab === 1 &&
+      !(location.state && location.state.fromJobDetails)
+    ) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
+  const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0; // Use the actual current tab
     navigate("/import-dsr", {
       state: {
@@ -145,8 +156,7 @@ function JobDetails() {
 
   const [isSubmissionDate, setIsSubmissiondate] = useState(false);
 
-// useEffect to watch for changes in submission_completed_date_time
-
+  // useEffect to watch for changes in submission_completed_date_time
 
   const {
     data,
@@ -201,15 +211,15 @@ function JobDetails() {
   );
 
   useEffect(() => {
-  const submissionDateTime = formik.values.submission_completed_date_time;
-  
-  // Check if the value is not empty, undefined, or null
-  if (submissionDateTime && submissionDateTime.trim() !== '') {
-    setIsSubmissiondate(true);
-  } else {
-    setIsSubmissiondate(false);
-  }
-}, [formik.values.submission_completed_date_time]);
+    const submissionDateTime = formik.values.submission_completed_date_time;
+
+    // Check if the value is not empty, undefined, or null
+    if (submissionDateTime && submissionDateTime.trim() !== "") {
+      setIsSubmissiondate(true);
+    } else {
+      setIsSubmissiondate(false);
+    }
+  }, [formik.values.submission_completed_date_time]);
 
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
@@ -1219,7 +1229,7 @@ function JobDetails() {
                           : formik.values.vessel_berthing
                         : ""
                     }
-                    disabled={ExBondflag || isSubmissionDate }
+                    disabled={ExBondflag || isSubmissionDate}
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1272,25 +1282,25 @@ function JobDetails() {
                 </div>
               </Col>
               <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    {/* Seller Name Field */}
-                    <strong>IGM No:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="igm_no"
-                      name="igm_no"
-                      value={formik.values.igm_no || ""}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      placeholder="Enter IGM No"
-                    />
-                  </div>
-                </Col>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>IGM No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="igm_no"
+                    name="igm_no"
+                    value={formik.values.igm_no || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter IGM No"
+                  />
+                </div>
+              </Col>
 
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -1317,47 +1327,47 @@ function JobDetails() {
               </Col>
 
               <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    {/* Seller Name Field */}
-                    <strong>Line No:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="line_no"
-                      name="line_no"
-                       disabled={isSubmissionDate}
-                      value={formik.values.line_no || ""}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      placeholder="Enter Line No"
-                    />
-                  </div>
-                </Col>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>Line No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="line_no"
+                    name="line_no"
+                    disabled={isSubmissionDate}
+                    value={formik.values.line_no || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter Line No"
+                  />
+                </div>
+              </Col>
               <Col xs={12} lg={4}>
-                  <div
-                    className="job-detail-input-container"
-                    style={{ justifyContent: "flex-start" }}
-                  >
-                    {/* Seller Name Field */}
-                    <strong>No Of packages:&nbsp;</strong>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      id="no_of_pkgs"
-                      name="no_of_pkgs"
-                       disabled={isSubmissionDate}
-                      value={formik.values.no_of_pkgs || ""}
-                      onChange={formik.handleChange}
-                      style={{ marginTop: "10px" }}
-                      placeholder="Enter Line No"
-                    />
-                  </div>
-                </Col>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>No Of packages:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="no_of_pkgs"
+                    name="no_of_pkgs"
+                    disabled={isSubmissionDate}
+                    value={formik.values.no_of_pkgs || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter Line No"
+                  />
+                </div>
+              </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               {/* <Col xs={12} lg={4}>
@@ -1444,7 +1454,7 @@ function JobDetails() {
                     variant="outlined"
                     id="hss"
                     name="hss"
-                     disabled={isSubmissionDate}
+                    disabled={isSubmissionDate}
                     value={formik.values.hss || "No"}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1469,7 +1479,7 @@ function JobDetails() {
                       variant="outlined"
                       id="saller_name"
                       name="saller_name"
-                       disabled={isSubmissionDate}
+                      disabled={isSubmissionDate}
                       value={formik.values.saller_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1493,7 +1503,7 @@ function JobDetails() {
                     id="free_time"
                     name="free_time"
                     value={formik.values.free_time || ""}
-                     disabled={isSubmissionDate}
+                    disabled={isSubmissionDate}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     // disabled={user.role !== "Admin"} // Disable if the user is not Admin
@@ -1552,7 +1562,7 @@ function JobDetails() {
                 </Col>
               </Row>
             </Row>
-       <Row style={{ marginTop: "20px" }}>
+            <Row style={{ marginTop: "20px" }}>
               <Col
                 xs={12}
                 lg={4}
@@ -1574,7 +1584,9 @@ function JobDetails() {
                   >
                     <FormControlLabel
                       value="normal"
-                      control={<Radio size="small" disabled={isSubmissionDate} />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Normal"
                       disabled={isSubmissionDate}
                       sx={{
@@ -1584,7 +1596,9 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="Priority"
-                      control={<Radio size="small" disabled={isSubmissionDate} />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Priority"
                       disabled={isSubmissionDate}
                       sx={{
@@ -1594,7 +1608,9 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="High Priority"
-                      control={<Radio size="small" disabled={isSubmissionDate} />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="High Priority"
                       disabled={isSubmissionDate}
                       sx={{
@@ -1626,7 +1642,9 @@ function JobDetails() {
                   >
                     <FormControlLabel
                       value="Transaction"
-                      control={<Radio size="small" disabled={isSubmissionDate} />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Transaction"
                       disabled={isSubmissionDate}
                       // sx={{
@@ -1636,7 +1654,9 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="Deferred"
-                      control={<Radio size="small" disabled={isSubmissionDate} />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Deferred"
                       disabled={isSubmissionDate}
                       // sx={{
@@ -2063,6 +2083,48 @@ function JobDetails() {
                   />
                 </div>
               </Col>
+                  
+<Col xs={12} lg={4}>
+  <div
+    className="job-detail-input-container"
+    style={{ justifyContent: "flex-start" }}
+  >
+    <strong>Checklist Approved:&nbsp;</strong>
+    <Checkbox
+      checked={formik.values.is_checklist_aprroved}
+      onChange={(e) => {
+        const isChecked = e.target.checked;
+        if (isChecked) {
+          // Set current date-time adjusted to local timezone
+          const currentDateTime = new Date(
+            Date.now() - new Date().getTimezoneOffset() * 60000
+          )
+            .toISOString()
+            .slice(0, 16);
+          formik.setFieldValue("is_checklist_aprroved", true);
+          formik.setFieldValue(
+            "is_checklist_aprroved_date",
+            currentDateTime
+          );
+        } else {
+          // Clear values when unchecked
+          formik.setFieldValue("is_checklist_aprroved", false);
+          formik.setFieldValue("is_checklist_aprroved_date", "");
+        }
+      }}
+    />
+    {formik.values.is_checklist_aprroved_date && (
+      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+        {new Date(
+          formik.values.is_checklist_aprroved_date
+        ).toLocaleString("en-US", {
+          timeZone: "Asia/Kolkata",
+          hour12: true,
+        })}
+      </span>
+    )}
+  </div>
+</Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
@@ -2312,57 +2374,57 @@ function JobDetails() {
                 </Col>
               )}
               <Col
-  xs={12}
-  lg={4}
-  style={{ display: "flex", alignItems: "center" }}
->
-  <Typography variant="body1" sx={{ mr: 1 }}>
-    First Check
-  </Typography>
-  <Switch
-    checked={Boolean(formik.values.firstCheck)}
-    onChange={(e) => {
-      if (e.target.checked) {
-        // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
-        const currentDateTime = new Date(
-          Date.now() - new Date().getTimezoneOffset() * 60000
-        )
-          .toISOString()
-          .slice(0, 16);
-        formik.setFieldValue("firstCheck", currentDateTime);
-      } else {
-        formik.setFieldValue("firstCheck", "");
-      }
-    }}
-    name="firstCheck"
-    color="primary"
-    disabled={Boolean(formik.values.out_of_charge?.trim())} // Disable if OOC date is not empty
-  />
-  {formik.values.firstCheck && (
-    <>
-      <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
-        YES &nbsp;
-      </Typography>
-      <Typography
-        variant="body1"
-        sx={{ ml: 1, fontWeight: "bold" }}
-      >
-        {new Date(formik.values.firstCheck).toLocaleString(
-          "en-GB",
-          {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-            timeZone: "Asia/Kolkata",
-          }
-        )}
-      </Typography>
-    </>
-  )}
-</Col>
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <Typography variant="body1" sx={{ mr: 1 }}>
+                  First Check
+                </Typography>
+                <Switch
+                  checked={Boolean(formik.values.firstCheck)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
+                      const currentDateTime = new Date(
+                        Date.now() - new Date().getTimezoneOffset() * 60000
+                      )
+                        .toISOString()
+                        .slice(0, 16);
+                      formik.setFieldValue("firstCheck", currentDateTime);
+                    } else {
+                      formik.setFieldValue("firstCheck", "");
+                    }
+                  }}
+                  name="firstCheck"
+                  color="primary"
+                  disabled={Boolean(formik.values.out_of_charge?.trim())} // Disable if OOC date is not empty
+                />
+                {formik.values.firstCheck && (
+                  <>
+                    <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
+                      YES &nbsp;
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ ml: 1, fontWeight: "bold" }}
+                    >
+                      {new Date(formik.values.firstCheck).toLocaleString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                          timeZone: "Asia/Kolkata",
+                        }
+                      )}
+                    </Typography>
+                  </>
+                )}
+              </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
@@ -3137,7 +3199,9 @@ function JobDetails() {
               </Col>
 
               {selectedDocument === "other" && (
-                <>                  <Col xs={12} lg={4}>
+                <>
+                  {" "}
+                  <Col xs={12} lg={4}>
                     <TextField
                       fullWidth
                       size="small"
@@ -3826,18 +3890,24 @@ function JobDetails() {
                     </Row>
 
                     <Row>
-                       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
-                    <DeliveryChallanPdf
-                      year={params.selected_year}
-                      jobNo={params.job_no}
-                      containerIndex={index}
-                    />
-                    <IgstCalculationPDF
-                      year={params.selected_year}
-                      jobNo={params.job_no}
-                      containerIndex={index}
-                    />
-                  </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginTop: "20px",
+                        }}
+                      >
+                        <DeliveryChallanPdf
+                          year={params.selected_year}
+                          jobNo={params.job_no}
+                          containerIndex={index}
+                        />
+                        <IgstCalculationPDF
+                          year={params.selected_year}
+                          jobNo={params.job_no}
+                          containerIndex={index}
+                        />
+                      </div>
                     </Row>
 
                     <Row>
@@ -4097,10 +4167,13 @@ function JobDetails() {
             Duty Payment Details
           </Typography>
         </DialogTitle>
-        <DialogContent>          <DialogContentText sx={{ mb: 2 }}>
+        <DialogContent>
+          {" "}
+          <DialogContentText sx={{ mb: 2 }}>
             Please fill in the duty payment details below. All amounts should be
             entered in INR.
-          </DialogContentText>          {/* Assessable Amount - Full Width at Top */}
+          </DialogContentText>{" "}
+          {/* Assessable Amount - Full Width at Top */}
           <Box sx={{ mb: 2, mt: 3 }}>
             <TextField
               label="Assessable Amount (INR)"
@@ -4113,7 +4186,6 @@ function JobDetails() {
               size="small"
             />
           </Box>
-
           {/* Other Fields in 2x2 Grid */}
           <Box
             sx={{
@@ -4151,7 +4223,8 @@ function JobDetails() {
               fullWidth
               variant="outlined"
               size="small"
-            />            <TextField
+            />{" "}
+            <TextField
               label="Interest Amount (INR)"
               name="intrest_ammount"
               type="number"
@@ -4182,21 +4255,27 @@ function JobDetails() {
               size="small"
             />
           </Box>
-          
           {/* Total Calculation Display */}
-          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
+          <Box
+            sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}
+          >
             <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
               Total Summary
-            </Typography>            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-              BCD: ₹{formik.values.bcd_ammount || "0.00"} + 
-              IGST: ₹{formik.values.igst_ammount || "0.00"} + 
-              SWS: ₹{formik.values.sws_ammount || "0.00"} +
-              Interest: ₹{formik.values.intrest_ammount || "0.00"} +
-              Penalty: ₹{formik.values.penalty_ammount || "0.00"} +
-              Fine: ₹{formik.values.fine_ammount || "0.00"}
+            </Typography>{" "}
+            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
+              BCD: ₹{formik.values.bcd_ammount || "0.00"} + IGST: ₹
+              {formik.values.igst_ammount || "0.00"} + SWS: ₹
+              {formik.values.sws_ammount || "0.00"} + Interest: ₹
+              {formik.values.intrest_ammount || "0.00"} + Penalty: ₹
+              {formik.values.penalty_ammount || "0.00"} + Fine: ₹
+              {formik.values.fine_ammount || "0.00"}
             </Typography>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mt: 2, color: "primary.main" }}>
-              Total Duty: ₹{(
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: "bold", mt: 2, color: "primary.main" }}
+            >
+              Total Duty: ₹
+              {(
                 parseFloat(formik.values.bcd_ammount || 0) +
                 parseFloat(formik.values.igst_ammount || 0) +
                 parseFloat(formik.values.sws_ammount || 0) +

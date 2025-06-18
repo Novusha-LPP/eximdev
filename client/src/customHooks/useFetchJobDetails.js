@@ -390,6 +390,8 @@ function useFetchJobDetails(
       sws_ammount: "",
       bcd_ammount: "",
       intrest_ammount: "",
+      is_checklist_aprroved_date: "",
+      is_checklist_aprroved: false,
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -471,6 +473,8 @@ function useFetchJobDetails(
           all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
           do_revalidation_date: values.do_revalidation_date,
+          is_checklist_aprroved_date: values.is_checklist_aprroved_date,
+          is_checklist_aprroved: values.is_checklist_aprroved,
           required_do_validity_upto: values.required_do_validity_upto,
           out_of_charge: values.out_of_charge,
           checked: values.checked,
@@ -704,6 +708,10 @@ function useFetchJobDetails(
         doPlanning: data.doPlanning === undefined ? false : data.doPlanning,
         do_planning_date:
           data.do_planning_date === undefined ? "" : data.do_planning_date,
+        is_checklist_aprroved:
+          data.is_checklist_aprroved === undefined ? "" : data.is_checklist_aprroved,
+        is_checklist_aprroved_date:
+          data.is_checklist_aprroved_date === undefined ? "" : data.is_checklist_aprroved_date,
         examinationPlanning:
           data.examinationPlanning === undefined
             ? false

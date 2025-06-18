@@ -2320,7 +2320,7 @@ function JobDetails() {
                   First Check
                 </Typography>
                 <Switch
-                  checked={Boolean(formik.values.fristCheck)}
+                  checked={Boolean(formik.values.firstCheck)}
                   onChange={(e) => {
                     if (e.target.checked) {
                       // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
@@ -2329,15 +2329,15 @@ function JobDetails() {
                       )
                         .toISOString()
                         .slice(0, 16);
-                      formik.setFieldValue("fristCheck", currentDateTime);
+                      formik.setFieldValue("firstCheck", currentDateTime);
                     } else {
-                      formik.setFieldValue("fristCheck", "");
+                      formik.setFieldValue("firstCheck", "");
                     }
                   }}
-                  name="fristCheck"
+                  name="firstCheck"
                   color="primary"
                 />
-                {formik.values.fristCheck && (
+                {formik.values.firstCheck && (
                   <>
                     <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
                       YES &nbsp;
@@ -2346,7 +2346,7 @@ function JobDetails() {
                       variant="body1"
                       sx={{ ml: 1, fontWeight: "bold" }}
                     >
-                      {new Date(formik.values.fristCheck).toLocaleString(
+                      {new Date(formik.values.firstCheck).toLocaleString(
                         "en-GB",
                         {
                           day: "2-digit",

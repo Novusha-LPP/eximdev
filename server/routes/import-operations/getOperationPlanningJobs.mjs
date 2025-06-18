@@ -149,7 +149,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       };
     } else if (detailedStatusExPlan === "FC") {
       statusExtraCondition = {
-        fristCheck: { $exists: true, $nin: ["", null] },
+        firstCheck: { $exists: true, $nin: ["", null] },
       };
     }
 

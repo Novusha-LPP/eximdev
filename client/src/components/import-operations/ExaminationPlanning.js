@@ -541,7 +541,7 @@ function ImportOperations() {
         const examinationPlanningDate = formatDate(
           row.original?.examination_planning_date
         );
-        const fristCheck = formatDate(row.original?.fristCheck);
+        const firstCheck = formatDate(row.original?.firstCheck);
 
         return (
           <div style={{ lineHeight: "1.5" }}>
@@ -560,7 +560,7 @@ function ImportOperations() {
             <Tooltip title="First Check Date" arrow>
               <strong>FC: </strong>
             </Tooltip>
-            {fristCheck}
+            {firstCheck}
             <br />
 
             <Tooltip title="Examination Planning Date" arrow>

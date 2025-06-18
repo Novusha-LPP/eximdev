@@ -59,7 +59,7 @@ const jobSchema = new mongoose.Schema({
   no_of_pkgs: { type: String, trim: true },
   unit: { type: String, trim: true },
   gross_weight: { type: String, trim: true },
-  fristCheck: { type: String, trim: true },
+  firstCheck: { type: String, trim: true },
   job_net_weight: { type: String, trim: true },
   priorityJob: { type: String, trim: true, default: "Normal" },
   unit_1: { type: String, trim: true },

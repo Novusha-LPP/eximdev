@@ -316,7 +316,7 @@ function useFetchJobDetails(
       bank_name: "",
       adCode: "",
       saller_name: "",
-      fristCheck: "",
+      firstCheck: "",
       priorityJob: "Normal",
       emptyContainerOffLoadDate: "",
       payment_method: "Transaction",
@@ -439,7 +439,7 @@ function useFetchJobDetails(
           saller_name: values.saller_name,
           adCode: values.adCode,
           bank_name: values.bank_name,
-          fristCheck: values.fristCheck,
+          firstCheck: values.firstCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
           payment_method: values.payment_method,
@@ -752,7 +752,7 @@ function useFetchJobDetails(
         saller_name: data.saller_name === undefined ? "" : data.saller_name,
         adCode: data.adCode === undefined ? "" : data.adCode,
         bank_name: data.bank_name === undefined ? "" : data.bank_name,
-        fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
+        firstCheck: data.firstCheck === undefined ? "" : data.firstCheck,
         priorityJob:
           data.priorityJob === undefined ? "Normal" : data.priorityJob,
         emptyContainerOffLoadDate:

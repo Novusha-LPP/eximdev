@@ -296,36 +296,46 @@ function Submission() {
         );
       },
     },
-    {
-      accessorKey: "gateway_igm_date",
-      header: "Gateway IGM NO. & Date",
-      enableSorting: false,
-      size: 130,
-      Cell: ({ row }) => {
-        const { gateway_igm_date = "N/A", gateway_igm = "N/A" } = row.original;
-        return (
-          <div>
-            <div>{`${gateway_igm}`}</div>
-            <div>{`${gateway_igm_date}`}</div>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "igm_no",
-      header: "IGM NO. & Date",
-      enableSorting: false,
-      size: 130,
-      Cell: ({ row }) => {
-        const { igm_date = "N/A", igm_no = "N/A" } = row.original;
-        return (
-          <div>
-            <div>{`${igm_no}`}</div>
-            <div>{`${igm_date}`}</div>
-          </div>
-        );
-      },
-    },
+   {
+  accessorKey: "igm_details",
+  header: "IGM Details",
+  enableSorting: false,
+  size: 180,
+  Cell: ({ row }) => {
+    const { 
+      gateway_igm_date = "N/A", 
+      gateway_igm = "N/A",
+      igm_date = "N/A", 
+      igm_no = "N/A",
+      job_net_weight = "N/A",
+      gross_weight = "N/A",
+      line_no = "N/A",
+      no_of_pkgs = "N/A"
+    } = row.original;
+    
+    return (
+      <div style={{ lineHeight: "1.4", fontSize: "12px" }}>
+        {/* Gateway IGM Section */}
+        <div><strong>Gateway IGM:</strong> {gateway_igm}</div>
+        <div><strong>Gateway Date:</strong> {gateway_igm_date}</div>
+        
+        {/* IGM Section */}
+        <div style={{ marginTop: "4px" }}>
+          <strong>IGM No:</strong> {igm_no}
+        </div>
+        <div><strong>IGM Date:</strong> {igm_date}</div>
+        
+        {/* Weight & Package Section */}
+        <div style={{ marginTop: "4px" }}>
+          <strong>Net Weight:</strong> {job_net_weight}
+        </div>
+        <div><strong>Gross Weight:</strong> {gross_weight}</div>
+        <div><strong>Line No:</strong> {line_no}</div>
+        <div><strong>No of Pkgs:</strong> {no_of_pkgs}</div>
+      </div>
+    );
+  },
+},
     {
       accessorKey: "invoice_number",
       header: "Invoice NO. & Date",

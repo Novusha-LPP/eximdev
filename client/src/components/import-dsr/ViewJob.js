@@ -2312,56 +2312,57 @@ function JobDetails() {
                 </Col>
               )}
               <Col
-                xs={12}
-                lg={4}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <Typography variant="body1" sx={{ mr: 1 }}>
-                  First Check
-                </Typography>
-                <Switch
-                  checked={Boolean(formik.values.firstCheck)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
-                      const currentDateTime = new Date(
-                        Date.now() - new Date().getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      formik.setFieldValue("firstCheck", currentDateTime);
-                    } else {
-                      formik.setFieldValue("firstCheck", "");
-                    }
-                  }}
-                  name="firstCheck"
-                  color="primary"
-                />
-                {formik.values.firstCheck && (
-                  <>
-                    <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
-                      YES &nbsp;
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ ml: 1, fontWeight: "bold" }}
-                    >
-                      {new Date(formik.values.firstCheck).toLocaleString(
-                        "en-GB",
-                        {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                          timeZone: "Asia/Kolkata",
-                        }
-                      )}
-                    </Typography>
-                  </>
-                )}
-              </Col>
+  xs={12}
+  lg={4}
+  style={{ display: "flex", alignItems: "center" }}
+>
+  <Typography variant="body1" sx={{ mr: 1 }}>
+    First Check
+  </Typography>
+  <Switch
+    checked={Boolean(formik.values.firstCheck)}
+    onChange={(e) => {
+      if (e.target.checked) {
+        // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
+        const currentDateTime = new Date(
+          Date.now() - new Date().getTimezoneOffset() * 60000
+        )
+          .toISOString()
+          .slice(0, 16);
+        formik.setFieldValue("firstCheck", currentDateTime);
+      } else {
+        formik.setFieldValue("firstCheck", "");
+      }
+    }}
+    name="firstCheck"
+    color="primary"
+    disabled={Boolean(formik.values.out_of_charge?.trim())} // Disable if OOC date is not empty
+  />
+  {formik.values.firstCheck && (
+    <>
+      <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
+        YES &nbsp;
+      </Typography>
+      <Typography
+        variant="body1"
+        sx={{ ml: 1, fontWeight: "bold" }}
+      >
+        {new Date(formik.values.firstCheck).toLocaleString(
+          "en-GB",
+          {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          }
+        )}
+      </Typography>
+    </>
+  )}
+</Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>

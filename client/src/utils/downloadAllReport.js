@@ -44,8 +44,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
-  });
-  const headers = [
+  });  const headers = [
     "JOB NO AND DATE",
     "IMPORTER",
     "SUPPLIER/ EXPORTER",
@@ -64,6 +63,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
+    "FIRST CHECK",
     ""
   ];
 
@@ -146,11 +146,10 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
       "NUMBER OF CONTAINERS": item.no_of_container
         ? item.no_of_container.slice(0, -2)
-        : "",
-
-      "BE NUMBER AND DATE": beNoAndDate,
+        : "",      "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,
+      "FIRST CHECK": formatDate(item.firstCheck),
     };
 
     // eslint-disable-next-line
@@ -357,15 +356,18 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
         pattern: "solid",
         fgColor: { argb: "ffffcc99" },
       };
-    }
-
-    // Set text alignment to center for each cell in the data row
-    dataRow.eachCell({ includeEmpty: true }, (cell) => {
+    }    // Set text alignment to center for each cell in the data row
+    dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.alignment = {
         horizontal: "center",
         vertical: "middle",
         wrapText: true, // Enable text wrapping for all cells
       };
+
+      // Make only the FIRST CHECK column values bold (column 19)
+      if (colNumber === 19) {
+        cell.font = { bold: true };
+      }
 
       cell.border = {
         top: { style: "thin" },

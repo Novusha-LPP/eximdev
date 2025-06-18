@@ -56,6 +56,10 @@ const ImportCreateJob = () => {
     awb_bl_date,
     vessel_berthing,
     setAwbBlDate,
+    hawb_hbl_no,
+    setHawb_hbl_no,
+    hawb_hbl_date,
+    setHawb_hbl_date,
     setVesselberthing,
     type_of_b_e,
     setTypeOfBE,
@@ -146,6 +150,7 @@ const ImportCreateJob = () => {
   const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState("");
+  const [isCheckedHouse, setIsCheckedHouse] = useState("");
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -228,6 +233,8 @@ const ImportCreateJob = () => {
       { value: "DEEC", label: "DEEC" },
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-bond" }],
     "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
@@ -413,7 +420,7 @@ const ImportCreateJob = () => {
         {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            AWB/BL Number:
+            MWB/BL Number:
           </Typography>
           <TextField
             value={awb_bl_no}
@@ -428,7 +435,7 @@ const ImportCreateJob = () => {
         {/* BL Date */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            AWB/BL Date:
+            MWB/BL Date:
           </Typography>
           <TextField
             type="date"
@@ -461,6 +468,59 @@ const ImportCreateJob = () => {
           />
         </Grid>
         {/* BL Number */}
+
+{/* FCL/LCL Selector */}
+<Grid item xs={12} md={6}>
+  <Typography variant="body1" style={{ fontWeight: 600 }}>
+    Custom House:
+  </Typography>
+  <FormControlLabel
+    control={
+      <Checkbox
+        checked={isCheckedHouse}
+        onChange={(e) => setIsCheckedHouse(e.target.checked)}
+        color="primary"
+      />
+    }
+    label="Custom House"
+  />
+</Grid>
+
+{/* Conditionally render HAWB/HBL fields when checkbox is true */}
+{isCheckedHouse && (
+  <>
+    <Grid item xs={12} md={6}>
+      <Typography variant="body1" style={{ fontWeight: 600 }}>
+        HAWB/HBL No:
+      </Typography>
+      <TextField
+        value={hawb_hbl_no}
+        onChange={(e) => setHawb_hbl_no(e.target.value)}
+        variant="outlined"
+        size="small"
+        fullWidth
+        placeholder="Enter HAWB/HBL Number"
+      />
+    </Grid>
+
+    <Grid item xs={12} md={6}>
+      <Typography variant="body1" style={{ fontWeight: 600 }}>
+        HAWB/HBL Date:
+      </Typography>
+      <TextField
+        type="date"
+        value={hawb_hbl_date}
+        onChange={(e) => setHawb_hbl_date(e.target.value)}
+        variant="outlined"
+        size="small"
+        fullWidth
+        InputLabelProps={{ shrink: true }}
+      />
+    </Grid>
+  </>
+)}
+
+            
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Gross Weight:

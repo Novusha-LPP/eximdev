@@ -308,6 +308,10 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      igm_date: "",
+      igm_no: "",
+      line_no: "",
+      no_of_pkgs: "",
       hss: "",
       bank_name: "",
       adCode: "",
@@ -427,6 +431,10 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          igm_date: values.igm_date,
+          igm_no: values.igm_no,
+          line_no: values.line_no,
+          no_of_pkgs: values.no_of_pkgs,
           hss: values.hss,
           saller_name: values.saller_name,
           adCode: values.adCode,
@@ -732,6 +740,14 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        igm_date:
+          data.igm_date === undefined ? "" : data.igm_date,
+        igm_no:
+          data.igm_no === undefined ? "" : data.igm_no,
+        line_no:
+          data.line_no === undefined ? "" : data.line_no,
+        no_of_pkgs:
+          data.no_of_pkgs === undefined ? "" : data.no_of_pkgs,
         hss: data.hss === undefined ? "" : data.hss,
         saller_name: data.saller_name === undefined ? "" : data.saller_name,
         adCode: data.adCode === undefined ? "" : data.adCode,

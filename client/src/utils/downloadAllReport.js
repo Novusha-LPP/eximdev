@@ -64,6 +64,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
+    ""
   ];
 
   // Row headers

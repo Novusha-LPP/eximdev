@@ -143,6 +143,11 @@ function JobDetails() {
     return date ? new Date(date).toISOString().slice(0, 16) : "";
   };
 
+  const [isSubmissionDate, setIsSubmissiondate] = useState(false);
+
+// useEffect to watch for changes in submission_completed_date_time
+
+
   const {
     data,
     detentionFrom,
@@ -194,6 +199,18 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+
+  useEffect(() => {
+  const submissionDateTime = formik.values.submission_completed_date_time;
+  
+  // Check if the value is not empty, undefined, or null
+  if (submissionDateTime && submissionDateTime.trim() !== '') {
+    setIsSubmissiondate(true);
+  } else {
+    setIsSubmissiondate(false);
+  }
+}, [formik.values.submission_completed_date_time]);
+
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
   const [deleveryDate, setDeliveryDate] = useState(false);
@@ -1202,7 +1219,7 @@ function JobDetails() {
                           : formik.values.vessel_berthing
                         : ""
                     }
-                    disabled={ExBondflag}
+                    disabled={ExBondflag || isSubmissionDate }
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1226,11 +1243,54 @@ function JobDetails() {
                           : formik.values.gateway_igm_date
                         : ""
                     }
-                    disabled={ExBondflag}
+                    disabled={ExBondflag || isSubmissionDate}
                     onChange={formik.handleChange}
                   />
                 </div>
               </Col>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>IGM Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="igm_date"
+                    name="igm_date"
+                    value={
+                      formik.values.igm_date
+                        ? formik.values.igm_date.length === 10
+                          ? `${formik.values.igm_date}T00:00`
+                          : formik.values.igm_date
+                        : ""
+                    }
+                    disabled={ExBondflag || isSubmissionDate}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>IGM No:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="igm_no"
+                      name="igm_no"
+                      value={formik.values.igm_no || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter IGM No"
+                    />
+                  </div>
+                </Col>
 
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -1243,7 +1303,7 @@ function JobDetails() {
                     type="datetime-local"
                     id="discharge_date"
                     name="discharge_date"
-                    disabled={ExBondflag}
+                    disabled={ExBondflag || isSubmissionDate}
                     value={
                       formik.values.discharge_date
                         ? formik.values.discharge_date.length === 10
@@ -1255,6 +1315,49 @@ function JobDetails() {
                   />
                 </div>
               </Col>
+
+              <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>Line No:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="line_no"
+                      name="line_no"
+                       disabled={isSubmissionDate}
+                      value={formik.values.line_no || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter Line No"
+                    />
+                  </div>
+                </Col>
+              <Col xs={12} lg={4}>
+                  <div
+                    className="job-detail-input-container"
+                    style={{ justifyContent: "flex-start" }}
+                  >
+                    {/* Seller Name Field */}
+                    <strong>No Of packages:&nbsp;</strong>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="no_of_pkgs"
+                      name="no_of_pkgs"
+                       disabled={isSubmissionDate}
+                      value={formik.values.no_of_pkgs || ""}
+                      onChange={formik.handleChange}
+                      style={{ marginTop: "10px" }}
+                      placeholder="Enter Line No"
+                    />
+                  </div>
+                </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               {/* <Col xs={12} lg={4}>
@@ -1341,6 +1444,7 @@ function JobDetails() {
                     variant="outlined"
                     id="hss"
                     name="hss"
+                     disabled={isSubmissionDate}
                     value={formik.values.hss || "No"}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1365,6 +1469,7 @@ function JobDetails() {
                       variant="outlined"
                       id="saller_name"
                       name="saller_name"
+                       disabled={isSubmissionDate}
                       value={formik.values.saller_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1388,6 +1493,7 @@ function JobDetails() {
                     id="free_time"
                     name="free_time"
                     value={formik.values.free_time || ""}
+                     disabled={isSubmissionDate}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     // disabled={user.role !== "Admin"} // Disable if the user is not Admin
@@ -1414,6 +1520,7 @@ function JobDetails() {
                       variant="outlined"
                       id="adCode"
                       name="adCode"
+                      disabled={isSubmissionDate}
                       value={formik.values.adCode || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1435,6 +1542,7 @@ function JobDetails() {
                       variant="outlined"
                       id="bank_name"
                       name="bank_name"
+                      disabled={isSubmissionDate}
                       value={formik.values.bank_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1444,7 +1552,7 @@ function JobDetails() {
                 </Col>
               </Row>
             </Row>
-            <Row style={{ marginTop: "20px" }}>
+       <Row style={{ marginTop: "20px" }}>
               <Col
                 xs={12}
                 lg={4}
@@ -1462,11 +1570,13 @@ function JobDetails() {
                     value={formik.values.priorityJob || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
+                    disabled={isSubmissionDate}
                   >
                     <FormControlLabel
                       value="normal"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled={isSubmissionDate} />}
                       label="Normal"
+                      disabled={isSubmissionDate}
                       sx={{
                         color: "green",
                         "& .MuiSvgIcon-root": { color: "green" },
@@ -1474,8 +1584,9 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="Priority"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled={isSubmissionDate} />}
                       label="Priority"
+                      disabled={isSubmissionDate}
                       sx={{
                         color: "orange",
                         "& .MuiSvgIcon-root": { color: "orange" },
@@ -1483,8 +1594,9 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="High Priority"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled={isSubmissionDate} />}
                       label="High Priority"
+                      disabled={isSubmissionDate}
                       sx={{
                         color: "red",
                         "& .MuiSvgIcon-root": { color: "red" },
@@ -1510,11 +1622,13 @@ function JobDetails() {
                     value={formik.values.payment_method || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
+                    disabled={isSubmissionDate}
                   >
                     <FormControlLabel
                       value="Transaction"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled={isSubmissionDate} />}
                       label="Transaction"
+                      disabled={isSubmissionDate}
                       // sx={{
                       //   color: "green",
                       //   "& .MuiSvgIcon-root": { color: "green" },
@@ -1522,8 +1636,9 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="Deferred"
-                      control={<Radio size="small" />}
+                      control={<Radio size="small" disabled={isSubmissionDate} />}
                       label="Deferred"
+                      disabled={isSubmissionDate}
                       // sx={{
                       //   color: "orange",
                       //   "& .MuiSvgIcon-root": { color: "orange" },
@@ -1562,6 +1677,7 @@ function JobDetails() {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    disabled={isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1579,6 +1695,7 @@ function JobDetails() {
                     name="description"
                     value={formik.values.description || ""}
                     onChange={formik.handleChange}
+                    disabled={isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1598,6 +1715,7 @@ function JobDetails() {
                     value={formik.values.cth_no || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
+                    disabled={isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1618,6 +1736,7 @@ function JobDetails() {
                     value={formik.values.type_of_b_e || ""}
                     onChange={formik.handleChange}
                     displayempty="true"
+                    disabled={isSubmissionDate}
                   >
                     <MenuItem value="" disabled>
                       Select BE Type

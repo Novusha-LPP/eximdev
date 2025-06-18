@@ -49,6 +49,8 @@ const jobSchema = new mongoose.Schema({
   awb_bl_no: { type: String, trim: true },
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
+  hawb_hbl_no: { type: String, trim: true },
+  hawb_hbl_date: { type: String, trim: true },
   be_no: { type: String, trim: true },
   in_bond_be_no: { type: String, trim: true },
   be_date: { type: String, trim: true },

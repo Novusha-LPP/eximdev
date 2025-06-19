@@ -34,6 +34,7 @@ export const convertToExcel = async (
     alert("No Data to export");
     return;
   }
+  
   const uniqueDetailedStatuses = [
     ...new Set(
       rowsWithoutBillNo
@@ -51,11 +52,13 @@ export const convertToExcel = async (
     second: "2-digit",
     hour12: true,
   });
+  
   const additionalHeaders =
     importer === "BHAVYA MACHINE TOOLS LLP" ||
     importer === "BHAVYA MACHINE TOOLS"
       ? ["HSS NAME"]
       : [];
+      
   const headers = [
     "JOB NO AND DATE",
     ...additionalHeaders,
@@ -71,12 +74,12 @@ export const convertToExcel = async (
     "DETENTION FROM",
     "SHIPPING LINE",
     "CONTAINER NUM & SIZE",
-    "WEIGHT EXCESS/SHORTAGE", // New header for weight Excess/Shortage",
+    "WEIGHT EXCESS/SHORTAGE",
     "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
-    "FIRST CHECK", // Added FIRST CHECK column
+    "FIRST CHECK",
     ""
   ];
 
@@ -84,16 +87,19 @@ export const convertToExcel = async (
 
   // Row headers
   const dataWithHeaders = rowsWithoutBillNo.map((item) => {
-    const jobNoAndDate = `${item.job_no} | ${formatDate(item.job_date)} | ${
-      item.custom_house
-    } | ${item.type_of_b_e}`;
-    const invoiceNoAndDate = `${item.invoice_number} | ${formatDate(
+    const jobNoAndDate = `${item.job_no || ''} | ${formatDate(item.job_date)} | ${
+      item.custom_house || ''
+    } | ${item.type_of_b_e || ''}`;
+    
+    const invoiceNoAndDate = `${item.invoice_number || ''} | ${formatDate(
       item.invoice_date
     )}`;
-    const blNoAndDate = `${item.awb_bl_no} | ${formatDate(item.awb_bl_date)}`;
-    const beNoAndDate = `${item.be_no} | ${formatDate(item.be_date)}`;
+    
+    const blNoAndDate = `${item.awb_bl_no || ''} | ${formatDate(item.awb_bl_date)}`;
+    const beNoAndDate = `${item.be_no || ''} | ${formatDate(item.be_date)}`;
+    
     const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
-      item.discharge_date ? item.discharge_date : item.vessel_berthing
+      item.discharge_date ? item.discharge_date : item.vessel_berthing || ''
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
     }
@@ -117,49 +123,79 @@ export const convertToExcel = async (
       item.obl_telex_bl
         ? ` | ${
             item.obl_telex_bl === "OBL"
-              ? `ORG-RCVD: ${item.document_received_date}`
-              : `DOC-RCVD: ${item.document_received_date}`
+              ? `ORG-RCVD: ${item.document_received_date || ''}`
+              : `DOC-RCVD: ${item.document_received_date || ''}`
           }`
         : ""
     }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
       item.remarks ? ` | Remarks: ${item.remarks}` : ""
     }`;
 
-    const arrivalDates = formatContainerDates(
-      item.container_nos,
-      "arrival_date"
-    );
-    const detentionFrom = formatContainerDates(
-      item.container_nos,
-      "detention_from"
-    );
-
-    const containerNumbersWithSizes = item.container_nos
-      .map((container) => `${container.container_number} - ${container.size}`)
-      .join(",\n");
-    const weightExcessShortage = item.container_nos
-      .map((container) =>
-        container.weight_shortage !== undefined
-          ? `${container.weight_shortage}`
-          : ""
-      )
-      .join(",\n");
-
-    const size = item.container_nos
-      .map((container) => container.size)
-      .join(",\n");
-    const cif_amount = new Big(item.cif_amount);
-    const exrate = new Big(item.exrate);
-    const inv_value = cif_amount.div(exrate).toFixed(2);
-    const exact_inv_value = item.total_inv_value
-      ? item.total_inv_value.split(" ")[0]
+    // Safely handle container dates
+    const arrivalDates = item.container_nos && item.container_nos.length > 0 
+      ? formatContainerDates(item.container_nos, "arrival_date")
+      : "";
+      
+    const detentionFrom = item.container_nos && item.container_nos.length > 0
+      ? formatContainerDates(item.container_nos, "detention_from")
       : "";
 
-    const invoice_value_and_unit_price = `${item.inv_currency} |${exact_inv_value} | ${item.unit_price}`;
+    const containerNumbersWithSizes = item.container_nos && item.container_nos.length > 0
+      ? item.container_nos
+          .map((container) => `${container.container_number || ''} - ${container.size || ''}`)
+          .join(",\n")
+      : "";
+      
+    const weightExcessShortage = item.container_nos && item.container_nos.length > 0
+      ? item.container_nos
+          .map((container) =>
+            container.weight_shortage !== undefined
+              ? `${container.weight_shortage}`
+              : ""
+          )
+          .join(",\n")
+      : "";
+
+    const size = item.container_nos && item.container_nos.length > 0
+      ? item.container_nos
+          .map((container) => container.size || '')
+          .join(",\n")
+      : "";
+
+    // Safely handle CIF amount and exchange rate calculations
+    let invoice_value_and_unit_price = `${item.inv_currency || ''} | ${item.total_inv_value || ''} | ${item.unit_price || ''}`;
+    
+    try {
+      // Only perform Big.js calculations if both values exist and are valid numbers
+      if (item.cif_amount && item.exrate && 
+          !isNaN(parseFloat(item.cif_amount)) && 
+          !isNaN(parseFloat(item.exrate)) &&
+          parseFloat(item.exrate) !== 0) {
+        
+        const cif_amount = new Big(item.cif_amount);
+        const exrate = new Big(item.exrate);
+        const inv_value = cif_amount.div(exrate).toFixed(2);
+        
+        const exact_inv_value = item.total_inv_value
+          ? item.total_inv_value.split(" ")[0]
+          : inv_value;
+
+        invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
+      }
+    } catch (error) {
+      console.warn("Error calculating invoice value:", error);
+      // Use fallback values if calculation fails
+      const exact_inv_value = item.total_inv_value
+        ? item.total_inv_value.split(" ")[0]
+        : "";
+      invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
+    }
+
+    // Safely calculate net weight
     const net_weight = item.container_nos?.reduce((sum, container) => {
       const weight = parseFloat(container.net_weight);
       return sum + (isNaN(weight) ? 0 : weight);
-    }, 0);
+    }, 0) || 0;
 
     const cleanLoadingPort = item.loading_port
       ? item.loading_port.replace(/\(.*?\)\s*/, "")
@@ -170,30 +206,29 @@ export const convertToExcel = async (
 
     const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
-      "HSS NAME": item.hss_name,
-      "SUPPLIER/ EXPORTER": item.supplier_exporter,
+      "HSS NAME": item.hss_name || '',
+      "SUPPLIER/ EXPORTER": item.supplier_exporter || '',
       "INVOICE NUMBER AND DATE": invoiceNoAndDate,
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
       "BL NUMBER AND DATE": blNoAndDate,
-      COMMODITY: item.description,
-      "NET WEIGHT": item.job_net_weight,
+      COMMODITY: item.description || '',
+      "NET WEIGHT": item.job_net_weight || '',
       PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
-      "FREE TIME": item.free_time,
+      "FREE TIME": item.free_time || '',
       "DETENTION FROM": detentionFrom,
-      "SHIPPING LINE": item.shipping_line_airline,
+      "SHIPPING LINE": item.shipping_line_airline || '',
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
       "WEIGHT EXCESS/SHORTAGE": weightExcessShortage,
       "NUMBER OF CONTAINERS": item.no_of_container?.slice(0, -2) ?? "",
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
-      "DETAILED STATUS": item.detailed_status,
-      "FIRST CHECK": formatDate(item.firstCheck), // Added FIRST CHECK mapping
+      "DETAILED STATUS": item.detailed_status || '',
+      "FIRST CHECK": formatDate(item.firstCheck),
     };
 
-    // eslint-disable-next-line
     const values = headers.map((val) => {
-      if (valueMap[val]) {
+      if (valueMap[val] !== undefined) {
         return valueMap[val];
       } else if (val === "CONTAINER NUM & SIZE") {
         return containerNumbersWithSizes;
@@ -204,6 +239,7 @@ export const convertToExcel = async (
       } else if (val === "SIZE") {
         return size;
       }
+      return ''; // Default return empty string
     });
 
     return values;

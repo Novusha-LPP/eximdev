@@ -308,6 +308,7 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      gateway_igm: "",
       igm_date: "",
       igm_no: "",
       line_no: "",
@@ -433,6 +434,7 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          gateway_igm: values.gateway_igm,
           igm_date: values.igm_date,
           igm_no: values.igm_no,
           line_no: values.line_no,
@@ -748,6 +750,8 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        gateway_igm:
+          data.gateway_igm === undefined ? "" : data.gateway_igm,
         igm_date:
           data.igm_date === undefined ? "" : data.igm_date,
         igm_no:

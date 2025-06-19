@@ -64,7 +64,6 @@ export const convertToExcel = async (
     "INVOICE VALUE AND UNIT PRICE",
     "BL NUMBER AND DATE",
     "COMMODITY",
-
     "NET WEIGHT",
     "PORT",
     "ARRIVAL DATE",
@@ -77,6 +76,8 @@ export const convertToExcel = async (
     "BE NUMBER AND DATE",
     "REMARKS",
     "DETAILED STATUS",
+    "FIRST CHECK", // Added FIRST CHECK column
+    ""
   ];
 
   console.log(rowsWithoutBillNo);
@@ -175,7 +176,6 @@ export const convertToExcel = async (
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
       "BL NUMBER AND DATE": blNoAndDate,
       COMMODITY: item.description,
-
       "NET WEIGHT": item.job_net_weight,
       PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
@@ -188,6 +188,7 @@ export const convertToExcel = async (
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status,
+      "FIRST CHECK": formatDate(item.firstCheck), // Added FIRST CHECK mapping
     };
 
     // eslint-disable-next-line
@@ -349,7 +350,7 @@ export const convertToExcel = async (
   // Add the data rows
   for (const row of dataWithHeaders) {
     const dataRow = worksheet.addRow(row);
-    const detailedStatus = row[row.length - 1]; // Get the Detailed Status from the last column
+    const detailedStatus = row[row.length - 2]; // Get the Detailed Status (now second to last because of FIRST CHECK)
 
     // Apply background color based on Detailed Status
     if (detailedStatus === "Estimated Time of Arrival") {
@@ -397,12 +398,19 @@ export const convertToExcel = async (
     }
 
     // Set text alignment to center for each cell in the data row
-    dataRow.eachCell({ includeEmpty: true }, (cell) => {
+    dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.alignment = {
         horizontal: "center",
         vertical: "middle",
         wrapText: true, // Enable text wrapping for all cells
       };
+
+      // Make only the FIRST CHECK column values bold
+      // Calculate the column index for FIRST CHECK (it's the second to last column before the empty one)
+      const firstCheckColumnIndex = headers.indexOf("FIRST CHECK") + 1; // +1 because ExcelJS uses 1-based indexing
+      if (colNumber === firstCheckColumnIndex) {
+        cell.font = { bold: true };
+      }
 
       cell.border = {
         top: { style: "thin" },
@@ -526,8 +534,13 @@ export const convertToExcel = async (
     if (headers[id] === "REMARKS") {
       column.width = 45;
     }
+    // Set specific width for FIRST CHECK column
+    if (headers[id] === "FIRST CHECK") {
+      column.width = 15;
+    }
   });
 
+  // Rest of your summary table code remains the same...
   worksheet.addRow([]);
   worksheet.addRow([]);
 
@@ -543,7 +556,7 @@ export const convertToExcel = async (
     font: { color: { argb: "FFFFFF" } },
   };
 
-  worksheet.mergeCells(`A${summaryRow.number}:E${summaryRow.number}`); // Merge cells for the "Summary" row
+  worksheet.mergeCells(`A${summaryRow.number}:E${summaryRow.number}`);
 
   let containersWithSize20AndArrival = 0;
   let containersWithSize40AndArrival = 0;
@@ -570,7 +583,6 @@ export const convertToExcel = async (
     containersWithSize20AndNoArrival +
     containersWithSize40AndNoArrival;
 
-  // Add the new table with merged cells
   const newTableData = [
     ["20'", "40'", "20'", "40'", ""],
     [
@@ -582,13 +594,11 @@ export const convertToExcel = async (
     ],
   ];
 
-  // Get the starting row number for the new table
-  const startRow = summaryRow.number + 1; // Adjusted to remove the extra rows
+  const startRow = summaryRow.number + 1;
 
-  // Merge cells and apply formatting
   worksheet.addTable({
     name: "SummaryTable",
-    ref: `A${startRow}:E${startRow + newTableData.length - 1}`, // Adjusted to match the new data layout
+    ref: `A${startRow}:E${startRow + newTableData.length - 1}`,
     columns: [
       { name: "ARRIVED" },
       { name: "IN TRANSIT" },
@@ -618,8 +628,7 @@ export const convertToExcel = async (
     }
   }
 
-  // Merge cells and add text for "Arrived" and "In Transit"
-  worksheet.mergeCells(`A${startRow}:B${startRow}`); // Merge cells for the "Arrived" text
+  worksheet.mergeCells(`A${startRow}:B${startRow}`);
   const arrivedCell = worksheet.getCell(`A${startRow}`);
   arrivedCell.value = "ARRIVED";
   arrivedCell.fill = {
@@ -628,7 +637,7 @@ export const convertToExcel = async (
     fgColor: { argb: "8EAADB" },
   };
 
-  worksheet.mergeCells(`C${startRow}:D${startRow}`); // Merge cells for the "In Transit" text
+  worksheet.mergeCells(`C${startRow}:D${startRow}`);
   const inTransitCell = worksheet.getCell(`C${startRow}`);
   inTransitCell.value = "IN TRANSIT";
   inTransitCell.fill = {
@@ -645,7 +654,6 @@ export const convertToExcel = async (
     fgColor: { argb: "FFFF04" },
   };
 
-  // Apply red background to the first two cells of the last row
   const lastRow = worksheet.getRow(startRow + newTableData.length);
   for (let col = 1; col <= 2; col++) {
     const cell = lastRow.getCell(col);
@@ -656,7 +664,6 @@ export const convertToExcel = async (
     };
   }
 
-  // Apply blue background to the 3rd and 4th cells of the last row
   for (let col = 3; col <= 4; col++) {
     const cell = lastRow.getCell(col);
     cell.fill = {
@@ -666,15 +673,12 @@ export const convertToExcel = async (
     };
   }
 
-  ///////////////////////////////////////////////////////////////////////
-  // Generate Excel file
   const excelBuffer = await workbook.xlsx.writeBuffer();
 
   const data = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 
-  // Sanitize the importer and detailedStatus for the filename
   const sanitizedImporter = importer?.replace(/\./g, "");
   const sanitizedDetailedStatus = detailedStatus?.replace(/\./g, "");
 

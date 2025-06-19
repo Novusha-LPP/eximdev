@@ -144,7 +144,7 @@ const ImportCreateJob = () => {
     bankName
   } = useImportJobForm();
 
-  const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
+  const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
@@ -420,7 +420,7 @@ const ImportCreateJob = () => {
         {/* BL Number */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            MWB/BL Number:
+            MAWB/BL Number:
           </Typography>
           <TextField
             value={awb_bl_no}
@@ -435,7 +435,7 @@ const ImportCreateJob = () => {
         {/* BL Date */}
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
-            MWB/BL Date:
+            MAWB/BL Date:
           </Typography>
           <TextField
             type="date"

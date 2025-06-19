@@ -15,6 +15,7 @@ import {
   MenuItem,
   Autocomplete,
 } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useContext } from "react";
@@ -101,6 +102,32 @@ function Submission() {
   //     setSelectedImporter("Select Importer");
   //   }
   // }, [importerNames]);
+
+   const handleCopy = (event, text) => {
+   event.stopPropagation();
+   if (!text || text === "N/A") return; // Prevent copying empty values
+   if (
+     navigator.clipboard &&
+     typeof navigator.clipboard.writeText === "function"
+   ) {
+     navigator.clipboard
+       .writeText(text)
+       .then(() => console.log("Copied:", text))
+       .catch((err) => console.error("Copy failed:", err));
+   } else {
+     const textArea = document.createElement("textarea");
+     textArea.value = text;
+     document.body.appendChild(textArea);
+     textArea.select();
+     try {
+       document.execCommand("copy");
+       console.log("Copied (fallback):", text);
+     } catch (err) {
+       console.error("Fallback failed:", err);
+     }
+     document.body.removeChild(textArea);
+   }
+ };
 
   useEffect(() => {
     async function getYears() {
@@ -296,42 +323,87 @@ function Submission() {
         );
       },
     },
-   {
+{
   accessorKey: "igm_details",
   header: "IGM Details",
   enableSorting: false,
-  size: 180,
-  Cell: ({ row }) => {
+  size: 250,
+  Cell: ({ cell }) => {
     const { 
-      gateway_igm_date = "N/A", 
-      gateway_igm = "N/A",
-      igm_date = "N/A", 
-      igm_no = "N/A",
-      job_net_weight = "N/A",
-      gross_weight = "N/A",
-      line_no = "N/A",
-      no_of_pkgs = "N/A"
-    } = row.original;
+      gateway_igm_date,
+      gateway_igm,
+      igm_date,
+      igm_no,
+      job_net_weight,
+      gross_weight,
+      line_no,
+      no_of_pkgs
+    } = cell.row.original;
     
     return (
-      <div style={{ lineHeight: "1.4", fontSize: "12px" }}>
-        {/* Gateway IGM Section */}
-        <div><strong>Gateway IGM:</strong> {gateway_igm}</div>
-        <div><strong>Gateway Date:</strong> {gateway_igm_date}</div>
-        
-        {/* IGM Section */}
-        <div style={{ marginTop: "4px" }}>
-          <strong>IGM No:</strong> {igm_no}
-        </div>
-        <div><strong>IGM Date:</strong> {igm_date}</div>
-        
-        {/* Weight & Package Section */}
-        <div style={{ marginTop: "4px" }}>
-          <strong>Net Weight:</strong> {job_net_weight}
-        </div>
-        <div><strong>Gross Weight:</strong> {gross_weight}</div>
-        <div><strong>Line No:</strong> {line_no}</div>
-        <div><strong>No of Pkgs:</strong> {no_of_pkgs}</div>
+      <div>
+        <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm)}>
+          <abbr title="Copy Gateway IGM">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm_date)}>
+          <abbr title="Copy Gateway Date">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, igm_no)}>
+          <abbr title="Copy IGM No">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, igm_date)}>
+          <abbr title="Copy IGM Date">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>Net Weight:</strong> {job_net_weight || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, job_net_weight)}>
+          <abbr title="Copy Net Weight">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>Gross Weight:</strong> {gross_weight || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, gross_weight)}>
+          <abbr title="Copy Gross Weight">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>Line No:</strong> {line_no || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, line_no)}>
+          <abbr title="Copy Line No">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
+        <br />
+
+        <strong>No of Pkgs:</strong> {no_of_pkgs || "N/A"}{" "}
+        <IconButton size="small" onClick={(event) => handleCopy(event, no_of_pkgs)}>
+          <abbr title="Copy No of Pkgs">
+            <ContentCopyIcon fontSize="inherit" />
+          </abbr>
+        </IconButton>
       </div>
     );
   },

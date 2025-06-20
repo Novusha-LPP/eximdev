@@ -479,7 +479,7 @@ function JobDetailsStaticData(props) {
         </Col>
       <Col xs={12} lg={5}>
           <strong>Bank Name:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.bankName}</span>
+          <span className="non-editable-text">{props.data.bank_name}</span>
         </Col>
       </Row>
     </div>

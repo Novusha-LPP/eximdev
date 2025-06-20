@@ -492,14 +492,14 @@ function useFetchJobDetails(
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
-          do_completed: values.do_completed,
-          assessable_ammount: values.assessable_ammount,
+          do_completed: values.do_completed,          assessable_ammount: values.assessable_ammount,
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
           bcd_ammount: values.bcd_ammount,
           intrest_ammount: values.intrest_ammount,
           fine_ammount: values.fine_ammount,
           penalty_ammount: values.penalty_ammount,
+          total_duty: values.total_duty,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -801,8 +801,7 @@ function useFetchJobDetails(
         clearanceValue:
           data.clearanceValue === undefined ? "" : data.clearanceValue,
         duty_paid_date:
-          data.duty_paid_date === undefined ? "" : data.duty_paid_date,
-        assessable_ammount:
+          data.duty_paid_date === undefined ? "" : data.duty_paid_date,        assessable_ammount:
           data.assessable_ammount === undefined ? "" : data.assessable_ammount,
         penalty_ammount:
           data.penalty_ammount === undefined ? "" : data.penalty_ammount,
@@ -813,6 +812,7 @@ function useFetchJobDetails(
         intrest_ammount:
           data.intrest_ammount === undefined ? "" : data.intrest_ammount,
         bcd_ammount: data.bcd_ammount === undefined ? "" : data.bcd_ammount,
+        total_duty: data.total_duty === undefined ? "" : data.total_duty,
 
         do_copies: data.do_copies === undefined ? [] : data.do_copies,
         do_queries: data.do_queries === undefined ? [] : data.do_queries,

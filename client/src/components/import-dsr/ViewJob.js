@@ -10,6 +10,7 @@ import {
   InputLabel,
   Select,
   Typography,
+  Chip,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import "../../styles/job-details.scss";
@@ -146,18 +147,22 @@ function JobDetails() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editValues, setEditValues] = useState({});
+  const [isEditMode, setIsEditMode] = useState(false);  const [editValues, setEditValues] = useState({});
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [igstValues, setIgstValues] = useState({
+    assessable_ammount: "",
+    igst_ammount: "",
+    bcd_ammount: "",
+    sws_ammount: "",
+    intrest_ammount: "",
+    penalty_ammount: "",
+    fine_ammount: "",
+    bcdRate: "",
+    swsRate: "10",
+    igstRate: "",
+  });
 
-  const formatDateTime = (date) => {
-    return date ? new Date(date).toISOString().slice(0, 16) : "";
-  };
-
-  const [isSubmissionDate, setIsSubmissiondate] = useState(false);
-
-  // useEffect to watch for changes in submission_completed_date_time
-
+ 
   const {
     data,
     detentionFrom,
@@ -209,6 +214,154 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+  const formatDateTime = (date) => {
+    return date ? new Date(date).toISOString().slice(0, 16) : "";
+  };
+  const [isSubmissionDate, setIsSubmissiondate] = useState(false);
+
+  // Utility function to calculate number of days between two dates
+  const calculateDaysBetween = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // Calculate interest amount
+  const calculateInterestAmount = () => {
+    const totalDuty = parseFloat(igstValues.bcd_ammount || 0) + 
+                     parseFloat(igstValues.sws_ammount || 0) + 
+                     parseFloat(igstValues.igst_ammount || 0);
+    
+    const assessmentDate = formik.values.assessment_date;
+    const dutyPaidDate = formik.values.duty_paid_date;
+    
+    if (totalDuty <= 0 || !assessmentDate || !dutyPaidDate) return 0;
+    
+    const assessmentDateObj = new Date(assessmentDate);
+    const dutyPaidDateObj = new Date(dutyPaidDate);
+    
+    if (isNaN(assessmentDateObj.getTime()) || isNaN(dutyPaidDateObj.getTime())) return 0;
+    if (dutyPaidDateObj <= assessmentDateObj) return 0;
+    
+    const daysBetween = calculateDaysBetween(assessmentDate, dutyPaidDate);
+    const interestAmount = ((totalDuty * 15 / 100) / 365) * daysBetween;
+    
+    return Math.round(interestAmount * 100) / 100;
+  };
+
+  // Calculate penalty amount
+  const calculatePenaltyAmount = () => {
+    const beDate = formik.values.assessment_date || formik.values.be_date;
+    
+    // Get arrival_date from containers (use the first container that has arrival_date)
+    const containerWithArrival = formik.values.container_nos?.find(c => c.arrival_date);
+    const arrivalDate = containerWithArrival ? containerWithArrival.arrival_date : null;
+    
+    if (!arrivalDate) return 0;
+    
+    const arrivalDateObj = new Date(arrivalDate);
+    const beDateObj = beDate ? new Date(beDate) : null;
+    
+    if (isNaN(arrivalDateObj.getTime())) return 0;
+    
+    // If be_date and arrival_date are same day
+    if (beDateObj && !isNaN(beDateObj.getTime()) && 
+        arrivalDateObj.toDateString() === beDateObj.toDateString()) {
+      return 5000;
+    }
+    
+    // If arrival_date is present and be_date is not present
+    if (!beDate) {
+      const today = new Date();
+      const daysBetween = calculateDaysBetween(arrivalDate, today);
+      let penalty = 0;
+      
+      for (let i = 1; i <= daysBetween; i++) {
+        penalty += i <= 3 ? 5000 : 10000;
+      }
+      return penalty;
+    }
+    
+    // If both dates are present and be_date is after arrival_date
+    if (beDateObj && !isNaN(beDateObj.getTime()) && beDateObj > arrivalDateObj) {
+      const daysBetween = calculateDaysBetween(arrivalDate, beDate);
+      let penalty = 0;
+      
+      for (let i = 1; i <= daysBetween; i++) {
+        penalty += i <= 3 ? 5000 : 10000;
+      }
+      return penalty;
+    }
+    
+    return 0;
+  };
+  // Calculate duty amounts based on assessable value
+  const calculateDutyAmounts = () => {
+    const assessableValue = parseFloat(igstValues.assessable_ammount || 0);
+    const bcdRate = parseFloat(igstValues.bcdRate || 0);
+    const swsRate = parseFloat(igstValues.swsRate || 10);
+    const igstRate = parseFloat(igstValues.igstRate || 0);
+    
+    if (assessableValue <= 0) return;
+    
+    const bcdAmount = (assessableValue * bcdRate) / 100;
+    const swsAmount = (bcdAmount * swsRate) / 100; // SWS is calculated only on assessable value
+    const igstAmount = ((assessableValue + bcdAmount + swsAmount) * igstRate) / 100;
+    
+    setIgstValues(prev => ({
+      ...prev,
+      bcd_ammount: bcdAmount.toFixed(2),
+      sws_ammount: swsAmount.toFixed(2),
+      igst_ammount: igstAmount.toFixed(2)
+    }));
+  };
+
+  // Auto-calculate duty amounts when rates or assessable value change
+  useEffect(() => {
+    const timeoutId = setTimeout(calculateDutyAmounts, 100);
+    return () => clearTimeout(timeoutId);
+  }, [igstValues.assessable_ammount, igstValues.bcdRate, igstValues.swsRate, igstValues.igstRate]);
+
+  // Auto-calculate interest and penalty when relevant values change
+  useEffect(() => {
+    const interestAmount = calculateInterestAmount();
+    const penaltyAmount = calculatePenaltyAmount();
+    
+    setIgstValues(prev => ({
+      ...prev,
+      intrest_ammount: interestAmount.toFixed(2),
+      penalty_ammount: penaltyAmount.toFixed(2)
+    }));
+  }, [
+    igstValues.bcd_ammount, 
+    igstValues.sws_ammount, 
+    igstValues.igst_ammount, 
+    formik.values.assessment_date, 
+    formik.values.duty_paid_date,
+    formik.values.be_date,
+    formik.values.container_nos // Add containers to watch for arrival_date changes
+  ]);
+
+  // Initialize IGST values from formik when component loads or data changes
+  useEffect(() => {
+    setIgstValues({
+      assessable_ammount: formik.values.assessable_ammount || "",
+      igst_ammount: formik.values.igst_ammount || "",
+      bcd_ammount: formik.values.bcd_ammount || "",
+      sws_ammount: formik.values.sws_ammount || "",
+      intrest_ammount: formik.values.intrest_ammount || "",
+      penalty_ammount: formik.values.penalty_ammount || "",
+      fine_ammount: formik.values.fine_ammount || "",
+      bcdRate: "",
+      swsRate: "10",
+      igstRate: formik.values.igst_rate || "",
+    });
+  }, [formik.values.assessable_ammount, formik.values.igst_ammount, formik.values.bcd_ammount, formik.values.sws_ammount, formik.values.intrest_ammount, formik.values.penalty_ammount, formik.values.fine_ammount, formik.values.igst_rate]);
+
+  // useEffect to watch for changes in submission_completed_date_time
+
 
   useEffect(() => {
     const submissionDateTime = formik.values.submission_completed_date_time;
@@ -553,19 +706,93 @@ function JobDetails() {
       );
     }
     handleCloseDialog();
-  };
+  };  // Duty Modal Handlers
+  const handleOpenDutyModal = async () => {
+    // Initialize IGST values from formik
+    setIgstValues({
+      assessable_ammount: formik.values.assessable_ammount || "",
+      igst_ammount: formik.values.igst_ammount || "",
+      bcd_ammount: formik.values.bcd_ammount || "",
+      sws_ammount: formik.values.sws_ammount || "",
+      intrest_ammount: formik.values.intrest_ammount || "",
+      penalty_ammount: formik.values.penalty_ammount || "",
+      fine_ammount: formik.values.fine_ammount || "",
+      bcdRate: "",
+      swsRate: "10",
+      igstRate: formik.values.igst_rate || "",
+    });
 
-  // Duty Modal Handlers
-  const handleOpenDutyModal = () => {
+    // Check if there's a CTH number to fetch duty details
+    if (formik.values.cth_no) {
+      try {
+        const apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9000';
+        const response = await fetch(`${apiUrl}/jobs/${params.job_no}/update-duty-from-cth`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ cth_no: formik.values.cth_no }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('CTH Response:', result);
+          
+          // Extract rates from CTH data
+          const bcdSchRate = parseFloat(result.addedFields?.cth_basic_duty_sch || 0);
+          const bcdNtfnRate = parseFloat(result.addedFields?.cth_basic_duty_ntfn || 0);
+          const bcdRate = Math.max(bcdSchRate, isNaN(bcdNtfnRate) ? 0 : bcdNtfnRate);
+          
+          setIgstValues(prev => ({
+            ...prev,
+            // Set the rates for calculation
+            bcdRate: bcdRate.toString(),
+            igstRate: result.addedFields?.cth_igst_ammount || prev.igstRate,
+            swsRate: "10", // Keep default SWS rate
+            // Pre-populate amounts if assessable amount exists
+            ...(prev.assessable_ammount && {
+              bcd_ammount: result.addedFields?.cth_bcd_ammount || prev.bcd_ammount,
+              sws_ammount: result.addedFields?.cth_sws_ammount || prev.sws_ammount,
+              igst_ammount: result.addedFields?.cth_igst_ammount || prev.igst_ammount,
+            })
+          }));
+        }
+      } catch (error) {
+        console.error('Error in CTH duty lookup:', error);
+      }
+    }
+
+    // Open the modal regardless of CTH lookup result
     setDutyModalOpen(true);
   };
 
   const handleCloseDutyModal = () => {
     setDutyModalOpen(false);
   };
-
   const handleDutySubmit = async () => {
     try {
+      // Calculate total duty
+      const totalDuty = (
+        parseFloat(igstValues.bcd_ammount || 0) +
+        parseFloat(igstValues.igst_ammount || 0) +
+        parseFloat(igstValues.sws_ammount || 0) +
+        parseFloat(igstValues.intrest_ammount || 0) +
+        parseFloat(igstValues.penalty_ammount || 0) +
+        parseFloat(igstValues.fine_ammount || 0)
+      ).toFixed(2);
+
+      // Update formik values with IGST values
+      formik.setFieldValue('assessable_ammount', igstValues.assessable_ammount);
+      formik.setFieldValue('igst_ammount', igstValues.igst_ammount);
+      formik.setFieldValue('bcd_ammount', igstValues.bcd_ammount);
+      formik.setFieldValue('sws_ammount', igstValues.sws_ammount);
+      formik.setFieldValue('intrest_ammount', igstValues.intrest_ammount);
+      formik.setFieldValue('penalty_ammount', igstValues.penalty_ammount);
+      formik.setFieldValue('fine_ammount', igstValues.fine_ammount);
+      formik.setFieldValue('total_duty', totalDuty);
+      
       // Submit the form using existing formik submit
       await formik.submitForm();
       setDutyModalOpen(false);
@@ -573,10 +800,9 @@ function JobDetails() {
       console.error("Error submitting duty data:", error);
     }
   };
-
   // Check if duty_paid_date should be disabled
   const isDutyPaidDateDisabled =
-    !formik.values.assessment_date || !formik.values.igst_ammount;
+    !formik.values.assessment_date || !igstValues.igst_ammount;
 
   //
   // Ref to JobStickerPDF component
@@ -2484,8 +2710,7 @@ function JobDetails() {
                     onChange={formik.handleChange}
                   />
                 </div>
-              </Col>{" "}
-              <Col xs={12} lg={4}>
+              </Col>{" "}              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Duty Paid Date:&nbsp;</strong>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -2517,14 +2742,35 @@ function JobDetails() {
                       color="error"
                       sx={{ mt: 1, display: "block" }}
                     >
-                      Please fill Assessment Date and IGST Amount to enable this
-                      field
+                      Please add Assessment Date and IGST Amount details first
                     </Typography>
-                  )}
-                </div>
+                  )}                </div>
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Total Duty Amount:&nbsp;</strong>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    backgroundColor: '#f8f9fa', 
+                    borderRadius: '6px',
+                    border: '1px solid #dee2e6',
+                    textAlign: 'center'
+                  }}>
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: "bold", 
+                      color: "#495057",
+                      fontSize: '16px'
+                    }}>
+                      ₹{formik.values.total_duty ? 
+                        parseFloat(formik.values.total_duty).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : 
+                        '0.00'
+                      }
+                    </Typography>
+                  </Box>
+                </div>
+              </Col>
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Out of Charge Date:&nbsp;</strong>
@@ -4177,150 +4423,267 @@ function JobDetails() {
         isEdit={isEditMode}
         editValues={editValues}
         onEditChange={setEditValues}
-      />
-
-      {/* Duty Details Modal */}
-      <Dialog
-        open={dutyModalOpen}
-        onClose={handleCloseDutyModal}
-        maxWidth="md"
-        fullWidth
-      >
+      />      {/* Duty Details Modal */}
+      <Dialog open={dutyModalOpen} onClose={handleCloseDutyModal} maxWidth="md" fullWidth>
         <DialogTitle>
-          <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
-            Duty Payment Details
-          </Typography>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box sx={{ fontSize: '16px', fontWeight: 600, color: '#34495e' }}>
+              💸 Duty Payment Details
+            </Box>
+            {formik.values.cth_no && (
+              <Chip 
+                label={`CTH: ${formik.values.cth_no}`}
+                size="small"
+                sx={{ fontSize: '12px', fontWeight: 600, backgroundColor: '#e8f5e8', color: '#155724' }}
+              />
+            )}
+          </Box>
         </DialogTitle>
-        <DialogContent>
-          {" "}
-          <DialogContentText sx={{ mb: 2 }}>
-            Please fill in the duty payment details below. All amounts should be
-            entered in INR.
-          </DialogContentText>{" "}
-          {/* Assessable Amount - Full Width at Top */}
-          <Box sx={{ mb: 2, mt: 3 }}>
+        
+        <DialogContent sx={{ p: 2, pt: 1 }}>
+          <DialogContentText sx={{ mb: 2, fontSize: '13px', color: '#666' }}>
+            Please fill in the duty payment details below. All amounts should be entered in INR.
+            {formik.values.cth_no && (
+              <Box sx={{ mt: 1, color: 'success.main', fontWeight: 'bold', fontSize: '12px' }}>
+                ✅ CTH rates auto-populated from database
+              </Box>
+            )}
+          </DialogContentText>
+
+          {/* Assessable Amount */}
+          <Box sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+              Assessable Amount (INR)
+            </Typography>
             <TextField
-              label="Assessable Amount (INR)"
-              name="assessable_ammount"
               type="number"
-              value={formik.values.assessable_ammount}
-              onChange={formik.handleChange}
+              value={igstValues.assessable_ammount}
+              onChange={(e) => setIgstValues({ ...igstValues, assessable_ammount: e.target.value })}
               fullWidth
               variant="outlined"
               size="small"
             />
           </Box>
-          {/* Other Fields in 2x2 Grid */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 2,
-            }}
-          >
-            <TextField
-              label="BCD Amount (INR)"
-              name="bcd_ammount"
-              type="number"
-              value={formik.values.bcd_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="IGST Amount (INR)"
-              name="igst_ammount"
-              type="number"
-              value={formik.values.igst_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="SWS Amount (INR)"
-              name="sws_ammount"
-              type="number"
-              value={formik.values.sws_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />{" "}
-            <TextField
-              label="Interest Amount (INR)"
-              name="intrest_ammount"
-              type="number"
-              value={formik.values.intrest_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="Penalty Amount (INR)"
-              name="penalty_ammount"
-              type="number"
-              value={formik.values.penalty_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="Fine Amount (INR)"
-              name="fine_ammount"
-              type="number"
-              value={formik.values.fine_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
+
+          {/* Main Grid Layout */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+            {/* BCD */}
+            <Box>
+              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+                BCD Rate (%)
+              </Typography>
+              <TextField
+                type="number"
+                value={igstValues.bcdRate}
+                onChange={(e) => setIgstValues({ ...igstValues, bcdRate: e.target.value })}
+                size="small"
+                fullWidth
+                placeholder="Enter BCD rate"
+              />
+              <Box sx={{ 
+                mt: 0.5, 
+                p: 0.5, 
+                backgroundColor: '#e8f5e8', 
+                borderRadius: '4px',
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#28a745'
+              }}>
+                ₹{parseFloat(igstValues.bcd_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Box>
+            </Box>
+
+            {/* SWS */}
+            <Box>
+              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+                SWS Rate (%)
+              </Typography>
+              <TextField
+                type="number"
+                value={igstValues.swsRate}
+                onChange={(e) => setIgstValues({ ...igstValues, swsRate: e.target.value })}
+                size="small"
+                fullWidth
+                placeholder="Default: 10%"
+              />
+              <Box sx={{ 
+                mt: 0.5, 
+                p: 0.5, 
+                backgroundColor: '#e8f5e8', 
+                borderRadius: '4px',
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#28a745'
+              }}>
+                ₹{parseFloat(igstValues.sws_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Box>
+            </Box>
+
+            {/* IGST */}
+            <Box>
+              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+                IGST Rate (%)
+              </Typography>
+              <TextField
+                type="number"
+                value={igstValues.igstRate}
+                onChange={(e) => setIgstValues({ ...igstValues, igstRate: e.target.value })}
+                size="small"
+                fullWidth
+                placeholder="Enter IGST rate"
+              />
+              <Box sx={{ 
+                mt: 0.5, 
+                p: 0.5, 
+                backgroundColor: '#e8f5e8', 
+                borderRadius: '4px',
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#28a745'
+              }}>
+                ₹{parseFloat(igstValues.igst_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Box>
+            </Box>
+
+            {/* Interest Amount */}
+            <Box>
+              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+                Interest Amount (Auto-calculated)
+              </Typography>
+              <Box sx={{ 
+                p: 1, 
+                backgroundColor: '#fff3cd', 
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#856404',
+                textAlign: 'center',
+                border: '1px solid #ffeaa7'
+              }}>
+                ₹{parseFloat(igstValues.intrest_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Box>
+              <Typography sx={{ fontSize: '10px', color: '#666', fontStyle: 'italic', mt: 0.5 }}>
+                15% per annum between assessment & payment dates
+              </Typography>
+            </Box>
+
+            {/* Penalty Amount */}
+            <Box>
+              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+                Penalty Amount (Auto-calculated)
+              </Typography>
+              <Box sx={{ 
+                p: 1, 
+                backgroundColor: '#f8d7da', 
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#721c24',
+                textAlign: 'center',
+                border: '1px solid #f5c6cb'
+              }}>
+                ₹{parseFloat(igstValues.penalty_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Box>
+              <Typography sx={{ fontSize: '10px', color: '#666', fontStyle: 'italic', mt: 0.5 }}>
+                Based on BE date vs arrival date comparison
+              </Typography>
+            </Box>
+
+            {/* Fine Amount */}
+            <Box sx={{ gridColumn: 'span 2' }}>
+              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
+                Fine Amount (INR)
+              </Typography>
+              <TextField
+                type="number"
+                value={igstValues.fine_ammount}
+                onChange={(e) => setIgstValues({ ...igstValues, fine_ammount: e.target.value })}
+                size="small"
+                fullWidth
+                placeholder="Enter fine amount"
+              />
+            </Box>
           </Box>
-          {/* Total Calculation Display */}
-          <Box
-            sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}
-          >
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              Total Summary
-            </Typography>{" "}
-            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-              BCD: ₹{formik.values.bcd_ammount || "0.00"} + IGST: ₹
-              {formik.values.igst_ammount || "0.00"} + SWS: ₹
-              {formik.values.sws_ammount || "0.00"} + Interest: ₹
-              {formik.values.intrest_ammount || "0.00"} + Penalty: ₹
-              {formik.values.penalty_ammount || "0.00"} + Fine: ₹
-              {formik.values.fine_ammount || "0.00"}
+
+          {/* Total Summary */}
+          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f8f9fa", borderRadius: 2, border: '1px solid #dee2e6' }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1, fontSize: '14px', color: '#495057' }}>
+              📊 Total Summary
             </Typography>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: "bold", mt: 2, color: "primary.main" }}
-            >
-              Total Duty: ₹
-              {(
-                parseFloat(formik.values.bcd_ammount || 0) +
-                parseFloat(formik.values.igst_ammount || 0) +
-                parseFloat(formik.values.sws_ammount || 0) +
-                parseFloat(formik.values.intrest_ammount || 0) +
-                parseFloat(formik.values.penalty_ammount || 0) +
-                parseFloat(formik.values.fine_ammount || 0)
-              ).toFixed(2)}
-            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 1 }}>
+              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
+                BCD: ₹{parseFloat(igstValues.bcd_ammount || 0).toFixed(2)}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
+                SWS: ₹{parseFloat(igstValues.sws_ammount || 0).toFixed(2)}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
+                IGST: ₹{parseFloat(igstValues.igst_ammount || 0).toFixed(2)}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
+                Interest: ₹{parseFloat(igstValues.intrest_ammount || 0).toFixed(2)}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
+                Penalty: ₹{parseFloat(igstValues.penalty_ammount || 0).toFixed(2)}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
+                Fine: ₹{parseFloat(igstValues.fine_ammount || 0).toFixed(2)}
+              </Typography>
+            </Box>
+            <Box sx={{ 
+              p: 1.5, 
+              backgroundColor: '#ffeaa7', 
+              borderRadius: '6px',
+              border: '2px solid #fdcb6e'
+            }}>
+              <Typography variant="h6" sx={{ 
+                fontWeight: "bold", 
+                color: "#2d3436",
+                fontSize: '16px',
+                textAlign: 'center'
+              }}>
+                💰 Total Duty: ₹{(
+                  parseFloat(igstValues.bcd_ammount || 0) +
+                  parseFloat(igstValues.igst_ammount || 0) +
+                  parseFloat(igstValues.sws_ammount || 0) +
+                  parseFloat(igstValues.intrest_ammount || 0) +
+                  parseFloat(igstValues.penalty_ammount || 0) +
+                  parseFloat(igstValues.fine_ammount || 0)
+                ).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Typography>
+            </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDutyModal} color="secondary">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDutySubmit}
-            color="primary"
-            variant="contained"
-          >
-            Save & Update
-          </Button>
+        
+        <DialogActions sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="caption" sx={{ 
+            fontSize: '10px', 
+            color: '#666', 
+            fontStyle: 'italic'
+          }}>
+            ⚠️ Interest & penalty amounts are auto-calculated
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              onClick={handleCloseDutyModal} 
+              size="small" 
+              variant="outlined"
+              color="secondary"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDutySubmit}
+              size="small"
+              variant="contained"
+              color="primary"
+            >
+              Save & Update
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </>

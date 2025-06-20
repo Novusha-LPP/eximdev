@@ -42,6 +42,7 @@ import getUserData from "./routes/getUserData.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
 import handleS3Deletation from "./routes/handleS3Deletation.mjs";
+import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
@@ -342,8 +343,8 @@ if (cluster.isPrimary) {
       });
       // app.use(updateJobCount);
       app.use(getAllUsers);
-      app.use(getImporterList);
-      app.use(getJobById);
+      app.use(getImporterList);      app.use(getJobById);
+      app.use(updateDutyFromCth);
       app.use(getUser);
       app.use(getUserData);
       app.use(getYears);

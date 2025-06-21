@@ -468,6 +468,34 @@ function Submission() {
             ) : (
               <div>No Documents Available</div>
             )}
+          </div>        );
+      },
+    },
+    {
+      accessorKey: "be_filing_info",
+      header: "BE Filing",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        const { be_filing_type, be_date } = row.original;
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {be_filing_type && (
+              <div style={{ marginBottom: "5px", fontWeight: "bold" }}>
+                Type: {be_filing_type}
+              </div>
+            )}
+            {be_date && (
+              <div style={{ fontSize: "12px", color: "#555" }}>
+                Date: {new Date(be_date).toLocaleDateString()}
+              </div>
+            )}
+            {!be_filing_type && !be_date && (
+              <div style={{ color: "#999", fontStyle: "italic" }}>
+                No BE Filing Info
+              </div>
+            )}
           </div>
         );
       },

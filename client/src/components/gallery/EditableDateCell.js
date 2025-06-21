@@ -413,13 +413,11 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     setDateError("");
   };
 
-  const validateDate = (dateString) => {
-    if (!dateString || dateString.trim() === "") return true;
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return false;
-    const year = date.getFullYear();
-    return year >= 2000 && year <= 2100;
-  };
+const validateDate = (dateString) => {
+  if (!dateString || dateString.trim() === "") return true;
+  const date = new Date(dateString);
+  return !isNaN(date.getTime()); // Only check if valid date
+};
 
   const handleDateInputChange = (e) => {
     setTempDateValue(e.target.value);
@@ -430,23 +428,40 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     setTempDateValue(e.target.value);
   };
 
-  const handleDateSubmit = (field, index = null) => {
-    if (!validateDate(tempDateValue)) {
+  // Add this to prevent unnecessary state resets
+useEffect(() => {
+  // Only reset when job data actually changes
+  if (cell.row.original._id !== _id) {
+    // Your existing reset logic...
+  }
+}, [cell.row.original]);
+const handleDateSubmit = async (field, index = null) => {
+    // Allow clearing dates
+    if (tempDateValue === "") {
+      finalValue = "";
+    } 
+    // Validate non-empty dates
+    else if (!validateDate(tempDateValue)) {
       setDateError("Please enter a valid date");
       return;
     }
 
     let finalValue = tempDateValue;
-
-    if ((field === "container_rail_out_date" || field === "by_road_movement_date") && tempTimeValue) {
-      finalValue = `${tempDateValue}T${tempTimeValue}`;
+    
+    // Special handling for rail-out and by-road dates
+    if (field === "container_rail_out_date" || field === "by_road_movement_date") {
+      // Extract only date portion (YYYY-MM-DD)
+      finalValue = tempDateValue.split('T')[0];
     }
 
     if (index !== null) {
+      const oldContainers = [...containers];
+      
       const updatedContainers = containers.map((container, i) => {
         if (i === index) {
-          const updatedContainer = { ...container, [field]: finalValue };
+          const updatedContainer = { ...container, [field]: finalValue || null };
 
+          // Auto-calculate detention date
           if (field === "arrival_date") {
             if (!finalValue) {
               updatedContainer.detention_from = "";
@@ -455,7 +470,7 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
               const freeDays = parseInt(localFreeTime) || 0;
               const detentionDate = new Date(arrival);
               detentionDate.setDate(detentionDate.getDate() + freeDays);
-              updatedContainer.detention_from = detentionDate.toISOString().slice(0, 10);
+              updatedContainer.detention_from = detentionDate.toISOString().split('T')[0];
             }
           }
           return updatedContainer;
@@ -463,26 +478,41 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         return container;
       });
 
+      // Optimistic update
       setContainers(updatedContainers);
-      axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        container_nos: updatedContainers,
-      }).then(() => {
+      
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          container_nos: updatedContainers,
+        });
         setEditable(null);
         updateDetailedStatus();
-      }).catch((err) => console.error("Error Updating:", err));
+      } catch (err) {
+        console.error("Error Updating Container:", err);
+        // Revert on error
+        setContainers(oldContainers);
+      }
     } else {
-      setDates((prev) => {
-        const newDates = { ...prev, [field]: finalValue };
-        axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          [field]: finalValue,
-        }).then(() => {
-          setEditable(null);
-          updateDetailedStatus();
-        }).catch((err) => console.error("Error Updating:", err));
-        return newDates;
-      });
+      const oldDates = { ...dates };
+      const newDates = { ...dates, [field]: finalValue || null };
+      
+      // Optimistic update
+      setDates(newDates);
+      
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          [field]: finalValue || null,
+        });
+        setEditable(null);
+        updateDetailedStatus();
+      } catch (err) {
+        console.error(`Error Updating ${field}:`, err);
+        // Revert on error
+        setDates(oldDates);
+      }
     }
   };
+
 
   const handleFreeTimeChange = (value) => {
     setLocalFreeTime(value);

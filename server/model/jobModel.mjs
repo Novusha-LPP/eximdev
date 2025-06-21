@@ -54,6 +54,7 @@ const jobSchema = new mongoose.Schema({
   be_no: { type: String, trim: true },
   in_bond_be_no: { type: String, trim: true },
   be_date: { type: String, trim: true },
+  be_filing_type: { type: String, trim: true },
   in_bond_be_date: { type: String, trim: true },
   type_of_b_e: { type: String, trim: true },
   no_of_pkgs: { type: String, trim: true },

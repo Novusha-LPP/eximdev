@@ -327,6 +327,7 @@ function useFetchJobDetails(
       be_no: "",
       in_bond_be_no: "",
       be_date: "",
+      be_filing_type: "",
       in_bond_be_date: "",
       discharge_date: "",
       status: "",
@@ -453,6 +454,7 @@ function useFetchJobDetails(
           be_no: values.be_no,
           in_bond_be_no: values.in_bond_be_no,
           be_date: values.be_date,
+          be_filing_type: values.be_filing_type,
           in_bond_be_date: values.in_bond_be_date,
           discharge_date: values.discharge_date,
           assessment_date: values.assessment_date,
@@ -786,6 +788,7 @@ function useFetchJobDetails(
         in_bond_be_no:
           data.in_bond_be_no === undefined ? "" : data.in_bond_be_no,
         be_date: data.be_date === undefined ? "" : data.be_date,
+        be_filing_type: data.be_filing_type === undefined ? "" : data.be_filing_type,
         in_bond_be_date:
           data.in_bond_be_date === undefined ? "" : data.in_bond_be_date,
         discharge_date:

@@ -2316,7 +2316,8 @@ function JobDetails() {
                     InputLabelProps={{ shrink: true }}
                   />
                 </div>
-              </Col>
+              </Col>          
+           
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Assessment Date:&nbsp;</strong>
@@ -2375,6 +2376,75 @@ function JobDetails() {
     )}
   </div>
 </Col>
+
+            <Col
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>BOE Filing:&nbsp;</strong>
+
+                  <RadioGroup
+                    row
+                    name="be_filing_type"
+                    value={formik.values.be_filing_type || ""}
+                    onChange={formik.handleChange}
+                    sx={{ alignItems: "center" }}
+                    disabled={isSubmissionDate}
+                  >
+                    <FormControlLabel
+                      value="Discharge"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Discharge"
+                      disabled={
+                        isSubmissionDate ||
+                        !formik.values.discharge_date ||
+                        !formik.values.gateway_igm_date ||
+                        !formik.values.esanchit_completed_date_time ||
+                        !formik.values.documentation_completed_date_time
+                      }
+                    />
+                    <FormControlLabel
+                      value="Railout"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Railout"
+                      disabled={
+                        isSubmissionDate ||
+                        !formik.values.discharge_date ||
+                        !formik.values.gateway_igm_date ||
+                        !formik.values.esanchit_completed_date_time ||
+                        !formik.values.documentation_completed_date_time ||
+                        !formik.values.container_nos?.length ||
+                        !formik.values.container_nos.every((container) => container.container_rail_out_date)
+                      }
+                    />
+                    <FormControlLabel
+                      value="Advanced"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Advanced"
+                      disabled={isSubmissionDate}
+                    />
+                    <FormControlLabel
+                      value="Prior"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Prior"
+                      disabled={isSubmissionDate}
+                    />
+                  </RadioGroup>
+                </div>
+              </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>

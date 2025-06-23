@@ -142,6 +142,8 @@ function useFetchJobDetails(
       { value: "EPCG", label: "EPCG" },
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
     "Ex-Bond": [
@@ -150,6 +152,8 @@ function useFetchJobDetails(
       { value: "EPCG", label: "EPCG" },
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
     ],
   };
 

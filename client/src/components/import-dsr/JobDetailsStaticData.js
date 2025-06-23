@@ -460,6 +460,33 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.job_net_weight}</span>
         </Col>
       </Row>
+
+           <Row className="job-detail-row">
+      <Col xs={12} lg={5}>
+          <strong>G-IGM No:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.gateway_igm}</span>
+        </Col>
+      <Col xs={12} lg={3}>
+          <strong>G-IGM Date:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.gateway_igm_date}</span>
+        </Col>
+     <Col xs={12} lg={3}>
+          <strong>Line No:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.line_no}</span>
+        </Col>
+      </Row>
+      <Row className="job-detail-row">
+     
+              <Col xs={12} lg={5}>
+          <strong>IGM No:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.igm_no}</span>
+        </Col>
+              <Col xs={12} lg={3}>
+          <strong>IGM Date:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.igm_date}</span>
+        </Col>
+      </Row>
+      
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
           <strong>HSS:&nbsp;</strong>
@@ -472,16 +499,17 @@ function JobDetailsStaticData(props) {
           )}
         </Col>
       </Row>
-      <Row>
+      <Row className="job-detail-row">
       <Col xs={12} lg={5}>
           <strong>Ad Code:&nbsp;</strong>
           <span className="non-editable-text">{props.data.adCode}</span>
         </Col>
-      <Col xs={12} lg={5}>
+      <Col xs={12} lg={3}>
           <strong>Bank Name:&nbsp;</strong>
           <span className="non-editable-text">{props.data.bank_name}</span>
         </Col>
       </Row>
+ 
     </div>
   );
 }

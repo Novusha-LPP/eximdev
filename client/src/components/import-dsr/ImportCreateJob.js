@@ -472,7 +472,7 @@ const ImportCreateJob = () => {
 {/* FCL/LCL Selector */}
 <Grid item xs={12} md={6}>
   <Typography variant="body1" style={{ fontWeight: 600 }}>
-    Custom House:
+     House:
   </Typography>
   <FormControlLabel
     control={
@@ -482,7 +482,7 @@ const ImportCreateJob = () => {
         color="primary"
       />
     }
-    label="Custom House"
+    label="House"
   />
 </Grid>
 

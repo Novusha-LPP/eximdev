@@ -135,19 +135,19 @@ function JobList(props) {
       selectedICD,
       debouncedSearchQuery,
       selectedImporter
-    );
-
-  // Callback to update row data when status changes in EditableDateCell
-  const handleRowDataUpdate = useCallback((jobId, newStatus) => {
+    );  // Callback to update row data when data changes in EditableDateCell
+  const handleRowDataUpdate = useCallback((jobId, updatedData) => {
+    console.log('JobList: Updating row data for job:', jobId, 'with data:', updatedData);
     setRows(prevRows => 
       prevRows.map(row => 
         row._id === jobId 
-          ? { ...row, detailed_status: newStatus }
+          ? { ...row, ...updatedData }
           : row
       )
     );
     // Also increment refreshTrigger to force getRowProps to recalculate
-    setRefreshTrigger(prev => prev + 1);  }, [setRows]);
+    setRefreshTrigger(prev => prev + 1);
+  }, [setRows]);
 
   // Determine current tab index based on status
   const getCurrentTabIndex = () => {

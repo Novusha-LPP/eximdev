@@ -10,6 +10,7 @@ import {
   InputLabel,
   Select,
   Typography,
+  Chip,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import "../../styles/job-details.scss";
@@ -45,11 +46,13 @@ import {
 } from "@mui/material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
+import { TabContext } from "../documentation/DocumentationTab.js";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 
 function JobDetails() {
+  const { currentTab } = useContext(TabContext); // Access context
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -62,19 +65,22 @@ function JobDetails() {
     setSelectedImporter,
   } = useSearchQuery();
 
-  const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
-    if (location.state && location.state.fromJobList) {
+ const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
+    if (location.state && (location.state.fromJobList || location.state.currentTab !== undefined)) {
       const { searchQuery, detailedStatus, selectedICD, selectedImporter, currentTab } =
         location.state;
+
       setStoredSearchParams({
-        searchQuery,
-        detailedStatus,
-        selectedICD,
-        selectedImporter,
+        searchQuery: searchQuery || "",
+        detailedStatus: detailedStatus || "",
+        selectedICD: selectedICD || "",
+        selectedImporter: selectedImporter || "",
         currentTab,
       });
     }
   }, [location.state]);
+
+
 
   // const handleBackClick = () => {
   //   navigate('/import-dsr', {
@@ -89,8 +95,25 @@ function JobDetails() {
   //     }
   //   });
   // };
-  const handleBackClick = () => {
-    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to Completed tab (index 1)
+  React.useEffect(() => {
+    // Clear search state when this tab becomes active, unless coming from job details
+    if (
+      currentTab === 1 &&
+      !(location.state && location.state.fromJobDetails)
+    ) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
+
+  React.useEffect(() => {
+      // Clear search state when this tab becomes active, unless coming from job details
+      if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
+        setSearchQuery("");
+        setSelectedImporter("");
+      }
+    }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0; // Use the actual current tab
     navigate("/import-dsr", {
       state: {
         fromJobDetails: true,
@@ -102,7 +125,9 @@ function JobDetails() {
           selectedImporter: storedSearchParams.selectedImporter,
         }),
       },
-    });  };
+    });
+  };
+
 
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
@@ -123,14 +148,22 @@ function JobDetails() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editValues, setEditValues] = useState({});
+  const [isEditMode, setIsEditMode] = useState(false);  const [editValues, setEditValues] = useState({});
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [igstValues, setIgstValues] = useState({
+    assessable_ammount: "",
+    igst_ammount: "",
+    bcd_ammount: "",
+    sws_ammount: "",
+    intrest_ammount: "",
+    penalty_ammount: "",
+    fine_ammount: "",
+    bcdRate: "",
+    swsRate: "10",
+    igstRate: "",
+  });
 
-  const formatDateTime = (date) => {
-    return date ? new Date(date).toISOString().slice(0, 16) : "";
-  };
-
+ 
   const {
     data,
     detentionFrom,
@@ -182,6 +215,179 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+  const formatDateTime = (date) => {
+    return date ? new Date(date).toISOString().slice(0, 16) : "";
+  };
+  const [isSubmissionDate, setIsSubmissiondate] = useState(false);
+
+  // Utility function to calculate number of days between two dates
+  const calculateDaysBetween = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // Calculate interest amount
+  const calculateInterestAmount = () => {
+    const totalDuty = parseFloat(igstValues.bcd_ammount || 0) + 
+                     parseFloat(igstValues.sws_ammount || 0) + 
+                     parseFloat(igstValues.igst_ammount || 0);
+    
+    const assessmentDate = formik.values.assessment_date;
+    const dutyPaidDate = formik.values.duty_paid_date;
+    
+    if (totalDuty <= 0 || !assessmentDate || !dutyPaidDate) return 0;
+    
+    const assessmentDateObj = new Date(assessmentDate);
+    const dutyPaidDateObj = new Date(dutyPaidDate);
+    
+    if (isNaN(assessmentDateObj.getTime()) || isNaN(dutyPaidDateObj.getTime())) return 0;
+    if (dutyPaidDateObj <= assessmentDateObj) return 0;
+    
+    const daysBetween = calculateDaysBetween(assessmentDate, dutyPaidDate);
+    const interestAmount = ((totalDuty * 15 / 100) / 365) * daysBetween;
+    
+    return Math.round(interestAmount * 100) / 100;
+  };
+
+  // Calculate penalty amount
+  const calculatePenaltyAmount = () => {
+    const beDate = formik.values.assessment_date || formik.values.be_date;
+    
+    // Get arrival_date from containers (use the first container that has arrival_date)
+    const containerWithArrival = formik.values.container_nos?.find(c => c.arrival_date);
+    const arrivalDate = containerWithArrival ? containerWithArrival.arrival_date : null;
+    
+    if (!arrivalDate) return 0;
+    
+    const arrivalDateObj = new Date(arrivalDate);
+    const beDateObj = beDate ? new Date(beDate) : null;
+    
+    if (isNaN(arrivalDateObj.getTime())) return 0;
+    
+    // If be_date and arrival_date are same day
+    if (beDateObj && !isNaN(beDateObj.getTime()) && 
+        arrivalDateObj.toDateString() === beDateObj.toDateString()) {
+      return 5000;
+    }
+    
+    // If arrival_date is present and be_date is not present
+    if (!beDate) {
+      const today = new Date();
+      const daysBetween = calculateDaysBetween(arrivalDate, today);
+      let penalty = 0;
+      
+      for (let i = 1; i <= daysBetween; i++) {
+        penalty += i <= 3 ? 5000 : 10000;
+      }
+      return penalty;
+    }
+    
+    // If both dates are present and be_date is after arrival_date
+    if (beDateObj && !isNaN(beDateObj.getTime()) && beDateObj > arrivalDateObj) {
+      const daysBetween = calculateDaysBetween(arrivalDate, beDate);
+      let penalty = 0;
+      
+      for (let i = 1; i <= daysBetween; i++) {
+        penalty += i <= 3 ? 5000 : 10000;
+      }
+      return penalty;
+    }
+    
+    return 0;
+  };
+  // Calculate duty amounts based on assessable value
+  const calculateDutyAmounts = () => {
+    const assessableValue = parseFloat(igstValues.assessable_ammount || 0);
+    const bcdRate = parseFloat(igstValues.bcdRate || 0);
+    const swsRate = parseFloat(igstValues.swsRate || 10);
+    const igstRate = parseFloat(igstValues.igstRate || 0);
+    
+    if (assessableValue <= 0) return;
+    
+    const bcdAmount = (assessableValue * bcdRate) / 100;
+    const swsAmount = (bcdAmount * swsRate) / 100; // SWS is calculated only on assessable value
+    const igstAmount = ((assessableValue + bcdAmount + swsAmount) * igstRate) / 100;
+    
+    setIgstValues(prev => ({
+      ...prev,
+      bcd_ammount: bcdAmount.toFixed(2),
+      sws_ammount: swsAmount.toFixed(2),
+      igst_ammount: igstAmount.toFixed(2)
+    }));
+  };  // Auto-calculate duty amounts when rates or assessable value change
+  useEffect(() => {
+    if (igstValues.assessable_ammount && (igstValues.bcdRate || igstValues.swsRate || igstValues.igstRate)) {
+      const timeoutId = setTimeout(calculateDutyAmounts, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [igstValues.assessable_ammount, igstValues.bcdRate, igstValues.swsRate, igstValues.igstRate]);
+
+  // Force calculation when modal opens and values are available
+  useEffect(() => {
+    if (dutyModalOpen && igstValues.assessable_ammount) {
+      // Add a slight delay to ensure all state updates are complete
+      const timeoutId = setTimeout(() => {
+        if (igstValues.bcdRate || igstValues.swsRate || igstValues.igstRate) {
+          calculateDutyAmounts();
+        }
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [dutyModalOpen, igstValues.assessable_ammount, igstValues.bcdRate, igstValues.swsRate, igstValues.igstRate]);
+
+  // Auto-calculate interest and penalty when relevant values change
+  useEffect(() => {
+    const interestAmount = calculateInterestAmount();
+    const penaltyAmount = calculatePenaltyAmount();
+    
+    setIgstValues(prev => ({
+      ...prev,
+      intrest_ammount: interestAmount.toFixed(2),
+      penalty_ammount: penaltyAmount.toFixed(2)
+    }));
+  }, [
+    igstValues.bcd_ammount, 
+    igstValues.sws_ammount, 
+    igstValues.igst_ammount, 
+    formik.values.assessment_date, 
+    formik.values.duty_paid_date,
+    formik.values.be_date,
+    formik.values.container_nos // Add containers to watch for arrival_date changes
+  ]);
+
+  // Initialize IGST values from formik when component loads or data changes
+  useEffect(() => {
+    setIgstValues({
+      assessable_ammount: formik.values.assessable_ammount || "",
+      igst_ammount: formik.values.igst_ammount || "",
+      bcd_ammount: formik.values.bcd_ammount || "",
+      sws_ammount: formik.values.sws_ammount || "",
+      intrest_ammount: formik.values.intrest_ammount || "",
+      penalty_ammount: formik.values.penalty_ammount || "",
+      fine_ammount: formik.values.fine_ammount || "",
+      bcdRate: "",
+      swsRate: "10",
+      igstRate: formik.values.igst_rate || "",
+    });
+  }, [formik.values.assessable_ammount, formik.values.igst_ammount, formik.values.bcd_ammount, formik.values.sws_ammount, formik.values.intrest_ammount, formik.values.penalty_ammount, formik.values.fine_ammount, formik.values.igst_rate]);
+
+  // useEffect to watch for changes in submission_completed_date_time
+
+
+  useEffect(() => {
+    const submissionDateTime = formik.values.submission_completed_date_time;
+
+    // Check if the value is not empty, undefined, or null
+    if (submissionDateTime && submissionDateTime.trim() !== "") {
+      setIsSubmissiondate(true);
+    } else {
+      setIsSubmissiondate(false);
+    }
+  }, [formik.values.submission_completed_date_time]);
+
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
   const [deleveryDate, setDeliveryDate] = useState(false);
@@ -514,19 +720,102 @@ function JobDetails() {
       );
     }
     handleCloseDialog();
-  };
+  };  // Duty Modal Handlers
+  const handleOpenDutyModal = async () => {
+    // Initialize IGST values from formik
+    setIgstValues({
+      assessable_ammount: formik.values.assessable_ammount || "",
+      igst_ammount: formik.values.igst_ammount || "",
+      bcd_ammount: formik.values.bcd_ammount || "",
+      sws_ammount: formik.values.sws_ammount || "",
+      intrest_ammount: formik.values.intrest_ammount || "",
+      penalty_ammount: formik.values.penalty_ammount || "",
+      fine_ammount: formik.values.fine_ammount || "",
+      bcdRate: "",
+      swsRate: "10",
+      igstRate: formik.values.igst_rate || "",
+    });
 
-  // Duty Modal Handlers
-  const handleOpenDutyModal = () => {
+    // Check if there's a CTH number to fetch duty details
+    if (formik.values.cth_no) {
+      try {
+        const apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9000';
+        const response = await fetch(`${apiUrl}/jobs/${params.job_no}/update-duty-from-cth`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ cth_no: formik.values.cth_no }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('CTH Response:', result);
+          
+          // Extract rates from CTH data
+          const bcdSchRate = parseFloat(result.addedFields?.cth_basic_duty_sch || 0);
+          const bcdNtfnRate = parseFloat(result.addedFields?.cth_basic_duty_ntfn || 0);
+          const bcdRate = Math.max(bcdSchRate, isNaN(bcdNtfnRate) ? 0 : bcdNtfnRate);
+            setIgstValues(prev => ({
+            ...prev,
+            // Set the rates for calculation
+            bcdRate: bcdRate.toString(),
+            igstRate: result.addedFields?.cth_igst_ammount || prev.igstRate,
+            swsRate: "10", // Keep default SWS rate
+            // Pre-populate amounts if assessable amount exists
+            ...(prev.assessable_ammount && {
+              bcd_ammount: result.addedFields?.cth_bcd_ammount || prev.bcd_ammount,
+              sws_ammount: result.addedFields?.cth_sws_ammount || prev.sws_ammount,
+              igst_ammount: result.addedFields?.cth_igst_ammount || prev.igst_ammount,
+            })
+          }));
+          
+          // Force calculation after CTH data is loaded
+          setTimeout(() => {
+            calculateDutyAmounts();
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error in CTH duty lookup:', error);
+      }
+    }    // Open the modal regardless of CTH lookup result
     setDutyModalOpen(true);
+    
+    // Force calculation after modal opens if we have the necessary values
+    setTimeout(() => {
+      if (formik.values.assessable_ammount && (formik.values.igst_rate || igstValues.bcdRate || igstValues.swsRate)) {
+        calculateDutyAmounts();
+      }
+    }, 300);
   };
 
   const handleCloseDutyModal = () => {
     setDutyModalOpen(false);
   };
-
   const handleDutySubmit = async () => {
     try {
+      // Calculate total duty
+      const totalDuty = (
+        parseFloat(igstValues.bcd_ammount || 0) +
+        parseFloat(igstValues.igst_ammount || 0) +
+        parseFloat(igstValues.sws_ammount || 0) +
+        parseFloat(igstValues.intrest_ammount || 0) +
+        parseFloat(igstValues.penalty_ammount || 0) +
+        parseFloat(igstValues.fine_ammount || 0)
+      ).toFixed(2);
+
+      // Update formik values with IGST values
+      formik.setFieldValue('assessable_ammount', igstValues.assessable_ammount);
+      formik.setFieldValue('igst_ammount', igstValues.igst_ammount);
+      formik.setFieldValue('bcd_ammount', igstValues.bcd_ammount);
+      formik.setFieldValue('sws_ammount', igstValues.sws_ammount);
+      formik.setFieldValue('intrest_ammount', igstValues.intrest_ammount);
+      formik.setFieldValue('penalty_ammount', igstValues.penalty_ammount);
+      formik.setFieldValue('fine_ammount', igstValues.fine_ammount);
+      formik.setFieldValue('total_duty', totalDuty);
+      
       // Submit the form using existing formik submit
       await formik.submitForm();
       setDutyModalOpen(false);
@@ -534,10 +823,9 @@ function JobDetails() {
       console.error("Error submitting duty data:", error);
     }
   };
-
   // Check if duty_paid_date should be disabled
   const isDutyPaidDateDisabled =
-    !formik.values.assessment_date || !formik.values.igst_ammount;
+    !formik.values.assessment_date || !igstValues.igst_ammount;
 
   //
   // Ref to JobStickerPDF component
@@ -1190,7 +1478,7 @@ function JobDetails() {
                           : formik.values.vessel_berthing
                         : ""
                     }
-                    disabled={ExBondflag}
+                    disabled={ExBondflag || isSubmissionDate}
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1207,6 +1495,7 @@ function JobDetails() {
                     type="datetime-local"
                     id="gateway_igm_date"
                     name="gateway_igm_date"
+                    disabled={ isSubmissionDate}
                     value={
                       formik.values.gateway_igm_date
                         ? formik.values.gateway_igm_date.length === 10
@@ -1214,8 +1503,74 @@ function JobDetails() {
                           : formik.values.gateway_igm_date
                         : ""
                     }
-                    disabled={ExBondflag}
                     onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>G-IGM No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="igm_no"
+                    name="igm_no"
+                    disabled  ={isSubmissionDate}
+                    value={formik.values.gateway_igm || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter IGM No"
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>IGM Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="igm_date"
+                    name="igm_date"
+                    value={
+                      formik.values.igm_date
+                        ? formik.values.igm_date.length === 10
+                          ? `${formik.values.igm_date}T00:00`
+                          : formik.values.igm_date
+                        : ""
+                    }
+                    disabled={ExBondflag || isSubmissionDate}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>IGM No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="igm_no"
+                    name="igm_no"
+                    value={formik.values.igm_no || ""}
+                    disabled={isSubmissionDate}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter IGM No"
                   />
                 </div>
               </Col>
@@ -1231,7 +1586,7 @@ function JobDetails() {
                     type="datetime-local"
                     id="discharge_date"
                     name="discharge_date"
-                    disabled={ExBondflag}
+                    disabled={ExBondflag || isSubmissionDate}
                     value={
                       formik.values.discharge_date
                         ? formik.values.discharge_date.length === 10
@@ -1240,6 +1595,49 @@ function JobDetails() {
                         : ""
                     }
                     onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>Line No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="line_no"
+                    name="line_no"
+                    disabled={isSubmissionDate}
+                    value={formik.values.line_no || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter Line No"
+                  />
+                </div>
+              </Col>
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>No Of packages:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="no_of_pkgs"
+                    name="no_of_pkgs"
+                    disabled={isSubmissionDate}
+                    value={formik.values.no_of_pkgs || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter Line No"
                   />
                 </div>
               </Col>
@@ -1329,6 +1727,7 @@ function JobDetails() {
                     variant="outlined"
                     id="hss"
                     name="hss"
+                    disabled={isSubmissionDate}
                     value={formik.values.hss || "No"}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1353,6 +1752,7 @@ function JobDetails() {
                       variant="outlined"
                       id="saller_name"
                       name="saller_name"
+                      disabled={isSubmissionDate}
                       value={formik.values.saller_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1376,6 +1776,7 @@ function JobDetails() {
                     id="free_time"
                     name="free_time"
                     value={formik.values.free_time || ""}
+                    disabled={isSubmissionDate}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     // disabled={user.role !== "Admin"} // Disable if the user is not Admin
@@ -1402,6 +1803,7 @@ function JobDetails() {
                       variant="outlined"
                       id="adCode"
                       name="adCode"
+                      disabled={isSubmissionDate}
                       value={formik.values.adCode || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1423,6 +1825,7 @@ function JobDetails() {
                       variant="outlined"
                       id="bank_name"
                       name="bank_name"
+                      disabled={isSubmissionDate}
                       value={formik.values.bank_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1450,11 +1853,15 @@ function JobDetails() {
                     value={formik.values.priorityJob || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
+                    disabled={isSubmissionDate}
                   >
                     <FormControlLabel
                       value="normal"
-                      control={<Radio size="small" />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Normal"
+                      disabled={isSubmissionDate}
                       sx={{
                         color: "green",
                         "& .MuiSvgIcon-root": { color: "green" },
@@ -1462,8 +1869,11 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="Priority"
-                      control={<Radio size="small" />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Priority"
+                      disabled={isSubmissionDate}
                       sx={{
                         color: "orange",
                         "& .MuiSvgIcon-root": { color: "orange" },
@@ -1471,8 +1881,11 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="High Priority"
-                      control={<Radio size="small" />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="High Priority"
+                      disabled={isSubmissionDate}
                       sx={{
                         color: "red",
                         "& .MuiSvgIcon-root": { color: "red" },
@@ -1498,11 +1911,15 @@ function JobDetails() {
                     value={formik.values.payment_method || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
+                    disabled={isSubmissionDate}
                   >
                     <FormControlLabel
                       value="Transaction"
-                      control={<Radio size="small" />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Transaction"
+                      disabled={isSubmissionDate}
                       // sx={{
                       //   color: "green",
                       //   "& .MuiSvgIcon-root": { color: "green" },
@@ -1510,8 +1927,11 @@ function JobDetails() {
                     />
                     <FormControlLabel
                       value="Deferred"
-                      control={<Radio size="small" />}
+                      control={
+                        <Radio size="small" disabled={isSubmissionDate} />
+                      }
                       label="Deferred"
+                      disabled={isSubmissionDate}
                       // sx={{
                       //   color: "orange",
                       //   "& .MuiSvgIcon-root": { color: "orange" },
@@ -1550,6 +1970,7 @@ function JobDetails() {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    disabled={isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1567,6 +1988,7 @@ function JobDetails() {
                     name="description"
                     value={formik.values.description || ""}
                     onChange={formik.handleChange}
+                    disabled={isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1586,6 +2008,7 @@ function JobDetails() {
                     value={formik.values.cth_no || ""}
                     onChange={formik.handleChange}
                     InputLabelProps={{ shrink: true }}
+                    disabled={isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1606,6 +2029,7 @@ function JobDetails() {
                     value={formik.values.type_of_b_e || ""}
                     onChange={formik.handleChange}
                     displayempty="true"
+                    disabled={isSubmissionDate}
                   >
                     <MenuItem value="" disabled>
                       Select BE Type
@@ -1915,7 +2339,8 @@ function JobDetails() {
                     InputLabelProps={{ shrink: true }}
                   />
                 </div>
-              </Col>
+              </Col>          
+           
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Assessment Date:&nbsp;</strong>
@@ -1930,6 +2355,109 @@ function JobDetails() {
                     value={formik.values.assessment_date}
                     onChange={formik.handleChange}
                   />
+                </div>
+              </Col>
+                
+
+              <Col xs={12} lg={4}>
+  <div
+    className="job-detail-input-container"
+    style={{ justifyContent: "flex-start" }}
+  >
+    <strong>Checklist Approved:&nbsp;</strong>
+    <Checkbox
+      checked={formik.values.is_checklist_aprroved}
+      onChange={(e) => {
+        const isChecked = e.target.checked;
+        if (isChecked) {
+          // Set current date-time adjusted to local timezone
+          const currentDateTime = new Date(
+            Date.now() - new Date().getTimezoneOffset() * 60000
+          )
+            .toISOString()
+            .slice(0, 16);
+          formik.setFieldValue("is_checklist_aprroved", true);
+          formik.setFieldValue(
+            "is_checklist_aprroved_date",
+            currentDateTime
+          );
+        } else {
+          // Clear values when unchecked
+          formik.setFieldValue("is_checklist_aprroved", false);
+          formik.setFieldValue("is_checklist_aprroved_date", "");
+        }
+      }}
+    />
+    {formik.values.is_checklist_aprroved_date && (
+      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+        {new Date(
+          formik.values.is_checklist_aprroved_date
+        ).toLocaleString("en-US", {
+          timeZone: "Asia/Kolkata",
+          hour12: true,
+        })}
+      </span>
+    )}
+  </div>
+</Col>
+            <Col
+                xs={12}
+                lg={4}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  <strong>BOE Filing:&nbsp;</strong>
+
+                  <RadioGroup
+                    row
+                    name="be_filing_type"
+                    value={formik.values.be_filing_type || ""}
+                    onChange={formik.handleChange}
+                    sx={{ alignItems: "center" }}
+                    disabled={isSubmissionDate}
+                  >
+                    <FormControlLabel
+                      value="Discharge"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Discharge"
+                      // disabled={
+                      //   isSubmissionDate ||
+                      //   !formik.values.discharge_date ||
+                      //   !formik.values.gateway_igm_date ||
+                      //   !formik.values.esanchit_completed_date_time ||
+                      //   !formik.values.documentation_completed_date_time
+                      // }
+                    />
+                    <FormControlLabel
+                      value="Railout"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Railout"
+                    
+                    />
+                    <FormControlLabel
+                      value="Advanced"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Advanced"
+                      disabled={isSubmissionDate}
+                    />
+                    <FormControlLabel
+                      value="Prior"
+                      control={
+                        <Radio size="small" />
+                      }
+                      label="Prior"
+                      disabled={isSubmissionDate}
+                    />
+                  </RadioGroup>
                 </div>
               </Col>
             </Row>
@@ -2189,7 +2717,7 @@ function JobDetails() {
                   First Check
                 </Typography>
                 <Switch
-                  checked={Boolean(formik.values.fristCheck)}
+                  checked={Boolean(formik.values.firstCheck)}
                   onChange={(e) => {
                     if (e.target.checked) {
                       // Calculate current date-time adjusted for timezone and slice to 'YYYY-MM-DDTHH:mm'
@@ -2198,15 +2726,16 @@ function JobDetails() {
                       )
                         .toISOString()
                         .slice(0, 16);
-                      formik.setFieldValue("fristCheck", currentDateTime);
+                      formik.setFieldValue("firstCheck", currentDateTime);
                     } else {
-                      formik.setFieldValue("fristCheck", "");
+                      formik.setFieldValue("firstCheck", "");
                     }
                   }}
-                  name="fristCheck"
+                  name="firstCheck"
                   color="primary"
+                  disabled={Boolean(formik.values.out_of_charge?.trim())} // Disable if OOC date is not empty
                 />
-                {formik.values.fristCheck && (
+                {formik.values.firstCheck && (
                   <>
                     <Typography variant="body1" sx={{ color: "green", ml: 1 }}>
                       YES &nbsp;
@@ -2215,7 +2744,7 @@ function JobDetails() {
                       variant="body1"
                       sx={{ ml: 1, fontWeight: "bold" }}
                     >
-                      {new Date(formik.values.fristCheck).toLocaleString(
+                      {new Date(formik.values.firstCheck).toLocaleString(
                         "en-GB",
                         {
                           day: "2-digit",
@@ -2266,8 +2795,7 @@ function JobDetails() {
                     onChange={formik.handleChange}
                   />
                 </div>
-              </Col>{" "}
-              <Col xs={12} lg={4}>
+              </Col>{" "}              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Duty Paid Date:&nbsp;</strong>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -2299,14 +2827,35 @@ function JobDetails() {
                       color="error"
                       sx={{ mt: 1, display: "block" }}
                     >
-                      Please fill Assessment Date and IGST Amount to enable this
-                      field
+                      Please add Assessment Date and IGST Amount details first
                     </Typography>
-                  )}
-                </div>
+                  )}                </div>
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>Total Duty Amount:&nbsp;</strong>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    backgroundColor: '#f8f9fa', 
+                    borderRadius: '6px',
+                    border: '1px solid #dee2e6',
+                    textAlign: 'center'
+                  }}>
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: "bold", 
+                      color: "#495057",
+                      fontSize: '16px'
+                    }}>
+                      ₹{formik.values.total_duty ? 
+                        parseFloat(formik.values.total_duty).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : 
+                        '0.00'
+                      }
+                    </Typography>
+                  </Box>
+                </div>
+              </Col>
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Out of Charge Date:&nbsp;</strong>
@@ -3005,7 +3554,9 @@ function JobDetails() {
               </Col>
 
               {selectedDocument === "other" && (
-                <>                  <Col xs={12} lg={4}>
+                <>
+                  {" "}
+                  <Col xs={12} lg={4}>
                     <TextField
                       fullWidth
                       size="small"
@@ -3694,18 +4245,24 @@ function JobDetails() {
                     </Row>
 
                     <Row>
-                       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
-                    <DeliveryChallanPdf
-                      year={params.selected_year}
-                      jobNo={params.job_no}
-                      containerIndex={index}
-                    />
-                    <IgstCalculationPDF
-                      year={params.selected_year}
-                      jobNo={params.job_no}
-                      containerIndex={index}
-                    />
-                  </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginTop: "20px",
+                        }}
+                      >
+                        <DeliveryChallanPdf
+                          year={params.selected_year}
+                          jobNo={params.job_no}
+                          containerIndex={index}
+                        />
+                        <IgstCalculationPDF
+                          year={params.selected_year}
+                          jobNo={params.job_no}
+                          containerIndex={index}
+                        />
+                      </div>
                     </Row>
 
                     <Row>
@@ -3951,141 +4508,407 @@ function JobDetails() {
         isEdit={isEditMode}
         editValues={editValues}
         onEditChange={setEditValues}
-      />
-
-      {/* Duty Details Modal */}
-      <Dialog
-        open={dutyModalOpen}
-        onClose={handleCloseDutyModal}
-        maxWidth="md"
+      />      {/* Modern Duty Details Modal */}
+      <Dialog 
+        open={dutyModalOpen} 
+        onClose={handleCloseDutyModal} 
+        maxWidth="lg" 
         fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: '16px',
+            maxHeight: '90vh',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white'
+          }
+        }}
       >
-        <DialogTitle>
-          <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
-            Duty Payment Details
-          </Typography>
+        <DialogTitle sx={{ 
+          background: 'rgba(255,255,255,0.1)', 
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255,255,255,0.2)'
+        }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ 
+                p: 1, 
+                borderRadius: '50%', 
+                background: 'rgba(255,255,255,0.2)',
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                💸
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+                Duty Payment Calculator
+              </Typography>
+            </Box>
+            {formik.values.cth_no && (
+              <Chip 
+                label={`CTH: ${formik.values.cth_no}`}
+                size="small"
+                sx={{ 
+                  fontSize: '12px', 
+                  fontWeight: 600, 
+                  backgroundColor: 'rgba(255,255,255,0.9)', 
+                  color: '#155724',
+                  backdropFilter: 'blur(10px)'
+                }}
+              />
+            )}
+          </Box>
         </DialogTitle>
-        <DialogContent>          <DialogContentText sx={{ mb: 2 }}>
-            Please fill in the duty payment details below. All amounts should be
-            entered in INR.
-          </DialogContentText>          {/* Assessable Amount - Full Width at Top */}
-          <Box sx={{ mb: 2, mt: 3 }}>
-            <TextField
-              label="Assessable Amount (INR)"
-              name="assessable_ammount"
-              type="number"
-              value={formik.values.assessable_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-          </Box>
+        
+        <DialogContent sx={{ p: 3, background: 'white', color: '#333' }}>
+          {/* Improved Layout - Summary on Right Side */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 3 }}>
+            
+            {/* Left Side - Input Fields */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.5 }}>
+              
+              {/* Assessable Amount */}
+              <Box sx={{ 
+                p: 2.5, 
+                marginTop: "20px",
+                border: '1px solid #e3f2fd', 
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                
+              }}>
+                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1565c0', mb: 1.5 }}>
+                  💰 Assessable Amount (INR)
+                </Typography>
+                <TextField
+                  type="number"
+                  value={igstValues.assessable_ammount}
+                  onChange={(e) => setIgstValues({ ...igstValues, assessable_ammount: e.target.value })}
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  placeholder="Enter assessable amount"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      '& fieldset': { borderColor: '#e0e0e0' },
+                      '&:hover fieldset': { borderColor: '#1565c0' },
+                      '&.Mui-focused fieldset': { borderColor: '#1565c0' }
+                    }
+                  }}
+                />
+              </Box>
 
-          {/* Other Fields in 2x2 Grid */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 2,
-            }}
-          >
-            <TextField
-              label="BCD Amount (INR)"
-              name="bcd_ammount"
-              type="number"
-              value={formik.values.bcd_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="IGST Amount (INR)"
-              name="igst_ammount"
-              type="number"
-              value={formik.values.igst_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="SWS Amount (INR)"
-              name="sws_ammount"
-              type="number"
-              value={formik.values.sws_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />            <TextField
-              label="Interest Amount (INR)"
-              name="intrest_ammount"
-              type="number"
-              value={formik.values.intrest_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="Penalty Amount (INR)"
-              name="penalty_ammount"
-              type="number"
-              value={formik.values.penalty_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
-            <TextField
-              label="Fine Amount (INR)"
-              name="fine_ammount"
-              type="number"
-              value={formik.values.fine_ammount}
-              onChange={formik.handleChange}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
+              {/* Duty Components Grid */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                
+                {/* BCD Rate & Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #e8f5e8', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#2e7d32', mb: 1 }}>
+                    🏛️ BCD Rate (%)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.bcdRate}
+                    onChange={(e) => setIgstValues({ ...igstValues, bcdRate: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter BCD rate"
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#2e7d32' },
+                        '&.Mui-focused fieldset': { borderColor: '#2e7d32' }
+                      }
+                    }}
+                  />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    background: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxShadow: '0 3px 10px rgba(76,175,80,0.3)'
+                  }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                      ₹{parseFloat(igstValues.bcd_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* SWS Rate & Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #fff3e0', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#ef6c00', mb: 1 }}>
+                    ⚓ SWS Rate (%)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.swsRate}
+                    onChange={(e) => setIgstValues({ ...igstValues, swsRate: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Default: 10%"
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#ef6c00' },
+                        '&.Mui-focused fieldset': { borderColor: '#ef6c00' }
+                      }
+                    }}
+                  />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxShadow: '0 3px 10px rgba(255,152,0,0.3)'
+                  }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                      ₹{parseFloat(igstValues.sws_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* IGST Rate & Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #f3e5f5', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#7b1fa2', mb: 1 }}>
+                    📊 IGST Rate (%)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.igstRate}
+                    onChange={(e) => setIgstValues({ ...igstValues, igstRate: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter IGST rate"
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#7b1fa2' },
+                        '&.Mui-focused fieldset': { borderColor: '#7b1fa2' }
+                      }
+                    }}
+                  />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    background: 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%)', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxShadow: '0 3px 10px rgba(156,39,176,0.3)'
+                  }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                      ₹{parseFloat(igstValues.igst_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Fine Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #e0f2f1', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#00695c', mb: 1.5 }}>
+                    💳 Fine Amount (INR)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.fine_ammount}
+                    onChange={(e) => setIgstValues({ ...igstValues, fine_ammount: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter fine amount"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#00695c' },
+                        '&.Mui-focused fieldset': { borderColor: '#00695c' }
+                      }
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>            {/* Right Side - Summary Panel */}
+            <Box>
+              {/* Detailed Breakdown */}
+              <Box sx={{ 
+                p: 2.5, 
+                backgroundColor: '#f8f9fa',
+                borderRadius: '12px',
+                border: '1px solid #dee2e6',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                marginTop: "20px",
+                mb: 3
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 700, 
+                  mb: 2, 
+                  fontSize: '14px', 
+                  color: '#495057',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  📊 Breakdown
+                </Typography>
+                {/* Summary Grid */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1.5 }}>
+                  {[
+                    { label: 'BCD', value: igstValues.bcd_ammount, color: '#2e7d32', icon: '🏛️' },
+                    { label: 'SWS', value: igstValues.sws_ammount, color: '#ef6c00', icon: '⚓' },
+                    { label: 'IGST', value: igstValues.igst_ammount, color: '#7b1fa2', icon: '📊' },
+                    { label: 'Interest', value: igstValues.intrest_ammount, color: '#f57c00', icon: '⏰' },
+                    { label: 'Penalty', value: igstValues.penalty_ammount, color: '#c62828', icon: '⚠️' },
+                    { label: 'Fine', value: igstValues.fine_ammount, color: '#00695c', icon: '💳' }
+                  ].map((item, index) => (
+                    <Box key={index} sx={{ 
+                      p: 1.5,
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      border: '1px solid #e9ecef',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box>{item.icon}</Box>
+                        <Typography sx={{ fontSize: '12px', color: '#6c757d', fontWeight: 500 }}>
+                          {item.label}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: '13px', fontWeight: 700, color: item.color }}>
+                        ₹{parseFloat(item.value || 0).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Grand Total */}
+              <Box sx={{ 
+                p: 3, 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '15px',
+                color: 'white',
+                textAlign: 'center',
+                boxShadow: '0 8px 25px rgba(102,126,234,0.4)'
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 800, 
+                  fontSize: '16px',
+                  mb: 1,
+                  opacity: 0.9
+                }}>
+                  💰 Total Duty Amount
+                </Typography>
+                <Typography variant="h3" sx={{ 
+                  fontWeight: 900, 
+                  fontSize: '28px',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                  ₹{(
+                    parseFloat(igstValues.bcd_ammount || 0) +
+                    parseFloat(igstValues.igst_ammount || 0) +
+                    parseFloat(igstValues.sws_ammount || 0) +
+                    parseFloat(igstValues.intrest_ammount || 0) +
+                    parseFloat(igstValues.penalty_ammount || 0) +
+                    parseFloat(igstValues.fine_ammount || 0)
+                  ).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
-          
-          {/* Total Calculation Display */}
-          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              Total Summary
-            </Typography>            <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-              BCD: ₹{formik.values.bcd_ammount || "0.00"} + 
-              IGST: ₹{formik.values.igst_ammount || "0.00"} + 
-              SWS: ₹{formik.values.sws_ammount || "0.00"} +
-              Interest: ₹{formik.values.intrest_ammount || "0.00"} +
-              Penalty: ₹{formik.values.penalty_ammount || "0.00"} +
-              Fine: ₹{formik.values.fine_ammount || "0.00"}
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mt: 2, color: "primary.main" }}>
-              Total Duty: ₹{(
-                parseFloat(formik.values.bcd_ammount || 0) +
-                parseFloat(formik.values.igst_ammount || 0) +
-                parseFloat(formik.values.sws_ammount || 0) +
-                parseFloat(formik.values.intrest_ammount || 0) +
-                parseFloat(formik.values.penalty_ammount || 0) +
-                parseFloat(formik.values.fine_ammount || 0)
-              ).toFixed(2)}
-            </Typography>
-          </Box>
+          {/* Professional Grid Layout - Original Sequence */}
+ 
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDutyModal} color="secondary">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDutySubmit}
-            color="primary"
-            variant="contained"
-          >
-            Save & Update
-          </Button>
+        
+        <DialogActions sx={{ 
+          p: 3, 
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+          borderTop: '1px solid #dee2e6'
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Typography variant="caption" sx={{ 
+              fontSize: '11px', 
+              color: '#666', 
+              fontStyle: 'italic',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5
+            }}>
+              <Box sx={{ fontSize: '14px' }}>🤖</Box>
+              Interest & penalty amounts are auto-calculated
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <Button 
+                onClick={handleCloseDutyModal} 
+                variant="outlined"
+                sx={{
+                  borderRadius: '25px',
+                  px: 3,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderColor: '#6c757d',
+                  color: '#6c757d',
+                  '&:hover': {
+                    borderColor: '#5a6268',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)'
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDutySubmit}
+                variant="contained"
+                sx={{
+                  borderRadius: '25px',
+                  px: 3,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.6)'
+                  }
+                }}
+              >
+                💾 Save & Update
+              </Button>
+            </Box>
+          </Box>
         </DialogActions>
       </Dialog>
     </>

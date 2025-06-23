@@ -34,6 +34,7 @@ export const convertToExcel = async (
     alert("No Data to export");
     return;
   }
+  
   const uniqueDetailedStatuses = [
     ...new Set(
       rowsWithoutBillNo
@@ -51,12 +52,13 @@ export const convertToExcel = async (
     second: "2-digit",
     hour12: true,
   });
+  
   const additionalHeaders =
     importer === "BHAVYA MACHINE TOOLS LLP" ||
     importer === "BHAVYA MACHINE TOOLS"
       ? ["HSS NAME"]
       : [];
-  const headers = [
+        const headers = [
     "JOB NO AND DATE",
     ...additionalHeaders,
     "SUPPLIER/ EXPORTER",
@@ -64,7 +66,6 @@ export const convertToExcel = async (
     "INVOICE VALUE AND UNIT PRICE",
     "BL NUMBER AND DATE",
     "COMMODITY",
-
     "NET WEIGHT",
     "PORT",
     "ARRIVAL DATE",
@@ -72,27 +73,29 @@ export const convertToExcel = async (
     "DETENTION FROM",
     "SHIPPING LINE",
     "CONTAINER NUM & SIZE",
-    "WEIGHT EXCESS/SHORTAGE", // New header for weight Excess/Shortage",
+    "WEIGHT EXCESS/SHORTAGE",
     "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
-    "DETAILED STATUS",
+    "DETAILED STATUS"
   ];
 
   console.log(rowsWithoutBillNo);
 
   // Row headers
   const dataWithHeaders = rowsWithoutBillNo.map((item) => {
-    const jobNoAndDate = `${item.job_no} | ${formatDate(item.job_date)} | ${
-      item.custom_house
-    } | ${item.type_of_b_e}`;
-    const invoiceNoAndDate = `${item.invoice_number} | ${formatDate(
+    const jobNoAndDate = `${item.job_no || ''} | ${formatDate(item.job_date)} | ${
+      item.custom_house || ''
+    } | ${item.type_of_b_e || ''}`;
+    
+    const invoiceNoAndDate = `${item.invoice_number || ''} | ${formatDate(
       item.invoice_date
     )}`;
-    const blNoAndDate = `${item.awb_bl_no} | ${formatDate(item.awb_bl_date)}`;
-    const beNoAndDate = `${item.be_no} | ${formatDate(item.be_date)}`;
-    const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
-      item.discharge_date ? item.discharge_date : item.vessel_berthing
+    
+    const blNoAndDate = `${item.awb_bl_no || ''} | ${formatDate(item.awb_bl_date)}`;
+    const beNoAndDate = `${item.be_no || ''} | ${formatDate(item.be_date)}`;
+      const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
+      item.discharge_date ? item.discharge_date : item.vessel_berthing || ''
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
     }
@@ -116,83 +119,108 @@ export const convertToExcel = async (
       item.obl_telex_bl
         ? ` | ${
             item.obl_telex_bl === "OBL"
-              ? `ORG-RCVD: ${item.document_received_date}`
-              : `DOC-RCVD: ${item.document_received_date}`
+              ? `ORG-RCVD: ${item.document_received_date || ''}`
+              : `DOC-RCVD: ${item.document_received_date || ''}`
           }`
-        : ""
-    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
+        : ""    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
       item.remarks ? ` | Remarks: ${item.remarks}` : ""
-    }`;
+    }${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
 
-    const arrivalDates = formatContainerDates(
-      item.container_nos,
-      "arrival_date"
-    );
-    const detentionFrom = formatContainerDates(
-      item.container_nos,
-      "detention_from"
-    );
-
-    const containerNumbersWithSizes = item.container_nos
-      .map((container) => `${container.container_number} - ${container.size}`)
-      .join(",\n");
-    const weightExcessShortage = item.container_nos
-      .map((container) =>
-        container.weight_shortage !== undefined
-          ? `${container.weight_shortage}`
-          : ""
-      )
-      .join(",\n");
-
-    const size = item.container_nos
-      .map((container) => container.size)
-      .join(",\n");
-    const cif_amount = new Big(item.cif_amount);
-    const exrate = new Big(item.exrate);
-    const inv_value = cif_amount.div(exrate).toFixed(2);
-    const exact_inv_value = item.total_inv_value
-      ? item.total_inv_value.split(" ")[0]
+    // Safely handle container dates
+    const arrivalDates = item.container_nos && item.container_nos.length > 0 
+      ? formatContainerDates(item.container_nos, "arrival_date")
+      : "";
+      
+    const detentionFrom = item.container_nos && item.container_nos.length > 0
+      ? formatContainerDates(item.container_nos, "detention_from")
       : "";
 
-    const invoice_value_and_unit_price = `${item.inv_currency} |${exact_inv_value} | ${item.unit_price}`;
+    const containerNumbersWithSizes = item.container_nos && item.container_nos.length > 0
+      ? item.container_nos
+          .map((container) => `${container.container_number || ''} - ${container.size || ''}`)
+          .join(",\n")
+      : "";
+      
+    const weightExcessShortage = item.container_nos && item.container_nos.length > 0
+      ? item.container_nos
+          .map((container) =>
+            container.weight_shortage !== undefined
+              ? `${container.weight_shortage}`
+              : ""
+          )
+          .join(",\n")
+      : "";
+
+    const size = item.container_nos && item.container_nos.length > 0
+      ? item.container_nos
+          .map((container) => container.size || '')
+          .join(",\n")
+      : "";
+
+    // Safely handle CIF amount and exchange rate calculations
+    let invoice_value_and_unit_price = `${item.inv_currency || ''} | ${item.total_inv_value || ''} | ${item.unit_price || ''}`;
+    
+    try {
+      // Only perform Big.js calculations if both values exist and are valid numbers
+      if (item.cif_amount && item.exrate && 
+          !isNaN(parseFloat(item.cif_amount)) && 
+          !isNaN(parseFloat(item.exrate)) &&
+          parseFloat(item.exrate) !== 0) {
+        
+        const cif_amount = new Big(item.cif_amount);
+        const exrate = new Big(item.exrate);
+        const inv_value = cif_amount.div(exrate).toFixed(2);
+        
+        const exact_inv_value = item.total_inv_value
+          ? item.total_inv_value.split(" ")[0]
+          : inv_value;
+
+        invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
+      }
+    } catch (error) {
+      console.warn("Error calculating invoice value:", error);
+      // Use fallback values if calculation fails
+      const exact_inv_value = item.total_inv_value
+        ? item.total_inv_value.split(" ")[0]
+        : "";
+      invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
+    }
+
+    // Safely calculate net weight
     const net_weight = item.container_nos?.reduce((sum, container) => {
       const weight = parseFloat(container.net_weight);
       return sum + (isNaN(weight) ? 0 : weight);
-    }, 0);
+    }, 0) || 0;
 
     const cleanLoadingPort = item.loading_port
       ? item.loading_port.replace(/\(.*?\)\s*/, "")
       : "N/A";
     const cleanPortOfReporting = item.port_of_reporting
       ? item.port_of_reporting.replace(/\(.*?\)\s*/, "")
-      : "N/A";
-
-    const valueMap = {
+      : "N/A";    const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
-      "HSS NAME": item.hss_name,
-      "SUPPLIER/ EXPORTER": item.supplier_exporter,
+      "HSS NAME": item.hss_name || '',
+      "SUPPLIER/ EXPORTER": item.supplier_exporter || '',
       "INVOICE NUMBER AND DATE": invoiceNoAndDate,
       "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
       "BL NUMBER AND DATE": blNoAndDate,
-      COMMODITY: item.description,
-
-      "NET WEIGHT": item.job_net_weight,
+      COMMODITY: item.description || '',
+      "NET WEIGHT": item.job_net_weight || '',
       PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
       "ARRIVAL DATE": arrivalDates,
-      "FREE TIME": item.free_time,
+      "FREE TIME": item.free_time || '',
       "DETENTION FROM": detentionFrom,
-      "SHIPPING LINE": item.shipping_line_airline,
+      "SHIPPING LINE": item.shipping_line_airline || '',
       "CONTAINER NUM & SIZE": containerNumbersWithSizes,
       "WEIGHT EXCESS/SHORTAGE": weightExcessShortage,
       "NUMBER OF CONTAINERS": item.no_of_container?.slice(0, -2) ?? "",
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
-      "DETAILED STATUS": item.detailed_status,
+      "DETAILED STATUS": item.detailed_status || '',
     };
 
-    // eslint-disable-next-line
     const values = headers.map((val) => {
-      if (valueMap[val]) {
+      if (valueMap[val] !== undefined) {
         return valueMap[val];
       } else if (val === "CONTAINER NUM & SIZE") {
         return containerNumbersWithSizes;
@@ -203,6 +231,7 @@ export const convertToExcel = async (
       } else if (val === "SIZE") {
         return size;
       }
+      return ''; // Default return empty string
     });
 
     return values;
@@ -345,11 +374,10 @@ export const convertToExcel = async (
   // Increase the height of the header row
   headerRow.height = 35;
 
-  ///////////////////////////////////////  Data Row  //////////////////////////////////////
-  // Add the data rows
+  ///////////////////////////////////////  Data Row  //////////////////////////////////////  // Add the data rows
   for (const row of dataWithHeaders) {
     const dataRow = worksheet.addRow(row);
-    const detailedStatus = row[row.length - 1]; // Get the Detailed Status from the last column
+    const detailedStatus = row[row.length - 1]; // Get the Detailed Status (now the last column)
 
     // Apply background color based on Detailed Status
     if (detailedStatus === "Estimated Time of Arrival") {
@@ -394,10 +422,8 @@ export const convertToExcel = async (
         pattern: "solid",
         fgColor: { argb: "ffffcc99" },
       };
-    }
-
-    // Set text alignment to center for each cell in the data row
-    dataRow.eachCell({ includeEmpty: true }, (cell) => {
+    }    // Set text alignment to center for each cell in the data row
+    dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.alignment = {
         horizontal: "center",
         vertical: "middle",
@@ -411,9 +437,32 @@ export const convertToExcel = async (
         right: { style: "thin" },
       };
 
-      // Add line breaks after commas in the containerNumbersWithSizes  cell
+      // Add line breaks after commas in the containerNumbersWithSizes cell
       if (cell.value && cell.value.toString().includes(",\n")) {
         cell.value = cell.value.replace(/,\n/g, String.fromCharCode(10)); // Replace ",\n" with line break character
+      }
+
+      // Apply bold formatting to First Check Date in remarks column
+      const remarksColumnIndex = headers.indexOf("REMARKS") + 1; // +1 because ExcelJS uses 1-based indexing
+      if (colNumber === remarksColumnIndex && cell.value && cell.value.toString().includes("First Check Date:")) {
+        // Create rich text with bold formatting for First Check Date line
+        const cellText = cell.value.toString();
+        const lines = cellText.split('\n');
+        const richText = [];
+        
+        lines.forEach((line, index) => {
+          if (line.includes("First Check Date:")) {
+            richText.push({ text: line, font: { bold: true } });
+          } else {
+            richText.push({ text: line });
+          }
+          // Add line break except for the last line
+          if (index < lines.length - 1) {
+            richText.push({ text: '\n' });
+          }
+        });
+        
+        cell.value = { richText: richText };
       }
     });
 
@@ -522,12 +571,12 @@ export const convertToExcel = async (
     }
     if (headers[id] === "STATUS") {
       column.width = 15;
-    }
-    if (headers[id] === "REMARKS") {
+    }    if (headers[id] === "REMARKS") {
       column.width = 45;
     }
   });
 
+  // Rest of your summary table code remains the same...
   worksheet.addRow([]);
   worksheet.addRow([]);
 
@@ -543,7 +592,7 @@ export const convertToExcel = async (
     font: { color: { argb: "FFFFFF" } },
   };
 
-  worksheet.mergeCells(`A${summaryRow.number}:E${summaryRow.number}`); // Merge cells for the "Summary" row
+  worksheet.mergeCells(`A${summaryRow.number}:E${summaryRow.number}`);
 
   let containersWithSize20AndArrival = 0;
   let containersWithSize40AndArrival = 0;
@@ -570,7 +619,6 @@ export const convertToExcel = async (
     containersWithSize20AndNoArrival +
     containersWithSize40AndNoArrival;
 
-  // Add the new table with merged cells
   const newTableData = [
     ["20'", "40'", "20'", "40'", ""],
     [
@@ -582,13 +630,11 @@ export const convertToExcel = async (
     ],
   ];
 
-  // Get the starting row number for the new table
-  const startRow = summaryRow.number + 1; // Adjusted to remove the extra rows
+  const startRow = summaryRow.number + 1;
 
-  // Merge cells and apply formatting
   worksheet.addTable({
     name: "SummaryTable",
-    ref: `A${startRow}:E${startRow + newTableData.length - 1}`, // Adjusted to match the new data layout
+    ref: `A${startRow}:E${startRow + newTableData.length - 1}`,
     columns: [
       { name: "ARRIVED" },
       { name: "IN TRANSIT" },
@@ -618,8 +664,7 @@ export const convertToExcel = async (
     }
   }
 
-  // Merge cells and add text for "Arrived" and "In Transit"
-  worksheet.mergeCells(`A${startRow}:B${startRow}`); // Merge cells for the "Arrived" text
+  worksheet.mergeCells(`A${startRow}:B${startRow}`);
   const arrivedCell = worksheet.getCell(`A${startRow}`);
   arrivedCell.value = "ARRIVED";
   arrivedCell.fill = {
@@ -628,7 +673,7 @@ export const convertToExcel = async (
     fgColor: { argb: "8EAADB" },
   };
 
-  worksheet.mergeCells(`C${startRow}:D${startRow}`); // Merge cells for the "In Transit" text
+  worksheet.mergeCells(`C${startRow}:D${startRow}`);
   const inTransitCell = worksheet.getCell(`C${startRow}`);
   inTransitCell.value = "IN TRANSIT";
   inTransitCell.fill = {
@@ -645,7 +690,6 @@ export const convertToExcel = async (
     fgColor: { argb: "FFFF04" },
   };
 
-  // Apply red background to the first two cells of the last row
   const lastRow = worksheet.getRow(startRow + newTableData.length);
   for (let col = 1; col <= 2; col++) {
     const cell = lastRow.getCell(col);
@@ -656,7 +700,6 @@ export const convertToExcel = async (
     };
   }
 
-  // Apply blue background to the 3rd and 4th cells of the last row
   for (let col = 3; col <= 4; col++) {
     const cell = lastRow.getCell(col);
     cell.fill = {
@@ -666,15 +709,12 @@ export const convertToExcel = async (
     };
   }
 
-  ///////////////////////////////////////////////////////////////////////
-  // Generate Excel file
   const excelBuffer = await workbook.xlsx.writeBuffer();
 
   const data = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 
-  // Sanitize the importer and detailedStatus for the filename
   const sanitizedImporter = importer?.replace(/\./g, "");
   const sanitizedDetailedStatus = detailedStatus?.replace(/\./g, "");
 

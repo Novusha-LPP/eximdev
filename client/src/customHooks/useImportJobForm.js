@@ -46,6 +46,8 @@ const useImportJobForm = () => {
   const [supplier_exporter, setSupplierExporter] = useState("");
   const [awb_bl_no, setAwbBlNo] = useState("");
   const [awb_bl_date, setAwbBlDate] = useState("");
+  const [hawb_hbl_date, setHawb_hbl_date] = useState("");
+  const [hawb_hbl_no, setHawb_hbl_no] = useState("");
   const [vessel_berthing, setVesselberthing] = useState("");
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
@@ -147,6 +149,8 @@ const useImportJobForm = () => {
     setAdCode("");
     setSupplierExporter("");
     setAwbBlNo("");
+    setHawb_hbl_no("");
+    setHawb_hbl_date("");
     setAwbBlDate("");
     setVesselberthing("");
     setTypeOfBE("");
@@ -218,6 +222,8 @@ const useImportJobForm = () => {
           adCode,
           supplier_exporter,
           awb_bl_no,
+          hawb_hbl_no,
+          hawb_hbl_date,
           awb_bl_date,
           vessel_berthing,
           type_of_b_e,
@@ -409,6 +415,10 @@ const useImportJobForm = () => {
     supplier_exporter,
     setSupplierExporter,
     awb_bl_no,
+    hawb_hbl_no,
+    setHawb_hbl_no,
+    hawb_hbl_date,
+    setHawb_hbl_date,
     setAwbBlNo,
     awb_bl_date,
     vessel_berthing,

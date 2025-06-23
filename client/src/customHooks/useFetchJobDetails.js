@@ -142,6 +142,8 @@ function useFetchJobDetails(
       { value: "EPCG", label: "EPCG" },
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
     "Ex-Bond": [
@@ -150,6 +152,8 @@ function useFetchJobDetails(
       { value: "EPCG", label: "EPCG" },
       { value: "RODTEP", label: "RODTEP" },
       { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
     ],
   };
 
@@ -308,11 +312,16 @@ function useFetchJobDetails(
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
+      gateway_igm: "",
+      igm_date: "",
+      igm_no: "",
+      line_no: "",
+      no_of_pkgs: "",
       hss: "",
       bank_name: "",
       adCode: "",
       saller_name: "",
-      fristCheck: "",
+      firstCheck: "",
       priorityJob: "Normal",
       emptyContainerOffLoadDate: "",
       payment_method: "Transaction",
@@ -322,6 +331,7 @@ function useFetchJobDetails(
       be_no: "",
       in_bond_be_no: "",
       be_date: "",
+      be_filing_type: "",
       in_bond_be_date: "",
       discharge_date: "",
       status: "",
@@ -386,6 +396,8 @@ function useFetchJobDetails(
       sws_ammount: "",
       bcd_ammount: "",
       intrest_ammount: "",
+      is_checklist_aprroved_date: "",
+      is_checklist_aprroved: false,
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -427,11 +439,16 @@ function useFetchJobDetails(
           nfmims_date: values.nfmims_date,
           delivery_date: values.delivery_date,
           gateway_igm_date: values.gateway_igm_date,
+          gateway_igm: values.gateway_igm,
+          igm_date: values.igm_date,
+          igm_no: values.igm_no,
+          line_no: values.line_no,
+          no_of_pkgs: values.no_of_pkgs,
           hss: values.hss,
           saller_name: values.saller_name,
           adCode: values.adCode,
           bank_name: values.bank_name,
-          fristCheck: values.fristCheck,
+          firstCheck: values.firstCheck,
           priorityJob: values.priorityJob,
           emptyContainerOffLoadDate: values.emptyContainerOffLoadDate,
           payment_method: values.payment_method,
@@ -441,6 +458,7 @@ function useFetchJobDetails(
           be_no: values.be_no,
           in_bond_be_no: values.in_bond_be_no,
           be_date: values.be_date,
+          be_filing_type: values.be_filing_type,
           in_bond_be_date: values.in_bond_be_date,
           discharge_date: values.discharge_date,
           assessment_date: values.assessment_date,
@@ -463,6 +481,8 @@ function useFetchJobDetails(
           all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
           do_revalidation_date: values.do_revalidation_date,
+          is_checklist_aprroved_date: values.is_checklist_aprroved_date,
+          is_checklist_aprroved: values.is_checklist_aprroved,
           required_do_validity_upto: values.required_do_validity_upto,
           out_of_charge: values.out_of_charge,
           checked: values.checked,
@@ -478,14 +498,14 @@ function useFetchJobDetails(
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
-          do_completed: values.do_completed,
-          assessable_ammount: values.assessable_ammount,
+          do_completed: values.do_completed,          assessable_ammount: values.assessable_ammount,
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
           bcd_ammount: values.bcd_ammount,
           intrest_ammount: values.intrest_ammount,
           fine_ammount: values.fine_ammount,
           penalty_ammount: values.penalty_ammount,
+          total_duty: values.total_duty,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -696,6 +716,10 @@ function useFetchJobDetails(
         doPlanning: data.doPlanning === undefined ? false : data.doPlanning,
         do_planning_date:
           data.do_planning_date === undefined ? "" : data.do_planning_date,
+        is_checklist_aprroved:
+          data.is_checklist_aprroved === undefined ? "" : data.is_checklist_aprroved,
+        is_checklist_aprroved_date:
+          data.is_checklist_aprroved_date === undefined ? "" : data.is_checklist_aprroved_date,
         examinationPlanning:
           data.examinationPlanning === undefined
             ? false
@@ -732,11 +756,21 @@ function useFetchJobDetails(
           data.delivery_date === undefined ? "" : data.delivery_date,
         gateway_igm_date:
           data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
+        gateway_igm:
+          data.gateway_igm === undefined ? "" : data.gateway_igm,
+        igm_date:
+          data.igm_date === undefined ? "" : data.igm_date,
+        igm_no:
+          data.igm_no === undefined ? "" : data.igm_no,
+        line_no:
+          data.line_no === undefined ? "" : data.line_no,
+        no_of_pkgs:
+          data.no_of_pkgs === undefined ? "" : data.no_of_pkgs,
         hss: data.hss === undefined ? "" : data.hss,
         saller_name: data.saller_name === undefined ? "" : data.saller_name,
         adCode: data.adCode === undefined ? "" : data.adCode,
         bank_name: data.bank_name === undefined ? "" : data.bank_name,
-        fristCheck: data.fristCheck === undefined ? "" : data.fristCheck,
+        firstCheck: data.firstCheck === undefined ? "" : data.firstCheck,
         priorityJob:
           data.priorityJob === undefined ? "Normal" : data.priorityJob,
         emptyContainerOffLoadDate:
@@ -758,6 +792,7 @@ function useFetchJobDetails(
         in_bond_be_no:
           data.in_bond_be_no === undefined ? "" : data.in_bond_be_no,
         be_date: data.be_date === undefined ? "" : data.be_date,
+        be_filing_type: data.be_filing_type === undefined ? "" : data.be_filing_type,
         in_bond_be_date:
           data.in_bond_be_date === undefined ? "" : data.in_bond_be_date,
         discharge_date:
@@ -773,8 +808,7 @@ function useFetchJobDetails(
         clearanceValue:
           data.clearanceValue === undefined ? "" : data.clearanceValue,
         duty_paid_date:
-          data.duty_paid_date === undefined ? "" : data.duty_paid_date,
-        assessable_ammount:
+          data.duty_paid_date === undefined ? "" : data.duty_paid_date,        assessable_ammount:
           data.assessable_ammount === undefined ? "" : data.assessable_ammount,
         penalty_ammount:
           data.penalty_ammount === undefined ? "" : data.penalty_ammount,
@@ -785,6 +819,7 @@ function useFetchJobDetails(
         intrest_ammount:
           data.intrest_ammount === undefined ? "" : data.intrest_ammount,
         bcd_ammount: data.bcd_ammount === undefined ? "" : data.bcd_ammount,
+        total_duty: data.total_duty === undefined ? "" : data.total_duty,
 
         do_copies: data.do_copies === undefined ? [] : data.do_copies,
         do_queries: data.do_queries === undefined ? [] : data.do_queries,

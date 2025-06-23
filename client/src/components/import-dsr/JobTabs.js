@@ -16,6 +16,12 @@ import ImportUtilityTool from "../import-utility-tool/ImportUtilityTool";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { useLocation } from "react-router-dom";
 
+export const TabContext = React.createContext({
+  currentTab: 0,
+  setCurrentTab: () => {},
+  navigate: () => {},
+});
+
 function CustomTabPanel(props) {
   const { children, value, index, ...other } = props;
 
@@ -54,9 +60,7 @@ function JobTabs() {
     setDetailedStatus,
     setSelectedICD,
     setSelectedImporter 
-  } = useSearchQuery();
-
-  // Handle tab restoration when returning from job details
+  } = useSearchQuery();  // Handle tab restoration when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails && location.state?.tabIndex !== undefined) {
       setValue(location.state.tabIndex);

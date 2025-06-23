@@ -84,21 +84,36 @@ const SubmissionJob = () => {
 
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
-
   // Store search parameters from location state
   useEffect(() => {
+    console.log('SubmissionJob: Received location state:', location.state);
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId } = location.state;
-      setStoredSearchParams({
+      const { 
+        searchQuery, 
+        selectedImporter, 
+        selectedJobId,
+        currentPage 
+      } = location.state;
+      
+      const params = {
         searchQuery,
         selectedImporter,
         selectedJobId,
-      });
+        currentPage,
+      };
+        console.log('SubmissionJob: Storing params:', params);
+      setStoredSearchParams(params);
     }
   }, [location.state]);
-
   // Handle back click function
   const handleBackClick = () => {
+    console.log('SubmissionJob: Navigating back with params', {
+      currentPage: storedSearchParams?.currentPage,
+      searchQuery: storedSearchParams?.searchQuery,
+      selectedImporter: storedSearchParams?.selectedImporter,
+      selectedJobId: storedSearchParams?.selectedJobId
+    });
+    
     navigate("/submission", {
       state: {
         fromJobDetails: true,
@@ -106,6 +121,7 @@ const SubmissionJob = () => {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
           selectedJobId: storedSearchParams.selectedJobId,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -158,13 +174,14 @@ const SubmissionJob = () => {
         job_sticker_upload_date_and_time:
           values.job_sticker_upload_date_and_time,
         be_date: values.be_date,
-      };
-
-      await axios.patch(
+      };      await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
         payload
-      );      // Optionally, show a success message
+      );
+      
+      // Optionally, show a success message
       // alert("Job details updated successfully!");
+      
       navigate("/submission", {
         state: {
           fromJobDetails: true,
@@ -172,6 +189,7 @@ const SubmissionJob = () => {
             searchQuery: storedSearchParams.searchQuery,
             selectedImporter: storedSearchParams.selectedImporter,
             selectedJobId: storedSearchParams.selectedJobId,
+            currentPage: storedSearchParams.currentPage,
           }),
         },
       });

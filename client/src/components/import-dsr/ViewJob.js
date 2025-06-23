@@ -2359,47 +2359,7 @@ function JobDetails() {
               </Col>
                 
 
-              <Col xs={12} lg={4}>
-  <div
-    className="job-detail-input-container"
-    style={{ justifyContent: "flex-start" }}
-  >
-    <strong>Checklist Approved:&nbsp;</strong>
-    <Checkbox
-      checked={formik.values.is_checklist_aprroved}
-      onChange={(e) => {
-        const isChecked = e.target.checked;
-        if (isChecked) {
-          // Set current date-time adjusted to local timezone
-          const currentDateTime = new Date(
-            Date.now() - new Date().getTimezoneOffset() * 60000
-          )
-            .toISOString()
-            .slice(0, 16);
-          formik.setFieldValue("is_checklist_aprroved", true);
-          formik.setFieldValue(
-            "is_checklist_aprroved_date",
-            currentDateTime
-          );
-        } else {
-          // Clear values when unchecked
-          formik.setFieldValue("is_checklist_aprroved", false);
-          formik.setFieldValue("is_checklist_aprroved_date", "");
-        }
-      }}
-    />
-    {formik.values.is_checklist_aprroved_date && (
-      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-        {new Date(
-          formik.values.is_checklist_aprroved_date
-        ).toLocaleString("en-US", {
-          timeZone: "Asia/Kolkata",
-          hour12: true,
-        })}
-      </span>
-    )}
-  </div>
-</Col>
+
             <Col
                 xs={12}
                 lg={4}
@@ -2472,14 +2432,15 @@ function JobDetails() {
                     formik.setFieldValue("checklist", updatedFiles);
                   }}
                   multiple={true}
-                />
-
-                <ImagePreview
+                />                <ImagePreview
                   images={formik.values.checklist || []}
                   onDeleteImage={(index) => {
                     const updatedFiles = [...formik.values.checklist];
                     updatedFiles.splice(index, 1);
                     formik.setFieldValue("checklist", updatedFiles);
+                  }}
+                  onImageClick={() => {
+                    formik.setFieldValue("is_checklist_clicked", true);
                   }}
                 />
               </Col>
@@ -2624,6 +2585,51 @@ function JobDetails() {
                   }}
                 />
               </Col>
+                            <Col xs={12} lg={4}>
+  <div
+    className="job-detail-input-container"
+    style={{ justifyContent: "flex-start" }}
+  >
+    <strong>Checklist Approved:&nbsp;</strong>    <Checkbox
+      checked={formik.values.is_checklist_aprroved}
+      disabled={!formik.values.is_checklist_clicked}
+      onChange={(e) => {
+        const isChecked = e.target.checked;
+        if (isChecked) {
+          // Set current date-time adjusted to local timezone
+          const currentDateTime = new Date(
+            Date.now() - new Date().getTimezoneOffset() * 60000
+          )
+            .toISOString()
+            .slice(0, 16);
+          formik.setFieldValue("is_checklist_aprroved", true);
+          formik.setFieldValue(
+            "is_checklist_aprroved_date",
+            currentDateTime
+          );
+        } else {
+          // Clear values when unchecked
+          formik.setFieldValue("is_checklist_aprroved", false);
+          formik.setFieldValue("is_checklist_aprroved_date", "");
+        }
+      }}    />
+    {!formik.values.is_checklist_clicked && (
+      <span style={{ marginLeft: "10px", fontSize: "12px", color: "#666", fontStyle: "italic" }}>
+        (Click on a checklist file first to enable)
+      </span>
+    )}
+    {formik.values.is_checklist_aprroved_date && (
+      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+        {new Date(
+          formik.values.is_checklist_aprroved_date
+        ).toLocaleString("en-US", {
+          timeZone: "Asia/Kolkata",
+          hour12: true,
+        })}
+      </span>
+    )}
+  </div>
+</Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>

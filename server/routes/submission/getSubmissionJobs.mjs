@@ -86,7 +86,7 @@ router.get("/api/get-submission-jobs", async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "be_filing_type priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight"
+        "is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight"
       )
       .lean();
 

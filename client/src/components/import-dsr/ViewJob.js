@@ -65,19 +65,10 @@ function JobDetails() {
     setSelectedImporter,
   } = useSearchQuery();
 
-  const [storedSearchParams, setStoredSearchParams] = useState(null);
-  useEffect(() => {
-    if (
-      location.state &&
-      (location.state.fromJobList || location.state.currentTab !== undefined)
-    ) {
-      const {
-        searchQuery,
-        detailedStatus,
-        selectedICD,
-        selectedImporter,
-        currentTab,
-      } = location.state;
+ const [storedSearchParams, setStoredSearchParams] = useState(null);  useEffect(() => {
+    if (location.state && (location.state.fromJobList || location.state.currentTab !== undefined)) {
+      const { searchQuery, detailedStatus, selectedICD, selectedImporter, currentTab } =
+        location.state;
 
       setStoredSearchParams({
         searchQuery: searchQuery || "",
@@ -88,6 +79,8 @@ function JobDetails() {
       });
     }
   }, [location.state]);
+
+
 
   // const handleBackClick = () => {
   //   navigate('/import-dsr', {
@@ -112,7 +105,14 @@ function JobDetails() {
       setSelectedImporter("");
     }
   }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
-  const handleBackClick = () => {
+
+  React.useEffect(() => {
+      // Clear search state when this tab becomes active, unless coming from job details
+      if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
+        setSearchQuery("");
+        setSelectedImporter("");
+      }
+    }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);  const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0; // Use the actual current tab
     navigate("/import-dsr", {
       state: {
@@ -127,6 +127,7 @@ function JobDetails() {
       },
     });
   };
+
 
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
@@ -316,13 +317,26 @@ function JobDetails() {
       sws_ammount: swsAmount.toFixed(2),
       igst_ammount: igstAmount.toFixed(2)
     }));
-  };
-
-  // Auto-calculate duty amounts when rates or assessable value change
+  };  // Auto-calculate duty amounts when rates or assessable value change
   useEffect(() => {
-    const timeoutId = setTimeout(calculateDutyAmounts, 100);
-    return () => clearTimeout(timeoutId);
+    if (igstValues.assessable_ammount && (igstValues.bcdRate || igstValues.swsRate || igstValues.igstRate)) {
+      const timeoutId = setTimeout(calculateDutyAmounts, 100);
+      return () => clearTimeout(timeoutId);
+    }
   }, [igstValues.assessable_ammount, igstValues.bcdRate, igstValues.swsRate, igstValues.igstRate]);
+
+  // Force calculation when modal opens and values are available
+  useEffect(() => {
+    if (dutyModalOpen && igstValues.assessable_ammount) {
+      // Add a slight delay to ensure all state updates are complete
+      const timeoutId = setTimeout(() => {
+        if (igstValues.bcdRate || igstValues.swsRate || igstValues.igstRate) {
+          calculateDutyAmounts();
+        }
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [dutyModalOpen, igstValues.assessable_ammount, igstValues.bcdRate, igstValues.swsRate, igstValues.igstRate]);
 
   // Auto-calculate interest and penalty when relevant values change
   useEffect(() => {
@@ -744,8 +758,7 @@ function JobDetails() {
           const bcdSchRate = parseFloat(result.addedFields?.cth_basic_duty_sch || 0);
           const bcdNtfnRate = parseFloat(result.addedFields?.cth_basic_duty_ntfn || 0);
           const bcdRate = Math.max(bcdSchRate, isNaN(bcdNtfnRate) ? 0 : bcdNtfnRate);
-          
-          setIgstValues(prev => ({
+            setIgstValues(prev => ({
             ...prev,
             // Set the rates for calculation
             bcdRate: bcdRate.toString(),
@@ -758,14 +771,24 @@ function JobDetails() {
               igst_ammount: result.addedFields?.cth_igst_ammount || prev.igst_ammount,
             })
           }));
+          
+          // Force calculation after CTH data is loaded
+          setTimeout(() => {
+            calculateDutyAmounts();
+          }, 100);
         }
       } catch (error) {
         console.error('Error in CTH duty lookup:', error);
       }
-    }
-
-    // Open the modal regardless of CTH lookup result
+    }    // Open the modal regardless of CTH lookup result
     setDutyModalOpen(true);
+    
+    // Force calculation after modal opens if we have the necessary values
+    setTimeout(() => {
+      if (formik.values.assessable_ammount && (formik.values.igst_rate || igstValues.bcdRate || igstValues.swsRate)) {
+        calculateDutyAmounts();
+      }
+    }, 300);
   };
 
   const handleCloseDutyModal = () => {
@@ -2334,8 +2357,9 @@ function JobDetails() {
                   />
                 </div>
               </Col>
-                  
-<Col xs={12} lg={4}>
+                
+
+              <Col xs={12} lg={4}>
   <div
     className="job-detail-input-container"
     style={{ justifyContent: "flex-start" }}
@@ -2376,7 +2400,6 @@ function JobDetails() {
     )}
   </div>
 </Col>
-
             <Col
                 xs={12}
                 lg={4}
@@ -2402,13 +2425,13 @@ function JobDetails() {
                         <Radio size="small" />
                       }
                       label="Discharge"
-                      disabled={
-                        isSubmissionDate ||
-                        !formik.values.discharge_date ||
-                        !formik.values.gateway_igm_date ||
-                        !formik.values.esanchit_completed_date_time ||
-                        !formik.values.documentation_completed_date_time
-                      }
+                      // disabled={
+                      //   isSubmissionDate ||
+                      //   !formik.values.discharge_date ||
+                      //   !formik.values.gateway_igm_date ||
+                      //   !formik.values.esanchit_completed_date_time ||
+                      //   !formik.values.documentation_completed_date_time
+                      // }
                     />
                     <FormControlLabel
                       value="Railout"
@@ -2416,15 +2439,7 @@ function JobDetails() {
                         <Radio size="small" />
                       }
                       label="Railout"
-                      disabled={
-                        isSubmissionDate ||
-                        !formik.values.discharge_date ||
-                        !formik.values.gateway_igm_date ||
-                        !formik.values.esanchit_completed_date_time ||
-                        !formik.values.documentation_completed_date_time ||
-                        !formik.values.container_nos?.length ||
-                        !formik.values.container_nos.every((container) => container.container_rail_out_date)
-                      }
+                    
                     />
                     <FormControlLabel
                       value="Advanced"
@@ -4493,266 +4508,406 @@ function JobDetails() {
         isEdit={isEditMode}
         editValues={editValues}
         onEditChange={setEditValues}
-      />      {/* Duty Details Modal */}
-      <Dialog open={dutyModalOpen} onClose={handleCloseDutyModal} maxWidth="md" fullWidth>
-        <DialogTitle>
+      />      {/* Modern Duty Details Modal */}
+      <Dialog 
+        open={dutyModalOpen} 
+        onClose={handleCloseDutyModal} 
+        maxWidth="lg" 
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: '16px',
+            maxHeight: '90vh',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'rgba(255,255,255,0.1)', 
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255,255,255,0.2)'
+        }}>
           <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box sx={{ fontSize: '16px', fontWeight: 600, color: '#34495e' }}>
-              💸 Duty Payment Details
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ 
+                p: 1, 
+                borderRadius: '50%', 
+                background: 'rgba(255,255,255,0.2)',
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                💸
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+                Duty Payment Calculator
+              </Typography>
             </Box>
             {formik.values.cth_no && (
               <Chip 
                 label={`CTH: ${formik.values.cth_no}`}
                 size="small"
-                sx={{ fontSize: '12px', fontWeight: 600, backgroundColor: '#e8f5e8', color: '#155724' }}
+                sx={{ 
+                  fontSize: '12px', 
+                  fontWeight: 600, 
+                  backgroundColor: 'rgba(255,255,255,0.9)', 
+                  color: '#155724',
+                  backdropFilter: 'blur(10px)'
+                }}
               />
             )}
           </Box>
         </DialogTitle>
         
-        <DialogContent sx={{ p: 2, pt: 1 }}>
-          <DialogContentText sx={{ mb: 2, fontSize: '13px', color: '#666' }}>
-            Please fill in the duty payment details below. All amounts should be entered in INR.
-            {formik.values.cth_no && (
-              <Box sx={{ mt: 1, color: 'success.main', fontWeight: 'bold', fontSize: '12px' }}>
-                ✅ CTH rates auto-populated from database
+        <DialogContent sx={{ p: 3, background: 'white', color: '#333' }}>
+          {/* Improved Layout - Summary on Right Side */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 3 }}>
+            
+            {/* Left Side - Input Fields */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.5 }}>
+              
+              {/* Assessable Amount */}
+              <Box sx={{ 
+                p: 2.5, 
+                marginTop: "20px",
+                border: '1px solid #e3f2fd', 
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                
+              }}>
+                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1565c0', mb: 1.5 }}>
+                  💰 Assessable Amount (INR)
+                </Typography>
+                <TextField
+                  type="number"
+                  value={igstValues.assessable_ammount}
+                  onChange={(e) => setIgstValues({ ...igstValues, assessable_ammount: e.target.value })}
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  placeholder="Enter assessable amount"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      '& fieldset': { borderColor: '#e0e0e0' },
+                      '&:hover fieldset': { borderColor: '#1565c0' },
+                      '&.Mui-focused fieldset': { borderColor: '#1565c0' }
+                    }
+                  }}
+                />
               </Box>
-            )}
-          </DialogContentText>
 
-          {/* Assessable Amount */}
-          <Box sx={{ mb: 2 }}>
-            <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-              Assessable Amount (INR)
-            </Typography>
-            <TextField
-              type="number"
-              value={igstValues.assessable_ammount}
-              onChange={(e) => setIgstValues({ ...igstValues, assessable_ammount: e.target.value })}
-              fullWidth
-              variant="outlined"
-              size="small"
-            />
+              {/* Duty Components Grid */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                
+                {/* BCD Rate & Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #e8f5e8', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#2e7d32', mb: 1 }}>
+                    🏛️ BCD Rate (%)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.bcdRate}
+                    onChange={(e) => setIgstValues({ ...igstValues, bcdRate: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter BCD rate"
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#2e7d32' },
+                        '&.Mui-focused fieldset': { borderColor: '#2e7d32' }
+                      }
+                    }}
+                  />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    background: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxShadow: '0 3px 10px rgba(76,175,80,0.3)'
+                  }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                      ₹{parseFloat(igstValues.bcd_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* SWS Rate & Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #fff3e0', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#ef6c00', mb: 1 }}>
+                    ⚓ SWS Rate (%)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.swsRate}
+                    onChange={(e) => setIgstValues({ ...igstValues, swsRate: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Default: 10%"
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#ef6c00' },
+                        '&.Mui-focused fieldset': { borderColor: '#ef6c00' }
+                      }
+                    }}
+                  />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxShadow: '0 3px 10px rgba(255,152,0,0.3)'
+                  }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                      ₹{parseFloat(igstValues.sws_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* IGST Rate & Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #f3e5f5', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#7b1fa2', mb: 1 }}>
+                    📊 IGST Rate (%)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.igstRate}
+                    onChange={(e) => setIgstValues({ ...igstValues, igstRate: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter IGST rate"
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#7b1fa2' },
+                        '&.Mui-focused fieldset': { borderColor: '#7b1fa2' }
+                      }
+                    }}
+                  />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    background: 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%)', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxShadow: '0 3px 10px rgba(156,39,176,0.3)'
+                  }}>
+                    <Typography sx={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>
+                      ₹{parseFloat(igstValues.igst_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Fine Amount */}
+                <Box sx={{ 
+                  p: 2, 
+                  border: '1px solid #e0f2f1', 
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#00695c', mb: 1.5 }}>
+                    💳 Fine Amount (INR)
+                  </Typography>
+                  <TextField
+                    type="number"
+                    value={igstValues.fine_ammount}
+                    onChange={(e) => setIgstValues({ ...igstValues, fine_ammount: e.target.value })}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter fine amount"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'white',
+                        borderRadius: '6px',
+                        '& fieldset': { borderColor: '#e0e0e0' },
+                        '&:hover fieldset': { borderColor: '#00695c' },
+                        '&.Mui-focused fieldset': { borderColor: '#00695c' }
+                      }
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>            {/* Right Side - Summary Panel */}
+            <Box>
+              {/* Detailed Breakdown */}
+              <Box sx={{ 
+                p: 2.5, 
+                backgroundColor: '#f8f9fa',
+                borderRadius: '12px',
+                border: '1px solid #dee2e6',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                marginTop: "20px",
+                mb: 3
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 700, 
+                  mb: 2, 
+                  fontSize: '14px', 
+                  color: '#495057',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  📊 Breakdown
+                </Typography>
+                {/* Summary Grid */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1.5 }}>
+                  {[
+                    { label: 'BCD', value: igstValues.bcd_ammount, color: '#2e7d32', icon: '🏛️' },
+                    { label: 'SWS', value: igstValues.sws_ammount, color: '#ef6c00', icon: '⚓' },
+                    { label: 'IGST', value: igstValues.igst_ammount, color: '#7b1fa2', icon: '📊' },
+                    { label: 'Interest', value: igstValues.intrest_ammount, color: '#f57c00', icon: '⏰' },
+                    { label: 'Penalty', value: igstValues.penalty_ammount, color: '#c62828', icon: '⚠️' },
+                    { label: 'Fine', value: igstValues.fine_ammount, color: '#00695c', icon: '💳' }
+                  ].map((item, index) => (
+                    <Box key={index} sx={{ 
+                      p: 1.5,
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      border: '1px solid #e9ecef',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box>{item.icon}</Box>
+                        <Typography sx={{ fontSize: '12px', color: '#6c757d', fontWeight: 500 }}>
+                          {item.label}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: '13px', fontWeight: 700, color: item.color }}>
+                        ₹{parseFloat(item.value || 0).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Grand Total */}
+              <Box sx={{ 
+                p: 3, 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '15px',
+                color: 'white',
+                textAlign: 'center',
+                boxShadow: '0 8px 25px rgba(102,126,234,0.4)'
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 800, 
+                  fontSize: '16px',
+                  mb: 1,
+                  opacity: 0.9
+                }}>
+                  💰 Total Duty Amount
+                </Typography>
+                <Typography variant="h3" sx={{ 
+                  fontWeight: 900, 
+                  fontSize: '28px',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                  ₹{(
+                    parseFloat(igstValues.bcd_ammount || 0) +
+                    parseFloat(igstValues.igst_ammount || 0) +
+                    parseFloat(igstValues.sws_ammount || 0) +
+                    parseFloat(igstValues.intrest_ammount || 0) +
+                    parseFloat(igstValues.penalty_ammount || 0) +
+                    parseFloat(igstValues.fine_ammount || 0)
+                  ).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
-
-          {/* Main Grid Layout */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-            {/* BCD */}
-            <Box>
-              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-                BCD Rate (%)
-              </Typography>
-              <TextField
-                type="number"
-                value={igstValues.bcdRate}
-                onChange={(e) => setIgstValues({ ...igstValues, bcdRate: e.target.value })}
-                size="small"
-                fullWidth
-                placeholder="Enter BCD rate"
-              />
-              <Box sx={{ 
-                mt: 0.5, 
-                p: 0.5, 
-                backgroundColor: '#e8f5e8', 
-                borderRadius: '4px',
-                textAlign: 'center',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#28a745'
-              }}>
-                ₹{parseFloat(igstValues.bcd_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </Box>
-            </Box>
-
-            {/* SWS */}
-            <Box>
-              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-                SWS Rate (%)
-              </Typography>
-              <TextField
-                type="number"
-                value={igstValues.swsRate}
-                onChange={(e) => setIgstValues({ ...igstValues, swsRate: e.target.value })}
-                size="small"
-                fullWidth
-                placeholder="Default: 10%"
-              />
-              <Box sx={{ 
-                mt: 0.5, 
-                p: 0.5, 
-                backgroundColor: '#e8f5e8', 
-                borderRadius: '4px',
-                textAlign: 'center',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#28a745'
-              }}>
-                ₹{parseFloat(igstValues.sws_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </Box>
-            </Box>
-
-            {/* IGST */}
-            <Box>
-              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-                IGST Rate (%)
-              </Typography>
-              <TextField
-                type="number"
-                value={igstValues.igstRate}
-                onChange={(e) => setIgstValues({ ...igstValues, igstRate: e.target.value })}
-                size="small"
-                fullWidth
-                placeholder="Enter IGST rate"
-              />
-              <Box sx={{ 
-                mt: 0.5, 
-                p: 0.5, 
-                backgroundColor: '#e8f5e8', 
-                borderRadius: '4px',
-                textAlign: 'center',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#28a745'
-              }}>
-                ₹{parseFloat(igstValues.igst_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </Box>
-            </Box>
-
-            {/* Interest Amount */}
-            <Box>
-              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-                Interest Amount (Auto-calculated)
-              </Typography>
-              <Box sx={{ 
-                p: 1, 
-                backgroundColor: '#fff3cd', 
-                borderRadius: '4px',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#856404',
-                textAlign: 'center',
-                border: '1px solid #ffeaa7'
-              }}>
-                ₹{parseFloat(igstValues.intrest_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </Box>
-              <Typography sx={{ fontSize: '10px', color: '#666', fontStyle: 'italic', mt: 0.5 }}>
-                15% per annum between assessment & payment dates
-              </Typography>
-            </Box>
-
-            {/* Penalty Amount */}
-            <Box>
-              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-                Penalty Amount (Auto-calculated)
-              </Typography>
-              <Box sx={{ 
-                p: 1, 
-                backgroundColor: '#f8d7da', 
-                borderRadius: '4px',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#721c24',
-                textAlign: 'center',
-                border: '1px solid #f5c6cb'
-              }}>
-                ₹{parseFloat(igstValues.penalty_ammount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </Box>
-              <Typography sx={{ fontSize: '10px', color: '#666', fontStyle: 'italic', mt: 0.5 }}>
-                Based on BE date vs arrival date comparison
-              </Typography>
-            </Box>
-
-            {/* Fine Amount */}
-            <Box sx={{ gridColumn: 'span 2' }}>
-              <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#555', mb: 0.5 }}>
-                Fine Amount (INR)
-              </Typography>
-              <TextField
-                type="number"
-                value={igstValues.fine_ammount}
-                onChange={(e) => setIgstValues({ ...igstValues, fine_ammount: e.target.value })}
-                size="small"
-                fullWidth
-                placeholder="Enter fine amount"
-              />
-            </Box>
-          </Box>
-
-          {/* Total Summary */}
-          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f8f9fa", borderRadius: 2, border: '1px solid #dee2e6' }}>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1, fontSize: '14px', color: '#495057' }}>
-              📊 Total Summary
-            </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 1 }}>
-              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
-                BCD: ₹{parseFloat(igstValues.bcd_ammount || 0).toFixed(2)}
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
-                SWS: ₹{parseFloat(igstValues.sws_ammount || 0).toFixed(2)}
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
-                IGST: ₹{parseFloat(igstValues.igst_ammount || 0).toFixed(2)}
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
-                Interest: ₹{parseFloat(igstValues.intrest_ammount || 0).toFixed(2)}
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
-                Penalty: ₹{parseFloat(igstValues.penalty_ammount || 0).toFixed(2)}
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '11px', color: "#6c757d" }}>
-                Fine: ₹{parseFloat(igstValues.fine_ammount || 0).toFixed(2)}
-              </Typography>
-            </Box>
-            <Box sx={{ 
-              p: 1.5, 
-              backgroundColor: '#ffeaa7', 
-              borderRadius: '6px',
-              border: '2px solid #fdcb6e'
-            }}>
-              <Typography variant="h6" sx={{ 
-                fontWeight: "bold", 
-                color: "#2d3436",
-                fontSize: '16px',
-                textAlign: 'center'
-              }}>
-                💰 Total Duty: ₹{(
-                  parseFloat(igstValues.bcd_ammount || 0) +
-                  parseFloat(igstValues.igst_ammount || 0) +
-                  parseFloat(igstValues.sws_ammount || 0) +
-                  parseFloat(igstValues.intrest_ammount || 0) +
-                  parseFloat(igstValues.penalty_ammount || 0) +
-                  parseFloat(igstValues.fine_ammount || 0)
-                ).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </Typography>
-            </Box>
-          </Box>
+          {/* Professional Grid Layout - Original Sequence */}
+ 
         </DialogContent>
         
-        <DialogActions sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ 
-            fontSize: '10px', 
-            color: '#666', 
-            fontStyle: 'italic'
-          }}>
-            ⚠️ Interest & penalty amounts are auto-calculated
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
-              onClick={handleCloseDutyModal} 
-              size="small" 
-              variant="outlined"
-              color="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDutySubmit}
-              size="small"
-              variant="contained"
-              color="primary"
-            >
-              Save & Update
-            </Button>
+        <DialogActions sx={{ 
+          p: 3, 
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+          borderTop: '1px solid #dee2e6'
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Typography variant="caption" sx={{ 
+              fontSize: '11px', 
+              color: '#666', 
+              fontStyle: 'italic',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5
+            }}>
+              <Box sx={{ fontSize: '14px' }}>🤖</Box>
+              Interest & penalty amounts are auto-calculated
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <Button 
+                onClick={handleCloseDutyModal} 
+                variant="outlined"
+                sx={{
+                  borderRadius: '25px',
+                  px: 3,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderColor: '#6c757d',
+                  color: '#6c757d',
+                  '&:hover': {
+                    borderColor: '#5a6268',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)'
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDutySubmit}
+                variant="contained"
+                sx={{
+                  borderRadius: '25px',
+                  px: 3,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.6)'
+                  }
+                }}
+              >
+                💾 Save & Update
+              </Button>
+            </Box>
           </Box>
         </DialogActions>
       </Dialog>

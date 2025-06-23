@@ -17,13 +17,15 @@ import {
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function Submission() {
- const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
 
@@ -32,8 +34,10 @@ function Submission() {
   const [totalPages, setTotalPages] = React.useState(1);
   const [page, setPage] = React.useState(1);
   // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
+    useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] =
+    React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -93,9 +97,7 @@ function Submission() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   // useEffect(() => {
   //   if (!selectedImporter) {
@@ -103,31 +105,31 @@ function Submission() {
   //   }
   // }, [importerNames]);
 
-   const handleCopy = (event, text) => {
-   event.stopPropagation();
-   if (!text || text === "N/A") return; // Prevent copying empty values
-   if (
-     navigator.clipboard &&
-     typeof navigator.clipboard.writeText === "function"
-   ) {
-     navigator.clipboard
-       .writeText(text)
-       .then(() => console.log("Copied:", text))
-       .catch((err) => console.error("Copy failed:", err));
-   } else {
-     const textArea = document.createElement("textarea");
-     textArea.value = text;
-     document.body.appendChild(textArea);
-     textArea.select();
-     try {
-       document.execCommand("copy");
-       console.log("Copied (fallback):", text);
-     } catch (err) {
-       console.error("Fallback failed:", err);
-     }
-     document.body.removeChild(textArea);
-   }
- };
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return; // Prevent copying empty values
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   useEffect(() => {
     async function getYears() {
@@ -159,7 +161,8 @@ function Submission() {
       } catch (error) {
         console.error("Error fetching years:", error);
       }
-    }    getYears();
+    }
+    getYears();
   }, [selectedYearState, setSelectedYearState]);
 
   // Handle search input change
@@ -222,15 +225,15 @@ function Submission() {
   );
 
   // Fetch jobs when page or debounced search query changes
-   useEffect(() => {
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
-   }, [
-     page,
-     debouncedSearchQuery,
-     selectedImporter,
-     selectedYearState,
-     fetchJobs,
-   ]); 
+  useEffect(() => {
+    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedImporter,
+    selectedYearState,
+    fetchJobs,
+  ]);
   // Debounce search input
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -260,14 +263,17 @@ function Submission() {
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;
 
-        return (          <div
-            onClick={() => navigate(`/submission-job/${job_no}/${year}`, {
-              state: {
-                selectedJobId: job_no,
-                searchQuery,
-                selectedImporter,
-              },
-            })}
+        return (
+          <div
+            onClick={() =>
+              navigate(`/submission-job/${job_no}/${year}`, {
+                state: {
+                  selectedJobId: job_no,
+                  searchQuery,
+                  selectedImporter,
+                },
+              })
+            }
             style={{
               cursor: "pointer",
               color: "blue",
@@ -323,91 +329,108 @@ function Submission() {
         );
       },
     },
-{
-  accessorKey: "igm_details",
-  header: "IGM Details",
-  enableSorting: false,
-  size: 250,
-  Cell: ({ cell }) => {
-    const { 
-      gateway_igm_date,
-      gateway_igm,
-      igm_date,
-      igm_no,
-      job_net_weight,
-      gross_weight,
-      line_no,
-      no_of_pkgs
-    } = cell.row.original;
-    
-    return (
-      <div>
-        <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm)}>
-          <abbr title="Copy Gateway IGM">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+    {
+      accessorKey: "igm_details",
+      header: "IGM Details",
+      enableSorting: false,
+      size: 250,
+      Cell: ({ cell }) => {
+        const {
+          gateway_igm_date,
+          gateway_igm,
+          igm_date,
+          igm_no,
+          job_net_weight,
+          gross_weight,
+          line_no,
+          no_of_pkgs,
+        } = cell.row.original;
 
-        <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm_date)}>
-          <abbr title="Copy Gateway Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
-
-        <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, igm_no)}>
-          <abbr title="Copy IGM No">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
-
-        <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, igm_date)}>
-          <abbr title="Copy IGM Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
-
-        <strong>Net Weight:</strong> {job_net_weight || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, job_net_weight)}>
-          <abbr title="Copy Net Weight">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
-
-        <strong>Gross Weight:</strong> {gross_weight || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gross_weight)}>
-          <abbr title="Copy Gross Weight">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
-
-        <strong>Line No:</strong> {line_no || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, line_no)}>
-          <abbr title="Copy Line No">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
-
-        <strong>No of Pkgs:</strong> {no_of_pkgs || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, no_of_pkgs)}>
-          <abbr title="Copy No of Pkgs">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-      </div>
-    );
-  },
-},
+        return (
+          <div>
+            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gateway_igm)}
+            >
+              <abbr title="Copy Gateway IGM">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gateway_igm_date)}
+            >
+              <abbr title="Copy Gateway Date">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, igm_no)}
+            >
+              <abbr title="Copy IGM No">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, igm_date)}
+            >
+              <abbr title="Copy IGM Date">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Net Weight:</strong> {job_net_weight || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, job_net_weight)}
+            >
+              <abbr title="Copy Net Weight">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Gross Weight:</strong> {gross_weight || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gross_weight)}
+            >
+              <abbr title="Copy Gross Weight">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Line No:</strong> {line_no || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, line_no)}
+            >
+              <abbr title="Copy Line No">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>No of Pkgs:</strong> {no_of_pkgs || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, no_of_pkgs)}
+            >
+              <abbr title="Copy No of Pkgs">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+          </div>
+        );
+      },
+    },
     {
       accessorKey: "invoice_number",
       header: "Invoice NO. & Date",
@@ -419,6 +442,110 @@ function Submission() {
           <div>
             <div>{`${invoice_number}`}</div>
             <div>{`${invoice_date}`}</div>
+          </div>
+        );
+      },
+    },
+      {
+      accessorKey: "be_filing_info",
+      header: "BE Filing",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        const {
+          be_filing_type,
+          be_date,
+          is_checklist_aprroved,
+          is_checklist_aprroved_date,
+        } = row.original;
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {/* Checklist Approval Status */}
+            <div
+              style={{
+                marginBottom: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              {is_checklist_aprroved ? (
+                <>
+                  <CheckCircleIcon
+                    style={{ color: "#4caf50", fontSize: "16px" }}
+                  />
+                  <span
+                    style={{
+                      color: "#4caf50",
+                      fontWeight: "bold",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Checklist Approved
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CancelIcon style={{ color: "#f44336", fontSize: "16px" }} />
+                  <span
+                    style={{
+                      color: "#f44336",
+                      fontWeight: "bold",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Not Approved
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Checklist Approval Date */}
+            {is_checklist_aprroved_date && (
+              <div
+                style={{ fontSize: "11px", color: "#666", marginBottom: "5px" }}
+              >
+                Approved:{" "}
+                {new Date(is_checklist_aprroved_date).toLocaleDateString()}
+              </div>
+            )}
+
+            {/* Filing Type */}
+            {be_filing_type && (
+              <div
+                style={{
+                  marginBottom: "5px",
+                  fontWeight: "bold",
+                  fontSize: "12px",
+                }}
+              >
+                Type: {be_filing_type}
+              </div>
+            )}
+
+            {/* BE Date */}
+            {be_date && (
+              <div style={{ fontSize: "11px", color: "#555" }}>
+                BE Date: {new Date(be_date).toLocaleDateString()}
+              </div>
+            )}
+
+            {/* Fallback message */}
+            {!be_filing_type &&
+              !be_date &&
+              !is_checklist_aprroved &&
+              !is_checklist_aprroved_date && (
+                <div
+                  style={{
+                    color: "#999",
+                    fontStyle: "italic",
+                    fontSize: "12px",
+                  }}
+                >
+                  No Filing Info
+                </div>
+              )}
           </div>
         );
       },
@@ -468,38 +595,11 @@ function Submission() {
             ) : (
               <div>No Documents Available</div>
             )}
-          </div>        );
-      },
-    },
-    {
-      accessorKey: "be_filing_info",
-      header: "BE Filing",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ row }) => {
-        const { be_filing_type, be_date } = row.original;
-
-        return (
-          <div style={{ textAlign: "left" }}>
-            {be_filing_type && (
-              <div style={{ marginBottom: "5px", fontWeight: "bold" }}>
-                Type: {be_filing_type}
-              </div>
-            )}
-            {be_date && (
-              <div style={{ fontSize: "12px", color: "#555" }}>
-                Date: {new Date(be_date).toLocaleDateString()}
-              </div>
-            )}
-            {!be_filing_type && !be_date && (
-              <div style={{ color: "#999", fontStyle: "italic" }}>
-                No BE Filing Info
-              </div>
-            )}
           </div>
         );
       },
     },
+  
   ];
 
   const tableConfig = {
@@ -527,11 +627,28 @@ function Submission() {
       sx: {
         textAlign: "left", // Ensures all cells in the table body align to the left
       },
+    },    muiTableBodyRowProps: ({ row }) => {
+      const { be_filing_type } = row.original;
+      
+      let backgroundColor = '';
+      if (be_filing_type === 'Discharge') {
+        backgroundColor = '#ffebee'; // Light red background
+      } else if (be_filing_type === 'Railout') {
+        backgroundColor = '#fff8e1'; // Light yellow background
+      }
+      
+      return {
+        className: getTableRowsClassname(row),
+        sx: {
+          backgroundColor: backgroundColor,
+          '&:hover': {
+            backgroundColor: backgroundColor ? 
+              (be_filing_type === 'Discharge' ? '#ffcdd2' : '#fff3c4') : // Darker shade on hover
+              undefined
+          }
+        }
+      };
     },
-
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

@@ -58,8 +58,7 @@ export const convertToExcel = async (
     importer === "BHAVYA MACHINE TOOLS"
       ? ["HSS NAME"]
       : [];
-      
-  const headers = [
+        const headers = [
     "JOB NO AND DATE",
     ...additionalHeaders,
     "SUPPLIER/ EXPORTER",
@@ -78,9 +77,7 @@ export const convertToExcel = async (
     "NUMBER OF CONTAINERS",
     "BE NUMBER AND DATE",
     "REMARKS",
-    "DETAILED STATUS",
-    "FIRST CHECK",
-    ""
+    "DETAILED STATUS"
   ];
 
   console.log(rowsWithoutBillNo);
@@ -97,8 +94,7 @@ export const convertToExcel = async (
     
     const blNoAndDate = `${item.awb_bl_no || ''} | ${formatDate(item.awb_bl_date)}`;
     const beNoAndDate = `${item.be_no || ''} | ${formatDate(item.be_date)}`;
-    
-    const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
+      const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
       item.discharge_date ? item.discharge_date : item.vessel_berthing || ''
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
@@ -126,10 +122,9 @@ export const convertToExcel = async (
               ? `ORG-RCVD: ${item.document_received_date || ''}`
               : `DOC-RCVD: ${item.document_received_date || ''}`
           }`
-        : ""
-    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
+        : ""    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
       item.remarks ? ` | Remarks: ${item.remarks}` : ""
-    }`;
+    }${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
 
     // Safely handle container dates
     const arrivalDates = item.container_nos && item.container_nos.length > 0 
@@ -202,9 +197,7 @@ export const convertToExcel = async (
       : "N/A";
     const cleanPortOfReporting = item.port_of_reporting
       ? item.port_of_reporting.replace(/\(.*?\)\s*/, "")
-      : "N/A";
-
-    const valueMap = {
+      : "N/A";    const valueMap = {
       "JOB NO AND DATE": jobNoAndDate,
       "HSS NAME": item.hss_name || '',
       "SUPPLIER/ EXPORTER": item.supplier_exporter || '',
@@ -224,7 +217,6 @@ export const convertToExcel = async (
       "BE NUMBER AND DATE": beNoAndDate,
       REMARKS: remarks,
       "DETAILED STATUS": item.detailed_status || '',
-      "FIRST CHECK": formatDate(item.firstCheck),
     };
 
     const values = headers.map((val) => {
@@ -382,11 +374,10 @@ export const convertToExcel = async (
   // Increase the height of the header row
   headerRow.height = 35;
 
-  ///////////////////////////////////////  Data Row  //////////////////////////////////////
-  // Add the data rows
+  ///////////////////////////////////////  Data Row  //////////////////////////////////////  // Add the data rows
   for (const row of dataWithHeaders) {
     const dataRow = worksheet.addRow(row);
-    const detailedStatus = row[row.length - 2]; // Get the Detailed Status (now second to last because of FIRST CHECK)
+    const detailedStatus = row[row.length - 1]; // Get the Detailed Status (now the last column)
 
     // Apply background color based on Detailed Status
     if (detailedStatus === "Estimated Time of Arrival") {
@@ -431,22 +422,13 @@ export const convertToExcel = async (
         pattern: "solid",
         fgColor: { argb: "ffffcc99" },
       };
-    }
-
-    // Set text alignment to center for each cell in the data row
+    }    // Set text alignment to center for each cell in the data row
     dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.alignment = {
         horizontal: "center",
         vertical: "middle",
         wrapText: true, // Enable text wrapping for all cells
       };
-
-      // Make only the FIRST CHECK column values bold
-      // Calculate the column index for FIRST CHECK (it's the second to last column before the empty one)
-      const firstCheckColumnIndex = headers.indexOf("FIRST CHECK") + 1; // +1 because ExcelJS uses 1-based indexing
-      if (colNumber === firstCheckColumnIndex) {
-        cell.font = { bold: true };
-      }
 
       cell.border = {
         top: { style: "thin" },
@@ -455,9 +437,32 @@ export const convertToExcel = async (
         right: { style: "thin" },
       };
 
-      // Add line breaks after commas in the containerNumbersWithSizes  cell
+      // Add line breaks after commas in the containerNumbersWithSizes cell
       if (cell.value && cell.value.toString().includes(",\n")) {
         cell.value = cell.value.replace(/,\n/g, String.fromCharCode(10)); // Replace ",\n" with line break character
+      }
+
+      // Apply bold formatting to First Check Date in remarks column
+      const remarksColumnIndex = headers.indexOf("REMARKS") + 1; // +1 because ExcelJS uses 1-based indexing
+      if (colNumber === remarksColumnIndex && cell.value && cell.value.toString().includes("First Check Date:")) {
+        // Create rich text with bold formatting for First Check Date line
+        const cellText = cell.value.toString();
+        const lines = cellText.split('\n');
+        const richText = [];
+        
+        lines.forEach((line, index) => {
+          if (line.includes("First Check Date:")) {
+            richText.push({ text: line, font: { bold: true } });
+          } else {
+            richText.push({ text: line });
+          }
+          // Add line break except for the last line
+          if (index < lines.length - 1) {
+            richText.push({ text: '\n' });
+          }
+        });
+        
+        cell.value = { richText: richText };
       }
     });
 
@@ -566,13 +571,8 @@ export const convertToExcel = async (
     }
     if (headers[id] === "STATUS") {
       column.width = 15;
-    }
-    if (headers[id] === "REMARKS") {
+    }    if (headers[id] === "REMARKS") {
       column.width = 45;
-    }
-    // Set specific width for FIRST CHECK column
-    if (headers[id] === "FIRST CHECK") {
-      column.width = 15;
     }
   });
 

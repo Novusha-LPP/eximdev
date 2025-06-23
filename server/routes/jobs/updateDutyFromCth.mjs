@@ -27,25 +27,20 @@ router.patch('/jobs/:jobId/update-duty-from-cth', async (req, res) => {
     }
 
     // Extract values from the CTH document
-    const { basic_duty_sch, basic_duty_ntfn, igst, sws_10_percent } = cthDocument;
-
-    // Calculate bcd_ammount (take the higher of basic_duty_sch and basic_duty_ntfn)
+    const { basic_duty_sch, basic_duty_ntfn, igst, sws_10_percent } = cthDocument;    // Calculate bcd_ammount (use basic_duty_sch only if basic_duty_ntfn is null, undefined, empty or not a number)
     let cth_bcd_ammount = '';
-    if (basic_duty_sch && basic_duty_ntfn) {
-      const basicDutySch = parseFloat(basic_duty_sch);
-      const basicDutyNtfn = parseFloat(basic_duty_ntfn);
-      
-      if (!isNaN(basicDutySch) && !isNaN(basicDutyNtfn)) {
-        cth_bcd_ammount = Math.max(basicDutySch, basicDutyNtfn).toString();
-      } else if (!isNaN(basicDutySch)) {
-        cth_bcd_ammount = basic_duty_sch;
-      } else if (!isNaN(basicDutyNtfn)) {
-        cth_bcd_ammount = basic_duty_ntfn;
-      }
-    } else if (basic_duty_sch) {
-      cth_bcd_ammount = basic_duty_sch;
-    } else if (basic_duty_ntfn) {
+    
+    // Check if basic_duty_ntfn is valid (not null, undefined, empty, or NaN)
+    const isBasicDutyNtfnValid = basic_duty_ntfn && 
+                                 basic_duty_ntfn !== '' && 
+                                 !isNaN(parseFloat(basic_duty_ntfn));
+    
+    if (isBasicDutyNtfnValid) {
+      // Use basic_duty_ntfn when it's valid
       cth_bcd_ammount = basic_duty_ntfn;
+    } else if (basic_duty_sch && basic_duty_sch !== '' && !isNaN(parseFloat(basic_duty_sch))) {
+      // Use basic_duty_sch only when basic_duty_ntfn is invalid and basic_duty_sch is valid
+      cth_bcd_ammount = basic_duty_sch;
     }
 
     // Add new fields to job (without overwriting existing ones)

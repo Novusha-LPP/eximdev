@@ -21,9 +21,8 @@ function useFetchOperationTeamJob(params) {
         selectedJobId, 
         currentTab, 
         selectedICD, 
-        selectedYearState, 
-        detailedStatusExPlan,
-        page,
+        selectedYearState,        detailedStatusExPlan,
+        currentPage,
         tab_number
       } = location.state;
       
@@ -35,7 +34,7 @@ function useFetchOperationTeamJob(params) {
         selectedICD,
         selectedYearState,
         detailedStatusExPlan,
-        page,
+        currentPage,
       });
     }
   }, [location.state]);
@@ -95,9 +94,8 @@ function useFetchOperationTeamJob(params) {
               searchQuery: storedSearchParams.searchQuery,
               selectedImporter: storedSearchParams.selectedImporter,
               selectedICD: storedSearchParams.selectedICD,
-              selectedYearState: storedSearchParams.selectedYearState,
-              detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
-              page: storedSearchParams.page,
+              selectedYearState: storedSearchParams.selectedYearState,              detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+              currentPage: storedSearchParams.currentPage,
             }),
           },
         });

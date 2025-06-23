@@ -135,6 +135,7 @@ const jobSchema = new mongoose.Schema({
   ],
   is_checklist_aprroved: { type: Boolean, default: false },
   is_checklist_aprroved_date: { type: String, trim: true },
+  is_checklist_clicked: { type: Boolean, trim: true },
   container_count: { type: String, trim: true },
   no_of_container: { type: String, trim: true },
   toi: { type: String, trim: true },

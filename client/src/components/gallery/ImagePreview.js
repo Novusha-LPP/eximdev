@@ -12,7 +12,7 @@ import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
-const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
+const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
   const { user } = useContext(UserContext);
@@ -85,14 +85,19 @@ const ImagePreview = ({ images, onDeleteImage, readOnly = false }) => {
           </TableHead>
           <TableBody>
             {imageArray.map((link, index) => (
-              <TableRow key={index}>
-                <TableCell>
+              <TableRow key={index}>                <TableCell>
                   {link ? (
                     <a
                       href={link}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ textDecoration: "none", color: "blue" }}
+                      onClick={(e) => {
+                        // Call onImageClick if provided
+                        if (onImageClick) {
+                          onImageClick(index, link);
+                        }
+                      }}
                     >
                       {extractFileName(link)}
                     </a>

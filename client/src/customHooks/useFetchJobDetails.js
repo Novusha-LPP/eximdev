@@ -395,10 +395,13 @@ function useFetchJobDetails(
       igst_ammount: "",
       sws_ammount: "",
       bcd_ammount: "",
-      intrest_ammount: "",
-      is_checklist_aprroved_date: "",
+      intrest_ammount: "",      is_checklist_aprroved_date: "",
       is_checklist_aprroved: false,
       is_checklist_clicked: false,
+      esanchit_remark_box: false,
+      documentation_remark_box: false,
+      remark_esanchit_input: "",
+      remark_documentation_input: "",
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -481,10 +484,9 @@ function useFetchJobDetails(
           gate_pass_copies: values.gate_pass_copies,
           all_documents: values.all_documents,
           do_revalidation: values.do_revalidation,
-          do_revalidation_date: values.do_revalidation_date,
-          is_checklist_aprroved_date: values.is_checklist_aprroved_date,
+          do_revalidation_date: values.do_revalidation_date,          is_checklist_aprroved_date: values.is_checklist_aprroved_date,
           is_checklist_aprroved: values.is_checklist_aprroved,
-          is_checklist_clicked: values.is_checklist_clicked,
+          is_checklist_clicked: Boolean(values.is_checklist_clicked),
           required_do_validity_upto: values.required_do_validity_upto,
           out_of_charge: values.out_of_charge,
           checked: values.checked,
@@ -504,10 +506,13 @@ function useFetchJobDetails(
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
           bcd_ammount: values.bcd_ammount,
-          intrest_ammount: values.intrest_ammount,
-          fine_ammount: values.fine_ammount,
+          intrest_ammount: values.intrest_ammount,          fine_ammount: values.fine_ammount,
           penalty_ammount: values.penalty_ammount,
           total_duty: values.total_duty,
+          esanchit_remark_box: values.esanchit_remark_box,
+          documentation_remark_box: values.documentation_remark_box,
+          remark_esanchit_input: values.remark_esanchit_input,
+          remark_documentation_input: values.remark_documentation_input,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -717,11 +722,10 @@ function useFetchJobDetails(
         cth_no: data.cth_no === undefined ? "" : data.cth_no,
         doPlanning: data.doPlanning === undefined ? false : data.doPlanning,
         do_planning_date:
-          data.do_planning_date === undefined ? "" : data.do_planning_date,
-        is_checklist_aprroved:
+          data.do_planning_date === undefined ? "" : data.do_planning_date,        is_checklist_aprroved:
           data.is_checklist_aprroved === undefined ? "" : data.is_checklist_aprroved,
         is_checklist_clicked:
-          data.is_checklist_clicked === undefined ? "" : data.is_checklist_clicked,
+          data.is_checklist_clicked === undefined ? false : Boolean(data.is_checklist_clicked),
         is_checklist_aprroved_date:
           data.is_checklist_aprroved_date === undefined ? "" : data.is_checklist_aprroved_date,
         examinationPlanning:
@@ -872,11 +876,14 @@ function useFetchJobDetails(
           data.bill_document_sent_to_accounts === undefined
             ? ""
             : data.bill_document_sent_to_accounts,
-        do_completed: data.do_completed === undefined ? "" : data.do_completed,
-        out_of_charge:
+        do_completed: data.do_completed === undefined ? "" : data.do_completed,        out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked: data.checked || false, // Make sure to set the checkbox state
         type_of_Do: data.type_of_Do || "",
+        esanchit_remark_box: data.esanchit_remark_box === undefined ? false : data.esanchit_remark_box,
+        documentation_remark_box: data.documentation_remark_box === undefined ? false : data.documentation_remark_box,
+        remark_esanchit_input: data.remark_esanchit_input === undefined ? "" : data.remark_esanchit_input,
+        remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
       });
     }
     // eslint-disable-next-line

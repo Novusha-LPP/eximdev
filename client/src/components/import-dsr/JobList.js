@@ -137,7 +137,6 @@ function JobList(props) {
       selectedImporter
     );  // Callback to update row data when data changes in EditableDateCell
   const handleRowDataUpdate = useCallback((jobId, updatedData) => {
-    console.log('JobList: Updating row data for job:', jobId, 'with data:', updatedData);
     setRows(prevRows => 
       prevRows.map(row => 
         row._id === jobId 

@@ -90,22 +90,22 @@ const ImportUtilityTool = () => {
     
     // Logic to select the appropriate duty rate
     let selectedDuty = '';
-    
-    // Helper function to check if a value is valid (not null, not empty, not "nan")
+      // Helper function to check if a value is valid (not null, not empty, not "nan", and is a number including "0")
     const isValidDuty = (value) => {
-      return value != null && value !== '' && value !== 'nan' && value !== 'NaN' && !isNaN(parseFloat(value));
+      return value != null && 
+             value !== '' && 
+             value !== 'nan' && 
+             value !== 'NaN' && 
+             !isNaN(parseFloat(value));
     };
     
     const hasBasicDuty = isValidDuty(item.basic_duty_sch);
     const hasNotificationDuty = isValidDuty(item.basic_duty_ntfn);
-    
-    // Check if both basic_duty_sch and basic_duty_ntfn are available
-    if (hasBasicDuty && hasNotificationDuty) {
-      // Both available - choose whichever is smaller
-      const basicDuty = parseFloat(item.basic_duty_sch);
-      const notificationDuty = parseFloat(item.basic_duty_ntfn);
-      selectedDuty = Math.min(basicDuty, notificationDuty).toString();
-      console.log('Both available - selected smaller:', selectedDuty);
+      // Check if both basic_duty_sch and basic_duty_ntfn are available
+    if (hasNotificationDuty && hasBasicDuty) {
+      // ALWAYS prioritize notification duty (basic_duty_ntfn) when both are available
+      selectedDuty = item.basic_duty_ntfn;
+      console.log('Both available - selected notification duty (priority):', selectedDuty);
     }
     // If only notification duty is available
     else if (hasNotificationDuty) {

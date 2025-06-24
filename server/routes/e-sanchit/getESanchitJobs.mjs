@@ -81,12 +81,18 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn"
+        "priorityJob remark_esanchit_input detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn"
       )
-      .sort({ gateway_igm_date: 1 });
-
-    // Custom sorting
+      .sort({ gateway_igm_date: 1 });    // Custom sorting with remark priority
     const rankedJobs = allJobs.sort((a, b) => {
+      // First priority: Jobs with esanchit remarks
+      const hasRemarkA = a.remark_esanchit_input && a.remark_esanchit_input.trim() !== "";
+      const hasRemarkB = b.remark_esanchit_input && b.remark_esanchit_input.trim() !== "";
+      
+      if (hasRemarkA && !hasRemarkB) return -1; // A has remark, B doesn't - A comes first
+      if (!hasRemarkA && hasRemarkB) return 1;  // B has remark, A doesn't - B comes first
+      
+      // If both have remarks or both don't have remarks, sort by priority
       const rank = (job) => {
         if (job.priorityJob === "High Priority") return 1;
         if (job.priorityJob === "Priority") return 2;

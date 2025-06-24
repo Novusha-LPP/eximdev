@@ -29,7 +29,8 @@ function ESanchit() {
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
   // Use context for searchQuery and selectedImporter
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
+    useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
@@ -148,26 +149,34 @@ function ESanchit() {
     [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
   );
   // Add this useEffect in your ESanchit component
-React.useEffect(() => {
-  // Clear search state when this tab becomes active, unless coming from job details
-  if (currentTab === 0 && !(location.state && location.state.fromJobDetails)) {
-    setSearchQuery("");
-    setSelectedImporter("");
-  }
-}, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
+  React.useEffect(() => {
+    // Clear search state when this tab becomes active, unless coming from job details
+    if (
+      currentTab === 0 &&
+      !(location.state && location.state.fromJobDetails)
+    ) {
+      setSearchQuery("");
+      setSelectedImporter("");
+    }
+  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
 
- useEffect(() => {
-   if (selectedYearState) {
-     // Ensure year is available before calling API
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
-   }
- }, [
-   page,
-   debouncedSearchQuery,
-   selectedImporter,
-   selectedYearState,
-   fetchJobs,
- ]);
+  useEffect(() => {
+    if (selectedYearState) {
+      // Ensure year is available before calling API
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState
+      );
+    }
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedImporter,
+    selectedYearState,
+    fetchJobs,
+  ]);
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
@@ -240,7 +249,8 @@ React.useEffect(() => {
             consignment_type,
             custom_house,
             priorityColor, // Add priorityColor from API response
-          } = cell.row.original;          return (
+          } = cell.row.original;
+          return (
             <div
               onClick={() =>
                 navigate(`/esanchit-job/${job_no}/${year}`, {
@@ -317,6 +327,20 @@ React.useEffect(() => {
           );
         },
       },
+        {
+        accessorKey: "remark_esanchit_input",
+        header: "Remarks",
+        enableSorting: false,
+        size: 400,
+        Cell: ({ cell }) => {
+          const { remark_esanchit_input } = cell.row.original;
+          return (
+            <div style={{ padding: "5px", wordWrap: "break-word" }}>
+              {remark_esanchit_input || "No remarks"}
+            </div>
+          );
+        },
+      },
       {
         accessorKey: "Doc",
         header: "Doc - IRN Details",
@@ -380,6 +404,7 @@ React.useEffect(() => {
           );
         },
       },
+    
     ],
     [navigate, handleCopy]
   );

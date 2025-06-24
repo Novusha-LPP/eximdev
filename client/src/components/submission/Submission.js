@@ -499,15 +499,16 @@ function Submission() {
                   </span>
                 </>
               )}
-            </div>
-
-            {/* Checklist Approval Date */}
+            </div>            {/* Checklist Approval Date */}
             {is_checklist_aprroved_date && (
               <div
                 style={{ fontSize: "11px", color: "#666", marginBottom: "5px" }}
               >
                 Approved:{" "}
-                {new Date(is_checklist_aprroved_date).toLocaleDateString()}
+                {new Date(is_checklist_aprroved_date).toLocaleString("en-US", {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })}
               </div>
             )}
 
@@ -628,13 +629,27 @@ function Submission() {
         textAlign: "left", // Ensures all cells in the table body align to the left
       },
     },    muiTableBodyRowProps: ({ row }) => {
-      const { be_filing_type } = row.original;
+      const { be_filing_type, container_nos } = row.original;
       
       let backgroundColor = '';
+      let hoverColor = '';
+      
       if (be_filing_type === 'Discharge') {
         backgroundColor = '#ffebee'; // Light red background
+        hoverColor = '#ffcdd2'; // Darker red on hover
       } else if (be_filing_type === 'Railout') {
-        backgroundColor = '#fff8e1'; // Light yellow background
+        // Check if any container has container_rail_out_date
+        const hasRailOutDate = container_nos?.some(container => 
+          container.container_rail_out_date && container.container_rail_out_date.trim() !== ''
+        );
+        
+        if (hasRailOutDate) {
+          backgroundColor = '#ffebee'; // Light red background (same as discharge)
+          hoverColor = '#ffcdd2'; // Darker red on hover
+        } else {
+          backgroundColor = '#fff8e1'; // Light yellow background
+          hoverColor = '#fff3c4'; // Darker yellow on hover
+        }
       }
       
       return {
@@ -642,9 +657,7 @@ function Submission() {
         sx: {
           backgroundColor: backgroundColor,
           '&:hover': {
-            backgroundColor: backgroundColor ? 
-              (be_filing_type === 'Discharge' ? '#ffcdd2' : '#fff3c4') : // Darker shade on hover
-              undefined
+            backgroundColor: hoverColor || undefined
           }
         }
       };

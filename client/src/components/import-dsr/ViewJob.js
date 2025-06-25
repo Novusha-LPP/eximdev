@@ -2404,9 +2404,7 @@ function JobDetails() {
                       </span>
                     )}
                   </div>
-                </Col>
-
-                {/* Remark Radio Buttons Section */}
+                </Col>                {/* Remark Checkboxes Section */}
                 <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
                   <div className="job-detail-input-container">
                     <FormControl component="fieldset">
@@ -2415,93 +2413,89 @@ function JobDetails() {
                       >
                         Remark Type:
                       </strong>
-                      <RadioGroup
-                        row
-                        value={
-                          formik.values.esanchit_remark_box
-                            ? "esanchit"
-                            : formik.values.documentation_remark_box
-                            ? "documentation"
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const selectedType = e.target.value;
-                          if (selectedType === "esanchit") {
-                            formik.setFieldValue("esanchit_remark_box", true);
-                            formik.setFieldValue(
-                              "documentation_remark_box",
-                              false
-                            );
-                            formik.setFieldValue(
-                              "remark_documentation_input",
-                              ""
-                            );
-                          } else if (selectedType === "documentation") {
-                            formik.setFieldValue(
-                              "documentation_remark_box",
-                              true
-                            );
-                            formik.setFieldValue("esanchit_remark_box", false);
-                            formik.setFieldValue("remark_esanchit_input", "");
-                          }
-                        }}
-                      >
+                      <FormGroup row>
                         <FormControlLabel
-                          value="esanchit"
-                          control={<Radio />}
+                          control={
+                            <Checkbox
+                              checked={formik.values.esanchit_remark_box}
+                              onChange={(e) => {
+                                formik.setFieldValue("esanchit_remark_box", e.target.checked);
+                                // If unchecking and documentation is also unchecked, clear the remark
+                                if (!e.target.checked && !formik.values.documentation_remark_box) {
+                                  formik.setFieldValue("remark_esanchit_input", "");
+                                }
+                              }}
+                            />
+                          }
                           label="Esanchit Remark"
                         />
                         <FormControlLabel
-                          value="documentation"
-                          control={<Radio />}
+                          control={
+                            <Checkbox
+                              checked={formik.values.documentation_remark_box}
+                              onChange={(e) => {
+                                formik.setFieldValue("documentation_remark_box", e.target.checked);
+                                // If unchecking and esanchit is also unchecked, clear the remark
+                                if (!e.target.checked && !formik.values.esanchit_remark_box) {
+                                  formik.setFieldValue("remark_documentation_input", "");
+                                }
+                              }}
+                            />
+                          }
                           label="Documentation Remark"
                         />
-                      </RadioGroup>
+                      </FormGroup>
                     </FormControl>
                   </div>
                 </Col>
-                 <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
-                          {/* Conditional Input Fields */}
-                  {formik.values.esanchit_remark_box && (
+                <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
+                  {/* Conditional Input Fields */}
+                  {(formik.values.esanchit_remark_box || formik.values.documentation_remark_box) && (
                     <div style={{ marginTop: "15px" }}>
                       <TextField
                         fullWidth
-                        label="Esanchit Remark"
+                        label={
+                          formik.values.esanchit_remark_box && formik.values.documentation_remark_box
+                            ? "Combined Remark (Esanchit & Documentation)"
+                            : formik.values.esanchit_remark_box
+                            ? "Esanchit Remark"
+                            : "Documentation Remark"
+                        }
                         multiline
                         rows={3}
-                        value={formik.values.remark_esanchit_input || ""}
+                        value={
+                          formik.values.esanchit_remark_box && formik.values.documentation_remark_box
+                            ? formik.values.remark_esanchit_input || ""
+                            : formik.values.esanchit_remark_box
+                            ? formik.values.remark_esanchit_input || ""
+                            : formik.values.remark_documentation_input || ""
+                        }
                         onChange={(e) => {
-                          formik.setFieldValue(
-                            "remark_esanchit_input",
-                            e.target.value
-                          );
+                          const value = e.target.value;
+                          if (formik.values.esanchit_remark_box && formik.values.documentation_remark_box) {
+                            // Both selected: update both fields with same value
+                            formik.setFieldValue("remark_esanchit_input", value);
+                            formik.setFieldValue("remark_documentation_input", value);
+                          } else if (formik.values.esanchit_remark_box) {
+                            // Only esanchit selected
+                            formik.setFieldValue("remark_esanchit_input", value);
+                          } else {
+                            // Only documentation selected
+                            formik.setFieldValue("remark_documentation_input", value);
+                          }
                         }}
                         variant="outlined"
-                        placeholder="Enter esanchit remark..."
+                        placeholder={
+                          formik.values.esanchit_remark_box && formik.values.documentation_remark_box
+                            ? "Enter remark"
+                            : formik.values.esanchit_remark_box
+                            ? "Enter esanchit remark..."
+                            : "Enter documentation remark..."
+                        }
                       />
                     </div>
                   )}
-
-                  {formik.values.documentation_remark_box && (
-                    <div style={{ marginTop: "15px" }}>
-                      <TextField
-                        fullWidth
-                        label="Documentation Remark"
-                        multiline
-                        rows={3}
-                        value={formik.values.remark_documentation_input || ""}
-                        onChange={(e) => {
-                          formik.setFieldValue(
-                            "remark_documentation_input",
-                            e.target.value
-                          );
-                        }}
-                        variant="outlined"
-                        placeholder="Enter documentation remark..."
-                      />
-                    </div>
-                  )}
-                  </Col>
+                </Col>
               </Row>
             </Row>
             <Row style={{ marginTop: "20px" }}>
@@ -2714,37 +2708,7 @@ function JobDetails() {
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Total Duty Amount:&nbsp;</strong>
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      backgroundColor: "#f8f9fa",
-                      borderRadius: "6px",
-                      border: "1px solid #dee2e6",
-                      textAlign: "center",
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: "bold",
-                        color: "#495057",
-                        fontSize: "16px",
-                      }}
-                    >
-                      ₹
-                      {formik.values.total_duty
-                        ? parseFloat(formik.values.total_duty).toLocaleString(
-                            "en-IN",
-                            { minimumFractionDigits: 2 }
-                          )
-                        : "0.00"}
-                    </Typography>
-                  </Box>
-                </div>
-              </Col>
+           
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Out of Charge Date:&nbsp;</strong>
@@ -4404,7 +4368,10 @@ function JobDetails() {
         open={dutyModalOpen}
         onClose={handleCloseDutyModal}
         onSubmit={handleDutySubmit}
-        rowData={formik.values}
+       rowData={{
+  ...formik.values,
+  job_no: params.job_no
+}} 
         dates={{
           assessment_date: formik.values.assessment_date,
           duty_paid_date: formik.values.duty_paid_date,

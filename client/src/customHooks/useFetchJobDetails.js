@@ -532,12 +532,11 @@ function useFetchJobDetails(
   });
   const filteredClearanceOptions =
     clearanceOptionsMapping[formik.values.type_of_b_e] || [];
-
-  // When the BE type changes, update Formik's clearanceValue field to the first available option.
+  // When the BE type changes, update Formik's clearanceValue field to the first available option only if no value is set.
   useEffect(() => {
-    if (filteredClearanceOptions.length > 0) {
+    if (filteredClearanceOptions.length > 0 && !formik.values.clearanceValue) {
       formik.setFieldValue("clearanceValue", filteredClearanceOptions[0].value);
-    } else {
+    } else if (filteredClearanceOptions.length === 0) {
       formik.setFieldValue("clearanceValue", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

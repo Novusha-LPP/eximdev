@@ -60,6 +60,9 @@ import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 
 // Import Utility Tool
 import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
+
+//import Report 
+import ReportTabs from "../components/Report/ReportTabs.js";
 // import billing 
 import ImportBilling from "../components/Import-billing/ImportBilling.js";
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
@@ -232,6 +235,10 @@ function HomePage() {
 <Route
               path="/import-utility-tool"
               element={<ImportUtilityTool />}
+            />
+<Route
+              path="/report"
+              element={<ReportTabs />}
             />
             <Route path="/duty-calculator" element={<DutyCalculator />} />
             <Route path="/utilities" element={<UtilityParent />} />

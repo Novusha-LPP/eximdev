@@ -22,6 +22,11 @@ import {
   TextField,
   Autocomplete,
   TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button,
 } from "@mui/material";
 import {
   TrendingUp,
@@ -31,6 +36,7 @@ import {
   FilterList,
   Download,
   Refresh,
+  Clear,
 } from "@mui/icons-material";
 import axios from "axios";
 
@@ -42,6 +48,11 @@ function Penalty() {
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importerNames, setImporterNames] = useState([]);
   
+  // New filter states
+  const [interestFilter, setInterestFilter] = useState("all");
+  const [fineFilter, setFineFilter] = useState("all");
+  const [penaltyFilter, setPenaltyFilter] = useState("all");
+  
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -49,6 +60,7 @@ function Penalty() {
   useEffect(() => {
     fetchPenaltyData();
   }, []);
+
   const fetchPenaltyData = async () => {
     try {
       setLoading(true);
@@ -77,18 +89,47 @@ function Penalty() {
     return numAmount > 0 ? `₹${numAmount.toLocaleString()}` : "-";
   };
 
-  // Calculate summary metrics
-  const totalInterest = data.reduce((sum, job) => sum + (parseFloat(job.intrest_ammount) || 0), 0);
-  const totalFines = data.reduce((sum, job) => sum + (parseFloat(job.fine_ammount) || 0), 0);
-  const totalPenalties = data.reduce((sum, job) => sum + (parseFloat(job.penalty_ammount) || 0), 0);
+  // Enhanced filtering function
+  const getFilteredData = () => {
+    return data.filter(job => {
+      // Search filter
+      const matchesSearch = job.job_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           job.importer?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Importer filter
+      const matchesImporter = !selectedImporter || job.importer === selectedImporter;
+      
+      // Amount filters
+      const interestAmount = parseFloat(job.intrest_ammount) || 0;
+      const fineAmount = parseFloat(job.fine_ammount) || 0;
+      const penaltyAmount = parseFloat(job.penalty_ammount) || 0;
+      
+      const matchesInterest = interestFilter === "all" || 
+        (interestFilter === "greater_than_0" && interestAmount > 0) ||
+        (interestFilter === "greater_than_1" && interestAmount > 1) ||
+        (interestFilter === "equal_to_0" && interestAmount === 0);
+      
+      const matchesFine = fineFilter === "all" || 
+        (fineFilter === "greater_than_0" && fineAmount > 0) ||
+        (fineFilter === "greater_than_1" && fineAmount > 1) ||
+        (fineFilter === "equal_to_0" && fineAmount === 0);
+      
+      const matchesPenalty = penaltyFilter === "all" || 
+        (penaltyFilter === "greater_than_0" && penaltyAmount > 0) ||
+        (penaltyFilter === "greater_than_1" && penaltyAmount > 1) ||
+        (penaltyFilter === "equal_to_0" && penaltyAmount === 0);
+      
+      return matchesSearch && matchesImporter && matchesInterest && matchesFine && matchesPenalty;
+    });
+  };
+
+  const filteredData = getFilteredData();
+
+  // Calculate summary metrics based on filtered data
+  const totalInterest = filteredData.reduce((sum, job) => sum + (parseFloat(job.intrest_ammount) || 0), 0);
+  const totalFines = filteredData.reduce((sum, job) => sum + (parseFloat(job.fine_ammount) || 0), 0);
+  const totalPenalties = filteredData.reduce((sum, job) => sum + (parseFloat(job.penalty_ammount) || 0), 0);
   const totalAmount = totalInterest + totalFines + totalPenalties;
-  // Filter data based on search term and selected importer
-  const filteredData = data.filter(job => {
-    const matchesSearch = job.job_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         job.importer?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesImporter = !selectedImporter || job.importer === selectedImporter;
-    return matchesSearch && matchesImporter;
-  });
 
   // Pagination handlers
   const handleChangePage = (event, newPage) => {
@@ -109,7 +150,16 @@ function Penalty() {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [searchTerm, selectedImporter]);
+  }, [searchTerm, selectedImporter, interestFilter, fineFilter, penaltyFilter]);
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedImporter("");
+    setSearchTerm("");
+    setInterestFilter("all");
+    setFineFilter("all");
+    setPenaltyFilter("all");
+  };
 
   const MetricCard = ({ title, value, icon, color, subtitle }) => (
     <Card 
@@ -147,6 +197,30 @@ function Penalty() {
     </Card>
   );
 
+  const FilterDropdown = ({ label, value, onChange, options }) => (
+    <FormControl size="small" sx={{ minWidth: 150 }}>
+      <InputLabel>{label}</InputLabel>
+      <Select
+        value={value}
+        label={label}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+
+  const filterOptions = [
+    { value: "all", label: "All" },
+    { value: "greater_than_0", label: "> 0" },
+    { value: "greater_than_1", label: "> 1" },
+    { value: "equal_to_0", label: "= 0" }
+  ];
+
   if (loading) {
     return (
       <Box
@@ -172,10 +246,18 @@ function Penalty() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
-              Penalty Management
+              Penalty Report
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Monitor and track penalty amounts across all jobs
+              {selectedImporter && (
+                <Chip 
+                  label={`Filtered by: ${selectedImporter}`} 
+                  size="small" 
+                  color="primary" 
+                  sx={{ ml: 1 }} 
+                />
+              )}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -205,15 +287,15 @@ function Penalty() {
         )}
       </Box>
 
-      {/* Metrics Cards */}
+      {/* Metrics Cards - Now showing filtered data */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
-            title="Total Jobs"
-            value={data.length}
+            title="Filtered Jobs"
+            value={filteredData.length}
             icon={<AccountBalance />}
             color="#1976d2"
-            subtitle="with penalties"
+            subtitle={`of ${data.length} total`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -222,7 +304,7 @@ function Penalty() {
             value={formatAmount(totalInterest)}
             icon={<TrendingUp />}
             color="#f57c00"
-            subtitle="accumulated"
+            subtitle="in filtered results"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -231,7 +313,7 @@ function Penalty() {
             value={formatAmount(totalFines)}
             icon={<Warning />}
             color="#d32f2f"
-            subtitle="imposed"
+            subtitle="in filtered results"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -240,7 +322,7 @@ function Penalty() {
             value={formatAmount(totalPenalties)}
             icon={<Warning />}
             color="#7b1fa2"
-            subtitle="outstanding"
+            subtitle="in filtered results"
           />
         </Grid>
       </Grid>
@@ -248,7 +330,7 @@ function Penalty() {
       {/* Main Content Card */}
       <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)', borderRadius: 3 }}>
         <CardContent sx={{ p: 0 }}>
-          {/* Table Header */}
+          {/* Table Header with Enhanced Filters */}
           <Box sx={{ p: 3, pb: 2 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
               <Box>
@@ -256,9 +338,10 @@ function Penalty() {
                   Jobs with Penalties
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Detailed view of all jobs with penalty amounts
+                  Detailed view with advanced filtering options
                 </Typography>
-              </Box>              <Chip 
+              </Box>
+              <Chip 
                 label={filteredData.length > 0 
                   ? `Showing ${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, filteredData.length)} of ${filteredData.length} Jobs`
                   : `${filteredData.length} of ${data.length} Jobs`
@@ -268,48 +351,77 @@ function Penalty() {
                 sx={{ fontWeight: 500 }}
               />
             </Box>
+            
+            {/* Enhanced Filter Section */}
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
+                <Autocomplete
+                  sx={{ width: "250px" }}
+                  freeSolo
+                  options={importerNames.map((option) => option.label)}
+                  value={selectedImporter || ""}
+                  onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      variant="outlined"
+                      size="small"
+                      fullWidth
+                      label="Select Importer"
+                    />
+                  )}
+                />
+                
+                <TextField
+                  placeholder="Search by job number..."
+                  variant="outlined"
+                  size="small"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{ flexGrow: 1, maxWidth: 250 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+              
+              {/* Amount Filters */}
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Autocomplete
-                sx={{ width: "300px", marginRight: "20px" }}
-                freeSolo
-                options={importerNames.map((option) => option.label)}
-                value={selectedImporter || ""} // Controlled value
-                onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                    label="Select Importer" // Placeholder text
-                  />
-                )}
-              />
-              <TextField
-                placeholder="Search by job number..."
-                variant="outlined"
-                size="small"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{ flexGrow: 1, maxWidth: 300 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <IconButton 
-                sx={{ bgcolor: 'grey.100', '&:hover': { bgcolor: 'grey.200' } }}
-                onClick={() => {
-                  setSelectedImporter("");
-                  setSearchTerm("");
-                }}
-                title="Clear filters"
-              >
-                <FilterList />
-              </IconButton>
+                <FilterDropdown
+                  label="Interest"
+                  value={interestFilter}
+                  onChange={setInterestFilter}
+                  options={filterOptions}
+                />
+                
+                <FilterDropdown
+                  label="Fine"
+                  value={fineFilter}
+                  onChange={setFineFilter}
+                  options={filterOptions}
+                />
+                
+                <FilterDropdown
+                  label="Penalty"
+                  value={penaltyFilter}
+                  onChange={setPenaltyFilter}
+                  options={filterOptions}
+                />
+                
+                <Button
+                  variant="outlined"
+                  startIcon={<Clear />}
+                  onClick={clearAllFilters}
+                  size="small"
+                  sx={{ ml: 1 }}
+                >
+                  Clear All
+                </Button>
+              </Box>
             </Box>
           </Box>
           
@@ -319,13 +431,10 @@ function Penalty() {
             <Box sx={{ textAlign: "center", py: 6 }}>
               <Warning sx={{ fontSize: 48, color: 'grey.300', mb: 2 }} />
               <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                {searchTerm ? 'No matching results' : 'No penalties found'}
+                No matching results
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {searchTerm 
-                  ? 'Try adjusting your search criteria'
-                  : 'No jobs found with penalty amounts greater than 0.'
-                }
+                Try adjusting your search criteria or filters
               </Typography>
             </Box>
           ) : (
@@ -414,7 +523,8 @@ function Penalty() {
                     );
                   })}
                 </TableBody>
-              </Table>            </TableContainer>
+              </Table>
+            </TableContainer>
           )}
           
           {/* Pagination - only show when there's data */}

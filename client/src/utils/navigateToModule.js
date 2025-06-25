@@ -6,6 +6,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/employee-kyc");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Report":
+      return navigate("/report");
     case "Import - Operations":
       return navigate("/import-operations");
     case "Import - Add":

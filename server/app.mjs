@@ -221,6 +221,10 @@ import elock from "./routes/srcc/Directory_Management/ElockRoute.mjs";
 import getSubmissionJobs from "./routes/submission/getSubmissionJobs.mjs";
 import updateSubmissionJob from "./routes/submission/updateSubmissionJob.mjs";
 
+// Report
+import getPenaltyReport from "./routes/report/getPenaltyReport.mjs";
+import getBillingPendingReport from "./routes/report/getBillingPendingReport.mjs";
+
 // Tyre Maintenance
 import getPlyRatings from "./routes/tyre-maintenance/getPlyRatings.mjs";
 import getTyreBrands from "./routes/tyre-maintenance/getTyreBrands.mjs";
@@ -533,7 +537,9 @@ if (cluster.isPrimary) {
 
       // Submission
       app.use(updateSubmissionJob);
-      app.use(getSubmissionJobs);
+      app.use(getSubmissionJobs);      // Report
+      app.use(getPenaltyReport);
+      app.use(getBillingPendingReport);
 
       // Tyre Maintenance
       app.use(getPlyRatings);

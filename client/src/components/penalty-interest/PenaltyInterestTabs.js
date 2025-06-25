@@ -3,8 +3,8 @@ import PropTypes from "prop-types";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
-import PortPenalty from "./PortPenalty";
-import Interest from "./Interest";
+import Penalty from "../report/Penalty";
+import BillingPending from "../report/BillingPending";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { useLocation } from "react-router-dom";
 
@@ -43,7 +43,7 @@ function a11yProps(index) {
   };
 }
 
-function reportTabs() {
+function PenaltyInterestTabs() {
   const [value, setValue] = React.useState(0);
   const location = useLocation();
   const { 
@@ -83,21 +83,19 @@ function reportTabs() {
         <Tabs
           value={value}
           onChange={handleChange}
-          aria-label="penalty interest tabs"
-        >
-          <Tab label="Port Penalty" {...a11yProps(0)} />
-          <Tab label="Interest" {...a11yProps(1)} />
+          aria-label="penalty interest tabs"        >
+          <Tab label="Penalty" {...a11yProps(0)} />
+          <Tab label="Billing Pending" {...a11yProps(1)} />
         </Tabs>
       </Box>
 
       <CustomTabPanel value={value} index={0}>
-        <PortPenalty />
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
-        <Interest />
+        <Penalty />
+      </CustomTabPanel>      <CustomTabPanel value={value} index={1}>
+        <BillingPending />
       </CustomTabPanel>
     </Box>
   );
 }
 
-export default React.memo(reportTabs);
+export default React.memo(PenaltyInterestTabs);

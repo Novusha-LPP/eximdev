@@ -51,4 +51,4 @@ function Interest() {
   );
 }
 
-export default React.memo(Interest);
+export default Interest;

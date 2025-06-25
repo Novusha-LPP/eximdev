@@ -3,8 +3,8 @@ import PropTypes from "prop-types";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
-import PortPenalty from "./Penalty";
-import Interest from "./Interest";
+import Penalty from "./Penalty";
+import BillingPending from "./BillingPending";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { useLocation } from "react-router-dom";
 
@@ -83,21 +83,19 @@ function ReportTabs() {
         <Tabs
           value={value}
           onChange={handleChange}
-          aria-label="penalty interest tabs"
-        >
-          <Tab label="Port Penalty" {...a11yProps(0)} />
-          <Tab label="Interest" {...a11yProps(1)} />
+          aria-label="penalty interest tabs"        >
+          <Tab label="Penalty" {...a11yProps(0)} />
+          <Tab label="Billing Pending" {...a11yProps(1)} />
         </Tabs>
       </Box>
 
       <CustomTabPanel value={value} index={0}>
-        <PortPenalty />
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
-        <Interest />
+        <Penalty />
+      </CustomTabPanel>      <CustomTabPanel value={value} index={1}>
+        <BillingPending />
       </CustomTabPanel>
     </Box>
   );
 }
 
-export default React.memo(ReportTabs);
+export default ReportTabs;

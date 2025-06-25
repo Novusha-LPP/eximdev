@@ -62,7 +62,7 @@ import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
 
 //import Report 
-import ReportTabs from "../components/report/ReportTabs.js";
+import ReportTabs from "../components/Report/ReportTabs.js";
 // import billing 
 import ImportBilling from "../components/Import-billing/ImportBilling.js";
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";

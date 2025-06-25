@@ -311,6 +311,7 @@ const IgstModal = ({
       igst_rate: igstValues.igstRate,
     };
 
+    console.log(updateData)
     onSubmit(updateData);
   };
 

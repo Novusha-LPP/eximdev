@@ -155,7 +155,9 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
       do_revalidation:
         typeof do_revalidation === "string"
           ? do_revalidation === "true"
-          : !!do_revalidation,
+          : do_revalidation !== undefined && do_revalidation !== null && do_revalidation !== ""
+          ? !!do_revalidation
+          : undefined,
       containers_arrived_on_same_date: checked,
     };
 

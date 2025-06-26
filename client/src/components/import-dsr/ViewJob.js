@@ -1257,6 +1257,29 @@ function JobDetails() {
                 </div>
               </Col>
 
+              
+              <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>G-IGM No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="gatweay_igm"
+                    name="gateway_igm"
+                    disabled={isSubmissionDate}
+                    value={formik.values.gateway_igm || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter IGM No"
+                  />
+                </div>
+              </Col>
+
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>G-IGM Date:&nbsp;</strong>
@@ -1281,21 +1304,22 @@ function JobDetails() {
                 </div>
               </Col>
 
-              <Col xs={12} lg={4}>
+
+    <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
                 >
                   {/* Seller Name Field */}
-                  <strong>G-IGM No:&nbsp;</strong>
+                  <strong>IGM No:&nbsp;</strong>
                   <TextField
                     fullWidth
                     size="small"
                     variant="outlined"
-                    id="gatweay_igm"
-                    name="gateway_igm"
+                    id="igm_no"
+                    name="igm_no"
+                    value={formik.values.igm_no || ""}
                     disabled={isSubmissionDate}
-                    value={formik.values.gateway_igm || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter IGM No"
@@ -1326,27 +1350,7 @@ function JobDetails() {
                   />
                 </div>
               </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  {/* Seller Name Field */}
-                  <strong>IGM No:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    id="igm_no"
-                    name="igm_no"
-                    value={formik.values.igm_no || ""}
-                    disabled={isSubmissionDate}
-                    onChange={formik.handleChange}
-                    style={{ marginTop: "10px" }}
-                    placeholder="Enter IGM No"
-                  />
-                </div>
-              </Col>
+          
 
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">

@@ -86,12 +86,13 @@ const IgstModal = ({
 
   // Calculate penalty amount
   const calculatePenaltyAmount = () => {
-    const beDate = dates?.assessment_date || rowData?.be_date || rowData?.assessment_date;
+    const beDate = rowData?.be_date 
 
     // Get arrival_date from containers (use the first container that has arrival_date)
     const containerWithArrival = containers.find((c) => c.arrival_date);
     const arrivalDate = containerWithArrival ? containerWithArrival.arrival_date : null;
 
+    
     if (!arrivalDate) return 0;
 
     const arrivalDateObj = new Date(arrivalDate);
@@ -99,7 +100,7 @@ const IgstModal = ({
 
     if (isNaN(arrivalDateObj.getTime())) return 0;
 
-    // If be_date and arrival_date are same day
+    // Rule 1: If BE Date and Arrival Date are the same, penalty is ₹5000 flat
     if (
       beDateObj &&
       !isNaN(beDateObj.getTime()) &&
@@ -108,32 +109,50 @@ const IgstModal = ({
       return 5000;
     }
 
-    // If arrival_date is present and be_date is not present
+    // Rule 2: If BE Date is missing, calculate penalty from arrival date to today
     if (!beDate) {
       const today = new Date();
-      const daysBetween = calculateDaysBetween(arrivalDate, today);
+      const daysDiff = Math.ceil((today - arrivalDateObj) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff <= 0) return 0;
+      
       let penalty = 0;
-
-      if (daysBetween >= 30) {
-        penalty = 355000;
-      } else if (daysBetween >= 7) {
-        penalty = 5000;
+      
+      // First 3 days: ₹5000 per day
+      const firstThreeDays = Math.min(daysDiff, 3);
+      penalty += firstThreeDays * 5000;
+      
+      // From 4th day onward: ₹10000 per day
+      if (daysDiff > 3) {
+        const remainingDays = daysDiff - 3;
+        penalty += remainingDays * 10000;
       }
-
-      return penalty;
+            return penalty;
     }
 
-    // If be_date is present and arrival_date is present
+    // Rule 3: If both dates are present and BE Date is later than Arrival Date
     if (beDateObj && !isNaN(beDateObj.getTime())) {
-      const daysBetween = calculateDaysBetween(arrivalDate, beDate);
-      let penalty = 0;
-
-      if (daysBetween >= 30) {
-        penalty = 355000;
-      } else if (daysBetween >= 7) {
-        penalty = 5000;
+      // If BE Date is before or same as Arrival Date, no penalty
+      if (beDateObj <= arrivalDateObj) {
+        return 0;
       }
-
+      
+      const daysDiff = Math.ceil((beDateObj - arrivalDateObj) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff <= 0) return 0;
+      
+      let penalty = 0;
+      
+      // First 3 days (including arrival date): ₹5000 per day
+      const firstThreeDays = Math.min(daysDiff, 3);
+      penalty += firstThreeDays * 5000;
+      
+      // From 4th day onward until BE Date: ₹10000 per day
+      if (daysDiff > 3) {
+        const remainingDays = daysDiff - 3;
+        penalty += remainingDays * 10000;
+      }
+      
       return penalty;
     }
 

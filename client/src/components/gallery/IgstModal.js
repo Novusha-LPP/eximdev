@@ -112,13 +112,15 @@ const IgstModal = ({
     // Rule 2: If BE Date is missing, calculate penalty from arrival date to today
     if (!beDate) {
       const today = new Date();
-      const daysDiff = Math.ceil((today - arrivalDateObj) / (1000 * 60 * 60 * 24));
+      // Calculate days including both start and end dates
+      const timeDiff = today.getTime() - arrivalDateObj.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
       
       if (daysDiff <= 0) return 0;
       
       let penalty = 0;
       
-      // First 3 days: ₹5000 per day
+      // First 3 days: ₹5000 per day (including arrival date)
       const firstThreeDays = Math.min(daysDiff, 3);
       penalty += firstThreeDays * 5000;
       
@@ -137,7 +139,16 @@ const IgstModal = ({
         return 0;
       }
       
-      const daysDiff = Math.ceil((beDateObj - arrivalDateObj) / (1000 * 60 * 60 * 24));
+      // Calculate days including both start and end dates
+      // For dates like 15th to 17th, we want to count: 15th, 16th, 17th = 3 days
+      const timeDiff = beDateObj.getTime() - arrivalDateObj.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+      
+      console.log(`Penalty calculation debug:
+        Arrival Date: ${arrivalDateObj.toDateString()}
+        BE Date: ${beDateObj.toDateString()}
+        Time Diff (ms): ${timeDiff}
+        Days Calculated: ${daysDiff}`);
       
       if (daysDiff <= 0) return 0;
       
@@ -152,6 +163,12 @@ const IgstModal = ({
         const remainingDays = daysDiff - 3;
         penalty += remainingDays * 10000;
       }
+      
+      console.log(`Penalty breakdown:
+        Total days: ${daysDiff}
+        First 3 days penalty (${firstThreeDays} × ₹5000): ₹${firstThreeDays * 5000}
+        Remaining days penalty (${daysDiff > 3 ? daysDiff - 3 : 0} × ₹10000): ₹${daysDiff > 3 ? (daysDiff - 3) * 10000 : 0}
+        Total penalty: ₹${penalty}`);
       
       return penalty;
     }

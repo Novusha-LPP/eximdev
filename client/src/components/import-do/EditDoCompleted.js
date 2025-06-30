@@ -62,26 +62,41 @@ function EditDoCompleted() {
 
   // Store search parameters from location state
   useEffect(() => {
+    console.log('EditDoCompleted: Received location state:', location.state);
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId } = location.state;
-      setStoredSearchParams({
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
+      
+      const params = {
         searchQuery,
         selectedImporter,
         selectedJobId,
-      });
+        currentTab: currentTab ?? 3, // Default to DO Completed tab
+        currentPage,
+      };
+      
+      console.log('EditDoCompleted: Storing params:', params);
+      setStoredSearchParams(params);
     }
-  }, [location.state]);
-
-  // Handle back click function
+  }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 3;
+    
+    console.log('EditDoCompleted: Navigating back with params', {
+      currentPage: storedSearchParams?.currentPage,
+      searchQuery: storedSearchParams?.searchQuery,
+      selectedImporter: storedSearchParams?.selectedImporter,
+      tabIndex: tabIndex
+    });
+    
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
-        tabIndex: 3, // DoCompleted tab index
+        tabIndex: tabIndex, // Use stored tab index
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
           selectedJobId: storedSearchParams.selectedJobId,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -188,31 +203,31 @@ function EditDoCompleted() {
             : "", // Set to ISO string or ""
       };
 
-      try {
-        const res = await axios.post(
+       try {        const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
           dataToSubmit
         );
         resetForm(); // Reset the form
         const currentState = window.history.state || {};
-        const scrollPosition = currentState.scrollPosition || 0;        navigate("/import-do", {
+        const scrollPosition = currentState.scrollPosition || 0;        const tabIndex = storedSearchParams?.currentTab ?? 3;
+        navigate("/import-do", {
           state: {
             fromJobDetails: true,
-            tabIndex: 3, // DoCompleted tab index
+            tabIndex: tabIndex, // Use stored tab index
             scrollPosition, // Preserve scroll position
             selectedJobId,
-            searchQuery: location.state?.searchQuery || "", // Preserve search query
-            selectedImporter: location.state?.selectedImporter || "", // Preserve selected importer
+            searchQuery: storedSearchParams?.searchQuery || "", // Preserve search query
+            selectedImporter: storedSearchParams?.selectedImporter || "", // Preserve selected importer
+            currentPage: storedSearchParams?.currentPage,
           },
         });
 
-        setCurrentTab(3); // Update the active tab in context
+        setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
         console.error("Error submitting form:", error);
       }
     },
   });
-
   // Derived state to determine if DO Completed can be enabled
   const isDoCompletedEnabled =
     formik.values.do_validity !== "" &&

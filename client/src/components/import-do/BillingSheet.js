@@ -23,19 +23,17 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 
 function BillingSheet() {
-   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
-
-    const [years, setYears] = useState([]);
-    const [importers, setImporters] = useState(null);
+  const [years, setYears] = useState([]);
+  const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  // Use context for search functionality and pagination for BillingSheet tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab3: currentPage, setCurrentPageDoTab3: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
@@ -47,7 +45,7 @@ function BillingSheet() {
     location.state?.selectedJobId || null
   );
   
-  // Add this useEffect to handle search state restoration when returning from job details
+  // Restore pagination/search state when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails) {
       // Restore search state when returning from job details
@@ -60,13 +58,16 @@ function BillingSheet() {
       if (location.state?.selectedJobId !== undefined) {
         setSelectedJobId(location.state.selectedJobId);
       }
+      if (location.state?.currentPage !== undefined) {
+        setCurrentPage(location.state.currentPage);
+      }
     } else {
       // Clear search state when this tab becomes active fresh (not from job details)
       setSearchQuery("");
       setSelectedImporter("");
       setSelectedJobId(null);
     }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+  }, [setSearchQuery, setSelectedImporter, setCurrentPage, location.state]);
 
   // Debounce search input
   useEffect(() => {
@@ -175,13 +176,14 @@ function BillingSheet() {
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
 
-  // Debounce search query to reduce excessive API calls
+  // Debounce search query to reduce excessive API calls and reset page on new search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      setCurrentPage(1); // Reset to first page on new search
     }, 500); // 500ms debounce delay
     return () => clearTimeout(handler); // Cleanup on unmount
   }, [searchQuery]);
@@ -225,7 +227,6 @@ function BillingSheet() {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -241,7 +242,7 @@ function BillingSheet() {
   // Fetch jobs when dependencies change
   useEffect(() => {
     fetchJobs(
-      page,
+      currentPage,
       debouncedSearchQuery,
       selectedYearState,
       selectedICD,
@@ -249,7 +250,7 @@ function BillingSheet() {
       selectedImporter
     );
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
@@ -374,7 +375,7 @@ function BillingSheet() {
             <div
               onClick={() =>
                 navigate(`/edit-billing-sheet/${_id}`, {
-                  state: { currentTab: 1 },
+                  state: { currentTab: 1, currentPage },
                 })
               }
               style={{
@@ -612,7 +613,7 @@ function BillingSheet() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -632,7 +633,7 @@ function BillingSheet() {
                 <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -645,7 +646,7 @@ function BillingSheet() {
       </div>
     ),
   });
-  const handlePageChange = (event, newPage) => setPage(newPage);
+  const handlePageChange = (event, newPage) => setCurrentPage(newPage);
 
   return (
     <div ref={listRef} style={{ height: "80%", overflow: "auto" }}>
@@ -656,7 +657,7 @@ function BillingSheet() {
           <MaterialReactTable table={table} />
           <Pagination
             count={totalPages}
-            page={page}
+            page={currentPage}
             onChange={handlePageChange}
             color="primary"
             sx={{

@@ -62,27 +62,30 @@ function EditDoPlanning() {
   };
 
   // Store search parameters from location state
-  useEffect(() => {
-    if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId } = location.state;
+
+  // Store search parameters from location state
+  useEffect(() => {    if (location.state) {
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
       setStoredSearchParams({
         searchQuery,
         selectedImporter,
         selectedJobId,
+        currentTab: currentTab ?? 2, // Default to Planning tab
+        currentPage,
       });
     }
-  }, [location.state]);
-
-  // Handle back click function
+  }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 2;
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
-        tabIndex: 2, // DoPlanning tab index
+        tabIndex: tabIndex, // Use stored tab index
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
           selectedJobId: storedSearchParams.selectedJobId,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -189,31 +192,31 @@ function EditDoPlanning() {
             : "", // Set to ISO string or ""
       };
 
-      try {
-        const res = await axios.post(
+      try {        const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
           dataToSubmit
         );
         resetForm(); // Reset the form
         const currentState = window.history.state || {};
-        const scrollPosition = currentState.scrollPosition || 0;        navigate("/import-do", {
+        const scrollPosition = currentState.scrollPosition || 0;        const tabIndex = storedSearchParams?.currentTab ?? 2;
+        navigate("/import-do", {
           state: {
             fromJobDetails: true,
-            tabIndex: 2, // BillingSheet tab index
+            tabIndex: tabIndex, // Use stored tab index
             scrollPosition, // Preserve scroll position
             selectedJobId,
-            searchQuery: location.state?.searchQuery || "", // Preserve search query
-            selectedImporter: location.state?.selectedImporter || "", // Preserve selected importer
+            searchQuery: storedSearchParams?.searchQuery || "", // Preserve search query
+            selectedImporter: storedSearchParams?.selectedImporter || "", // Preserve selected importer
+            currentPage: storedSearchParams?.currentPage,
           },
         });
 
-        setCurrentTab(2); // Update the active tab in context
+        setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
         console.error("Error submitting form:", error);
       }
     },
   });
-
   // Derived state to determine if DO Completed can be enabled
   const isDoCompletedEnabled =
     formik.values.do_validity !== "" &&

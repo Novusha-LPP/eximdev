@@ -27,7 +27,9 @@ function EditDoList() {
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
   // Store search parameters from location state
+  // Store search parameters from location state
   React.useEffect(() => {
+    console.log('EditDoList: Received location state:', location.state);
     if (location.state) {
       const { 
         selectedJobId, 
@@ -36,26 +38,34 @@ function EditDoList() {
         selectedICD, 
         selectedYearState,
         fromJobList,
-        tabIndex,
-        page
+        currentTab,
+        currentPage
       } = location.state;
       
-      setStoredSearchParams({
+      const params = {
         selectedJobId,
         searchQuery,
         selectedImporter,
         selectedICD,
         selectedYearState,
         fromJobList,
-        tabIndex: tabIndex || 1, // Default to List tab (index 1)
-        page,
-      });
+        currentTab: currentTab ?? 1, // Default to List tab (index 1)
+        currentPage,
+      };
+        console.log('EditDoList: Storing params:', params);
+      setStoredSearchParams(params);
     }
   }, [location.state]);
-
   // Handle back to job list navigation
   const handleBackToJobList = () => {
-    const tabIndex = storedSearchParams?.tabIndex ?? 1; // Default to List tab (index 1)
+    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to List tab (index 1)
+    
+    console.log('EditDoList: Navigating back with params', {
+      currentPage: storedSearchParams?.currentPage,
+      searchQuery: storedSearchParams?.searchQuery,
+      selectedImporter: storedSearchParams?.selectedImporter,
+      tabIndex: tabIndex
+    });
     
     // Set the current tab in context
     setCurrentTab(tabIndex);
@@ -71,7 +81,7 @@ function EditDoList() {
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
           selectedJobId: storedSearchParams.selectedJobId,
-          page: storedSearchParams.page,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });

@@ -106,7 +106,7 @@ const SubmissionJob = () => {
     }
   }, [location.state]);
   // Handle back click function
-  const handleBackClick = () => {
+ const handleBackClick = () => {
     console.log('SubmissionJob: Navigating back with params', {
       currentPage: storedSearchParams?.currentPage,
       searchQuery: storedSearchParams?.searchQuery,
@@ -126,6 +126,7 @@ const SubmissionJob = () => {
       },
     });
   };
+
 
   const extractFileName = (url) => {
     try {

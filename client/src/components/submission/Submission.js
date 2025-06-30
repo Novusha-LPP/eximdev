@@ -32,10 +32,13 @@ function Submission() {
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
-  const [page, setPage] = React.useState(1);
-  // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
-    useSearchQuery();
+// Use context for search functionality and pagination like E-Sanchit
+const { 
+  searchQuery, setSearchQuery, 
+  selectedImporter, setSelectedImporter, 
+  currentPageSubmission: page, 
+  setCurrentPageSubmission: setPage 
+} = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] =
     React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
@@ -47,27 +50,27 @@ function Submission() {
 
   const limit = 10; // Number of items per page
 
-  // Add this useEffect to handle search state restoration when returning from job details
-  React.useEffect(() => {
-    if (location.state?.fromJobDetails) {
-      // Restore search state when returning from job details
-      if (location.state?.searchQuery !== undefined) {
-        setSearchQuery(location.state.searchQuery);
-      }
-      if (location.state?.selectedImporter !== undefined) {
-        setSelectedImporter(location.state.selectedImporter);
-      }
-      if (location.state?.selectedJobId !== undefined) {
-        setSelectedJobId(location.state.selectedJobId);
-      }
-    } else {
-      // Clear search state when this tab becomes active fresh (not from job details)
-      setSearchQuery("");
-      setSelectedImporter("");
-      setSelectedJobId("");
+React.useEffect(() => {
+  if (location.state?.fromJobDetails) {
+    if (location.state?.searchQuery !== undefined) {
+      setSearchQuery(location.state.searchQuery);
     }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
-
+    if (location.state?.selectedImporter !== undefined) {
+      setSelectedImporter(location.state.selectedImporter);
+    }
+    if (location.state?.selectedJobId !== undefined) {
+      setSelectedJobId(location.state.selectedJobId);
+    }
+    if (location.state?.currentPage !== undefined) {
+      setPage(location.state.currentPage);
+    }
+  } else {
+    setSearchQuery("");
+    setSelectedImporter("");
+    setSelectedJobId("");
+    setPage(1);
+  }
+}, [setSearchQuery, setSelectedImporter, setPage, location.state]);
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -166,9 +169,10 @@ function Submission() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Handle search input change
-  const handleSearchInputChange = (event) => {
-    setSearchQuery(event.target.value);
-  };
+const handleSearchInputChange = (event) => {
+  setSearchQuery(event.target.value);
+  setPage(1); // Reset to first page when user types
+};
 
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
@@ -243,9 +247,9 @@ function Submission() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
+const handlePageChange = (event, newPage) => {
+  setPage(newPage);
+};
 
   const columns = [
     {
@@ -271,6 +275,7 @@ function Submission() {
                   selectedJobId: job_no,
                   searchQuery,
                   selectedImporter,
+                  currentPage: page,
                 },
               })
             }
@@ -747,14 +752,14 @@ function Submission() {
     <div style={{ height: "80%" }}>
       <MaterialReactTable {...tableConfig} />
       <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
-        <Pagination
-          count={totalPages}
-          page={page}
-          onChange={handlePageChange}
-          color="primary"
-          showFirstButton
-          showLastButton
-        />
+       <Pagination
+  count={totalPages}
+  page={page}
+  onChange={handlePageChange}
+  color="primary"
+  showFirstButton
+  showLastButton
+/>
       </Box>
     </div>
   );

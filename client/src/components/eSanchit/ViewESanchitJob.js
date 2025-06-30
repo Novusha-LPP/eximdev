@@ -63,6 +63,8 @@ function ViewESanchitJob() {
   const {
     setSearchQuery,
     setSelectedImporter,
+      setCurrentPageTab0,
+    setCurrentPageTab1,
   } = useSearchQuery();
 
   const isAdmin = user.role === "Admin"; // Check if user is an Admin
@@ -79,11 +81,11 @@ function ViewESanchitJob() {
         selectedICD,
         selectedYearState,
         detailedStatusExPlan,
-        page,
+        currentPage,
         tab_number
       } = routeLocation.state;
-      
-      setStoredSearchParams({
+          
+      const params = {
         searchQuery,
         selectedImporter,
         currentTab: currentTab || tab_number, // Handle both property names
@@ -91,14 +93,22 @@ function ViewESanchitJob() {
         selectedICD,
         selectedYearState,
         detailedStatusExPlan,
-        page,
-      });
+        currentPage,
+      };
+      
+      console.log('ViewESanchitJob: Storing params:', params);
+      setStoredSearchParams(params);
     }
-  }, [routeLocation.state]);
-
-  // Handle back click function
+  }, [routeLocation.state]);  // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
+    
+    console.log('ViewESanchitJob: Navigating back with params', {
+      currentPage: storedSearchParams?.currentPage,
+      searchQuery: storedSearchParams?.searchQuery,
+      selectedImporter: storedSearchParams?.selectedImporter,
+      tabIndex: tabIndex
+    });
     
     // Set the current tab in context
     setCurrentTab(tabIndex);
@@ -114,11 +124,12 @@ function ViewESanchitJob() {
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
           detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
-          page: storedSearchParams.page,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
   };
+
 
   // Fetch data
   useEffect(() => {

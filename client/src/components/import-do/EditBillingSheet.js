@@ -39,27 +39,43 @@ function EditBillingSheet() {
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
   // Store search parameters from location state
-  React.useEffect(() => {
+ React.useEffect(() => {
+    console.log('EditBillingSheet: Received location state:', location.state);
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId } = location.state;
-      setStoredSearchParams({
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
+      
+      const params = {
         searchQuery,
         selectedImporter,
         selectedJobId,
-      });
+        currentTab: currentTab ?? 4, // Default to Billing Sheet tab
+        currentPage,
+      };
+      
+      console.log('EditBillingSheet: Storing params:', params);
+      setStoredSearchParams(params);
     }
-  }, [location.state]);
-
-  // Handle back click function
+  }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 4;
+    
+    
+    console.log('EditBillingSheet: Navigating back with params', {
+      currentPage: storedSearchParams?.currentPage,
+      searchQuery: storedSearchParams?.searchQuery,
+      selectedImporter: storedSearchParams?.selectedImporter,
+      tabIndex: tabIndex
+    });
+    
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
-        tabIndex: 4, // BillingSheet tab index
+        tabIndex: tabIndex, // Use stored tab index
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
           selectedJobId: storedSearchParams.selectedJobId,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -85,28 +101,27 @@ function EditBillingSheet() {
         setData((prev) => ({
           ...prev,
           ...values,
-        }));
-
-        setFileSnackbar({
+        }));        setFileSnackbar({
           open: true,
           message: "Billing details updated successfully!",
         }); // Navigate back to the BillingSheet tab after submission
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
-       navigate("/import-do", {
-      state: {
-        fromJobDetails: true,
-        tabIndex: 4, // BillingSheet tab index
-        ...(storedSearchParams && {
-          searchQuery: storedSearchParams.searchQuery,
-          selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: storedSearchParams.selectedJobId,
-        }),
-      },
-    });
+        const tabIndex = storedSearchParams?.currentTab ?? 4;
+        navigate("/import-do", {
+          state: {
+            fromJobDetails: true,
+            tabIndex: tabIndex, // Use stored tab index
+            ...(storedSearchParams && {
+              searchQuery: storedSearchParams.searchQuery,
+              selectedImporter: storedSearchParams.selectedImporter,
+              selectedJobId: storedSearchParams.selectedJobId,
+              currentPage: storedSearchParams.currentPage,
+            }),
+          },
+        });
 
-
-        setCurrentTab(4); // Update the active tab in context (was incorrectly set to 3)
+        setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
         console.error("Error updating billing details:", error);
         setFileSnackbar({
@@ -116,6 +131,7 @@ function EditBillingSheet() {
       }
     },
   });
+
 
   // Fetch data when the component is mounted
   React.useEffect(() => {

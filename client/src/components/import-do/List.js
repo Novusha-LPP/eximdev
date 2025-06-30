@@ -26,7 +26,6 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function List() {
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -41,8 +40,8 @@ function List() {
   const [loading, setLoading] = useState(false);
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  // Use context for searchQuery and selectedImporter like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab0: currentPage, setCurrentPageDoTab0: setCurrentPage } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
 
@@ -167,11 +166,8 @@ function List() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;
-
-        setRows(jobs);
+        } = res.data;        setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -185,47 +181,42 @@ function List() {
   );
 
   // Fetch jobs with pagination
-  useEffect(() => {
+  useEffect(() => {    console.log('List DO: Fetch effect triggered', { currentPage, selectedYearState, debouncedSearchQuery, selectedICD, selectedImporter });
     fetchJobs(
-      page,
+      currentPage,
       debouncedSearchQuery,
       selectedYearState, // ✅ Now using the persistent state
       selectedICD,
       selectedImporter
     );
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
     fetchJobs,  ]);
 
-  // Clear search state when this tab becomes active, unless coming from job details
-  React.useEffect(() => {
-    if (location.state && !location.state.fromJobDetails) {
-      setSearchQuery("");
-      setSelectedImporter("");
-    }
-  }, [setSearchQuery, setSelectedImporter, location.state]);
-
+  // Remove the automatic clearing - we'll handle this from the tab component instead
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
-    }, 300); // 500ms delay
+    }, 300); // 300ms delay
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
   // Handle search input change
   const handleSearchInputChange = (event) => {
+    console.log('List DO: Search input changed, resetting to page 1');
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    console.log('List DO: Page changing from', currentPage, 'to', newPage);
+    setCurrentPage(newPage);
   };
   // const getCustomHouseLocation = useMemo(
   //   () => (customHouse) => {
@@ -260,6 +251,7 @@ function List() {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
 
+              console.log('List DO: Navigating to job details with currentPage:', currentPage);
               // 2) Navigate to the detail page, and pass search/filter state
               navigate(`/edit-do-list/${_id}`, {
                 state: {
@@ -269,6 +261,8 @@ function List() {
                   selectedICD,
                   selectedYearState,
                   fromJobList: true,
+                  currentTab: 1,
+                  currentPage,
                 },
               });
             }}
@@ -317,8 +311,6 @@ function List() {
           igm_date,
           igm_no,
           be_date,
-          gateway_igm_date,
-          gateway_igm,
         } = cell.row.original;
 
         return (
@@ -343,26 +335,7 @@ function List() {
               </abbr>
             </IconButton>
             <br />
-            <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm)}
-            >
-              <abbr title="Copy GIGM">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm_date)}
-            >
-              <abbr title="Copy GIGM Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
+         
             <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
             <IconButton
               size="small"
@@ -742,10 +715,9 @@ function List() {
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
+          value={selectedICD}          onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -762,11 +734,10 @@ function List() {
           onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
-              <InputAdornment position="end">
-                <IconButton 
+              <InputAdornment position="end">                <IconButton 
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -783,11 +754,10 @@ function List() {
   return (
     <>
       <div style={{ height: "80%" }}>
-        <MaterialReactTable table={table} />
-        {/* Pagination */}
+        <MaterialReactTable table={table} />        {/* Pagination */}
         <Pagination
           count={totalPages}
-          page={page}
+          page={currentPage}
           onChange={handlePageChange}
           color="primary"
           sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

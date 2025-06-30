@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -19,21 +19,19 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
-import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DoCompleted() {
-   const [selectedICD, setSelectedICD] = useState("");
+  const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
-  // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  // Use context for searchQuery, selectedImporter, and currentPage for DO Completed tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab2: currentPage, setCurrentPageDoTab2: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,10 +42,9 @@ function DoCompleted() {
     location.state?.selectedJobId || null
   );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
 
-  // Add this useEffect to handle search state restoration when returning from job details
+  // Restore pagination/search state when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails) {
-      // Restore search state when returning from job details
       if (location.state?.searchQuery !== undefined) {
         setSearchQuery(location.state.searchQuery);
       }
@@ -57,13 +54,14 @@ function DoCompleted() {
       if (location.state?.selectedJobId !== undefined) {
         setSelectedJobId(location.state.selectedJobId);
       }
+      if (location.state?.currentPage !== undefined) {
+        setCurrentPage(location.state.currentPage);
+      }
     } else {
-      // Clear search state when this tab becomes active fresh (not from job details)
-      setSearchQuery("");
-      setSelectedImporter("");
+      // Clear state on fresh tab navigation (handled by parent tab component)
       setSelectedJobId(null);
     }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+  }, [setSearchQuery, setSelectedImporter, setCurrentPage, location.state]);
 
   const formatDate = useCallback((dateStr) => {
     if (dateStr) {
@@ -173,7 +171,6 @@ function DoCompleted() {
  };
 
   // Fetch jobs with pagination and search
-  // Fetch jobs with pagination
   const fetchJobs = useCallback(
     async (
       currentPage,
@@ -193,7 +190,7 @@ function DoCompleted() {
               search: currentSearchQuery,
               year: currentYear,
               selectedICD: currentICD,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              importer: selectedImporter?.trim() || "",
             },
           }
         );
@@ -204,32 +201,31 @@ function DoCompleted() {
           currentPage: returnedPage,
           jobs,
         } = res.data;
-
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
+        setRows([]);
         setTotalPages(1);
       } finally {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit]
   );
+
   // Fetch jobs when dependencies change
   useEffect(() => {
     fetchJobs(
-      page,
+      currentPage,
       debouncedSearchQuery,
       selectedYearState,
       selectedICD,
       selectedImporter
     );
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
@@ -240,18 +236,19 @@ function DoCompleted() {
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
+
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
-    }, 500); // 500ms debounce delay
-    return () => clearTimeout(handler); // Cleanup on unmount
+    }, 500);
+    return () => clearTimeout(handler);
   }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage); // Update current page
+    setCurrentPage(newPage);
   };
 
   const columns = [
@@ -282,6 +279,8 @@ function DoCompleted() {
                   selectedJobId: _id,
                   searchQuery,
                   selectedImporter,
+                  currentTab: 3,
+                  currentPage,
                 },
               });
             }}
@@ -748,7 +747,7 @@ function DoCompleted() {
           value={selectedImporter || ""} // Controlled value
           onInputChange={(event, newValue) => {
             setSelectedImporter(newValue);
-            setPage(1); // Reset to first page when importer changes
+            setCurrentPage(1); // Reset to first page when importer changes
           }} // Handles input change
           renderInput={(params) => (
             <TextField
@@ -784,7 +783,7 @@ function DoCompleted() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -804,7 +803,7 @@ function DoCompleted() {
                 <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -837,7 +836,7 @@ function DoCompleted() {
       {/* Pagination */}
       <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

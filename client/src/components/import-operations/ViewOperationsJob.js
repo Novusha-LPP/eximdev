@@ -48,7 +48,16 @@ function ViewOperationsJob() {
   const [storedSearchParams, setStoredSearchParams] = useState(null);  // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId, currentTab, selectedICD, selectedYearState, detailedStatusExPlan } = location.state;
+      const { 
+        searchQuery, 
+        selectedImporter, 
+        selectedJobId, 
+        currentTab, 
+        selectedICD, 
+        selectedYearState, 
+        detailedStatusExPlan,
+        currentPage 
+      } = location.state;
       setStoredSearchParams({
         searchQuery,
         selectedImporter,
@@ -57,22 +66,32 @@ function ViewOperationsJob() {
         selectedICD,
         selectedYearState,
         detailedStatusExPlan,
+        currentPage,
       });
     }
-  }, [location.state]);  // Handle back click function
+  }, [location.state]);  // Handle back click function - following e-sanchit pattern exactly
   const handleBackClick = () => {
-    const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab if coming from completed operations
+    const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab
+    
+    console.log('ViewOperationsJob: Navigating back with params', {
+      currentPage: storedSearchParams?.currentPage,
+      searchQuery: storedSearchParams?.searchQuery,
+      selectedImporter: storedSearchParams?.selectedImporter,
+      tabIndex: tabIndex
+    });
+    
     navigate("/import-operations", {
       state: {
         fromJobDetails: true,
         tabIndex: tabIndex,
+        selectedJobId: params.job_no,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: storedSearchParams.selectedJobId,
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
           detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });

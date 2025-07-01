@@ -28,24 +28,22 @@ import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
 
 function OperationsList() {
-  const { currentTab } = useContext(TabContext); // Access context for tab state
+ const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = React.useState([]);
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const [importers, setImporters] = useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const [importers, setImporters] = useState("");
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
 
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const location = useLocation();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const limit = 100;
 
-  // Use context for searchQuery and selectedImporter like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  // Use context for searchQuery, selectedImporter, and currentPage for Operations List tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab0: currentPage, setCurrentPageOpTab0: setCurrentPage } = useSearchQuery();
 
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
@@ -123,7 +121,7 @@ function OperationsList() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination
-  const fetchJobs = useCallback(
+const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
@@ -152,11 +150,8 @@ function OperationsList() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;
-
-        setRows(jobs);
+        } = res.data;        setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -167,12 +162,12 @@ function OperationsList() {
       }
     },
     [limit] // Dependencies (limit is included if it changes)
-  );
-  // Fetch jobs when dependencies change
+  );  // Fetch jobs when dependencies change
   useEffect(() => {
     if (selectedYearState) {
+      console.log('Operations List: Fetch effect triggered', { currentPage, selectedYearState, debouncedSearchQuery, selectedICD, selectedImporter });
       fetchJobs(
-        page,
+        currentPage,
         debouncedSearchQuery,
         selectedYearState,
         selectedICD,
@@ -180,48 +175,26 @@ function OperationsList() {
       );
     }
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
     fetchJobs,
-  ]);  // Clear search state when this tab becomes active, unless coming from job details
-  React.useEffect(() => {
-    // Clear search state when this tab becomes active, but not when returning from job details
-    if (currentTab === 0 && !location.state?.fromJobDetails) {
-      setSearchQuery("");
-      setSelectedImporter("");
-    }
-  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
-  // Handle search state restoration when returning from job details
-  React.useEffect(() => {
-    if (location.state?.fromJobDetails) {
-      // Restore search state when returning from job details
-      if (location.state?.searchQuery !== undefined) {
-        setSearchQuery(location.state.searchQuery);
-        // Immediately update debounced search query to avoid delay
-        setDebouncedSearchQuery(location.state.searchQuery);
-      }
-      if (location.state?.selectedImporter !== undefined) {
-        setSelectedImporter(location.state.selectedImporter);
-      }
-      if (location.state?.selectedJobId !== undefined) {
-        setSelectedJobId(location.state.selectedJobId);
-      }
-    }
-  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, location.state?.selectedJobId, setSearchQuery, setSelectedImporter]);   // Handle search input with debounce
-    useEffect(() => {
-      const handler = setTimeout(() => {
-        setDebouncedSearchQuery(searchQuery);
-      }, 500); // 500ms debounce delay
-      return () => clearTimeout(handler);
-    }, [searchQuery]);
+  ]);
+  // Remove the automatic clearing - we'll handle this from the tab component instead
 
+  // Handle search input with debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    console.log('Operations List: Page changing from', currentPage, 'to', newPage);
+    setCurrentPage(newPage);
   };
-
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
       const houseMap = {
@@ -279,6 +252,8 @@ function OperationsList() {
   }, []);
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+        setCurrentPage(1); // Reset to first page when user types
+
   };
 
   const columns = [
@@ -307,6 +282,7 @@ function OperationsList() {
                     selectedYearState,
                     currentTab: 0, // Operations List tab index
                     fromJobList: true,
+                    currentPage
                   },
                 }
               );
@@ -656,7 +632,7 @@ function OperationsList() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -678,7 +654,7 @@ function OperationsList() {
                 <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -697,7 +673,7 @@ function OperationsList() {
       <MaterialReactTable {...tableConfig} />
       <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

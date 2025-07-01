@@ -27,12 +27,23 @@ function DocumentationCompletedd() {
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
-  const [totalJobs, setTotalJobs] = React.useState(0);
-  const [totalPages, setTotalPages] = React.useState(1);
-  const [page, setPage] = React.useState(1);
-  // Use context for searchQuery and selectedImporter like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);  // Use context for searchQuery, selectedImporter, and currentPage for documentation completed tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDocTab1: currentPage, setCurrentPageDocTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
+  // Add debug logging for currentPage changes
+  React.useEffect(() => {
+    console.log('DocumentationCompleted: currentPage changed to:', currentPage);
+  }, [currentPage]);
+
+  // Add debug logging for context values
+  React.useEffect(() => {
+    console.log('DocumentationCompleted: Context values:', {
+      currentTab,
+      currentPage,
+      searchQuery,
+      selectedImporter
+    });
+  }, [currentTab, currentPage, searchQuery, selectedImporter]);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,8 +115,8 @@ function DocumentationCompletedd() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Fetch jobs with pagination and search
-  const fetchJobs = useCallback(
+  // Fetch jobs with pagination and se
+ const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
@@ -132,11 +143,8 @@ function DocumentationCompletedd() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;
-
-        setRows(jobs);
+        } = res.data;        setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -151,56 +159,37 @@ function DocumentationCompletedd() {
 
   // Fetch jobs when page or debounced search query changes
  useEffect(() => {
-   if (selectedYearState) {
-     // Ensure year is available before calling API
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+   if (selectedYearState) {     // Ensure year is available before calling API
+     fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState);
    }
  }, [
-   page,
+   currentPage,
    debouncedSearchQuery,
    selectedImporter,
    selectedYearState,
    fetchJobs,
  ]);
+
+  // Remove the automatic clearing - we'll handle this from the tab component instead
+
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
     }, 500); // 500ms delay
 
     return () => clearTimeout(handler);
-  }, [searchQuery]);
-  // Clear search state when this tab becomes active, unless coming from job details
-  React.useEffect(() => {
-    // Clear search state when this tab becomes active, unless coming from job details
-    if (currentTab === 1 && !(location.state && location.state.fromJobDetails)) {
-      setSearchQuery("");
-      setSelectedImporter("");
-    }
-  }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
-
-  // Handle search state restoration when returning from job details
-  React.useEffect(() => {
-    if (location.state?.fromJobDetails) {
-      // Restore search state when returning from job details
-      if (location.state?.searchQuery !== undefined) {
-        setSearchQuery(location.state.searchQuery);
-        // Immediately update debounced search query to avoid delay
-        setDebouncedSearchQuery(location.state.searchQuery);
-      }
-      if (location.state?.selectedImporter !== undefined) {
-        setSelectedImporter(location.state.selectedImporter);
-      }
-    }
-  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, setSearchQuery, setSelectedImporter]);
+  }, [searchQuery]);  // Remove the automatic clearing - we'll handle this from the tab component instead
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    console.log('DocumentationCompleted: Page changing from', currentPage, 'to', newPage);
+    setCurrentPage(newPage);
   };
 
   const handleSearchInputChange = (event) => {
+    console.log('DocumentationCompleted: Search input changed, resetting to page 1');
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   const columns = [
@@ -217,17 +206,18 @@ function DocumentationCompletedd() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
-        } = cell.row.original;        return (
-          <div
-            onClick={() =>
+        } = cell.row.original;        return (          <div
+            onClick={() => {
+              console.log('DocumentationCompleted: Navigating to job details with currentPage:', currentPage);
               navigate(`/documentationJob/view-job/${job_no}/${year}`, {
                 state: { 
                   currentTab: 1,
                   searchQuery,
                   selectedImporter,
+                  currentPage,
                 },
-              })
-            }
+              });
+            }}
             style={{
               cursor: "pointer",
               color: "blue",
@@ -427,11 +417,10 @@ function DocumentationCompletedd() {
           onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
+              <InputAdornment position="end">                <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -447,11 +436,10 @@ function DocumentationCompletedd() {
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable {...tableConfig} />
-      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+      <MaterialReactTable {...tableConfig} />      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
         <Pagination
           count={totalPages}
-          page={page}
+          page={currentPage}
           onChange={handlePageChange}
           color="primary"
           showFirstButton

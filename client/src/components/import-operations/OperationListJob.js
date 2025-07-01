@@ -29,17 +29,24 @@ const OperationListJob = () => {
   // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedICD, selectedYearState, currentTab } = location.state;
+      const { 
+        searchQuery, 
+        selectedImporter, 
+        selectedICD, 
+        selectedYearState, 
+        currentTab,
+        currentPage 
+      } = location.state;
       setStoredSearchParams({
         searchQuery,
         selectedImporter,
         selectedICD,
         selectedYearState,
         currentTab,
+        currentPage,
       });
     }
   }, [location.state]);
-
   // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
@@ -52,6 +59,7 @@ const OperationListJob = () => {
           selectedImporter: storedSearchParams.selectedImporter,
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
+          currentPage: storedSearchParams.currentPage,
           selectedJobId: job_no,
         }),
       },

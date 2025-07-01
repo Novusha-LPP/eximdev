@@ -37,12 +37,11 @@ function ImportOperations() {
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-
-  const [page, setPage] = useState(1);
+  // Remove local page state and use persistent pagination from context
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab1: currentPage, setCurrentPageOpTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
   
@@ -61,9 +60,8 @@ function ImportOperations() {
   // Initialize component and handle navigation state
   useEffect(() => {
     const fromJobDetails = location.state?.fromJobDetails;
-    isFromJobDetailsRef.current = fromJobDetails;
-
-    if (currentTab === 1) {
+    isFromJobDetailsRef.current = fromJobDetails;    if (currentTab === 1) {
+      console.log('🔧 ExaminationPlanning: Initializing tab with currentPage:', currentPage);
       if (fromJobDetails) {
         // Restore state from job details navigation
         console.log('🔄 Restoring search state from job details navigation');
@@ -83,8 +81,7 @@ function ImportOperations() {
         }
         if (location.state?.detailedStatusExPlan !== undefined) {
           setDetailedStatusExPlan(location.state.detailedStatusExPlan);
-        }
-      } else {
+        }      } else {
         // Clear search state when coming from other tabs (not job details)
         console.log('🧹 Clearing search state - new tab access');
         setSearchQuery("");
@@ -92,7 +89,7 @@ function ImportOperations() {
         setDebouncedSearchQuery("");
         setSelectedICD("");
         setDetailedStatusExPlan("");
-        setPage(1);
+        // Note: We don't reset currentPage here - pagination should persist
       }
     }
 
@@ -159,11 +156,8 @@ function ImportOperations() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;
-
-        setRows(Array.isArray(jobs) ? jobs : []);
+        } = res.data;        setRows(Array.isArray(jobs) ? jobs : []);
         setTotalPages(totalPages || 1);
-        setPage(returnedPage || currentPage);
         setTotalJobs(totalJobs || 0);
         abortControllerRef.current = null;
       }
@@ -183,7 +177,6 @@ function ImportOperations() {
       }
     }
   }, [isInitialized, user.username, limit, cancelPreviousRequest]);
-
   // Handle search debouncing
   useEffect(() => {
     if (!isInitialized) return;
@@ -191,11 +184,14 @@ function ImportOperations() {
     // Clear existing timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
+    }    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('🔍 ExaminationPlanning: Search debounce triggered with query:', searchQuery);
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      // Only reset to first page if there's an actual search query (not when clearing)
+      if (searchQuery && searchQuery.trim() !== "") {
+        console.log('🔍 ExaminationPlanning: Resetting to page 1 due to search');
+        setCurrentPage(1); // Reset to first page on new search
+      }
     }, 500);
 
     return () => {
@@ -204,6 +200,7 @@ function ImportOperations() {
       }
     };
   }, [searchQuery, isInitialized]);
+
 
   // Fetch importer list when year changes
   useEffect(() => {
@@ -259,16 +256,14 @@ function ImportOperations() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Main effect to fetch data - consolidated and optimized
-  useEffect(() => {
+ useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
       console.log('🎯 Making API call with restored search parameters');
-      
-      // Use a small delay to ensure all state is properly restored
+        // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
         fetchJobs(
-          1, // Reset to first page when restoring
+          location.state?.currentPage || currentPage, // Use the restored page or current page
           location.state?.searchQuery || "",
           selectedYearState,
           location.state?.detailedStatusExPlan || "",
@@ -279,12 +274,10 @@ function ImportOperations() {
       }, 100);
 
       return () => clearTimeout(timeoutId);
-    }
-
-    // Regular data fetching
+    }    // Regular data fetching
     if (isInitialized && !isFromJobDetailsRef.current) {
       fetchJobs(
-        page,
+        currentPage,
         debouncedSearchQuery,
         selectedYearState,
         detailedStatusExPlan,
@@ -294,7 +287,7 @@ function ImportOperations() {
     }
   }, [
     fetchJobs,
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     detailedStatusExPlan,
@@ -313,11 +306,18 @@ function ImportOperations() {
       }
     };
   }, [cancelPreviousRequest]);
-
   // Handle pagination change
   const handlePageChange = useCallback((event, newPage) => {
-    setPage(newPage);
-  }, []);
+    console.log('Examination Planning: Page changing from', currentPage, 'to', newPage);
+    setCurrentPage(newPage);
+  }, [currentPage, setCurrentPage]);
+
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    console.log('Examination Planning: Search input changed, resetting to page 1');
+    setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
+  };
 
   // Handle copy functionality
   const handleCopy = useCallback((event, text) => {
@@ -429,6 +429,7 @@ function ImportOperations() {
                   selectedYearState,
                   detailedStatusExPlan,
                   currentTab: 1,
+                  currentPage,
                   fromJobList: true,
                 },
               });
@@ -804,10 +805,9 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""}
-          onInputChange={(event, newValue) => {
+          value={selectedImporter || ""}          onInputChange={(event, newValue) => {
             setSelectedImporter(newValue);
-            setPage(1);
+            setCurrentPage(1);
           }}
           renderInput={(params) => (
             <TextField
@@ -823,10 +823,9 @@ function ImportOperations() {
         <TextField
           select
           size="small"
-          value={selectedYearState || ""}
-          onChange={(e) => {
+          value={selectedYearState || ""}          onChange={(e) => {
             setSelectedYearState(e.target.value);
-            setPage(1);
+            setCurrentPage(1);
           }}
           sx={{ width: "100px", marginRight: "20px" }}
         >
@@ -842,10 +841,9 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
+          value={selectedICD}          onChange={(e) => {
             setSelectedICD(e.target.value);
-            setPage(1);
+            setCurrentPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -860,10 +858,9 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="Select Status Ex-Planning"
-          value={detailedStatusExPlan}
-          onChange={(e) => {
+          value={detailedStatusExPlan}          onChange={(e) => {
             setDetailedStatusExPlan(e.target.value);
-            setPage(1);
+            setCurrentPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -873,14 +870,12 @@ function ImportOperations() {
           <MenuItem value="Ex. Planning">Ex. Planning</MenuItem>
           <MenuItem value="OOC">OOC</MenuItem>
           <MenuItem value="Do Completed">Do Completed</MenuItem>
-        </TextField>
-
-        <TextField
+        </TextField>        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchInputChange}
           sx={{ width: "250px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
@@ -893,10 +888,9 @@ function ImportOperations() {
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable {...tableConfig} />
-      <Pagination
+      <MaterialReactTable {...tableConfig} />      <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

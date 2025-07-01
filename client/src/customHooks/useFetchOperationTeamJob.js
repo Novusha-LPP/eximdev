@@ -26,7 +26,7 @@ function useFetchOperationTeamJob(params) {
         tab_number
       } = location.state;
       
-      setStoredSearchParams({
+       setStoredSearchParams({
         searchQuery,
         selectedImporter,
         selectedJobId,

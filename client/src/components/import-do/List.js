@@ -41,7 +41,14 @@ function List() {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab0: currentPage, setCurrentPageDoTab0: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageDoTab0: currentPage,
+    setCurrentPageDoTab0: setCurrentPage,
+  } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
 
@@ -166,7 +173,8 @@ function List() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;        setRows(jobs);
+        } = res.data;
+        setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
       } catch (error) {
@@ -181,7 +189,14 @@ function List() {
   );
 
   // Fetch jobs with pagination
-  useEffect(() => {    console.log('List DO: Fetch effect triggered', { currentPage, selectedYearState, debouncedSearchQuery, selectedICD, selectedImporter });
+  useEffect(() => {
+    console.log("List DO: Fetch effect triggered", {
+      currentPage,
+      selectedYearState,
+      debouncedSearchQuery,
+      selectedICD,
+      selectedImporter,
+    });
     fetchJobs(
       currentPage,
       debouncedSearchQuery,
@@ -195,7 +210,8 @@ function List() {
     selectedYearState,
     selectedICD,
     selectedImporter,
-    fetchJobs,  ]);
+    fetchJobs,
+  ]);
 
   // Remove the automatic clearing - we'll handle this from the tab component instead
   // Debounce search query to reduce excessive API calls
@@ -209,13 +225,13 @@ function List() {
 
   // Handle search input change
   const handleSearchInputChange = (event) => {
-    console.log('List DO: Search input changed, resetting to page 1');
+    console.log("List DO: Search input changed, resetting to page 1");
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
   };
 
   const handlePageChange = (event, newPage) => {
-    console.log('List DO: Page changing from', currentPage, 'to', newPage);
+    console.log("List DO: Page changing from", currentPage, "to", newPage);
     setCurrentPage(newPage);
   };
   // const getCustomHouseLocation = useMemo(
@@ -247,11 +263,15 @@ function List() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}            onClick={() => {
+            }}
+            onClick={() => {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
 
-              console.log('List DO: Navigating to job details with currentPage:', currentPage);
+              console.log(
+                "List DO: Navigating to job details with currentPage:",
+                currentPage
+              );
               // 2) Navigate to the detail page, and pass search/filter state
               navigate(`/edit-do-list/${_id}`, {
                 state: {
@@ -311,6 +331,8 @@ function List() {
           igm_date,
           igm_no,
           be_date,
+          gateway_igm_date,
+          gateway_igm,
         } = cell.row.original;
 
         return (
@@ -335,7 +357,26 @@ function List() {
               </abbr>
             </IconButton>
             <br />
-         
+            <strong>GIGM No:</strong> {gateway_igm || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gateway_igm)}
+            >
+              <abbr title="Copy GIGM">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gateway_igm_date)}
+            >
+              <abbr title="Copy GIGM Date">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
             <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
             <IconButton
               size="small"
@@ -392,7 +433,7 @@ function List() {
             </div>
 
             <div>
-             { `Vessel Voyage: ${voyageNo}`}
+              {`Vessel Voyage: ${voyageNo}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -402,9 +443,9 @@ function List() {
                   <ContentCopyIcon fontSize="inherit" />
                 </abbr>
               </IconButton>
-              </div>
+            </div>
             <div>
-            <span>{`Line No: ${line_no}`}</span>
+              <span>{`Line No: ${line_no}`}</span>
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -675,7 +716,6 @@ function List() {
         >
           Job Count: {totalJobs}
         </Typography>
-
         {/* Importer Filter */}
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
@@ -693,7 +733,6 @@ function List() {
             />
           )}
         />
-
         {/* Year Filter */}
         <TextField
           select
@@ -708,14 +747,14 @@ function List() {
             </MenuItem>
           ))}
         </TextField>
-
         {/* ICD Code Filter */}
         <TextField
           select
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}          onChange={(e) => {
+          value={selectedICD}
+          onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
             setCurrentPage(1); // Reset to the first page when the filter changes
           }}
@@ -725,7 +764,8 @@ function List() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>        {/* Search Field */}
+        </TextField>{" "}
+        {/* Search Field */}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -734,7 +774,9 @@ function List() {
           onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
-              <InputAdornment position="end">                <IconButton 
+              <InputAdornment position="end">
+                {" "}
+                <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
                     setCurrentPage(1);
@@ -754,7 +796,7 @@ function List() {
   return (
     <>
       <div style={{ height: "80%" }}>
-        <MaterialReactTable table={table} />        {/* Pagination */}
+        <MaterialReactTable table={table} /> {/* Pagination */}
         <Pagination
           count={totalPages}
           page={currentPage}

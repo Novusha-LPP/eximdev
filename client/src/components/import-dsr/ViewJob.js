@@ -3707,15 +3707,17 @@ function JobDetails() {
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
                           <strong>Railout Date:&nbsp;</strong>
+                          <strong>{container.container_rail_out_date}</strong>
                           <TextField
                             fullWidth
                             size="small"
+                            margin="normal"
                             variant="outlined"
                             type="datetime-local"
                             id={`container_rail_out_date${index}`}
                             name={`container_nos[${index}].container_rail_out_date`}
-                            value={container.container_rail_out_date}
                             disabled={LCLFlag || ExBondflag} // Disable if the user is not Admin
+                            value={container.container_rail_out_date}
                             onChange={formik.handleChange}
                           />
                         </div>

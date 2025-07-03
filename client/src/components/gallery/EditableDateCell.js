@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
 import {
@@ -9,7 +9,8 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
-const EditableDateCell = ({ cell, onRowDataUpdate }) => {
+const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
+  const rowData = cell.row.original;
   const {
     _id,
     job_no,
@@ -35,9 +36,10 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     sws_ammount,
     penalty_ammount,
     fine_ammount,
-  } = cell.row.original;
+  } = rowData;
 
-  const [dates, setDates] = useState({
+  // Memoize initial dates to prevent unnecessary re-renders
+  const initialDates = useMemo(() => ({
     assessment_date,
     vessel_berthing,
     gateway_igm_date,
@@ -45,26 +47,29 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     pcv_date,
     out_of_charge,
     duty_paid_date,
-  });
+  }), [assessment_date, vessel_berthing, gateway_igm_date, discharge_date, pcv_date, out_of_charge, duty_paid_date]);
 
+  const [dates, setDates] = useState(initialDates);
   const [localStatus, setLocalStatus] = useState(detailed_status);
-  const [containers, setContainers] = useState([...container_nos]);  const [editable, setEditable] = useState(null);
+  const [containers, setContainers] = useState(() => [...container_nos]);
+  const [editable, setEditable] = useState(null);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
   const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
-  // Free time options
-  const options = Array.from({ length: 25 }, (_, index) => index);
-  // Utility function to calculate number of days between two dates
-  const calculateDaysBetween = (startDate, endDate) => {
+  // Memoize free time options
+  const options = useMemo(() => Array.from({ length: 25 }, (_, index) => index), []);
+
+  // Memoized utility function to calculate number of days between two dates
+  const calculateDaysBetween = useCallback((startDate, endDate) => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  }, []);
 
   // Reset data when row ID changes
   useEffect(() => {
@@ -102,15 +107,15 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   }, [_id]);
 
   // Handle IGST modal open
-  const handleOpenIgstModal = () => {
+  const handleOpenIgstModal = useCallback(() => {
     setIgstModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseIgstModal = () => {
+  const handleCloseIgstModal = useCallback(() => {
     setIgstModalOpen(false);
-  };
+  }, []);
 
-  const handleIgstSubmit = async (updateData) => {
+  const handleIgstSubmit = useCallback(async (updateData) => {
     try {
       await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData);
 
@@ -119,10 +124,11 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         onRowDataUpdate(_id, updateData);
       }
 
-      setIgstModalOpen(false);    } catch (error) {
+      setIgstModalOpen(false);
+    } catch (error) {
       console.error("Error submitting IGST data:", error);
     }
-  };
+  }, [_id, onRowDataUpdate]);
 
   const updateDetailedStatus = useCallback(async () => {
     const eta = dates.vessel_berthing;
@@ -215,7 +221,24 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   // Handle date editing
   const handleEditStart = (field, index = null) => {
     setEditable(index !== null ? `${field}_${index}` : field);
-    setTempDateValue("");
+    
+    // Initialize tempDateValue with existing value
+    let currentValue = "";
+    if (index !== null) {
+      // Container field
+      const container = containers[index];
+      currentValue = container?.[field] || "";
+    } else {
+      // Direct date field
+      currentValue = dates[field] || "";
+    }
+    
+    // For rail-out dates that might be date-only, convert to datetime format
+    if (field === "container_rail_out_date" && currentValue && currentValue.length === 10) {
+      currentValue = `${currentValue}T00:00`;
+    }
+    
+    setTempDateValue(currentValue);
     setTempTimeValue("");
     setDateError("");
   };
@@ -256,11 +279,8 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
       finalValue = tempDateValue;
     }
 
-    // Special handling for rail-out and by-road dates
-    if (
-      field === "container_rail_out_date" ||
-      field === "by_road_movement_date"
-    ) {
+    // Special handling for by-road dates only (keep rail-out with datetime)
+    if (field === "by_road_movement_date") {
       // Extract only date portion (YYYY-MM-DD)
       finalValue = tempDateValue.split("T")[0];
     }
@@ -393,10 +413,8 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
           <input
             type="datetime-local"
             value={tempDateValue}
-            onChange={
-              field.includes("rail_out") || field.includes("by_road")
-                ? handleCombinedDateTimeChange
-                : handleDateInputChange
+                      onChange={
+            handleDateInputChange
             }
             style={dateError ? styles.errorInput : {}}
           />
@@ -625,13 +643,15 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         open={igstModalOpen}
         onClose={handleCloseIgstModal}
         onSubmit={handleIgstSubmit}
-        rowData={cell.row.original}
+        rowData={rowData}
         dates={dates}
         containers={containers}
       />
     </div>
   );
-};
+});
+
+
 
 const styles = {
   icon: {
@@ -669,3 +689,4 @@ const styles = {
 };
 
 export default EditableDateCell;
+

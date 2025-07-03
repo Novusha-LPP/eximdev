@@ -26,6 +26,7 @@ import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { YearContext } from "../../contexts/yearContext.js";
 import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
 import { TabContext } from "./ImportOperations.js";
+import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
 
 function ImportOperations() {
   const { currentTab } = useContext(TabContext);
@@ -534,56 +535,8 @@ function ImportOperations() {
       accessorKey: "all_dates",
       header: "Dates",
       enableSorting: false,
-      size: 150,
-      Cell: ({ row }) => {
-        const containerNos = row.original?.container_nos ?? [];
-        const pcvDate = formatDate(row.original?.pcv_date);
-        const outOfCharge = formatDate(row.original?.out_of_charge);
-        const examinationPlanningDate = formatDate(
-          row.original?.examination_planning_date
-        );
-        const firstCheck = formatDate(row.original?.firstCheck);
-
-        return (
-          <div style={{ lineHeight: "1.5" }}>
-            <Tooltip title="Arrival Date" arrow>
-              <strong>Arrival: </strong>
-            </Tooltip>
-            {containerNos.length > 0
-              ? containerNos.map((container, id) => (
-                  <React.Fragment key={id}>
-                    {formatDate(container.arrival_date)}
-                    <br />
-                  </React.Fragment>
-                ))
-              : "N/A"}
-
-            <Tooltip title="First Check Date" arrow>
-              <strong>FC: </strong>
-            </Tooltip>
-            {firstCheck}
-            <br />
-
-            <Tooltip title="Examination Planning Date" arrow>
-              <strong>Ex.Plan: </strong>
-            </Tooltip>
-            {examinationPlanningDate}
-            <br />
-
-            <Tooltip title="PCV Date" arrow>
-              <strong>PCV: </strong>
-            </Tooltip>
-            {pcvDate}
-            <br />
-
-            <Tooltip title="Out of Charge Date" arrow>
-              <strong>OOC: </strong>
-            </Tooltip>
-            {outOfCharge}
-            <br />
-          </div>
-        );
-      },
+      size: 250,
+      Cell: EditableDateSummaryCell,
     },
     {
       accessorKey: "concor_invoice_copy",

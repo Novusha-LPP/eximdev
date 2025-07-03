@@ -25,12 +25,59 @@ router.get("/api/report/penalty", async (req, res) => {
       return interest > 0 || fine > 0 || penalty > 0;
     });
 
-    logger.info(`Penalty report fetched successfully. Found ${filteredJobs.length} jobs with penalties.`);
+    // Sort jobs based on penalty type priority
+    const sortedJobs = filteredJobs.sort((a, b) => {
+      const aInterest = parseFloat(a.intrest_ammount) || 0;
+      const aFine = parseFloat(a.fine_ammount) || 0;
+      const aPenalty = parseFloat(a.penalty_ammount) || 0;
+      
+      const bInterest = parseFloat(b.intrest_ammount) || 0;
+      const bFine = parseFloat(b.fine_ammount) || 0;
+      const bPenalty = parseFloat(b.penalty_ammount) || 0;
+      
+      // Create priority scores based on which penalty types exist
+      const getPriorityScore = (interest, fine, penalty) => {
+        const hasInterest = interest > 0;
+        const hasFine = fine > 0;
+        const hasPenalty = penalty > 0;
+        
+        // Priority order (lower score = higher priority):
+        // 1. All three (penalty + fine + interest)
+        // 2. Penalty + fine
+        // 3. Penalty + interest
+        // 4. Fine + interest
+        // 5. Penalty only
+        // 6. Fine only
+        // 7. Interest only
+        
+        if (hasPenalty && hasFine && hasInterest) return 1;
+        if (hasPenalty && hasFine && !hasInterest) return 2;
+        if (hasPenalty && !hasFine && hasInterest) return 3;
+        if (!hasPenalty && hasFine && hasInterest) return 4;
+        if (hasPenalty && !hasFine && !hasInterest) return 5;
+        if (!hasPenalty && hasFine && !hasInterest) return 6;
+        if (!hasPenalty && !hasFine && hasInterest) return 7;
+        
+        return 8; // Should not reach here due to filtering
+      };
+      
+      const aPriority = getPriorityScore(aInterest, aFine, aPenalty);
+      const bPriority = getPriorityScore(bInterest, bFine, bPenalty);
+      
+      // If same priority, sort by job_no
+      if (aPriority === bPriority) {
+        return a.job_no.localeCompare(b.job_no);
+      }
+      
+      return aPriority - bPriority;
+    });
+
+    logger.info(`Penalty report fetched successfully. Found ${sortedJobs.length} jobs with penalties.`);
     
     res.status(200).json({
       success: true,
-      data: filteredJobs,
-      count: filteredJobs.length
+      data: sortedJobs,
+      count: sortedJobs.length
     });
   } catch (error) {
     logger.error("Error fetching penalty report:", error);

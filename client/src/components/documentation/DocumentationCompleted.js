@@ -18,13 +18,18 @@ import SearchIcon from "@mui/icons-material/Search";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useNavigate, useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DocumentationCompletedd() {
 
     const { currentTab } = useContext(TabContext); // Access context
  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
+  
+  // Debug log to check user context
+  console.log('👤 User context in DocumentationCompleted:', { username: user?.username, role: user?.role });
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);  // Use context for searchQuery, selectedImporter, and currentPage for documentation completed tab
@@ -125,6 +130,7 @@ function DocumentationCompletedd() {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching documentation completed jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-documentation-completed-jobs`,
           {
@@ -134,6 +140,7 @@ function DocumentationCompletedd() {
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Send year to backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -154,12 +161,12 @@ function DocumentationCompletedd() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
   );
 
   // Fetch jobs when page or debounced search query changes
  useEffect(() => {
-   if (selectedYearState) {     // Ensure year is available before calling API
+   if (selectedYearState && user?.username) {     // Ensure year and username are available before calling API
      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState);
    }
  }, [
@@ -167,6 +174,7 @@ function DocumentationCompletedd() {
    debouncedSearchQuery,
    selectedImporter,
    selectedYearState,
+   user?.username,
    fetchJobs,
  ]);
 

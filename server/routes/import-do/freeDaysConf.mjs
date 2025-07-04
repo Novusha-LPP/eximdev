@@ -16,9 +16,10 @@ const buildSearchQuery = (search) => ({
 
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
-router.get("/api/get-free-days", async (req, res) => {
+router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const page = parseInt(req.query.page, 10) || 1;
@@ -84,6 +85,15 @@ router.get("/api/get-free-days", async (req, res) => {
     // ✅ Apply ICD Code Filter if provided
     if (selectedICD && selectedICD !== "Select ICD") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
+    } else if (req.currentUser) {
+      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
     }
 
     // Fetch jobs based on the query

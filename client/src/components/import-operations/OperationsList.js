@@ -36,6 +36,9 @@ function OperationsList() {
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
 
+  // Debug log to check user context
+  console.log('👤 User context in OperationsList:', { username: user?.username, role: user?.role });
+
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const location = useLocation();
@@ -129,8 +132,16 @@ const fetchJobs = useCallback(
       currentICD,
       selectedImporter
     ) => {
+      // Don't make API calls if user not available or no username
+      if (!user?.username) {
+        console.log('⏸️ OperationsList: Skipping API call - missing username:', user?.username);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
+        console.log('📤 Fetching operations planning list with username:', user.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`,
           {
@@ -161,11 +172,11 @@ const fetchJobs = useCallback(
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );  // Fetch jobs when dependencies change
   useEffect(() => {
-    if (selectedYearState) {
-      console.log('Operations List: Fetch effect triggered', { currentPage, selectedYearState, debouncedSearchQuery, selectedICD, selectedImporter });
+    if (selectedYearState && user?.username) {
+      console.log('Operations List: Fetch effect triggered', { currentPage, selectedYearState, debouncedSearchQuery, selectedICD, selectedImporter, username: user?.username });
       fetchJobs(
         currentPage,
         debouncedSearchQuery,
@@ -180,6 +191,7 @@ const fetchJobs = useCallback(
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
   // Remove the automatic clearing - we'll handle this from the tab component instead

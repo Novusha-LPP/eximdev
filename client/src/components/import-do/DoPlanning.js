@@ -20,6 +20,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DoPlanning() {
@@ -42,6 +43,10 @@ function DoPlanning() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+
+  // Debug log to check user context
+  console.log('👤 User context in DoPlanning:', { username: user?.username, role: user?.role });
 
   // Remove the automatic clearing - we'll handle this from the tab component instead
 
@@ -152,6 +157,7 @@ function DoPlanning() {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching DO module jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
           {
@@ -162,6 +168,7 @@ function DoPlanning() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -185,24 +192,28 @@ function DoPlanning() {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      currentPage,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
       currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
   // Handle search input change

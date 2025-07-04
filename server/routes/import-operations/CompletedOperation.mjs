@@ -1,11 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import User from "../../model/userModel.mjs";
-
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 const router = express.Router();
 
-router.get("/api/get-completed-operations/:username", async (req, res) => {
+router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async (req, res) => {
   try {
+    console.log("🚀 Starting get-completed-operations API for user:", req.params.username);
+    
     // Extract parameters
     const { username } = req.params;
     const {
@@ -28,52 +29,26 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
       return res.status(400).json({ message: "Invalid limit value" });
     }
 
-    const user = await User.findOne({ username });
+    // Use ICD filter from middleware (req.userIcdFilter)
+    let icdCondition = req.userIcdFilter || {};
+    console.log("📋 ICD Filter condition from middleware:", JSON.stringify(icdCondition, null, 2));
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // **Step 1: Define Custom House Conditions Based on Username**
-    let customHouseCondition = {};
-    switch (username) {
-      case "majhar_khan":
-        customHouseCondition = {
-          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
-        };
-        break;
-      case "parasmal_marvadi":
-        customHouseCondition = { custom_house: "AIR CARGO" };
-        break;
-      case "mahesh_patil":
-      case "prakash_darji":
-        customHouseCondition = { custom_house: "ICD KHODIYAR" };
-        break;
-      case "gaurav_singh":
-        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
-        break;
-      case "akshay_rajput":
-        customHouseCondition = { custom_house: "ICD VARNAMA" };
-        break;
-      default:
-        customHouseCondition = {};
-        break;
-    }
-
-    // **Step 2: Apply Selected ICD Filter**
+    // Apply selected ICD filter if provided (overrides user's ICD assignments)
     if (selectedICD && selectedICD !== "Select ICD") {
-      customHouseCondition = {
+      icdCondition = {
         custom_house: new RegExp(`^${selectedICD}$`, "i"),
       };
+      console.log("🔍 Selected ICD filter applied:", selectedICD);
     }
 
-    // **Step 3: Apply Importer Filter**
+    // Apply importer filter
     let importerCondition = {};
     if (importer && importer !== "Select Importer") {
       importerCondition = { importer: new RegExp(`^${importer}$`, "i") };
+      console.log("🏢 Importer filter applied:", importer);
     }
 
-    // **Step 4: Build Search Query**
+    // Build search query
     let searchQuery = {};
     if (search) {
       searchQuery = {
@@ -87,13 +62,15 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
           },
         ],
       };
+      console.log("🔍 Search query applied:", search);
     }
-    // **Step 5: Build Final Query**
+
+    // Build final query
     const baseQuery = {
       $and: [
-        customHouseCondition,
-        importerCondition, // ✅ Importer Filter
-        searchQuery, // ✅ Search Query
+        icdCondition,
+        importerCondition,
+        searchQuery,
         {
           completed_operation_date: { $nin: [null, ""] },
           be_no: { $nin: [null, ""], $not: /cancelled/i },
@@ -102,11 +79,13 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
             $elemMatch: { arrival_date: { $exists: true, $ne: null, $ne: "" } },
           },
         },
-        year ? { year: year } : {}, // ✅ Add year filter only if provided
-      ],
+        year ? { year: year } : {},
+      ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
-    // **Step 6: Fetch Data with Pagination**
+    console.log("📊 Final MongoDB query:", JSON.stringify(baseQuery, null, 2));
+
+    // Fetch data with pagination
     const allJobs = await JobModel.find(baseQuery)
       .sort({ completed_operation_date: -1 })
       .lean();
@@ -114,7 +93,9 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
     const totalJobs = allJobs.length;
     const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
 
-    // ✅ Send Response
+    console.log(`✅ Found ${totalJobs} completed operations jobs for user ${username}`);
+
+    // Send response
     res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
@@ -122,7 +103,7 @@ router.get("/api/get-completed-operations/:username", async (req, res) => {
       jobs: paginatedJobs,
     });
   } catch (error) {
-    console.error("Error fetching completed operations:", error);
+    console.error("❌ Error fetching completed operations:", error);
     res.status(500).json({ message: "Error fetching completed operations" });
   }
 });

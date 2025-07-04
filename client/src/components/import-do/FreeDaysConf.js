@@ -21,9 +21,15 @@ import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 
 const FreeDaysConf = () => {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  
+  // Debug log to check user context
+  console.log('👤 User context in FreeDaysConf:', { username: user?.username, role: user?.role });
+  
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
@@ -120,6 +126,7 @@ const FreeDaysConf = () => {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching free days jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-free-days`,
           {
@@ -130,6 +137,7 @@ const FreeDaysConf = () => {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -153,24 +161,28 @@ const FreeDaysConf = () => {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
     page,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
 

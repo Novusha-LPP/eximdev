@@ -22,6 +22,7 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function List() {
@@ -40,6 +41,11 @@ function List() {
   const [loading, setLoading] = useState(false);
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  
+  // Debug log to check user context
+  console.log('👤 User context in List (DO Team):', { username: user?.username, role: user?.role });
+  
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
     searchQuery,
@@ -154,6 +160,7 @@ function List() {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching DO team list jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/do-team-list-of-jobs`,
           {
@@ -164,6 +171,7 @@ function List() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -185,7 +193,7 @@ function List() {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs with pagination
@@ -196,20 +204,25 @@ function List() {
       debouncedSearchQuery,
       selectedICD,
       selectedImporter,
+      username: user?.username,
     });
-    fetchJobs(
-      currentPage,
-      debouncedSearchQuery,
-      selectedYearState, // ✅ Now using the persistent state
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState, // ✅ Now using the persistent state
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
     currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
 

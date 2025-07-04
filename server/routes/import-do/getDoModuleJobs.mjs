@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-do-module-jobs", async (req, res) => {
+router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
@@ -96,6 +97,15 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     // ✅ Apply ICD filter if provided
     if (decodedICD && decodedICD !== "All ICDs") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
+    } else if (req.currentUser) {
+      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
     }
 
     // **Step 2: Fetch jobs after applying filters**
@@ -182,7 +192,7 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     });
   }
 });
-router.get("/api/get-do-complete-module-jobs", async (req, res) => {
+router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
@@ -247,6 +257,15 @@ router.get("/api/get-do-complete-module-jobs", async (req, res) => {
     // ✅ Apply ICD filter if provided
     if (decodedICD && decodedICD !== "All ICDs") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
+    } else if (req.currentUser) {
+      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
     }
 
     // **Step 2: Fetch jobs after applying filters**

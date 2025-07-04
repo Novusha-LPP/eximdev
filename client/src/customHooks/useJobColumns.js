@@ -444,7 +444,9 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         header: "BE Number and Date",
         size: 200,
         Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
-      },      {
+      }, 
+           
+      {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
         size: 200,

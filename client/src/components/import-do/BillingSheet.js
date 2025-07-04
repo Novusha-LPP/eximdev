@@ -19,11 +19,17 @@ import {
 } from "@mui/material";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  
+  // Debug log to check user context
+  console.log('👤 User context in BillingSheet:', { username: user?.username, role: user?.role });
+  
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
   const [years, setYears] = useState([]);
@@ -201,8 +207,8 @@ function BillingSheet() {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching DO billing jobs with username:', user?.username);
 
-        
         const apiString =
         process.env.REACT_APP_API_STRING || "http://localhost:5000"; // Fallback for dev
       const res = await axios.get(`${apiString}/get-do-billing`, {
@@ -214,6 +220,7 @@ function BillingSheet() {
               selectedICD: currentICD,
               obl_telex_bl: OBLvalue.trim(),
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -236,19 +243,22 @@ function BillingSheet() {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      currentPage,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      blValue,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        blValue,
+        selectedImporter
+      );
+    }
   }, [
     currentPage,
     debouncedSearchQuery,
@@ -256,6 +266,7 @@ function BillingSheet() {
     selectedICD,
     blValue,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
 

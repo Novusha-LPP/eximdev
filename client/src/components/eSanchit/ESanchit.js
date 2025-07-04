@@ -18,11 +18,16 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const [years, setYears] = useState([]);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
+  const [years, setYears] = useState([]);
+  
+  // Debug log to check user context
+  console.log('👤 User context in ESanchit:', { username: user?.username, role: user?.role });
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 0
@@ -111,6 +116,7 @@ function ESanchit() {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching E-Sanchit jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`,
           {
@@ -120,6 +126,7 @@ function ESanchit() {
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Ensure year is sent
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -143,7 +150,7 @@ function ESanchit() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
   );
   // // Add this useEffect in your ESanchit component
   // React.useEffect(() => {
@@ -158,8 +165,8 @@ function ESanchit() {
   // }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
 
   useEffect(() => {
-    if (selectedYearState) {
-      // Ensure year is available before calling API
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
           fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState);
     }
   }, [
@@ -167,6 +174,7 @@ function ESanchit() {
     debouncedSearchQuery,
     selectedImporter,
     selectedYearState,
+    user?.username,
     fetchJobs,
   ]);
 

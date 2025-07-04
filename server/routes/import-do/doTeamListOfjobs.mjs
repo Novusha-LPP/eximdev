@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
-router.get("/api/do-team-list-of-jobs", async (req, res) => {
+router.get("/api/do-team-list-of-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
@@ -98,6 +99,15 @@ const baseQuery = {
     // ✅ If selectedICD is provided, filter by ICD Code
     if (decodedICD && decodedICD !== "Select ICD") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
+    } else if (req.currentUser) {
+      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
     }
 
     // 🔍 **Step 1: Fetch Jobs After Applying Filters**

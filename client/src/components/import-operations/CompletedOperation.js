@@ -115,10 +115,17 @@ function CompletedOperations() {
     selectedICD,
     selectedImporter
   ) => {
-    // Don't make API calls if component isn't initialized
-    if (!isInitialized || !year) {
+    // Don't make API calls if component isn't initialized, user not available, or no username
+    if (!isInitialized || !year || !user?.username) {
+      console.log('⏸️ CompletedOperations: Skipping API call - missing requirements:', {
+        isInitialized,
+        year,
+        username: user?.username
+      });
       return;
     }
+
+    console.log('📤 CompletedOperations: Making API call with username:', user.username);
 
     cancelPreviousRequest();
 
@@ -172,7 +179,7 @@ function CompletedOperations() {
         abortControllerRef.current = null;
       }
     }
-  }, [isInitialized, user.username, limit, cancelPreviousRequest]);
+  }, [isInitialized, user?.username, limit, cancelPreviousRequest]);
   
   // Handle search debouncing
   useEffect(() => {
@@ -294,7 +301,8 @@ function CompletedOperations() {
     selectedImporter,
     isInitialized,
     location.state,
-    currentPage
+    currentPage,
+    user?.username
   ]);
 
   // Cleanup on unmount

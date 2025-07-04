@@ -114,10 +114,17 @@ function ImportOperations() {
     currentICD,
     currentImporter
   ) => {
-    // Don't make API calls if component isn't initialized
-    if (!isInitialized || !yearState) {
+    // Don't make API calls if component isn't initialized, user not available, or no username
+    if (!isInitialized || !yearState || !user?.username) {
+      console.log('⏸️ ExaminationPlanning: Skipping API call - missing requirements:', {
+        isInitialized,
+        yearState,
+        username: user?.username
+      });
       return;
     }
+
+    console.log('📤 ExaminationPlanning: Making API call with username:', user.username);
 
     cancelPreviousRequest();
 

@@ -1,6 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import User from "../../model/userModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,7 +17,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
+router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, async (req, res) => {
   const { username } = req.params;
   const {
     page = 1,
@@ -42,40 +42,16 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     return res.status(400).json({ message: "Invalid limit value" });
   }
   try {
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(404).send({ message: "User not found" });
-    }
+    console.log("🚀 Starting get-operations-planning-jobs API for user:", username);
 
-    // **Define the custom house condition based on username**
-    let customHouseCondition = {};
-    switch (username) {
-      case "majhar_khan":
-        customHouseCondition = {
-          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
-        };
-        break;
-      case "parasmal_marvadi":
-        customHouseCondition = { custom_house: "AIR CARGO" };
-        break;
-      case "mahesh_patil":
-      case "prakash_darji":
-        customHouseCondition = { custom_house: "ICD KHODIYAR" };
-        break;
-      case "gaurav_singh":
-        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
-        break;
-      case "akshay_rajput":
-        customHouseCondition = { custom_house: "ICD VARNAMA" };
-        break;
-      default:
-        customHouseCondition = {}; // No filter for other users
-        break;
-    }
+    // Use ICD filter from middleware
+    let icdCondition = req.userIcdFilter || {};
+    console.log("📋 ICD Filter condition from middleware:", JSON.stringify(icdCondition, null, 2));
 
-    // **Override with selected ICD if provided**
-    if (selectedICD && selectedICD !== "All") {
-      customHouseCondition = { custom_house: selectedICD };
+    // Apply selected ICD filter if provided (overrides user's ICD assignments)
+    if (selectedICD && selectedICD !== "All" && selectedICD !== "Select ICD") {
+      icdCondition = { custom_house: selectedICD };
+      console.log("🔍 Selected ICD filter applied:", selectedICD);
     }
 
     
@@ -156,13 +132,15 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     // **Final Query: Merge All Conditions**
     const baseQuery = {
       $and: [
-        customHouseCondition,
+        icdCondition,
         baseConditions,
         statusExtraCondition,
         searchQuery,
         importerCondition, // NEW: Ensure importer filtering is applied
-      ],
+      ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
+
+    console.log("📊 Final MongoDB query:", JSON.stringify(baseQuery, null, 2));
 
        // ✅ Apply Year Filter if Provided
        if (selectedYear) {
@@ -174,6 +152,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     });
 
     const totalJobs = jobs.length;
+    console.log(`✅ Found ${totalJobs} operations planning jobs for user ${username}`);
 
     // **Grouping jobs based on row colors**
     const greenJobs = [];
@@ -221,7 +200,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       jobs: paginatedJobs,
     });
   } catch (error) {
-    console.error("Error fetching jobs:", error);
+    console.error("❌ Error fetching operations planning jobs:", error);
     res.status(500).send({ message: "Error fetching jobs" });
   }
 });

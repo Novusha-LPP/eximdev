@@ -18,13 +18,18 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // En
 import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
+  
+  // Debug log to check user context
+  console.log('👤 User context in Documentation:', { username: user?.username, role: user?.role });
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);
@@ -133,6 +138,7 @@ function Documentation() {
     ) => {
       setLoading(true);
       try {
+        console.log('📤 Fetching documentation jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-documentation-jobs`,
           {
@@ -142,6 +148,7 @@ function Documentation() {
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Send year to backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -165,13 +172,13 @@ function Documentation() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
   );
   // ✅ Added selectedYear as a dependency
 
  // Fetch jobs when page or debounced search query changes
-  useEffect(() => {    if (selectedYearState) {
-      // Ensure year is available before calling API
+  useEffect(() => {    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
       fetchJobs(
         currentPage,
         debouncedSearchQuery,
@@ -184,6 +191,7 @@ function Documentation() {
     debouncedSearchQuery,
     selectedImporter,
     selectedYearState,
+    user?.username,
     fetchJobs,
   ]);
 

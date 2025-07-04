@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-esanchit-jobs", async (req, res) => {
+router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year } = req.query;
 
@@ -76,6 +77,15 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
       });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
+    } else if (req.currentUser) {
+      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
     }
 
     // Fetch and sort jobs

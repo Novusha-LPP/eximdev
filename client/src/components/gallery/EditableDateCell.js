@@ -218,27 +218,34 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     updateDetailedStatus,
   ]);
 
+  // Check if arrival date should be disabled based on business logic
+  const isArrivalDateDisabled = useCallback((containerIndex) => {
+    const container = containers[containerIndex];
+    const ExBondflag = type_of_b_e === "Ex-Bond";
+    const LCLFlag = consignment_type === "LCL";
+    
+    if (ExBondflag) {
+      return true;
+    }
+    
+    if (LCLFlag) {
+      return !container?.by_road_movement_date;
+    } else {
+      return !container?.container_rail_out_date;
+    }
+  }, [containers, type_of_b_e, consignment_type]);
+
   // Handle date editing
   const handleEditStart = (field, index = null) => {
+    // Check if arrival date is disabled before allowing edit
+    if (field === "arrival_date" && index !== null && isArrivalDateDisabled(index)) {
+      return; // Don't allow editing if disabled
+    }
+    
     setEditable(index !== null ? `${field}_${index}` : field);
     
-    // Initialize tempDateValue with existing value
-    let currentValue = "";
-    if (index !== null) {
-      // Container field
-      const container = containers[index];
-      currentValue = container?.[field] || "";
-    } else {
-      // Direct date field
-      currentValue = dates[field] || "";
-    }
-    
-    // For rail-out dates that might be date-only, convert to datetime format
-    if (field === "container_rail_out_date" && currentValue && currentValue.length === 10) {
-      currentValue = `${currentValue}T00:00`;
-    }
-    
-    setTempDateValue(currentValue);
+    // Clear the date when starting to edit
+    setTempDateValue("");
     setTempTimeValue("");
     setDateError("");
   };
@@ -401,36 +408,45 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   };
   const isIgstFieldsAvailable =
     assessable_ammount && igst_ammount;
-  const DateField = ({ label, value, field, index = null }) => (
-    <div>
-      <strong>{label}:</strong> {value?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
-      <FcCalendar
-        style={styles.icon}
-        onClick={() => handleEditStart(field, index)}
-      />
-      {editable === (index !== null ? `${field}_${index}` : field) && (
-        <div>
-          <input
-            type="datetime-local"
-            value={tempDateValue}
-                      onChange={
-            handleDateInputChange
-            }
-            style={dateError ? styles.errorInput : {}}
-          />
-          <button
-            style={styles.submitButton}
-            onClick={() => handleDateSubmit(field, index)}
-          >
-            ✓
-          </button>
-          <button style={styles.cancelButton} onClick={() => setEditable(null)}>
-            ✕
-          </button>
-          {dateError && <div style={styles.errorText}>{dateError}</div>}
-        </div>      )}
-    </div>
-  );
+  const DateField = ({ label, value, field, index = null }) => {
+    const isDisabled = field === "arrival_date" && index !== null && isArrivalDateDisabled(index);
+    
+    return (
+      <div>
+        <strong>{label}:</strong> {value?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+        <FcCalendar
+          style={{
+            ...styles.icon,
+            opacity: isDisabled ? 0.4 : 1,
+            filter: isDisabled ? "grayscale(100%)" : "none",
+            cursor: isDisabled ? "not-allowed" : "pointer"
+          }}
+          onClick={() => !isDisabled && handleEditStart(field, index)}
+          title={isDisabled ? "Arrival date is disabled. Please set rail-out/by-road date first." : "Edit date"}
+        />
+        {editable === (index !== null ? `${field}_${index}` : field) && (
+          <div>
+            <input
+              type="datetime-local"
+              value={tempDateValue}
+              onChange={handleDateInputChange}
+              style={dateError ? styles.errorInput : {}}
+            />
+            <button
+              style={styles.submitButton}
+              onClick={() => handleDateSubmit(field, index)}
+            >
+              ✓
+            </button>
+            <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+              ✕
+            </button>
+            {dateError && <div style={styles.errorText}>{dateError}</div>}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>

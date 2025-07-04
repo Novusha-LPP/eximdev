@@ -3744,32 +3744,32 @@ function JobDetails() {
 
                     <br />
                 <Row>
-  <Col xs={12} lg={3}>
-    <div className="job-detail-input-container">
-      <strong>Arrival Date:&nbsp;</strong>
-      {formik.values.checked ? (
-        <span>{container.arrival_date || "Not Available"}</span>
-      ) : (
-        <TextField
-          fullWidth
-          size="small"
-          margin="normal"
-          variant="outlined"
-          type="datetime-local"
-          id={`arrival_date_${index}`}
-          name={`container_nos[${index}].arrival_date`}
-          value={container.arrival_date}
-          disabled={
-            ExBondflag ||
-            (LCLFlag
-              ? !container.by_road_movement_date
-              : !container.container_rail_out_date)
-          }
-          onChange={formik.handleChange}
-        />
-      )}
-    </div>
-  </Col>
+    <Col xs={12} lg={3}>
+      <div className="job-detail-input-container">
+        <strong>Arrival Date:&nbsp;</strong>
+        {formik.values.checked ? (
+          <span>{container.arrival_date || "Not Available"}</span>
+        ) : (
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="datetime-local"
+            id={`arrival_date_${index}`}
+            name={`container_nos[${index}].arrival_date`}
+            value={container.arrival_date}
+            disabled={
+              ExBondflag ||
+              (LCLFlag
+                ? !container.by_road_movement_date
+                : !container.container_rail_out_date)
+            }
+            onChange={formik.handleChange}
+          />
+        )}
+      </div>
+    </Col>
 
                       {/* <Col xs={12} lg={1}>
                         <div className="job-detail-input-container">

@@ -40,7 +40,7 @@ function Assign() {
         return <AssignRole selectedUser={selectedUser} />;
       case "Change Password":
         return <ChangePasswordByAdmin selectedUser={selectedUser} />;
-      case "Select ICD Code":
+      case "Assign ICD Code":
         return <SelectIcdCode selectedUser={selectedUser} />;
       default:
         return null;

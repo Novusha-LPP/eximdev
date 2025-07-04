@@ -279,11 +279,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       finalValue = tempDateValue;
     }
 
-    // Special handling for by-road dates only (keep rail-out with datetime)
-    if (field === "by_road_movement_date") {
-      // Extract only date portion (YYYY-MM-DD)
-      finalValue = tempDateValue.split("T")[0];
-    }
+    // // Special handling for by-road dates only (keep rail-out with datetime)
+    // if (field === "by_road_movement_date") {
+    //   // Extract only date portion (YYYY-MM-DD)
+    //   finalValue = tempDateValue.split("T")[0];
+    // }
 
     if (index !== null) {
       const oldContainers = [...containers];

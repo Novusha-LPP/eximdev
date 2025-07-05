@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import {
   TextField,
@@ -12,17 +12,21 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
+import { UserContext } from "../../contexts/UserContext.js";
 import DocsCell from "../gallery/DocsCell.js";
 
-function ImportBilling() {
+function ClearanceCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
+    useSearchQuery();
+  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -32,9 +36,8 @@ function ImportBilling() {
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
-  const location = useLocation();
   const [importers, setImporters] = useState("");
-  
+
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
@@ -64,32 +67,6 @@ function ImportBilling() {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
-  
-  // Search state restoration logic
-  useEffect(() => {
-    console.log("ImportBilling - location.state:", location.state);
-    if (location.state?.fromJobDetails) {
-      console.log("ImportBilling - Restoring search state from job details");
-      // Restore search state when returning from job details
-      if (location.state.searchQuery !== undefined) {
-        console.log("ImportBilling - Restoring searchQuery:", location.state.searchQuery);
-        setSearchQuery(location.state.searchQuery);
-        setDebouncedSearchQuery(location.state.searchQuery);
-      }
-      if (location.state.selectedImporter !== undefined) {
-        console.log("ImportBilling - Restoring selectedImporter:", location.state.selectedImporter);
-        setSelectedImporter(location.state.selectedImporter);
-      }
-    } else {
-      console.log("ImportBilling - Clearing search state (fresh load)");
-      // Clear search state when this component becomes active fresh (not from job details)
-      // This includes: page refresh, direct navigation, tab switching, etc.
-      setSearchQuery("");
-      setDebouncedSearchQuery("");
-      setSelectedImporter("");
-      setPage(1);
-    }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
 
   useEffect(() => {
     async function getYears() {
@@ -131,19 +108,21 @@ function ImportBilling() {
       currentPage,
       currentSearchQuery,
       selectedImporter,
-      selectedYearState
+      selectedYearState,
+      username
     ) => {
       setLoading(true);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-billing-import-job`,
+          `${process.env.REACT_APP_API_STRING}/get-billing-ready-jobs`,
           {
             params: {
               page: currentPage,
               limit,
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
-              year: selectedYearState || "", // ✅ Ensure year is sent
+              year: selectedYearState || "",
+              username: username || "",
             },
           }
         );
@@ -160,27 +139,33 @@ function ImportBilling() {
         setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching billing ready jobs:", error);
         setRows([]);
         setTotalPages(1);
       } finally {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit]
   );
 
-  // ✅ Fetch jobs when `selectedYear` changes
+  // Fetch jobs when dependencies change
   useEffect(() => {
-    if (selectedYearState) {
-      // Ensure year is available before calling API
-      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+    if (selectedYearState && user?.username) {
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        user.username
+      );
     }
   }, [
     page,
     debouncedSearchQuery,
     selectedImporter,
     selectedYearState,
+    user?.username,
     fetchJobs,
   ]);
 
@@ -204,7 +189,7 @@ function ImportBilling() {
     setSearchQuery(event.target.value);
   };
 
-  // Handle copy functionality (can be abstracted if used multiple times)
+  // Handle copy functionality
   const handleCopy = useCallback((event, text) => {
     event.stopPropagation();
 
@@ -239,7 +224,6 @@ function ImportBilling() {
     }
   }, []);
 
-  // Define table columns
   const columns = React.useMemo(
     () => [
       {
@@ -324,7 +308,8 @@ function ImportBilling() {
 
           // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
           if (
-            (detailed_status === "Custom Clearance Completed" && container_nos) ||
+            (detailed_status === "Custom Clearance Completed" &&
+              container_nos) ||
             detailed_status === "BE Noted, Clearance Pending" ||
             detailed_status === "PCV Done, Duty Payment Pending"
           ) {
@@ -356,23 +341,6 @@ function ImportBilling() {
 
           return (
             <div
-              onClick={() => {
-                console.log("ImportBilling - Navigating to job with state:", {
-                  searchQuery,
-                  selectedImporter,
-                  selectedJobId: job_no,
-                  currentTab: 1
-                });
-                navigate(`/view-billing-job/${job_no}/${year}`, {
-                  state: {
-                    fromJobDetails: true,
-                    searchQuery,
-                    selectedImporter,
-                    selectedJobId: job_no,
-                    currentTab: 1 // Import Billing tab index
-                  },
-                });
-              }}
               style={{
                 cursor: "pointer",
                 color: textColor,
@@ -435,11 +403,53 @@ function ImportBilling() {
         },
       },
       {
-        accessorKey: "Doc",
-        header: "Documents",
+        accessorKey: "out_of_charge",
+        header: "Out of Charge",
         enableSorting: false,
         size: 200,
-        Cell: DocsCell,
+        Cell: ({ cell }) => {
+          const { out_of_charge } = cell.row.original;
+          if (!out_of_charge) return "-";
+          
+          // Format the date-time if it's a valid date
+          try {
+            const date = new Date(out_of_charge);
+            if (isNaN(date.getTime())) return out_of_charge; // Return as-is if not a valid date
+            
+            return date.toLocaleString('en-GB', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          } catch (error) {
+            return out_of_charge ; // Return as-is if formatting fails
+          }
+        },
+      },
+      {
+        accessorKey: "be_no",
+        header: "BE Number & Date",
+        enableSorting: false,
+        size: 150,
+        Cell: ({ cell }) => {
+          const { be_no, be_date } = cell.row.original;
+          return (
+            <div>
+              {be_no || "-"} <br /> 
+              {be_date ? new Date(be_date).toLocaleDateString('en-GB') : "-"}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "expenses",
+        header: "Expenses",
+        enableSorting: false,
+        size: 200,
+        // Cell: DocsCell,
       },
     ],
     [navigate, handleCopy]
@@ -480,6 +490,9 @@ function ImportBilling() {
         textAlign: "left", // Align all body cell content to the left
       },
     },
+    // muiTableBodyRowProps: ({ row }) => ({
+    //   className: getTableRowsClassname(row),
+    // }),
     renderTopToolbarCustomActions: () => (
       <div
         style={{
@@ -494,9 +507,9 @@ function ImportBilling() {
           variant="body1"
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
         >
-          Job Count: {totalJobs}
+          Billing Ready Jobs: {totalJobs}
         </Typography>
-
+        
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
@@ -573,4 +586,4 @@ function ImportBilling() {
   );
 }
 
-export default ImportBilling;
+export default ClearanceCompleted;

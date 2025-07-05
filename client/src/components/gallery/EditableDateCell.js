@@ -425,20 +425,41 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           title={isDisabled ? "Arrival date is disabled. Please set rail-out/by-road date first." : "Edit date"}
         />
         {editable === (index !== null ? `${field}_${index}` : field) && (
-          <div>
+          <div onClick={(e) => e.stopPropagation()}>
             <input
               type="datetime-local"
               value={tempDateValue}
               onChange={handleDateInputChange}
+              onBlur={(e) => {
+                // Prevent closing when clicking on date picker elements
+                const relatedTarget = e.relatedTarget;
+                if (relatedTarget && (
+                  relatedTarget.closest('.react-datepicker') ||
+                  relatedTarget.closest('input[type="datetime-local"]') ||
+                  relatedTarget.tagName === 'BUTTON'
+                )) {
+                  return;
+                }
+              }}
               style={dateError ? styles.errorInput : {}}
+              autoFocus
             />
             <button
               style={styles.submitButton}
-              onClick={() => handleDateSubmit(field, index)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDateSubmit(field, index);
+              }}
             >
               ✓
             </button>
-            <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+            <button 
+              style={styles.cancelButton} 
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditable(null);
+              }}
+            >
               ✕
             </button>
             {dateError && <div style={styles.errorText}>{dateError}</div>}
@@ -585,24 +606,42 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           />
         </div>
         {editable === "duty_paid_date" && (
-          <div>
+          <div onClick={(e) => e.stopPropagation()}>
             <input
               type="datetime-local"
               value={tempDateValue}
               onChange={handleDateInputChange}
+              onBlur={(e) => {
+                // Prevent closing when clicking on date picker elements
+                const relatedTarget = e.relatedTarget;
+                if (relatedTarget && (
+                  relatedTarget.closest('.react-datepicker') ||
+                  relatedTarget.closest('input[type="datetime-local"]') ||
+                  relatedTarget.tagName === 'BUTTON'
+                )) {
+                  return;
+                }
+              }}
               style={dateError ? styles.errorInput : {}}
               disabled={!isIgstFieldsAvailable}
+              autoFocus
             />
             <button
               style={styles.submitButton}
-              onClick={() => handleDateSubmit("duty_paid_date")}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDateSubmit("duty_paid_date");
+              }}
               disabled={!isIgstFieldsAvailable}
             >
               ✓
             </button>
             <button
               style={styles.cancelButton}
-              onClick={() => setEditable(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditable(null);
+              }}
             >
               ✕
             </button>

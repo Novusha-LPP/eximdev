@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import icdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -83,7 +84,7 @@ router.get("/api/get-billing-import-job", async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob eta  delivery_date detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy"
+        "priorityJob eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy"
       )
       .sort({ gateway_igm_date: 1 });
 
@@ -125,53 +126,122 @@ router.get("/api/get-billing-import-job", async (req, res) => {
   }
 });
 
-// PATCH endpoint for updating E-Sanchit jobs
-// router.patch("/api/view-billing-job/:id", async (req, res) => {
-//   try {
-//     const { id } = req.params; // Get the job ID from the URL
-//     const { billing_completed_date } = req.body; // Take the custom date from the request body
+// New API endpoint for jobs with specific detailed_status values
+router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
+  // Extract and decode query parameters
+  const { page = 1, limit = 100, search = "", importer, year, detailed_status } = req.query;
 
-//     // Validate the provided date (if any)
-//     if (
-//       billing_completed_date &&
-//       isNaN(Date.parse(billing_completed_date))
-//     ) {
-//       return res.status(400).json({
-//         message: "Invalid date format. Please provide a valid ISO date string.",
-//       });
-//     }
+  // Decode `importer` (in case it's URL encoded as `%20` for spaces)
+  const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
-//     // Find the job by ID and update the billing_completed_date field
-//     const updatedJob = await JobModel.findByIdAndUpdate(
-//       id,
-//       {
-//         $set: {
-//           billing_completed_date:
-//           billing_completed_date || "", // Use provided date or current date-time
-//         },
-//       },
-//       { new: true, lean: true } // Return the updated document
-//     );
+  // Validate query parameters
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? year.toString() : null;
 
-//     if (!updatedJob) {
-//       return res
-//         .status(404)
-//         .json({ message: "Job not found with the specified ID" });
-//     }
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    return res.status(400).json({ message: "Invalid page number" });
+  }
+  if (isNaN(limitNumber) || limitNumber < 1) {
+    return res.status(400).json({ message: "Invalid limit value" });
+  }
 
-//     res.status(200).json({
-//       message: "Job updated successfully",
-//       updatedJob,
-//     });
-//   } catch (err) {
-//     console.error("Error updating job:", err);
+  try {
+    // Calculate pagination skip value
+    const skip = (pageNumber - 1) * limitNumber;
 
-//     // Return a detailed error message
-//     res.status(500).json({
-//       message: "Internal Server Error. Unable to update the job.",
-//       error: err.message,
-//     });
-//   }
-// });
+    // Build the base query with detailed_status filter
+    const baseQuery = {
+      $and: [
+        // Apply ICD filtering from middleware
+        req.icdFilterCondition
+      ],
+    };
+
+    // Apply detailed_status filter based on parameter
+    if (detailed_status && detailed_status !== "All") {
+      baseQuery.$and.push({
+        $and: [
+          { status: { $regex: /^pending$/i } },
+          { detailed_status: detailed_status }
+        ]
+      });
+    } else {
+      // Default: show both "Billing Pending" and "Custom Clearance Completed" with pending status
+      baseQuery.$and.push({
+        $and: [
+          { status: { $regex: /^pending$/i } },
+          {
+            detailed_status: {
+              $in: ["Billing Pending", "Custom Clearance Completed"]
+            }
+          }
+        ]
+      });
+    }
+
+    // ✅ Apply Search Filter if Provided
+    if (search && search.trim()) {
+      baseQuery.$and.push(buildSearchQuery(search.trim()));
+    }
+
+    // ✅ Apply Year Filter if Provided
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
+
+    // ✅ Apply Importer Filter (ensure spaces are handled correctly)
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
+    }
+
+    // Fetch and sort jobs
+    const allJobs = await JobModel.find(baseQuery)
+      .select(
+        "priorityJob eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date"
+      )
+      .sort({ gateway_igm_date: 1 });
+
+    // Custom sorting - prioritize "Billing Pending" over "Custom Clearance Completed"
+    const rankedJobs = allJobs.sort((a, b) => {
+      const rank = (job) => {
+        if (job.priorityJob === "High Priority") return 1;
+        if (job.priorityJob === "Priority") return 2;
+        if (job.detailed_status === "Billing Pending") return 3;
+        if (job.detailed_status === "Custom Clearance Completed") return 4;
+        return 5;
+      };
+      return rank(a) - rank(b);
+    });
+
+    // Pagination
+    const totalJobs = rankedJobs.length;
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
+
+    // Handle case where no jobs match the query
+    if (!paginatedJobs || paginatedJobs.length === 0) {
+      return res.status(200).json({
+        totalJobs: 0,
+        totalPages: 1,
+        currentPage: pageNumber,
+        jobs: [], // Return an empty array instead of 404
+      });
+    }
+
+    // Send response
+    return res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
+    });
+  } catch (err) {
+    console.error("Error fetching billing ready jobs:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 
 export default router;

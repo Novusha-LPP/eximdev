@@ -408,66 +408,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   };
   const isIgstFieldsAvailable =
     assessable_ammount && igst_ammount;
-  const DateField = ({ label, value, field, index = null }) => {
-    const isDisabled = field === "arrival_date" && index !== null && isArrivalDateDisabled(index);
-    
-    return (
-      <div>
-        <strong>{label}:</strong> {value?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
-        <FcCalendar
-          style={{
-            ...styles.icon,
-            opacity: isDisabled ? 0.4 : 1,
-            filter: isDisabled ? "grayscale(100%)" : "none",
-            cursor: isDisabled ? "not-allowed" : "pointer"
-          }}
-          onClick={() => !isDisabled && handleEditStart(field, index)}
-          title={isDisabled ? "Arrival date is disabled. Please set rail-out/by-road date first." : "Edit date"}
-        />
-        {editable === (index !== null ? `${field}_${index}` : field) && (
-          <div onClick={(e) => e.stopPropagation()}>
-            <input
-              type="datetime-local"
-              value={tempDateValue}
-              onChange={handleDateInputChange}
-              onBlur={(e) => {
-                // Prevent closing when clicking on date picker elements
-                const relatedTarget = e.relatedTarget;
-                if (relatedTarget && (
-                  relatedTarget.closest('.react-datepicker') ||
-                  relatedTarget.closest('input[type="datetime-local"]') ||
-                  relatedTarget.tagName === 'BUTTON'
-                )) {
-                  return;
-                }
-              }}
-              style={dateError ? styles.errorInput : {}}
-              autoFocus
-            />
-            <button
-              style={styles.submitButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDateSubmit(field, index);
-              }}
-            >
-              ✓
-            </button>
-            <button 
-              style={styles.cancelButton} 
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditable(null);
-              }}
-            >
-              ✕
-            </button>
-            {dateError && <div style={styles.errorText}>{dateError}</div>}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -475,47 +415,175 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       <div>
         {type_of_b_e !== "Ex-Bond" && (
           <>
-            <DateField
-              label="ETA"
-              value={dates.vessel_berthing}
-              field="vessel_berthing"
-            />
+            <div>
+              <strong>ETA:</strong> {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("vessel_berthing")}
+              />
+              {editable === "vessel_berthing" && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("vessel_berthing")}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
             <br />
-            <DateField
-              label="GIGM"
-              value={dates.gateway_igm_date}
-              field="gateway_igm_date"
-            />
+            <div>
+              <strong>GIGM:</strong> {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("gateway_igm_date")}
+              />
+              {editable === "gateway_igm_date" && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("gateway_igm_date")}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
             <br />
-            <DateField
-              label="Discharge"
-              value={dates.discharge_date}
-              field="discharge_date"
-            />
+            <div>
+              <strong>Discharge:</strong> {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("discharge_date")}
+              />
+              {editable === "discharge_date" && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("discharge_date")}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
             <br />
 
             {type_of_b_e !== "Ex-Bond" &&
               consignment_type !== "LCL" &&
               containers.map((container, id) => (
                 <div key={id}>
-                  <DateField
-                    label="Rail-out"
-                    value={container.container_rail_out_date}
-                    field="container_rail_out_date"
-                    index={id}
-                  />
+                  <div>
+                    <strong>Rail-out:</strong> {container.container_rail_out_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() => handleEditStart("container_rail_out_date", id)}
+                    />
+                    {editable === `container_rail_out_date_${id}` && (
+                      <div>
+                        <input
+                          type="datetime-local"
+                          value={tempDateValue}
+                          onChange={handleDateInputChange}
+                          style={dateError ? styles.errorInput : {}}
+                          autoFocus
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() => handleDateSubmit("container_rail_out_date", id)}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && <div style={styles.errorText}>{dateError}</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
 
             {consignment_type === "LCL" &&
               containers.map((container, id) => (
                 <div key={id}>
-                  <DateField
-                    label="ByRoad"
-                    value={container.by_road_movement_date}
-                    field="by_road_movement_date"
-                    index={id}
-                  />
+                  <div>
+                    <strong>ByRoad:</strong> {container.by_road_movement_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() => handleEditStart("by_road_movement_date", id)}
+                    />
+                    {editable === `by_road_movement_date_${id}` && (
+                      <div>
+                        <input
+                          type="datetime-local"
+                          value={tempDateValue}
+                          onChange={handleDateInputChange}
+                          style={dateError ? styles.errorInput : {}}
+                          autoFocus
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() => handleDateSubmit("by_road_movement_date", id)}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && <div style={styles.errorText}>{dateError}</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             <br />
@@ -523,12 +591,43 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               <>
                 {containers.map((container, id) => (
                   <div key={id}>
-                    <DateField
-                      label="Arrival"
-                      value={container.arrival_date}
-                      field="arrival_date"
-                      index={id}
-                    />
+                    <div>
+                      <strong>Arrival:</strong> {container.arrival_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                      <FcCalendar
+                        style={{
+                          ...styles.icon,
+                          opacity: isArrivalDateDisabled(id) ? 0.4 : 1,
+                          filter: isArrivalDateDisabled(id) ? "grayscale(100%)" : "none",
+                          cursor: isArrivalDateDisabled(id) ? "not-allowed" : "pointer"
+                        }}
+                        onClick={() => !isArrivalDateDisabled(id) && handleEditStart("arrival_date", id)}
+                        title={isArrivalDateDisabled(id) ? "Arrival date is disabled. Please set rail-out/by-road date first." : "Edit date"}
+                      />
+                      {editable === `arrival_date_${id}` && (
+                        <div>
+                          <input
+                            type="datetime-local"
+                            value={tempDateValue}
+                            onChange={handleDateInputChange}
+                            style={dateError ? styles.errorInput : {}}
+                            autoFocus
+                          />
+                          <button
+                            style={styles.submitButton}
+                            onClick={() => handleDateSubmit("arrival_date", id)}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            style={styles.cancelButton}
+                            onClick={() => setEditable(null)}
+                          >
+                            ✕
+                          </button>
+                          {dateError && <div style={styles.errorText}>{dateError}</div>}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -580,13 +679,69 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       </div>
       {/* Right Section */}
       <div>
-        <DateField
-          label="Assessment Date"
-          value={dates.assessment_date}
-          field="assessment_date"
-        />
+        <div>
+          <strong>Assessment Date:</strong> {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <FcCalendar
+            style={styles.icon}
+            onClick={() => handleEditStart("assessment_date")}
+          />
+          {editable === "assessment_date" && (
+            <div>
+              <input
+                type="datetime-local"
+                value={tempDateValue}
+                onChange={handleDateInputChange}
+                style={dateError ? styles.errorInput : {}}
+                autoFocus
+              />
+              <button
+                style={styles.submitButton}
+                onClick={() => handleDateSubmit("assessment_date")}
+              >
+                ✓
+              </button>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setEditable(null)}
+              >
+                ✕
+              </button>
+              {dateError && <div style={styles.errorText}>{dateError}</div>}
+            </div>
+          )}
+        </div>
         <br />
-        <DateField label="PCV" value={dates.pcv_date} field="pcv_date" />
+        <div>
+          <strong>PCV:</strong> {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <FcCalendar
+            style={styles.icon}
+            onClick={() => handleEditStart("pcv_date")}
+          />
+          {editable === "pcv_date" && (
+            <div>
+              <input
+                type="datetime-local"
+                value={tempDateValue}
+                onChange={handleDateInputChange}
+                style={dateError ? styles.errorInput : {}}
+                autoFocus
+              />
+              <button
+                style={styles.submitButton}
+                onClick={() => handleDateSubmit("pcv_date")}
+              >
+                ✓
+              </button>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setEditable(null)}
+              >
+                ✕
+              </button>
+              {dateError && <div style={styles.errorText}>{dateError}</div>}
+            </div>
+          )}
+        </div>
         <br />
 
         <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
@@ -606,42 +761,25 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           />
         </div>
         {editable === "duty_paid_date" && (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div>
             <input
               type="datetime-local"
               value={tempDateValue}
               onChange={handleDateInputChange}
-              onBlur={(e) => {
-                // Prevent closing when clicking on date picker elements
-                const relatedTarget = e.relatedTarget;
-                if (relatedTarget && (
-                  relatedTarget.closest('.react-datepicker') ||
-                  relatedTarget.closest('input[type="datetime-local"]') ||
-                  relatedTarget.tagName === 'BUTTON'
-                )) {
-                  return;
-                }
-              }}
               style={dateError ? styles.errorInput : {}}
               disabled={!isIgstFieldsAvailable}
               autoFocus
             />
             <button
               style={styles.submitButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDateSubmit("duty_paid_date");
-              }}
+              onClick={() => handleDateSubmit("duty_paid_date")}
               disabled={!isIgstFieldsAvailable}
             >
               ✓
             </button>
             <button
               style={styles.cancelButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditable(null);
-              }}
+              onClick={() => setEditable(null)}
             >
               ✕
             </button>
@@ -655,21 +793,72 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         )}
         <br />
 
-        <DateField
-          label="OOC"
-          value={dates.out_of_charge}
-          field="out_of_charge"
-        />
+        <div>
+          <strong>OOC:</strong> {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <FcCalendar
+            style={styles.icon}
+            onClick={() => handleEditStart("out_of_charge")}
+          />
+          {editable === "out_of_charge" && (
+            <div>
+              <input
+                type="datetime-local"
+                value={tempDateValue}
+                onChange={handleDateInputChange}
+                style={dateError ? styles.errorInput : {}}
+                autoFocus
+              />
+              <button
+                style={styles.submitButton}
+                onClick={() => handleDateSubmit("out_of_charge")}
+              >
+                ✓
+              </button>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setEditable(null)}
+              >
+                ✕
+              </button>
+              {dateError && <div style={styles.errorText}>{dateError}</div>}
+            </div>
+          )}
+        </div>
         <br />
 
         {containers.map((container, id) => (
           <div key={id}>
-            <DateField
-              label="Delivery"
-              value={container.delivery_date}
-              field="delivery_date"
-              index={id}
-            />
+            <div>
+              <strong>Delivery:</strong> {container.delivery_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("delivery_date", id)}
+              />
+              {editable === `delivery_date_${id}` && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("delivery_date", id)}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
           </div>
         ))}
 
@@ -680,12 +869,37 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             {/* <strong>EmptyOff:</strong> */}
             {containers.map((container, id) => (
               <div key={id}>
-                <DateField
-                  label="EmptyOff"
-                  value={container.emptyContainerOffLoadDate}
-                  field="emptyContainerOffLoadDate"
-                  index={id}
-                />
+                <div>
+                  <strong>EmptyOff:</strong> {container.emptyContainerOffLoadDate?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                  <FcCalendar
+                    style={styles.icon}
+                    onClick={() => handleEditStart("emptyContainerOffLoadDate", id)}
+                  />
+                  {editable === `emptyContainerOffLoadDate_${id}` && (
+                    <div>
+                      <input
+                        type="datetime-local"
+                        value={tempDateValue}
+                        onChange={handleDateInputChange}
+                        style={dateError ? styles.errorInput : {}}
+                        autoFocus
+                      />
+                      <button
+                        style={styles.submitButton}
+                        onClick={() => handleDateSubmit("emptyContainerOffLoadDate", id)}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        style={styles.cancelButton}
+                        onClick={() => setEditable(null)}
+                      >
+                        ✕
+                      </button>
+                      {dateError && <div style={styles.errorText}>{dateError}</div>}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </>

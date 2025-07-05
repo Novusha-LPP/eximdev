@@ -74,6 +74,26 @@ function useFetchJobDetails(
     //   document_code: "91WH13",
     // },
   ]);
+  const [chargesDetails, setChargesDetails] = useState([
+    {
+      document_name: "Commercial Invoice",
+    },
+    {
+      document_name: "Packing List",
+    },
+    {
+      document_name: "Bill of Lading",
+    },
+    {
+      document_name: "Certificate of Origin",
+    },
+    {
+      document_name: "Contract",
+    },
+    {
+      document_name: "Insurance",
+    },
+  ]);
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   //
@@ -94,18 +114,7 @@ function useFetchJobDetails(
     // { document_name: "Certificate of Analysis", document_code: "001000" },
   ];
   const cth_Dropdown = [
-    // {
-    //   document_name: "Commercial Invoice",
-    //   document_code: "380000",
-    // },
-    // {
-    //   document_name: "Packing List",
-    //   document_code: "271000",
-    // },
-    // {
-    //   document_name: "Bill of Lading",
-    //   document_code: "704000",
-    // },
+   
     {
       document_name: "Certificate of Origin",
       document_code: "861000",

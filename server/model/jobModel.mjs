@@ -13,6 +13,13 @@ const cthDocumentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const chargesDetailsSchema = new mongoose.Schema({
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_charge_name: { type: String, trim: true },
+});
+
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   document_code: { type: String, trim: true },
@@ -343,6 +350,9 @@ const jobSchema = new mongoose.Schema({
       reply: { type: String },
     },
   ],
+
+  /////////////////////////////////// Charges Details
+  chargesDetails: [chargesDetailsSchema],
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },

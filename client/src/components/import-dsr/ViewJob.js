@@ -3262,7 +3262,201 @@ function JobDetails() {
           </div>
           {/* Tracking status end*/}
 
-          {/* charges section */}
+   
+
+          {/* document section */}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documents" />
+            <br />
+
+            {/* CTH Documents Section */}
+
+            <Row>
+              {cthDocuments?.map((doc, index) => (
+                <Col
+                  xs={12}
+                  lg={4}
+                  key={`cth-${index}`}
+                  style={{ marginBottom: "20px", position: "relative" }}
+                >
+                  <div className="" tyle={{ display: "inline" }}>
+                    <FileUpload
+                      label={`${doc.document_name} (${doc.document_code})`}
+                      bucketPath={`cth-documents/${doc.document_name}`}
+                      onFilesUploaded={(urls) => {
+                        const updatedDocuments = [...cthDocuments];
+                        updatedDocuments[index].url = [
+                          ...(updatedDocuments[index].url || []),
+                          ...urls,
+                        ]; // Append new URLs
+                        setCthDocuments(updatedDocuments);
+                      }}
+                      multiple={true} // Allow multiple uploads
+                    />
+                  </div>
+                  <ImagePreview
+                    images={doc.url || []} // Pass all uploaded URLs
+                    onDeleteImage={(deleteIndex) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].url = updatedDocuments[
+                        index
+                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    readOnly={false}
+                  />
+                  {/* Small icons for Edit and Delete */}
+                  <div
+                    style={{ position: "absolute", top: "10px", right: "10px" }}
+                  >
+                    <span
+                      style={{
+                        cursor: "pointer",
+                        marginRight: "10px",
+                        color: "#007bff",
+                      }}
+                      onClick={() => handleOpenDialog(doc, true)}
+                    >
+                      <i className="fas fa-edit" title="Edit"></i>
+                    </span>
+                    <span
+                      style={{ cursor: "pointer", color: "#dc3545" }}
+                      onClick={() => handleOpenDialog(doc, false)}
+                    >
+                      <i className="fas fa-trash-alt" title="Delete"></i>
+                    </span>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            {/*  */}
+
+
+            {/* Add Document Section */}
+            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
+              <Col xs={12} lg={3}>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                >
+                  <InputLabel>Select Document</InputLabel>
+                  <Select
+                    value={selectedDocument}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      if (selectedValue === "other") {
+                        setNewDocumentName("");
+                        setNewDocumentCode("");
+                      }
+                      setSelectedDocument(selectedValue);
+                    }}
+                    label="Select Document"
+                  >
+                    {cth_Dropdown.map((doc) => (
+                      <MenuItem
+                        key={doc.document_code}
+                        value={doc.document_code}
+                      >
+                        {doc.document_name}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Col>
+
+              {selectedDocument === "other" && (
+                <>
+                  {" "}
+                  <Col xs={12} lg={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      label="New Document Name"
+                      value={newDocumentName}
+                      onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
+                      onKeyDown={preventFormSubmitOnEnter}
+                    />
+                  </Col>
+                  <Col xs={12} lg={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      margin="normal"
+                      variant="outlined"
+                      label="New Document Code"
+                      value={newDocumentCode}
+                      onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
+                      onKeyDown={preventFormSubmitOnEnter}
+                    />
+                  </Col>
+                </>
+              )}
+
+              <Col
+                xs={12}
+                lg={2}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ marginTop: "8px", height: "fit-content" }}
+                  onClick={() => {
+                    if (
+                      selectedDocument !== "other" &&
+                      selectedDocument &&
+                      cth_Dropdown.some(
+                        (doc) => doc.document_code === selectedDocument
+                      )
+                    ) {
+                      const selectedDoc = cth_Dropdown.find(
+                        (doc) => doc.document_code === selectedDocument
+                      );
+                      setCthDocuments([
+                        ...cthDocuments,
+                        {
+                          document_name: selectedDoc.document_name,
+                          document_code: selectedDoc.document_code,
+                          url: [],
+                          document_check_date: "",
+                        },
+                      ]);
+                    } else if (
+                      selectedDocument === "other" &&
+                      newDocumentName.trim() &&
+                      newDocumentCode.trim()
+                    ) {
+                      setCthDocuments([
+                        ...cthDocuments,
+                        {
+                          document_name: newDocumentName,
+                          document_code: newDocumentCode,
+                          url: [],
+                          document_check_date: "",
+                        },
+                      ]);
+                      setNewDocumentName("");
+                      setNewDocumentCode("");
+                    }
+                    setSelectedDocument(""); // Reset dropdown
+                  }}
+                >
+                  Add Document
+                </button>
+              </Col>
+            </Row>
+
+
+            {/*  */}
+            {/*  */}
+          </div>
+
+                 {/* charges section */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Charges" />
             <br />
@@ -3431,196 +3625,7 @@ function JobDetails() {
             </Row>
           </div>
           {/* charges section end */}
-
-          {/* document section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Documents" />
-            <br />
-
-            {/* CTH Documents Section */}
-
-            <Row>
-              {cthDocuments?.map((doc, index) => (
-                <Col
-                  xs={12}
-                  lg={4}
-                  key={`cth-${index}`}
-                  style={{ marginBottom: "20px", position: "relative" }}
-                >
-                  <div className="" tyle={{ display: "inline" }}>
-                    <FileUpload
-                      label={`${doc.document_name} (${doc.document_code})`}
-                      bucketPath={`cth-documents/${doc.document_name}`}
-                      onFilesUploaded={(urls) => {
-                        const updatedDocuments = [...cthDocuments];
-                        updatedDocuments[index].url = [
-                          ...(updatedDocuments[index].url || []),
-                          ...urls,
-                        ]; // Append new URLs
-                        setCthDocuments(updatedDocuments);
-                      }}
-                      multiple={true} // Allow multiple uploads
-                    />
-                  </div>
-                  <ImagePreview
-                    images={doc.url || []} // Pass all uploaded URLs
-                    onDeleteImage={(deleteIndex) => {
-                      const updatedDocuments = [...cthDocuments];
-                      updatedDocuments[index].url = updatedDocuments[
-                        index
-                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
-                      setCthDocuments(updatedDocuments);
-                    }}
-                    readOnly={false}
-                  />
-                  {/* Small icons for Edit and Delete */}
-                  <div
-                    style={{ position: "absolute", top: "10px", right: "10px" }}
-                  >
-                    <span
-                      style={{
-                        cursor: "pointer",
-                        marginRight: "10px",
-                        color: "#007bff",
-                      }}
-                      onClick={() => handleOpenDialog(doc, true)}
-                    >
-                      <i className="fas fa-edit" title="Edit"></i>
-                    </span>
-                    <span
-                      style={{ cursor: "pointer", color: "#dc3545" }}
-                      onClick={() => handleOpenDialog(doc, false)}
-                    >
-                      <i className="fas fa-trash-alt" title="Delete"></i>
-                    </span>
-                  </div>
-                </Col>
-              ))}
-            </Row>
-            {/*  */}
-
-            {/* Add Document Section */}
-            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
-              <Col xs={12} lg={3}>
-                <FormControl
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                >
-                  <InputLabel>Select Document</InputLabel>
-                  <Select
-                    value={selectedDocument}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      if (selectedValue === "other") {
-                        setNewDocumentName("");
-                        setNewDocumentCode("");
-                      }
-                      setSelectedDocument(selectedValue);
-                    }}
-                    label="Select Document"
-                  >
-                    {cth_Dropdown.map((doc) => (
-                      <MenuItem
-                        key={doc.document_code}
-                        value={doc.document_code}
-                      >
-                        {doc.document_name}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="other">Other</MenuItem>
-                  </Select>
-                </FormControl>
-              </Col>
-
-              {selectedDocument === "other" && (
-                <>
-                  {" "}
-                  <Col xs={12} lg={4}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      label="New Document Name"
-                      value={newDocumentName}
-                      onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
-                      onKeyDown={preventFormSubmitOnEnter}
-                    />
-                  </Col>
-                  <Col xs={12} lg={3}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      label="New Document Code"
-                      value={newDocumentCode}
-                      onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
-                      onKeyDown={preventFormSubmitOnEnter}
-                    />
-                  </Col>
-                </>
-              )}
-
-              <Col
-                xs={12}
-                lg={2}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ marginTop: "8px", height: "fit-content" }}
-                  onClick={() => {
-                    if (
-                      selectedDocument !== "other" &&
-                      selectedDocument &&
-                      cth_Dropdown.some(
-                        (doc) => doc.document_code === selectedDocument
-                      )
-                    ) {
-                      const selectedDoc = cth_Dropdown.find(
-                        (doc) => doc.document_code === selectedDocument
-                      );
-                      setCthDocuments([
-                        ...cthDocuments,
-                        {
-                          document_name: selectedDoc.document_name,
-                          document_code: selectedDoc.document_code,
-                          url: [],
-                          document_check_date: "",
-                        },
-                      ]);
-                    } else if (
-                      selectedDocument === "other" &&
-                      newDocumentName.trim() &&
-                      newDocumentCode.trim()
-                    ) {
-                      setCthDocuments([
-                        ...cthDocuments,
-                        {
-                          document_name: newDocumentName,
-                          document_code: newDocumentCode,
-                          url: [],
-                          document_check_date: "",
-                        },
-                      ]);
-                      setNewDocumentName("");
-                      setNewDocumentCode("");
-                    }
-                    setSelectedDocument(""); // Reset dropdown
-                  }}
-                >
-                  Add Document
-                </button>
-              </Col>
-            </Row>
-
-            {/*  */}
-            {/*  */}
-          </div>
+          
           {/* test232423242 */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />

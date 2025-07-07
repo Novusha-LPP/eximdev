@@ -45,19 +45,35 @@ function SelectIcdCode({ selectedUser }) {
   }, [selectedUser]);
 
   const fetchUserData = async () => {
+    setLoading(true);
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
       );
       setUserData(res.data);
       // Set current ICD codes if user already has them assigned
-      setSelectedIcdCodes(res.data.selected_icd_codes || []);
+      const currentIcdCodes = res.data.selected_icd_codes || [];
+      setSelectedIcdCodes(currentIcdCodes);
+      
+      if (currentIcdCodes.length > 0) {
+        setMessage({ 
+          text: `User has ${currentIcdCodes.length} ICD code(s) already assigned: ${currentIcdCodes.join(', ')}`, 
+          type: "info" 
+        });
+      } else {
+        setMessage({ 
+          text: "No ICD codes currently assigned to this user", 
+          type: "warning" 
+        });
+      }
     } catch (error) {
       console.error("Error fetching user data:", error);
       setMessage({ 
         text: "Error fetching user information", 
         type: "error" 
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -163,12 +179,30 @@ function SelectIcdCode({ selectedUser }) {
 
   return (
     <Paper elevation={3} sx={{ p: 3, mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Assign ICD Codes for {selectedUser}
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">
+          Assign ICD Codes for {selectedUser}
+        </Typography>
+        {selectedUser && (
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={fetchUserData}
+            disabled={loading}
+          >
+            Refresh Data
+          </Button>
+        )}
+      </Box>
+      
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+          <CircularProgress />
+        </Box>
+      )}
       
       {message.text && (
-        <Alert severity={message.type === "success" ? "success" : "error"} sx={{ mb: 2 }}>
+        <Alert severity={message.type === "success" ? "success" : message.type === "info" ? "info" : "error"} sx={{ mb: 2 }}>
           {message.text}
         </Alert>
       )}
@@ -176,14 +210,35 @@ function SelectIcdCode({ selectedUser }) {
       {/* Display current ICD assignments */}
       {userData?.selected_icd_codes && userData.selected_icd_codes.length > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            Current ICD Assignments:
+          <Typography variant="body1" sx={{ mb: 1, fontWeight: 'bold' }}>
+            Currently Assigned ICD Codes ({userData.selected_icd_codes.length}):
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {userData.selected_icd_codes.map((code, index) => (
-              <Chip key={index} label={code} size="small" />
+              <Chip 
+                key={index} 
+                label={code} 
+                size="medium" 
+                color="primary"
+                variant="filled"
+              />
             ))}
           </Box>
+        </Alert>
+      )}
+
+      {/* Show when no ICD codes are assigned */}
+      {userData && (!userData.selected_icd_codes || userData.selected_icd_codes.length === 0) && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>No ICD codes are currently assigned to this user.</strong>
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
+            User: {userData.first_name} {userData.last_name} ({userData.username})
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+            You can assign ICD codes using the dropdown below.
+          </Typography>
         </Alert>
       )}
       
@@ -194,13 +249,13 @@ function SelectIcdCode({ selectedUser }) {
       ) : (
         <Box component="form" onSubmit={handleSubmit}>
           <FormControl fullWidth margin="normal" size="small">
-            <InputLabel id="icd-codes-select-label">Select ICD Codes</InputLabel>
+            <InputLabel id="icd-codes-select-label">Assign ICD Code</InputLabel>
             <Select
               labelId="icd-codes-select-label"
               multiple
               value={selectedIcdCodes}
               onChange={handleIcdCodeChange}
-              input={<OutlinedInput label="Select ICD Codes" />}
+              input={<OutlinedInput label="Assign ICD Code" />}
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((value) => (

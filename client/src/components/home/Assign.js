@@ -76,7 +76,7 @@ function Assign() {
           <MenuItem value="Assign Module">Assign Module</MenuItem>
           <MenuItem value="Assign Role">Assign Role</MenuItem>
           <MenuItem value="Change Password">Change Password</MenuItem>
-          <MenuItem value="Select ICD Code">Select ICD Code</MenuItem>
+          <MenuItem value="Select ICD Code">Assign ICD Code</MenuItem>
         </TextField>
       </div>
 

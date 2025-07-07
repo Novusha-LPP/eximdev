@@ -8,7 +8,7 @@ router.get("/api/get-user/:username", async (req, res) => {
 
   try {
     const user = await UserModel.findOne({ username }).select(
-      "username role modules first_name middle_name last_name company employee_photo designation department employment_type email  assigned_importer_name"
+      "username role modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer_name selected_icd_codes"
     );
 
     if (!user) {

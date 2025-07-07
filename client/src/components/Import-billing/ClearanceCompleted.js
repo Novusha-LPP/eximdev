@@ -449,7 +449,64 @@ function ClearanceCompleted() {
         header: "Expenses",
         enableSorting: false,
         size: 200,
-        // Cell: DocsCell,
+        Cell: ({ cell }) => {
+          const { chargesDetails } = cell.row.original;
+
+          // Group charges by document name
+          const groupedCharges = {};
+          chargesDetails
+            ?.filter((charge) => charge.url && charge.url.length > 0 && charge.document_charge_details)
+            .forEach((charge) => {
+              if (!groupedCharges[charge.document_name]) {
+                groupedCharges[charge.document_name] = [];
+              }
+              groupedCharges[charge.document_name].push(charge);
+            });
+
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                justifyContent: "flex-start",
+                gap: "5px",
+                width: "100%",
+              }}
+            >
+              {/* Loop through grouped charges and display all documents for each charge type */}
+              {Object.keys(groupedCharges).map((chargeName) => (
+                <div key={chargeName} style={{ marginBottom: "8px" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "12px", marginBottom: "3px", color: "#333" }}>
+                    {chargeName}:
+                  </div>
+                  {groupedCharges[chargeName].map((charge, index) => (
+                    <div key={`${chargeName}-${index}`} style={{ marginLeft: "10px", marginBottom: "2px" }}>
+                      <a
+                        href={charge.url[0]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "blue",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                        }}
+                      >
+                        Document {index + 1} - ₹{charge.document_charge_details}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              
+              {/* Show message if no charges */}
+              {(!chargesDetails || chargesDetails.filter(charge => charge.url && charge.url.length > 0 && charge.document_charge_details).length === 0) && (
+                <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
+              )}
+            </div>
+          );
+        },
       },
     ],
     [navigate, handleCopy]

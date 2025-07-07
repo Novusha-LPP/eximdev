@@ -3508,24 +3508,34 @@ function JobDetails() {
                           variant="outlined"
                           size="small"
                           fullWidth
+                          type="number"
+                          inputProps={{
+                            min: 0,
+                            step: "0.01",
+                            pattern: "[0-9]+(\\.[0-9]+)?",
+                          }}
                           value={selectedChargesDoc.document_charge_details || ""}
                           onChange={(e) => {
-                            const updatedChargesDocuments = [...selectedChargesDocuments];
-                            const existingIndex = updatedChargesDocuments.findIndex(
-                              (selected) => selected.document_name === doc.document_name
-                            );
-                            
-                            if (existingIndex !== -1) {
-                              updatedChargesDocuments[existingIndex].document_charge_details = e.target.value;
-                            } else {
-                              updatedChargesDocuments.push({
-                                document_name: doc.document_name,
-                                url: [],
-                                document_check_date: "",
-                                document_charge_details: e.target.value,
-                              });
+                            // Only allow numbers and decimal points
+                            const value = e.target.value;
+                            if (value === '' || /^\d+(\.\d*)?$/.test(value)) {
+                              const updatedChargesDocuments = [...selectedChargesDocuments];
+                              const existingIndex = updatedChargesDocuments.findIndex(
+                                (selected) => selected.document_name === doc.document_name
+                              );
+                              
+                              if (existingIndex !== -1) {
+                                updatedChargesDocuments[existingIndex].document_charge_details = value;
+                              } else {
+                                updatedChargesDocuments.push({
+                                  document_name: doc.document_name,
+                                  url: [],
+                                  document_check_date: "",
+                                  document_charge_details: value,
+                                });
+                              }
+                              setSelectedChargesDocuments(updatedChargesDocuments);
                             }
-                            setSelectedChargesDocuments(updatedChargesDocuments);
                           }}
                           style={{ marginTop: "5px" }}
                         />

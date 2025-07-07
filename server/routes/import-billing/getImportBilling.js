@@ -200,7 +200,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date"
+        "priorityJob eta out_of_charge delivery_date chargesDetails detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date"
       )
       .sort({ gateway_igm_date: 1 });
 

@@ -50,7 +50,6 @@ function ViewESanchitJob() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
   const [editDocument, setEditDocument] = useState(null);
-  const [checklistWarning, setChecklistWarning] = useState(false);
   
   const params = useParams();
   const navigate = useNavigate();
@@ -155,12 +154,6 @@ function ViewESanchitJob() {
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
-      // Check if checklist is approved before submission
-      if (!data.is_checklist_aprroved) {
-        setChecklistWarning(true);
-        return;
-      }
-      
       try {
         const formattedData = {
           cth_documents: values.cth_documents,
@@ -730,20 +723,7 @@ function ViewESanchitJob() {
               </Row>
             </div>
 
-            {/* Checklist Approval Warning */}
-            {!data.is_checklist_aprroved && (
-              <div style={{ 
-                margin: "20px 0", 
-                padding: "15px", 
-                backgroundColor: "#fff3cd", 
-                border: "1px solid #ffeaa7", 
-                borderRadius: "5px",
-                color: "#856404"
-              }}>
-                <strong>⚠️ Warning:</strong> The checklist for this job has not been approved yet. 
-                Please ensure the checklist is approved before submitting.
-              </div>
-            )}
+            {/* Removed checklist approval warning */}
 
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <Button
@@ -759,12 +739,9 @@ function ViewESanchitJob() {
                   className="btn sticky-btn"
                   style={{ 
                     float: "right", 
-                    margin: "20px",
-                    opacity: data.is_checklist_aprroved ? 1 : 0.6,
-                    cursor: data.is_checklist_aprroved ? "pointer" : "not-allowed"
+                    margin: "20px"
                   }}
                   type="submit"
-                  disabled={!data.is_checklist_aprroved}
                 >
                   Submit
                 </button>
@@ -788,22 +765,19 @@ function ViewESanchitJob() {
             />
 
             <Snackbar
-              open={snackbar || fileSnackbar || checklistWarning}
+              open={snackbar || fileSnackbar}
               message={
                 snackbar
                   ? "Submitted successfully!"
                   : fileSnackbar
                   ? "File uploaded successfully!"
-                  : checklistWarning
-                  ? "Cannot submit: Checklist is not approved yet!"
                   : ""
               }
               sx={{ left: "auto !important", right: "24px !important" }}
-              autoHideDuration={checklistWarning ? 4000 : 6000}
+              autoHideDuration={6000}
               onClose={() => {
                 setSnackbar(false);
                 setFileSnackbar(false);
-                setChecklistWarning(false);
               }}
             />
           </>

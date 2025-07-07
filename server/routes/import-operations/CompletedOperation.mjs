@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import User from "../../model/userModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 const router = express.Router();
 
@@ -29,17 +30,26 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
       return res.status(400).json({ message: "Invalid limit value" });
     }
 
-    // Use ICD filter from middleware (req.userIcdFilter)
-    let icdCondition = req.userIcdFilter || {};
-    console.log("📋 ICD Filter condition from middleware:", JSON.stringify(icdCondition, null, 2));
+    // ✅ Validate user
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
 
-    // Apply selected ICD filter if provided (overrides user's ICD assignments)
-    if (selectedICD && selectedICD !== "Select ICD") {
+    // ✅ Use middleware-based ICD filtering instead of allowing frontend override
+    let icdCondition = {};
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions from middleware - RESPECT THESE
+      icdCondition = req.userIcdFilter;
+      console.log("� User ICD filter applied (middleware):", JSON.stringify(icdCondition, null, 2));
+    } else if (selectedICD && selectedICD !== "Select ICD") {
+      // Only apply frontend selection if user has full access (no middleware restrictions)
       icdCondition = {
         custom_house: new RegExp(`^${selectedICD}$`, "i"),
       };
-      console.log("🔍 Selected ICD filter applied:", selectedICD);
+      console.log("🔍 Selected ICD filter applied (frontend):", selectedICD);
     }
+    // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
     // Apply importer filter
     let importerCondition = {};

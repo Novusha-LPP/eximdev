@@ -40,7 +40,7 @@ function Assign() {
         return <AssignRole selectedUser={selectedUser} />;
       case "Change Password":
         return <ChangePasswordByAdmin selectedUser={selectedUser} />;
-      case "Select ICD Code":
+      case "Assign ICD Code":
         return <SelectIcdCode selectedUser={selectedUser} />;
       default:
         return null;
@@ -76,7 +76,7 @@ function Assign() {
           <MenuItem value="Assign Module">Assign Module</MenuItem>
           <MenuItem value="Assign Role">Assign Role</MenuItem>
           <MenuItem value="Change Password">Change Password</MenuItem>
-          <MenuItem value="Select ICD Code">Select ICD Code</MenuItem>
+          <MenuItem value="Assign ICD Code">Select ICD Code</MenuItem>
         </TextField>
       </div>
 

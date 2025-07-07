@@ -61,45 +61,36 @@ function useFetchJobDetails(
       document_name: "Bill of Lading",
       document_code: "704000",
     },
-    // {
-    //   document_name: "Certificate of Origin",
-    //   document_code: "861000",
-    // },
-    // {
-    //   document_name: "Contract",
-    //   document_code: "315000",
-    // },
-    // {
-    //   document_name: "Insurance",
-    //   document_code: "91WH13",
-    // },
   ]);
-  const [chargesDetails, setChargesDetails] = useState([
-    {
-      document_name: "Commercial Invoice",
-    },
-    {
-      document_name: "Packing List",
-    },
-    {
-      document_name: "Bill of Lading",
-    },
-    {
-      document_name: "Certificate of Origin",
-    },
-    {
-      document_name: "Contract",
-    },
-    {
-      document_name: "Insurance",
-    },
-  ]);
+
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   //
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
+
+  // Charges section state
+  const [chargesDetails, setChargesDetails] = useState([
+    {
+      document_name: "Notary",
+    },
+    {
+      document_name: "Duty",
+    },
+    {
+      document_name: "MISC",
+    },
+    {
+      document_name: "CE Certification Charges",
+    },
+    {
+      document_name: "ADC/NOC Charges",
+    },
+  ]);
+  const [selectedChargesDocuments, setSelectedChargesDocuments] = useState([]);
+  const [selectedChargesDocument, setSelectedChargesDocument] = useState(""); // State for custom charges dropdown
+  const [newChargesDocumentName, setNewChargesDocumentName] = useState("");
 
   const additionalDocs = [
     // {
@@ -224,6 +215,7 @@ function useFetchJobDetails(
       );
       setData(response.data);
       setSelectedDocuments(response.data.documents);
+      setSelectedChargesDocuments(response.data.chargesDetails || []);
     }
 
     getJobDetails();
@@ -307,6 +299,7 @@ function useFetchJobDetails(
     }
     if (data) {
       setSelectedDocuments(data.documents);
+      setSelectedChargesDocuments(data.chargesDetails || []);
     }
 
     getCthDocs();
@@ -411,6 +404,7 @@ function useFetchJobDetails(
       documentation_remark_box: false,
       remark_esanchit_input: "",
       remark_documentation_input: "",
+      chargesDetails: [],
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -522,6 +516,7 @@ function useFetchJobDetails(
           documentation_remark_box: values.documentation_remark_box,
           remark_esanchit_input: values.remark_esanchit_input,
           remark_documentation_input: values.remark_documentation_input,
+          chargesDetails: selectedChargesDocuments,
         }
       );
       localStorage.setItem("tab_value", 1);
@@ -892,6 +887,7 @@ function useFetchJobDetails(
         documentation_remark_box: data.documentation_remark_box === undefined ? false : data.documentation_remark_box,
         remark_esanchit_input: data.remark_esanchit_input === undefined ? "" : data.remark_esanchit_input,
         remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
+        chargesDetails: data.chargesDetails === undefined ? [] : data.chargesDetails,
       });
     }
     // eslint-disable-next-line
@@ -1104,6 +1100,16 @@ function useFetchJobDetails(
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
+    
+    // Charges related exports
+    chargesDetails,
+    setChargesDetails,
+    selectedChargesDocuments,
+    setSelectedChargesDocuments,
+    selectedChargesDocument,
+    setSelectedChargesDocument,
+    newChargesDocumentName,
+    setNewChargesDocumentName,
   };
 }
 

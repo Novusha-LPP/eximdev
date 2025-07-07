@@ -206,6 +206,15 @@ function JobDetails() {
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
+    // Charges related
+    chargesDetails,
+    setChargesDetails,
+    selectedChargesDocuments,
+    setSelectedChargesDocuments,
+    selectedChargesDocument,
+    setSelectedChargesDocument,
+    newChargesDocumentName,
+    setNewChargesDocumentName,
     // schemeOptions,
   } = useFetchJobDetails(
     params,
@@ -3232,61 +3241,6 @@ function JobDetails() {
                 </div>
               </Col>
             </Row>
-            {/* <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4} className="mb-3">
-                <div className="job-detail-input-container">
-                  <strong>Delivery Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    type="date"
-                    margin="normal"
-                    variant="outlined"
-                    id="delivery_date"
-                    name="delivery_date"
-                    value={formik.values.delivery_date}
-                    onChange={formik.handleChange}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Emty Cont. Off-Load Date.</strong>
-                  &nbsp;
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="emptyContainerOffLoadDate"
-                    name="emptyContainerOffLoadDate"
-                    value={
-                      formik.values.emptyContainerOffLoadDate
-                        ? formik.values.emptyContainerOffLoadDate
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      if (newValue) {
-                        formik.setFieldValue(
-                          "emptyContainerOffLoadDate",
-                          newValue
-                        );
-                      } else {
-                        formik.setFieldValue("emptyContainerOffLoadDate", "");
-                      }
-                    }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </div>
-              </Col>
-            </Row> */}
             <Row style={{ marginTop: "20px" }}>
               <Col>
                 <div className="job-detail-input-container">
@@ -3307,6 +3261,176 @@ function JobDetails() {
             </Row>
           </div>
           {/* Tracking status end*/}
+
+          {/* charges section */}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Charges" />
+            <br />
+
+            {/* All Charges Documents (Predefined + Custom) in same row structure */}
+            <Row>
+              {chargesDetails?.map((doc, index) => {
+                const selectedChargesDoc = selectedChargesDocuments.find(
+                  (selected) => selected.document_name === doc.document_name
+                ) || {};
+
+                return (
+                  <Col
+                    xs={12}
+                    lg={4}
+                    key={`charges-${index}`}
+                    style={{ marginBottom: "20px", position: "relative" }}
+                  >
+                    <div style={{ display: "inline" }}>
+                      <FileUpload
+                        label={doc.document_name}
+                        bucketPath={`charges-documents/${doc.document_name}`}
+                        onFilesUploaded={(urls) => {
+                          const updatedChargesDocuments = [...selectedChargesDocuments];
+                          const existingIndex = updatedChargesDocuments.findIndex(
+                            (selected) => selected.document_name === doc.document_name
+                          );
+                          
+                          if (existingIndex !== -1) {
+                            updatedChargesDocuments[existingIndex].url = [
+                              ...(updatedChargesDocuments[existingIndex].url || []),
+                              ...urls,
+                            ];
+                          } else {
+                            updatedChargesDocuments.push({
+                              document_name: doc.document_name,
+                              url: urls,
+                              document_check_date: "",
+                              document_charge_details: "",
+                            });
+                          }
+                          setSelectedChargesDocuments(updatedChargesDocuments);
+                        }}
+                        multiple={true}
+                      />
+                      <div style={{ marginTop: "10px" }}>
+                        <TextField
+                          label="Charge Details"
+                          variant="outlined"
+                          size="small"
+                          fullWidth
+                          value={selectedChargesDoc.document_charge_details || ""}
+                          onChange={(e) => {
+                            const updatedChargesDocuments = [...selectedChargesDocuments];
+                            const existingIndex = updatedChargesDocuments.findIndex(
+                              (selected) => selected.document_name === doc.document_name
+                            );
+                            
+                            if (existingIndex !== -1) {
+                              updatedChargesDocuments[existingIndex].document_charge_details = e.target.value;
+                            } else {
+                              updatedChargesDocuments.push({
+                                document_name: doc.document_name,
+                                url: [],
+                                document_check_date: "",
+                                document_charge_details: e.target.value,
+                              });
+                            }
+                            setSelectedChargesDocuments(updatedChargesDocuments);
+                          }}
+                          style={{ marginTop: "5px" }}
+                        />
+                      </div>
+                    </div>
+                    <ImagePreview
+                      images={selectedChargesDoc.url || []}
+                      onDeleteImage={(deleteIndex) => {
+                        const updatedChargesDocuments = [...selectedChargesDocuments];
+                        const docIndex = updatedChargesDocuments.findIndex(
+                          (selected) => selected.document_name === doc.document_name
+                        );
+                        if (docIndex !== -1) {
+                          updatedChargesDocuments[docIndex].url = updatedChargesDocuments[
+                            docIndex
+                          ].url.filter((_, i) => i !== deleteIndex);
+                          setSelectedChargesDocuments(updatedChargesDocuments);
+                        }
+                      }}
+                      readOnly={false}
+                    />
+                    
+                    {/* Delete button for custom documents only */}
+                    {!["Notary", "Duty", "MISC", "CE Certification Charges", "ADC/NOC Charges"].includes(doc.document_name) && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          cursor: "pointer",
+                          color: "#dc3545",
+                        }}
+                        onClick={() => {
+                          // Remove from chargesDetails
+                          const updatedChargesDetails = chargesDetails.filter(
+                            (_, i) => i !== index
+                          );
+                          setChargesDetails(updatedChargesDetails);
+                          
+                          // Remove from selectedChargesDocuments
+                          const updatedSelectedChargesDocuments = selectedChargesDocuments.filter(
+                            (selected) => selected.document_name !== doc.document_name
+                          );
+                          setSelectedChargesDocuments(updatedSelectedChargesDocuments);
+                        }}
+                      >
+                        <i className="fas fa-trash-alt" title="Delete"></i>
+                      </div>
+                    )}
+                  </Col>
+                );
+              })}
+            </Row>
+
+            {/* Add Custom Charges Document Section */}
+            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
+              <Col xs={12} lg={4}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  margin="normal"
+                  variant="outlined"
+                  label="Custom Charge Document Name"
+                  value={newChargesDocumentName}
+                  onChange={(e) => setNewChargesDocumentName(e.target.value)}
+                  onKeyDown={preventFormSubmitOnEnter}
+                />
+              </Col>
+              
+              <Col
+                xs={12}
+                lg={2}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ marginTop: "8px", height: "fit-content" }}
+                  onClick={() => {
+                    if (newChargesDocumentName.trim() && 
+                        !chargesDetails.some(doc => doc.document_name === newChargesDocumentName.trim())) {
+                      setChargesDetails([
+                        ...chargesDetails,
+                        {
+                          document_name: newChargesDocumentName.trim(),
+                        },
+                      ]);
+                      setNewChargesDocumentName("");
+                    }
+                  }}
+                  disabled={!newChargesDocumentName.trim() || 
+                           chargesDetails.some(doc => doc.document_name === newChargesDocumentName.trim())}
+                >
+                  Add Custom Charge Document
+                </button>
+              </Col>
+            </Row>
+          </div>
+          {/* charges section end */}
 
           {/* document section */}
           <div className="job-details-container">

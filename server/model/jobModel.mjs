@@ -17,7 +17,7 @@ const chargesDetailsSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   url: [{ type: String, trim: true }],
   document_check_date: { type: String, trim: true },
-  document_charge_name: { type: String, trim: true },
+  document_charge_details: { type: String, trim: true },
 });
 
 const documentSchema = new mongoose.Schema({

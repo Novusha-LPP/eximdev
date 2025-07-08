@@ -216,6 +216,31 @@ function useFetchJobDetails(
       setData(response.data);
       setSelectedDocuments(response.data.documents);
       setSelectedChargesDocuments(response.data.chargesDetails || []);
+      
+      // Update chargesDetails to include custom charges from database
+      if (response.data.chargesDetails && response.data.chargesDetails.length > 0) {
+        const predefinedCharges = [
+          { document_name: "Notary" },
+          { document_name: "Duty" },
+          { document_name: "MISC" },
+          { document_name: "CE Certification Charges" },
+          { document_name: "ADC/NOC Charges" },
+        ];
+        
+        // Get unique custom charges from database (excluding predefined ones)
+        const customChargesFromDB = response.data.chargesDetails
+          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
+          .map(charge => ({ document_name: charge.document_name }));
+        
+        // Remove duplicates by document_name
+        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
+          index === self.findIndex(c => c.document_name === charge.document_name)
+        );
+        
+        // Combine predefined and unique custom charges
+        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
+        setChargesDetails(allCharges);
+      }
     }
 
     getJobDetails();
@@ -889,6 +914,31 @@ function useFetchJobDetails(
         remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
         chargesDetails: data.chargesDetails === undefined ? [] : data.chargesDetails,
       });
+      
+      // Update chargesDetails state to include custom charges from database
+      if (data.chargesDetails && data.chargesDetails.length > 0) {
+        const predefinedCharges = [
+          { document_name: "Notary" },
+          { document_name: "Duty" },
+          { document_name: "MISC" },
+          { document_name: "CE Certification Charges" },
+          { document_name: "ADC/NOC Charges" },
+        ];
+        
+        // Get unique custom charges from database (excluding predefined ones)
+        const customChargesFromDB = data.chargesDetails
+          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
+          .map(charge => ({ document_name: charge.document_name }));
+        
+        // Remove duplicates by document_name
+        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
+          index === self.findIndex(c => c.document_name === charge.document_name)
+        );
+        
+        // Combine predefined and unique custom charges
+        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
+        setChargesDetails(allCharges);
+      }
     }
     // eslint-disable-next-line
   }, [data]);

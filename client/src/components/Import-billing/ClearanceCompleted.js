@@ -448,20 +448,24 @@ function ClearanceCompleted() {
         accessorKey: "expenses",
         header: "Expenses",
         enableSorting: false,
-        size: 200,
+        size: 300,
         Cell: ({ cell }) => {
           const { chargesDetails } = cell.row.original;
 
-          // Group charges by document name
-          const groupedCharges = {};
-          chargesDetails
-            ?.filter((charge) => charge.url && charge.url.length > 0 && charge.document_charge_details)
-            .forEach((charge) => {
-              if (!groupedCharges[charge.document_name]) {
-                groupedCharges[charge.document_name] = [];
-              }
-              groupedCharges[charge.document_name].push(charge);
-            });
+          // Filter charges that have URLs (regardless of charge details)
+          const validCharges = chargesDetails?.filter((charge) => 
+            charge.url && charge.url.length > 0
+          ) || [];
+
+          // If no charges, show "No expenses"
+          if (validCharges.length === 0) {
+            return (
+              <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
+            );
+          }
+
+          // Static number to start from 1
+          let serialNumber = 1;
 
           return (
             <div
@@ -474,35 +478,24 @@ function ClearanceCompleted() {
                 width: "100%",
               }}
             >
-              {/* Loop through grouped charges and display all documents for each charge type */}
-              {Object.keys(groupedCharges).map((chargeName) => (
-                <div key={chargeName} style={{ marginBottom: "8px" }}>
-                  <div style={{ fontWeight: "bold", fontSize: "12px", marginBottom: "3px", color: "#333" }}>
-                    {chargeName}:
-                  </div>
-                  {groupedCharges[chargeName].map((charge, index) => (
-                    <div key={`${chargeName}-${index}`} style={{ marginLeft: "10px", marginBottom: "2px" }}>
-                      <a
-                        href={charge.url[0]}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: "blue",
-                          textDecoration: "underline",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                        }}
-                      >
-                        Document {index + 1} - ₹{charge.document_charge_details}
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              ))}
-              
-              {/* Show message if no charges */}
-              {(!chargesDetails || chargesDetails.filter(charge => charge.url && charge.url.length > 0 && charge.document_charge_details).length === 0) && (
-                <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
+              {/* Loop through all charges and display each document with serial number */}
+              {validCharges.map((charge) => 
+                charge.url.map((url, urlIndex) => (
+                  <a
+                    key={`${charge.document_name}-${urlIndex}-${serialNumber}`}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: charge.document_charge_details ? "blue" : "#ff6b6b",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginBottom: "5px",
+                    }}
+                  >
+                    {serialNumber++}. {charge.document_name} {charge.url.length > 1 ? `${urlIndex + 1}` : ''} - {charge.document_charge_details ? `₹${parseFloat(charge.document_charge_details).toFixed(2)}` : "No charge details"}
+                  </a>
+                ))
               )}
             </div>
           );

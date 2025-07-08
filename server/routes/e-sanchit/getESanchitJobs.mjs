@@ -142,7 +142,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 // PATCH endpoint for updating E-Sanchit jobs
 router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
   const { job_no, year } = req.params;
-  const { cth_documents, queries, esanchit_completed_date_time } = req.body;
+  const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time } = req.body;
 
   try {
     // Find the job by job_no and year
@@ -155,6 +155,10 @@ router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
     // Update fields only if provided
     if (cth_documents) {
       job.cth_documents = cth_documents;
+    }
+
+    if (esanchitCharges) {
+      job.esanchitCharges = esanchitCharges;
     }
 
     if (queries) {

@@ -43,13 +43,31 @@ function ViewESanchitJob() {
   const routeLocation = useLocation()
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
-  const [data, setData] = useState({ cth_documents: [] });
+  const [data, setData] = useState({ cth_documents: [], esanchitCharges: [] });
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
   const [editDocument, setEditDocument] = useState(null);
+  
+  // Charges section state
+  const [esanchitCharges, setEsanchitCharges] = useState([
+    {
+      document_name: "NFIMS/SIMS",
+      url: [],
+      document_check_date: "",
+      document_charge_refrence_no: "",
+      document_charge_recipt_copy: "",
+    },
+    {
+      document_name: "PIMS",
+      url: [],
+      document_check_date: "",
+      document_charge_refrence_no: "",
+      document_charge_recipt_copy: "",
+    },
+  ]);
   
   const params = useParams();
   const navigate = useNavigate();
@@ -137,7 +155,13 @@ function ViewESanchitJob() {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-esanchit-job/${params.job_no}/${params.year}`
         );
-        setData(res.data || { cth_documents: [] });
+        const jobData = res.data || { cth_documents: [], esanchitCharges: [] };
+        setData(jobData);
+        
+        // Initialize esanchitCharges with data from database
+        if (jobData.esanchitCharges && jobData.esanchitCharges.length > 0) {
+          setEsanchitCharges(jobData.esanchitCharges);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -149,17 +173,19 @@ function ViewESanchitJob() {
   const formik = useFormik({
     initialValues: {
       cth_documents: data.cth_documents || [],
-      queries: data.eSachitQueries || [{ query: "", reply: "" }], // Initialize from `eSachitQueries` in data
-      esanchit_completed_date_time: data.esanchit_completed_date_time || "", // Default to an empty string if not present
+      esanchitCharges: esanchitCharges || [],
+      queries: data.eSachitQueries || [{ query: "", reply: "" }],
+      esanchit_completed_date_time: data.esanchit_completed_date_time || "",
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
         const formattedData = {
           cth_documents: values.cth_documents,
-          eSachitQueries: values.queries, // Send queries as `eSachitQueries`
+          esanchitCharges: values.esanchitCharges,
+          queries: values.queries, // Send queries as `eSachitQueries`
           esanchit_completed_date_time:
-            values.esanchit_completed_date_time || "", // Send `null` if cleared
+            values.esanchit_completed_date_time || "",
         };
         
         await axios.patch(
@@ -277,6 +303,11 @@ function ViewESanchitJob() {
     }
   }, [formik.values.cth_documents]);
 
+  // Sync esanchitCharges state with formik values
+  useEffect(() => {
+    formik.setFieldValue("esanchitCharges", esanchitCharges);
+  }, [esanchitCharges]);
+
   const handleOpenDialog = (document, isEdit) => {
     setDialogMode(isEdit);
     setEditDocument({ ...document, originalCode: document.document_code });
@@ -364,6 +395,85 @@ function ViewESanchitJob() {
               params={params}
               setSnackbar={setSnackbar}
             />
+            
+            {/* Charges section */}
+            <div className="job-details-container">
+              <h4>Charges</h4>
+              {formik.values.esanchitCharges?.map((charge, index) => (
+                <div
+                  key={index}
+                  style={{
+                    marginBottom: "20px",
+                    padding: "10px",
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <Row className="align-items-center">
+                    {/* File Upload & Image Preview */}
+                    <Col
+                      xs={12}
+                      lg={4}
+                      style={{ marginBottom: "20px" }}
+                    >
+                      <FileUpload
+                        label={charge.document_name}
+                        bucketPath={`esanchit-charges/${charge.document_name}`}
+                        onFilesUploaded={(urls) => {
+                          const updatedCharges = [...formik.values.esanchitCharges];
+                          updatedCharges[index].url = [
+                            ...(updatedCharges[index].url || []),
+                            ...urls,
+                          ];
+                          formik.setFieldValue("esanchitCharges", updatedCharges);
+                          setFileSnackbar(true);
+                        }}
+                        multiple={true}
+                        readOnly={isDisabled}
+                      />
+                      <ImagePreview
+                        images={charge.url || []}
+                        onDeleteImage={(deleteIndex) => {
+                          const updatedCharges = [...formik.values.esanchitCharges];
+                          updatedCharges[index].url.splice(deleteIndex, 1);
+                          formik.setFieldValue("esanchitCharges", updatedCharges);
+                        }}
+                        readOnly={isDisabled}
+                      />
+                    </Col>
+
+                    {/* Document Charge Reference No */}
+                    <Col xs={12} lg={4}>
+                      <TextField
+                        size="small"
+                        label="Document Charge Reference No"
+                        name={`esanchitCharges[${index}].document_charge_refrence_no`}
+                        value={formik.values.esanchitCharges[index]?.document_charge_refrence_no || ""}
+                        onChange={formik.handleChange}
+                        fullWidth
+                        type="number"
+                        disabled={isDisabled}
+                      />
+                    </Col>
+
+                    {/* Document Charge Receipt Copy */}
+                    <Col xs={12} lg={4}>
+                      <TextField
+                        size="small"
+                        label="Document Charge Receipt Copy"
+                        name={`esanchitCharges[${index}].document_charge_recipt_copy`}
+                        value={formik.values.esanchitCharges[index]?.document_charge_recipt_copy || ""}
+                        onChange={formik.handleChange}
+                        fullWidth
+                        type="number"
+                        disabled={isDisabled}
+                      />
+                    </Col>
+                  </Row>
+                </div>
+              ))}
+            </div>
+            
             <div className="job-details-container">
               <h4>Documents</h4>
               {formik.values.cth_documents?.map((document, index) => (

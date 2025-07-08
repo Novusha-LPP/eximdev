@@ -20,6 +20,14 @@ const chargesDetailsSchema = new mongoose.Schema({
   document_charge_details: { type: String, trim: true },
 });
 
+const esanchitChargesSchema = new mongoose.Schema({
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_charge_refrence_no: { type: String, trim: true },
+  document_charge_recipt_copy: { type: String, trim: true },
+});
+
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   document_code: { type: String, trim: true },
@@ -353,6 +361,10 @@ const jobSchema = new mongoose.Schema({
 
   /////////////////////////////////// Charges Details
   chargesDetails: [chargesDetailsSchema],
+
+
+  /////////////////////////////////// esanchit Charges Details
+  esanchitCharges: [esanchitChargesSchema],
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },

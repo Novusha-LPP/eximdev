@@ -1,10 +1,36 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs"; // Import your JobModel
+import auditMiddleware from "../../middleware/auditTrail.mjs"; // Import audit middleware
 
 const router = express.Router();
 
+// Extract job info middleware for audit trail
+const extractJobInfo = async (req, res, next) => {
+  try {
+    console.log("🔍 Extracting job info for DO Billing update:", req.params.id);
+    if (req.params.id) {
+      // Fetch job details to get job_no and year
+      const job = await JobModel.findOne({ _id: req.params.id }).lean();
+      if (job) {
+        req.jobInfo = {
+          documentId: job._id,
+          job_no: job.job_no,
+          year: job.year
+        };
+        console.log(`✅ Extracted job info for audit trail: ${job.year}/${job.job_no}`);
+      } else {
+        console.log(`❌ Could not find job with ID: ${req.params.id}`);
+      }
+    }
+    next();
+  } catch (error) {
+    console.error("❌ Error extracting job info:", error);
+    next(); // Continue even if extraction fails
+  }
+};
+
 // PATCH route for updating billing details
-router.patch("/api/update-do-billing/:id", async (req, res) => {
+router.patch("/api/update-do-billing/:id", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
   const { id } = req.params; // Extract job ID from URL params
   const {
     icd_cfs_invoice,

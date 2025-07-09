@@ -28,7 +28,7 @@ function EditBillingSheet() {
     message: "",
   });
   const { _id } = useParams();
-  const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext); // Access user from context
   const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
@@ -92,10 +92,26 @@ function EditBillingSheet() {
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
+        // Get user info from context or localStorage fallback
+        const username = user?.username || localStorage.getItem('username') || 'unknown';
+        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
+        
+        console.log("🔍 Submitting DO Billing update with user:", username);
+
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-billing/${data._id}`,
-          values
+          values,
+          {
+            headers: {
+              'username': username,
+              'user-id': userId,
+              'user-role': userRole
+            }
+          }
         );
+        
+        console.log("✅ DO Billing updated successfully");
 
         // Update the local data state after successful update
         setData((prev) => ({

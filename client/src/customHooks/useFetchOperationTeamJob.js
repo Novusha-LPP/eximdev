@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useFormik } from "formik";
 import { TabContext } from "../components/import-operations/ImportOperations";
+import { UserContext } from "../contexts/UserContext";
 
 function useFetchOperationTeamJob(params) {
   const [data, setData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
+  const { user } = useContext(UserContext); // Access user from context
   
   // Store search parameters from location state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
@@ -73,10 +75,26 @@ function useFetchOperationTeamJob(params) {
 
     onSubmit: async (values) => {
       try {
+        // Get user info from context or localStorage fallback
+        const username = user?.username || localStorage.getItem('username') || 'unknown';
+        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
+        
+        console.log(`🔍 Submitting Operations Job update with user: ${username} for job: ${params.year}/${params.job_no}`);
+        
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
-          values
+          values,
+          {
+            headers: {
+              'username': username,
+              'user-id': userId,
+              'user-role': userRole
+            }
+          }
         );
+        
+        console.log("✅ Operations Job updated successfully");
         
         // Determine which tab to navigate to
         const tabIndex = storedSearchParams?.currentTab ?? 2;

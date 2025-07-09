@@ -1,5 +1,6 @@
 import AuditTrailModel from "../model/auditTrailModel.mjs";
 import mongoose from "mongoose";
+import { getOrCreateUserId } from "../utils/userIdManager.mjs";
 
 /**
  * Audit Trail Middleware
@@ -242,15 +243,23 @@ export const auditMiddleware = (documentType = 'Unknown') => {
     let documentId = null;
     
     // Extract user information (adjust based on your auth implementation)
-    const user = req.currentUser || req.user || {
+    const userInfo = req.currentUser || req.user || {
       _id: req.headers['user-id'] || req.body.userId || 'unknown',
       username: req.headers['username'] || req.body.username || 'unknown',
       role: req.headers['user-role'] || req.body.userRole || 'unknown'
     };
     
+    // Get or create unique user ID for this username
+    const uniqueUserId = await getOrCreateUserId(userInfo.username);
+    
+    const user = {
+      ...userInfo,
+      uniqueUserId
+    };
+    
     // For debugging - log what user info we have
     console.log('🔍 Audit middleware user info:', {
-      userId: user._id || user.id,
+      uniqueUserId: user.uniqueUserId,
       username: user.username,
       role: user.role,
       headers: {
@@ -260,9 +269,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
       }
     });
     
-    if (!user._id && !user.id) {
-      console.warn('⚠️ Audit middleware: No user ID found in request');
-      // Don't skip audit - use unknown user
+    if (!user.uniqueUserId || user.uniqueUserId === 'UNKNOWN_USER') {
+      console.warn('⚠️ Audit middleware: Using fallback user ID for unknown user');
     }
 
     // Extract document ID from params (common patterns)
@@ -316,8 +324,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
             documentType,
             job_no: data.job_no || job_no,
             year: data.year || year,
-            userId: user._id || user.id,
-            username: user.username || user.name,
+            userId: user.uniqueUserId,
+            username: user.username,
             userRole: user.role,
             action,
             changes: [{
@@ -363,8 +371,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
                     documentType,
                     job_no: updatedDocument.job_no || job_no,
                     year: updatedDocument.year || year,
-                    userId: user._id || user.id,
-                    username: user.username || user.name,
+                    userId: user.uniqueUserId,
+                    username: user.username,
                     userRole: user.role,
                     action,
                     changes,
@@ -395,8 +403,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
             documentType,
             job_no: originalDocument.job_no || job_no,
             year: originalDocument.year || year,
-            userId: user._id || user.id,
-            username: user.username || user.name,
+            userId: user.uniqueUserId,
+            username: user.username,
             userRole: user.role,
             action,
             changes: [{

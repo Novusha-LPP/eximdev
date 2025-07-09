@@ -1,5 +1,6 @@
 import express from "express";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
+import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
 
 const router = express.Router();
 
@@ -307,6 +308,47 @@ router.get("/api/audit-trail/field-history/:job_no/:year/:fieldPath", async (req
   } catch (error) {
     console.error("Error fetching field history:", error);
     res.status(500).json({ message: "Error fetching field history", error: error.message });
+  }
+});
+
+// Get all user mappings (for admin purposes)
+router.get("/api/audit/user-mappings", async (req, res) => {
+  try {
+    const userMappings = await getAllUserMappings();
+    
+    res.json({
+      success: true,
+      data: userMappings.map(mapping => ({
+        userId: mapping.userId,
+        username: mapping.username,
+        createdAt: mapping.createdAt,
+        lastUsed: mapping.lastUsed
+      })),
+      totalUsers: userMappings.length
+    });
+  } catch (error) {
+    console.error("Error fetching user mappings:", error);
+    res.status(500).json({ message: "Error fetching user mappings", error: error.message });
+  }
+});
+
+// Get username by user ID
+router.get("/api/audit/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const username = await getUsernameById(userId);
+    
+    if (username) {
+      res.json({
+        success: true,
+        data: { userId, username }
+      });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching username:", error);
+    res.status(500).json({ message: "Error fetching username", error: error.message });
   }
 });
 

@@ -441,6 +441,15 @@ function useFetchJobDetails(
         return doc;
       });
 
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
+      };
+
       // Update the payload with the modified cthDocuments and other values
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/update-job/${params.selected_year}/${params.job_no}`,
@@ -542,7 +551,8 @@ function useFetchJobDetails(
           remark_esanchit_input: values.remark_esanchit_input,
           remark_documentation_input: values.remark_documentation_input,
           chargesDetails: selectedChargesDocuments,
-        }
+        },
+        { headers }
       );
       localStorage.setItem("tab_value", 1);
       setTabValue(1);

@@ -2,10 +2,13 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import PrModel from "../../model/srcc/prModel.mjs";
 import PrData from "../../model/srcc/pr.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.put("/api/update-job/:year/:jobNo", async (req, res) => {
+router.put("/api/update-job/:year/:jobNo", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { jobNo, year } = req.params;
 
   const {
@@ -277,7 +280,9 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
   }
 });
 // PATCH route for updating only vessel_berthing and container arrival_date
-router.patch("/api/update-job/fields/:year/:jobNo", async (req, res) => {
+router.patch("/api/update-job/fields/:year/:jobNo", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { year, jobNo } = req.params;
   const { vessel_berthing, arrival_date, container_index } = req.body;
 

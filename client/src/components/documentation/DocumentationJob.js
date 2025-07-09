@@ -176,10 +176,19 @@ const DocumentationJob = () => {
 
   const updateChecklist = async (newChecklist) => {
     try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
         {
           checklist: newChecklist,
-        }
+        }, { headers }
       );
     } catch (error) {
       console.error("Error updating checklist:", error);

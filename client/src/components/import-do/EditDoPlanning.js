@@ -192,10 +192,27 @@ function EditDoPlanning() {
             : "", // Set to ISO string or ""
       };
 
-      try {        const res = await axios.post(
+      try {
+        // Get user info from context or localStorage fallback
+        const username = user?.username || localStorage.getItem('username') || 'unknown';
+        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
+        
+        console.log("🔍 Submitting DO Planning update with user:", username);
+        
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
-          dataToSubmit
+          dataToSubmit,
+          {
+            headers: {
+              'username': username,
+              'user-id': userId,
+              'user-role': userRole
+            }
+          }
         );
+        console.log("✅ DO Planning updated successfully");
+        
         resetForm(); // Reset the form
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;        const tabIndex = storedSearchParams?.currentTab ?? 2;

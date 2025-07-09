@@ -2,8 +2,9 @@ import express from "express";
 const router = express.Router();
 import JobModel from "../../model/jobModel.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
-router.post("/api/update-do-list", async (req, res) => {
+router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, next) => {
   const {
     _id,
     shipping_line_bond_completed,
@@ -25,6 +26,17 @@ router.post("/api/update-do-list", async (req, res) => {
     if (!existingJob) {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
+    
+    // Log audit information
+    console.log('📊 DO List update request:', {
+      jobId: _id,
+      jobNo: existingJob.job_no,
+      year: existingJob.year,
+      userId: req.headers['user-id'],
+      username: req.headers['username'],
+      role: req.headers['user-role'],
+      fields: Object.keys(req.body).filter(k => k !== '_id')
+    });
 
     // Check if any of the boolean fields are already 'Yes' in the database
     const shouldUpdateBondDate =

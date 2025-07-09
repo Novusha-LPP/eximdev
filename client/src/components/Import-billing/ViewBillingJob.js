@@ -128,10 +128,20 @@ onSubmit: async (values) => {
       billing_completed_date: values.billing_completed_date,
     };
     
+    // Get user info from localStorage for audit trail
+    const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+    const headers = {
+      'Content-Type': 'application/json',
+      'user-id': user.username || 'unknown',
+      'username': user.username || 'unknown',
+      'user-role': user.role || 'unknown'
+    };
+
     // Use the same endpoint as the working version
     await axios.patch(
       `${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
-      updateData
+      updateData,
+      { headers }
     );
     
     // Refresh data to confirm changes were saved

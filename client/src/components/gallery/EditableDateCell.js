@@ -117,7 +117,16 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   const handleIgstSubmit = useCallback(async (updateData) => {
     try {
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData);
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
+      };
+
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
 
       // Update the cell.row.original data to reflect the changes
       if (typeof onRowDataUpdate === "function") {
@@ -185,9 +194,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       cell.row.original.detailed_status = newStatus;
 
       try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
-        });
+        }, { headers });
         setLocalStatus(newStatus);        if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { detailed_status: newStatus });
         }
@@ -323,9 +341,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
       // Optimistic update
       setContainers(updatedContainers);      try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
-        });
+        }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
@@ -345,9 +372,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
       // Optimistic update
       setDates(newDates);      try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           [field]: finalValue || null,
-        });
+        }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
@@ -365,10 +401,20 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   };
   const handleFreeTimeChange = (value) => {
     setLocalFreeTime(value);
+    
+    // Get user info from localStorage for audit trail
+    const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+    const headers = {
+      'Content-Type': 'application/json',
+      'user-id': user.username || 'unknown',
+      'username': user.username || 'unknown',
+      'user-role': user.role || 'unknown'
+    };
+
     axios
       .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
         free_time: value,
-      })
+      }, { headers })
       .then(() => {
         // Update parent component data for free_time
         if (typeof onRowDataUpdate === "function") {
@@ -394,7 +440,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           axios
             .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
               container_nos: updatedContainers,
-            })
+            }, { headers })
             .then(() => {
               // Update parent component data for containers
               if (typeof onRowDataUpdate === "function") {

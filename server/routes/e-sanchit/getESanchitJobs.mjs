@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -140,7 +141,9 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
+router.patch("/api/update-esanchit-job/:job_no/:year", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { job_no, year } = req.params;
   const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time } = req.body;
 

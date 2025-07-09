@@ -188,9 +188,18 @@ function ViewESanchitJob() {
             values.esanchit_completed_date_time || "",
         };
         
+        // Get user info from localStorage for audit trail
+const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
+      };        
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
-          formattedData
+          formattedData,
+          { headers }
         );
         setSnackbar(true);
         

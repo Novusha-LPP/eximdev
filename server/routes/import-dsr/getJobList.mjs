@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -210,7 +211,9 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
 
 
 // PATCH API to update job dates
-router.patch("/api/jobs/:id", async (req, res) => {
+router.patch("/api/jobs/:id", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body; // Contains updated fields

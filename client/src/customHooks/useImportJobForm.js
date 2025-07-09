@@ -255,10 +255,20 @@ const useImportJobForm = () => {
           bank_name: bankName
         };
 
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         // Make the API call and store response
         const response = await axios.post(
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-imp-man`,
-          payload
+          payload,
+          { headers }
         );
       
         // Show success alert

@@ -101,9 +101,18 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
       setContainers(updatedContainers);
 
       try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
-        });
+        }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
@@ -125,9 +134,18 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
       setDates(newDates);
 
       try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           [field]: finalValue || null,
-        });
+        }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {

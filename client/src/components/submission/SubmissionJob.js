@@ -37,35 +37,24 @@ const SubmissionJobSchema = Yup.object().shape({
   // Additional validation rules can be added here
 });
 
-// Custom component to watch and update 'submission_completed_date_time'
+// Custom component to watch and clear 'submission_completed_date_time' only when verified checklist is removed
 const SubmissionCompletedWatcher = () => {
   const { values, setFieldValue } = useFormikContext();
 
   useEffect(() => {
     const {
       verified_checklist_upload_date_and_time,
-      job_sticker_upload_date_and_time,
       submission_completed_date_time,
     } = values;
 
-    if (
-      verified_checklist_upload_date_and_time &&
-      job_sticker_upload_date_and_time
-    ) {
-      if (!submission_completed_date_time) {
-        const currentDateTime = getCurrentLocalDateTime();
-        setFieldValue("submission_completed_date_time", currentDateTime);
-      }
-    } else {
-      if (submission_completed_date_time) {
-        setFieldValue("submission_completed_date_time", "");
-      }
+    // Only clear submission completed if verified checklist is removed
+    // This allows manual control over the submission completed checkbox
+    if (!verified_checklist_upload_date_and_time && submission_completed_date_time) {
+      setFieldValue("submission_completed_date_time", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     values.verified_checklist_upload_date_and_time,
-    values.job_sticker_upload_date_and_time,
-    values.submission_completed_date_time,
     setFieldValue,
   ]);
 
@@ -175,9 +164,29 @@ const SubmissionJob = () => {
         job_sticker_upload_date_and_time:
           values.job_sticker_upload_date_and_time,
         be_date: values.be_date,
-      };      await axios.patch(
+      };      
+      
+      // Get user data from localStorage for audit trail
+      const userData = JSON.parse(localStorage.getItem("exim_user")) || {};
+      
+      // Log user info for debugging
+      console.log('Submission update - user info:', {
+        fromLocalStorage: !!localStorage.getItem("exim_user"),
+        userId: userData._id || user?._id || 'unknown',
+        username: userData.username || user?.username || 'unknown',
+        role: userData.role || user?.role || 'unknown'
+      });
+      
+      await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
-        payload
+        payload,
+        {
+          headers: {
+            'user-id': userData._id || user?._id || 'unknown',
+            'username': userData.username || user?.username || 'unknown',
+            'user-role': userData.role || user?.role || 'unknown'
+          }
+        }
       );
       
       // Optionally, show a success message

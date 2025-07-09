@@ -1,9 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/update-documentation-job", async (req, res) => {
+router.post("/api/update-documentation-job", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   try {
     const { job_no, year, document_entry_completed, documentationQueries } =
       req.body;

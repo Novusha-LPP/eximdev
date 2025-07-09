@@ -307,6 +307,15 @@ if (cluster.isPrimary) {
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       ],
       credentials: true,
+      // Allow custom headers for audit trail
+      exposedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization',
+        'user-id',
+        'username',
+        'user-role'
+      ],
     })
   );
 

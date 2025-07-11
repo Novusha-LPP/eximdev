@@ -20,6 +20,7 @@ router.patch("/api/update-submission-job/:id",
       "submission_completed_date_time",
       "job_sticker_upload",
       "job_sticker_upload_date_and_time",
+      "submissionQueries", // Allow updating submissionQueries
     ];
 
     const actualUpdates = Object.keys(updateData);

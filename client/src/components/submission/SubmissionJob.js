@@ -67,6 +67,7 @@ const SubmissionJob = () => {
   const [data, setData] = useState(null);
   const [verifiedChecklistUploads, setVerifiedChecklistUploads] = useState([]);
   const [jobStickerUploads, setJobStickerUploads] = useState([]);
+  const [submissionQueries, setSubmissionQueries] = useState([]);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -137,6 +138,11 @@ const SubmissionJob = () => {
       if (response.data.job_sticker_upload) {
         setJobStickerUploads(response.data.job_sticker_upload);
       }
+      if (Array.isArray(response.data.submissionQueries)) {
+        setSubmissionQueries(response.data.submissionQueries);
+      } else {
+        setSubmissionQueries([]);
+      }
     } catch (error) {
       console.error("Error fetching job details:", error);
       alert("Failed to fetch job details. Please try again later.");
@@ -156,6 +162,7 @@ const SubmissionJob = () => {
         job_sticker_upload_date_and_time:
           values.job_sticker_upload_date_and_time,
         be_date: values.be_date,
+        submissionQueries: submissionQueries,
       };      
       
       // Get user data from localStorage for audit trail
@@ -365,11 +372,81 @@ const SubmissionJob = () => {
             validationSchema={SubmissionJobSchema}
             onSubmit={handleSubmit}
           >
+            
             {({ values, setFieldValue, isSubmitting }) => (
               <Form>
                 {/* Include the SubmissionCompletedWatcher here */}
                 <SubmissionCompletedWatcher />
 
+    {/* Submission Queries Section */}
+                <div className="job-details-container">
+                  <JobDetailsRowHeading heading="Submission Queries" />
+                  {Array.isArray(submissionQueries) && submissionQueries.map((item, id) => (
+                    <Row key={id}>
+                      <Col xs={12} lg={5}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label="Query"
+                          value={item.query}
+                          onChange={e => {
+                            const updated = [...submissionQueries];
+                            updated[id].query = e.target.value;
+                            setSubmissionQueries(updated);
+                          }}
+                        />
+                      </Col>
+                      <Col xs={12} lg={5}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label="Reply"
+                          value={item.reply}
+                          InputProps={{
+                        readOnly: true, // Make the field read-only
+                      }}
+                          onChange={e => {
+                            const updated = [...submissionQueries];
+                            updated[id].reply = e.target.value;
+                            setSubmissionQueries(updated);
+                          }}
+                        />
+                      </Col>
+                      <Col xs={12} lg={2} style={{ display: 'flex', alignItems: 'center' }}>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          size="small"
+                          onClick={() => {
+                            const updated = [...submissionQueries];
+                            updated.splice(id, 1);
+                            setSubmissionQueries(updated);
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </Col>
+                    </Row>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmissionQueries(prev => (
+                        Array.isArray(prev)
+                          ? [...prev, { query: "", reply: "" }]
+                          : [{ query: "", reply: "" }]
+                      ));
+                    }}
+                    className="btn"
+                    style={{ marginTop: 8 }}
+                  >
+                    Add Query
+                  </button>
+                </div>
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Approved and Verification" />
 
@@ -631,6 +708,8 @@ const SubmissionJob = () => {
                   {/* </Row> */}
                 </div>
 
+                
+
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Submission Completed" />
                   <Row>
@@ -722,6 +801,7 @@ const SubmissionJob = () => {
                     </Col>
                   </Row>
                 </div>
+            
                 <button
                   className="btn sticky-btn"
                   type="submit"

@@ -145,6 +145,7 @@ const DocumentationJob = () => {
         `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data._id}`,
         {
           documentation_completed_date_time: data.documentation_completed_date_time,
+          documentationQueries: data.documentationQueries || [],
         }
       );
         // Navigate back with preserved search parameters
@@ -181,6 +182,7 @@ const DocumentationJob = () => {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
         {
           checklist: newChecklist,
+          
         }, { headers }
       );
     } catch (error) {
@@ -373,6 +375,62 @@ const DocumentationJob = () => {
                 }}
               />
             </div>
+          </div>
+
+          {/* Documentation Queries Section */}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documentation Queries" />
+            {Array.isArray(data.documentationQueries) && data.documentationQueries.map((item, id) => (
+              <Row key={id}>
+                <Col xs={12} lg={5}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    label="Query"
+                    value={item.query}
+                    onChange={e => {
+                      const updated = [...data.documentationQueries];
+                      updated[id].query = e.target.value;
+                      setData(prev => ({ ...prev, documentationQueries: updated }));
+                    }}
+                  />
+                </Col>
+                <Col xs={12} lg={5}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    label="Reply"
+                    value={item.reply}
+                    InputProps={{
+                        readOnly: true, // Make the field read-only
+                      }}
+                    onChange={e => {
+                      const updated = [...data.documentationQueries];
+                      updated[id].reply = e.target.value;
+                      setData(prev => ({ ...prev, documentationQueries: updated }));
+                    }}
+                  />
+                </Col>
+              </Row>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setData(prev => ({
+                  ...prev,
+                  documentationQueries: Array.isArray(prev.documentationQueries)
+                    ? [...prev.documentationQueries, { query: "", reply: "" }]
+                    : [{ query: "", reply: "" }],
+                }));
+              }}
+              className="btn"
+            >
+              Add Query
+            </button>
           </div>
 
           <form onSubmit={handleSubmit}>

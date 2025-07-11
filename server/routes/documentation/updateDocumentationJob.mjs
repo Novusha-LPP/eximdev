@@ -4,35 +4,26 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.post("/api/update-documentation-job", 
-  auditMiddleware('Job'),
-  async (req, res) => {
+router.patch("/api/update-documentation-job/:id", auditMiddleware('Job'), async (req, res) => {
   try {
-    const { job_no, year, document_entry_completed, documentationQueries } =
-      req.body;
+    const { documentation_completed_date_time, documentationQueries } = req.body;
+    const job = await JobModel.findById(req.params.id);
 
-    // Find the matching job based on job number and year
-    const matchingJob = await JobModel.findOne({ job_no, year });
-
-    if (matchingJob) {
-      // Update the fields with the new values
-      matchingJob.document_entry_completed = document_entry_completed;
-      matchingJob.documentationQueries = documentationQueries;
-
-      // Save the updated job document back to the database
-      await matchingJob.save();
-
-      // Respond with a success message
-      res.status(200).json({ message: "Job updated successfully" });
+    if (job) {
+      if (typeof documentation_completed_date_time !== 'undefined') {
+        job.documentation_completed_date_time = documentation_completed_date_time;
+      }
+      if (Array.isArray(documentationQueries)) {
+        job.documentationQueries = documentationQueries;
+      }
+      await job.save();
+      res.status(200).json({ message: "Job updated successfully", job });
     } else {
-      // If no matching job is found, respond with an error
-      res.status(200).json({ message: "Job not found" });
+      res.status(404).json({ message: "Job not found" });
     }
   } catch (error) {
     console.log(error);
-    res
-      .status(500)
-      .json({ message: "An error occurred while updating the job" });
+    res.status(500).json({ message: "An error occurred while updating the job" });
   }
 });
 

@@ -6,9 +6,7 @@ import { Container, Row, Col } from "react-bootstrap";
 function TruckDetails() {
   const [truckNo, setTruckNo] = useState("");
   const [data, setData] = useState();
-  console.log(
-    `${process.env.REACT_APP_API_STRING}/get-truck-details/${truckNo}`
-  );
+
   async function getData() {
     if (!truckNo) return;
     const res = await axios(

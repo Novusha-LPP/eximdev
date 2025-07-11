@@ -51,7 +51,6 @@ const IgstCalculationPDF = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         return;
       }
       
-      console.log("Job Data:", assessableAmount, igstAmount, netWeightAsPerPL, netWeight);
       // Ensure netWeight is not zero to avoid division by zero errors
       // Calculate values based on the formula
      

@@ -17,14 +17,6 @@ const applyUserIcdFilter = async (req, res, next) => {
       req.headers['x-username'] || 
       req.body?.username;
 
-    console.log('🔍 Middleware Debug:', {
-      paramsUsername: req.params?.username,
-      queryUsername: req.query?.username,
-      extractedUsername: username,
-      headers: req.headers['x-username'],
-      body: req.body?.username
-    });
-
     // If no username provided, proceed without filtering (for backward compatibility)
     if (!username) {
       console.warn('⚠️ No username provided for ICD filtering');
@@ -34,14 +26,7 @@ const applyUserIcdFilter = async (req, res, next) => {
     // Fetch user data from database
     const user = await UserModel.findOne({ username }).select('selected_icd_codes role');
     
-    console.log('👤 User found:', {
-      username: user?.username,
-      role: user?.role,
-      selectedIcdCodes: user?.selected_icd_codes
-    });
-    
     if (!user) {
-      console.log(`❌ User "${username}" not found in database`);
       return res.status(404).json({ message: "User not found" });
     }
 
@@ -51,7 +36,6 @@ const applyUserIcdFilter = async (req, res, next) => {
       // No ICD filtering needed for admins or users with ALL access
       req.userIcdFilter = null;
       req.icdFilterCondition = {}; // Empty object means no filtering
-      console.log('✅ Full access granted:', user.role === "Admin" ? "Admin user" : "User has ALL ICD access");
       return next();
     }
 
@@ -67,10 +51,7 @@ const applyUserIcdFilter = async (req, res, next) => {
       req.userIcdFilter = icdFilter; // For backward compatibility
       req.icdFilterCondition = icdFilter; // For new routes
       
-      console.log(`ICD Filter applied for user ${username}:`, {
-        userIcdCodes: user.selected_icd_codes,
-        mongoQuery: icdFilter
-      });
+   
     } else {
       // User has no ICD codes assigned - show no jobs
       const emptyFilter = { 
@@ -80,7 +61,6 @@ const applyUserIcdFilter = async (req, res, next) => {
       req.userIcdFilter = emptyFilter; // For backward compatibility
       req.icdFilterCondition = emptyFilter; // For new routes
       
-      console.log(`No ICD codes assigned for user ${username}, showing no jobs`);
     }
 
     // Store user info for potential use in route handlers

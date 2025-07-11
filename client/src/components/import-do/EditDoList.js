@@ -31,7 +31,6 @@ function EditDoList() {
   // Store search parameters from location state
   // Store search parameters from location state
   React.useEffect(() => {
-    console.log('EditDoList: Received location state:', location.state);
     if (location.state) {
       const { 
         selectedJobId, 
@@ -54,20 +53,12 @@ function EditDoList() {
         currentTab: currentTab ?? 1, // Default to List tab (index 1)
         currentPage,
       };
-        console.log('EditDoList: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [location.state]);
   // Handle back to job list navigation
   const handleBackToJobList = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to List tab (index 1)
-    
-    console.log('EditDoList: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      tabIndex: tabIndex
-    });
     
     // Set the current tab in context
     setCurrentTab(tabIndex);

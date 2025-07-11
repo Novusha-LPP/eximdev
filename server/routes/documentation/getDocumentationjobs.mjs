@@ -87,9 +87,7 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
     } else if (req.currentUser) {
-      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
     }
 
     // Fetch jobs from the database

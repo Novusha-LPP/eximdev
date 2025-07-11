@@ -373,9 +373,6 @@ router.delete("/api/elock/assign-others/:id", async (req, res) => {
 router.post("/api/assign-elock-others", async (req, res) => {
   try {
     const { elockAssignOthersId, newElockNo, elockAssignStatus } = req.body;
-
-    console.log("Request body:", req.body); // Debug log
-
     // Find the ElockAssignOthers record
     const elockAssignRecord = await ElockAssginOthersModel.findById(
       elockAssignOthersId
@@ -384,7 +381,6 @@ router.post("/api/assign-elock-others", async (req, res) => {
       return res.status(404).json({ error: "Elock assign record not found" });
     }
 
-    console.log("ElockAssignOthers record found:", elockAssignRecord._id);
 
     const oldElockNo = elockAssignRecord.elock_no;
 

@@ -68,7 +68,6 @@ function TyreFitting() {
           `${process.env.REACT_APP_API_STRING}/add-vehicle-tyres`,
           values
         );
-        console.log(res.data);
       }
 
       tyreFitting();

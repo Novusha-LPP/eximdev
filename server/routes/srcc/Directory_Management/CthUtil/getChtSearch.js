@@ -75,7 +75,6 @@ router.get('/api/search', async (req, res) => {
     const cacheKey = `search_${query}_${addToRecent}`;
     const cachedResult = searchCache.get(cacheKey);
     if (cachedResult) {
-      console.log('Search cache hit for:', query);
       return res.status(200).json(cachedResult);
     }
 

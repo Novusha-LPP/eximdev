@@ -55,11 +55,9 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     if (req.userIcdFilter) {
       // User has specific ICD restrictions from middleware - RESPECT THESE
       icdCondition = req.userIcdFilter;
-      console.log("🔍 User ICD filter applied (middleware):", req.userIcdFilter);
     } else if (selectedICD && selectedICD !== "All" && selectedICD !== "Select ICD") {
       // Only apply frontend selection if user has full access (no middleware restrictions)
       icdCondition = { custom_house: selectedICD };
-      console.log("🔍 Selected ICD filter applied (frontend):", selectedICD);
     }
     // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
@@ -149,8 +147,6 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
-    console.log("📊 Final MongoDB query:", JSON.stringify(baseQuery, null, 2));
-
        // ✅ Apply Year Filter if Provided
        if (selectedYear) {
         baseQuery.$and.push({ year: selectedYear });
@@ -161,7 +157,6 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     });
 
     const totalJobs = jobs.length;
-    console.log(`✅ Found ${totalJobs} operations planning jobs for user ${username}`);
 
     // **Grouping jobs based on row colors**
     const greenJobs = [];

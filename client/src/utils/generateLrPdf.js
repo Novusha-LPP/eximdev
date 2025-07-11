@@ -5,10 +5,6 @@ import axios from "axios";
 import dayjs from "dayjs";
 
 export const generateLrPdf = async (data, lrData) => {
-  console.log("=== PDF Generation Debug ===");
-  console.log("Data:", data);
-  console.log("LR Data:", lrData);
-
   if (data.length === 0) {
     alert("No Container Selected");
     return;
@@ -41,7 +37,6 @@ export const generateLrPdf = async (data, lrData) => {
     try {
       // Handle populated consignor object with comprehensive fallback
       const consignorName = (() => {
-        console.log("Processing consignor for address:", lrData.consignor);
         if (typeof lrData.consignor === "object" && lrData.consignor !== null) {
           return (
             lrData.consignor.organisation_name ||
@@ -54,7 +49,6 @@ export const generateLrPdf = async (data, lrData) => {
       })();
 
       if (!consignorName) {
-        console.log("No consignor name found for address lookup");
         return;
       }
 
@@ -88,8 +82,6 @@ export const generateLrPdf = async (data, lrData) => {
 
   // Loop through each item in the data array
   data.forEach((item, index) => {
-    console.log(`=== Processing PDF for item ${index + 1} ===`);
-    console.log("Item data:", item);
 
     const pdf = new jsPDF("p", "pt", "a4", true);
 
@@ -154,7 +146,6 @@ export const generateLrPdf = async (data, lrData) => {
 
     // Handle populated objects for consignor and consignee with comprehensive fallback
     const consignorName = (() => {
-      console.log("Processing consignor:", lrData.consignor);
       if (typeof lrData.consignor === "object" && lrData.consignor !== null) {
         return (
           lrData.consignor.organisation_name ||
@@ -168,7 +159,6 @@ export const generateLrPdf = async (data, lrData) => {
     })();
 
     const consigneeName = (() => {
-      console.log("Processing consignee:", lrData.consignee);
       if (typeof lrData.consignee === "object" && lrData.consignee !== null) {
         return (
           lrData.consignee.organisation_name ||
@@ -216,7 +206,6 @@ export const generateLrPdf = async (data, lrData) => {
 
     // Handle populated objects for locations and shipping line with comprehensive fallback
     const containerLoading = (() => {
-      console.log("Processing container_loading:", lrData.container_loading);
       if (
         typeof lrData.container_loading === "object" &&
         lrData.container_loading !== null
@@ -235,10 +224,6 @@ export const generateLrPdf = async (data, lrData) => {
     })();
 
     const containerOffloading = (() => {
-      console.log(
-        "Processing container_offloading:",
-        lrData.container_offloading
-      );
       if (
         typeof lrData.container_offloading === "object" &&
         lrData.container_offloading !== null
@@ -257,7 +242,6 @@ export const generateLrPdf = async (data, lrData) => {
     })();
 
     const shippingLine = (() => {
-      console.log("Processing shipping_line:", lrData.shipping_line);
       if (
         typeof lrData.shipping_line === "object" &&
         lrData.shipping_line !== null
@@ -304,7 +288,6 @@ export const generateLrPdf = async (data, lrData) => {
 
     // Handle populated objects or string values with comprehensive fallback
     const fromLocation = (() => {
-      console.log("Processing goods_pickup:", item.goods_pickup);
       if (typeof item.goods_pickup === "object" && item.goods_pickup !== null) {
         // Backend populates with Location model that has 'name' field
         return (
@@ -319,7 +302,6 @@ export const generateLrPdf = async (data, lrData) => {
     })();
 
     const toLocation = (() => {
-      console.log("Processing goods_delivery:", item.goods_delivery);
       if (
         typeof item.goods_delivery === "object" &&
         item.goods_delivery !== null
@@ -372,7 +354,6 @@ export const generateLrPdf = async (data, lrData) => {
 
     // Handle populated container_type object with comprehensive fallback
     const containerType = (() => {
-      console.log("Processing container_type:", lrData.container_type);
       if (
         typeof lrData.container_type === "object" &&
         lrData.container_type !== null

@@ -28,27 +28,12 @@ function DocumentationCompletedd() {
   const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   
-  // Debug log to check user context
-  console.log('👤 User context in DocumentationCompleted:', { username: user?.username, role: user?.role });
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);  // Use context for searchQuery, selectedImporter, and currentPage for documentation completed tab
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDocTab1: currentPage, setCurrentPageDocTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
-  // Add debug logging for currentPage changes
-  React.useEffect(() => {
-    console.log('DocumentationCompleted: currentPage changed to:', currentPage);
-  }, [currentPage]);
 
-  // Add debug logging for context values
-  React.useEffect(() => {
-    console.log('DocumentationCompleted: Context values:', {
-      currentTab,
-      currentPage,
-      searchQuery,
-      selectedImporter
-    });
-  }, [currentTab, currentPage, searchQuery, selectedImporter]);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,7 +115,6 @@ function DocumentationCompletedd() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching documentation completed jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-documentation-completed-jobs`,
           {
@@ -190,12 +174,10 @@ function DocumentationCompletedd() {
   }, [searchQuery]);  // Remove the automatic clearing - we'll handle this from the tab component instead
 
   const handlePageChange = (event, newPage) => {
-    console.log('DocumentationCompleted: Page changing from', currentPage, 'to', newPage);
     setCurrentPage(newPage);
   };
 
   const handleSearchInputChange = (event) => {
-    console.log('DocumentationCompleted: Search input changed, resetting to page 1');
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
   };
@@ -216,7 +198,6 @@ function DocumentationCompletedd() {
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;        return (          <div
             onClick={() => {
-              console.log('DocumentationCompleted: Navigating to job details with currentPage:', currentPage);
               navigate(`/documentationJob/view-job/${job_no}/${year}`, {
                 state: { 
                   currentTab: 1,

@@ -80,7 +80,6 @@ function useFetchOperationTeamJob(params) {
         const userId = user?._id || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
         
-        console.log(`🔍 Submitting Operations Job update with user: ${username} for job: ${params.year}/${params.job_no}`);
         
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
@@ -94,7 +93,6 @@ function useFetchOperationTeamJob(params) {
           }
         );
         
-        console.log("✅ Operations Job updated successfully");
         
         // Determine which tab to navigate to
         const tabIndex = storedSearchParams?.currentTab ?? 2;

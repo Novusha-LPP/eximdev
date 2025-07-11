@@ -182,16 +182,7 @@ async function logAuditTrail({
   sessionId
 }) {
   try {
-    console.log(`💾 Creating audit entry with data:`, {
-      documentId,
-      documentType,
-      job_no,
-      year,
-      userId,
-      username,
-      action,
-      changesCount: changes?.length || 0
-    });
+   
 
     const auditEntry = new AuditTrailModel({
       documentId,
@@ -211,9 +202,7 @@ async function logAuditTrail({
       sessionId
     });
 
-    console.log(`💾 Saving audit entry to database...`);
     const savedEntry = await auditEntry.save();
-    console.log(`✅ Audit trail logged successfully! ID: ${savedEntry._id}`);
     
     return savedEntry;
   } catch (error) {
@@ -236,18 +225,11 @@ async function logAuditTrail({
 // Middleware for Express routes
 export const auditMiddleware = (documentType = 'Unknown') => {
   return async (req, res, next) => {
-    console.log(`🚀 Audit middleware started for ${documentType} - ${req.method} ${req.originalUrl}`);
     
     // Store original document for comparison
     let originalDocument = null;
     let documentId = null;
     
-    // Extract user information (adjust based on your auth implementation)
-    console.log('🔍 Audit middleware checking headers:', {
-      'user-id': req.headers['user-id'],
-      'username': req.headers['username'],
-      'user-role': req.headers['user-role']
-    });
     
     const userInfo = req.currentUser || req.user || {
       _id: req.headers['user-id'] || req.body.userId || 'unknown',
@@ -263,17 +245,7 @@ export const auditMiddleware = (documentType = 'Unknown') => {
       uniqueUserId
     };
     
-    // For debugging - log what user info we have
-    console.log('🔍 Audit middleware user info:', {
-      uniqueUserId: user.uniqueUserId,
-      username: user.username,
-      role: user.role,
-      headers: {
-        'user-id': req.headers['user-id'],
-        'username': req.headers['username'],
-        'user-role': req.headers['user-role']
-      }
-    });
+  
     
     if (!user.uniqueUserId || user.uniqueUserId === 'UNKNOWN_USER') {
       console.warn('⚠️ Audit middleware: Using fallback user ID for unknown user');
@@ -284,14 +256,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
     let job_no = req.params.jobNo || req.params.job_no; // Support both jobNo and job_no - use let for reassignment
     let year = req.params.year; // Use let for reassignment
 
-    console.log('📋 Extracted params:', { job_no, year, id, allParams: req.params });
-
-    // Log final values we'll use for audit trail (after potential extraction from document)
-    console.log('📋 Initial values for audit trail:', { job_no, year, documentId });
-
     // Check for pre-extracted job info first
     if (req.jobInfo && documentType === 'Job') {
-      console.log(`📋 Found pre-extracted job info:`, req.jobInfo);
       job_no = req.jobInfo.job_no || job_no;
       year = req.jobInfo.year || year;
       documentId = req.jobInfo.documentId || documentId;
@@ -300,14 +266,11 @@ export const auditMiddleware = (documentType = 'Unknown') => {
     // For job-related operations
     if (job_no && year && documentType === 'Job') {
       try {
-        console.log(`📋 Fetching original job document: ${year}/${job_no}`);
         const JobModel = (await import('../model/jobModel.mjs')).default;
         originalDocument = await JobModel.findOne({ job_no, year }).lean();
         if (originalDocument) {
           documentId = originalDocument._id;
-          console.log(`✅ Original document found: ${documentId}`);
         } else {
-          console.log(`❌ No original document found for ${year}/${job_no}`);
         }
       } catch (error) {
         console.error('❌ Error fetching original job document:', error);
@@ -315,7 +278,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
     } else if (id && mongoose.Types.ObjectId.isValid(id) && documentType === 'Job') {
       // Handle ObjectId-based job routes
       try {
-        console.log(`📋 Fetching original job document by ID: ${id}`);
         const JobModel = (await import('../model/jobModel.mjs')).default;
         originalDocument = await JobModel.findById(id).lean();
         if (originalDocument) {
@@ -323,8 +285,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
           // Extract job_no and year from the document itself
           job_no = originalDocument.job_no;
           year = originalDocument.year;
-          console.log(`✅ Original document found by ID: ${documentId}, Job: ${year}/${job_no}`);
-          console.log(`📋 Extracted job info - job_no: ${job_no}, year: ${year}`);
         } else {
           console.log(`❌ No original document found for ID: ${id}`);
         }
@@ -339,12 +299,10 @@ export const auditMiddleware = (documentType = 'Unknown') => {
     }
 
     // Log final values we'll use for audit trail (after potential extraction from document)
-    console.log('📋 Final values for audit trail:', { job_no, year, documentId });
 
     // Override res.json to capture the response and log audit trail
     const originalJson = res.json;
     res.json = function(data) {
-      console.log(`📝 Response intercepted: ${res.statusCode} for ${req.method} ${req.originalUrl}`);
       
       // Only log for successful operations
       if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -355,10 +313,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
           // If we're updating an existing document (has pre-extracted job info or _id in request), treat as UPDATE
           if (req.jobInfo || req.body._id) {
             action = 'UPDATE';
-            console.log('📝 POST request with existing document ID - treating as UPDATE');
           } else {
             action = 'CREATE';
-            console.log('📝 POST request for new document - treating as CREATE');
           }
         }
         if (req.method === 'DELETE') action = 'DELETE';
@@ -368,7 +324,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
           try {
             // Check if job info was attached by a previous middleware
             if (req.jobInfo) {
-              console.log(`📌 Using pre-extracted job info for audit trail:`, req.jobInfo);
               documentId = req.jobInfo.documentId;
               job_no = req.jobInfo.job_no;
               year = req.jobInfo.year;
@@ -379,14 +334,8 @@ export const auditMiddleware = (documentType = 'Unknown') => {
               // For routes with pre-extracted job info, ensure we can find the original document for comparison
               if (action === 'UPDATE' && !originalDocument && documentId) {
                 try {
-                  console.log(`📋 Fetching original job document by ID (pre-extracted): ${documentId}`);
                   const JobModel = (await import('../model/jobModel.mjs')).default;
                   originalDocument = await JobModel.findById(documentId).lean();
-                  if (originalDocument) {
-                    console.log(`✅ Original document found using pre-extracted ID: ${documentId}`);
-                  } else {
-                    console.log(`❌ No original document found for pre-extracted ID: ${documentId}`);
-                  }
                 } catch (error) {
                   console.error('❌ Error fetching original job document by pre-extracted ID:', error);
                 }
@@ -396,7 +345,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
             // For CREATE operations, get the created document info
             // Check if we have pre-extracted job info and should treat this as an UPDATE instead
             if (req.jobInfo && req.method === 'POST') {
-              console.log(`🔄 POST request with pre-extracted job info detected, treating as UPDATE operation`);
               action = 'UPDATE';
               
               // Ensure we have documentId, job_no, and year from req.jobInfo
@@ -413,9 +361,7 @@ export const auditMiddleware = (documentType = 'Unknown') => {
               let createdDocumentId = null;
 
               // For bulk operations like /api/jobs/add-job that return success message
-              if (data.message && data.message.includes('successfully') && req.body && Array.isArray(req.body)) {
-                console.log(`🔄 Handling bulk CREATE/UPDATE operation with ${req.body.length} items`);
-                
+              if (data.message && data.message.includes('successfully') && req.body && Array.isArray(req.body)) {                
                 // For bulk operations, we'll log a summary audit entry
                 try {
                   const changes = [{
@@ -443,7 +389,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
                     userAgent: req.get('User-Agent'),
                     sessionId: req.sessionID || req.session?.id
                   });
-                  console.log(`✅ Bulk operation audit trail logged successfully!`);
                 } catch (error) {
                   console.error('❌ Error logging bulk operation audit trail:', error);
                 }
@@ -466,12 +411,10 @@ export const auditMiddleware = (documentType = 'Unknown') => {
                 // Try to find the created document to get its _id
                 if (createdJobNo && createdYear) {
                   try {
-                    console.log(`🔍 Looking for created job: ${createdYear}/${createdJobNo}`);
                     const JobModel = (await import('../model/jobModel.mjs')).default;
                     createdJob = await JobModel.findOne({ job_no: createdJobNo, year: createdYear }).lean();
                     if (createdJob) {
                       createdDocumentId = createdJob._id;
-                      console.log(`✅ Found created job with ID: ${createdDocumentId}`);
                     } else {
                       console.log(`❌ Could not find created job: ${createdYear}/${createdJobNo}`);
                     }
@@ -483,9 +426,7 @@ export const auditMiddleware = (documentType = 'Unknown') => {
                 }
               }
 
-              if (createdDocumentId && createdJobNo && createdYear) {
-                console.log(`💾 Logging CREATE audit trail for job: ${createdYear}/${createdJobNo}`);
-                
+              if (createdDocumentId && createdJobNo && createdYear) {                
                 // Get the created document to log detailed changes
                 try {
                   const JobModel = (await import('../model/jobModel.mjs')).default;
@@ -557,7 +498,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
                     userAgent: req.get('User-Agent'),
                     sessionId: req.sessionID || req.session?.id
                   });
-                  console.log(`✅ CREATE audit trail logged successfully!`);
                 } catch (error) {
                   console.error('❌ Error logging CREATE audit trail:', error);
                 }
@@ -568,7 +508,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
 
             // For UPDATE operations, compare changes
             if (action === 'UPDATE' && originalDocument && documentId) {
-              console.log(`🔄 Processing UPDATE operation for ${documentType}`);
               
               // Small delay to ensure database update is committed
               await new Promise(resolve => setTimeout(resolve, 100));
@@ -576,41 +515,29 @@ export const auditMiddleware = (documentType = 'Unknown') => {
               try {
                 let updatedDocument = null;
                 
-                if (documentType === 'Job') {
-                  console.log(`🔍 UPDATE: Using job_no=${job_no}, year=${year}, id=${id}, documentId=${documentId}`);
-                  
+                if (documentType === 'Job') {                  
                   // Try documentId first (most reliable for ObjectId-based routes)
                   if (documentId) {
-                    console.log(`📋 Fetching updated job by documentId: ${documentId}`);
                     const JobModel = (await import('../model/jobModel.mjs')).default;
                     try {
                       updatedDocument = await JobModel.findById(documentId).lean();
-                      console.log(`📋 findById result:`, updatedDocument ? 'Found' : 'Not found');
                       if (updatedDocument) {
-                        console.log(`📋 Updated document details: job_no=${updatedDocument.job_no}, year=${updatedDocument.year}`);
                       }
                     } catch (findError) {
                       console.error(`❌ Error in findById:`, findError);
                     }
                   } else if (job_no && year) {
-                    console.log(`📋 Fetching updated job: ${year}/${job_no}`);
                     const JobModel = (await import('../model/jobModel.mjs')).default;
                     updatedDocument = await JobModel.findOne({ job_no, year }).lean();
                   } else if (id && mongoose.Types.ObjectId.isValid(id)) {
-                    console.log(`📋 Fetching updated job by ID: ${id}`);
                     const JobModel = (await import('../model/jobModel.mjs')).default;
                     updatedDocument = await JobModel.findById(id).lean();
                   }
-                  console.log(`📄 Updated document found: ${updatedDocument ? 'Yes' : 'No'}`);
                 }
                 
                 if (updatedDocument) {
-                  console.log(`📊 Comparing documents for changes...`);
-                  const changes = findChanges(originalDocument, updatedDocument);
-                  console.log(`🔍 Found ${changes.length} changes:`, changes.slice(0, 3)); // Log first 3 changes
-                  
+                  const changes = findChanges(originalDocument, updatedDocument);                  
                   if (changes.length > 0) {
-                    console.log(`💾 Logging audit trail with ${changes.length} changes...`);
                     await logAuditTrail({
                       documentId,
                       documentType,
@@ -628,7 +555,6 @@ export const auditMiddleware = (documentType = 'Unknown') => {
                       reason: req.body.reason || req.query.reason,
                       sessionId: req.sessionID || req.session?.id
                     });
-                    console.log(`✅ Audit trail logged successfully!`);
                   } else {
                     console.log(`ℹ️ No changes detected, skipping audit trail`);
                   }

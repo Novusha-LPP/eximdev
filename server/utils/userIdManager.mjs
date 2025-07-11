@@ -29,9 +29,7 @@ export async function getOrCreateUserId(username) {
       userId
     });
     
-    await userMapping.save();
-    console.log(`✅ Created new user mapping: ${username} -> ${userId}`);
-    
+    await userMapping.save();    
     return userId;
     
   } catch (error) {

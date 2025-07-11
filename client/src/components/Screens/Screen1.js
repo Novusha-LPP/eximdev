@@ -21,7 +21,6 @@ const Screen1 = () => {
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log(message, "mesd")
   
         if (message.type === "init" || message.type === "update") {
           setJobCounts(message.data || {});

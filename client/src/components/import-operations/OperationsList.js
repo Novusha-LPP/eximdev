@@ -36,9 +36,6 @@ function OperationsList() {
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
 
-  // Debug log to check user context
-  console.log('👤 User context in OperationsList:', { username: user?.username, role: user?.role });
-
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const location = useLocation();
@@ -134,14 +131,12 @@ const fetchJobs = useCallback(
     ) => {
       // Don't make API calls if user not available or no username
       if (!user?.username) {
-        console.log('⏸️ OperationsList: Skipping API call - missing username:', user?.username);
         setLoading(false);
         return;
       }
 
       setLoading(true);
       try {
-        console.log('📤 Fetching operations planning list with username:', user.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-operations-planning-list/${user.username}`,
           {
@@ -176,7 +171,6 @@ const fetchJobs = useCallback(
   );  // Fetch jobs when dependencies change
   useEffect(() => {
     if (selectedYearState && user?.username) {
-      console.log('Operations List: Fetch effect triggered', { currentPage, selectedYearState, debouncedSearchQuery, selectedICD, selectedImporter, username: user?.username });
       fetchJobs(
         currentPage,
         debouncedSearchQuery,
@@ -204,7 +198,6 @@ const fetchJobs = useCallback(
     return () => clearTimeout(handler);
   }, [searchQuery]);
   const handlePageChange = (event, newPage) => {
-    console.log('Operations List: Page changing from', currentPage, 'to', newPage);
     setCurrentPage(newPage);
   };
   const getCustomHouseLocation = useMemo(

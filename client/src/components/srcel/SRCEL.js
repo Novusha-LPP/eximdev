@@ -28,7 +28,6 @@ const SRCEL = () => {
         const userDetails = response.data.FObject[0];
         localStorage.setItem("token", userDetails.FTokenID);
         localStorage.setItem("userData", JSON.stringify(userDetails));
-        console.log(userDetails);
         setUserData(userDetails);
         setIsLoading(false);
         // Pass userDetails to dashboard using state
@@ -47,7 +46,6 @@ const SRCEL = () => {
   };
   useEffect(() => {
     if (userData) {
-      console.log("userData updated:", userData);
     }
   }, [userData]);
 

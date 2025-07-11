@@ -9,7 +9,6 @@ const router = express.Router();
 const extractJobInfo = async (req, res, next) => {
   try {
     const { year, job_no } = req.params;
-    console.log(`🔍 Extracting job info for Operations update: ${year}/${job_no}`);
     
     // Find the job to get its document ID
     const job = await JobModel.findOne({ job_no, year }).lean();
@@ -19,7 +18,6 @@ const extractJobInfo = async (req, res, next) => {
         job_no,
         year
       };
-      console.log(`✅ Found job ID for audit trail: ${job._id}`);
     } else {
       console.log(`❌ Could not find job: ${year}/${job_no}`);
     }

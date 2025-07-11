@@ -220,7 +220,6 @@ const VehicleRegistration = () => {
   };
 
   const handleSave = async (values) => {
-    console.log("🚀 Final values before saving:", values);
 
     const { _id, ...restValues } = values;
 

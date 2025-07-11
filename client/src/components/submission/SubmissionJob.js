@@ -75,7 +75,6 @@ const SubmissionJob = () => {
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   // Store search parameters from location state
   useEffect(() => {
-    console.log('SubmissionJob: Received location state:', location.state);
     if (location.state) {
       const { 
         searchQuery, 
@@ -90,18 +89,11 @@ const SubmissionJob = () => {
         selectedJobId,
         currentPage,
       };
-        console.log('SubmissionJob: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [location.state]);
   // Handle back click function
  const handleBackClick = () => {
-    console.log('SubmissionJob: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      selectedJobId: storedSearchParams?.selectedJobId
-    });
     
     navigate("/submission", {
       state: {
@@ -168,14 +160,6 @@ const SubmissionJob = () => {
       
       // Get user data from localStorage for audit trail
       const userData = JSON.parse(localStorage.getItem("exim_user")) || {};
-      
-      // Log user info for debugging
-      console.log('Submission update - user info:', {
-        fromLocalStorage: !!localStorage.getItem("exim_user"),
-        userId: userData._id || user?._id || 'unknown',
-        username: userData.username || user?.username || 'unknown',
-        role: userData.role || user?.role || 'unknown'
-      });
       
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,

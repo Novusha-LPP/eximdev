@@ -122,7 +122,6 @@ const sendDetentionEmail = async (tr_no, days, reason, containerDetails) => {
 };
 
 router.post("/api/update-srcc-dsr", async (req, res) => {
-  console.log("Request received:", req.body);
   const {
     tr_no,
     lr_completed,
@@ -133,20 +132,16 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
     tipping = false,
     document_attachment,
   } = req.body;
-  console.log(tracking_status);
 
   if (!tr_no) {
-    console.log("Validation failed: TR number is missing");
     return res.status(400).json({ message: "TR number is required" });
   }
 
   try {
     const updateFields = {};
-    console.log("Preparing update fields...");
 
     if (lr_completed !== undefined) {
       updateFields["lr_completed"] = lr_completed;
-      console.log("lr_completed set to:", lr_completed);
     }
     if (tracking_status !== undefined) {
       // Validate if tracking_status is a valid ObjectId
@@ -157,27 +152,22 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
       } else if (tracking_status === null || tracking_status === "") {
         updateFields["tracking_status"] = null;
       }
-      console.log("tracking_status set to:", tracking_status);
     }
 
     if (offloading_date_time) {
       updateFields["offloading_date_time"] = new Date(offloading_date_time);
-      console.log("offloading_date_time set to:", offloading_date_time);
     }
 
     if (detention_days) {
       updateFields["detention_days"] = detention_days;
-      console.log("detention_days set to:", detention_days);
     }
 
     if (reason_of_detention) {
       updateFields["reason_of_detention"] = reason_of_detention;
-      console.log("reason_of_detention set to:", reason_of_detention);
     }
 
     if (tipping) {
       updateFields["tipping"] = tipping;
-      console.log("tipping set to:", tipping);
     }
 
     if (document_attachment) {
@@ -186,34 +176,24 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
       } else if (Array.isArray(document_attachment)) {
         updateFields["document_attachment"] = document_attachment;
       }
-      console.log(
-        "document_attachment set to:",
-        updateFields["document_attachment"]
-      );
+     
     }
 
-    console.log("Fetching document for TR number:", tr_no);
     const oldData = await PrData.findOne({ "containers.tr_no": tr_no })
       .orFail()
       .select("containers");
-    console.log("Document fetched successfully:", oldData);
 
-    console.log("Updating container data...");
     oldData.containers = oldData.containers.map((container) =>
       container.tr_no === tr_no
         ? { ...container.toObject(), ...updateFields }
         : container
     );
 
-    console.log("Saving updated document...");
     await oldData.save();
-    console.log("Document saved successfully.");
 
     if (detention_days > 0) {
-      console.log("Detention days > 0, preparing to send email...");
       const containerDetails =
         oldData.containers.find((container) => container.tr_no === tr_no) || {};
-      console.log("Container details for email:", containerDetails);
 
       await sendDetentionEmail(
         tr_no,
@@ -221,9 +201,7 @@ router.post("/api/update-srcc-dsr", async (req, res) => {
         reason_of_detention,
         containerDetails
       );
-      console.log("Email sent successfully.");
     } else {
-      console.log("Detention days <= 0, email not sent.");
     }
 
     return res.json({

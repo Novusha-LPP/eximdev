@@ -73,13 +73,6 @@ function ViewOperationsJob() {
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab
     
-    console.log('ViewOperationsJob: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      tabIndex: tabIndex
-    });
-    
     navigate("/import-operations", {
       state: {
         fromJobDetails: true,

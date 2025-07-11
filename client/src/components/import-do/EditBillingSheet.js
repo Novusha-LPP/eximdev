@@ -40,7 +40,6 @@ function EditBillingSheet() {
 
   // Store search parameters from location state
  React.useEffect(() => {
-    console.log('EditBillingSheet: Received location state:', location.state);
     if (location.state) {
       const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
       
@@ -52,20 +51,11 @@ function EditBillingSheet() {
         currentPage,
       };
       
-      console.log('EditBillingSheet: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 4;
-    
-    
-    console.log('EditBillingSheet: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      tabIndex: tabIndex
-    });
     
     navigate("/import-do", {
       state: {
@@ -97,7 +87,6 @@ function EditBillingSheet() {
         const userId = user?._id || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
         
-        console.log("🔍 Submitting DO Billing update with user:", username);
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-billing/${data._id}`,
@@ -111,7 +100,6 @@ function EditBillingSheet() {
           }
         );
         
-        console.log("✅ DO Billing updated successfully");
 
         // Update the local data state after successful update
         setData((prev) => ({

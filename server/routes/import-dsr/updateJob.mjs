@@ -180,10 +180,6 @@ router.put("/api/update-job/:year/:jobNo",
           }
           // Check if any do_revalidation_upto values differ
           for (let i = 0; i < dbContainer.do_revalidation.length; i++) {
-            console.log(
-              dbContainer.do_revalidation[i].do_revalidation_upto,
-              incomingContainer.do_revalidation[i].do_revalidation_upto
-            );
             if (
               dbContainer.do_revalidation[i].do_revalidation_upto !==
               incomingContainer.do_revalidation[i].do_revalidation_upto

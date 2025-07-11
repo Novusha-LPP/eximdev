@@ -22,7 +22,6 @@ function usePrData() {
         }));
 
         setOrganisations(formattedOrganisations);
-        console.log("✅ Organisations loaded:", formattedOrganisations);
       } catch (error) {
         console.error("❌ Error fetching organisations:", error);
       }
@@ -34,7 +33,6 @@ function usePrData() {
           `${process.env.REACT_APP_API_STRING}/get-container-types`
         );
         setContainerTypes(res.data);
-        console.log("✅ Container types loaded:", res.data);
       } catch (error) {
         console.error("❌ Error fetching container types:", error);
       }
@@ -54,7 +52,6 @@ function usePrData() {
         }));
 
         setLocations(formattedLocations);
-        console.log("✅ Locations loaded:", formattedLocations);
       } catch (error) {
         console.error("❌ Error fetching locations:", error);
       }
@@ -68,7 +65,6 @@ function usePrData() {
 
         // Keep the full objects instead of just extracting vehicleType strings
         setTruckTypes(res.data.data);
-        console.log("✅ Vehicle types loaded:", res.data.data);
       } catch (error) {
         console.error("❌ Error fetching vehicle types:", error);
       }

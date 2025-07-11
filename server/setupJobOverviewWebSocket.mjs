@@ -7,8 +7,6 @@ export function setupJobOverviewWebSocket(server) {
   const wss = new WebSocketServer({ server });
 
   wss.on('connection', (ws) => {
-    console.log('✅ WebSocket client connected');
-
     ws.on('message', async (message) => {
       try {
         const payload = JSON.parse(message);

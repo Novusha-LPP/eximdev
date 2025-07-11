@@ -29,7 +29,6 @@ function LocationDirectory() {
   // ✅ Fetch Locations from API
   const fetchLocations = async () => {
     try {
-      console.log("🚀 Fetching Locations...");
       const response = await axios.get(`${API_URL}/get-location`);
 
       if (!Array.isArray(response.data)) {
@@ -40,7 +39,6 @@ function LocationDirectory() {
         return;
       }
 
-      console.log("✅ API Response:", response.data);
       setLocations(response.data);
     } catch (error) {
       console.error("❌ Error fetching locations:", error);
@@ -58,7 +56,6 @@ function LocationDirectory() {
   };
 
   const handleEdit = (location) => {
-    console.log("📝 Editing Location:", location);
     setModalMode("edit");
     setEditData(location);
     setOpenModal(true);
@@ -85,10 +82,8 @@ function LocationDirectory() {
   const handleSave = async (formData) => {
     try {
       if (modalMode === "add") {
-        console.log("🚀 Adding New Location:", formData);
         await axios.post(`${API_URL}/add-location`, formData);
       } else {
-        console.log("📝 Updating Location:", formData);
         await axios.put(`${API_URL}/update-location/${editData._id}`, formData);
       }
       setOpenModal(false);

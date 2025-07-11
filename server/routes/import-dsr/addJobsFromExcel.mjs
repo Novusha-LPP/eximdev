@@ -38,7 +38,6 @@ const formatDateToIST = () => {
 
 // Example usage:
 const currentTimeIST = formatDateToIST();
-console.log(currentTimeIST); // e.g., "2024-04-23 11:57:43 am"
 
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {

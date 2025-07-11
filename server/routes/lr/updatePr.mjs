@@ -48,9 +48,7 @@ const validateAndConvertObjectId = async (value, Model, nameField) => {
   }
 };
 
-router.post("/api/update-pr", async (req, res) => {
-  console.log("📥 Request body:", req.body);
-  
+router.post("/api/update-pr", async (req, res) => {  
   const {
     pr_no,
     import_export,
@@ -165,7 +163,6 @@ router.post("/api/update-pr", async (req, res) => {
     // Check for validation errors
     const errors = validationResults.filter((result) => result && result.error);
     if (errors.length > 0) {
-      console.log("❌ Validation errors:", errors);
       return res.status(400).send({
         error: errors.map((e) => e.error).join(", "),
       });
@@ -199,13 +196,10 @@ router.post("/api/update-pr", async (req, res) => {
     // Only try to find existing PR if pr_no is provided and not empty
     if (pr_no && pr_no.trim() !== "") {
       prDataToUpdate = await PrData.findOne({ pr_no }).sort({ _id: -1 });
-      console.log("🔍 Found existing PR:", prDataToUpdate ? prDataToUpdate.pr_no : "None");
     }
 
     if (prDataToUpdate) {
-      // Update existing PR
-      console.log("🔄 Updating existing PR:", pr_no);
-      
+      // Update existing PR      
       if (containerCountNum < prDataToUpdate.container_count) {
         const containersToDelete = prDataToUpdate.container_count - containerCountNum;
 
@@ -292,11 +286,9 @@ router.post("/api/update-pr", async (req, res) => {
       });
 
       await prDataToUpdate.save();
-      console.log("✅ PR updated successfully:", pr_no);
       return res.status(200).send({ message: "PR updated successfully" });
     } else {
       // Create New PR
-      console.log("🆕 Creating new PR for branch:", branch);
       
       let branch_code;
       switch (branch) {
@@ -351,8 +343,6 @@ router.post("/api/update-pr", async (req, res) => {
       // Determine prefix for PR
       const prPrefix = isBranch ? prefix : branch_code;
 
-      console.log("🔢 Using prefix:", prPrefix, "and suffix:", yearSuffix);
-
       try {
         // Get the last PR number for this SPECIFIC branch prefix and year
         const lastPrForBranchAndYear = await PrModel.findOne({
@@ -362,25 +352,16 @@ router.post("/api/update-pr", async (req, res) => {
           .sort({ pr_no: -1 }) // Sort by pr_no descending to get the highest number
           .exec();
 
-        console.log(
-          `📋 Last PR for branch ${prPrefix} and year ${yearSuffix}:`,
-          lastPrForBranchAndYear
-        );
-
         // Calculate the next PR number for this branch and year
         let nextPrNo = 1;
         if (lastPrForBranchAndYear) {
           nextPrNo = parseInt(lastPrForBranchAndYear.pr_no) + 1;
         }
 
-        console.log("🔢 Next PR number:", nextPrNo);
-
         // Format PR number with leading zeros
         const paddedPrNo = nextPrNo.toString().padStart(5, "0");
         const prNoComplete = `${prPrefix}/${paddedPrNo}/${yearSuffix}`;
         const newPrNo = `PR/${prPrefix}/${paddedPrNo}/${yearSuffix}`;
-
-        console.log("🆕 Generated new PR:", newPrNo);
 
         // Create container array with proper ObjectId handling
         let containerArray = [];
@@ -420,7 +401,6 @@ router.post("/api/update-pr", async (req, res) => {
         });
 
         await newPrData.save();
-        console.log("✅ New PR data saved:", newPrNo);
 
         // Create entry in PR Model for tracking
         const newPrModel = new PrModel({
@@ -431,8 +411,6 @@ router.post("/api/update-pr", async (req, res) => {
         });
 
         await newPrModel.save();
-        console.log("✅ New PR model entry created:", prNoComplete);
-
         return res.status(200).send({ 
           message: "New PR added successfully",
           pr_no: newPrNo 

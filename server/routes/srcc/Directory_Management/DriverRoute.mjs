@@ -175,7 +175,6 @@ router.get("/api/available-drivers/:typeId", async (req, res) => {
   }
 
   try {
-    console.log("Received vehicle type ID:", typeId); // Log the typeId for debugging
 
     // Validate if the typeId is a valid ObjectId
     if (!typeId.match(/^[0-9a-fA-F]{24}$/)) {
@@ -197,8 +196,6 @@ router.get("/api/available-drivers/:typeId", async (req, res) => {
       drivingVehicleTypes: typeId, // Direct ObjectId match
       isAssigned: false, // Ensure driver is not assigned
     });
-
-    console.log("Available drivers:", drivers); // Log the query results
 
     if (drivers.length === 0) {
       return res

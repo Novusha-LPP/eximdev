@@ -17,7 +17,6 @@ function OnboardEmployee() {
     },
     validationSchema: validationSchema,
     onSubmit: async (values, { resetForm }) => {
-      console.log(values);
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/onboard-employee`,
         values

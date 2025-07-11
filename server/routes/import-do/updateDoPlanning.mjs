@@ -6,7 +6,6 @@ const router = express.Router();
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
   try {
-    console.log("🔍 Extracting job info for DO Planning update:", req.body._id);
     if (req.body._id) {
       // Fetch job details to get job_no and year
       const job = await JobModel.findOne({ _id: req.body._id }).lean();
@@ -16,7 +15,6 @@ const extractJobInfo = async (req, res, next) => {
           job_no: job.job_no,
           year: job.year
         };
-        console.log(`✅ Extracted job info for audit trail: ${job.year}/${job.job_no}`);
       } else {
         console.log(`❌ Could not find job with ID: ${req.body._id}`);
       }
@@ -30,7 +28,6 @@ const extractJobInfo = async (req, res, next) => {
 
 router.patch("/api/update-do-planning", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
   try {
-    console.log("📝 Processing DO Planning update with user:", req.headers["username"] || "unknown");
     
     const currentDate = new Date().toLocaleDateString("en-GB", {
       day: "2-digit",

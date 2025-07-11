@@ -237,7 +237,6 @@ function useFileUpload(inputRef, alt, setAlt) {
         }
       });
 
-      console.log(`finalData: ${JSON.stringify(finalData)}`);
 
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
@@ -259,16 +258,10 @@ function useFileUpload(inputRef, alt, setAlt) {
         setSnackbar(true);
 
         const firstJobNo = modifiedData[0].job_no;
-        console.log("Checking status for job_no:", firstJobNo); // Add log
 
         const checkStatusResponse = await axios.get(
           `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
         );
-        console.log(
-          `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
-        );
-        console.log("Status check response:", checkStatusResponse); // Log response
-
         if (checkStatusResponse.status !== 200) {
           console.error("Status update failed");
         }

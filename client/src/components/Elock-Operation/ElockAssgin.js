@@ -93,7 +93,6 @@ const ElockAssign = () => {
   // Save row using new assign-elock endpoint - FIXED VERSION
   const handleSaveRow = async (row) => {
     try {
-      console.log("Row data:", row.original); // Debug log
 
       // If elock_no is empty, set status to UNASSIGNED
       // If status is UNASSIGNED, clear elock_no
@@ -113,21 +112,17 @@ const ElockAssign = () => {
         elockAssignStatus: finalStatus,
       };
 
-      console.log("Payload being sent:", payload); // Debug log
-
       const response = await axios.post(
         `${process.env.REACT_APP_API_STRING}/assign-elock`,
         payload
       );
 
-      console.log("Response:", response.data); // Debug log
 
       setEditingRow(null);
       fetchElockData();
       fetchAvailableElocks(); // Refresh dropdown
     } catch (error) {
       console.error("Error updating status:", error);
-      console.error("Error response:", error.response?.data); // Debug log
       // Show user-friendly error message
       alert(`Error: ${error.response?.data?.error || error.message}`);
     }

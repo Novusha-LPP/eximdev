@@ -111,16 +111,10 @@ function useLrColumns(props) {
         { pr_no: props.pr_no }
       );
 
-      console.log("🔍 Raw TR data from backend:", res.data);
 
       // Set the new data with container validation flag
       setRows(
         res.data.map((row) => {
-          console.log("🔍 Processing row:", row);
-          console.log("🔍 goods_pickup:", row.goods_pickup);
-          console.log("🔍 goods_delivery:", row.goods_delivery);
-          console.log("🔍 type_of_vehicle:", row.type_of_vehicle);
-
           return {
             ...row,
             availableVehicles: [],

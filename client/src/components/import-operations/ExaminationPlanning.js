@@ -62,11 +62,8 @@ function ImportOperations() {
   useEffect(() => {
     const fromJobDetails = location.state?.fromJobDetails;
     isFromJobDetailsRef.current = fromJobDetails;    if (currentTab === 1) {
-      console.log('🔧 ExaminationPlanning: Initializing tab with currentPage:', currentPage);
       if (fromJobDetails) {
-        // Restore state from job details navigation
-        console.log('🔄 Restoring search state from job details navigation');
-        
+        // Restore state from job details navigatio        
         if (location.state?.searchQuery !== undefined) {
           setSearchQuery(location.state.searchQuery);
           setDebouncedSearchQuery(location.state.searchQuery);
@@ -84,7 +81,6 @@ function ImportOperations() {
           setDetailedStatusExPlan(location.state.detailedStatusExPlan);
         }      } else {
         // Clear search state when coming from other tabs (not job details)
-        console.log('🧹 Clearing search state - new tab access');
         setSearchQuery("");
         setSelectedImporter("");
         setDebouncedSearchQuery("");
@@ -116,30 +112,14 @@ function ImportOperations() {
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !yearState || !user?.username) {
-      console.log('⏸️ ExaminationPlanning: Skipping API call - missing requirements:', {
-        isInitialized,
-        yearState,
-        username: user?.username
-      });
       return;
     }
-
-    console.log('📤 ExaminationPlanning: Making API call with username:', user.username);
-
     cancelPreviousRequest();
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      console.log('📡 Making API call:', { 
-        currentPage, 
-        currentSearchQuery, 
-        yearState, 
-        currentStatus, 
-        currentICD, 
-        currentImporter 
-      });
       
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
@@ -171,7 +151,6 @@ function ImportOperations() {
       }
     } catch (error) {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.log('🚫 Request cancelled');
         return;
       }
       console.error("Error fetching data:", error);
@@ -193,11 +172,9 @@ function ImportOperations() {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }    debounceTimeoutRef.current = setTimeout(() => {
-      console.log('🔍 ExaminationPlanning: Search debounce triggered with query:', searchQuery);
       setDebouncedSearchQuery(searchQuery);
       // Only reset to first page if there's an actual search query (not when clearing)
       if (searchQuery && searchQuery.trim() !== "") {
-        console.log('🔍 ExaminationPlanning: Resetting to page 1 due to search');
         setCurrentPage(1); // Reset to first page on new search
       }
     }, 500);
@@ -267,7 +244,6 @@ function ImportOperations() {
  useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
-      console.log('🎯 Making API call with restored search parameters');
         // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
         fetchJobs(
@@ -316,13 +292,11 @@ function ImportOperations() {
   }, [cancelPreviousRequest]);
   // Handle pagination change
   const handlePageChange = useCallback((event, newPage) => {
-    console.log('Examination Planning: Page changing from', currentPage, 'to', newPage);
     setCurrentPage(newPage);
   }, [currentPage, setCurrentPage]);
 
   // Handle search input change
   const handleSearchInputChange = (event) => {
-    console.log('Examination Planning: Search input changed, resetting to page 1');
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
   };

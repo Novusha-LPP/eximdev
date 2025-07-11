@@ -6,7 +6,6 @@ const router = express.Router();
 router.post("/api/add-vehicle-tyres", async (req, res) => {
   const { tyre_no, truck_no, fitting_date, fitting_date_odometer, location } =
     req.body;
-  console.log(tyre_no, truck_no, fitting_date, fitting_date_odometer, location);
   const existingTruck = await Truck.findOne({ truck_no });
 
   if (existingTruck) {

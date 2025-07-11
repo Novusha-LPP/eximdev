@@ -67,11 +67,8 @@ function CompletedOperations() {
     
     // Changed to check for currentTab === 2 (Completed Operations tab)
     if (currentTab === 2) {
-      console.log('🔧 CompletedOperations: Initializing tab with currentPage:', currentPage);
       if (fromJobDetails) {
-        // Restore state from job details navigation
-        console.log('🔄 Restoring search state from job details navigation');
-        
+        // Restore state from job details navigation        
         if (location.state?.searchQuery !== undefined) {
           setSearchQuery(location.state.searchQuery);
           setDebouncedSearchQuery(location.state.searchQuery);
@@ -87,7 +84,6 @@ function CompletedOperations() {
         }
       } else {
         // Clear search state when coming from other tabs (not job details)
-        console.log('🧹 Clearing search state - new tab access');
         setSearchQuery("");
         setSelectedImporter("");
         setDebouncedSearchQuery("");
@@ -117,24 +113,14 @@ function CompletedOperations() {
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !year || !user?.username) {
-      console.log('⏸️ CompletedOperations: Skipping API call - missing requirements:', {
-        isInitialized,
-        year,
-        username: user?.username
-      });
       return;
     }
-
-    console.log('📤 CompletedOperations: Making API call with username:', user.username);
-
     cancelPreviousRequest();
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    try {
-      console.log('📡 CompletedOperations: Making API call:', { page, searchQuery, year, selectedICD, selectedImporter });
-      
+    try {      
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
         {
@@ -166,7 +152,6 @@ function CompletedOperations() {
       }
     } catch (error) {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.log('🚫 Request cancelled');
         return;
       }
       console.error("Error fetching rows:", error);
@@ -191,11 +176,9 @@ function CompletedOperations() {
     }
 
     debounceTimeoutRef.current = setTimeout(() => {
-      console.log('🔍 CompletedOperations: Search debounce triggered with query:', searchQuery);
       setDebouncedSearchQuery(searchQuery);
       // Only reset to first page if there's an actual search query (not when clearing)
       if (searchQuery && searchQuery.trim() !== "") {
-        console.log('🔍 CompletedOperations: Resetting to page 1 due to search');
         setCurrentPage(1); // Reset to first page on new search
         setPage(1);
       }
@@ -264,7 +247,6 @@ function CompletedOperations() {
   useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
-      console.log('🎯 CompletedOperations: Making API call with restored search parameters');
       
       // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
@@ -317,7 +299,6 @@ function CompletedOperations() {
   
   // Handle pagination change
   const handlePageChange = useCallback((event, newPage) => {
-    console.log('CompletedOperations: Page changing from', page, 'to', newPage);
     setPage(newPage);
     setCurrentPage(newPage); // Update context as well
   }, [page, setCurrentPage]);
@@ -422,7 +403,6 @@ function CompletedOperations() {
             onClick={() => {
               setSelectedJobId(jobNo);
               
-              console.log('CompletedOperations: Navigating to job details with currentPage:', page);
               navigate(`/import-operations/view-job/${jobNo}/${year}`, {
                 state: {
                   selectedJobId: jobNo,

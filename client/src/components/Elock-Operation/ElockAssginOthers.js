@@ -105,7 +105,6 @@ const ElockAssignOthers = () => {
       // Handle the nested data structure from the API response
       const elocks = res.data?.data || res.data?.elocks || res.data || [];
       setElockOptions(Array.isArray(elocks) ? elocks : []);
-      console.log("Fetched elocks:", elocks); // Debug log
     } catch (err) {
       console.error("Error fetching available elocks:", err);
       setElockOptions([]); // Set empty array on error
@@ -119,7 +118,6 @@ const ElockAssignOthers = () => {
       // Handle the nested data structure from the API response
       const orgs = res.data?.data || res.data?.organisations || res.data || [];
       setOrganisationOptions(Array.isArray(orgs) ? orgs : []);
-      console.log("Fetched organisations:", orgs); // Debug log
     } catch (err) {
       console.error("Error fetching organisations:", err);
       setOrganisationOptions([]); // Set empty array on error
@@ -134,7 +132,6 @@ const ElockAssignOthers = () => {
       // Handle the nested data structure from the API response
       const locations = res.data?.data || res.data?.locations || res.data || [];
       setLocationOptions(Array.isArray(locations) ? locations : []);
-      console.log("Fetched locations:", locations); // Debug log
     } catch (err) {
       console.error("Error fetching locations:", err);
       setLocationOptions([]); // Set empty array on error

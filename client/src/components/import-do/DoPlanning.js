@@ -45,11 +45,8 @@ function DoPlanning() {
   );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
-  // Debug log to check user context
-  console.log('👤 User context in DoPlanning:', { username: user?.username, role: user?.role });
-
+ 
   // Remove the automatic clearing - we'll handle this from the tab component instead
-
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -157,7 +154,6 @@ function DoPlanning() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching DO module jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
           {
@@ -259,7 +255,6 @@ function DoPlanning() {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
               
-              console.log('Planning DO: Navigating to job details with currentPage:', currentPage);
               // 2) Navigate to the detail page, and pass selectedJobId and search state
               navigate(`/edit-do-planning/${_id}`, {
                 state: {

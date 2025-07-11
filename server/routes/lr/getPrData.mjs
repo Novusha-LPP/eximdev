@@ -86,7 +86,6 @@ router.get("/api/get-pr-data/:branch", async (req, res) => {
       },
     ];
 
-    // console.log("Executing pipeline:", JSON.stringify(pipeline, null, 2));
 
     const result = await PrData.aggregate(pipeline);
 

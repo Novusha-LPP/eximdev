@@ -41,7 +41,6 @@ const DocumentationJob = () => {
   const isDisabled = (!isAdmin && isTrue === 1);
     // Store search parameters from location state
   useEffect(() => {
-    console.log('DocumentationJob: Received location state:', routeLocation.state);
     if (routeLocation.state) {
       const { 
         searchQuery, 
@@ -57,19 +56,13 @@ const DocumentationJob = () => {
         currentPage,
       };
       
-      console.log('DocumentationJob: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [routeLocation.state]);  // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
     
-    console.log('DocumentationJob: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      tabIndex: tabIndex
-    });
+  
     
     navigate("/documentation", {
       state: {

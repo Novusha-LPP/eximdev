@@ -69,8 +69,6 @@ function JobList(props) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   
-  // Debug log to check user context
-  console.log('👤 User context in JobList:', { username: user?.username, role: user?.role });
   const { 
     searchQuery, setSearchQuery,
     detailedStatus, setDetailedStatus,

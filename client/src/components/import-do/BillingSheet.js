@@ -27,8 +27,6 @@ function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   
-  // Debug log to check user context
-  console.log('👤 User context in BillingSheet:', { username: user?.username, role: user?.role });
   
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
@@ -207,7 +205,6 @@ function BillingSheet() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching DO billing jobs with username:', user?.username);
 
         const apiString =
         process.env.REACT_APP_API_STRING || "http://localhost:5000"; // Fallback for dev

@@ -91,11 +91,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-      console.log(`🔍 User ICD Filter applied for ${req.currentUser?.username}:`, req.userIcdFilter);
-    } else if (req.currentUser) {
-      console.log(`🔍 No ICD Filter applied for user ${req.currentUser.username} (Admin or ALL access)`);
-    }
-
+    } 
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(

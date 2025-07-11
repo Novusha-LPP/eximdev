@@ -113,20 +113,11 @@ function ViewESanchitJob() {
         currentPage,
       };
       
-      console.log('ViewESanchitJob: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [routeLocation.state]);  // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
-    
-    console.log('ViewESanchitJob: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      tabIndex: tabIndex
-    });
-    
     // Set the current tab in context
     setCurrentTab(tabIndex);
     

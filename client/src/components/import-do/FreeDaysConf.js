@@ -27,8 +27,6 @@ const FreeDaysConf = () => {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   
-  // Debug log to check user context
-  console.log('👤 User context in FreeDaysConf:', { username: user?.username, role: user?.role });
   
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = useState([]);
@@ -126,7 +124,6 @@ const FreeDaysConf = () => {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching free days jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-free-days`,
           {
@@ -258,7 +255,6 @@ const FreeDaysConf = () => {
       // );
       // Fetch the latest jobs with the original page preserved
       await fetchJobs(currentPageBeforeEdit, debouncedSearchQuery);
-      console.log("Free time updated successfully.");
     } catch (error) {
       console.error("Error saving data:", error);
     } finally {

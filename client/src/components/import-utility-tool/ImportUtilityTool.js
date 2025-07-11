@@ -82,11 +82,6 @@ const ImportUtilityTool = () => {
   const handleOpenDutyCalculator = useCallback((item) => {
     setSelectedItemForDuty(item);
     
-    // Debug: Log the item data to see what's available
-    console.log('Item data:', item);
-    console.log('basic_duty_sch:', item.basic_duty_sch);
-    console.log('basic_duty_ntfn:', item.basic_duty_ntfn);
-    console.log('igst:', item.igst);
     
     // Logic to select the appropriate duty rate
     let selectedDuty = '';
@@ -105,25 +100,20 @@ const ImportUtilityTool = () => {
     if (hasNotificationDuty && hasBasicDuty) {
       // ALWAYS prioritize notification duty (basic_duty_ntfn) when both are available
       selectedDuty = item.basic_duty_ntfn;
-      console.log('Both available - selected notification duty (priority):', selectedDuty);
     }
     // If only notification duty is available
     else if (hasNotificationDuty) {
       selectedDuty = item.basic_duty_ntfn;
-      console.log('Only notification duty available:', selectedDuty);
     }
     // If only basic duty is available
     else if (hasBasicDuty) {
       selectedDuty = item.basic_duty_sch;
-      console.log('Only basic duty available:', selectedDuty);
     }
     // If neither is available, selectedDuty remains empty string
     else {
       console.log('No duty values available');
     }
-    
-    console.log('Final selectedDuty:', selectedDuty);
-    
+        
     setDutyCalculatorForm({
       importTerms: 'CIF',
       cifValue: '',

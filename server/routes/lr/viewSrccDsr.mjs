@@ -601,18 +601,9 @@ router.post("/api/assign-elock", async (req, res) => {
   try {
     const { prId, containerId, newElockNo, elockAssignStatus } = req.body;
 
-    console.log("Request body:", req.body); // Debug log
-
     // Find the PR and the container
     const pr = await PrData.findById(prId);
     if (!pr) return res.status(404).json({ error: "PR not found" });
-
-    console.log("PR found:", pr._id);
-    console.log("Looking for container with ID:", containerId);
-    console.log(
-      "Available containers:",
-      pr.containers.map((c) => ({ id: c._id.toString(), tr_no: c.tr_no }))
-    );
 
     // Try multiple ways to find the container
     let container = null;
@@ -641,7 +632,6 @@ router.post("/api/assign-elock", async (req, res) => {
     }
 
     if (!container) {
-      console.log("Container not found with any method");
       return res.status(404).json({
         error: "Container not found",
         debug: {
@@ -653,7 +643,6 @@ router.post("/api/assign-elock", async (req, res) => {
       });
     }
 
-    console.log("Container found:", container._id);
     const oldElockNo = container.elock_no;
     const oldAssignStatus = container.elock_assign_status;
 

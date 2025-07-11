@@ -17,7 +17,6 @@ const extractJobInfo = async (req, res, next) => {
           job_no: job.job_no,
           year: job.year
         };
-        console.log(`✅ Extracted job info for audit trail: ${job.year}/${job.job_no}`);
       } else {
         console.log(`❌ Could not find job with ID: ${req.params.id}`);
       }

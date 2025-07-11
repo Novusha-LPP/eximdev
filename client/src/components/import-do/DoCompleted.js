@@ -44,8 +44,6 @@ function DoCompleted() {
   );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
-  // Debug log to check user context
-  console.log('👤 User context in DoCompleted:', { username: user?.username, role: user?.role });
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -186,7 +184,6 @@ function DoCompleted() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching DO completed jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-do-complete-module-jobs`,
           {

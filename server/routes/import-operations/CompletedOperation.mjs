@@ -5,9 +5,7 @@ import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 const router = express.Router();
 
 router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async (req, res) => {
-  try {
-    console.log("🚀 Starting get-completed-operations API for user:", req.params.username);
-    
+  try {    
     // Extract parameters
     const { username } = req.params;
     const {
@@ -41,13 +39,11 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
     if (req.userIcdFilter) {
       // User has specific ICD restrictions from middleware - RESPECT THESE
       icdCondition = req.userIcdFilter;
-      console.log("� User ICD filter applied (middleware):", JSON.stringify(icdCondition, null, 2));
     } else if (selectedICD && selectedICD !== "Select ICD") {
       // Only apply frontend selection if user has full access (no middleware restrictions)
       icdCondition = {
         custom_house: new RegExp(`^${selectedICD}$`, "i"),
       };
-      console.log("🔍 Selected ICD filter applied (frontend):", selectedICD);
     }
     // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
@@ -55,7 +51,6 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
     let importerCondition = {};
     if (importer && importer !== "Select Importer") {
       importerCondition = { importer: new RegExp(`^${importer}$`, "i") };
-      console.log("🏢 Importer filter applied:", importer);
     }
 
     // Build search query
@@ -72,7 +67,6 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
           },
         ],
       };
-      console.log("🔍 Search query applied:", search);
     }
 
     // Build final query
@@ -93,7 +87,6 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
-    console.log("📊 Final MongoDB query:", JSON.stringify(baseQuery, null, 2));
 
     // Fetch data with pagination
     const allJobs = await JobModel.find(baseQuery)
@@ -102,8 +95,6 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
 
     const totalJobs = allJobs.length;
     const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
-
-    console.log(`✅ Found ${totalJobs} completed operations jobs for user ${username}`);
 
     // Send response
     res.status(200).json({

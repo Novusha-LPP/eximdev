@@ -144,12 +144,7 @@ const IgstModal = ({
       const timeDiff = beDateObj.getTime() - arrivalDateObj.getTime();
       const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
       
-      console.log(`Penalty calculation debug:
-        Arrival Date: ${arrivalDateObj.toDateString()}
-        BE Date: ${beDateObj.toDateString()}
-        Time Diff (ms): ${timeDiff}
-        Days Calculated: ${daysDiff}`);
-      
+
       if (daysDiff <= 0) return 0;
       
       let penalty = 0;
@@ -164,12 +159,7 @@ const IgstModal = ({
         penalty += remainingDays * 10000;
       }
       
-      console.log(`Penalty breakdown:
-        Total days: ${daysDiff}
-        First 3 days penalty (${firstThreeDays} × ₹5000): ₹${firstThreeDays * 5000}
-        Remaining days penalty (${daysDiff > 3 ? daysDiff - 3 : 0} × ₹10000): ₹${daysDiff > 3 ? (daysDiff - 3) * 10000 : 0}
-        Total penalty: ₹${penalty}`);
-      
+    
       return penalty;
     }
 

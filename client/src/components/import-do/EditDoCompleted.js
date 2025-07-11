@@ -62,7 +62,6 @@ function EditDoCompleted() {
 
   // Store search parameters from location state
   useEffect(() => {
-    console.log('EditDoCompleted: Received location state:', location.state);
     if (location.state) {
       const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
       
@@ -74,19 +73,13 @@ function EditDoCompleted() {
         currentPage,
       };
       
-      console.log('EditDoCompleted: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 3;
     
-    console.log('EditDoCompleted: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      tabIndex: tabIndex
-    });
+
     
     navigate("/import-do", {
       state: {
@@ -120,7 +113,6 @@ function EditDoCompleted() {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
         );
-        console.log("API Response:", res.data); // Debugging log
 
         // Ensure correct access to the job object
         const jobData = res.data.job;
@@ -238,7 +230,6 @@ function EditDoCompleted() {
   useEffect(() => {
     if (!isDoCompletedEnabled && formik.values.do_completed !== "") {
       formik.setFieldValue("do_completed", "");
-      console.log("Cleared do_completed because prerequisites are not met.");
     }
   }, [isDoCompletedEnabled, formik.values.do_completed, formik]);
 
@@ -264,10 +255,7 @@ function EditDoCompleted() {
       };
 
       formik.setValues(updatedData);
-      console.log(
-        "Update shipping_line_invoice_date:",
-        updatedData.shipping_line_invoice_date
-      ); // Check if value is set
+  
 
       async function getKycDocs() {
         const importer = data.importer;
@@ -343,18 +331,15 @@ function EditDoCompleted() {
       // Set to current local date and time in 'YYYY-MM-DDTHH:MM' format
       const localDatetime = getLocalDatetimeString();
       formik.setFieldValue("do_completed", localDatetime);
-      console.log("DO Completed set to:", localDatetime);
     } else {
       // Set to empty string
       formik.setFieldValue("do_completed", "");
-      console.log("DO Completed cleared.");
     }
   };
 
   // Handle admin date change
   const handleAdminDateChange = (event) => {
     formik.setFieldValue("do_completed", event.target.value);
-    console.log("DO Completed set by Admin to:", event.target.value);
   };
 
   // Render container details only if data is available
@@ -438,9 +423,7 @@ function EditDoCompleted() {
   if (loading) return <p>Loading...</p>; // Show loading state
 
   if (!data) return <p>Failed to load job details.</p>; // Handle missing data
-  console.log("shipping_line_invoice:", formik.values.shipping_line_invoice);
-  console.log("do_validity:", formik.values.do_validity);
-  console.log("do_copies:", formik.values.do_copies);
+
   return (
     <>
       {/* Back to Job List Button */}
@@ -613,10 +596,7 @@ function EditDoCompleted() {
                       label="Upload Shipping Line Invoices"
                       bucketPath="shipping_line_invoice_imgs"
                       onFilesUploaded={(newFiles) => {
-                        console.log(
-                          "Uploading new Shipping Line Invoices:",
-                          newFiles
-                        );
+                        
                         const existingFiles =
                           formik.values.shipping_line_invoice_imgs || [];
                         const updatedFiles = [...existingFiles, ...newFiles];
@@ -651,7 +631,6 @@ function EditDoCompleted() {
                       label="DO Documents"
                       bucketPath="do_documents"
                       onFilesUploaded={(newFiles) => {
-                        console.log("Uploading new DO Documents:", newFiles);
                         const existingFiles = formik.values.do_documents || [];
                         const updatedFiles = [...existingFiles, ...newFiles];
                         formik.setFieldValue("do_documents", updatedFiles);
@@ -720,7 +699,6 @@ function EditDoCompleted() {
                       label="Upload DO Copies"
                       bucketPath="do_copies"
                       onFilesUploaded={(newFiles) => {
-                        console.log("Uploading new DO Copies:", newFiles);
                         const existingFiles = formik.values.do_copies || [];
                         const updatedFiles = [...existingFiles, ...newFiles];
                         formik.setFieldValue("do_copies", updatedFiles);

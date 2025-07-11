@@ -26,8 +26,6 @@ router.get(
     try {
       let { years, importerURL, status } = req.params;
 
-      console.log(years, importerURL, status);
-
       // Convert years into an array (e.g., "24-25,25-26" => ["24-25", "25-26"])
       let yearArray = years.split(",");
 

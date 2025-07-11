@@ -43,8 +43,6 @@ function List() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   
-  // Debug log to check user context
-  console.log('👤 User context in List (DO Team):', { username: user?.username, role: user?.role });
   
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
@@ -76,7 +74,6 @@ function List() {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Copied (fallback):", text);
       } catch (err) {
         console.error("Fallback failed:", err);
       }
@@ -160,7 +157,6 @@ function List() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching DO team list jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/do-team-list-of-jobs`,
           {
@@ -198,14 +194,7 @@ function List() {
 
   // Fetch jobs with pagination
   useEffect(() => {
-    console.log("List DO: Fetch effect triggered", {
-      currentPage,
-      selectedYearState,
-      debouncedSearchQuery,
-      selectedICD,
-      selectedImporter,
-      username: user?.username,
-    });
+ 
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
       fetchJobs(
@@ -238,13 +227,11 @@ function List() {
 
   // Handle search input change
   const handleSearchInputChange = (event) => {
-    console.log("List DO: Search input changed, resetting to page 1");
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
   };
 
   const handlePageChange = (event, newPage) => {
-    console.log("List DO: Page changing from", currentPage, "to", newPage);
     setCurrentPage(newPage);
   };
   // const getCustomHouseLocation = useMemo(
@@ -280,11 +267,6 @@ function List() {
             onClick={() => {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
-
-              console.log(
-                "List DO: Navigating to job details with currentPage:",
-                currentPage
-              );
               // 2) Navigate to the detail page, and pass search/filter state
               navigate(`/edit-do-list/${_id}`, {
                 state: {

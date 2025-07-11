@@ -1,10 +1,6 @@
 import axios from "axios";
 
 export const handleSaveLr = async (row, props) => {
-  console.log("🔄 Starting handleSaveLr...");
-  console.log("🧾 Row data received:", row);
-  console.log("🧭 Props received:", props);
-
   const errors = [];
 
   // Validate container number
@@ -13,7 +9,6 @@ export const handleSaveLr = async (row, props) => {
     errors.push("Please enter container number.");
   } else {
     const containerNumber = row.container_number.toUpperCase();
-    console.log("🔢 Container Number (Uppercased):", containerNumber);
     const containerNumberRegex = /^[A-Z]{3}[UJZ][A-Z0-9]{6}\d$/i;
 
     if (!containerNumberRegex.test(containerNumber)) {
@@ -22,17 +17,13 @@ export const handleSaveLr = async (row, props) => {
         "Container number is not valid. Do you want to continue?"
       );
       if (!proceed) {
-        console.log(
-          "⛔ User chose not to proceed due to invalid container format."
-        );
+       
         return;
       }
     } else {
       // Validate check digit
       const checkDigit = calculateCheckDigit(containerNumber.slice(0, 10));
-      console.log("✅ Calculated Check Digit:", checkDigit);
       const lastDigit = parseInt(containerNumber[10], 10);
-      console.log("📦 Provided Check Digit:", lastDigit);
 
       if (checkDigit !== lastDigit) {
         console.warn("❌ Check digit mismatch.");
@@ -40,7 +31,6 @@ export const handleSaveLr = async (row, props) => {
           "Invalid container number. Do you want to continue?"
         );
         if (!proceed) {
-          console.log("⛔ User cancelled due to check digit mismatch.");
           return;
         }
       }
@@ -48,30 +38,25 @@ export const handleSaveLr = async (row, props) => {
   }
 
   // Validate weights
-  console.log("⚖️ Validating weights...");
   if (row.gross_weight) {
-    console.log("Gross Weight:", row.gross_weight);
     if (isNaN(row.gross_weight) || row.gross_weight <= 0) {
       errors.push("Gross weight must be a positive number.");
     }
   }
 
   if (row.tare_weight) {
-    console.log("Tare Weight:", row.tare_weight);
     if (isNaN(row.tare_weight) || row.tare_weight <= 0) {
       errors.push("Tare weight must be a positive number.");
     }
   }
 
   if (row.net_weight) {
-    console.log("Net Weight:", row.net_weight);
     if (isNaN(row.net_weight) || row.net_weight <= 0) {
       errors.push("Net weight must be a positive number.");
     }
   }
 
   if (row.container_gross_weight) {
-    console.log("Container Gross Weight:", row.container_gross_weight);
     if (isNaN(row.container_gross_weight) || row.container_gross_weight <= 0) {
       errors.push("Gross weight must be a positive number.");
     }
@@ -116,7 +101,6 @@ export const handleSaveLr = async (row, props) => {
 
   // If both sr_cel_FGUID and sr_cel_no are present, call the PATCH API
   if (row.sr_cel_FGUID && row.sr_cel_no && row.sr_cel_id) {
-    console.log("🔒 Locking SR CEL...");
     try {
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/get-srcel/${row.sr_cel_id}`,
@@ -124,7 +108,6 @@ export const handleSaveLr = async (row, props) => {
           sr_cel_locked: true,
         }
       );
-      console.log("✅ SR CEL Locked successfully");
     } catch (error) {
       console.error("❌ Error locking SR CEL:", error);
       return;
@@ -133,22 +116,17 @@ export const handleSaveLr = async (row, props) => {
 
   // Proceed with save logic
   const pr_no = props.pr_no;
-  console.log(`pr_no: ${pr_no}`);
-  console.log("📦 Sending final container save request...");
-  console.log("Payload:", { ...row, pr_no: props.pr_no, elock: row.elock });
 
   try {
     const res = await axios.post(
       `${process.env.REACT_APP_API_STRING}/update-container`,
       { ...row, pr_no: props.pr_no, elock: row.elock }
     );
-    console.log("✅ Container update response:", res.data);
     alert(res.data.message);
   } catch (error) {
     console.error("❌ Error updating container:", error);
   }
 
-  console.log("✅ handleSaveLr completed.");
 };
 
 function calculateCheckDigit(containerNumber) {

@@ -26,17 +26,6 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
     if (!existingJob) {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
-    
-    // Log audit information
-    console.log('📊 DO List update request:', {
-      jobId: _id,
-      jobNo: existingJob.job_no,
-      year: existingJob.year,
-      userId: req.headers['user-id'],
-      username: req.headers['username'],
-      role: req.headers['user-role'],
-      fields: Object.keys(req.body).filter(k => k !== '_id')
-    });
 
     // Check if any of the boolean fields are already 'Yes' in the database
     const shouldUpdateBondDate =

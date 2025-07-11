@@ -28,8 +28,6 @@ function Documentation() {
   const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   
-  // Debug log to check user context
-  console.log('👤 User context in Documentation:', { username: user?.username, role: user?.role });
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);
@@ -138,7 +136,6 @@ function Documentation() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching documentation jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-documentation-jobs`,
           {
@@ -206,12 +203,10 @@ function Documentation() {
     return () => clearTimeout(handler);  }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
-    console.log('Documentation: Page changing from', currentPage, 'to', newPage);
     setCurrentPage(newPage);
   };
 
   const handleSearchInputChange = (event) => {
-    console.log('Documentation: Search input changed, resetting to page 1');
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
   };
@@ -232,7 +227,6 @@ function Documentation() {
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;        return (          <div
             onClick={() => {
-              console.log('Documentation: Navigating to job details with currentPage:', currentPage);
               navigate(`/documentationJob/view-job/${job_no}/${year}`, {
                 state: {
                   searchQuery,

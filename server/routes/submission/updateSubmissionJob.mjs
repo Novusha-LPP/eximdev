@@ -31,15 +31,6 @@ router.patch("/api/update-submission-job/:id",
       return res.status(400).json({ message: "Invalid updates detected." });
     }
 
-    // Log audit information
-    console.log('📊 Submission update request:', {
-      jobId,
-      userId: req.headers['user-id'],
-      username: req.headers['username'],
-      role: req.headers['user-role'],
-      fields: Object.keys(updateData)
-    });
-
     // Perform the update
     const updatedJob = await JobModel.findByIdAndUpdate(
       jobId,
@@ -51,7 +42,6 @@ router.patch("/api/update-submission-job/:id",
       return res.status(404).json({ message: "Job not found." });
     }
 
-    console.log(`✅ Submission job ${updatedJob.job_no}/${updatedJob.year} updated successfully`);
     res.json({
       message: "Job updated successfully.",
       job: updatedJob,

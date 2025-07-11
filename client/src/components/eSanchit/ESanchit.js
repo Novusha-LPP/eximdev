@@ -26,8 +26,6 @@ function ESanchit() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   
-  // Debug log to check user context
-  console.log('👤 User context in ESanchit:', { username: user?.username, role: user?.role });
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 0
@@ -116,7 +114,6 @@ function ESanchit() {
     ) => {
       setLoading(true);
       try {
-        console.log('📤 Fetching E-Sanchit jobs with username:', user?.username);
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-esanchit-jobs`,
           {
@@ -211,7 +208,6 @@ function ESanchit() {
       navigator.clipboard
         .writeText(text)
         .then(() => {
-          console.log("Text copied to clipboard:", text);
         })
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
@@ -226,7 +222,6 @@ function ESanchit() {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
       } catch (err) {
         alert("Failed to copy text to clipboard.");
         console.error("Fallback copy failed:", err);

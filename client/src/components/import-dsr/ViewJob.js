@@ -162,7 +162,6 @@ function JobDetails() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
-  
 
   const {
     data,
@@ -547,7 +546,6 @@ function JobDetails() {
   /**
    * Handle PDF generation and download
    */
-
 
   const handleOpenDialog = (doc, isEdit = false) => {
     setCurrentDocument(doc);
@@ -1105,7 +1103,6 @@ function JobDetails() {
                 </div>
               </Col>
 
-              
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1152,8 +1149,7 @@ function JobDetails() {
                 </div>
               </Col>
 
-
-    <Col xs={12} lg={4}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
@@ -1198,7 +1194,6 @@ function JobDetails() {
                   />
                 </div>
               </Col>
-          
 
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -2256,7 +2251,8 @@ function JobDetails() {
                       </span>
                     )}
                   </div>
-                </Col>                {/* Remark Checkboxes Section */}
+                </Col>{" "}
+                {/* Remark Checkboxes Section */}
                 <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
                   <div className="job-detail-input-container">
                     <FormControl component="fieldset">
@@ -2271,10 +2267,19 @@ function JobDetails() {
                             <Checkbox
                               checked={formik.values.esanchit_remark_box}
                               onChange={(e) => {
-                                formik.setFieldValue("esanchit_remark_box", e.target.checked);
+                                formik.setFieldValue(
+                                  "esanchit_remark_box",
+                                  e.target.checked
+                                );
                                 // If unchecking and documentation is also unchecked, clear the remark
-                                if (!e.target.checked && !formik.values.documentation_remark_box) {
-                                  formik.setFieldValue("remark_esanchit_input", "");
+                                if (
+                                  !e.target.checked &&
+                                  !formik.values.documentation_remark_box
+                                ) {
+                                  formik.setFieldValue(
+                                    "remark_esanchit_input",
+                                    ""
+                                  );
                                 }
                               }}
                             />
@@ -2286,10 +2291,19 @@ function JobDetails() {
                             <Checkbox
                               checked={formik.values.documentation_remark_box}
                               onChange={(e) => {
-                                formik.setFieldValue("documentation_remark_box", e.target.checked);
+                                formik.setFieldValue(
+                                  "documentation_remark_box",
+                                  e.target.checked
+                                );
                                 // If unchecking and esanchit is also unchecked, clear the remark
-                                if (!e.target.checked && !formik.values.esanchit_remark_box) {
-                                  formik.setFieldValue("remark_documentation_input", "");
+                                if (
+                                  !e.target.checked &&
+                                  !formik.values.esanchit_remark_box
+                                ) {
+                                  formik.setFieldValue(
+                                    "remark_documentation_input",
+                                    ""
+                                  );
                                 }
                               }}
                             />
@@ -2302,12 +2316,14 @@ function JobDetails() {
                 </Col>
                 <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
                   {/* Conditional Input Fields */}
-                  {(formik.values.esanchit_remark_box || formik.values.documentation_remark_box) && (
+                  {(formik.values.esanchit_remark_box ||
+                    formik.values.documentation_remark_box) && (
                     <div style={{ marginTop: "15px" }}>
                       <TextField
                         fullWidth
                         label={
-                          formik.values.esanchit_remark_box && formik.values.documentation_remark_box
+                          formik.values.esanchit_remark_box &&
+                          formik.values.documentation_remark_box
                             ? "Combined Remark (Esanchit & Documentation)"
                             : formik.values.esanchit_remark_box
                             ? "Esanchit Remark"
@@ -2316,7 +2332,8 @@ function JobDetails() {
                         multiline
                         rows={3}
                         value={
-                          formik.values.esanchit_remark_box && formik.values.documentation_remark_box
+                          formik.values.esanchit_remark_box &&
+                          formik.values.documentation_remark_box
                             ? formik.values.remark_esanchit_input || ""
                             : formik.values.esanchit_remark_box
                             ? formik.values.remark_esanchit_input || ""
@@ -2324,21 +2341,37 @@ function JobDetails() {
                         }
                         onChange={(e) => {
                           const value = e.target.value;
-                          if (formik.values.esanchit_remark_box && formik.values.documentation_remark_box) {
+                          if (
+                            formik.values.esanchit_remark_box &&
+                            formik.values.documentation_remark_box
+                          ) {
                             // Both selected: update both fields with same value
-                            formik.setFieldValue("remark_esanchit_input", value);
-                            formik.setFieldValue("remark_documentation_input", value);
+                            formik.setFieldValue(
+                              "remark_esanchit_input",
+                              value
+                            );
+                            formik.setFieldValue(
+                              "remark_documentation_input",
+                              value
+                            );
                           } else if (formik.values.esanchit_remark_box) {
                             // Only esanchit selected
-                            formik.setFieldValue("remark_esanchit_input", value);
+                            formik.setFieldValue(
+                              "remark_esanchit_input",
+                              value
+                            );
                           } else {
                             // Only documentation selected
-                            formik.setFieldValue("remark_documentation_input", value);
+                            formik.setFieldValue(
+                              "remark_documentation_input",
+                              value
+                            );
                           }
                         }}
                         variant="outlined"
                         placeholder={
-                          formik.values.esanchit_remark_box && formik.values.documentation_remark_box
+                          formik.values.esanchit_remark_box &&
+                          formik.values.documentation_remark_box
                             ? "Enter remark"
                             : formik.values.esanchit_remark_box
                             ? "Enter esanchit remark..."
@@ -2560,7 +2593,6 @@ function JobDetails() {
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
-           
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>Out of Charge Date:&nbsp;</strong>
@@ -3101,8 +3133,6 @@ function JobDetails() {
           </div>
           {/* Tracking status end*/}
 
-   
-
           {/* document section */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Documents" />
@@ -3145,31 +3175,36 @@ function JobDetails() {
                     readOnly={false}
                   />
                   {/* Small icons for Edit and Delete */}
-                  <div
-                    style={{ position: "absolute", top: "10px", right: "10px" }}
-                  >
-                    <span
+                  {user?.role === "Admin" && (
+                    <div
                       style={{
-                        cursor: "pointer",
-                        marginRight: "10px",
-                        color: "#007bff",
+                        position: "absolute",
+                        top: "10px",
+                        right: "10px",
                       }}
-                      onClick={() => handleOpenDialog(doc, true)}
                     >
-                      <i className="fas fa-edit" title="Edit"></i>
-                    </span>
-                    <span
-                      style={{ cursor: "pointer", color: "#dc3545" }}
-                      onClick={() => handleOpenDialog(doc, false)}
-                    >
-                      <i className="fas fa-trash-alt" title="Delete"></i>
-                    </span>
-                  </div>
+                      <span
+                        style={{
+                          cursor: "pointer",
+                          marginRight: "10px",
+                          color: "#007bff",
+                        }}
+                        onClick={() => handleOpenDialog(doc, true)}
+                      >
+                        <i className="fas fa-edit" title="Edit"></i>
+                      </span>
+                      <span
+                        style={{ cursor: "pointer", color: "#dc3545" }}
+                        onClick={() => handleOpenDialog(doc, false)}
+                      >
+                        <i className="fas fa-trash-alt" title="Delete"></i>
+                      </span>
+                    </div>
+                  )}
                 </Col>
               ))}
             </Row>
             {/*  */}
-
 
             {/* Add Document Section */}
             <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
@@ -3290,12 +3325,11 @@ function JobDetails() {
               </Col>
             </Row>
 
-
             {/*  */}
             {/*  */}
           </div>
 
-                 {/* charges section */}
+          {/* charges section */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Charges" />
             <br />
@@ -3303,9 +3337,10 @@ function JobDetails() {
             {/* All Charges Documents (Predefined + Custom) in same row structure */}
             <Row>
               {chargesDetails?.map((doc, index) => {
-                const selectedChargesDoc = selectedChargesDocuments.find(
-                  (selected) => selected.document_name === doc.document_name
-                ) || {};
+                const selectedChargesDoc =
+                  selectedChargesDocuments.find(
+                    (selected) => selected.document_name === doc.document_name
+                  ) || {};
 
                 return (
                   <Col
@@ -3319,14 +3354,19 @@ function JobDetails() {
                         label={doc.document_name}
                         bucketPath={`charges-documents/${doc.document_name}`}
                         onFilesUploaded={(urls) => {
-                          const updatedChargesDocuments = [...selectedChargesDocuments];
-                          const existingIndex = updatedChargesDocuments.findIndex(
-                            (selected) => selected.document_name === doc.document_name
-                          );
-                          
+                          const updatedChargesDocuments = [
+                            ...selectedChargesDocuments,
+                          ];
+                          const existingIndex =
+                            updatedChargesDocuments.findIndex(
+                              (selected) =>
+                                selected.document_name === doc.document_name
+                            );
+
                           if (existingIndex !== -1) {
                             updatedChargesDocuments[existingIndex].url = [
-                              ...(updatedChargesDocuments[existingIndex].url || []),
+                              ...(updatedChargesDocuments[existingIndex].url ||
+                                []),
                               ...urls,
                             ];
                           } else {
@@ -3353,18 +3393,26 @@ function JobDetails() {
                             step: "0.01",
                             pattern: "[0-9]+(\\.[0-9]+)?",
                           }}
-                          value={selectedChargesDoc.document_charge_details || ""}
+                          value={
+                            selectedChargesDoc.document_charge_details || ""
+                          }
                           onChange={(e) => {
                             // Only allow numbers and decimal points
                             const value = e.target.value;
-                            if (value === '' || /^\d+(\.\d*)?$/.test(value)) {
-                              const updatedChargesDocuments = [...selectedChargesDocuments];
-                              const existingIndex = updatedChargesDocuments.findIndex(
-                                (selected) => selected.document_name === doc.document_name
-                              );
-                              
+                            if (value === "" || /^\d+(\.\d*)?$/.test(value)) {
+                              const updatedChargesDocuments = [
+                                ...selectedChargesDocuments,
+                              ];
+                              const existingIndex =
+                                updatedChargesDocuments.findIndex(
+                                  (selected) =>
+                                    selected.document_name === doc.document_name
+                                );
+
                               if (existingIndex !== -1) {
-                                updatedChargesDocuments[existingIndex].document_charge_details = value;
+                                updatedChargesDocuments[
+                                  existingIndex
+                                ].document_charge_details = value;
                               } else {
                                 updatedChargesDocuments.push({
                                   document_name: doc.document_name,
@@ -3373,7 +3421,9 @@ function JobDetails() {
                                   document_charge_details: value,
                                 });
                               }
-                              setSelectedChargesDocuments(updatedChargesDocuments);
+                              setSelectedChargesDocuments(
+                                updatedChargesDocuments
+                              );
                             }
                           }}
                           style={{ marginTop: "5px" }}
@@ -3383,22 +3433,32 @@ function JobDetails() {
                     <ImagePreview
                       images={selectedChargesDoc.url || []}
                       onDeleteImage={(deleteIndex) => {
-                        const updatedChargesDocuments = [...selectedChargesDocuments];
+                        const updatedChargesDocuments = [
+                          ...selectedChargesDocuments,
+                        ];
                         const docIndex = updatedChargesDocuments.findIndex(
-                          (selected) => selected.document_name === doc.document_name
+                          (selected) =>
+                            selected.document_name === doc.document_name
                         );
                         if (docIndex !== -1) {
-                          updatedChargesDocuments[docIndex].url = updatedChargesDocuments[
-                            docIndex
-                          ].url.filter((_, i) => i !== deleteIndex);
+                          updatedChargesDocuments[docIndex].url =
+                            updatedChargesDocuments[docIndex].url.filter(
+                              (_, i) => i !== deleteIndex
+                            );
                           setSelectedChargesDocuments(updatedChargesDocuments);
                         }
                       }}
                       readOnly={false}
                     />
-                    
+
                     {/* Delete button for custom documents only */}
-                    {!["Notary", "Duty", "MISC", "CE Certification Charges", "ADC/NOC Charges"].includes(doc.document_name) && (
+                    {![
+                      "Notary",
+                      "Duty",
+                      "MISC",
+                      "CE Certification Charges",
+                      "ADC/NOC Charges",
+                    ].includes(doc.document_name) && (
                       <div
                         style={{
                           position: "absolute",
@@ -3413,12 +3473,16 @@ function JobDetails() {
                             (_, i) => i !== index
                           );
                           setChargesDetails(updatedChargesDetails);
-                          
+
                           // Remove from selectedChargesDocuments
-                          const updatedSelectedChargesDocuments = selectedChargesDocuments.filter(
-                            (selected) => selected.document_name !== doc.document_name
+                          const updatedSelectedChargesDocuments =
+                            selectedChargesDocuments.filter(
+                              (selected) =>
+                                selected.document_name !== doc.document_name
+                            );
+                          setSelectedChargesDocuments(
+                            updatedSelectedChargesDocuments
                           );
-                          setSelectedChargesDocuments(updatedSelectedChargesDocuments);
                         }}
                       >
                         <i className="fas fa-trash-alt" title="Delete"></i>
@@ -3443,7 +3507,7 @@ function JobDetails() {
                   onKeyDown={preventFormSubmitOnEnter}
                 />
               </Col>
-              
+
               <Col
                 xs={12}
                 lg={2}
@@ -3454,8 +3518,13 @@ function JobDetails() {
                   className="btn"
                   style={{ marginTop: "8px", height: "fit-content" }}
                   onClick={() => {
-                    if (newChargesDocumentName.trim() && 
-                        !chargesDetails.some(doc => doc.document_name === newChargesDocumentName.trim())) {
+                    if (
+                      newChargesDocumentName.trim() &&
+                      !chargesDetails.some(
+                        (doc) =>
+                          doc.document_name === newChargesDocumentName.trim()
+                      )
+                    ) {
                       setChargesDetails([
                         ...chargesDetails,
                         {
@@ -3465,8 +3534,13 @@ function JobDetails() {
                       setNewChargesDocumentName("");
                     }
                   }}
-                  disabled={!newChargesDocumentName.trim() || 
-                           chargesDetails.some(doc => doc.document_name === newChargesDocumentName.trim())}
+                  disabled={
+                    !newChargesDocumentName.trim() ||
+                    chargesDetails.some(
+                      (doc) =>
+                        doc.document_name === newChargesDocumentName.trim()
+                    )
+                  }
                 >
                   Add Custom Charge Document
                 </button>
@@ -3474,7 +3548,7 @@ function JobDetails() {
             </Row>
           </div>
           {/* charges section end */}
-          
+
           {/* test232423242 */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="All Documents" />
@@ -3721,33 +3795,35 @@ function JobDetails() {
                     </Row>
 
                     <br />
-                <Row>
-    <Col xs={12} lg={3}>
-      <div className="job-detail-input-container">
-        <strong>Arrival Date:&nbsp;</strong>
-        {formik.values.checked ? (
-          <span>{container.arrival_date || "Not Available"}</span>
-        ) : (
-          <TextField
-            fullWidth
-            size="small"
-            margin="normal"
-            variant="outlined"
-            type="datetime-local"
-            id={`arrival_date_${index}`}
-            name={`container_nos[${index}].arrival_date`}
-            value={container.arrival_date}
-            disabled={
-              ExBondflag ||
-              (LCLFlag
-                ? !container.by_road_movement_date
-                : !container.container_rail_out_date)
-            }
-            onChange={formik.handleChange}
-          />
-        )}
-      </div>
-    </Col>
+                    <Row>
+                      <Col xs={12} lg={3}>
+                        <div className="job-detail-input-container">
+                          <strong>Arrival Date:&nbsp;</strong>
+                          {formik.values.checked ? (
+                            <span>
+                              {container.arrival_date || "Not Available"}
+                            </span>
+                          ) : (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              type="datetime-local"
+                              id={`arrival_date_${index}`}
+                              name={`container_nos[${index}].arrival_date`}
+                              value={container.arrival_date}
+                              disabled={
+                                ExBondflag ||
+                                (LCLFlag
+                                  ? !container.by_road_movement_date
+                                  : !container.container_rail_out_date)
+                              }
+                              onChange={formik.handleChange}
+                            />
+                          )}
+                        </div>
+                      </Col>
 
                       {/* <Col xs={12} lg={1}>
                         <div className="job-detail-input-container">
@@ -4352,10 +4428,10 @@ function JobDetails() {
         open={dutyModalOpen}
         onClose={handleCloseDutyModal}
         onSubmit={handleDutySubmit}
-       rowData={{
-  ...formik.values,
-  job_no: params.job_no
-}} 
+        rowData={{
+          ...formik.values,
+          job_no: params.job_no,
+        }}
         dates={{
           assessment_date: formik.values.assessment_date,
           duty_paid_date: formik.values.duty_paid_date,

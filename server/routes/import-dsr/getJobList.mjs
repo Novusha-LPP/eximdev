@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ const buildSearchQuery = (search) => ({
 
 
 // API to fetch jobs with pagination, sorting, and search
-router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", async (req, res) => {
+router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", applyUserImporterFilter, async (req, res) => {
   try {
     const { year, status, detailedStatus, importer, selectedICD } = req.params;
     const { page = 1, limit = 100, search = "" } = req.query;
@@ -80,13 +81,38 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
 
     // Function to escape special characters in regex
     const escapeRegex = (string) => {
-      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"); // Escaping special characters for MongoDB regex
+      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
     };
 
-    // Handle importer filtering with proper escaping
-    if (importer && importer.toLowerCase() !== "all") {
-      query.importer = { $regex: `^${escapeRegex(importer)}$`, $options: "i" };
+    // Initialize $and array for complex queries
+    if (!query.$and) query.$and = [];
+
+    // Apply user-based Importer filter from middleware FIRST
+    if (req.userImporterFilter) {
+      // User has specific Importer restrictions
+      query.$and.push(req.userImporterFilter);
     }
+
+    // Handle additional importer filtering from URL params
+    // Only apply if user doesn't have restrictions OR if it's more restrictive
+    if (importer && importer.toLowerCase() !== "all" && !req.userImporterFilter) {
+      query.importer = { $regex: `^${escapeRegex(importer)}$`, $options: "i" };
+    } else if (importer && importer.toLowerCase() !== "all" && req.userImporterFilter) {
+      // If user has restrictions, ensure the requested importer is in their allowed list
+      const userImporters = req.currentUser?.assignedImporterName || [];
+      const isImporterAllowed = userImporters.some(userImp => 
+        userImp.toLowerCase() === importer.toLowerCase()
+      );
+      
+      if (isImporterAllowed) {
+        // Override the user filter with the specific importer
+        query.$and = query.$and.filter(condition => !condition.importer); // Remove existing importer filter
+        query.importer = { $regex: `^${escapeRegex(importer)}$`, $options: "i" };
+      }
+      // If not allowed, keep the user filter (will show no results for this importer)
+    }
+
+    // Handle ICD filtering
     if (selectedICD && selectedICD.toLowerCase() !== "all") {
       query.custom_house = { $regex: `^${escapeRegex(selectedICD)}$`, $options: "i" };
     }
@@ -95,7 +121,7 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
     const statusLower = status.toLowerCase();
 
     if (statusLower === "pending") {
-      query.$and = [
+      query.$and.push(
         { status: { $regex: "^pending$", $options: "i" } },
         { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
         {
@@ -103,10 +129,10 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
             { bill_date: { $in: [null, ""] } },
             { status: { $regex: "^pending$", $options: "i" } },
           ],
-        },
-      ];
+        }
+      );
     } else if (statusLower === "completed") {
-      query.$and = [
+      query.$and.push(
         { status: { $regex: "^completed$", $options: "i" } },
         { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
         {
@@ -114,23 +140,20 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
             { bill_date: { $nin: [null, ""] } },
             { status: { $regex: "^completed$", $options: "i" } },
           ],
-        },
-      ];
+        }
+      );
     } else if (statusLower === "cancelled") {
-      query.$and = [
-        {
-          $or: [
-            { status: { $regex: "^cancelled$", $options: "i" } },
-            { be_no: { $regex: "^cancelled$", $options: "i" } },
-          ],
-        },
-      ];
-      if (search) query.$and.push(buildSearchQuery(search));
+      query.$and.push({
+        $or: [
+          { status: { $regex: "^cancelled$", $options: "i" } },
+          { be_no: { $regex: "^cancelled$", $options: "i" } },
+        ],
+      });
     } else {
-      query.$and = [
+      query.$and.push(
         { status: { $regex: `^${status}$`, $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-      ];
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }
+      );
     }
 
     // Handle detailedStatus filtering using a mapping object
@@ -151,9 +174,14 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
       query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
     }
 
-    // Add search filter if provided (for non-cancelled cases)
-    if (search && statusLower !== "cancelled") {
+    // Add search filter if provided
+    if (search) {
       query.$and.push(buildSearchQuery(search));
+    }
+
+    // Remove empty $and array if no conditions were added
+    if (query.$and && query.$and.length === 0) {
+      delete query.$and;
     }
 
     // Fetch jobs from the database
@@ -199,6 +227,7 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", asy
       total: allJobs.length,
       currentPage: parseInt(page),
       totalPages: Math.ceil(allJobs.length / limit),
+      userImporters: req.currentUser?.assignedImporterName || [], // Include user's allowed importers in response
     });
   } catch (error) {
     console.error("Error fetching jobs:", error);

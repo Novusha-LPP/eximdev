@@ -312,7 +312,8 @@ if (cluster.isPrimary) {
         'Authorization',
         'user-id',
         'username',
-        'user-role'
+        'user-role',
+        'x-username'
       ],
     })
   );

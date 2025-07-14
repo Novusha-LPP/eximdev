@@ -86,3 +86,84 @@ export default applyUserIcdFilter;
 
 // Named export for flexibility
 export const icdFilter = applyUserIcdFilter;
+
+/**
+ * Middleware to apply Importer filtering based on user permissions
+ * This middleware will:
+ * 1. Extract username from request (params.username first, then headers, body, or query)
+ * 2. Fetch user's assigned importers from database
+ * 3. Apply automatic filtering based on user's importer permissions
+ * 4. Allow full access for admins or users with "ALL" importer access
+ */
+// Helper function to escape special characters in regex
+export const applyUserImporterFilter = async (req, res, next) => {
+  try {
+    let username =
+      req.params?.username ||
+      req.query?.username ||
+      req.headers['x-username'] ||
+      req.body?.username;
+
+    if (!username) {
+      console.warn('⚠️ No username provided for Importer filtering');
+      return next();
+    }
+
+    // Fetch user data from database
+    const user = await UserModel.findOne({ username }).select('assigned_importer_name role');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Admin users get full access (no filtering)
+    if (user.role === "Admin") {
+      req.userImporterFilter = null;
+      req.importerFilterCondition = {};
+      return next();
+    }
+
+    // Check if user has assigned importers
+    if (user.assigned_importer_name && user.assigned_importer_name.length > 0) {
+      // Check if user has "ALL" access
+      const hasAllAccess = user.assigned_importer_name.some(imp => 
+        imp.toUpperCase() === "ALL"
+      );
+
+      if (hasAllAccess) {
+        req.userImporterFilter = null;
+        req.importerFilterCondition = {};
+      } else {
+        // Create filter for specific importers
+        const importerFilter = {
+          importer: {
+            $in: user.assigned_importer_name.map(imp => 
+              new RegExp(`^${escapeRegex(imp.trim())}$`, 'i')
+            )
+          }
+        };
+        req.userImporterFilter = importerFilter;
+        req.importerFilterCondition = importerFilter;
+      }
+    } else {
+      // User has no importers assigned - show no jobs
+      const emptyFilter = {
+        importer: { $in: [] }
+      };
+      req.userImporterFilter = emptyFilter;
+      req.importerFilterCondition = emptyFilter;
+    }
+
+    // Store user info for potential use in route handlers
+    req.currentUser = {
+      ...(req.currentUser || {}),
+      assignedImporterName: user.assigned_importer_name || [],
+      role: user.role
+    };
+
+    next();
+  } catch (error) {
+    console.error('Error in Importer filter middleware:', error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

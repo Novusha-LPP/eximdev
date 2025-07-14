@@ -20,6 +20,7 @@ import { importerOptions } from "../../MasterLists/MasterLists"; // Ensure the p
 const formattedImporterOptions = importerOptions.map((name) => ({ name }));
 
 function UserDetails({ selectedUser, onClose, onSave }) {
+  const [userData, setUserData] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -28,14 +29,45 @@ function UserDetails({ selectedUser, onClose, onSave }) {
   });
   const [loading, setLoading] = useState(false);
 
-  // Initialize selectedOptions when selectedUser changes
+  // Fetch user data if selectedUser is a string (username)
   useEffect(() => {
-    if (selectedUser?.assigned_importer_name) {
-      setSelectedOptions(
-        selectedUser.assigned_importer_name.map((name) => ({ name }))
-      );
+    const fetchUserData = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
+        );
+        setUserData(res.data);
+        // Set current importers if user already has them assigned
+        const currentImporters = res.data.assigned_importer_name || [];
+        setSelectedOptions(currentImporters.map((name) => ({ name })));
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setSnackbar({
+          open: true,
+          message: "Error fetching user information",
+          type: "error",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (typeof selectedUser === "string" && selectedUser) {
+      fetchUserData();
+    } else if (selectedUser && typeof selectedUser === "object") {
+      // If already an object, use as before
+      if (selectedUser.assigned_importer_name) {
+        setSelectedOptions(
+          selectedUser.assigned_importer_name.map((name) => ({ name }))
+        );
+      } else {
+        setSelectedOptions([]);
+      }
+      setUserData(selectedUser);
     } else {
       setSelectedOptions([]);
+      setUserData(null);
     }
   }, [selectedUser]);
 
@@ -48,7 +80,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
     try {
       // Make API call to update importers
       await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/users/${selectedUser?._id}/importers`,
+        `${process.env.REACT_APP_API_STRING}/users/${userData?._id}/importers`,
         { importers: selectedOptions.map((option) => option.name) }
       );
 
@@ -91,17 +123,17 @@ function UserDetails({ selectedUser, onClose, onSave }) {
       <CardContent>
         {/* User Avatar */}
         <Avatar
-          src={selectedUser?.employee_photo || "/default-avatar.png"}
-          alt={selectedUser?.username}
+          src={userData?.employee_photo || "/default-avatar.png"}
+          alt={userData?.username}
           style={{ width: "80px", height: "80px", margin: "0 auto 20px" }}
         />
 
         {/* User Information */}
         <Typography variant="h5" align="center" gutterBottom>
-          {selectedUser?.username}
+          {userData?.username}
         </Typography>
         <Typography variant="body1" align="center" gutterBottom>
-          Role: {selectedUser?.role}
+          Role: {userData?.role}
         </Typography>
 
         {/* Importers Autocomplete */}

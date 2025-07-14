@@ -16,6 +16,7 @@ import {
   Autocomplete,
   InputAdornment,
   Box,
+  Button,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
@@ -65,6 +66,8 @@ SearchInput.displayName = 'SearchInput';
 
 
 function JobList(props) {
+  const showUnresolvedOnly = props.showUnresolvedOnly;
+
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
@@ -138,7 +141,7 @@ function JobList(props) {
       selectedICD,
       debouncedSearchQuery,
       selectedImporter,
-      user?.username // Pass username for ICD filtering
+      showUnresolvedOnly // Use prop from JobTabs
     );  // Callback to update row data when data changes in EditableDateCell
   const handleRowDataUpdate = useCallback((jobId, updatedData) => {
     setRows(prevRows => 
@@ -226,7 +229,29 @@ function JobList(props) {
       sx: { textAlign: "center" },
     }),
     [rows, refreshTrigger] // Add refreshTrigger as dependency to force re-calculation
-  );  const table = useMaterialReactTable({
+  );  // Add unresolved queries filter state
+  // Helper to check if a job has any unresolved queries
+  const hasUnresolvedQuery = (job) => {
+    const queryKeys = [
+      "do_queries",
+      "documentationQueries",
+      "eSachitQueries",
+      "submissionQueries",
+    ];
+    return queryKeys.some((key) => {
+      const queries = job[key];
+      if (!Array.isArray(queries)) return false;
+      return queries.some(
+        (q) => !(q.resolved === true || (!!q.reply && q.reply.trim() !== ""))
+      );
+    });
+  };
+
+  // Filtered table data based on unresolved toggle
+  const filteredRows = useMemo(() => {
+    if (!showUnresolvedOnly) return rows;
+    return rows.filter(hasUnresolvedQuery);
+  }, [rows, showUnresolvedOnly]);  const table = useMaterialReactTable({
     columns,
     data: tableData,
     enableColumnResizing: true,

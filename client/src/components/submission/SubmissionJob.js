@@ -49,14 +49,14 @@ const SubmissionCompletedWatcher = () => {
 
     // Only clear submission completed if verified checklist is removed
     // This allows manual control over the submission completed checkbox
-    if (!verified_checklist_upload_date_and_time && submission_completed_date_time) {
+    if (
+      !verified_checklist_upload_date_and_time &&
+      submission_completed_date_time
+    ) {
       setFieldValue("submission_completed_date_time", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    values.verified_checklist_upload_date_and_time,
-    setFieldValue,
-  ]);
+  }, [values.verified_checklist_upload_date_and_time, setFieldValue]);
 
   return null; // This component doesn't render anything
 };
@@ -77,13 +77,9 @@ const SubmissionJob = () => {
   // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        selectedJobId,
-        currentPage 
-      } = location.state;
-      
+      const { searchQuery, selectedImporter, selectedJobId, currentPage } =
+        location.state;
+
       const params = {
         searchQuery,
         selectedImporter,
@@ -94,8 +90,7 @@ const SubmissionJob = () => {
     }
   }, [location.state]);
   // Handle back click function
- const handleBackClick = () => {
-    
+  const handleBackClick = () => {
     navigate("/submission", {
       state: {
         fromJobDetails: true,
@@ -108,7 +103,6 @@ const SubmissionJob = () => {
       },
     });
   };
-
 
   const extractFileName = (url) => {
     try {
@@ -163,26 +157,26 @@ const SubmissionJob = () => {
           values.job_sticker_upload_date_and_time,
         be_date: values.be_date,
         submissionQueries: submissionQueries,
-      };      
-      
+      };
+
       // Get user data from localStorage for audit trail
       const userData = JSON.parse(localStorage.getItem("exim_user")) || {};
-      
+
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
         payload,
         {
           headers: {
-            'user-id': userData._id || user?._id || 'unknown',
-            'username': userData.username || user?.username || 'unknown',
-            'user-role': userData.role || user?.role || 'unknown'
-          }
+            "user-id": userData._id || user?._id || "unknown",
+            username: userData.username || user?.username || "unknown",
+            "user-role": userData.role || user?.role || "unknown",
+          },
         }
       );
-      
+
       // Optionally, show a success message
       // alert("Job details updated successfully!");
-      
+
       navigate("/submission", {
         state: {
           fromJobDetails: true,
@@ -372,74 +366,115 @@ const SubmissionJob = () => {
             validationSchema={SubmissionJobSchema}
             onSubmit={handleSubmit}
           >
-            
             {({ values, setFieldValue, isSubmitting }) => (
               <Form>
                 {/* Include the SubmissionCompletedWatcher here */}
                 <SubmissionCompletedWatcher />
 
-    {/* Submission Queries Section */}
+                {/* Submission Queries Section */}
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Submission Queries" />
-                  {Array.isArray(submissionQueries) && submissionQueries.map((item, id) => (
-                    <Row key={id}>
-                      <Col xs={12} lg={5}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          size="small"
-                          label="Query"
-                          value={item.query}
-                          onChange={e => {
-                            const updated = [...submissionQueries];
-                            updated[id].query = e.target.value;
-                            setSubmissionQueries(updated);
-                          }}
-                        />
-                      </Col>
-                      <Col xs={12} lg={5}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          size="small"
-                          label="Reply"
-                          value={item.reply}
-                          InputProps={{
-                        readOnly: true, // Make the field read-only
-                      }}
-                          onChange={e => {
-                            const updated = [...submissionQueries];
-                            updated[id].reply = e.target.value;
-                            setSubmissionQueries(updated);
-                          }}
-                        />
-                      </Col>
-                      <Col xs={12} lg={2} style={{ display: 'flex', alignItems: 'center' }}>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          onClick={() => {
-                            const updated = [...submissionQueries];
-                            updated.splice(id, 1);
-                            setSubmissionQueries(updated);
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </Col>
-                    </Row>
-                  ))}
+                  {Array.isArray(submissionQueries) &&
+                    submissionQueries.map((item, id) => {
+                      const isResolved = item.resolved === true;
+                      return (
+                        <Row key={id} style={{ marginBottom: "20px" }}>
+                          <Col xs={12} lg={5}>
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={2}
+                              size="small"
+                              label={isResolved ? "Query (Resolved)" : "Query"}
+                              value={item.query}
+                              onChange={(e) => {
+                                const updated = [...submissionQueries];
+                                updated[id].query = e.target.value;
+                                setSubmissionQueries(updated);
+                              }}
+                              disabled={isResolved}
+                              InputProps={{
+                                style: isResolved
+                                  ? {
+                                      border: "2px solid #4caf50",
+                                      background: "#eaffea",
+                                    }
+                                  : {},
+                              }}
+                            />
+                          </Col>
+                          <Col xs={12} lg={5}>
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={2}
+                              size="small"
+                              label={isResolved ? "Reply (Resolved)" : "Reply"}
+                              value={item.reply}
+                              InputProps={{
+                                readOnly: true,
+                                style: isResolved
+                                  ? {
+                                      border: "2px solid #4caf50",
+                                      background: "#eaffea",
+                                    }
+                                  : {},
+                              }}
+                              onChange={(e) => {
+                                const updated = [...submissionQueries];
+                                updated[id].reply = e.target.value;
+                                setSubmissionQueries(updated);
+                              }}
+                            />
+                          </Col>
+                          {isResolved && (
+                            <Col
+                              xs={12}
+                              lg={2}
+                              style={{ display: "flex", alignItems: "center" }}
+                            >
+                              <span
+                                style={{
+                                  color: "#388e3c",
+                                  fontWeight: "bold",
+                                  marginLeft: 8,
+                                }}
+                              >
+                                Resolved
+                              </span>
+                            </Col>
+                          )}
+                          {!isResolved && (
+                            <Col
+                              xs={12}
+                              lg={2}
+                              style={{ display: "flex", alignItems: "center" }}
+                            >
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                size="small"
+                                onClick={() => {
+                                  const updated = [...submissionQueries];
+                                  updated.splice(id, 1);
+                                  setSubmissionQueries(updated);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </Col>
+                          )}
+                        </Row>
+                      );
+                    })}
                   <button
                     type="button"
                     onClick={() => {
-                      setSubmissionQueries(prev => (
+                      setSubmissionQueries((prev) =>
                         Array.isArray(prev)
                           ? [...prev, { query: "", reply: "" }]
                           : [{ query: "", reply: "" }]
-                      ));
+                      );
                     }}
                     className="btn"
                     style={{ marginTop: 8 }}
@@ -708,8 +743,6 @@ const SubmissionJob = () => {
                   {/* </Row> */}
                 </div>
 
-                
-
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Submission Completed" />
                   <Row>
@@ -801,7 +834,7 @@ const SubmissionJob = () => {
                     </Col>
                   </Row>
                 </div>
-            
+
                 <button
                   className="btn sticky-btn"
                   type="submit"

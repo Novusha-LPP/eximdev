@@ -75,7 +75,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", applyUserImporterFilter, async (req, res) => {
   try {
     const { year, status, detailedStatus, importer, selectedICD } = req.params;
-    const { page = 1, limit = 100, search = "" } = req.query;
+    const { page = 1, limit = 100, search = "", unresolvedOnly } = req.query;
     const skip = (page - 1) * limit;
     const query = { year };
 
@@ -177,6 +177,20 @@ router.get("/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer", app
     // Add search filter if provided
     if (search) {
       query.$and.push(buildSearchQuery(search));
+    }
+
+    // Add unresolvedOnly filter if requested
+    if (unresolvedOnly === "true") {
+      // Each query array: do_queries, documentationQueries, eSachitQueries, submissionQueries
+      // We want jobs where at least one of these arrays has an item that is not resolved and has empty or missing reply
+     query.$and.push({
+  $or: [
+    { do_queries: { $elemMatch: { $or: [ { resolved: { $ne: true } }, { reply: { $in: [null, ""] } } ], $nor: [ { resolved: true, reply: { $nin: [null, ""] } } ] } } },
+    { documentationQueries: { $elemMatch: { $or: [ { resolved: { $ne: true } }, { reply: { $in: [null, ""] } } ], $nor: [ { resolved: true, reply: { $nin: [null, ""] } } ] } } },
+    { eSachitQueries: { $elemMatch: { $or: [ { resolved: { $ne: true } }, { reply: { $in: [null, ""] } } ], $nor: [ { resolved: true, reply: { $nin: [null, ""] } } ] } } },
+    { submissionQueries: { $elemMatch: { $or: [ { resolved: { $ne: true } }, { reply: { $in: [null, ""] } } ], $nor: [ { resolved: true, reply: { $nin: [null, ""] } } ] } } },
+  ]
+});
     }
 
     // Remove empty $and array if no conditions were added

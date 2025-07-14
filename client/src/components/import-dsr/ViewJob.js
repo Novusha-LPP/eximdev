@@ -4,9 +4,12 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 // import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
 import {
   IconButton,
   TextField,
+  Tooltip,
   InputLabel,
   Select,
   Typography,
@@ -139,6 +142,13 @@ function JobDetails() {
       },
     });
   };
+
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    type: "", // "delete" or "resolve"
+    queryKey: "",
+    queryIndex: null,
+  });
 
   const options = Array.from({ length: 25 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
@@ -653,6 +663,103 @@ function JobDetails() {
             />
           </div>
           {/* Importer info End*/}
+
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Queries" />
+            <br />
+
+            {[
+              { key: "do_queries", label: "DO Queries" },
+              { key: "documentationQueries", label: "Documentation Queries" },
+              { key: "eSachitQueries", label: "E-Sanchit Queries" },
+              { key: "submissionQueries", label: "Submission Queries" },
+            ].map(
+              ({ key, label }) =>
+                formik.values[key]?.length > 0 && (
+                  <div key={key}>
+                    <h5 className="mt-3">{label}</h5>
+                    {formik.values[key].map((item, id) => {
+                      const isResolved = item.resolved;
+                      const namePrefix = `${key}[${id}]`;
+
+                      return (
+                        <Row key={id} className="align-items-center mb-3">
+                          <Col xs={12} md={5}>
+                            <strong>{item.query}</strong>
+                          </Col>
+
+                          <Col xs={12} md={5}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="dense"
+                              variant="outlined"
+                              id={`${namePrefix}.reply`}
+                              name={`${namePrefix}.reply`}
+                              label="Reply"
+                              value={item.reply}
+                              disabled={isResolved}
+                              onChange={formik.handleChange}
+                            />
+                          </Col>
+
+                          <Col
+                            xs={12}
+                            md={2}
+                            className="d-flex align-items-center gap-2 mt-2 mt-md-0"
+                          >
+                            {!isResolved && (
+                              <Tooltip title="Mark as Resolved">
+                                <IconButton
+                                  color="success"
+                                  onClick={() =>
+                                    setConfirmDialog({
+                                      open: true,
+                                      type: "resolve",
+                                      queryKey: key,
+                                      queryIndex: id,
+                                    })
+                                  }
+                                >
+                                  <CheckCircleIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
+                            {isResolved && (
+                              <Tooltip title="Resolved">
+                                <IconButton disabled>
+                                  <DoneAllIcon color="disabled" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
+                            {user.role === "Admin" && (
+                              <Tooltip title="Delete Query">
+                                <IconButton
+                                  color="error"
+                                  onClick={() =>
+                                    setConfirmDialog({
+                                      open: true,
+                                      type: "delete",
+                                      queryKey: key,
+                                      queryIndex: id,
+                                    })
+                                  }
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Col>
+                        </Row>
+                      );
+                    })}
+                  </div>
+                )
+            )}
+          </div>
+
           {/* completion status start*/}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Completion Status" />
@@ -3576,97 +3683,6 @@ function JobDetails() {
             </Col>
           </div>
 
-          {/* Queries status start  */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Queries" />
-            <br />
-            {formik.values.do_queries.length > 0 &&
-              formik.values.do_queries.map((item, id) => (
-                <Row key={id}>
-                  {id === 0 && <h5>DO Queries</h5>}
-
-                  <Col xs={6}>{item.query}</Col>
-                  <Col xs={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      id={`do_queries[${id}].reply`}
-                      name={`do_queries[${id}].reply`}
-                      label="Reply"
-                      value={item.reply}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                </Row>
-              ))}
-            {formik.values.documentationQueries.length > 0 &&
-              formik.values.documentationQueries.map((item, id) => (
-                <Row key={id}>
-                  <br />
-                  {id === 0 && <h5>Documentation Queries</h5>}
-                  <Col>{item.query}</Col>
-                  <Col>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      id={`documentationQueries[${id}].reply`}
-                      name={`documentationQueries[${id}].reply`}
-                      label="Reply"
-                      value={item.reply}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                </Row>
-              ))}
-            {formik.values.eSachitQueries.length > 0 &&
-              formik.values.eSachitQueries.map((item, id) => (
-                <Row key={id}>
-                  <br />
-                  {id === 0 && <h5>E-Sanchit Queries</h5>}
-                  <Col>{item.query}</Col>
-                  <Col>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      id={`eSachitQueries[${id}].reply`}
-                      name={`eSachitQueries[${id}].reply`}
-                      label="Reply"
-                      value={item.reply}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                </Row>
-              ))}
-            {formik.values.submissionQueries.length > 0 &&
-              formik.values.submissionQueries.map((item, id) => (
-                <Row key={id}>
-                  <br />
-                  {id === 0 && <h5>Submission Queries</h5>}
-                  <Col>{item.query}</Col>
-                  <Col>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      id={`submissionQueries[${id}].reply`}
-                      name={`submissionQueries[${id}].reply`}
-                      label="Reply"
-                      value={item.reply}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                </Row>
-              ))}
-          </div>
-          {/* Queries status end  */}
-
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Container Details" />
             {/* {formik.values.status !== "" && 
@@ -4312,7 +4328,6 @@ function JobDetails() {
           </Row>
         </form>
       )}
-
       {/* Snackbar */}
       <Snackbar
         open={snackbar || fileSnackbar}
@@ -4380,7 +4395,6 @@ function JobDetails() {
           </Button>
         </Modal.Footer>
       </Modal> */}
-
       {/* Confirm Deletion */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>
@@ -4422,6 +4436,53 @@ function JobDetails() {
         editValues={editValues}
         onEditChange={setEditValues}
       />
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
+      >
+        <DialogTitle>
+          {confirmDialog.type === "delete"
+            ? "Delete Query?"
+            : "Mark as Resolved?"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {confirmDialog.type === "delete"
+              ? "Are you sure you want to delete this query?"
+              : "Are you sure you want to mark this query as resolved?"}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              const { queryKey, queryIndex, type } = confirmDialog;
+              const updated = [...formik.values[queryKey]];
+
+              if (type === "delete") {
+                updated.splice(queryIndex, 1);
+              } else if (type === "resolve") {
+                updated[queryIndex].resolved = true;
+              }
+
+              formik.setFieldValue(queryKey, updated);
+              setConfirmDialog({
+                open: false,
+                type: "",
+                queryKey: "",
+                queryIndex: null,
+              });
+            }}
+            color={confirmDialog.type === "delete" ? "error" : "success"}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* IGST Modal */}
       <IgstModal

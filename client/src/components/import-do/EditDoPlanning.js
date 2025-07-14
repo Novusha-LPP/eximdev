@@ -723,8 +723,9 @@ function EditDoPlanning() {
               <div className="job-details-container">
                 <h5>DO Queries</h5>
                 {formik.values.do_queries.map((item, id) => {
+                  const isResolved = item.resolved === true || (!!item.reply && item.reply.trim() !== "");
                   return (
-                    <div key={id}>
+                    <div key={id} style={{ marginBottom: 16 }}>
                       <TextField
                         fullWidth
                         size="small"
@@ -732,15 +733,37 @@ function EditDoPlanning() {
                         variant="outlined"
                         id={`do_queries[${id}].query`}
                         name={`do_queries[${id}].query`}
-                        label="Query"
+                        label={isResolved ? "Query (Resolved)" : "Query"}
                         value={item.query}
                         onChange={formik.handleChange}
+                        disabled={isResolved}
+                        InputProps={{
+                          style: isResolved ? { border: '2px solid #4caf50', background: '#eaffea' } : {},
+                        }}
                       />
-                      {item.reply}
+                      <TextField
+                        fullWidth
+                        size="small"
+                        margin="normal"
+                        variant="outlined"
+                        id={`do_queries[${id}].reply`}
+                        name={`do_queries[${id}].reply`}
+                        label={isResolved ? "Reply (Resolved)" : "Reply"}
+                        value={item.reply}
+                        InputProps={{
+                          readOnly: true,
+                          style: isResolved ? { border: '2px solid #4caf50', background: '#eaffea' } : {},
+                        }}
+                        onChange={formik.handleChange}
+                      />
+                      {isResolved && (
+                        <span style={{ color: '#388e3c', fontWeight: 'bold', marginLeft: 8 }}>
+                          Resolved
+                        </span>
+                      )}
                     </div>
                   );
                 })}
-                <br />
                 <button type="button" className="btn" onClick={handleAddField}>
                   Add Query
                 </button>

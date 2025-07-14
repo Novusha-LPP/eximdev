@@ -40,7 +40,7 @@ const cth_Dropdown = [
 ];
 
 function ViewESanchitJob() {
-  const routeLocation = useLocation()
+  const routeLocation = useLocation();
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [data, setData] = useState({ cth_documents: [], esanchitCharges: [] });
@@ -50,7 +50,7 @@ function ViewESanchitJob() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
   const [editDocument, setEditDocument] = useState(null);
-  
+
   // Charges section state
   const [esanchitCharges, setEsanchitCharges] = useState([
     {
@@ -68,40 +68,40 @@ function ViewESanchitJob() {
       document_charge_recipt_copy: "",
     },
   ]);
-  
+
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { setCurrentTab } = useContext(TabContext);
   const isTrue = routeLocation.state?.currentTab || false;
-  
+
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   const {
     setSearchQuery,
     setSelectedImporter,
-      setCurrentPageTab0,
+    setCurrentPageTab0,
     setCurrentPageTab1,
   } = useSearchQuery();
 
   const isAdmin = user.role === "Admin"; // Check if user is an Admin
-  const isDisabled = (!isAdmin && isTrue === 1);
+  const isDisabled = !isAdmin && isTrue === 1;
 
   // Store search parameters from location state
   useEffect(() => {
     if (routeLocation.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
+      const {
+        searchQuery,
+        selectedImporter,
         currentTab,
         selectedJobId,
         selectedICD,
         selectedYearState,
         detailedStatusExPlan,
         currentPage,
-        tab_number
+        tab_number,
       } = routeLocation.state;
-          
+
       const params = {
         searchQuery,
         selectedImporter,
@@ -112,15 +112,15 @@ function ViewESanchitJob() {
         detailedStatusExPlan,
         currentPage,
       };
-      
+
       setStoredSearchParams(params);
     }
-  }, [routeLocation.state]);  // Handle back click function
+  }, [routeLocation.state]); // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
     // Set the current tab in context
     setCurrentTab(tabIndex);
-    
+
     navigate("/e-sanchit", {
       state: {
         fromJobDetails: true,
@@ -138,7 +138,6 @@ function ViewESanchitJob() {
     });
   };
 
-
   // Fetch data
   useEffect(() => {
     async function getData() {
@@ -148,7 +147,7 @@ function ViewESanchitJob() {
         );
         const jobData = res.data || { cth_documents: [], esanchitCharges: [] };
         setData(jobData);
-        
+
         // Initialize esanchitCharges with data from database
         if (jobData.esanchitCharges && jobData.esanchitCharges.length > 0) {
           setEsanchitCharges(jobData.esanchitCharges);
@@ -178,28 +177,28 @@ function ViewESanchitJob() {
           esanchit_completed_date_time:
             values.esanchit_completed_date_time || "",
         };
-        
+
         // Get user info from localStorage for audit trail
-const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
-      };        
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
+        };
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
           formattedData,
           { headers }
         );
         setSnackbar(true);
-        
+
         // Determine which tab to navigate to
         const tabIndex = storedSearchParams?.currentTab ?? 0;
-        
+
         // Set the current tab in context
         setCurrentTab(tabIndex);
-        
+
         // Navigate back with all the stored search parameters
         navigate("/e-sanchit", {
           state: {
@@ -216,7 +215,6 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
             }),
           },
         });
-        
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -395,7 +393,7 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
               params={params}
               setSnackbar={setSnackbar}
             />
-            
+
             {/* Charges section */}
             <div className="job-details-container">
               <h4>Charges</h4>
@@ -411,21 +409,22 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
                 >
                   <Row className="align-items-center">
                     {/* File Upload & Image Preview */}
-                    <Col
-                      xs={12}
-                      lg={4}
-                      style={{ marginBottom: "20px" }}
-                    >
+                    <Col xs={12} lg={4} style={{ marginBottom: "20px" }}>
                       <FileUpload
                         label={charge.document_name}
                         bucketPath={`esanchit-charges/${charge.document_name}`}
                         onFilesUploaded={(urls) => {
-                          const updatedCharges = [...formik.values.esanchitCharges];
+                          const updatedCharges = [
+                            ...formik.values.esanchitCharges,
+                          ];
                           updatedCharges[index].url = [
                             ...(updatedCharges[index].url || []),
                             ...urls,
                           ];
-                          formik.setFieldValue("esanchitCharges", updatedCharges);
+                          formik.setFieldValue(
+                            "esanchitCharges",
+                            updatedCharges
+                          );
                           setFileSnackbar(true);
                         }}
                         multiple={true}
@@ -434,9 +433,14 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
                       <ImagePreview
                         images={charge.url || []}
                         onDeleteImage={(deleteIndex) => {
-                          const updatedCharges = [...formik.values.esanchitCharges];
+                          const updatedCharges = [
+                            ...formik.values.esanchitCharges,
+                          ];
                           updatedCharges[index].url.splice(deleteIndex, 1);
-                          formik.setFieldValue("esanchitCharges", updatedCharges);
+                          formik.setFieldValue(
+                            "esanchitCharges",
+                            updatedCharges
+                          );
                         }}
                         readOnly={isDisabled}
                       />
@@ -448,7 +452,10 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
                         size="small"
                         label="Document Charge Reference No"
                         name={`esanchitCharges[${index}].document_charge_refrence_no`}
-                        value={formik.values.esanchitCharges[index]?.document_charge_refrence_no || ""}
+                        value={
+                          formik.values.esanchitCharges[index]
+                            ?.document_charge_refrence_no || ""
+                        }
                         onChange={formik.handleChange}
                         fullWidth
                         type="number"
@@ -462,7 +469,10 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
                         size="small"
                         label="Document Charge Receipt Copy"
                         name={`esanchitCharges[${index}].document_charge_recipt_copy`}
-                        value={formik.values.esanchitCharges[index]?.document_charge_recipt_copy || ""}
+                        value={
+                          formik.values.esanchitCharges[index]
+                            ?.document_charge_recipt_copy || ""
+                        }
                         onChange={formik.handleChange}
                         fullWidth
                         type="number"
@@ -473,7 +483,7 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
                 </div>
               ))}
             </div>
-            
+
             <div className="job-details-container">
               <h4>Documents</h4>
               {formik.values.cth_documents?.map((document, index) => (
@@ -722,37 +732,74 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
 
             <div className="job-details-container">
               <h4>Queries</h4>
-              {formik.values.queries.map((item, id) => (
-                <Row key={id}>
-                  <Col xs={12} lg={5}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      size="small"
-                      label="Query"
-                      name={`queries[${id}].query`}
-                      value={item.query}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                  <Col xs={12} lg={5}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      size="small"
-                      label="Reply"
-                      name={`queries[${id}].reply`}
-                      value={item.reply}
-                      onChange={formik.handleChange}
-                      InputProps={{
-                        readOnly: true, // Make the field read-only
-                      }}
-                    />
-                  </Col>
-                </Row>
-              ))}
+              {formik.values.queries.map((item, id) => {
+                const isResolved =
+                  item.resolved === true ||
+                  (!!item.reply && item.reply.trim() !== "");
+                return (
+                  <Row key={id} style={{ marginBottom: "20px" }}>
+                    <Col xs={12} lg={5}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        size="small"
+                        label={isResolved ? "Query (Resolved)" : "Query"}
+                        name={`queries[${id}].query`}
+                        value={item.query}
+                        onChange={formik.handleChange}
+                        disabled={isResolved}
+                        InputProps={{
+                          style: isResolved
+                            ? {
+                                border: "2px solid #4caf50",
+                                background: "#eaffea",
+                              }
+                            : {},
+                        }}
+                      />
+                    </Col>
+                    <Col xs={12} lg={5}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        size="small"
+                        label={isResolved ? "Reply (Resolved)" : "Reply"}
+                        name={`queries[${id}].reply`}
+                        value={item.reply}
+                        onChange={formik.handleChange}
+                        InputProps={{
+                          readOnly: true,
+                          style: isResolved
+                            ? {
+                                border: "2px solid #4caf50",
+                                background: "#eaffea",
+                              }
+                            : {},
+                        }}
+                      />
+                    </Col>
+                    {isResolved && (
+                      <Col
+                        xs={12}
+                        lg={2}
+                        style={{ display: "flex", alignItems: "center" }}
+                      >
+                        <span
+                          style={{
+                            color: "#388e3c",
+                            fontWeight: "bold",
+                            marginLeft: 8,
+                          }}
+                        >
+                          Resolved
+                        </span>
+                      </Col>
+                    )}
+                  </Row>
+                );
+              })}
               <button
                 type="button"
                 onClick={() =>
@@ -847,9 +894,9 @@ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
               {!isDisabled && (
                 <button
                   className="btn sticky-btn"
-                  style={{ 
-                    float: "right", 
-                    margin: "20px"
+                  style={{
+                    float: "right",
+                    margin: "20px",
                   }}
                   type="submit"
                 >

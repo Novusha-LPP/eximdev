@@ -20,50 +20,44 @@ import ImagePreview from "../gallery/ImagePreview";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 const DocumentationJob = () => {
-  const routeLocation = useLocation()
+  const routeLocation = useLocation();
   const { job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-  
+
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   const {
     setSearchQuery,
     setSelectedImporter,
-       setCurrentPageDocTab0,
+    setCurrentPageDocTab0,
     setCurrentPageDocTab1,
   } = useSearchQuery();
 
   const isTrue = routeLocation.state?.currentTab || false;
   const isAdmin = user.role === "Admin"; // Check if user is an Admin
-  const isDisabled = (!isAdmin && isTrue === 1);
-    // Store search parameters from location state
+  const isDisabled = !isAdmin && isTrue === 1;
+  // Store search parameters from location state
   useEffect(() => {
     if (routeLocation.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        currentTab,
-        currentPage 
-      } = routeLocation.state;
-      
+      const { searchQuery, selectedImporter, currentTab, currentPage } =
+        routeLocation.state;
+
       const params = {
         searchQuery,
         selectedImporter,
         currentTab,
         currentPage,
       };
-      
+
       setStoredSearchParams(params);
     }
-  }, [routeLocation.state]);  // Handle back click function
+  }, [routeLocation.state]); // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
-    
-  
-    
+
     navigate("/documentation", {
       state: {
         fromJobDetails: true,
@@ -76,7 +70,7 @@ const DocumentationJob = () => {
       },
     });
   };
-  
+
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -86,10 +80,10 @@ const DocumentationJob = () => {
       return url; // Fallback to original URL
     }
   };
-  
+
   // Check if checklist exists and has items
   const hasChecklist = data?.checklist && data.checklist.length > 0;
-  
+
   // Combined disabled state - disable if isDisabled OR no checklist
   const isFieldDisabled = isDisabled || !hasChecklist;
 
@@ -139,16 +133,17 @@ const DocumentationJob = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     try {
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data._id}`,
         {
-          documentation_completed_date_time: data.documentation_completed_date_time,
+          documentation_completed_date_time:
+            data.documentation_completed_date_time,
           documentationQueries: data.documentationQueries || [],
         }
       );
-        // Navigate back with preserved search parameters
+      // Navigate back with preserved search parameters
       const tabIndex = storedSearchParams?.currentTab ?? 0;
       navigate("/documentation", {
         state: {
@@ -160,7 +155,7 @@ const DocumentationJob = () => {
           }),
         },
       });
-      
+
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation data:", error);
@@ -170,20 +165,21 @@ const DocumentationJob = () => {
 
   const updateChecklist = async (newChecklist) => {
     try {
-        // Get user info from localStorage for audit trail
-        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-        const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
-        };
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
         {
           checklist: newChecklist,
-          
-        }, { headers }
+        },
+        { headers }
       );
     } catch (error) {
       console.error("Error updating checklist:", error);
@@ -255,7 +251,7 @@ const DocumentationJob = () => {
       </Box>
     );
   };
-  
+
   const renderAllDocuments = (documents) => {
     if (!documents || documents.length === 0) {
       return <p>No documents uploaded yet.</p>;
@@ -280,7 +276,6 @@ const DocumentationJob = () => {
               borderRadius: "5px",
               flex: "1 1 30%", // Flex-basis for 3 columns
               maxWidth: "30%", // Ensure proper width
-              minWidth: "250px", // Minimum width for smaller devices
             }}
           >
             <Box mt={1} textAlign="center">
@@ -298,7 +293,7 @@ const DocumentationJob = () => {
       </Box>
     );
   };
-    return (
+  return (
     <div>
       {/* Back to Job List Button */}
       <Box sx={{ mb: 2 }}>
@@ -380,47 +375,91 @@ const DocumentationJob = () => {
           {/* Documentation Queries Section */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Documentation Queries" />
-            {Array.isArray(data.documentationQueries) && data.documentationQueries.map((item, id) => (
-              <Row key={id}>
-                <Col xs={12} lg={5}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    size="small"
-                    label="Query"
-                    value={item.query}
-                    onChange={e => {
-                      const updated = [...data.documentationQueries];
-                      updated[id].query = e.target.value;
-                      setData(prev => ({ ...prev, documentationQueries: updated }));
-                    }}
-                  />
-                </Col>
-                <Col xs={12} lg={5}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    size="small"
-                    label="Reply"
-                    value={item.reply}
-                    InputProps={{
-                        readOnly: true, // Make the field read-only
-                      }}
-                    onChange={e => {
-                      const updated = [...data.documentationQueries];
-                      updated[id].reply = e.target.value;
-                      setData(prev => ({ ...prev, documentationQueries: updated }));
-                    }}
-                  />
-                </Col>
-              </Row>
-            ))}
+            {Array.isArray(data.documentationQueries) &&
+              data.documentationQueries.map((item, id) => {
+                const isResolved =
+                  item.resolved === true ||
+                  (!!item.reply && item.reply.trim() !== "");
+                return (
+                  <Row key={id} style={{ marginBottom: "20px" }}>
+                    <Col xs={12} lg={5}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        size="small"
+                        label={isResolved ? "Query (Resolved)" : "Query"}
+                        value={item.query}
+                        onChange={(e) => {
+                          const updated = [...data.documentationQueries];
+                          updated[id].query = e.target.value;
+                          setData((prev) => ({
+                            ...prev,
+                            documentationQueries: updated,
+                          }));
+                        }}
+                        disabled={isResolved}
+                        InputProps={{
+                          style: isResolved
+                            ? {
+                                border: "2px solid #4caf50",
+                                background: "#eaffea",
+                              }
+                            : {},
+                        }}
+                      />
+                    </Col>
+                    <Col xs={12} lg={5}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        size="small"
+                        label={isResolved ? "Reply (Resolved)" : "Reply"}
+                        value={item.reply}
+                        InputProps={{
+                          readOnly: true,
+                          style: isResolved
+                            ? {
+                                border: "2px solid #4caf50",
+                                background: "#eaffea",
+                              }
+                            : {},
+                        }}
+                        onChange={(e) => {
+                          const updated = [...data.documentationQueries];
+                          updated[id].reply = e.target.value;
+                          setData((prev) => ({
+                            ...prev,
+                            documentationQueries: updated,
+                          }));
+                        }}
+                      />
+                    </Col>
+                    {isResolved && (
+                      <Col
+                        xs={12}
+                        lg={2}
+                        style={{ display: "flex", alignItems: "center" }}
+                      >
+                        <span
+                          style={{
+                            color: "#388e3c",
+                            fontWeight: "bold",
+                            marginLeft: 8,
+                          }}
+                        >
+                          Resolved
+                        </span>
+                      </Col>
+                    )}
+                  </Row>
+                );
+              })}
             <button
               type="button"
               onClick={() => {
-                setData(prev => ({
+                setData((prev) => ({
                   ...prev,
                   documentationQueries: Array.isArray(prev.documentationQueries)
                     ? [...prev.documentationQueries, { query: "", reply: "" }]

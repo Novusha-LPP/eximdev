@@ -8,7 +8,8 @@ function useFetchJobList(
   status,
   selectedICD,
   searchQuery,
-  selectedImporter
+  selectedImporter,
+  unresolvedOnly = false // NEW: unresolvedOnly toggle
 ) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -18,7 +19,8 @@ function useFetchJobList(
   const [userImporters, setUserImporters] = useState([]);
   const { user } = useContext(UserContext);
 
-  const fetchJobs = async (page) => {
+  // Accept unresolvedOnly as an argument to fetchJobs
+  const fetchJobs = async (page, unresolved = unresolvedOnly) => {
     setLoading(true);
     try {
       // Validate if user can access the selected importer
@@ -50,7 +52,10 @@ function useFetchJobList(
         : "";
 
       // Construct API URL
-      const apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=100&search=${formattedSearchQuery}`;
+      let apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=100&search=${formattedSearchQuery}`;
+      if (unresolved) {
+        apiUrl += `&unresolvedOnly=true`;
+      }
 
       const response = await axios.get(apiUrl, {
         headers: {
@@ -82,7 +87,7 @@ function useFetchJobList(
 
   useEffect(() => {
     if (selectedYearState && user) {
-      fetchJobs(currentPage);
+      fetchJobs(currentPage, unresolvedOnly);
     }
   }, [
     detailedStatus,
@@ -93,6 +98,7 @@ function useFetchJobList(
     searchQuery,
     selectedImporter,
     user, // Add user to dependencies
+    unresolvedOnly, // Add unresolvedOnly to dependencies
   ]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);

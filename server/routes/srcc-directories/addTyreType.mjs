@@ -5,7 +5,6 @@ const router = express.Router();
 
 router.post("/api/add-tyre-type", async (req, res) => {
   const { tyre_type } = req.body;
-  console.log(req.body);
   try {
     const existingTyreType = await TyreTypes.findOne({ tyre_type });
     if (existingTyreType) {

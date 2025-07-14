@@ -62,27 +62,30 @@ function EditDoPlanning() {
   };
 
   // Store search parameters from location state
-  useEffect(() => {
-    if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId } = location.state;
+
+  // Store search parameters from location state
+  useEffect(() => {    if (location.state) {
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
       setStoredSearchParams({
         searchQuery,
         selectedImporter,
         selectedJobId,
+        currentTab: currentTab ?? 2, // Default to Planning tab
+        currentPage,
       });
     }
-  }, [location.state]);
-
-  // Handle back click function
+  }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 2;
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
-        tabIndex: 2, // DoPlanning tab index
+        tabIndex: tabIndex, // Use stored tab index
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
           selectedJobId: storedSearchParams.selectedJobId,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -106,7 +109,6 @@ function EditDoPlanning() {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
         );
-        console.log("API Response:", res.data); // Debugging log
 
         // Ensure correct access to the job object
         const jobData = res.data.job;
@@ -190,30 +192,45 @@ function EditDoPlanning() {
       };
 
       try {
-        const res = await axios.post(
+        // Get user info from context or localStorage fallback
+        const username = user?.username || localStorage.getItem('username') || 'unknown';
+        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
+        
+        
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
-          dataToSubmit
+          dataToSubmit,
+          {
+            headers: {
+              'username': username,
+              'user-id': userId,
+              'user-role': userRole
+            }
+          }
         );
+        
         resetForm(); // Reset the form
         const currentState = window.history.state || {};
-        const scrollPosition = currentState.scrollPosition || 0;        navigate("/import-do", {
+        const scrollPosition = currentState.scrollPosition || 0;        const tabIndex = storedSearchParams?.currentTab ?? 2;
+        navigate("/import-do", {
           state: {
             fromJobDetails: true,
-            tabIndex: 2, // BillingSheet tab index
+            tabIndex: tabIndex, // Use stored tab index
             scrollPosition, // Preserve scroll position
             selectedJobId,
-            searchQuery: location.state?.searchQuery || "", // Preserve search query
-            selectedImporter: location.state?.selectedImporter || "", // Preserve selected importer
+            searchQuery: storedSearchParams?.searchQuery || "", // Preserve search query
+            selectedImporter: storedSearchParams?.selectedImporter || "", // Preserve selected importer
+            currentPage: storedSearchParams?.currentPage,
           },
         });
 
-        setCurrentTab(2); // Update the active tab in context
+        setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
         console.error("Error submitting form:", error);
       }
     },
   });
-
   // Derived state to determine if DO Completed can be enabled
   const isDoCompletedEnabled =
     formik.values.do_validity !== "" &&
@@ -224,7 +241,6 @@ function EditDoPlanning() {
   useEffect(() => {
     if (!isDoCompletedEnabled && formik.values.do_completed !== "") {
       formik.setFieldValue("do_completed", "");
-      console.log("Cleared do_completed because prerequisites are not met.");
     }
   }, [isDoCompletedEnabled, formik.values.do_completed, formik]);
 
@@ -250,11 +266,7 @@ function EditDoPlanning() {
       };
 
       formik.setValues(updatedData);
-      console.log(
-        "Update shipping_line_invoice_date:",
-        updatedData.shipping_line_invoice_date
-      ); // Check if value is set
-
+     
       async function getKycDocs() {
         const importer = data.importer;
         const shipping_line_airline = data.shipping_line_airline;
@@ -300,7 +312,6 @@ function EditDoPlanning() {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
       } catch (err) {
         alert("Failed to copy text to clipboard.");
         console.error("Fallback copy failed:", err);
@@ -329,18 +340,15 @@ function EditDoPlanning() {
       // Set to current local date and time in 'YYYY-MM-DDTHH:MM' format
       const localDatetime = getLocalDatetimeString();
       formik.setFieldValue("do_completed", localDatetime);
-      console.log("DO Completed set to:", localDatetime);
     } else {
       // Set to empty string
       formik.setFieldValue("do_completed", "");
-      console.log("DO Completed cleared.");
     }
   };
 
   // Handle admin date change
   const handleAdminDateChange = (event) => {
     formik.setFieldValue("do_completed", event.target.value);
-    console.log("DO Completed set by Admin to:", event.target.value);
   };
 
   // Render container details only if data is available
@@ -424,9 +432,7 @@ function EditDoPlanning() {
   if (loading) return <p>Loading...</p>; // Show loading state
 
   if (!data) return <p>Failed to load job details.</p>; // Handle missing data
-  console.log("shipping_line_invoice:", formik.values.shipping_line_invoice);
-  console.log("do_validity:", formik.values.do_validity);
-  console.log("do_copies:", formik.values.do_copies);
+
   return (
     <>
       {/* Back Button */}
@@ -592,10 +598,7 @@ function EditDoPlanning() {
                       label="Upload Shipping Line Invoices"
                       bucketPath="shipping_line_invoice_imgs"
                       onFilesUploaded={(newFiles) => {
-                        console.log(
-                          "Uploading new Shipping Line Invoices:",
-                          newFiles
-                        );
+                      
                         const existingFiles =
                           formik.values.shipping_line_invoice_imgs || [];
                         const updatedFiles = [...existingFiles, ...newFiles];

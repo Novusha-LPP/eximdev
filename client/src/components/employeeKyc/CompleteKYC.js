@@ -66,12 +66,10 @@ function CompleteKYC() {
     },
     validationSchema: validationSchema,
     onSubmit: async (values, { resetForm }) => {
-      console.log(values);
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/complete-kyc`,
         { ...values, username: user.username }
       );
-      console.log(res.data);
       alert(res.data.message);
       // resetForm();
     },

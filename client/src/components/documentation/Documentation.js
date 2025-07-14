@@ -18,25 +18,26 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // En
 import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { Cell } from "jspdf-autotable";
 import ChecklistCell from "../gallery/ChecklistCell.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
+  
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
-  const [totalJobs, setTotalJobs] = React.useState(0);
-  const [totalPages, setTotalPages] = React.useState(1);
-  const [page, setPage] = React.useState(1);
+  const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const limit = 100; // Number of items per page
   
-  // Use context for searchQuery and selectedImporter like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  // Use context for searchQuery, selectedImporter, and currentPage for documentation tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDocTab0: currentPage, setCurrentPageDocTab0: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
 
   // Get importer list for MUI autocomplete
@@ -144,6 +145,7 @@ function Documentation() {
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Send year to backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -157,7 +159,7 @@ function Documentation() {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
+        // setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -167,46 +169,46 @@ function Documentation() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
   );
+  // ✅ Added selectedYear as a dependency
 
-  // Fetch jobs when page or debounced search query changes
-  useEffect(() => {
-    if (selectedYearState) {
-      // Ensure year is available before calling API
+ // Fetch jobs when page or debounced search query changes
+  useEffect(() => {    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
       fetchJobs(
-        page,
+        currentPage,
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState
       );
     }
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedImporter,
     selectedYearState,
+    user?.username,
     fetchJobs,
   ]);
 
-  // ✅ Added selectedYear as a dependency
+  // Remove the automatic clearing - we'll handle this from the tab component instead
 
   // Debounce search input to avoid excessive API calls
   React.useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
     }, 500); // 500ms delay
 
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+    return () => clearTimeout(handler);  }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    setCurrentPage(newPage);
   };
 
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   const columns = [
@@ -223,16 +225,17 @@ function Documentation() {
           consignment_type,
           custom_house,
           priorityColor, // Add priorityColor from API response
-        } = cell.row.original;        return (
-          <div
-            onClick={() =>
+        } = cell.row.original;        return (          <div
+            onClick={() => {
               navigate(`/documentationJob/view-job/${job_no}/${year}`, {
                 state: {
                   searchQuery,
                   selectedImporter,
+                  currentTab: 0,
+                  currentPage,
                 },
-              })
-            }
+              });
+            }}
             style={{
               cursor: "pointer",
               color: "blue",
@@ -447,7 +450,7 @@ function Documentation() {
           ))}
         </TextField>
 
-        <TextField
+    <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
@@ -455,11 +458,10 @@ function Documentation() {
           onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
+              <InputAdornment position="end">                <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -475,11 +477,10 @@ function Documentation() {
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable {...tableConfig} />
-      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+      <MaterialReactTable {...tableConfig} />      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
         <Pagination
           count={totalPages}
-          page={page}
+          page={currentPage}
           onChange={handlePageChange}
           color="primary"
           showFirstButton
@@ -491,3 +492,4 @@ function Documentation() {
 }
 
 export default React.memo(Documentation);
+

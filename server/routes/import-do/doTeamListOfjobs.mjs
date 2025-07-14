@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
-router.get("/api/do-team-list-of-jobs", async (req, res) => {
+router.get("/api/do-team-list-of-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
@@ -100,6 +101,11 @@ const baseQuery = {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } 
     // 🔍 **Step 1: Fetch Jobs After Applying Filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(

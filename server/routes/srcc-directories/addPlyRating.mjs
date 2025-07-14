@@ -5,7 +5,6 @@ const router = express.Router();
 
 router.post("/api/add-ply-rating", async (req, res) => {
   const { ply_rating } = req.body;
-  console.log(ply_rating);
 
   const existingPlyRating = await PlyRatings.findOne({ ply_rating });
   if (existingPlyRating) {

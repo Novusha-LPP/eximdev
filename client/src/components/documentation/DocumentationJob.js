@@ -32,6 +32,8 @@ const DocumentationJob = () => {
   const {
     setSearchQuery,
     setSelectedImporter,
+       setCurrentPageDocTab0,
+    setCurrentPageDocTab1,
   } = useSearchQuery();
 
   const isTrue = routeLocation.state?.currentTab || false;
@@ -40,17 +42,28 @@ const DocumentationJob = () => {
     // Store search parameters from location state
   useEffect(() => {
     if (routeLocation.state) {
-      const { searchQuery, selectedImporter, currentTab } = routeLocation.state;
-      setStoredSearchParams({
+      const { 
+        searchQuery, 
+        selectedImporter, 
+        currentTab,
+        currentPage 
+      } = routeLocation.state;
+      
+      const params = {
         searchQuery,
         selectedImporter,
         currentTab,
-      });
+        currentPage,
+      };
+      
+      setStoredSearchParams(params);
     }
-  }, [routeLocation.state]);
-  // Handle back click function
+  }, [routeLocation.state]);  // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 0;
+    
+  
+    
     navigate("/documentation", {
       state: {
         fromJobDetails: true,
@@ -58,6 +71,7 @@ const DocumentationJob = () => {
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -131,6 +145,7 @@ const DocumentationJob = () => {
         `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data._id}`,
         {
           documentation_completed_date_time: data.documentation_completed_date_time,
+          documentationQueries: data.documentationQueries || [],
         }
       );
         // Navigate back with preserved search parameters
@@ -155,10 +170,20 @@ const DocumentationJob = () => {
 
   const updateChecklist = async (newChecklist) => {
     try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
         {
           checklist: newChecklist,
-        }
+          
+        }, { headers }
       );
     } catch (error) {
       console.error("Error updating checklist:", error);
@@ -350,6 +375,62 @@ const DocumentationJob = () => {
                 }}
               />
             </div>
+          </div>
+
+          {/* Documentation Queries Section */}
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documentation Queries" />
+            {Array.isArray(data.documentationQueries) && data.documentationQueries.map((item, id) => (
+              <Row key={id}>
+                <Col xs={12} lg={5}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    label="Query"
+                    value={item.query}
+                    onChange={e => {
+                      const updated = [...data.documentationQueries];
+                      updated[id].query = e.target.value;
+                      setData(prev => ({ ...prev, documentationQueries: updated }));
+                    }}
+                  />
+                </Col>
+                <Col xs={12} lg={5}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    label="Reply"
+                    value={item.reply}
+                    InputProps={{
+                        readOnly: true, // Make the field read-only
+                      }}
+                    onChange={e => {
+                      const updated = [...data.documentationQueries];
+                      updated[id].reply = e.target.value;
+                      setData(prev => ({ ...prev, documentationQueries: updated }));
+                    }}
+                  />
+                </Col>
+              </Row>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setData(prev => ({
+                  ...prev,
+                  documentationQueries: Array.isArray(prev.documentationQueries)
+                    ? [...prev.documentationQueries, { query: "", reply: "" }]
+                    : [{ query: "", reply: "" }],
+                }));
+              }}
+              className="btn"
+            >
+              Add Query
+            </button>
           </div>
 
           <form onSubmit={handleSubmit}>

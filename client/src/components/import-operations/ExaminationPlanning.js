@@ -26,6 +26,7 @@ import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { YearContext } from "../../contexts/yearContext.js";
 import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
 import { TabContext } from "./ImportOperations.js";
+import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
 
 function ImportOperations() {
   const { currentTab } = useContext(TabContext);
@@ -37,12 +38,11 @@ function ImportOperations() {
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-
-  const [page, setPage] = useState(1);
+  // Remove local page state and use persistent pagination from context
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab1: currentPage, setCurrentPageOpTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
   
@@ -61,13 +61,9 @@ function ImportOperations() {
   // Initialize component and handle navigation state
   useEffect(() => {
     const fromJobDetails = location.state?.fromJobDetails;
-    isFromJobDetailsRef.current = fromJobDetails;
-
-    if (currentTab === 1) {
+    isFromJobDetailsRef.current = fromJobDetails;    if (currentTab === 1) {
       if (fromJobDetails) {
-        // Restore state from job details navigation
-        console.log('🔄 Restoring search state from job details navigation');
-        
+        // Restore state from job details navigatio        
         if (location.state?.searchQuery !== undefined) {
           setSearchQuery(location.state.searchQuery);
           setDebouncedSearchQuery(location.state.searchQuery);
@@ -83,16 +79,14 @@ function ImportOperations() {
         }
         if (location.state?.detailedStatusExPlan !== undefined) {
           setDetailedStatusExPlan(location.state.detailedStatusExPlan);
-        }
-      } else {
+        }      } else {
         // Clear search state when coming from other tabs (not job details)
-        console.log('🧹 Clearing search state - new tab access');
         setSearchQuery("");
         setSelectedImporter("");
         setDebouncedSearchQuery("");
         setSelectedICD("");
         setDetailedStatusExPlan("");
-        setPage(1);
+        // Note: We don't reset currentPage here - pagination should persist
       }
     }
 
@@ -116,25 +110,16 @@ function ImportOperations() {
     currentICD,
     currentImporter
   ) => {
-    // Don't make API calls if component isn't initialized
-    if (!isInitialized || !yearState) {
+    // Don't make API calls if component isn't initialized, user not available, or no username
+    if (!isInitialized || !yearState || !user?.username) {
       return;
     }
-
     cancelPreviousRequest();
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      console.log('📡 Making API call:', { 
-        currentPage, 
-        currentSearchQuery, 
-        yearState, 
-        currentStatus, 
-        currentICD, 
-        currentImporter 
-      });
       
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
@@ -159,17 +144,13 @@ function ImportOperations() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;
-
-        setRows(Array.isArray(jobs) ? jobs : []);
+        } = res.data;        setRows(Array.isArray(jobs) ? jobs : []);
         setTotalPages(totalPages || 1);
-        setPage(returnedPage || currentPage);
         setTotalJobs(totalJobs || 0);
         abortControllerRef.current = null;
       }
     } catch (error) {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.log('🚫 Request cancelled');
         return;
       }
       console.error("Error fetching data:", error);
@@ -183,7 +164,6 @@ function ImportOperations() {
       }
     }
   }, [isInitialized, user.username, limit, cancelPreviousRequest]);
-
   // Handle search debouncing
   useEffect(() => {
     if (!isInitialized) return;
@@ -191,11 +171,12 @@ function ImportOperations() {
     // Clear existing timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
+    }    debounceTimeoutRef.current = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      // Only reset to first page if there's an actual search query (not when clearing)
+      if (searchQuery && searchQuery.trim() !== "") {
+        setCurrentPage(1); // Reset to first page on new search
+      }
     }, 500);
 
     return () => {
@@ -204,6 +185,7 @@ function ImportOperations() {
       }
     };
   }, [searchQuery, isInitialized]);
+
 
   // Fetch importer list when year changes
   useEffect(() => {
@@ -259,16 +241,13 @@ function ImportOperations() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Main effect to fetch data - consolidated and optimized
-  useEffect(() => {
+ useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
-      console.log('🎯 Making API call with restored search parameters');
-      
-      // Use a small delay to ensure all state is properly restored
+        // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
         fetchJobs(
-          1, // Reset to first page when restoring
+          location.state?.currentPage || currentPage, // Use the restored page or current page
           location.state?.searchQuery || "",
           selectedYearState,
           location.state?.detailedStatusExPlan || "",
@@ -279,12 +258,10 @@ function ImportOperations() {
       }, 100);
 
       return () => clearTimeout(timeoutId);
-    }
-
-    // Regular data fetching
+    }    // Regular data fetching
     if (isInitialized && !isFromJobDetailsRef.current) {
       fetchJobs(
-        page,
+        currentPage,
         debouncedSearchQuery,
         selectedYearState,
         detailedStatusExPlan,
@@ -294,7 +271,7 @@ function ImportOperations() {
     }
   }, [
     fetchJobs,
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     detailedStatusExPlan,
@@ -313,11 +290,16 @@ function ImportOperations() {
       }
     };
   }, [cancelPreviousRequest]);
-
   // Handle pagination change
   const handlePageChange = useCallback((event, newPage) => {
-    setPage(newPage);
-  }, []);
+    setCurrentPage(newPage);
+  }, [currentPage, setCurrentPage]);
+
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
+  };
 
   // Handle copy functionality
   const handleCopy = useCallback((event, text) => {
@@ -429,6 +411,7 @@ function ImportOperations() {
                   selectedYearState,
                   detailedStatusExPlan,
                   currentTab: 1,
+                  currentPage,
                   fromJobList: true,
                 },
               });
@@ -533,56 +516,8 @@ function ImportOperations() {
       accessorKey: "all_dates",
       header: "Dates",
       enableSorting: false,
-      size: 150,
-      Cell: ({ row }) => {
-        const containerNos = row.original?.container_nos ?? [];
-        const pcvDate = formatDate(row.original?.pcv_date);
-        const outOfCharge = formatDate(row.original?.out_of_charge);
-        const examinationPlanningDate = formatDate(
-          row.original?.examination_planning_date
-        );
-        const firstCheck = formatDate(row.original?.firstCheck);
-
-        return (
-          <div style={{ lineHeight: "1.5" }}>
-            <Tooltip title="Arrival Date" arrow>
-              <strong>Arrival: </strong>
-            </Tooltip>
-            {containerNos.length > 0
-              ? containerNos.map((container, id) => (
-                  <React.Fragment key={id}>
-                    {formatDate(container.arrival_date)}
-                    <br />
-                  </React.Fragment>
-                ))
-              : "N/A"}
-
-            <Tooltip title="First Check Date" arrow>
-              <strong>FC: </strong>
-            </Tooltip>
-            {firstCheck}
-            <br />
-
-            <Tooltip title="Examination Planning Date" arrow>
-              <strong>Ex.Plan: </strong>
-            </Tooltip>
-            {examinationPlanningDate}
-            <br />
-
-            <Tooltip title="PCV Date" arrow>
-              <strong>PCV: </strong>
-            </Tooltip>
-            {pcvDate}
-            <br />
-
-            <Tooltip title="Out of Charge Date" arrow>
-              <strong>OOC: </strong>
-            </Tooltip>
-            {outOfCharge}
-            <br />
-          </div>
-        );
-      },
+      size: 250,
+      Cell: EditableDateSummaryCell,
     },
     {
       accessorKey: "concor_invoice_copy",
@@ -804,10 +739,9 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""}
-          onInputChange={(event, newValue) => {
+          value={selectedImporter || ""}          onInputChange={(event, newValue) => {
             setSelectedImporter(newValue);
-            setPage(1);
+            setCurrentPage(1);
           }}
           renderInput={(params) => (
             <TextField
@@ -823,10 +757,9 @@ function ImportOperations() {
         <TextField
           select
           size="small"
-          value={selectedYearState || ""}
-          onChange={(e) => {
+          value={selectedYearState || ""}          onChange={(e) => {
             setSelectedYearState(e.target.value);
-            setPage(1);
+            setCurrentPage(1);
           }}
           sx={{ width: "100px", marginRight: "20px" }}
         >
@@ -842,10 +775,9 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
+          value={selectedICD}          onChange={(e) => {
             setSelectedICD(e.target.value);
-            setPage(1);
+            setCurrentPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -860,10 +792,9 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="Select Status Ex-Planning"
-          value={detailedStatusExPlan}
-          onChange={(e) => {
+          value={detailedStatusExPlan}          onChange={(e) => {
             setDetailedStatusExPlan(e.target.value);
-            setPage(1);
+            setCurrentPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -873,14 +804,12 @@ function ImportOperations() {
           <MenuItem value="Ex. Planning">Ex. Planning</MenuItem>
           <MenuItem value="OOC">OOC</MenuItem>
           <MenuItem value="Do Completed">Do Completed</MenuItem>
-        </TextField>
-
-        <TextField
+        </TextField>        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchInputChange}
           sx={{ width: "250px", marginRight: "20px", marginLeft: "20px" }}
         />
       </div>
@@ -893,10 +822,9 @@ function ImportOperations() {
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable {...tableConfig} />
-      <Pagination
+      <MaterialReactTable {...tableConfig} />      <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

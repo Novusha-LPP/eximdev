@@ -64,7 +64,6 @@ import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTo
 //import Report 
 import ReportTabs from "../components/Report/ReportTabs.js";
 // import billing 
-import ImportBilling from "../components/Import-billing/ImportBilling.js";
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
@@ -96,6 +95,7 @@ import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
 import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
+import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 
 
 const drawerWidth = 60;
@@ -243,7 +243,7 @@ function HomePage() {
             <Route path="/duty-calculator" element={<DutyCalculator />} />
             <Route path="/utilities" element={<UtilityParent />} />
             {/* import billing */}
-            <Route path="/import-billing" element={<ImportBilling />} />
+            <Route path="/import-billing" element={<ImportBillingTab />} />
             <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
             
 

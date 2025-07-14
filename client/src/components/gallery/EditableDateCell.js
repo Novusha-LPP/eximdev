@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
 import {
@@ -9,7 +9,8 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
-const EditableDateCell = ({ cell, onRowDataUpdate }) => {
+const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
+  const rowData = cell.row.original;
   const {
     _id,
     job_no,
@@ -35,9 +36,10 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     sws_ammount,
     penalty_ammount,
     fine_ammount,
-  } = cell.row.original;
+  } = rowData;
 
-  const [dates, setDates] = useState({
+  // Memoize initial dates to prevent unnecessary re-renders
+  const initialDates = useMemo(() => ({
     assessment_date,
     vessel_berthing,
     gateway_igm_date,
@@ -45,26 +47,29 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     pcv_date,
     out_of_charge,
     duty_paid_date,
-  });
+  }), [assessment_date, vessel_berthing, gateway_igm_date, discharge_date, pcv_date, out_of_charge, duty_paid_date]);
 
+  const [dates, setDates] = useState(initialDates);
   const [localStatus, setLocalStatus] = useState(detailed_status);
-  const [containers, setContainers] = useState([...container_nos]);  const [editable, setEditable] = useState(null);
+  const [containers, setContainers] = useState(() => [...container_nos]);
+  const [editable, setEditable] = useState(null);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
   const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
-  // Free time options
-  const options = Array.from({ length: 25 }, (_, index) => index);
-  // Utility function to calculate number of days between two dates
-  const calculateDaysBetween = (startDate, endDate) => {
+  // Memoize free time options
+  const options = useMemo(() => Array.from({ length: 25 }, (_, index) => index), []);
+
+  // Memoized utility function to calculate number of days between two dates
+  const calculateDaysBetween = useCallback((startDate, endDate) => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  }, []);
 
   // Reset data when row ID changes
   useEffect(() => {
@@ -102,27 +107,37 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   }, [_id]);
 
   // Handle IGST modal open
-  const handleOpenIgstModal = () => {
+  const handleOpenIgstModal = useCallback(() => {
     setIgstModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseIgstModal = () => {
+  const handleCloseIgstModal = useCallback(() => {
     setIgstModalOpen(false);
-  };
+  }, []);
 
-  const handleIgstSubmit = async (updateData) => {
+  const handleIgstSubmit = useCallback(async (updateData) => {
     try {
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData);
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
+      };
+
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
 
       // Update the cell.row.original data to reflect the changes
       if (typeof onRowDataUpdate === "function") {
         onRowDataUpdate(_id, updateData);
       }
 
-      setIgstModalOpen(false);    } catch (error) {
+      setIgstModalOpen(false);
+    } catch (error) {
       console.error("Error submitting IGST data:", error);
     }
-  };
+  }, [_id, onRowDataUpdate]);
 
   const updateDetailedStatus = useCallback(async () => {
     const eta = dates.vessel_berthing;
@@ -179,9 +194,18 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
       cell.row.original.detailed_status = newStatus;
 
       try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
-        });
+        }, { headers });
         setLocalStatus(newStatus);        if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { detailed_status: newStatus });
         }
@@ -212,9 +236,33 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
     updateDetailedStatus,
   ]);
 
+  // Check if arrival date should be disabled based on business logic
+  const isArrivalDateDisabled = useCallback((containerIndex) => {
+    const container = containers[containerIndex];
+    const ExBondflag = type_of_b_e === "Ex-Bond";
+    const LCLFlag = consignment_type === "LCL";
+    
+    if (ExBondflag) {
+      return true;
+    }
+    
+    if (LCLFlag) {
+      return !container?.by_road_movement_date;
+    } else {
+      return !container?.container_rail_out_date;
+    }
+  }, [containers, type_of_b_e, consignment_type]);
+
   // Handle date editing
   const handleEditStart = (field, index = null) => {
+    // Check if arrival date is disabled before allowing edit
+    if (field === "arrival_date" && index !== null && isArrivalDateDisabled(index)) {
+      return; // Don't allow editing if disabled
+    }
+    
     setEditable(index !== null ? `${field}_${index}` : field);
+    
+    // Clear the date when starting to edit
     setTempDateValue("");
     setTempTimeValue("");
     setDateError("");
@@ -256,14 +304,11 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
       finalValue = tempDateValue;
     }
 
-    // Special handling for rail-out and by-road dates
-    if (
-      field === "container_rail_out_date" ||
-      field === "by_road_movement_date"
-    ) {
-      // Extract only date portion (YYYY-MM-DD)
-      finalValue = tempDateValue.split("T")[0];
-    }
+    // // Special handling for by-road dates only (keep rail-out with datetime)
+    // if (field === "by_road_movement_date") {
+    //   // Extract only date portion (YYYY-MM-DD)
+    //   finalValue = tempDateValue.split("T")[0];
+    // }
 
     if (index !== null) {
       const oldContainers = [...containers];
@@ -296,9 +341,18 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
 
       // Optimistic update
       setContainers(updatedContainers);      try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
-        });
+        }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
@@ -318,9 +372,18 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
 
       // Optimistic update
       setDates(newDates);      try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           [field]: finalValue || null,
-        });
+        }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
@@ -338,10 +401,20 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   };
   const handleFreeTimeChange = (value) => {
     setLocalFreeTime(value);
+    
+    // Get user info from localStorage for audit trail
+    const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+    const headers = {
+      'Content-Type': 'application/json',
+      'user-id': user.username || 'unknown',
+      'username': user.username || 'unknown',
+      'user-role': user.role || 'unknown'
+    };
+
     axios
       .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
         free_time: value,
-      })
+      }, { headers })
       .then(() => {
         // Update parent component data for free_time
         if (typeof onRowDataUpdate === "function") {
@@ -367,7 +440,7 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
           axios
             .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
               container_nos: updatedContainers,
-            })
+            }, { headers })
             .then(() => {
               // Update parent component data for containers
               if (typeof onRowDataUpdate === "function") {
@@ -381,38 +454,6 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
   };
   const isIgstFieldsAvailable =
     assessable_ammount && igst_ammount;
-  const DateField = ({ label, value, field, index = null }) => (
-    <div>
-      <strong>{label}:</strong> {value?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
-      <FcCalendar
-        style={styles.icon}
-        onClick={() => handleEditStart(field, index)}
-      />
-      {editable === (index !== null ? `${field}_${index}` : field) && (
-        <div>
-          <input
-            type="datetime-local"
-            value={tempDateValue}
-            onChange={
-              field.includes("rail_out") || field.includes("by_road")
-                ? handleCombinedDateTimeChange
-                : handleDateInputChange
-            }
-            style={dateError ? styles.errorInput : {}}
-          />
-          <button
-            style={styles.submitButton}
-            onClick={() => handleDateSubmit(field, index)}
-          >
-            ✓
-          </button>
-          <button style={styles.cancelButton} onClick={() => setEditable(null)}>
-            ✕
-          </button>
-          {dateError && <div style={styles.errorText}>{dateError}</div>}
-        </div>      )}
-    </div>
-  );
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -420,47 +461,175 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
       <div>
         {type_of_b_e !== "Ex-Bond" && (
           <>
-            <DateField
-              label="ETA"
-              value={dates.vessel_berthing}
-              field="vessel_berthing"
-            />
+            <div>
+              <strong>ETA:</strong> {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("vessel_berthing")}
+              />
+              {editable === "vessel_berthing" && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("vessel_berthing")}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
             <br />
-            <DateField
-              label="GIGM"
-              value={dates.gateway_igm_date}
-              field="gateway_igm_date"
-            />
+            <div>
+              <strong>GIGM:</strong> {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("gateway_igm_date")}
+              />
+              {editable === "gateway_igm_date" && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("gateway_igm_date")}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
             <br />
-            <DateField
-              label="Discharge"
-              value={dates.discharge_date}
-              field="discharge_date"
-            />
+            <div>
+              <strong>Discharge:</strong> {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("discharge_date")}
+              />
+              {editable === "discharge_date" && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("discharge_date")}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
             <br />
 
             {type_of_b_e !== "Ex-Bond" &&
               consignment_type !== "LCL" &&
               containers.map((container, id) => (
                 <div key={id}>
-                  <DateField
-                    label="Rail-out"
-                    value={container.container_rail_out_date}
-                    field="container_rail_out_date"
-                    index={id}
-                  />
+                  <div>
+                    <strong>Rail-out:</strong> {container.container_rail_out_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() => handleEditStart("container_rail_out_date", id)}
+                    />
+                    {editable === `container_rail_out_date_${id}` && (
+                      <div>
+                        <input
+                          type="datetime-local"
+                          value={tempDateValue}
+                          onChange={handleDateInputChange}
+                          style={dateError ? styles.errorInput : {}}
+                          autoFocus
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() => handleDateSubmit("container_rail_out_date", id)}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && <div style={styles.errorText}>{dateError}</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
 
             {consignment_type === "LCL" &&
               containers.map((container, id) => (
                 <div key={id}>
-                  <DateField
-                    label="ByRoad"
-                    value={container.by_road_movement_date}
-                    field="by_road_movement_date"
-                    index={id}
-                  />
+                  <div>
+                    <strong>ByRoad:</strong> {container.by_road_movement_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <FcCalendar
+                      style={styles.icon}
+                      onClick={() => handleEditStart("by_road_movement_date", id)}
+                    />
+                    {editable === `by_road_movement_date_${id}` && (
+                      <div>
+                        <input
+                          type="datetime-local"
+                          value={tempDateValue}
+                          onChange={handleDateInputChange}
+                          style={dateError ? styles.errorInput : {}}
+                          autoFocus
+                        />
+                        <button
+                          style={styles.submitButton}
+                          onClick={() => handleDateSubmit("by_road_movement_date", id)}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          style={styles.cancelButton}
+                          onClick={() => setEditable(null)}
+                        >
+                          ✕
+                        </button>
+                        {dateError && <div style={styles.errorText}>{dateError}</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             <br />
@@ -468,12 +637,43 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
               <>
                 {containers.map((container, id) => (
                   <div key={id}>
-                    <DateField
-                      label="Arrival"
-                      value={container.arrival_date}
-                      field="arrival_date"
-                      index={id}
-                    />
+                    <div>
+                      <strong>Arrival:</strong> {container.arrival_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                      <FcCalendar
+                        style={{
+                          ...styles.icon,
+                          opacity: isArrivalDateDisabled(id) ? 0.4 : 1,
+                          filter: isArrivalDateDisabled(id) ? "grayscale(100%)" : "none",
+                          cursor: isArrivalDateDisabled(id) ? "not-allowed" : "pointer"
+                        }}
+                        onClick={() => !isArrivalDateDisabled(id) && handleEditStart("arrival_date", id)}
+                        title={isArrivalDateDisabled(id) ? "Arrival date is disabled. Please set rail-out/by-road date first." : "Edit date"}
+                      />
+                      {editable === `arrival_date_${id}` && (
+                        <div>
+                          <input
+                            type="datetime-local"
+                            value={tempDateValue}
+                            onChange={handleDateInputChange}
+                            style={dateError ? styles.errorInput : {}}
+                            autoFocus
+                          />
+                          <button
+                            style={styles.submitButton}
+                            onClick={() => handleDateSubmit("arrival_date", id)}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            style={styles.cancelButton}
+                            onClick={() => setEditable(null)}
+                          >
+                            ✕
+                          </button>
+                          {dateError && <div style={styles.errorText}>{dateError}</div>}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -525,13 +725,69 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
       </div>
       {/* Right Section */}
       <div>
-        <DateField
-          label="Assessment Date"
-          value={dates.assessment_date}
-          field="assessment_date"
-        />
+        <div>
+          <strong>Assessment Date:</strong> {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <FcCalendar
+            style={styles.icon}
+            onClick={() => handleEditStart("assessment_date")}
+          />
+          {editable === "assessment_date" && (
+            <div>
+              <input
+                type="datetime-local"
+                value={tempDateValue}
+                onChange={handleDateInputChange}
+                style={dateError ? styles.errorInput : {}}
+                autoFocus
+              />
+              <button
+                style={styles.submitButton}
+                onClick={() => handleDateSubmit("assessment_date")}
+              >
+                ✓
+              </button>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setEditable(null)}
+              >
+                ✕
+              </button>
+              {dateError && <div style={styles.errorText}>{dateError}</div>}
+            </div>
+          )}
+        </div>
         <br />
-        <DateField label="PCV" value={dates.pcv_date} field="pcv_date" />
+        <div>
+          <strong>PCV:</strong> {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <FcCalendar
+            style={styles.icon}
+            onClick={() => handleEditStart("pcv_date")}
+          />
+          {editable === "pcv_date" && (
+            <div>
+              <input
+                type="datetime-local"
+                value={tempDateValue}
+                onChange={handleDateInputChange}
+                style={dateError ? styles.errorInput : {}}
+                autoFocus
+              />
+              <button
+                style={styles.submitButton}
+                onClick={() => handleDateSubmit("pcv_date")}
+              >
+                ✓
+              </button>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setEditable(null)}
+              >
+                ✕
+              </button>
+              {dateError && <div style={styles.errorText}>{dateError}</div>}
+            </div>
+          )}
+        </div>
         <br />
 
         <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
@@ -558,6 +814,7 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
               onChange={handleDateInputChange}
               style={dateError ? styles.errorInput : {}}
               disabled={!isIgstFieldsAvailable}
+              autoFocus
             />
             <button
               style={styles.submitButton}
@@ -582,21 +839,72 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         )}
         <br />
 
-        <DateField
-          label="OOC"
-          value={dates.out_of_charge}
-          field="out_of_charge"
-        />
+        <div>
+          <strong>OOC:</strong> {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <FcCalendar
+            style={styles.icon}
+            onClick={() => handleEditStart("out_of_charge")}
+          />
+          {editable === "out_of_charge" && (
+            <div>
+              <input
+                type="datetime-local"
+                value={tempDateValue}
+                onChange={handleDateInputChange}
+                style={dateError ? styles.errorInput : {}}
+                autoFocus
+              />
+              <button
+                style={styles.submitButton}
+                onClick={() => handleDateSubmit("out_of_charge")}
+              >
+                ✓
+              </button>
+              <button
+                style={styles.cancelButton}
+                onClick={() => setEditable(null)}
+              >
+                ✕
+              </button>
+              {dateError && <div style={styles.errorText}>{dateError}</div>}
+            </div>
+          )}
+        </div>
         <br />
 
         {containers.map((container, id) => (
           <div key={id}>
-            <DateField
-              label="Delivery"
-              value={container.delivery_date}
-              field="delivery_date"
-              index={id}
-            />
+            <div>
+              <strong>Delivery:</strong> {container.delivery_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("delivery_date", id)}
+              />
+              {editable === `delivery_date_${id}` && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("delivery_date", id)}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
           </div>
         ))}
 
@@ -607,12 +915,37 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
             {/* <strong>EmptyOff:</strong> */}
             {containers.map((container, id) => (
               <div key={id}>
-                <DateField
-                  label="EmptyOff"
-                  value={container.emptyContainerOffLoadDate}
-                  field="emptyContainerOffLoadDate"
-                  index={id}
-                />
+                <div>
+                  <strong>EmptyOff:</strong> {container.emptyContainerOffLoadDate?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                  <FcCalendar
+                    style={styles.icon}
+                    onClick={() => handleEditStart("emptyContainerOffLoadDate", id)}
+                  />
+                  {editable === `emptyContainerOffLoadDate_${id}` && (
+                    <div>
+                      <input
+                        type="datetime-local"
+                        value={tempDateValue}
+                        onChange={handleDateInputChange}
+                        style={dateError ? styles.errorInput : {}}
+                        autoFocus
+                      />
+                      <button
+                        style={styles.submitButton}
+                        onClick={() => handleDateSubmit("emptyContainerOffLoadDate", id)}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        style={styles.cancelButton}
+                        onClick={() => setEditable(null)}
+                      >
+                        ✕
+                      </button>
+                      {dateError && <div style={styles.errorText}>{dateError}</div>}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </>
@@ -625,13 +958,15 @@ const EditableDateCell = ({ cell, onRowDataUpdate }) => {
         open={igstModalOpen}
         onClose={handleCloseIgstModal}
         onSubmit={handleIgstSubmit}
-        rowData={cell.row.original}
+        rowData={rowData}
         dates={dates}
         containers={containers}
       />
     </div>
   );
-};
+});
+
+
 
 const styles = {
   icon: {
@@ -669,3 +1004,4 @@ const styles = {
 };
 
 export default EditableDateCell;
+

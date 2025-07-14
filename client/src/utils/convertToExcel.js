@@ -80,7 +80,6 @@ export const convertToExcel = async (
     "DETAILED STATUS"
   ];
 
-  console.log(rowsWithoutBillNo);
 
   // Row headers
   const dataWithHeaders = rowsWithoutBillNo.map((item) => {

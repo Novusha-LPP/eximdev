@@ -22,11 +22,11 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function List() {
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -41,8 +41,18 @@ function List() {
   const [loading, setLoading] = useState(false);
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  // Use context for searchQuery and selectedImporter like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const { user } = useContext(UserContext);
+  
+  
+  // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageDoTab0: currentPage,
+    setCurrentPageDoTab0: setCurrentPage,
+  } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
 
@@ -64,7 +74,6 @@ function List() {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Copied (fallback):", text);
       } catch (err) {
         console.error("Fallback failed:", err);
       }
@@ -158,6 +167,7 @@ function List() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -168,10 +178,8 @@ function List() {
           currentPage: returnedPage,
           jobs,
         } = res.data;
-
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -181,40 +189,38 @@ function List() {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs with pagination
   useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYearState, // ✅ Now using the persistent state
-      selectedICD,
-      selectedImporter
-    );
+ 
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState, // ✅ Now using the persistent state
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
-    fetchJobs,  ]);
+    user?.username,
+    fetchJobs,
+  ]);
 
-  // Clear search state when this tab becomes active, unless coming from job details
-  React.useEffect(() => {
-    if (location.state && !location.state.fromJobDetails) {
-      setSearchQuery("");
-      setSelectedImporter("");
-    }
-  }, [setSearchQuery, setSelectedImporter, location.state]);
-
+  // Remove the automatic clearing - we'll handle this from the tab component instead
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
-    }, 300); // 500ms delay
+    }, 300); // 300ms delay
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
@@ -222,10 +228,11 @@ function List() {
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    setCurrentPage(newPage);
   };
   // const getCustomHouseLocation = useMemo(
   //   () => (customHouse) => {
@@ -256,10 +263,10 @@ function List() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}            onClick={() => {
+            }}
+            onClick={() => {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
-
               // 2) Navigate to the detail page, and pass search/filter state
               navigate(`/edit-do-list/${_id}`, {
                 state: {
@@ -269,6 +276,8 @@ function List() {
                   selectedICD,
                   selectedYearState,
                   fromJobList: true,
+                  currentTab: 1,
+                  currentPage,
                 },
               });
             }}
@@ -343,7 +352,7 @@ function List() {
               </abbr>
             </IconButton>
             <br />
-            <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+            <strong>GIGM No:</strong> {gateway_igm || "N/A"}{" "}
             <IconButton
               size="small"
               onClick={(event) => handleCopy(event, gateway_igm)}
@@ -419,7 +428,7 @@ function List() {
             </div>
 
             <div>
-             { `Vessel Voyage: ${voyageNo}`}
+              {`Vessel Voyage: ${voyageNo}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -429,9 +438,9 @@ function List() {
                   <ContentCopyIcon fontSize="inherit" />
                 </abbr>
               </IconButton>
-              </div>
+            </div>
             <div>
-            <span>{`Line No: ${line_no}`}</span>
+              <span>{`Line No: ${line_no}`}</span>
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -702,7 +711,6 @@ function List() {
         >
           Job Count: {totalJobs}
         </Typography>
-
         {/* Importer Filter */}
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
@@ -720,7 +728,6 @@ function List() {
             />
           )}
         />
-
         {/* Year Filter */}
         <TextField
           select
@@ -735,7 +742,6 @@ function List() {
             </MenuItem>
           ))}
         </TextField>
-
         {/* ICD Code Filter */}
         <TextField
           select
@@ -745,7 +751,7 @@ function List() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -753,7 +759,8 @@ function List() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>        {/* Search Field */}
+        </TextField>{" "}
+        {/* Search Field */}
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -763,10 +770,11 @@ function List() {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton 
+                {" "}
+                <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -783,11 +791,10 @@ function List() {
   return (
     <>
       <div style={{ height: "80%" }}>
-        <MaterialReactTable table={table} />
-        {/* Pagination */}
+        <MaterialReactTable table={table} /> {/* Pagination */}
         <Pagination
           count={totalPages}
-          page={page}
+          page={currentPage}
           onChange={handlePageChange}
           color="primary"
           sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

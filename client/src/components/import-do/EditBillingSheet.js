@@ -28,7 +28,7 @@ function EditBillingSheet() {
     message: "",
   });
   const { _id } = useParams();
-  const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext); // Access user from context
   const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
@@ -39,27 +39,33 @@ function EditBillingSheet() {
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
   // Store search parameters from location state
-  React.useEffect(() => {
+ React.useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId } = location.state;
-      setStoredSearchParams({
+      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
+      
+      const params = {
         searchQuery,
         selectedImporter,
         selectedJobId,
-      });
+        currentTab: currentTab ?? 4, // Default to Billing Sheet tab
+        currentPage,
+      };
+      
+      setStoredSearchParams(params);
     }
-  }, [location.state]);
-
-  // Handle back click function
+  }, [location.state]);  // Handle back click function
   const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 4;
+    
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
-        tabIndex: 4, // BillingSheet tab index
+        tabIndex: tabIndex, // Use stored tab index
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
           selectedJobId: storedSearchParams.selectedJobId,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -76,37 +82,50 @@ function EditBillingSheet() {
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
+        // Get user info from context or localStorage fallback
+        const username = user?.username || localStorage.getItem('username') || 'unknown';
+        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
+        
+
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-billing/${data._id}`,
-          values
+          values,
+          {
+            headers: {
+              'username': username,
+              'user-id': userId,
+              'user-role': userRole
+            }
+          }
         );
+        
 
         // Update the local data state after successful update
         setData((prev) => ({
           ...prev,
           ...values,
-        }));
-
-        setFileSnackbar({
+        }));        setFileSnackbar({
           open: true,
           message: "Billing details updated successfully!",
         }); // Navigate back to the BillingSheet tab after submission
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
-       navigate("/import-do", {
-      state: {
-        fromJobDetails: true,
-        tabIndex: 4, // BillingSheet tab index
-        ...(storedSearchParams && {
-          searchQuery: storedSearchParams.searchQuery,
-          selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: storedSearchParams.selectedJobId,
-        }),
-      },
-    });
+        const tabIndex = storedSearchParams?.currentTab ?? 4;
+        navigate("/import-do", {
+          state: {
+            fromJobDetails: true,
+            tabIndex: tabIndex, // Use stored tab index
+            ...(storedSearchParams && {
+              searchQuery: storedSearchParams.searchQuery,
+              selectedImporter: storedSearchParams.selectedImporter,
+              selectedJobId: storedSearchParams.selectedJobId,
+              currentPage: storedSearchParams.currentPage,
+            }),
+          },
+        });
 
-
-        setCurrentTab(4); // Update the active tab in context (was incorrectly set to 3)
+        setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
         console.error("Error updating billing details:", error);
         setFileSnackbar({
@@ -116,6 +135,7 @@ function EditBillingSheet() {
       }
     },
   });
+
 
   // Fetch data when the component is mounted
   React.useEffect(() => {

@@ -8,6 +8,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { TextField } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { TabContext } from "./ImportDO";
+import { UserContext } from "../../contexts/UserContext";
 
 function EditDoList() {
   const { _id } = useParams();
@@ -22,10 +23,12 @@ function EditDoList() {
   const location = useLocation();
   const navigate = useNavigate();
   const { setCurrentTab } = useContext(TabContext);
+  const { user } = useContext(UserContext);
   
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
+  // Store search parameters from location state
   // Store search parameters from location state
   React.useEffect(() => {
     if (location.state) {
@@ -36,26 +39,26 @@ function EditDoList() {
         selectedICD, 
         selectedYearState,
         fromJobList,
-        tabIndex,
-        page
+        currentTab,
+        currentPage
       } = location.state;
       
-      setStoredSearchParams({
+      const params = {
         selectedJobId,
         searchQuery,
         selectedImporter,
         selectedICD,
         selectedYearState,
         fromJobList,
-        tabIndex: tabIndex || 1, // Default to List tab (index 1)
-        page,
-      });
+        currentTab: currentTab ?? 1, // Default to List tab (index 1)
+        currentPage,
+      };
+      setStoredSearchParams(params);
     }
   }, [location.state]);
-
   // Handle back to job list navigation
   const handleBackToJobList = () => {
-    const tabIndex = storedSearchParams?.tabIndex ?? 1; // Default to List tab (index 1)
+    const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to List tab (index 1)
     
     // Set the current tab in context
     setCurrentTab(tabIndex);
@@ -71,7 +74,7 @@ function EditDoList() {
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
           selectedJobId: storedSearchParams.selectedJobId,
-          page: storedSearchParams.page,
+          currentPage: storedSearchParams.currentPage,
         }),
       },
     });
@@ -139,10 +142,27 @@ function EditDoList() {
             ? "Yes"
             : "No",
         };
-
-        await axios.post(
+         // Get user info from localStorage for audit trail
+        const userData = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': userData._id || 'unknown',
+          'username': userData.username || 'unknown',
+          'user-role': userData.role || 'unknown'
+        };
+        
+        // Log for debugging
+        console.log('DO update - sending user info:', {
+          userId: headers['user-id'],
+          username: headers['username'],
+          role: headers['user-role']
+        });
+        
+        await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-list`,
-          data
+          data,
+          { headers }
+      
         );
         
         setSnackbar(true);

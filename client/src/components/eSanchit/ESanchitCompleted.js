@@ -17,24 +17,25 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchitCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
+  
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
-  const [loading, setLoading] = useState(false); // Loading state
-  // Use context for searchQuery and selectedImporter
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 1
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab1: currentPage, setCurrentPageTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
+  
   
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -121,6 +122,7 @@ function ESanchitCompleted() {
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Ensure year is sent
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -134,7 +136,7 @@ function ESanchitCompleted() {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
+        // setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -144,36 +146,37 @@ function ESanchitCompleted() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
 useEffect(() => {
-  if (selectedYearState) {
-    // Ensure year is available before calling API
-    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+  if (selectedYearState && user?.username) {
+    // Ensure year and username are available before calling API
+    fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState);
   }
 }, [
-  page,
+  currentPage,
   debouncedSearchQuery,
   selectedImporter,
   selectedYearState,
+  user?.username,
   fetchJobs,
 ]);
 
 // Add this useEffect in your ESanchitCompleted component
-React.useEffect(() => {
-  // Clear search state when this tab becomes active, but not when returning from job details
-  if (currentTab === 1 && !location.state?.fromJobDetails) {
-    setSearchQuery("");
-    setSelectedImporter("");
-  }
-}, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
+// React.useEffect(() => {
+//   // Clear search state when this tab becomes active, but not when returning from job details
+//   if (currentTab === 1 && !location.state?.fromJobDetails) {
+//     setSearchQuery("");
+//     setSelectedImporter("");
+//   }
+// }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      // setPage(1); // Reset to first page on new search
     }, 500); // 500ms delay
 
     return () => clearTimeout(handler);
@@ -181,11 +184,12 @@ React.useEffect(() => {
 
   // Handle page change
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    setCurrentPage(newPage);
   };
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1);
   };
 
   // Handle copy functionality (can be abstracted if used multiple times)
@@ -199,7 +203,6 @@ React.useEffect(() => {
       navigator.clipboard
         .writeText(text)
         .then(() => {
-          console.log("Text copied to clipboard:", text);
         })
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
@@ -214,7 +217,6 @@ React.useEffect(() => {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
       } catch (err) {
         alert("Failed to copy text to clipboard.");
         console.error("Fallback copy failed:", err);
@@ -455,19 +457,6 @@ React.useEffect(() => {
           )}
         />
 
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
 
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
@@ -478,10 +467,9 @@ React.useEffect(() => {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
-                  onClick={() => {
+                <IconButton                  onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -498,11 +486,10 @@ React.useEffect(() => {
   return (
     <div style={{ height: "80%" }}>
       <>
-        <MaterialReactTable {...tableConfig} />
-        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <MaterialReactTable {...tableConfig} />        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
           <Pagination
             count={totalPages}
-            page={page}
+            page={currentPage}
             onChange={handlePageChange}
             color="primary"
             showFirstButton
@@ -515,4 +502,6 @@ React.useEffect(() => {
 }
 
 export default React.memo(ESanchitCompleted);
+
+
 

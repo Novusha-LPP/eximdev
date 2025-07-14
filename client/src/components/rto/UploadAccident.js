@@ -48,12 +48,10 @@ function UploadAccident() {
   const getTruckNumberAPI = `${apiBaseURL}/get-vehicles`;
   const getTypeOfVehiclesAPI = `${apiBaseURL}/get-type-of-vehicles`;
   const deleteRtoAccident = `${apiBaseURL}/vehicle/${selectedTruckNo}/delete-accident`;
-  console.log(vehicleTypeOptions);
 
   const now = new Date();
   const todayDate = now.toISOString().split("T")[0]; // Local date in YYYY-MM-DD
   const todayTime = now.toISOString().split("T")[1].slice(0, 5); // Local time in HH:MM
-  console.log(todayDate, todayTime);
   useEffect(() => {
     const fetchVehicleTypes = async () => {
       try {

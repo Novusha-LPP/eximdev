@@ -1,5 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -18,7 +20,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-esanchit-jobs", async (req, res) => {
+router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year } = req.query;
 
@@ -78,6 +80,12 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    }
+
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
@@ -130,9 +138,11 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
+router.patch("/api/update-esanchit-job/:job_no/:year", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { job_no, year } = req.params;
-  const { cth_documents, queries, esanchit_completed_date_time } = req.body;
+  const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time } = req.body;
 
   try {
     // Find the job by job_no and year
@@ -145,6 +155,10 @@ router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
     // Update fields only if provided
     if (cth_documents) {
       job.cth_documents = cth_documents;
+    }
+
+    if (esanchitCharges) {
+      job.esanchitCharges = esanchitCharges;
     }
 
     if (queries) {

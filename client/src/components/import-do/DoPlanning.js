@@ -20,6 +20,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DoPlanning() {
@@ -32,7 +33,7 @@ function DoPlanning() {
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
   // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab1: currentPage, setCurrentPageDoTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,27 +42,11 @@ function DoPlanning() {
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
-  );
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  // Add this useEffect to handle search state restoration when returning from job details
-  React.useEffect(() => {
-    if (location.state?.fromJobDetails) {
-      // Restore search state when returning from job details
-      if (location.state?.searchQuery !== undefined) {
-        setSearchQuery(location.state.searchQuery);
-      }
-      if (location.state?.selectedImporter !== undefined) {
-        setSelectedImporter(location.state.selectedImporter);
-      }
-      if (location.state?.selectedJobId !== undefined) {
-        setSelectedJobId(location.state.selectedJobId);
-      }
-    } else {
-      // Clear search state when this tab becomes active fresh (not from job details)
-      setSearchQuery("");
-      setSelectedImporter("");
-      setSelectedJobId(null);
-    }
-  }, [setSearchQuery, setSelectedImporter, location.state?.fromJobDetails]);
+  );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+
+ 
+  // Remove the automatic clearing - we'll handle this from the tab component instead
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -179,6 +164,7 @@ function DoPlanning() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -192,7 +178,7 @@ function DoPlanning() {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
+        // setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -202,41 +188,49 @@ function DoPlanning() {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
-    page,
+      currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+        setCurrentPage(1); // Reset to first page when user types
+
   };
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      // setPage(1); // Reset to first page on new search
     }, 500); // 500ms debounce delay
     return () => clearTimeout(handler); // Cleanup on unmount
   }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage); // Update current page
+        setCurrentPage(1); // Reset to first page when user types
+
   };
 
   const columns = [
@@ -248,7 +242,7 @@ function DoPlanning() {
         const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
           cell.row.original;
 
-        return (
+         return (
           <div
             style={{
               // If the row matches the selected ID, give it a highlight
@@ -257,15 +251,18 @@ function DoPlanning() {
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}
-            onClick={() => {
+            }}            onClick={() => {
               // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);              // 2) Navigate to the detail page, and pass selectedJobId and search state
+              setSelectedJobId(_id);
+              
+              // 2) Navigate to the detail page, and pass selectedJobId and search state
               navigate(`/edit-do-planning/${_id}`, {
                 state: {
                   selectedJobId: _id,
                   searchQuery,
                   selectedImporter,
+                  currentTab: 2,
+                  currentPage,
                 },
               });
             }}
@@ -803,16 +800,14 @@ function DoPlanning() {
           ))}
         </TextField>
 
-        {/* ICD Code Filter */}
-        <TextField
+      <TextField
           select
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
+          value={selectedICD}          onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -828,11 +823,10 @@ function DoPlanning() {
           onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
+              <InputAdornment position="end">                <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -860,12 +854,10 @@ function DoPlanning() {
       {/* Search Input */}
 
       {/* Table */}
-      <MaterialReactTable table={table} />
-
-      {/* Pagination */}
+      <MaterialReactTable table={table} />      {/* Pagination */}
       <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

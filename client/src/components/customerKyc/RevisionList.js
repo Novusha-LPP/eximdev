@@ -8,7 +8,6 @@ import { UserContext } from "../../contexts/UserContext";
 function RevisionList() {
   const [data, setData] = useState([]);
   const { user } = useContext(UserContext);
-  console.log(data);
   useEffect(() => {
     async function getData() {
       const res = await axios.get(

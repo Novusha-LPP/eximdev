@@ -12,21 +12,6 @@ function formatImporter(importer) {
     .replace(/_+/g, "_"); // Remove multiple underscores
 }
 
-// ✅ Index creation to ensure efficient querying (run this only once or during startup)
-// async function ensureIndexes() {
-//   try {
-//     await JobModel.createIndexes([
-//       { year: 1 },
-//       { importerURL: 1 },
-//       { status: 1 },
-//     ]);
-//     console.log("Indexes ensured successfully.");
-//   } catch (error) {
-//     console.error("Error creating indexes:", error);
-//   }
-// }
-// ensureIndexes();
-
 // ✅ API Endpoint to get job counts for an importer
 router.get("/api/get-importer-jobs/:importerURL/:year", async (req, res) => {
   try {

@@ -114,14 +114,6 @@ function DoPlanningContainerTable(props) {
 
   async function handleSave(rowIndex) {
     const updatedRow = rows[rowIndex];
-    console.log("Job No:", props.job_no);
-    console.log("Year:", props.year);
-    console.log("Container No:", updatedRow.container_number);
-    console.log(
-      "DO Validity Upto:",
-      updatedRow.do_validity_upto_container_level
-    );
-
     const res = await axios.post(
       `${process.env.REACT_APP_API_STRING}/update-do-container`,
       {

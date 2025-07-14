@@ -104,6 +104,7 @@ import assignModules from "./routes/home/assignModules.mjs";
 import assignRole from "./routes/home/assignRole.mjs";
 import unassignModule from "./routes/home/unassignModules.mjs";
 import changePassword from "./routes/home/changePassword.mjs";
+import assignIcdCode from "./routes/home/assignIcdCode.mjs";
 
 // ImportersInfo
 import ImportersInfo from "./routes/importers-Info/importersInfo.mjs";
@@ -270,8 +271,6 @@ if (cluster.isPrimary) {
     cluster.fork();
   }
   cluster.on("exit", (worker) => {
-    console.log(`Worker ${worker.process.pid} died`);
-    console.log(`Starting a new worker`);
     cluster.fork();
   });
 } else {
@@ -306,6 +305,15 @@ if (cluster.isPrimary) {
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       ],
       credentials: true,
+      // Allow custom headers for audit trail
+      exposedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization',
+        'user-id',
+        'username',
+        'user-role'
+      ],
     })
   );
 
@@ -414,6 +422,7 @@ if (cluster.isPrimary) {
       app.use(assignRole);
       app.use(unassignModule);
       app.use(changePassword);
+      app.use(assignIcdCode);
 
       // ImportersInfo
       app.use(ImportersInfo);

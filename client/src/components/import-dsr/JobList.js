@@ -6,6 +6,7 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
+import { UserContext } from "../../contexts/UserContext";
 import {
   MenuItem,
   TextField,
@@ -66,6 +67,8 @@ SearchInput.displayName = 'SearchInput';
 function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  
   const { 
     searchQuery, setSearchQuery,
     detailedStatus, setDetailedStatus,
@@ -134,7 +137,8 @@ function JobList(props) {
       props.status,
       selectedICD,
       debouncedSearchQuery,
-      selectedImporter
+      selectedImporter,
+      user?.username // Pass username for ICD filtering
     );  // Callback to update row data when data changes in EditableDateCell
   const handleRowDataUpdate = useCallback((jobId, updatedData) => {
     setRows(prevRows => 

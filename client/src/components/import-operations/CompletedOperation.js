@@ -33,15 +33,21 @@ function CompletedOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-
-  const [page, setPage] = useState(1);
+ 
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-  
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+    // Use context for searchQuery, selectedImporter, and currentPage for tab 2 (Completed Operations)
+  const { 
+    searchQuery, 
+    setSearchQuery, 
+    selectedImporter, 
+    setSelectedImporter, 
+    currentPageOpTab2: currentPage, 
+    setCurrentPageOpTab2: setCurrentPage 
+  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [isInitialized, setIsInitialized] = useState(false);
-  
+  const [page, setPage] = useState(currentPage);
   const location = useLocation();
   const [selectedJobId, setSelectedJobId] = useState(
     location.state?.selectedJobId || null
@@ -53,17 +59,16 @@ function CompletedOperations() {
   const isFromJobDetailsRef = useRef(false);
 
   const limit = 100;
-
+  
   // Initialize component and handle navigation state
   useEffect(() => {
     const fromJobDetails = location.state?.fromJobDetails;
     isFromJobDetailsRef.current = fromJobDetails;
-
+    
+    // Changed to check for currentTab === 2 (Completed Operations tab)
     if (currentTab === 2) {
       if (fromJobDetails) {
-        // Restore state from job details navigation
-        console.log('🔄 Restoring search state from job details navigation');
-        
+        // Restore state from job details navigation        
         if (location.state?.searchQuery !== undefined) {
           setSearchQuery(location.state.searchQuery);
           setDebouncedSearchQuery(location.state.searchQuery);
@@ -79,18 +84,17 @@ function CompletedOperations() {
         }
       } else {
         // Clear search state when coming from other tabs (not job details)
-        console.log('🧹 Clearing search state - new tab access');
         setSearchQuery("");
         setSelectedImporter("");
         setDebouncedSearchQuery("");
         setSelectedICD("");
-        setPage(1);
+        // Note: We don't reset currentPage here - pagination should persist
       }
     }
 
     setIsInitialized(true);
   }, [currentTab, location.state, setSearchQuery, setSelectedImporter]);
-
+  
   // Cleanup function to cancel ongoing requests
   const cancelPreviousRequest = useCallback(() => {
     if (abortControllerRef.current) {
@@ -107,19 +111,16 @@ function CompletedOperations() {
     selectedICD,
     selectedImporter
   ) => {
-    // Don't make API calls if component isn't initialized
-    if (!isInitialized || !year) {
+    // Don't make API calls if component isn't initialized, user not available, or no username
+    if (!isInitialized || !year || !user?.username) {
       return;
     }
-
     cancelPreviousRequest();
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    try {
-      console.log('📡 Making API call:', { page, searchQuery, year, selectedICD, selectedImporter });
-      
+    try {      
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
         {
@@ -137,14 +138,20 @@ function CompletedOperations() {
 
       // Only update state if this is still the current request
       if (abortControllerRef.current === controller) {
-        setRows(res.data.jobs);
-        setTotalPages(res.data.totalPages);
-        setTotalJobs(res.data.totalJobs);
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+        } = res.data;
+        
+        setRows(Array.isArray(jobs) ? jobs : []);
+        setTotalPages(totalPages || 1);
+        setTotalJobs(totalJobs || 0);
         abortControllerRef.current = null;
       }
     } catch (error) {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.log('🚫 Request cancelled');
         return;
       }
       console.error("Error fetching rows:", error);
@@ -157,8 +164,8 @@ function CompletedOperations() {
         abortControllerRef.current = null;
       }
     }
-  }, [isInitialized, user.username, limit, cancelPreviousRequest]);
-
+  }, [isInitialized, user?.username, limit, cancelPreviousRequest]);
+  
   // Handle search debouncing
   useEffect(() => {
     if (!isInitialized) return;
@@ -170,7 +177,11 @@ function CompletedOperations() {
 
     debounceTimeoutRef.current = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      // Only reset to first page if there's an actual search query (not when clearing)
+      if (searchQuery && searchQuery.trim() !== "") {
+        setCurrentPage(1); // Reset to first page on new search
+        setPage(1);
+      }
     }, 500);
 
     return () => {
@@ -178,7 +189,7 @@ function CompletedOperations() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [searchQuery, isInitialized]);
+  }, [searchQuery, isInitialized, setCurrentPage]);
 
   // Fetch importers when year changes
   useEffect(() => {
@@ -231,17 +242,17 @@ function CompletedOperations() {
     }
     getYears();
   }, [selectedYearState, setSelectedYearState]);
-
+  
   // Main effect to fetch data - consolidated and optimized
   useEffect(() => {
     // Special handling for restoration from job details
     if (isFromJobDetailsRef.current && isInitialized) {
-      console.log('🎯 Making API call with restored search parameters');
       
       // Use a small delay to ensure all state is properly restored
       const timeoutId = setTimeout(() => {
+        const restoredPage = location.state?.currentPage || currentPage;
         fetchRows(
-          1, // Reset to first page when restoring
+          restoredPage,
           location.state?.searchQuery || "",
           selectedYearState,
           location.state?.selectedICD || "",
@@ -271,7 +282,9 @@ function CompletedOperations() {
     selectedICD,
     selectedImporter,
     isInitialized,
-    location.state
+    location.state,
+    currentPage,
+    user?.username
   ]);
 
   // Cleanup on unmount
@@ -283,11 +296,12 @@ function CompletedOperations() {
       }
     };
   }, [cancelPreviousRequest]);
-
+  
   // Handle pagination change
   const handlePageChange = useCallback((event, newPage) => {
     setPage(newPage);
-  }, []);
+    setCurrentPage(newPage); // Update context as well
+  }, [page, setCurrentPage]);
 
   // Handle copy functionality
   const handleCopy = useCallback((event, text) => {
@@ -398,6 +412,7 @@ function CompletedOperations() {
                   selectedYearState,
                   currentTab: 2,
                   fromJobList: true,
+                  currentPage: page, // Pass current page
                 },
               });
             }}
@@ -495,47 +510,47 @@ function CompletedOperations() {
         );
       },
     },
-    {
-      accessorKey: "container_nos",
-      header: "Arrival Date",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) =>
-        cell.getValue()?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.arrival_date}
-            <br />
-          </React.Fragment>
-        )),
-    },
-    {
-      accessorKey: "examination_planning_date",
-      header: "Examination Planning Date",
-      enableSorting: false,
-      size: 240,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "pcv_date",
-      header: "PCV Date",
-      enableSorting: false,
-      size: 120,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "out_of_charge",
-      header: "Out Of Charge Date",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-  ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, handleCopy, formatDate, getCustomHouseLocation, navigate]);
+{
+  accessorKey: "container_nos",
+  header: "Arrival Date",
+  enableSorting: false,
+  size: 150,
+  Cell: ({ cell }) =>
+    cell.getValue()?.map((container, id) => (
+      <React.Fragment key={id}>
+        {formatDate(container.arrival_date)}
+        <br />
+      </React.Fragment>
+    )),
+},
+{
+  accessorKey: "examination_planning_date",
+  header: "Examination Planning Date",
+  enableSorting: false,
+  size: 240,
+  Cell: ({ cell }) => (
+    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+  ),
+},
+{
+  accessorKey: "pcv_date",
+  header: "PCV Date",
+  enableSorting: false,
+  size: 120,
+  Cell: ({ cell }) => (
+    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+  ),
+},
+{
+  accessorKey: "out_of_charge",
+  header: "Out Of Charge Date",
+  enableSorting: false,
+  size: 150,
+  Cell: ({ cell }) => (
+    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+  ),
+},
+  ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, handleCopy, formatDate, getCustomHouseLocation, navigate, page]);
 
   const tableConfig = useMemo(() => ({
     columns,
@@ -590,7 +605,9 @@ function CompletedOperations() {
           value={selectedImporter || ""}
           onInputChange={(event, newValue) => {
             setSelectedImporter(newValue);
-            setPage(1);
+            const newPage = 1;
+            setPage(newPage);
+            setCurrentPage(newPage);
           }}
           renderInput={(params) => (
             <TextField
@@ -609,7 +626,9 @@ function CompletedOperations() {
           value={selectedYearState}
           onChange={(e) => {
             setSelectedYearState(e.target.value);
-            setPage(1);
+            const newPage = 1;
+            setPage(newPage);
+            setCurrentPage(newPage);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -628,7 +647,9 @@ function CompletedOperations() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value);
-            setPage(1);
+            const newPage = 1;
+            setPage(newPage);
+            setCurrentPage(newPage);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -648,7 +669,7 @@ function CompletedOperations() {
         />
       </div>
     ),
-  }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery]);
+  }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery, setCurrentPage]);
 
   if (!isInitialized) {
     return <div>Loading...</div>;

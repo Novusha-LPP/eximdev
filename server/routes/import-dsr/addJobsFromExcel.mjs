@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -37,7 +38,6 @@ const formatDateToIST = () => {
 
 // Example usage:
 const currentTimeIST = formatDateToIST();
-console.log(currentTimeIST); // e.g., "2024-04-23 11:57:43 am"
 
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
@@ -54,7 +54,9 @@ router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
 });
 
 // Route to add a new job
-router.post("/api/jobs/add-job-imp-man", async (req, res) => {
+router.post("/api/jobs/add-job-imp-man", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   try {
     const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
 
@@ -144,7 +146,9 @@ const newJob = new JobModel({
   }
 });
 
-router.post("/api/jobs/add-job", async (req, res) => {
+router.post("/api/jobs/add-job", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const jsonData = req.body;
 
   try {

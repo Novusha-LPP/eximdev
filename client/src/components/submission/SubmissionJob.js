@@ -37,35 +37,24 @@ const SubmissionJobSchema = Yup.object().shape({
   // Additional validation rules can be added here
 });
 
-// Custom component to watch and update 'submission_completed_date_time'
+// Custom component to watch and clear 'submission_completed_date_time' only when verified checklist is removed
 const SubmissionCompletedWatcher = () => {
   const { values, setFieldValue } = useFormikContext();
 
   useEffect(() => {
     const {
       verified_checklist_upload_date_and_time,
-      job_sticker_upload_date_and_time,
       submission_completed_date_time,
     } = values;
 
-    if (
-      verified_checklist_upload_date_and_time &&
-      job_sticker_upload_date_and_time
-    ) {
-      if (!submission_completed_date_time) {
-        const currentDateTime = getCurrentLocalDateTime();
-        setFieldValue("submission_completed_date_time", currentDateTime);
-      }
-    } else {
-      if (submission_completed_date_time) {
-        setFieldValue("submission_completed_date_time", "");
-      }
+    // Only clear submission completed if verified checklist is removed
+    // This allows manual control over the submission completed checkbox
+    if (!verified_checklist_upload_date_and_time && submission_completed_date_time) {
+      setFieldValue("submission_completed_date_time", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     values.verified_checklist_upload_date_and_time,
-    values.job_sticker_upload_date_and_time,
-    values.submission_completed_date_time,
     setFieldValue,
   ]);
 
@@ -78,6 +67,7 @@ const SubmissionJob = () => {
   const [data, setData] = useState(null);
   const [verifiedChecklistUploads, setVerifiedChecklistUploads] = useState([]);
   const [jobStickerUploads, setJobStickerUploads] = useState([]);
+  const [submissionQueries, setSubmissionQueries] = useState([]);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -86,7 +76,6 @@ const SubmissionJob = () => {
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   // Store search parameters from location state
   useEffect(() => {
-    console.log('SubmissionJob: Received location state:', location.state);
     if (location.state) {
       const { 
         searchQuery, 
@@ -101,18 +90,11 @@ const SubmissionJob = () => {
         selectedJobId,
         currentPage,
       };
-        console.log('SubmissionJob: Storing params:', params);
       setStoredSearchParams(params);
     }
   }, [location.state]);
   // Handle back click function
-  const handleBackClick = () => {
-    console.log('SubmissionJob: Navigating back with params', {
-      currentPage: storedSearchParams?.currentPage,
-      searchQuery: storedSearchParams?.searchQuery,
-      selectedImporter: storedSearchParams?.selectedImporter,
-      selectedJobId: storedSearchParams?.selectedJobId
-    });
+ const handleBackClick = () => {
     
     navigate("/submission", {
       state: {
@@ -126,6 +108,7 @@ const SubmissionJob = () => {
       },
     });
   };
+
 
   const extractFileName = (url) => {
     try {
@@ -155,6 +138,11 @@ const SubmissionJob = () => {
       if (response.data.job_sticker_upload) {
         setJobStickerUploads(response.data.job_sticker_upload);
       }
+      if (Array.isArray(response.data.submissionQueries)) {
+        setSubmissionQueries(response.data.submissionQueries);
+      } else {
+        setSubmissionQueries([]);
+      }
     } catch (error) {
       console.error("Error fetching job details:", error);
       alert("Failed to fetch job details. Please try again later.");
@@ -174,9 +162,22 @@ const SubmissionJob = () => {
         job_sticker_upload_date_and_time:
           values.job_sticker_upload_date_and_time,
         be_date: values.be_date,
-      };      await axios.patch(
+        submissionQueries: submissionQueries,
+      };      
+      
+      // Get user data from localStorage for audit trail
+      const userData = JSON.parse(localStorage.getItem("exim_user")) || {};
+      
+      await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-submission-job/${data._id}`,
-        payload
+        payload,
+        {
+          headers: {
+            'user-id': userData._id || user?._id || 'unknown',
+            'username': userData.username || user?.username || 'unknown',
+            'user-role': userData.role || user?.role || 'unknown'
+          }
+        }
       );
       
       // Optionally, show a success message
@@ -371,11 +372,81 @@ const SubmissionJob = () => {
             validationSchema={SubmissionJobSchema}
             onSubmit={handleSubmit}
           >
+            
             {({ values, setFieldValue, isSubmitting }) => (
               <Form>
                 {/* Include the SubmissionCompletedWatcher here */}
                 <SubmissionCompletedWatcher />
 
+    {/* Submission Queries Section */}
+                <div className="job-details-container">
+                  <JobDetailsRowHeading heading="Submission Queries" />
+                  {Array.isArray(submissionQueries) && submissionQueries.map((item, id) => (
+                    <Row key={id}>
+                      <Col xs={12} lg={5}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label="Query"
+                          value={item.query}
+                          onChange={e => {
+                            const updated = [...submissionQueries];
+                            updated[id].query = e.target.value;
+                            setSubmissionQueries(updated);
+                          }}
+                        />
+                      </Col>
+                      <Col xs={12} lg={5}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label="Reply"
+                          value={item.reply}
+                          InputProps={{
+                        readOnly: true, // Make the field read-only
+                      }}
+                          onChange={e => {
+                            const updated = [...submissionQueries];
+                            updated[id].reply = e.target.value;
+                            setSubmissionQueries(updated);
+                          }}
+                        />
+                      </Col>
+                      <Col xs={12} lg={2} style={{ display: 'flex', alignItems: 'center' }}>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          size="small"
+                          onClick={() => {
+                            const updated = [...submissionQueries];
+                            updated.splice(id, 1);
+                            setSubmissionQueries(updated);
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </Col>
+                    </Row>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmissionQueries(prev => (
+                        Array.isArray(prev)
+                          ? [...prev, { query: "", reply: "" }]
+                          : [{ query: "", reply: "" }]
+                      ));
+                    }}
+                    className="btn"
+                    style={{ marginTop: 8 }}
+                  >
+                    Add Query
+                  </button>
+                </div>
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Approved and Verification" />
 
@@ -637,6 +708,8 @@ const SubmissionJob = () => {
                   {/* </Row> */}
                 </div>
 
+                
+
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Submission Completed" />
                   <Row>
@@ -728,6 +801,7 @@ const SubmissionJob = () => {
                     </Col>
                   </Row>
                 </div>
+            
                 <button
                   className="btn sticky-btn"
                   type="submit"

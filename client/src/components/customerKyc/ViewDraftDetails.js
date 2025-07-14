@@ -23,7 +23,6 @@ function ViewDraftDetails() {
   const [open, setOpen] = React.useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
-  console.log(_id);
   useEffect(() => {
     async function getData() {
       const res = await axios(

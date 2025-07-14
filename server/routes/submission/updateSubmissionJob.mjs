@@ -1,9 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-submission-job/:id", async (req, res) => {
+router.patch("/api/update-submission-job/:id", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   try {
     const jobId = req.params.id;
     const updateData = req.body; // Contains the fields to be updated
@@ -17,6 +20,7 @@ router.patch("/api/update-submission-job/:id", async (req, res) => {
       "submission_completed_date_time",
       "job_sticker_upload",
       "job_sticker_upload_date_and_time",
+      "submissionQueries", // Allow updating submissionQueries
     ];
 
     const actualUpdates = Object.keys(updateData);

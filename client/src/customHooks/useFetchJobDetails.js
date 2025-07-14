@@ -61,25 +61,36 @@ function useFetchJobDetails(
       document_name: "Bill of Lading",
       document_code: "704000",
     },
-    // {
-    //   document_name: "Certificate of Origin",
-    //   document_code: "861000",
-    // },
-    // {
-    //   document_name: "Contract",
-    //   document_code: "315000",
-    // },
-    // {
-    //   document_name: "Insurance",
-    //   document_code: "91WH13",
-    // },
   ]);
+
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   //
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
+
+  // Charges section state
+  const [chargesDetails, setChargesDetails] = useState([
+    {
+      document_name: "Notary",
+    },
+    {
+      document_name: "Duty",
+    },
+    {
+      document_name: "MISC",
+    },
+    {
+      document_name: "CE Certification Charges",
+    },
+    {
+      document_name: "ADC/NOC Charges",
+    },
+  ]);
+  const [selectedChargesDocuments, setSelectedChargesDocuments] = useState([]);
+  const [selectedChargesDocument, setSelectedChargesDocument] = useState(""); // State for custom charges dropdown
+  const [newChargesDocumentName, setNewChargesDocumentName] = useState("");
 
   const additionalDocs = [
     // {
@@ -94,18 +105,7 @@ function useFetchJobDetails(
     // { document_name: "Certificate of Analysis", document_code: "001000" },
   ];
   const cth_Dropdown = [
-    // {
-    //   document_name: "Commercial Invoice",
-    //   document_code: "380000",
-    // },
-    // {
-    //   document_name: "Packing List",
-    //   document_code: "271000",
-    // },
-    // {
-    //   document_name: "Bill of Lading",
-    //   document_code: "704000",
-    // },
+   
     {
       document_name: "Certificate of Origin",
       document_code: "861000",
@@ -215,6 +215,32 @@ function useFetchJobDetails(
       );
       setData(response.data);
       setSelectedDocuments(response.data.documents);
+      setSelectedChargesDocuments(response.data.chargesDetails || []);
+      
+      // Update chargesDetails to include custom charges from database
+      if (response.data.chargesDetails && response.data.chargesDetails.length > 0) {
+        const predefinedCharges = [
+          { document_name: "Notary" },
+          { document_name: "Duty" },
+          { document_name: "MISC" },
+          { document_name: "CE Certification Charges" },
+          { document_name: "ADC/NOC Charges" },
+        ];
+        
+        // Get unique custom charges from database (excluding predefined ones)
+        const customChargesFromDB = response.data.chargesDetails
+          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
+          .map(charge => ({ document_name: charge.document_name }));
+        
+        // Remove duplicates by document_name
+        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
+          index === self.findIndex(c => c.document_name === charge.document_name)
+        );
+        
+        // Combine predefined and unique custom charges
+        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
+        setChargesDetails(allCharges);
+      }
     }
 
     getJobDetails();
@@ -298,6 +324,7 @@ function useFetchJobDetails(
     }
     if (data) {
       setSelectedDocuments(data.documents);
+      setSelectedChargesDocuments(data.chargesDetails || []);
     }
 
     getCthDocs();
@@ -402,6 +429,7 @@ function useFetchJobDetails(
       documentation_remark_box: false,
       remark_esanchit_input: "",
       remark_documentation_input: "",
+      chargesDetails: [],
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -412,6 +440,15 @@ function useFetchJobDetails(
         }
         return doc;
       });
+
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
+      };
 
       // Update the payload with the modified cthDocuments and other values
       await axios.put(
@@ -513,7 +550,9 @@ function useFetchJobDetails(
           documentation_remark_box: values.documentation_remark_box,
           remark_esanchit_input: values.remark_esanchit_input,
           remark_documentation_input: values.remark_documentation_input,
-        }
+          chargesDetails: selectedChargesDocuments,
+        },
+        { headers }
       );
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
@@ -883,7 +922,33 @@ function useFetchJobDetails(
         documentation_remark_box: data.documentation_remark_box === undefined ? false : data.documentation_remark_box,
         remark_esanchit_input: data.remark_esanchit_input === undefined ? "" : data.remark_esanchit_input,
         remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
+        chargesDetails: data.chargesDetails === undefined ? [] : data.chargesDetails,
       });
+      
+      // Update chargesDetails state to include custom charges from database
+      if (data.chargesDetails && data.chargesDetails.length > 0) {
+        const predefinedCharges = [
+          { document_name: "Notary" },
+          { document_name: "Duty" },
+          { document_name: "MISC" },
+          { document_name: "CE Certification Charges" },
+          { document_name: "ADC/NOC Charges" },
+        ];
+        
+        // Get unique custom charges from database (excluding predefined ones)
+        const customChargesFromDB = data.chargesDetails
+          .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
+          .map(charge => ({ document_name: charge.document_name }));
+        
+        // Remove duplicates by document_name
+        const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
+          index === self.findIndex(c => c.document_name === charge.document_name)
+        );
+        
+        // Combine predefined and unique custom charges
+        const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
+        setChargesDetails(allCharges);
+      }
     }
     // eslint-disable-next-line
   }, [data]);
@@ -1095,6 +1160,16 @@ function useFetchJobDetails(
     filteredClearanceOptions,
     canChangeClearance,
     resetOtherDetails,
+    
+    // Charges related exports
+    chargesDetails,
+    setChargesDetails,
+    selectedChargesDocuments,
+    setSelectedChargesDocuments,
+    selectedChargesDocument,
+    setSelectedChargesDocument,
+    newChargesDocumentName,
+    setNewChargesDocumentName,
   };
 }
 

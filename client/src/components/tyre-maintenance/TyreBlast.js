@@ -220,7 +220,6 @@ function TyreBlast() {
             />
             <br />
             {formik.values.blast_images.map((image, index) => {
-              console.log(image);
               return (
                 <div key={index}>
                   <a href={image}>{image}</a>

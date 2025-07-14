@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-do-billing", async (req, res) => {
+router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const {
@@ -94,6 +95,12 @@ router.get("/api/get-do-billing", async (req, res) => {
         obl_telex_bl: { $regex: new RegExp(`^${decodedOBL}$`, "i") },
       });
     }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } 
 
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)

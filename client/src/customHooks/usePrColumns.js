@@ -35,7 +35,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
         setTotalPages(res.totalPages || 0);
         setCurrentPage(res.currentPage || page);
 
-        console.log("✅ PR data loaded successfully:", res);
       } catch (error) {
         console.error("❌ Error fetching PR data:", error);
         if (error.code === "ERR_NETWORK") {
@@ -117,9 +116,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
             updatedRow.isBranch = false;
           }
         }
-
-        console.log(`🧩 Updated row ${rowIndex}:`, updatedRow);
-
         return prevRows.map((row, index) =>
           index === rowIndex ? updatedRow : row
         );
@@ -132,8 +128,6 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
   const handleSavePr = useCallback(
     async (rowIndex) => {
       const row = rows[rowIndex];
-      console.log("💾 Preparing to save row:", row);
-
       const errors = [];
 
       if (row.branch === "") {
@@ -164,15 +158,11 @@ function usePrColumns(organisations, containerTypes, locations, truckTypes) {
       setIsLoading(true);
 
       try {
-        console.log("🚀 Sending POST /update-pr with payload:", row);
 
         const res = await axios.post(`${API_BASE_URL}/update-pr`, row, {
           timeout: 10000,
         });
-
-        console.log("✅ API Response:", res.data);
         alert(res.data.message);
-
         setTimeout(() => {
           getPrData(currentPage, 50);
         }, 500);

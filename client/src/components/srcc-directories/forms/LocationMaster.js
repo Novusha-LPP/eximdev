@@ -20,7 +20,6 @@ const LocationMaster = () => {
         `${process.env.REACT_APP_API_STRING}/add-location`,
         values
       );
-      console.log(res.data);
       alert(res.data.message);
       resetForm();
     },

@@ -5,8 +5,6 @@ const router = express.Router();
 
 router.post("/api/add-tyre-brand", async (req, res) => {
   const { tyre_brand, make, description } = req.body;
-  console.log(req.body);
-
   const existingTyreBrand = await TyreBrand.findOne({ tyre_brand });
   if (existingTyreBrand) {
     res.status(200).json({ message: "Tyre brand already exists" });

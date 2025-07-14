@@ -21,7 +21,6 @@ import CountryCode from "./ContryCode";
 // import PortDirectory from "./PortDirectory";
 
 function DirectoryComponent({ directoryType }) {
-  console.log("Selected Directory Type:", directoryType); // Debugging log
 
   const renderDirectory = () => {
     switch (directoryType) {

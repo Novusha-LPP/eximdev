@@ -10,7 +10,6 @@ const useVehicleTypes = (API_URL) => {
     const fetchVehicleTypes = async () => {
       try {
         const response = await axios.get(`${API_URL}/vehicle-types`);
-        console.log(response.data);
         setVehicleTypes(
           response.data.data.map((item) => ({
             label: `${item.vehicleType} - ${item.shortName}`,

@@ -198,7 +198,6 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
       pdf.setFontSize(12);      // Get container details (specific container by index)
       const container = jobData.container_nos && jobData.container_nos[containerIndex] ? jobData.container_nos[containerIndex] : {};
       
-      console.log(container)
       // Create details array with conditional formatting based on consignment type
       const details = [
         { label: 'B/E  No. & DATE', value: `${jobData.be_no || ''} DATE ${formatDate(jobData.be_date)}` },

@@ -55,7 +55,6 @@ function DirectoryModal({
 
     setLoading(true);
     try {
-      console.log(`🔎 Fetching address for postal code: ${postalCode}`);
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/search?postalcode=${postalCode}&country=India&format=json`
       );
@@ -64,7 +63,6 @@ function DirectoryModal({
         const addressParts = response.data[0].display_name
           .split(", ")
           .reverse();
-        console.log("📍 Address Data:", response.data[0]);
 
         let country = addressParts[0] || "India";
         let state = addressParts[1] || "";

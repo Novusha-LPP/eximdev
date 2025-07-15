@@ -19,6 +19,7 @@ const importPriority = [
   "Import - Billing",
   "Import Utility Tool",
   "Report",
+  "Audit Trail",
 
 ];
 

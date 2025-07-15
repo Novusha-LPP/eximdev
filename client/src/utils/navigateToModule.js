@@ -8,6 +8,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/import-dsr");
     case "Report":
       return navigate("/report");
+    case "Audit Trail":
+      return navigate("/audit-trail");
     case "Import - Operations":
       return navigate("/import-operations");
     case "Import - Add":

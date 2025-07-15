@@ -226,6 +226,9 @@ import updateSubmissionJob from "./routes/submission/updateSubmissionJob.mjs";
 import getPenaltyReport from "./routes/report/getPenaltyReport.mjs";
 import getBillingPendingReport from "./routes/report/getBillingPendingReport.mjs";
 
+// Audit Trail
+import auditTrail from "./routes/audit/auditTrail.mjs";
+
 // Tyre Maintenance
 import getPlyRatings from "./routes/tyre-maintenance/getPlyRatings.mjs";
 import getTyreBrands from "./routes/tyre-maintenance/getTyreBrands.mjs";
@@ -550,6 +553,9 @@ if (cluster.isPrimary) {
       app.use(getSubmissionJobs);      // Report
       app.use(getPenaltyReport);
       app.use(getBillingPendingReport);
+
+      //auditrail
+      app.use(auditTrail);
 
       // Tyre Maintenance
       app.use(getPlyRatings);

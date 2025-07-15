@@ -63,6 +63,9 @@ import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTo
 
 //import Report 
 import ReportTabs from "../components/Report/ReportTabs.js";
+
+// import auditrail
+import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
 // import billing 
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
 // Inward Register
@@ -239,6 +242,10 @@ function HomePage() {
 <Route
               path="/report"
               element={<ReportTabs />}
+            />
+<Route
+              path="/audit-trail"
+              element={<AuditTrailViewer />}
             />
             <Route path="/duty-calculator" element={<DutyCalculator />} />
             <Route path="/utilities" element={<UtilityParent />} />

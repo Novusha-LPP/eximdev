@@ -19,6 +19,7 @@ const allModules = [
   "Import - Billing",
   "Import Utility Tool",
     "Report",
+  "Audit Trail",
   "Export",
   "LR Operations",
   "Accounts",

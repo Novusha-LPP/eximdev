@@ -250,6 +250,20 @@ router.get("/api/audit-trail/stats", async (req, res) => {
       { $limit: 10 }
     ]);
     
+    // Get daily activity (group by date)
+
+    // Get daily activity (group by hour)
+    const dailyActivity = await AuditTrailModel.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d %H:00", date: "$timestamp" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
     res.json({
       summary: stats[0] || {
         totalActions: 0,
@@ -257,7 +271,8 @@ router.get("/api/audit-trail/stats", async (req, res) => {
         totalDocuments: 0
       },
       actionBreakdown: actionStats,
-      topUsers
+      topUsers,
+      dailyActivity: dailyActivity.map(item => ({ date: item._id, count: item.count }))
     });
   } catch (error) {
     console.error("Error fetching audit trail stats:", error);

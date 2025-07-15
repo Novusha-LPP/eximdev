@@ -84,6 +84,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     search: ''
   });
   const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [openFilterDialog, setOpenFilterDialog] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
@@ -161,6 +162,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
 
   // Fetch statistics
   const fetchStats = async () => {
+    setStatsLoading(true);
     try {
       const params = new URLSearchParams();
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
@@ -172,9 +174,39 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       }
 
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`);
-      setStats(response.data);
+
+      // Group dailyActivity by hour using timestamp
+      const raw = response.data.dailyActivity || [];
+      // If already grouped by hour, use as is; else, group here
+      let hourlyMap = {};
+      raw.forEach(item => {
+        // item.timestamp is expected
+        const d = new Date(item.timestamp || item.date);
+        if (!isNaN(d)) {
+          const label = `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:00`;
+          if (!hourlyMap[label]) hourlyMap[label] = 0;
+          hourlyMap[label] += item.count || 1;
+        }
+      });
+      const transformedDailyActivity = Object.entries(hourlyMap).map(([date, actions]) => ({ date, actions }));
+
+      console.log(transformedDailyActivity)
+      // Transform actionTypes data for PieChart
+      const transformedActionTypes = response.data.actionTypes?.map(item => ({
+        name: item._id,
+        value: item.count,
+        color: actionColors[item._id] || oceanColors.primary
+      })) || [];
+
+      setStats({
+        ...response.data,
+        dailyActivity: transformedDailyActivity,
+        actionTypes: transformedActionTypes
+      });
     } catch (error) {
       console.error('Error fetching stats:', error);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -291,222 +323,254 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
   };
 
   const renderSummaryCards = () => (
-    <Grid container spacing={3} sx={{ mb: 3 }}>
-      <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <DocumentIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-              <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                Total Actions
+    statsLoading ? (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <LinearProgress />
+        <Typography variant="body2" sx={{ mt: 2, color: oceanColors.primary }}>
+          Loading statistics...
+        </Typography>
+      </Box>
+    ) : (
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+          }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <DocumentIcon sx={{ color: oceanColors.primary, mr: 1 }} />
+                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
+                  Total Actions
+                </Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
+                {stats?.summary?.totalActions || 0}
               </Typography>
-            </Box>
-            <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-              {stats?.summary?.totalActions || 0}
-            </Typography>
-            <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-              Across all projects
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <PersonIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-              <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                Active Users
+              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
+                Across all projects
               </Typography>
-            </Box>
-            <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-              {stats?.summary?.totalUsers || 0}
-            </Typography>
-            <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-              In the last 30 days
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <DocumentIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-              <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                Documents
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+          }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <PersonIcon sx={{ color: oceanColors.primary, mr: 1 }} />
+                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
+                  Active Users
+                </Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
+                {stats?.summary?.totalUsers || 0}
               </Typography>
-            </Box>
-            <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-              {stats?.summary?.totalDocuments || 0}
-            </Typography>
-            <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-              Modified this year
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <ViewIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-              <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                Most Active
+              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
+                In the last 30 days
               </Typography>
-            </Box>
-            <Typography variant="h5" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-              {stats?.topUsers?.length > 0 ? stats.topUsers[0]._id : 'N/A'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-              {stats?.topUsers?.length > 0 ? `${stats.topUsers[0].count} actions` : ''}
-            </Typography>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+          }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <DocumentIcon sx={{ color: oceanColors.primary, mr: 1 }} />
+                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
+                  Documents
+                </Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
+                {stats?.summary?.totalDocuments || 0}
+              </Typography>
+              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
+                Modified this year
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+          }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <ViewIcon sx={{ color: oceanColors.primary, mr: 1 }} />
+                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
+                  Most Active
+                </Typography>
+              </Box>
+              <Typography variant="h5" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
+                {stats?.topUsers?.length > 0 ? stats.topUsers[0]._id : 'N/A'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
+                {stats?.topUsers?.length > 0 ? `${stats.topUsers[0].count} actions` : ''}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
-    </Grid>
+    )
   );
 
   const renderCharts = () => (
-    <Grid container spacing={3} sx={{ mb: 4 }}>
-      <Grid item xs={12} md={8}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          p: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
-            <CalendarIcon sx={{ mr: 1 }} /> Daily Activity Trend
-          </Typography>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={stats?.dailyActivity || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke={oceanColors.accent} opacity={0.5} />
-              <XAxis 
-                dataKey="date" 
-                stroke={oceanColors.primary} 
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis 
-                stroke={oceanColors.primary} 
-                tick={{ fontSize: 12 }}
-              />
-              <ChartTooltip 
-                contentStyle={{ 
-                  backgroundColor: oceanColors.light,
-                  border: `1px solid ${oceanColors.accent}`,
-                  borderRadius: '8px'
-                }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="actions" 
-                stroke={oceanColors.primary} 
-                strokeWidth={3}
-                dot={{ fill: oceanColors.accent, strokeWidth: 2, r: 5 }}
-                activeDot={{ r: 8, fill: oceanColors.secondary }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
+    statsLoading ? (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <LinearProgress />
+        <Typography variant="body2" sx={{ mt: 2, color: oceanColors.primary }}>
+          Loading statistics...
+        </Typography>
+      </Box>
+    ) : (
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={8}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            p: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+          }}>
+            <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
+              <CalendarIcon sx={{ mr: 1 }} /> Daily Activity Trend
+            </Typography>
+            {(!stats?.dailyActivity || stats.dailyActivity.length === 0) ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ color: oceanColors.primary }}>
+                  No activity data available for the selected period.
+                </Typography>
+              </Box>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={stats?.dailyActivity || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={oceanColors.accent} opacity={0.5} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke={oceanColors.primary} 
+                    tick={{ fontSize: 12 }}
+                    interval={0}
+                    angle={-30}
+                    height={60}
+                  />
+                  <YAxis 
+                    stroke={oceanColors.primary} 
+                    tick={{ fontSize: 12 }}
+                  />
+                  <ChartTooltip 
+                    formatter={(value) => [`${value} actions`, 'Actions']}
+                    labelFormatter={(label) => `Date: ${label}`}
+                    contentStyle={{ 
+                      backgroundColor: oceanColors.light,
+                      border: `1px solid ${oceanColors.accent}`,
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="actions" 
+                    stroke={oceanColors.primary} 
+                    strokeWidth={3}
+                    dot={{ fill: oceanColors.accent, strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, fill: oceanColors.secondary }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} md={4}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            p: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)',
+            height: '100%'
+          }}>
+            <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
+              <FilterIcon sx={{ mr: 1 }} /> Action Distribution
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={stats?.actionTypes || []}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  dataKey="value"
+                  nameKey="name"
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {(stats?.actionTypes || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <ChartTooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12}>
+          <Card sx={{ 
+            background: oceanColors.cardGradient,
+            border: `1px solid ${oceanColors.accent}`,
+            borderRadius: 2,
+            p: 2,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+          }}>
+            <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
+              <PersonIcon sx={{ mr: 1 }} /> Top Users
+            </Typography>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={stats?.topUsers || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke={oceanColors.accent} opacity={0.5} />
+                <XAxis dataKey="_id" stroke={oceanColors.primary} />
+                <YAxis stroke={oceanColors.primary} />
+                <ChartTooltip 
+                  contentStyle={{ 
+                    backgroundColor: oceanColors.light,
+                    border: `1px solid ${oceanColors.accent}`,
+                    borderRadius: '8px'
+                  }} 
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill={oceanColors.primary} 
+                  radius={[4, 4, 0, 0]}
+                  barSize={30}
+                >
+                  {(stats?.topUsers || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={oceanColors.primary} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
       </Grid>
-      
-      <Grid item xs={12} md={4}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          p: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)',
-          height: '100%'
-        }}>
-          <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
-            <FilterIcon sx={{ mr: 1 }} /> Action Distribution
-          </Typography>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={stats?.actionTypes || []}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                dataKey="value"
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                labelLine={false}
-              >
-                {(stats?.actionTypes || []).map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <ChartTooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-      </Grid>
-      
-      <Grid item xs={12}>
-        <Card sx={{ 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          p: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
-            <PersonIcon sx={{ mr: 1 }} /> Top Users
-          </Typography>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={stats?.topUsers || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke={oceanColors.accent} opacity={0.5} />
-              <XAxis dataKey="_id" stroke={oceanColors.primary} />
-              <YAxis stroke={oceanColors.primary} />
-              <ChartTooltip 
-                contentStyle={{ 
-                  backgroundColor: oceanColors.light,
-                  border: `1px solid ${oceanColors.accent}`,
-                  borderRadius: '8px'
-                }} 
-              />
-              <Bar 
-                dataKey="count" 
-                fill={oceanColors.primary} 
-                radius={[4, 4, 0, 0]}
-                barSize={30}
-              >
-                {(stats?.topUsers || []).map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={oceanColors.primary} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      </Grid>
-    </Grid>
+    )
   );
 
   const renderFilters = () => (

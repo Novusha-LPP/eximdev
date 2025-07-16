@@ -71,7 +71,7 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: '' } }) => {
   const [auditData, setAuditData] = useState([]);
   const [loading, setLoading] = useState(false);
-    const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
   const [pagination, setPagination] = useState({});
   const [filters, setFilters] = useState({
     page: 1,
@@ -81,6 +81,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     field: '',
     fromDate: '',
     toDate: '',
+    groupBy: 'day', // default grouping
     search: ''
   });
   const [stats, setStats] = useState(null);
@@ -90,6 +91,60 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
   const [expandedRow, setExpandedRow] = useState(null);
   const [userList, setUserList] = useState([]);
   const [selectedUserForFilter, setSelectedUserForFilter] = useState(null);
+
+  // Date filter UI state
+  // These are controlled by filters.fromDate and filters.toDate
+
+  // Handler for date change (single date or range)
+  const handleDateChange = (field, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value,
+      page: 1
+    }));
+  };
+
+  // When groupBy changes, set date range accordingly
+  useEffect(() => {
+    const today = new Date();
+    let fromDate = filters.fromDate;
+    let toDate = filters.toDate;
+    if (filters.groupBy === 'day' || filters.groupBy === 'hour') {
+      // Set both to today
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      fromDate = `${yyyy}-${mm}-${dd}`;
+      toDate = `${yyyy}-${mm}-${dd}`;
+    } else if (filters.groupBy === 'week') {
+      // Set to current week (Monday to Sunday)
+      const dayOfWeek = today.getDay() || 7; // Sunday=0, so set to 7
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - dayOfWeek + 1);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const yyyy1 = monday.getFullYear();
+      const mm1 = String(monday.getMonth() + 1).padStart(2, '0');
+      const dd1 = String(monday.getDate()).padStart(2, '0');
+      const yyyy2 = sunday.getFullYear();
+      const mm2 = String(sunday.getMonth() + 1).padStart(2, '0');
+      const dd2 = String(sunday.getDate()).padStart(2, '0');
+      fromDate = `${yyyy1}-${mm1}-${dd1}`;
+      toDate = `${yyyy2}-${mm2}-${dd2}`;
+    } else if (filters.groupBy === 'month') {
+      // Set to current month
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      fromDate = `${yyyy}-${mm}-01`;
+      // Last day of month
+      const lastDay = new Date(yyyy, today.getMonth() + 1, 0).getDate();
+      toDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+    }
+    // Only update if changed
+    if (filters.fromDate !== fromDate || filters.toDate !== toDate) {
+      setFilters(prev => ({ ...prev, fromDate, toDate }));
+    }
+  }, [filters.groupBy]);
 
   // Ocean color palette
   const oceanColors = {
@@ -167,6 +222,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       const params = new URLSearchParams();
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
       if (filters.toDate) params.append('toDate', filters.toDate);
+      if (filters.groupBy) params.append('groupBy', filters.groupBy);
 
       // For non-Admin users, always filter by current user
       if (user.role !== 'Admin') {
@@ -256,6 +312,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       field: '',
       fromDate: '',
       toDate: '',
+      groupBy: 'day',
       search: ''
     });
     setSelectedUserForFilter(null);
@@ -573,88 +630,17 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     )
   );
 
-  const renderFilters = () => (
-    <Card sx={{ 
-      p: 3, 
-      mb: 3,
+  // Date filter UI (above tabs, applies to all tabs)
+  const renderDateFilter = () => (
+    <Card sx={{
+      p: 2,
+      mb: 2,
       background: oceanColors.cardGradient,
       border: `1px solid ${oceanColors.accent}`,
       borderRadius: 2,
-      boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
+      boxShadow: '0 2px 8px rgba(8, 145, 178, 0.08)'
     }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ color: oceanColors.primary, display: 'flex', alignItems: 'center' }}>
-          <SearchIcon sx={{ mr: 1 }} /> Search & Filters
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<FilterIcon />}
-          onClick={() => setOpenFilterDialog(true)}
-          sx={{ color: oceanColors.primary, borderColor: oceanColors.accent }}
-        >
-          Advanced Filters
-        </Button>
-      </Box>
-      
-      <Grid container spacing={2}>
-        {/* User filter - conditionally rendered based on role */}
-        <Grid item xs={12} sm={6} md={3}>
-          {user.role === 'Admin' ? (
-            <Autocomplete
-              value={selectedUserForFilter}
-              onChange={handleUserFilterChange}
-              options={userList}
-              getOptionLabel={(option) => option.label || ''}
-              size="small"
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Select User" 
-                  sx={{ backgroundColor: 'white' }}
-                />
-              )}
-              renderOption={(props, option) => {
-                const { key, ...rest } = props;
-                return (
-                  <li key={key} {...rest}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {renderUserAvatar(option.label)}
-                      <Typography sx={{ ml: 1 }}>{option.label}</Typography>
-                    </Box>
-                  </li>
-                );
-              }}
-            />
-          ) : (
-            <TextField
-              fullWidth
-              size="small"
-              label="User"
-              value={user.username}
-              disabled
-              sx={{ backgroundColor: 'white' }}
-            />
-          )}
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Action Type</InputLabel>
-            <Select
-              value={filters.action}
-              onChange={(e) => handleFilterChange('action', e.target.value)}
-              label="Action Type"
-              sx={{ backgroundColor: 'white' }}
-            >
-              <MenuItem value="">All Actions</MenuItem>
-              <MenuItem value="CREATE">Create</MenuItem>
-              <MenuItem value="UPDATE">Update</MenuItem>
-              <MenuItem value="DELETE">Delete</MenuItem>
-              <MenuItem value="READ">Read</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        
+      <Grid container spacing={2} alignItems="center">
         <Grid item xs={12} sm={6} md={3}>
           <TextField
             fullWidth
@@ -663,11 +649,10 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
             label="From Date"
             InputLabelProps={{ shrink: true }}
             value={filters.fromDate}
-            onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+            onChange={e => handleDateChange('fromDate', e.target.value)}
             sx={{ backgroundColor: 'white' }}
           />
         </Grid>
-        
         <Grid item xs={12} sm={6} md={3}>
           <TextField
             fullWidth
@@ -676,9 +661,26 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
             label="To Date"
             InputLabelProps={{ shrink: true }}
             value={filters.toDate}
-            onChange={(e) => handleFilterChange('toDate', e.target.value)}
+            onChange={e => handleDateChange('toDate', e.target.value)}
             sx={{ backgroundColor: 'white' }}
           />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }}>
+            <InputLabel id="group-by-label">Group By</InputLabel>
+            <Select
+              labelId="group-by-label"
+              id="group-by-select"
+              value={filters.groupBy}
+              label="Group By"
+              onChange={e => handleDateChange('groupBy', e.target.value)}
+            >
+              <MenuItem value="hour">Hourly</MenuItem>
+              <MenuItem value="day">Daily</MenuItem>
+              <MenuItem value="week">Weekly</MenuItem>
+              <MenuItem value="month">Monthly</MenuItem>
+            </Select>
+          </FormControl>
         </Grid>
       </Grid>
     </Card>
@@ -995,20 +997,23 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       </Box>
 
       {/* Content based on active tab */}
+      {/* Date filter above tabs, applies to all tabs */}
+      {renderDateFilter()}
+
       {activeTab === 0 && (
         <>
           {stats && renderSummaryCards()}
           {stats && renderCharts()}
         </>
       )}
-      
+
       {activeTab === 1 && (
         <>
-          {renderFilters()}
+          {/* Keep advanced filters for user/action, but remove date fields from there */}
           {renderAuditTable()}
         </>
       )}
-      
+
       {activeTab === 2 && stats && (
         <Card sx={{ 
           p: 3, 

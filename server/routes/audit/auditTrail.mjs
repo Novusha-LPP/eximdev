@@ -147,11 +147,17 @@ router.get("/api/audit-trail", async (req, res) => {
     if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
     if (ipAddress) filter.ipAddress = { $regex: ipAddress, $options: 'i' };
     
-    // Date range filter
+    // Date range filter: default to current date if not provided
     if (fromDate || toDate) {
       filter.timestamp = {};
       if (fromDate) filter.timestamp.$gte = new Date(fromDate);
       if (toDate) filter.timestamp.$lte = new Date(toDate);
+    } else {
+      // Default: current date 00:00 to 23:59
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      filter.timestamp = { $gte: start, $lte: end };
     }
     
     const auditTrail = await AuditTrailModel.find(filter)
@@ -181,14 +187,20 @@ router.get("/api/audit-trail", async (req, res) => {
 // Get audit trail statistics
 router.get("/api/audit-trail/stats", async (req, res) => {
   try {
-    const { fromDate, toDate } = req.query;
+    const { fromDate, toDate, groupBy } = req.query;
     
-    // Build date filter
+    // Build date filter: default to current date if not provided
     const dateFilter = {};
     if (fromDate || toDate) {
       dateFilter.timestamp = {};
       if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
       if (toDate) dateFilter.timestamp.$lte = new Date(toDate);
+    } else {
+      // Default: current date 00:00 to 23:59
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      dateFilter.timestamp = { $gte: start, $lte: end };
     }
     
     // Aggregate statistics
@@ -250,14 +262,17 @@ router.get("/api/audit-trail/stats", async (req, res) => {
       { $limit: 10 }
     ]);
     
-    // Get daily activity (group by date)
+    // Get activity grouped by hour, day, week, or month
+    let dateFormat = "%Y-%m-%d %H:00"; // default: hourly
+    if (groupBy === "day") dateFormat = "%Y-%m-%d";
+    else if (groupBy === "week") dateFormat = "%G-W%V"; // ISO week
+    else if (groupBy === "month") dateFormat = "%Y-%m";
 
-    // Get daily activity (group by hour)
     const dailyActivity = await AuditTrailModel.aggregate([
       { $match: dateFilter },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d %H:00", date: "$timestamp" } },
+          _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
           count: { $sum: 1 }
         }
       },
@@ -271,6 +286,7 @@ router.get("/api/audit-trail/stats", async (req, res) => {
         totalDocuments: 0
       },
       actionBreakdown: actionStats,
+      actionTypes: actionStats, // for frontend PieChart
       topUsers,
       dailyActivity: dailyActivity.map(item => ({ date: item._id, count: item.count }))
     });

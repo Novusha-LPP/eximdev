@@ -68,7 +68,7 @@ const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: '' } }) => {
+const AuditTrailViewer = ({ job_no, year }) => {
   const [auditData, setAuditData] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useContext(UserContext);
@@ -77,7 +77,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     page: 1,
     limit: 10,
     action: '',
-    username: currentUser.role === 'Admin' ? '' : user.username,
+    username: user.role === 'Admin' ? '' : user.username,
     field: '',
     fromDate: '',
     toDate: '',
@@ -90,9 +90,8 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
   const [openFilterDialog, setOpenFilterDialog] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   const [userList, setUserList] = useState([]);
-
   const [selectedUserForFilter, setSelectedUserForFilter] = useState(null);
-
+  const [userFilter, setUserFilter] = useState(user.role === 'Admin' ? '' : user.username);
 
   // White and blue color palette
   const colorPalette = {
@@ -174,6 +173,20 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     }
   };
 
+  // Fetch user list for admin filter
+  useEffect(() => {
+    if (user.role === 'Admin') {
+      fetch('/api/audit/user-mappings')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUserList(data.data.map(u => ({ label: u.username, value: u.username, userId: u.userId })));
+          }
+        });
+    }
+  }, [user.role]);
+
+  // Ensure selected username is sent in API call for admin
   const fetchAuditTrail = async () => {
     setLoading(true);
     try {
@@ -185,9 +198,15 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
+      let filterUser = '';
       if (user.role !== 'Admin') {
         params.set('username', user.username);
+        filterUser = user.username;
+      } else if (userFilter) {
+        params.set('username', userFilter);
+        filterUser = userFilter;
       }
+      console.log('Fetching audit trail for user:', filterUser || 'All Users (admin)');
       const response = await axios.get(`${url}?${params}`);
       setAuditData(response.data.auditTrail || []);
       setPagination(response.data.pagination || {});
@@ -207,6 +226,8 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       if (filters.groupBy) params.append('groupBy', filters.groupBy);
       if (user.role !== 'Admin') {
         params.append('username', user.username);
+      } else if (userFilter) {
+        params.append('username', userFilter);
       }
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`);
       const raw = response.data.dailyActivity || [];
@@ -243,7 +264,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     if (user.role === 'Admin') {
       fetchAllUsers();
     }
-  }, [filters, job_no, year]);
+  }, [filters, job_no, year, user.role]);
 
   useEffect(() => {
     if (user.role === 'Admin' && filters.username && userList.length > 0) {
@@ -260,9 +281,13 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     }));
   };
 
-  const handleUserFilterChange = (event, newValue) => {
-    setSelectedUserForFilter(newValue);
-    handleFilterChange('username', newValue ? newValue.value : '');
+  // Add user filter change handler
+  const handleUserFilterChange = (event) => {
+    const value = event.target.value;
+    setUserFilter(value);
+    console.log('User filter changed:', value);
+    // Trigger data refresh when user filter changes
+    setFilters(prev => ({ ...prev, username: value }));
   };
 
   const handlePageChange = (event, page) => {
@@ -619,6 +644,28 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
         boxShadow: '0 2px 8px rgba(25, 118, 210, 0.08)'
       }}>
         <Grid container spacing={2} alignItems="center">
+          {/* Add user filter for admin */}
+          {user.role === 'Admin' && (
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small" sx={{ backgroundColor: 'white', borderRadius: 1 }}>
+                <InputLabel id="user-filter-label">Filter by User</InputLabel>
+                <Select
+                  labelId="user-filter-label"
+                  id="user-filter-select"
+                  value={userFilter}
+                  label="Filter by User"
+                  onChange={handleUserFilterChange}
+                >
+                  <MenuItem value="">All Users</MenuItem>
+                  {userList.map((user) => (
+                    <MenuItem key={user.value} value={user.value}>
+                      {user.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -827,6 +874,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     </Fade>
   );
 
+
   const renderFilterDialog = () => (
     <Dialog
       open={openFilterDialog}
@@ -948,9 +996,9 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
           Audit Trail Dashboard {job_no && year && `- Job ${job_no}/${year}`}
         </Typography>
         <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-          {currentUser.role === 'Admin'
+          {user.role === 'Admin'
             ? 'Administrator View - All Audit Data'
-            : `User View - ${currentUser.username}'s Activity`}
+            : `User View - ${user.username}'s Activity`}
         </Typography>
       </Box>
 

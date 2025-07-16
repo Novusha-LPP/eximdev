@@ -31,7 +31,7 @@ router.get("/api/audit-trail/job/:job_no/:year", async (req, res) => {
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecords: total,
+        totalItems: total,
         hasNext: skip + parseInt(limit) < total,
         hasPrev: parseInt(page) > 1
       }
@@ -75,7 +75,7 @@ router.get("/api/audit-trail/user/:username", async (req, res) => {
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecords: total,
+        totalItems: total,
         hasNext: skip + parseInt(limit) < total,
         hasPrev: parseInt(page) > 1
       }
@@ -107,7 +107,7 @@ router.get("/api/audit-trail/document/:documentId", async (req, res) => {
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecords: total,
+        totalItems: total,
         hasNext: skip + parseInt(limit) < total,
         hasPrev: parseInt(page) > 1
       }
@@ -173,7 +173,7 @@ router.get("/api/audit-trail", async (req, res) => {
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecords: total,
+        totalItems: total,
         hasNext: skip + parseInt(limit) < total,
         hasPrev: parseInt(page) > 1
       }
@@ -331,7 +331,7 @@ router.get("/api/audit-trail/field-history/:job_no/:year/:fieldPath", async (req
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecords: total,
+        totalItems: total,
         hasNext: skip + parseInt(limit) < total,
         hasPrev: parseInt(page) > 1
       }

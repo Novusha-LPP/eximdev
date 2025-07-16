@@ -325,6 +325,13 @@ function JobDetails() {
     }
   };
 
+  function toISTLocalInput(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  // Convert to IST by adding 5.5 hours (19800 seconds)
+  d.setMinutes(d.getMinutes() + d.getTimezoneOffset() + 330);
+  return d.toISOString().slice(0, 16);
+}
   // // Trigger the `updateDetailedStatus` function when form values change
   useEffect(() => {
     updateDetailedStatus();
@@ -366,6 +373,30 @@ function JobDetails() {
   //   }
   // };
 
+
+  // ...existing code...
+
+// Helper to get the correct date for "Delivery Completed"
+const getDeliveryCompletedDate = () => {
+  const containers = formik.values.container_nos || [];
+  if (!containers.length) return null;
+
+  // LCL: use delivery_date, else use emptyContainerOffLoadDate
+  const isLCL = formik.values.consignment_type === "LCL";
+  const key = isLCL ? "delivery_date" : "emptyContainerOffLoadDate";
+
+  // Check if all containers have the required date
+  const allHaveDate = containers.every(c => c[key]);
+  if (!allHaveDate) return null;
+
+  // Get the last container's date
+  const lastDate = containers[containers.length - 1][key];
+  return lastDate || null;
+};
+
+const deliveryCompletedDate = getDeliveryCompletedDate();
+
+// ...existing code...
   const handleBlStatusChange = (event) => {
     const selectedValue = event.target.value;
 
@@ -1168,53 +1199,56 @@ function JobDetails() {
                   />
                 </Col>
               )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Delivery Completed :{" "}
-                    {formik.values.bill_document_sent_to_accounts ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.bill_document_sent_to_accounts
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="bill_document_sent_to_accounts"
-                    name="bill_document_sent_to_accounts"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.bill_document_sent_to_accounts || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "bill_document_sent_to_accounts",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    disabled={!emptyContainerOffLoadDate} // Set disabled based on the condition
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
+       <Col xs={12} lg={3}>
+  <div className="job-detail-input-container">
+    <strong>
+      Delivery Completed :{" "}
+      {deliveryCompletedDate ? (
+        <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+          {
+          new Date(deliveryCompletedDate).toLocaleString("en-US", {
+            timeZone: "Asia/Kolkata",
+            hour12: true,
+          })
+          }
+        </span>
+      ) : (
+        <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+          Pending
+        </span>
+      )}
+    </strong>
+  </div>
+</Col>
+{user?.role === "Admin" && (
+  <Col xs={12} md={3}>
+    <TextField
+      type="datetime-local"
+      fullWidth
+      size="small"
+      margin="normal"
+      variant="outlined"
+      id="bill_document_sent_to_accounts"
+      name="bill_document_sent_to_accounts"
+      label="Set Date (Admin Only)"
+      value={
+        deliveryCompletedDate
+          ? formatDateForInput(deliveryCompletedDate)
+          : ""
+      }
+      onChange={(e) =>
+        formik.setFieldValue(
+          "bill_document_sent_to_accounts",
+          e.target.value
+        )
+      }
+      disabled={!deliveryCompletedDate}
+      InputLabelProps={{
+        shrink: true,
+      }}
+    />
+  </Col>
+)}
             </Row>
             <Row style={{ marginTop: "20px" }}>
               {/* Bill Document Sent */}
@@ -1347,6 +1381,7 @@ function JobDetails() {
                     </MenuItem>
 
                     <MenuItem value="Billing Pending">Billing Pending</MenuItem>
+                    <MenuItem value="Status Completed">Status Completed</MenuItem>
                   </TextField>
                 </div>
               </Col>

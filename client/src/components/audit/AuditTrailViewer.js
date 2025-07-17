@@ -92,6 +92,8 @@ const AuditTrailViewer = ({ job_no, year }) => {
   const [userList, setUserList] = useState([]);
   const [selectedUserForFilter, setSelectedUserForFilter] = useState(null);
   const [userFilter, setUserFilter] = useState(user.role === 'Admin' ? '' : user.username);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [statsError, setStatsError] = useState("");
 
   // White and blue color palette
   const colorPalette = {
@@ -219,6 +221,17 @@ const AuditTrailViewer = ({ job_no, year }) => {
 
   const fetchStats = async () => {
     setStatsLoading(true);
+    setStatsError("");
+    // Validate date range before API call
+    if (filters.fromDate && filters.toDate) {
+      const from = new Date(filters.fromDate);
+      const to = new Date(filters.toDate);
+      if (from > to) {
+        setStatsError("Invalid time range: From Date must be before or equal to To Date.");
+        setStatsLoading(false);
+        return;
+      }
+    }
     try {
       const params = new URLSearchParams();
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
@@ -228,6 +241,13 @@ const AuditTrailViewer = ({ job_no, year }) => {
         params.append('username', user.username);
       } else if (userFilter) {
         params.append('username', userFilter);
+      }
+
+
+      if(filters.fromDate > filters.toDate) {
+        setStatsError("Invalid time range: From Date must be before or equal to To Date.");
+        setStatsLoading(false);
+        return;
       }
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`);
       const raw = response.data.dailyActivity || [];
@@ -252,6 +272,11 @@ const AuditTrailViewer = ({ job_no, year }) => {
         actionTypes: transformedActionTypes
       });
     } catch (error) {
+      if (error.response && error.response.status === 400) {
+        setStatsError(error.response.data.message || "Invalid time range.");
+      } else {
+        setStatsError("Error fetching audit trail stats.");
+      }
       console.error('Error fetching stats:', error);
     } finally {
       setStatsLoading(false);
@@ -984,6 +1009,13 @@ const AuditTrailViewer = ({ job_no, year }) => {
       background: `linear-gradient(135deg, ${colorPalette.light} 0%, #F8FAFC 100%)`,
       minHeight: '100vh'
     }}>
+      {statsError && (
+        <Box sx={{ mb: 2, p: 2, background: colorPalette.accent, borderRadius: 2 }}>
+          <Typography variant="body2" sx={{ color: colorPalette.primary, fontWeight: 'bold' }}>
+            {statsError}
+          </Typography>
+        </Box>
+      )}
       <Box sx={{
         mb: 4,
         p: 3,

@@ -1,4 +1,3 @@
-
 import express from "express";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
 import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
@@ -212,7 +211,24 @@ router.get("/api/audit-trail", async (req, res) => {
     if (fromDate || toDate) {
       filter.timestamp = {};
       if (fromDate) filter.timestamp.$gte = new Date(fromDate);
-      if (toDate) filter.timestamp.$lte = new Date(toDate);
+     if (toDate) filter.timestamp.$lte = new Date(toDate);
+      // if(toDate) filter.timestamp.$lte = new Date(toDate);
+    }
+    if (fromDate && toDate) {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
+      // If fromDate is after toDate, return error
+      if (from > to) {
+        return res.status(400).json({ message: "Invalid time range: fromDate must be before or equal to toDate" });
+      }
+      // If fromDate and toDate are the same day, increment toDate by 1 day
+      if (
+        from.getFullYear() === to.getFullYear() &&
+        from.getMonth() === to.getMonth() &&
+        from.getDate() === to.getDate()
+      ) {
+        to.setDate(to.getDate() + 1);
+      }
     } else {
       // Default: current date 00:00 to 23:59
       const now = new Date();
@@ -249,13 +265,30 @@ router.get("/api/audit-trail", async (req, res) => {
 router.get("/api/audit-trail/stats", async (req, res) => {
   try {
     const { fromDate, toDate, groupBy } = req.query;
-    
     // Build date filter: default to current date if not provided
     const dateFilter = {};
+    let adjustedToDate = toDate;
+    if (fromDate && toDate) {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
+      // If fromDate is after toDate, return error
+      if (from > to) {
+        return res.status(400).json({ message: "Invalid time range: fromDate must be before or equal to toDate" });
+      }
+      // If fromDate and toDate are the same day, increment toDate by 1 day
+      if (
+        from.getFullYear() === to.getFullYear() &&
+        from.getMonth() === to.getMonth() &&
+        from.getDate() === to.getDate()
+      ) {
+        to.setDate(to.getDate() + 1);
+        adjustedToDate = to.toISOString().slice(0, 10);
+      }
+    }
     if (fromDate || toDate) {
       dateFilter.timestamp = {};
       if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
-      if (toDate) dateFilter.timestamp.$lte = new Date(toDate);
+      if (adjustedToDate) dateFilter.timestamp.$lte = new Date(adjustedToDate);
     } else {
       // Default: current date 00:00 to 23:59
       const now = new Date();

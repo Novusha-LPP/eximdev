@@ -208,12 +208,8 @@ router.get("/api/audit-trail", async (req, res) => {
     if (ipAddress) filter.ipAddress = { $regex: ipAddress, $options: 'i' };
     
     // Date range filter: default to current date if not provided
-    if (fromDate || toDate) {
-      filter.timestamp = {};
-      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
-     if (toDate) filter.timestamp.$lte = new Date(toDate);
-      // if(toDate) filter.timestamp.$lte = new Date(toDate);
-    }
+    const dateFilter = {};
+    let adjustedToDate = toDate;
     if (fromDate && toDate) {
       const from = new Date(fromDate);
       const to = new Date(toDate);
@@ -228,7 +224,14 @@ router.get("/api/audit-trail", async (req, res) => {
         from.getDate() === to.getDate()
       ) {
         to.setDate(to.getDate() + 1);
+        adjustedToDate = to.toISOString().slice(0, 10);
       }
+    }
+    if (fromDate || toDate) {
+      dateFilter.timestamp = {};
+      if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
+      if (adjustedToDate) dateFilter.timestamp.$lte = new Date(adjustedToDate);
+      
     } else {
       // Default: current date 00:00 to 23:59
       const now = new Date();

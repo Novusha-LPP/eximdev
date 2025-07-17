@@ -483,4 +483,75 @@ router.get("/api/audit/user/:userId", async (req, res) => {
   }
 });
 
+// Get top 5 active users
+router.get("/api/audit-trail/top-users", async (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    const filter = {};
+    if (fromDate || toDate) {
+      filter.timestamp = {};
+      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
+      if (toDate) filter.timestamp.$lte = new Date(toDate);
+    }
+    const topUsers = await AuditTrailModel.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: "$username",
+          count: { $sum: 1 },
+          lastActivity: { $max: "$timestamp" }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+    res.json({ topUsers });
+  } catch (error) {
+    console.error("Error fetching top users:", error);
+    res.status(500).json({ message: "Error fetching top users", error: error.message });
+  }
+});
+
+// Get activity timeline for audit chart (day-wise for frontend line graph)
+router.get("/api/audit-trail/activity-timeline", async (req, res) => {
+  try {
+    const { fromDate, toDate, username } = req.query;
+    // Always group by day for this endpoint
+    let dateFormat = "%Y-%m-%d";
+    const dateFilter = {};
+    if (fromDate) dateFilter.timestamp = { $gte: new Date(fromDate) };
+    if (toDate) dateFilter.timestamp = { ...(dateFilter.timestamp || {}), $lte: new Date(toDate) };
+    if (username) dateFilter.username = { $regex: `^${username}$`, $options: "i" };
+    // Aggregate day-wise activity
+    const dailyActivity = await AuditTrailModel.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
+          actions: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    // Fill missing days with 0 actions for a continuous line graph
+    let results = [];
+    if (fromDate && toDate) {
+      const start = new Date(fromDate);
+      const end = new Date(toDate);
+      let current = new Date(start);
+      const activityMap = Object.fromEntries(dailyActivity.map(item => [item._id, item.actions]));
+      while (current <= end) {
+        const dateStr = current.toISOString().slice(0, 10);
+        results.push({ date: dateStr, actions: activityMap[dateStr] || 0 });
+        current.setDate(current.getDate() + 1);
+      }
+    } else {
+      results = dailyActivity.map(item => ({ date: item._id, actions: item.actions }));
+    }
+    res.json({ dailyActivity: results });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching activity timeline", error: error.message });
+  }
+});
+
 export default router;

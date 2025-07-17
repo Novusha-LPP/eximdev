@@ -7,6 +7,7 @@ import Penalty from "./Penalty";
 import BillingPending from "./BillingPending";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { useLocation } from "react-router-dom";
+import MonthlyContainers from "./monthlyContainers";
 
 export const TabContext = React.createContext({
   currentTab: 0,
@@ -86,13 +87,18 @@ function ReportTabs() {
           aria-label="penalty interest tabs"        >
           <Tab label="Penalty" {...a11yProps(0)} />
           <Tab label="Billing Pending" {...a11yProps(1)} />
+          <Tab label="Monthly Containers" {...a11yProps(2)} />
         </Tabs>
       </Box>
 
       <CustomTabPanel value={value} index={0}>
         <Penalty />
-      </CustomTabPanel>      <CustomTabPanel value={value} index={1}>
+      </CustomTabPanel>   
+         <CustomTabPanel value={value} index={1}>
         <BillingPending />
+      </CustomTabPanel>   
+         <CustomTabPanel value={value} index={2}>
+        <MonthlyContainers />
       </CustomTabPanel>
     </Box>
   );

@@ -20,6 +20,7 @@ import os from "os";
 import bodyParser from "body-parser";
 import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
+import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 
 dotenv.config();
 
@@ -550,9 +551,12 @@ if (cluster.isPrimary) {
 
       // Submission
       app.use(updateSubmissionJob);
-      app.use(getSubmissionJobs);      // Report
+      app.use(getSubmissionJobs);      
+      // Report
       app.use(getPenaltyReport);
       app.use(getBillingPendingReport);
+      app.use( monthlyContainersRouter);
+
 
       //auditrail
       app.use(auditTrail);

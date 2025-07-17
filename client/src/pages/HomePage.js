@@ -63,6 +63,7 @@ import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTo
 
 //import Report 
 import ReportTabs from "../components/Report/ReportTabs.js";
+import MonthlyContainers from "../components/Report/monthlyContainers.js";
 
 // import auditrail
 import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
@@ -242,6 +243,10 @@ function HomePage() {
 <Route
               path="/report"
               element={<ReportTabs />}
+            />
+<Route
+              path="/report/monthly-containers"
+              element={<MonthlyContainers />}
             />
 <Route
               path="/audit-trail"

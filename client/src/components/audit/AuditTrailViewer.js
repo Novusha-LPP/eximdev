@@ -237,46 +237,16 @@ const AuditTrailViewer = ({ job_no, year }) => {
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
       if (filters.toDate) params.append('toDate', filters.toDate);
       if (filters.groupBy) params.append('groupBy', filters.groupBy);
+      // Always use userFilter for admin, else use user.username
       if (user.role !== 'Admin') {
         params.append('username', user.username);
       } else if (userFilter) {
         params.append('username', userFilter);
       }
-
-
-      if(filters.fromDate > filters.toDate) {
-        setStatsError("Invalid time range: From Date must be before or equal to To Date.");
-        setStatsLoading(false);
-        return;
-      }
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`);
-      const raw = response.data.dailyActivity || [];
-      let hourlyMap = {};
-      raw.forEach(item => {
-        const d = new Date(item.timestamp || item.date);
-        if (!isNaN(d)) {
-          const label = `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })}`;
-          if (!hourlyMap[label]) hourlyMap[label] = 0;
-          hourlyMap[label] += item.count || 1;
-        }
-      });
-      const transformedDailyActivity = Object.entries(hourlyMap).map(([date, actions]) => ({ date, actions }));
-      const transformedActionTypes = response.data.actionTypes?.map(item => ({
-        name: item._id,
-        value: item.count,
-        color: actionColors[item._id] || colorPalette.primary
-      })) || [];
-      setStats({
-        ...response.data,
-        dailyActivity: transformedDailyActivity,
-        actionTypes: transformedActionTypes
-      });
+      setStats(response.data);
     } catch (error) {
-      if (error.response && error.response.status === 400) {
-        setStatsError(error.response.data.message || "Invalid time range.");
-      } else {
-        setStatsError("Error fetching audit trail stats.");
-      }
+      setStatsError("Error fetching audit trail stats.");
       console.error('Error fetching stats:', error);
     } finally {
       setStatsLoading(false);
@@ -289,7 +259,7 @@ const AuditTrailViewer = ({ job_no, year }) => {
     if (user.role === 'Admin') {
       fetchAllUsers();
     }
-  }, [filters, job_no, year, user.role]);
+  }, [filters, job_no, year, user.role, userFilter]);
 
   useEffect(() => {
     if (user.role === 'Admin' && filters.username && userList.length > 0) {

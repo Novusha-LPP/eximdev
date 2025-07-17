@@ -267,7 +267,7 @@ router.get("/api/audit-trail", async (req, res) => {
 // Get audit trail statistics
 router.get("/api/audit-trail/stats", async (req, res) => {
   try {
-    const { fromDate, toDate, groupBy } = req.query;
+    const { fromDate, toDate, groupBy, username } = req.query;
     // Build date filter: default to current date if not provided
     const dateFilter = {};
     let adjustedToDate = toDate;
@@ -299,7 +299,10 @@ router.get("/api/audit-trail/stats", async (req, res) => {
       const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       dateFilter.timestamp = { $gte: start, $lte: end };
     }
-    
+    // Add username filter if provided
+    if (username) {
+      dateFilter.username = { $regex: `^${username}$`, $options: 'i' };
+    }
     // Aggregate statistics
     const stats = await AuditTrailModel.aggregate([
       { $match: dateFilter },

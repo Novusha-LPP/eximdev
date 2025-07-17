@@ -42,8 +42,10 @@ import {
   BarChart
 } from 'recharts';
 
-const AuditCharts = ({ userFilter, colorPalette, glassMorphismCard, LoadingSkeleton, alpha: alphaFn }) => {
+const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassMorphismCard, LoadingSkeleton, alpha: alphaFn }) => {
   const theme = useTheme();
+  // Use userFilter from props or from filters
+  const userFilter = propUserFilter !== undefined ? propUserFilter : (filters?.username || '');
   const [statsLoading, setStatsLoading] = useState(true);
   const [dailyActivity, setDailyActivity] = useState([]);
   const [actionTypes, setActionTypes] = useState([]);
@@ -59,6 +61,17 @@ const AuditCharts = ({ userFilter, colorPalette, glassMorphismCard, LoadingSkele
   ];
 
   useEffect(() => {
+    // Log the API URL and userFilter for debugging
+    const params = new URLSearchParams();
+    if (userFilter) {
+      params.append('username', userFilter);
+    }
+    const today = new Date();
+    const fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29);
+    params.append('fromDate', fromDate.toISOString().slice(0, 10));
+    params.append('toDate', today.toISOString().slice(0, 10));
+    console.log('Activity timeline API:', `${process.env.REACT_APP_API_STRING}/audit-trail/activity-timeline?${params}`);
+    console.log('userFilter:', userFilter);
     loadData();
   }, [userFilter]);
 

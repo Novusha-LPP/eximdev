@@ -533,6 +533,7 @@ const AuditTrailViewer = ({ job_no, year }) => {
             auditData={auditData}
             filters={filters}
             handlePageChange={handlePageChange}
+            userFilter={userFilter} // <-- pass userFilter to AuditContent
           />
         )}
 

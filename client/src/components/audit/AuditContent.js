@@ -16,7 +16,8 @@ const AuditContent = ({
   activeTab,
   auditData,
   filters,
-  handlePageChange
+  handlePageChange,
+  userFilter
 }) => (
   <>
     <StatsCards
@@ -27,8 +28,8 @@ const AuditContent = ({
       StatusIndicator={StatusIndicator}
     />
     <AuditCharts
-      stats={stats}
-      statsLoading={statsLoading}
+      userFilter={userFilter}
+      filters={filters}
       colorPalette={colorPalette}
       glassMorphismCard={glassMorphismCard}
       LoadingSkeleton={LoadingSkeleton}

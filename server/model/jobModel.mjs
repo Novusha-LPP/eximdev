@@ -28,6 +28,8 @@ const esanchitChargesSchema = new mongoose.Schema({
   document_charge_recipt_copy: { type: String, trim: true },
 });
 
+
+
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   document_code: { type: String, trim: true },
@@ -366,6 +368,35 @@ const jobSchema = new mongoose.Schema({
 
   /////////////////////////////////// esanchit Charges Details
   esanchitCharges: [esanchitChargesSchema],
+
+  /////////////////////////////////// Do Charges Details
+do_shipping_line_invoice: [{
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  is_draft: { type: Boolean },
+  is_final: { type: Boolean },
+  document_check_date: { type: String, trim: true },
+  payment_mode: { type: String, trim: true },
+  document_charge_details: { type: String, trim: true },
+  payment_request_date: { type: String, trim: true },
+  payment_made_date: { type: String, trim: true },
+  is_tds: { type: Boolean, default: false },
+  is_non_tds: { type: Boolean, default: false },
+}],
+
+insurance_copy: [{
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_amount_details: { type: String, trim: true },
+}],
+
+other_do_documents:[ {
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_amount_details: { type: String, trim: true },
+}],
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },

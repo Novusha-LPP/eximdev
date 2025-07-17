@@ -1,8 +1,69 @@
+
 import express from "express";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
 import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
-
 const router = express.Router();
+
+// Admin-only: Get audit trail for a specific user by userId with filters and pagination
+router.get("/api/audit-trail/user-logs/:userId", async (req, res) => {
+  try {
+   
+
+    const { userId } = req.params;
+    const { actionType, fromDate, toDate, page = 1, limit = 20 } = req.query;
+
+    // Get username for userId
+    const username = await getUsernameById(userId);
+    if (!username) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const filter = { username: { $regex: `^${username}$`, $options: 'i' } };
+    if (actionType) filter.action = actionType;
+    if (fromDate || toDate) {
+      filter.timestamp = {};
+      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
+      if (toDate) filter.timestamp.$lte = new Date(toDate);
+    }
+
+    const auditTrail = await AuditTrailModel.find(filter)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await AuditTrailModel.countDocuments(filter);
+
+    // Format response: timestamp, action, performedBy, metadata/details
+    const logs = auditTrail.map(entry => ({
+      timestamp: entry.timestamp,
+      action: entry.action,
+      performedBy: entry.username,
+      details: entry.changes || [],
+      job_no: entry.job_no,
+      year: entry.year,
+      ipAddress: entry.ipAddress || null
+    }));
+
+    res.json({
+      logs,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalItems: total,
+        hasNext: skip + parseInt(limit) < total,
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching user logs:", error);
+    res.status(500).json({ message: "Error fetching user logs", error: error.message });
+  }
+});
+
+
+
 
 // Get audit trail for a specific job
 router.get("/api/audit-trail/job/:job_no/:year", async (req, res) => {

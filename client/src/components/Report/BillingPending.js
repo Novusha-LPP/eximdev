@@ -57,16 +57,14 @@ function BillingPending() {
   }, [debouncedSearchTerm, selectedYear]);const fetchBillingPendingData = async () => {
     try {
       setLoading(true);
-      // Fetch jobs with billing pending status using the specified API
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/get-billing-import-job`, {        params: {
-          page: 1,
-          limit: 100,
-          search: debouncedSearchTerm,
-          importer: '',
+      // Fetch jobs with billing pending status using the updated backend API
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/api/report/billing-pending`, {
+        params: {
           year: selectedYear
         }
       });
-      setData(response.data.jobs || []);
+      // The backend now returns { success, data, count }
+      setData(response.data.data || []);
       setError(null);
     } catch (err) {
       console.error("Error fetching billing pending data:", err);

@@ -116,11 +116,18 @@ const ChartTooltip = ({ active, payload, label }) => {
 
 // Trend chart component
 const TrendChart = ({ trendData }) => {
-  // Calculate TEU for each month
+  // Calculate net containers and TEU for each month
   const dataWithTEU = trendData.map(item => ({
     ...item,
-    teu: (Number(item.container20Ft) || 0) + 2 * (Number(item.container40Ft) || 0),
+    netContainer20Ft: Math.max(0, (Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)),
+    netContainer40Ft: Math.max(0, (Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0)),
+    teu: Math.max(0, 
+      ((Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)) + 
+      2 * ((Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0))
+    ),
   }));
+
+  console.log("Trend Data with TEU:", dataWithTEU);
 
   return (
     <Box sx={{ width: 400, height: 250, p: 2 }}>
@@ -153,21 +160,21 @@ const TrendChart = ({ trendData }) => {
           />
           <Line
             type="monotone"
-            dataKey="container20Ft"
+            dataKey="netContainer20Ft"
             stroke="#2e7d32"
             strokeWidth={2}
             dot={(props) => <CustomDot {...props} allData={dataWithTEU} />}
             activeDot={{ r: 6, stroke: '#2e7d32', strokeWidth: 2 }}
-            name="20ft Containers"
+            name="Net 20ft Containers"
           />
           <Line
             type="monotone"
-            dataKey="container40Ft"
+            dataKey="netContainer40Ft"
             stroke="#ed6c02"
             strokeWidth={2}
             dot={(props) => <CustomDot {...props} allData={dataWithTEU} />}
             activeDot={{ r: 6, stroke: '#ed6c02', strokeWidth: 2 }}
-            name="40ft Containers"
+            name="Net 40ft Containers"
           />
           <Line
             type="monotone"
@@ -225,6 +232,8 @@ const MonthlyContainers = () => {
       beDateCount: Number(row.beDateCount) || 0,
       container20Ft: Number(row.container20Ft) || 0,
       container40Ft: Number(row.container40Ft) || 0,
+      lcl20Ft: Number(row.lcl20Ft) || 0,
+      lcl40Ft: Number(row.lcl40Ft) || 0,
     };
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
@@ -235,6 +244,8 @@ const MonthlyContainers = () => {
         beDateCount: Math.max(1, Math.round(currentValues.beDateCount * (1 + variation * (index + 1) / 6))),
         container20Ft: Math.max(0, Math.round(currentValues.container20Ft * (1 + variation * (index + 1) / 6))),
         container40Ft: Math.max(0, Math.round(currentValues.container40Ft * (1 + variation * (index + 1) / 6))),
+        lcl20Ft: Math.max(0, Math.round(currentValues.lcl20Ft * (1 + variation * (index + 1) / 6))),
+        lcl40Ft: Math.max(0, Math.round(currentValues.lcl40Ft * (1 + variation * (index + 1) / 6))),
       };
     });
   };
@@ -276,17 +287,29 @@ const MonthlyContainers = () => {
         bValue = b.beDateCount;
         break;
       case 'container20Ft':
-        aValue = a.container20Ft;
-        bValue = b.container20Ft;
+        aValue = Math.max(0, (Number(a.container20Ft) || 0) - (Number(a.lcl20Ft) || 0));
+        bValue = Math.max(0, (Number(b.container20Ft) || 0) - (Number(b.lcl20Ft) || 0));
         break;
       case 'container40Ft':
-        aValue = a.container40Ft;
-        bValue = b.container40Ft;
+        aValue = Math.max(0, (Number(a.container40Ft) || 0) - (Number(a.lcl40Ft) || 0));
+        bValue = Math.max(0, (Number(b.container40Ft) || 0) - (Number(b.lcl40Ft) || 0));
+        break;
+      case 'lcl20Ft':
+        aValue = Number(a.lcl20Ft) || 0;
+        bValue = Number(b.lcl20Ft) || 0;
+        break;
+      case 'lcl40Ft':
+        aValue = Number(a.lcl40Ft) || 0;
+        bValue = Number(b.lcl40Ft) || 0;
         break;
       case 'teu':
       default:
-        aValue = (Number(a.container20Ft) || 0) + 2 * (Number(a.container40Ft) || 0);
-        bValue = (Number(b.container20Ft) || 0) + 2 * (Number(b.container40Ft) || 0);
+        const aNet20 = Math.max(0, (Number(a.container20Ft) || 0) - (Number(a.lcl20Ft) || 0));
+        const aNet40 = Math.max(0, (Number(a.container40Ft) || 0) - (Number(a.lcl40Ft) || 0));
+        const bNet20 = Math.max(0, (Number(b.container20Ft) || 0) - (Number(b.lcl20Ft) || 0));
+        const bNet40 = Math.max(0, (Number(b.container40Ft) || 0) - (Number(b.lcl40Ft) || 0));
+        aValue = aNet20 + (2 * aNet40);
+        bValue = bNet20 + (2 * bNet40);
     }
 
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -321,12 +344,16 @@ const MonthlyContainers = () => {
     setSelectedRowData(null);
   };
 
-  // Calculate statistics
+  // Calculate statistics with LCL subtraction
   const totalBEs = data.reduce((sum, row) => sum + (Number(row.beDateCount) || 0), 0);
-  const total20Ft = data.reduce((sum, row) => sum + (Number(row.container20Ft) || 0), 0);
-  const total40Ft = data.reduce((sum, row) => sum + (Number(row.container40Ft) || 0), 0);
+  const totalNet20Ft = data.reduce((sum, row) => sum + Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0)), 0);
+  const totalNet40Ft = data.reduce((sum, row) => sum + Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0)), 0);
   const totalLCL = data.reduce((sum, row) => sum + (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0), 0);
-  const totalTEU = data.reduce((sum, row) => sum + ((Number(row.container20Ft) || 0) + 2 * (Number(row.container40Ft) || 0) - (Number(row.lcl20Ft) || 0) - 2 * (Number(row.lcl40Ft) || 0)), 0);
+  const totalTEU = data.reduce((sum, row) => {
+    const net20Ft = Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0));
+    const net40Ft = Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0));
+    return sum + net20Ft + (2 * net40Ft);
+  }, 0);
 
   const StatCard = ({ title, value, icon, color }) => (
     <Zoom in timeout={800}>
@@ -529,7 +556,6 @@ const MonthlyContainers = () => {
         </Fade>
       )}
 
-      {/* ...existing code... */}
       {data.length > 0 && (
         <>
           <Grid container spacing={3} sx={{ marginBottom: 3 }}>
@@ -551,8 +577,8 @@ const MonthlyContainers = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
               <StatCard 
-                title="Total Containers" 
-                value={total20Ft + total40Ft} 
+                title="Net Containers" 
+                value={totalNet20Ft + totalNet40Ft} 
                 icon={<InventoryIcon sx={{ fontSize: 40 }} />}
                 color={theme.palette.warning.main}
               />
@@ -605,7 +631,7 @@ const MonthlyContainers = () => {
                           direction={sortColumn === 'container20Ft' ? sortDirection : 'asc'}
                           onClick={() => handleSort('container20Ft')}
                         >
-                          20ft Containers
+                          Net 20ft Containers
                         </TableSortLabel>
                       </TableCell>
                       <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
@@ -614,10 +640,10 @@ const MonthlyContainers = () => {
                           direction={sortColumn === 'container40Ft' ? sortDirection : 'asc'}
                           onClick={() => handleSort('container40Ft')}
                         >
-                          40ft Containers
+                          Net 40ft Containers
                         </TableSortLabel>
                       </TableCell>
-                      {/* <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'lcl20Ft'}
                           direction={sortColumn === 'lcl20Ft' ? sortDirection : 'asc'}
@@ -634,7 +660,7 @@ const MonthlyContainers = () => {
                         >
                           LCL 40ft
                         </TableSortLabel>
-                      </TableCell> */}
+                      </TableCell>
                       <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'teu'}
@@ -653,16 +679,19 @@ const MonthlyContainers = () => {
                     {loading ? (
                       Array.from({ length: 5 }).map((_, idx) => (
                         <TableRow key={idx}>
-                          {Array.from({ length: 6 }).map((_, cellIdx) => (
+                          {Array.from({ length: 8 }).map((_, cellIdx) => (
                             <TableCell key={cellIdx}>
                               <Skeleton variant="text" />
                             </TableCell>
                           ))}
                         </TableRow>
                       ))
-                    ) : (
+                     ) : (
                       sortedData.map((row, idx) => {
-                        const teu = (Number(row.container20Ft) || 0) + 2 * (Number(row.container40Ft) || 0) - (Number(row.lcl20Ft) || 0) - 2 * (Number(row.lcl40Ft) || 0);
+                        const net20Ft = Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0));
+                        const net40Ft = Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0));
+                        const teu = net20Ft + (2 * net40Ft);
+                        
                         return (
                           <TableRow 
                             key={idx}
@@ -706,7 +735,7 @@ const MonthlyContainers = () => {
                                   display: 'inline-block'
                                 }}
                               >
-                                {row.container20Ft}
+                                {net20Ft}
                               </Box>
                             </TableCell>
                             <TableCell>
@@ -723,10 +752,10 @@ const MonthlyContainers = () => {
                                   display: 'inline-block'
                                 }}
                               >
-                                {row.container40Ft}
+                                {net40Ft}
                               </Box>
                             </TableCell>
-                            {/* <TableCell>
+                            <TableCell>
                               <Box
                                 sx={{
                                   backgroundColor: '#00bcd4',
@@ -759,7 +788,7 @@ const MonthlyContainers = () => {
                               >
                                 {row.lcl40Ft}
                               </Box>
-                            </TableCell> */}
+                            </TableCell>
                             <TableCell>
                               <Chip 
                                 label={teu} 

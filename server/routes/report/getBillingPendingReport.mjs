@@ -6,21 +6,13 @@ const router = express.Router();
 
 router.get("/api/report/billing-pending", async (req, res) => {
   try {    // Find jobs where billing is pending
-    // Jobs that are completed but don't have billing_completed_date or have specific detailed_status
+    // Only return jobs with year: '25-26', status: 'Pending', and detailed_status: 'Billing Pending'
     const jobs = await JobModel.find({
-      $and: [
-        { status: { $in: ["completed", "Completed"] } },
-        {
-          $or: [
-            { billing_completed_date: { $exists: false } },
-            { billing_completed_date: "" },
-            { billing_completed_date: null },
-            { detailed_status: { $in: ["Billing Pending", "Ready for Billing", "Pending Billing"] } }
-          ]
-        }
-      ]
+      year: "25-26",
+      status: "Pending",
+      detailed_status: "Billing Pending"
     })
-    .select("job_no importer awb_bl_no awb_bl_date custom_house container_nos detailed_status be_no be_date out_of_charge billing_completed_date")
+    .select("job_no importer awb_bl_no awb_bl_date custom_house container_nos detailed_status be_no be_date out_of_charge billing_completed_date year")
     .sort({ job_no: 1 });
 
     // Calculate additional fields for each job
@@ -43,16 +35,8 @@ router.get("/api/report/billing-pending", async (req, res) => {
         awb_bl_no: job.awb_bl_no,
         awb_bl_date: job.awb_bl_date,
         custom_house: job.custom_house,
-        container_nos: job.container_nos,
-        be_no: job.be_no,        be_date: job.be_date,
-        out_of_charge: job.out_of_charge,
-        billing_completed_date: job.billing_completed_date,
-        pending_amount: pendingAmount,
-        days_pending: daysPending,
-        status: status,
-        due_date: dueDate,
-        priority: daysPending > 30 ? 'urgent' : daysPending > 15 ? 'high' : 'normal'
-      };
+        be_no: job.be_no,
+        be_date: job.be_date,};
     });
 
     // Filter out jobs that don't actually need billing

@@ -205,6 +205,12 @@ const DetailedReport = () => {
           case 'containerNumbers':
             excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
             break;
+          case 'be_date':
+            excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
+            break;
+          case 'out_of_charge':
+            excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
+            break;
           default:
             excelRow[col.label] = row[col.key] || '';
         }
@@ -286,131 +292,111 @@ const DetailedReport = () => {
   const exportToPDF = async () => {
     const doc = new jsPDF('l', 'mm', 'a4');
     
-    // Add title
+    // Add title - exactly like the PDF
     const monthName = months.find(m => m.value === month)?.label || 'Unknown';
     doc.setFontSize(14);
-    doc.text(`Import Clearance Report - ${monthName} ${year}`, 15, 15);
-    
-    // Add summary
-    doc.setFontSize(9);
-    doc.text(`Total Records: ${data.length}`, 15, 25);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 80, 25);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Import Clearing Details of ${monthName}-${year}`, 15, 15);
 
-    // Main table data
-    const tableHeaders = columns.map(col => col.label);
+    // Prepare table headers exactly as in PDF
+    const tableHeaders = [
+      'Srl No.', 'JOB No', 'LOCATION', 'IMPORTERS NAME', 'COMMODITY', 
+      'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
+      'No. of Contr & Size', 'Teus', 'CLRG DATE', 'REMARKS'
+    ];
+
+    // Prepare table data
     const tableData = data.map((row, index) => {
-      return columns.map(col => {
-        switch (col.key) {
-          case 'srlNo':
-            return String(index + 1).padStart(3, "0");
-          case 'containerNumbers':
-            return row.containerNumbers ? row.containerNumbers.join('; ') : '';
-          default:
-            return String(row[col.key] || '');
-        }
-      });
+      const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
+      const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+      const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+      
+      return [
+        String(index + 1).padStart(4, "0"), // Srl No with 4 digits
+        row.job_no || '',
+        row.location || '',
+        row.importer || '',
+        row.commodity || '',
+        row.be_no || '',
+        beDate,
+        containerNos,
+        row.totalContainers || '',
+        '20/40', // Size column
+        row.noOfContrSize || '',
+        row.teus || '',
+        clrgDate,
+        row.remarks || ''
+      ];
     });
 
-    // Add main table
+    // Add main table with exact styling from PDF
     doc.autoTable({
       head: [tableHeaders],
       body: tableData,
-      startY: 35,
+      startY: 25,
       styles: {
-        fontSize: 7,
+        fontSize: 6,
         cellPadding: 1,
-        overflow: 'linebreak'
+        overflow: 'linebreak',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.1,
+        textColor: [0, 0, 0]
       },
       headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
+        fillColor: [255, 255, 255], // White background like PDF
+        textColor: [0, 0, 0], // Black text
         fontStyle: 'bold',
-        fontSize: 7
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      columnStyles: {
-        0: { cellWidth: 12 },  // Srl No.
-        1: { cellWidth: 18 },  // Job No
-        2: { cellWidth: 18 },  // Location
-        3: { cellWidth: 32 },  // Importer
-        4: { cellWidth: 38 },  // Commodity
-        5: { cellWidth: 18 },  // B/E No
-        6: { cellWidth: 18 },  // Date
-        7: { cellWidth: 22 },  // Container No
-        8: { cellWidth: 12 },  // No. of Cntr
-        9: { cellWidth: 18 },  // Size
-        10: { cellWidth: 12 }, // TEUs
-        11: { cellWidth: 18 }, // Clrg Date
-        12: { cellWidth: 22 }, // Remarks
-      },
-      margin: { top: 35, right: 8, bottom: 20, left: 8 },
-      theme: 'striped'
-    });
-
-    // Add summary table
-    const summaryData = generateSummaryData();
-    const finalY = doc.lastAutoTable.finalY + 15;
-    
-    doc.setFontSize(12);
-    doc.text(`Summary -- ${monthName} --${year}`, 15, finalY);
-    
-    // Prepare summary table data
-    const summaryHeaders = ['PARTICULARS', 'Details', '20', '40', 'TEUS', 'CONT.'];
-    const summaryTableData = [];
-    
-    Object.entries(summaryData).forEach(([location, data]) => {
-      summaryTableData.push([location, 'Scrap', data.scrap.count20, data.scrap.count40, data.scrap.teus, data.scrap.containers]);
-      summaryTableData.push([location, 'Others', data.others.count20, data.others.count40, data.others.teus, data.others.containers]);
-      summaryTableData.push([location, 'Total', data.total.count20, data.total.count40, data.total.teus, data.total.containers]);
-    });
-    
-    // Add totals
-    const totalTeus = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.teus, 0);
-    const totalContainers = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.containers, 0);
-    const total20 = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.count20, 0);
-    const total40 = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.count40, 0);
-    
-    summaryTableData.push(['EX-BOND', '', 0, 0, 0, 0]);
-    summaryTableData.push(['LCL', '', 0, 0, 0, 0]);
-    summaryTableData.push(['TOTAL', '', total20, total40, totalTeus, totalContainers]);
-
-    // Add summary table
-    doc.autoTable({
-      head: [summaryHeaders],
-      body: summaryTableData,
-      startY: finalY + 8,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [255, 165, 0],
-        textColor: 0,
-        fontStyle: 'bold',
+        fontSize: 6,
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.5
       },
       bodyStyles: {
-        fillColor: [255, 248, 220],
+        fillColor: [255, 255, 255], // White background
+        textColor: [0, 0, 0],
+        fontSize: 6,
+        valign: 'middle',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.1
       },
       alternateRowStyles: {
-        fillColor: [255, 235, 205],
+        fillColor: [255, 255, 255], // Keep white, no alternating colors like PDF
       },
       columnStyles: {
-        0: { cellWidth: 50 }, // PARTICULARS
-        1: { cellWidth: 30 }, // Details
-        2: { cellWidth: 20 }, // 20
-        3: { cellWidth: 20 }, // 40
-        4: { cellWidth: 25 }, // TEUS
-        5: { cellWidth: 25 }, // CONT.
+        0: { cellWidth: 12, halign: 'center' },  // Srl No.
+        1: { cellWidth: 12, halign: 'center' },  // Job No
+        2: { cellWidth: 18, halign: 'center' },  // Location
+        3: { cellWidth: 40, halign: 'left' },    // Importer
+        4: { cellWidth: 55, halign: 'left' },    // Commodity
+        5: { cellWidth: 18, halign: 'center' },  // B/E No
+        6: { cellWidth: 18, halign: 'center' },  // Date
+        7: { cellWidth: 22, halign: 'center' },  // Container No
+        8: { cellWidth: 12, halign: 'center' },  // No. of Cntr
+        9: { cellWidth: 10, halign: 'center' },  // Size
+        10: { cellWidth: 18, halign: 'center' }, // No. of Contr & Size
+        11: { cellWidth: 12, halign: 'center' }, // TEUs
+        12: { cellWidth: 18, halign: 'center' }, // Clrg Date
+        13: { cellWidth: 20, halign: 'center' }, // Remarks
       },
-      margin: { left: 15, right: 15 },
-      theme: 'grid'
+      margin: { top: 25, right: 5, bottom: 15, left: 5 },
+      theme: 'grid',
+      tableLineColor: [0, 0, 0],
+      tableLineWidth: 0.5
     });
+
+    // Add page numbering at bottom
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${i}/${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+    }
 
     // Generate filename and save
     const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `clearance_report_${monthName}_${year}_${timestamp}.pdf`;
+    const filename = `IMPORT_CLEARING_DETAILS_${monthName.toUpperCase()}-${year}_${timestamp}.pdf`;
     doc.save(filename);
   };
 
@@ -728,7 +714,7 @@ const DetailedReport = () => {
                           align="center" 
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
-                          {row.be_date}
+                          {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
                         </TableCell>
                         <TableCell 
                           align="center" 
@@ -761,7 +747,7 @@ const DetailedReport = () => {
                         </TableCell>
                         <TableCell 
                           align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}
+                          sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}
                         >
                           {row.teus}
                         </TableCell>
@@ -769,22 +755,13 @@ const DetailedReport = () => {
                           align="center" 
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
-                          {row.out_of_charge}
+                          {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
                         </TableCell>
                         <TableCell 
-                          align="left" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
-                            padding: "6px 8px",
-                            maxWidth: 100,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
+                          align="center" 
+                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
-                          <Tooltip title={row.remarks}>
-                            <span>{row.remarks}</span>
-                          </Tooltip>
+                          {row.remarks}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -794,14 +771,14 @@ const DetailedReport = () => {
         </Card>
       )}
 
-      {/* No Data Message */}
+      {/* No Data State */}
       {!loading && data.length === 0 && (
         <Card elevation={1} sx={{ padding: 4, textAlign: 'center' }}>
-          <Typography variant="h6" color="text.secondary">
-            No data available for the selected period
+          <Typography variant="h6" color="textSecondary" sx={{ mb: 2 }}>
+            No Data Available
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Try selecting a different month or year
+          <Typography variant="body2" color="textSecondary">
+            No import clearance records found for {months.find(m => m.value === month)?.label} {year}
           </Typography>
         </Card>
       )}

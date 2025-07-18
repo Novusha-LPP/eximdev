@@ -21,6 +21,7 @@ import bodyParser from "body-parser";
 import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
+import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 
 dotenv.config();
 
@@ -556,6 +557,7 @@ if (cluster.isPrimary) {
       app.use(getPenaltyReport);
       app.use(getBillingPendingReport);
       app.use( monthlyContainersRouter);
+      app.use(monthlyClearanceRouter);
 
 
       //auditrail

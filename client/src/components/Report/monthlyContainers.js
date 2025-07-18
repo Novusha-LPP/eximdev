@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Container,
@@ -196,6 +197,7 @@ const MonthlyContainers = () => {
   const [popperOpen, setPopperOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
+  const navigate = useNavigate();
 
   const years = [
     { value: "25-26", label: "25-26" },
@@ -323,7 +325,8 @@ const MonthlyContainers = () => {
   const totalBEs = data.reduce((sum, row) => sum + (Number(row.beDateCount) || 0), 0);
   const total20Ft = data.reduce((sum, row) => sum + (Number(row.container20Ft) || 0), 0);
   const total40Ft = data.reduce((sum, row) => sum + (Number(row.container40Ft) || 0), 0);
-  const totalTEU = data.reduce((sum, row) => sum + ((Number(row.container20Ft) || 0) + 2 * (Number(row.container40Ft) || 0)), 0);
+  const totalLCL = data.reduce((sum, row) => sum + (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0), 0);
+  const totalTEU = data.reduce((sum, row) => sum + ((Number(row.container20Ft) || 0) + 2 * (Number(row.container40Ft) || 0) - (Number(row.lcl20Ft) || 0) - 2 * (Number(row.lcl40Ft) || 0)), 0);
 
   const StatCard = ({ title, value, icon, color }) => (
     <Zoom in timeout={800}>
@@ -477,6 +480,42 @@ const MonthlyContainers = () => {
               >
                 {loading ? "Loading..." : "Get Report"}
               </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                startIcon={<span role="img" aria-label="View Detailed Report">🗂</span>}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  ml: 2,
+                  background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
+                  }
+                }}
+                onClick={() => navigate('/report/detailed')}
+              >
+                View Detailed Report
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                startIcon={<span role="img" aria-label="Export Report">📤</span>}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  ml: 2,
+                  background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
+                  }
+                }}
+                onClick={() => navigate('/report/export')}
+              >
+                Export Report
+              </Button>
             </Box>
           </CardContent>
         </Card>
@@ -490,6 +529,7 @@ const MonthlyContainers = () => {
         </Fade>
       )}
 
+      {/* ...existing code... */}
       {data.length > 0 && (
         <>
           <Grid container spacing={3} sx={{ marginBottom: 3 }}>
@@ -509,7 +549,7 @@ const MonthlyContainers = () => {
                 color={theme.palette.success.main}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2}>
               <StatCard 
                 title="Total Containers" 
                 value={total20Ft + total40Ft} 
@@ -517,7 +557,15 @@ const MonthlyContainers = () => {
                 color={theme.palette.warning.main}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2}>
+              <StatCard 
+                title="Total LCL" 
+                value={totalLCL} 
+                icon={<InventoryIcon sx={{ fontSize: 40 }} />}
+                color={theme.palette.info.main}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
               <StatCard 
                 title="Total TEU" 
                 value={totalTEU} 
@@ -569,6 +617,24 @@ const MonthlyContainers = () => {
                           40ft Containers
                         </TableSortLabel>
                       </TableCell>
+                      {/* <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                        <TableSortLabel
+                          active={sortColumn === 'lcl20Ft'}
+                          direction={sortColumn === 'lcl20Ft' ? sortDirection : 'asc'}
+                          onClick={() => handleSort('lcl20Ft')}
+                        >
+                          LCL 20ft
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+                        <TableSortLabel
+                          active={sortColumn === 'lcl40Ft'}
+                          direction={sortColumn === 'lcl40Ft' ? sortDirection : 'asc'}
+                          onClick={() => handleSort('lcl40Ft')}
+                        >
+                          LCL 40ft
+                        </TableSortLabel>
+                      </TableCell> */}
                       <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
                         <TableSortLabel
                           active={sortColumn === 'teu'}
@@ -596,7 +662,7 @@ const MonthlyContainers = () => {
                       ))
                     ) : (
                       sortedData.map((row, idx) => {
-                        const teu = (Number(row.container20Ft) || 0) + 2 * (Number(row.container40Ft) || 0);
+                        const teu = (Number(row.container20Ft) || 0) + 2 * (Number(row.container40Ft) || 0) - (Number(row.lcl20Ft) || 0) - 2 * (Number(row.lcl40Ft) || 0);
                         return (
                           <TableRow 
                             key={idx}
@@ -660,6 +726,40 @@ const MonthlyContainers = () => {
                                 {row.container40Ft}
                               </Box>
                             </TableCell>
+                            {/* <TableCell>
+                              <Box
+                                sx={{
+                                  backgroundColor: '#00bcd4',
+                                  color: 'white',
+                                  padding: '8px 12px',
+                                  borderRadius: '8px',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.875rem',
+                                  textAlign: 'center',
+                                  minWidth: '50px',
+                                  display: 'inline-block'
+                                }}
+                              >
+                                {row.lcl20Ft}
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box
+                                sx={{
+                                  backgroundColor: '#00bcd4',
+                                  color: 'white',
+                                  padding: '8px 12px',
+                                  borderRadius: '8px',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.875rem',
+                                  textAlign: 'center',
+                                  minWidth: '50px',
+                                  display: 'inline-block'
+                                }}
+                              >
+                                {row.lcl40Ft}
+                              </Box>
+                            </TableCell> */}
                             <TableCell>
                               <Chip 
                                 label={teu} 

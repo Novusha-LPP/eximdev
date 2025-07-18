@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -64,6 +61,8 @@ import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTo
 //import Report 
 import ReportTabs from "../components/Report/ReportTabs.js";
 import MonthlyContainers from "../components/Report/monthlyContainers.js";
+import DetailedReport from "../components/Report/DetailedReport.js";
+import ExportReport from "../components/Report/ExportReport.js";
 
 // import auditrail
 import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
@@ -247,6 +246,14 @@ function HomePage() {
 <Route
               path="/report/monthly-containers"
               element={<MonthlyContainers />}
+            />
+<Route
+              path="/report/detailed"
+              element={<DetailedReport />}
+            />
+<Route
+              path="/report/export"
+              element={<ExportReport />}
             />
 <Route
               path="/audit-trail"

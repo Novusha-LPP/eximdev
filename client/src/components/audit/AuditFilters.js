@@ -16,148 +16,220 @@ const AuditFilters = ({
   fetchStats,
   colorPalette,
   handleResetFilters
-}) => (
-  <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
-    <Grid item xs={12} sm={3} md={2}>
-      <TextField
-        fullWidth
-        label="Search"
-        value={filters.search}
-        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: colorPalette.textSecondary }} />
-            </InputAdornment>
-          )
-        }}
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-            backgroundColor: colorPalette.primary + '04',
-            '&:hover': {
-              backgroundColor: colorPalette.primary + '08'
-            }
-          }
-        }}
-      />
-    </Grid>
-    <Grid item xs={12} sm={2} md={2}>
-      <FormControl fullWidth>
-        <InputLabel>Action Type</InputLabel>
-        <Select
-          value={filters.action}
-          label="Action Type"
-          onChange={(e) => setFilters(prev => ({ ...prev, action: e.target.value }))}
-          sx={{
-            borderRadius: 2,
-            backgroundColor: colorPalette.primary + '04'
+}) => {
+  // Helper: Check if any filter is applied (except page/limit)
+  const isAnyFilterApplied = () => {
+    const { action, username, field, fromDate, toDate, search } = filters;
+    // For admin, only consider date filter if username is selected
+    const hasUser = user.role === 'Admin' && username;
+    const hasDate = hasUser && (fromDate || toDate);
+    return Boolean(
+      action || field || search || (user.role === 'Admin' ? (hasUser || hasDate) : (fromDate || toDate))
+    );
+  };
+
+  // Modified reset handler: clear username for admin
+  const onReset = () => {
+    setFilters({
+      page: 1,
+      limit: 10,
+      action: '',
+      username: user.role === 'Admin' ? '' : user.username,
+      field: '',
+      fromDate: '',
+      toDate: '',
+      groupBy: 'day',
+      search: ''
+    });
+    if (typeof handleResetFilters === 'function') handleResetFilters();
+    // After reset, fetch stats for all users
+    if (user.role === 'Admin') {
+      fetchStats && fetchStats();
+    }
+  };
+
+  // When filters change, if no filter is applied, fetch stats for all users (admin)
+  React.useEffect(() => {
+    // For admin: if no user is selected, ignore date filter and show stats for all time (all users)
+    if (user.role === 'Admin' && (!filters.username || !isAnyFilterApplied())) {
+      fetchStats && fetchStats();
+    }
+    // eslint-disable-next-line
+  }, [filters]);
+
+  return (
+    <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
+      <Grid item xs={12} sm={3} md={2}>
+        <TextField
+          fullWidth
+          label="Search"
+          value={filters.search}
+          onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+          size="small"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: colorPalette.textSecondary, fontSize: 18 }} />
+              </InputAdornment>
+            )
           }}
-        >
-          <MenuItem value="">All Actions</MenuItem>
-          <MenuItem value="CREATE">Create</MenuItem>
-          <MenuItem value="UPDATE">Update</MenuItem>
-          <MenuItem value="DELETE">Delete</MenuItem>
-          <MenuItem value="VIEW">View</MenuItem>
-        </Select>
-      </FormControl>
-    </Grid>
-    <Grid item xs={12} sm={2} md={2}>
-      <TextField
-        fullWidth
-        label="From Date"
-        type="date"
-        value={filters.fromDate}
-        onChange={(e) => handleDateChange('fromDate', e.target.value)}
-        InputLabelProps={{ shrink: true }}
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-            backgroundColor: colorPalette.primary + '04'
-          }
-        }}
-      />
-    </Grid>
-    <Grid item xs={12} sm={2} md={2}>
-      <TextField
-        fullWidth
-        label="To Date"
-        type="date"
-        value={filters.toDate}
-        onChange={(e) => handleDateChange('toDate', e.target.value)}
-        InputLabelProps={{ shrink: true }}
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-            backgroundColor: colorPalette.primary + '04'
-          }
-        }}
-      />
-    </Grid>
-    {user.role === 'Admin' && (
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 1.5,
+              backgroundColor: colorPalette.primary + '04',
+              '&:hover': {
+                backgroundColor: colorPalette.primary + '08'
+              }
+            }
+          }}
+        />
+      </Grid>
       <Grid item xs={12} sm={2} md={2}>
-        <FormControl fullWidth>
-          <InputLabel>User</InputLabel>
+        <FormControl fullWidth size="small">
+          <InputLabel>Action Type</InputLabel>
           <Select
-            value={userFilter}
-            label="User"
-            onChange={handleUserFilterChange}
+            value={filters.action}
+            label="Action Type"
+            onChange={(e) => setFilters(prev => ({ ...prev, action: e.target.value }))}
             sx={{
-              borderRadius: 2,
+              borderRadius: 1.5,
               backgroundColor: colorPalette.primary + '04'
             }}
           >
-            <MenuItem value="">All Users</MenuItem>
-            {userList.map((user) => (
-              <MenuItem key={user.value} value={user.value}>
-                {user.label}
-              </MenuItem>
-            ))}
+            <MenuItem value="">All Actions</MenuItem>
+            <MenuItem value="CREATE">Create</MenuItem>
+            <MenuItem value="UPDATE">Update</MenuItem>
+            <MenuItem value="DELETE">Delete</MenuItem>
+            <MenuItem value="VIEW">View</MenuItem>
           </Select>
         </FormControl>
       </Grid>
-    )}
-    <Grid item xs={12} sm={1} md={2}>
-      <Button
-        variant="outlined"
-        startIcon={<RefreshIcon />}
-        onClick={() => {
-          fetchAuditTrail();
-          fetchStats();
-        }}
-        sx={{
-          borderRadius: 2,
-          textTransform: 'none',
-          borderColor: colorPalette.primary,
-          color: colorPalette.primary,
-          '&:hover': {
+      <Grid item xs={12} sm={2} md={2}>
+        <TextField
+          fullWidth
+          label="From Date"
+          type="date"
+          value={filters.fromDate}
+          onChange={(e) => handleDateChange('fromDate', e.target.value)}
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 1.5,
+              backgroundColor: colorPalette.primary + '04'
+            }
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} sm={2} md={2}>
+        <TextField
+          fullWidth
+          label="To Date"
+          type="date"
+          value={filters.toDate}
+          onChange={(e) => handleDateChange('toDate', e.target.value)}
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 1.5,
+              backgroundColor: colorPalette.primary + '04'
+            }
+          }}
+        />
+      </Grid>
+      {user.role === 'Admin' && (
+        <Grid item xs={12} sm={2} md={2}>
+          <FormControl fullWidth size="small">
+            <InputLabel>User</InputLabel>
+            <Select
+              value={userFilter}
+              label="User"
+              onChange={handleUserFilterChange}
+              sx={{
+                borderRadius: 1.5,
+                backgroundColor: colorPalette.primary + '04'
+              }}
+            >
+              <MenuItem value="">All Users</MenuItem>
+              {userList.map((user) => (
+                <MenuItem key={user.value + '-' + user.label} value={user.value}>
+                  {user.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+      )}
+      <Grid item xs={12} sm={2} md={2}>
+        <FormControl fullWidth size="small" disabled={!(filters.fromDate && filters.toDate)}>
+          <InputLabel>Group By</InputLabel>
+          <Select
+            value={filters.groupBy || ''}
+            label="Group By"
+            onChange={e => setFilters(prev => ({ ...prev, groupBy: e.target.value }))}
+            sx={{
+              borderRadius: 1.5,
+              backgroundColor: colorPalette.primary + '04'
+            }}
+          >
+            <MenuItem value="hour">Hour</MenuItem>
+            <MenuItem value="day">Day</MenuItem>
+            <MenuItem value="week">Week</MenuItem>
+            <MenuItem value="month">Month</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      <Grid item xs={6} sm={1} md={1}>
+        <Button
+          variant="outlined"
+          startIcon={refreshing ? null : <RefreshIcon sx={{ fontSize: 16 }} />}
+          onClick={() => {
+            fetchAuditTrail();
+            fetchStats();
+          }}
+          size="small"
+          sx={{
+            borderRadius: 1.5,
+            textTransform: 'none',
             borderColor: colorPalette.primary,
-            backgroundColor: colorPalette.primary + '04'
-          }
-        }}
-      >
-        {refreshing ? <CircularProgress size={20} /> : 'Refresh'}
-      </Button>
-    </Grid>
-    <Grid item xs={12} sm={1} md={1}>
-      <Button
-        onClick={handleResetFilters}
-        variant="outlined"
-        sx={{
-          borderRadius: 2,
-          textTransform: 'none',
-          borderColor: colorPalette.primary,
-          color: colorPalette.primary,
-          '&:hover': {
+            color: colorPalette.primary,
+            minWidth: 80,
+            height: 40,
+            fontSize: '0.8rem',
+            '&:hover': {
+              borderColor: colorPalette.primary,
+              backgroundColor: colorPalette.primary + '04'
+            }
+          }}
+        >
+          {refreshing ? <CircularProgress size={16} /> : 'Refresh'}
+        </Button>
+      </Grid>
+      <Grid item xs={6} sm={1} md={1}>
+        <Button
+          onClick={onReset}
+          variant="outlined"
+          size="small"
+          sx={{
+            borderRadius: 1.5,
+            textTransform: 'none',
             borderColor: colorPalette.primary,
-            backgroundColor: colorPalette.primary + '04'
-          }
-        }}
-      >
-        Reset
-      </Button>
+            color: colorPalette.primary,
+            minWidth: 70,
+            height: 40,
+            fontSize: '0.8rem',
+            '&:hover': {
+              borderColor: colorPalette.primary,
+              backgroundColor: colorPalette.primary + '04'
+            }
+          }}
+        >
+          Reset
+        </Button>
+      </Grid>
     </Grid>
-  </Grid>
-);
+  );
+};
 
 export default AuditFilters;

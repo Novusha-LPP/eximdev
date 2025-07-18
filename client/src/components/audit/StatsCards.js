@@ -109,46 +109,47 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
   }, []);
 
   return (
-    <Grid container spacing={3} sx={{ mb: 4 }}>
+    <Grid container spacing={1.5} sx={{ mb: 2 }}>
       {displayStats.map((stat, index) => (
         <Grid item xs={12} sm={6} md={displayStats.length <= 4 ? 3 : 2} key={index}>
           <Grow in={true} timeout={300 + index * 100}>
             <Card sx={{
               ...glassMorphismCard,
-              p: 3,
+              p: 1.5,
               position: 'relative',
               overflow: 'hidden',
-              minHeight: 140,
+              minHeight: 100,
               '&::before': {
                 content: '""',
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 4,
+                height: 3,
                 background: `linear-gradient(90deg, ${stat.color} 0%, ${stat.color}99 100%)`
               }
             }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Box sx={{ 
-                  p: 1.5, 
-                  borderRadius: 2, 
+                  p: 1, 
+                  borderRadius: 1.5, 
                   backgroundColor: `${stat.color}22`, 
-                  mr: 2,
+                  mr: 1.5,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <stat.icon sx={{ color: stat.color, fontSize: 24 }} />
+                  <stat.icon sx={{ color: stat.color, fontSize: 28 }} />
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography 
-                    variant="h4" 
+                    variant="h5" 
                     sx={{ 
-                      fontWeight: 700, 
+                      fontWeight: 800, 
                       color: colorPalette.textPrimary, 
-                      mb: 0.5,
-                      fontSize: stat.isText ? '1.5rem' : '2rem'
+                      mb: 0.25,
+                      fontSize: stat.isText ? '1.1rem' : '1.5rem',
+                      lineHeight: 1.2
                     }}
                   >
                     {stat.isText ? (
@@ -161,8 +162,9 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
                     variant="body2" 
                     sx={{ 
                       color: colorPalette.textSecondary, 
-                      fontSize: '0.875rem',
-                      fontWeight: 500
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      lineHeight: 1.2
                     }}
                   >
                     {stat.title}
@@ -170,17 +172,18 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
                 </Box>
               </Box>
               
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                 <Chip 
                   label={stat.trend} 
                   size="small" 
                   sx={{ 
                     backgroundColor: `${stat.color}22`, 
                     color: stat.color, 
-                    fontWeight: 600, 
-                    fontSize: '0.75rem',
+                    fontWeight: 700, 
+                    fontSize: '0.7rem',
+                    height: 20,
                     '& .MuiChip-label': {
-                      padding: '0 8px'
+                      padding: '0 6px'
                     }
                   }} 
                 />
@@ -191,10 +194,10 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
                 variant="caption" 
                 sx={{ 
                   color: colorPalette.textSecondary, 
-                  fontSize: '0.75rem',
+                  fontSize: '0.68rem',
                   display: 'block',
-                  mt: 1,
-                  opacity: 0.8
+                  opacity: 0.8,
+                  lineHeight: 1.2
                 }}
               >
                 {stat.description}
@@ -204,98 +207,72 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
         </Grid>
       ))}
       
-      {/* Additional Action Breakdown Cards */}
-      {/* {stats?.actionBreakdown && stats.actionBreakdown.length > 0 && (
-        <Grid item xs={12}>
-          <Typography variant="h6" sx={{ mb: 2, color: colorPalette.textPrimary, fontWeight: 600 }}>
-            Action Breakdown
-          </Typography>
-          <Grid container spacing={2}>
-            {stats.actionBreakdown.map((action, index) => (
-              <Grid item xs={12} sm={6} md={3} key={index}>
-                <Grow in={true} timeout={500 + index * 100}>
-                  <Card sx={{
-                    ...glassMorphismCard,
-                    p: 2,
-                    textAlign: 'center',
-                    minHeight: 100,
-                    border: `1px solid ${colorPalette.primary}22`
-                  }}>
-                    <Typography 
-                      variant="h5" 
-                      sx={{ 
-                        fontWeight: 700, 
-                        color: colorPalette.primary,
-                        mb: 1
-                      }}
-                    >
-                      <AnimatedCounter value={action.count} />
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: colorPalette.textSecondary,
-                        textTransform: 'capitalize'
-                      }}
-                    >
-                      {action._id.toLowerCase()} Actions
-                    </Typography>
-                  </Card>
-                </Grow>
-              </Grid>
-            ))}
-          </Grid>
-        </Grid>
-      )} */}
-      
-      {/* Top Users Section (from API) */}
+      {/* Top Users Section (from API) - Compact Horizontal Layout */}
       {topUsers.length > 0 && (
         <Grid item xs={12}>
-          <Typography variant="h6" sx={{ mb: 2, color: colorPalette.textPrimary, fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ mb: 1, color: colorPalette.textPrimary, fontWeight: 700, fontSize: '1rem' }}>
             Top Active Users
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={1}>
             {topUsers.map((user, index) => (
               <Grid item xs={12} sm={6} md={3} key={index}>
                 <Grow in={true} timeout={600 + index * 100}>
                   <Card sx={{
                     ...glassMorphismCard,
-                    p: 2,
-                    textAlign: 'center',
-                    minHeight: 100,
-                    border: `1px solid ${colorPalette.success}22`
+                    p: 1.5,
+                    minHeight: 60,
+                    border: `1px solid ${colorPalette.success}22`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5
                   }}>
-                    <Typography 
-                      variant="h5" 
-                      sx={{ 
-                        fontWeight: 700, 
-                        color: colorPalette.success,
-                        mb: 1
-                      }}
-                    >
-                      <AnimatedCounter value={user.count} />
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: colorPalette.textSecondary,
-                        fontSize: '0.875rem',
-                        fontWeight: 500
-                      }}
-                    >
-                      {user._id}
-                    </Typography>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        color: colorPalette.textSecondary,
-                        fontSize: '0.75rem',
-                        display: 'block',
-                        mt: 0.5
-                      }}
-                    >
-                      Last: {new Date(user.lastActivity).toLocaleDateString()}
-                    </Typography>
+                    <Box sx={{
+                      p: 1,
+                      borderRadius: 1.5,
+                      backgroundColor: `${colorPalette.success}22`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 40,
+                      height: 40
+                    }}>
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontWeight: 800, 
+                          color: colorPalette.success,
+                          fontSize: '1.1rem'
+                        }}
+                      >
+                        <AnimatedCounter value={user.count} />
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: colorPalette.textPrimary,
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          mb: 0.25,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {user._id}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colorPalette.textSecondary,
+                          fontSize: '0.7rem',
+                          display: 'block'
+                        }}
+                      >
+                        Last: {new Date(user.lastActivity).toLocaleDateString()}
+                      </Typography>
+                    </Box>
                   </Card>
                 </Grow>
               </Grid>

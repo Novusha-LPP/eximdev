@@ -25,12 +25,16 @@ import {
   FormGroup,
   FormControl,
   FormLabel,
+  MenuItem,
+  Select,
+  InputLabel
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 
 function EditDoPlanning() {
-    const [showWireTransferOptions, setShowWireTransferOptions] = useState(false);
+  const [selectedDocumentType, setSelectedDocumentType] = useState("");
+const [showWireTransferOptions, setShowWireTransferOptions] = useState({});
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true); // Loading state
   const [kycData, setKycData] = useState("");
@@ -63,7 +67,9 @@ function EditDoPlanning() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Store search parameters from location state
+const getCurrentISOString = () => {
+  return new Date().toISOString();
+};
 
   // Store search parameters from location state
   useEffect(() => {    if (location.state) {
@@ -202,31 +208,40 @@ function EditDoPlanning() {
       do_Revalidation_Completed: false,
       container_nos: [], // Ensure container_nos is initialized
 
-       do_shipping_line_invoice: {
-        document_name: "Shipping Line Invoice",
-        url: [],
-        is_draft: false,
-        is_final: false,
-        document_check_date: "",
-        payment_mode: [],
-        document_charge_details: "",
-        payment_request_date: "",
-        payment_made_date: "",
-        is_tds: false,
-        is_non_tds: false,
-      },
-      insurance_copy: {
-        document_name: "Insurance",
-        url: [],
-        document_check_date: "",
-        document_amount_details: "",
-      },
-      other_do_documents: {
-        document_name: "",
-        url: [],
-        document_check_date: "",
-        document_amount_details: "",
-      },
+do_shipping_line_invoice: [{
+      document_name: "Shipping Line Invoice",
+      url: [],
+      is_draft: false,
+      is_final: false,
+      document_check_date: "",
+      document_check_status: false,
+      payment_mode: "",
+      wire_transfer_method: "",
+      document_charge_details: "",
+      payment_request_date: "",
+      payment_made_date: "",
+      is_tds: false,
+      is_non_tds: false,
+    }],
+
+    insurance_copy: [{
+      document_name: "Insurance",
+      url: [],
+      document_check_date: "",
+      document_amount_details: "",
+    }],
+
+    other_do_documents: [],
+
+    security_deposit: [{
+    document_name: "Security Deposit",
+    url: [],
+    document_check_date: "",
+    document_amount_details: "",
+    utr: "",
+    Validity_upto: "",
+  }],
+  
     },
 
 
@@ -248,14 +263,16 @@ function EditDoPlanning() {
             ? new Date(values.do_completed).toISOString()
             : "", // Set to ISO string or ""
         // Convert payment_mode array to string for backend
-        do_shipping_line_invoice: {
-          ...values.do_shipping_line_invoice,
-          payment_mode: Array.isArray(values.do_shipping_line_invoice.payment_mode)
-            ? values.do_shipping_line_invoice.payment_mode.join(",")
-            : values.do_shipping_line_invoice.payment_mode,
-        },
-        insurance_copy: values.insurance_copy,
-        other_do_documents: values.other_do_documents,
+           do_shipping_line_invoice: values.do_shipping_line_invoice.map(doc => ({
+      ...doc,
+      payment_mode: Array.isArray(doc.payment_mode)
+        ? doc.payment_mode.join(",")
+        : doc.payment_mode,
+    })),
+    insurance_copy: values.insurance_copy,
+    other_do_documents: values.other_do_documents,
+        security_deposit: values.security_deposit,
+  
       };
 
       try {
@@ -300,43 +317,123 @@ function EditDoPlanning() {
   });
 
     // Handle payment mode change
-  const handlePaymentModeChange = (mode) => (e) => {
-    const currentModes = [...formik.values.do_shipping_line_invoice.payment_mode];
-    const index = currentModes.indexOf(mode);
-    
-    if (index === -1) {
-      currentModes.push(mode);
-    } else {
-      currentModes.splice(index, 1);
-    }
+const handlePaymentModeChange = (docIndex, mode) => (e) => {
+  formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_mode`, mode);
+  if (mode !== "Wire Transfer") {
+    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].wire_transfer_method`, "");
+  }
+  setShowWireTransferOptions(prev => ({
+    ...prev,
+    [docIndex]: mode === "Wire Transfer"
+  }));
+};
 
-    formik.setFieldValue(
-      "do_shipping_line_invoice.payment_mode",
-      currentModes
-    );
+// Document check status handler
+const handleDocumentCheckChange = (docIndex, docType) => (e) => {
+  const isChecked = e.target.checked;
+  const currentTime = isChecked ? getCurrentISOString() : "";
+  
+  formik.setFieldValue(`${docType}[${docIndex}].document_check_status`, isChecked);
+  formik.setFieldValue(`${docType}[${docIndex}].document_check_date`, currentTime);
+};
 
-    // Show wire transfer options if selected
-    if (mode === "Wire Transfer") {
-      setShowWireTransferOptions(e.target.checked);
-    }
-  };
+// Draft/Final radio button handler
+const handleDraftFinalChange = (docIndex, type) => (e) => {
+  if (type === 'draft') {
+    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_draft`, true);
+    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_final`, false);
+  } else {
+    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_draft`, false);
+    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_final`, true);
+  }
+};
 
   // Handle wire transfer method change
-  const handleWireTransferMethodChange = (method) => (e) => {
-    const currentMethods = [...formik.values.do_shipping_line_invoice.payment_mode];
-    const index = currentMethods.indexOf(method);
-    
-    if (index === -1) {
-      currentMethods.push(method);
-    } else {
-      currentMethods.splice(index, 1);
-    }
+const handleWireTransferMethodChange = (docIndex, method) => (e) => {
+  const currentMethods = [...formik.values.do_shipping_line_invoice[docIndex].payment_mode];
+  const index = currentMethods.indexOf(method);
+  
+  if (index === -1) {
+    currentMethods.push(method);
+  } else {
+    currentMethods.splice(index, 1);
+  }
 
-    formik.setFieldValue(
-      "do_shipping_line_invoice.payment_mode",
-      currentMethods
-    );
+  formik.setFieldValue(
+    `do_shipping_line_invoice[${docIndex}].payment_mode`,
+    currentMethods
+  );
+};
+
+const handleAddDocument = () => {
+  if (!selectedDocumentType) return;
+  
+  const newDocument = {
+    document_name: selectedDocumentType === "other" ? "" : selectedDocumentType,
+    url: [],
+    document_check_date: "",
+    document_amount_details: "",
   };
+
+  // Add additional fields based on document type
+  if (selectedDocumentType === "Shipping Line Invoice") {
+    newDocument.is_draft = false;
+    newDocument.is_final = false;
+    newDocument.payment_mode = "";
+    newDocument.wire_transfer_method = "";
+    newDocument.document_charge_details = "";
+    newDocument.payment_request_date = "";
+    newDocument.payment_made_date = "";
+    newDocument.is_tds = false;
+    newDocument.is_non_tds = false;
+  } else if (selectedDocumentType === "Security Deposit") {
+    newDocument.utr = "";
+    newDocument.Validity_upto = "";
+  }
+
+  // Determine which array to add to
+  if (selectedDocumentType === "Shipping Line Invoice") {
+    const currentDocs = [...formik.values.do_shipping_line_invoice];
+    currentDocs.push(newDocument);
+    formik.setFieldValue("do_shipping_line_invoice", currentDocs);
+  } else if (selectedDocumentType === "Insurance") {
+    const currentDocs = [...formik.values.insurance_copy];
+    currentDocs.push(newDocument);
+    formik.setFieldValue("insurance_copy", currentDocs);
+  } else if (selectedDocumentType === "Security Deposit") {
+    const currentDocs = [...formik.values.security_deposit];
+    currentDocs.push(newDocument);
+    formik.setFieldValue("security_deposit", currentDocs);
+  } else {
+    const currentDocs = [...formik.values.other_do_documents];
+    currentDocs.push(newDocument);
+    formik.setFieldValue("other_do_documents", currentDocs);
+  }
+
+  setSelectedDocumentType("");
+};
+
+
+// Add function to handle document removal
+const handleRemoveDocument = (docType, index) => {
+  if (docType === "do_shipping_line_invoice") {
+    const currentDocs = [...formik.values.do_shipping_line_invoice];
+    currentDocs.splice(index, 1);
+    formik.setFieldValue("do_shipping_line_invoice", currentDocs);
+  } else if (docType === "insurance_copy") {
+    const currentDocs = [...formik.values.insurance_copy];
+    currentDocs.splice(index, 1);
+    formik.setFieldValue("insurance_copy", currentDocs);
+  } else if (docType === "security_deposit") {
+    const currentDocs = [...formik.values.security_deposit];
+    currentDocs.splice(index, 1);
+    formik.setFieldValue("security_deposit", currentDocs);
+  } else if (docType === "other_do_documents") {
+    const currentDocs = [...formik.values.other_do_documents];
+    currentDocs.splice(index, 1);
+    formik.setFieldValue("other_do_documents", currentDocs);
+  }
+};
   // Derived state to determine if DO Completed can be enabled
   const isDoCompletedEnabled =
     formik.values.do_validity !== "" &&
@@ -353,6 +450,51 @@ function EditDoPlanning() {
   // Fetch KYC documents once data is loaded
   useEffect(() => {
     if (data) {
+       const doShippingLineInvoice = Array.isArray(data.do_shipping_line_invoice) && data.do_shipping_line_invoice.length > 0
+      ? data.do_shipping_line_invoice 
+      : [{
+          document_name: "Shipping Line Invoice",
+          url: [],
+          is_draft: false,
+          is_final: false,
+          document_check_date: "",
+          payment_mode: [],
+          document_charge_details: "",
+          payment_request_date: "",
+          payment_made_date: "",
+          is_tds: false,
+          is_non_tds: false,
+        }];
+        const securityDeposit = Array.isArray(data.security_deposit) && data.security_deposit.length > 0
+      ? data.security_deposit 
+      : [{
+          document_name: "Security Deposit",
+          url: [],
+          document_check_date: "",
+          document_amount_details: "",
+          utr: "",
+          Validity_upto: "",
+        }];
+    
+         // Initialize wire transfer options state
+    const wireTransferState = {};
+    doShippingLineInvoice.forEach((doc, index) => {
+      wireTransferState[index] = doc.payment_mode === "Wire Transfer";
+    });
+    setShowWireTransferOptions(wireTransferState);
+
+    const insuranceCopy = Array.isArray(data.insurance_copy) && data.insurance_copy.length > 0
+      ? data.insurance_copy 
+      : [{
+          document_name: "Insurance",
+          url: [],
+          document_check_date: "",
+          document_amount_details: "",
+        }];
+    
+    const otherDoDocuments = Array.isArray(data.other_do_documents) 
+      ? data.other_do_documents 
+      : [];
       const updatedData = {
         ...data,
         shipping_line_invoice:
@@ -369,6 +511,10 @@ function EditDoPlanning() {
         do_Revalidation_Completed: data.do_Revalidation_Completed,
         do_queries: data.do_queries || [{ query: "", reply: "" }],
         container_nos: data.container_nos || [],
+          do_shipping_line_invoice: doShippingLineInvoice,
+      insurance_copy: insuranceCopy,
+      other_do_documents: otherDoDocuments,
+            security_deposit: securityDeposit,
       };
 
       formik.setValues(updatedData);
@@ -540,341 +686,372 @@ function EditDoPlanning() {
   if (!data) return <p>Failed to load job details.</p>; // Handle missing data
 
    // Render new Charges section
-  const renderChargesSection = () => (
-    <div className="job-details-container">
-      <JobDetailsRowHeading heading="Charges" />
-      
-      {/* Shipping Line Invoice */}
-      <div style={{ marginBottom: "20px", padding: "15px", border: "1px solid #eee", borderRadius: "5px" }}>
-        <h5>Shipping Line Invoice</h5>
-        
-        <Row>
-          <Col xs={12} md={6}>
-            <FileUpload
-              label="Upload Shipping Line Invoice"
-              bucketPath="do_shipping_line_invoice"
-              onFilesUploaded={(newFiles) => {
-                const existingFiles = formik.values.do_shipping_line_invoice.url || [];
-                const updatedFiles = [...existingFiles, ...newFiles];
-                formik.setFieldValue("do_shipping_line_invoice.url", updatedFiles);
-                setFileSnackbar(true);
-              }}
-              multiple={true}
-            />
-            
-            <ImagePreview
-              images={formik.values.do_shipping_line_invoice.url || []}
-              onDeleteImage={(index) => {
-                const updatedFiles = [...formik.values.do_shipping_line_invoice.url];
-                updatedFiles.splice(index, 1);
-                formik.setFieldValue("do_shipping_line_invoice.url", updatedFiles);
-                setFileSnackbar(true);
-              }}
-            />
-          </Col>
-          
-          <Col xs={12} md={6}>
-            <FormGroup row>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formik.values.do_shipping_line_invoice.is_draft}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "do_shipping_line_invoice.is_draft",
-                        e.target.checked
-                      )
-                    }
-                    name="is_draft"
-                    color="primary"
-                  />
-                }
-                label="Draft"
-              />
-              
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formik.values.do_shipping_line_invoice.is_final}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "do_shipping_line_invoice.is_final",
-                        e.target.checked
-                      )
-                    }
-                    name="is_final"
-                    color="primary"
-                  />
-                }
-                label="Final"
-              />
-            </FormGroup>
-            
+const renderChargesSection = () => (
+  <div className="job-details-container">
+    <JobDetailsRowHeading heading="Charges" />
+    {/* Render all shipping line invoice documents */}
+    {formik.values.do_shipping_line_invoice.map((doc, index) => 
+      renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)
+    )}
+    {/* Render all insurance copy documents */}
+    {formik.values.insurance_copy.map((doc, index) => 
+      renderDocumentSection(doc, index, "insurance_copy", index > 0, user)
+    )}
+    {/* Render all security deposit documents */}
+    {formik.values.security_deposit.map((doc, index) => 
+      renderDocumentSection(doc, index, "security_deposit", index > 0, user)
+    )}
+    {/* Render all other documents */}
+    {formik.values.other_do_documents.map((doc, index) => 
+      renderDocumentSection(doc, index, "other_do_documents", true, user)
+    )}
+    {/* Dropdown and Add Document Button */}
+    <div style={{ marginTop: "20px", padding: "15px", border: "2px dashed #ccc", borderRadius: "5px" }}>
+      <Row>
+        <Col xs={12} md={6}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Select Document Type</InputLabel>
+            <Select
+              value={selectedDocumentType}
+              onChange={(e) => setSelectedDocumentType(e.target.value)}
+              label="Select Document Type"
+            >
+              <MenuItem value="Shipping Line Invoice">Shipping Line Invoice</MenuItem>
+              <MenuItem value="Insurance">Insurance Copy</MenuItem>
+              <MenuItem value="Security Deposit">Security Deposit</MenuItem>
+              <MenuItem value="other">Other Document</MenuItem>
+            </Select>
+          </FormControl>
+        </Col>
+        <Col xs={12} md={6}>
+          <Button
+            variant="contained"
+            onClick={handleAddDocument}
+            disabled={!selectedDocumentType}
+            style={{ marginTop: "8px" }}
+          >
+            Add Document
+          </Button>
+        </Col>
+      </Row>
+    </div>
+  </div>
+);
+
+
+// 5. Updated renderDocumentSection function (replace the existing one)
+const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user) => {
+  const isShippingInvoice = docType === "do_shipping_line_invoice";
+  const isSecurityDeposit = docType === "security_deposit";
+  const bucketPath = docType === "do_shipping_line_invoice" ? "do_shipping_line_invoice" : 
+                     docType === "insurance_copy" ? "insurance_copy" : 
+                     docType === "security_deposit" ? "security_deposit" : "other_do_documents";
+  return (
+    <div
+      key={docIndex}
+      style={{
+        marginBottom: "32px",
+        padding: "24px 32px",
+        border: "1.5px solid #e0e0e0",
+        borderRadius: "12px",
+        background: "#fafbfc",
+        boxShadow: "0 2px 8px 0 rgba(60,72,88,0.06)",
+        position: "relative",
+        transition: "box-shadow 0.2s",
+      }}
+      className="charges-section-card"
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+        <h5 style={{ margin: 0, fontWeight: 600, color: '#1a237e', letterSpacing: 0.5 }}>{doc.document_name || 'Document'}</h5>
+        {isRemovable && user?.role === "Admin" && (
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={() => handleRemoveDocument(docType, docIndex)}
+            sx={{ borderRadius: 2, fontWeight: 500 }}
+          >
+            Remove
+          </Button>
+        )}
+      </div>
+      <Row>
+        <Col xs={12} md={6} style={{ borderRight: '1px solid #f0f0f0', paddingRight: 24 }}>
+          {docType === "other_do_documents" && (
             <TextField
               fullWidth
               size="small"
               margin="normal"
               variant="outlined"
-              type="date"
-              id="document_check_date"
-              name="document_check_date"
-              label="Document Check Date"
-              value={formik.values.do_shipping_line_invoice.document_check_date}
+              id={`${docType}[${docIndex}].document_name`}
+              name={`${docType}[${docIndex}].document_name`}
+              label="Document Name"
+              value={doc.document_name}
               onChange={(e) =>
                 formik.setFieldValue(
-                  "do_shipping_line_invoice.document_check_date",
+                  `${docType}[${docIndex}].document_name`,
                   e.target.value
                 )
               }
-              InputLabelProps={{ shrink: true }}
+              sx={{ mb: 2 }}
             />
-            
-            <TextField
-              fullWidth
-              size="small"
-              margin="normal"
-              variant="outlined"
-              id="document_charge_details"
-              name="document_charge_details"
-              label="Charge Details"
-              value={formik.values.do_shipping_line_invoice.document_charge_details}
-              onChange={(e) =>
-                formik.setFieldValue(
-                  "do_shipping_line_invoice.document_charge_details",
-                  e.target.value
-                )
-              }
-            />
-          </Col>
-        </Row>
-        
-        {/* Payment Mode */}
-        <FormControl component="fieldset" style={{ marginTop: "15px" }}>
-          <FormLabel component="legend">Payment Mode</FormLabel>
-          <FormGroup row>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={formik.values.do_shipping_line_invoice.payment_mode.includes("Odex")}
-                  onChange={handlePaymentModeChange("Odex")}
-                  name="payment_mode_odex"
-                  color="primary"
-                />
-              }
-              label="Odex"
-            />
-            
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={formik.values.do_shipping_line_invoice.payment_mode.includes("Wire Transfer")}
-                  onChange={handlePaymentModeChange("Wire Transfer")}
-                  name="payment_mode_wire"
-                  color="primary"
-                />
-              }
-              label="Wire Transfer"
-            />
-          </FormGroup>
-          
-          {/* Wire Transfer Options */}
-          {showWireTransferOptions && (
-            <div style={{ marginLeft: "30px", padding: "10px", borderLeft: "2px solid #ddd" }}>
-              <FormLabel component="legend">Wire Transfer Method</FormLabel>
-              <FormGroup row>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.do_shipping_line_invoice.payment_mode.includes("RTGS")}
-                      onChange={handleWireTransferMethodChange("RTGS")}
-                      name="payment_mode_rtgs"
-                      color="primary"
-                    />
-                  }
-                  label="RTGS"
-                />
-                
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.do_shipping_line_invoice.payment_mode.includes("NEFT")}
-                      onChange={handleWireTransferMethodChange("NEFT")}
-                      name="payment_mode_neft"
-                      color="primary"
-                    />
-                  }
-                  label="NEFT"
-                />
-                
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.do_shipping_line_invoice.payment_mode.includes("IMPS")}
-                      onChange={handleWireTransferMethodChange("IMPS")}
-                      name="payment_mode_imps"
-                      color="primary"
-                    />
-                  }
-                  label="IMPS"
-                />
-              </FormGroup>
+          )}
+          <FileUpload
+            label={`Upload ${doc.document_name}`}
+            bucketPath={bucketPath}
+            onFilesUploaded={(newFiles) => {
+              const existingFiles = doc.url || [];
+              const updatedFiles = [...existingFiles, ...newFiles];
+              formik.setFieldValue(`${docType}[${docIndex}].url`, updatedFiles);
+              setFileSnackbar(true);
+            }}
+            multiple={true}
+          />
+          <ImagePreview
+            images={doc.url || []}
+            onDeleteImage={(index) => {
+              const updatedFiles = [...doc.url];
+              updatedFiles.splice(index, 1);
+              formik.setFieldValue(`${docType}[${docIndex}].url`, updatedFiles);
+              setFileSnackbar(true);
+            }}
+          />
+        </Col>
+        <Col xs={12} md={6} style={{ paddingLeft: 24 }}>
+          {/* Document Check Status */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={doc.document_check_status || false}
+                onChange={handleDocumentCheckChange(docIndex, docType)}
+                name={`${docType}[${docIndex}].document_check_status`}
+                color="primary"
+              />
+            }
+            label={<span style={{ fontWeight: 500 }}>Document Checked</span>}
+            sx={{ mb: 1 }}
+          />
+          {doc.document_check_status && doc.document_check_date && (
+            <div style={{ marginTop: "5px", fontSize: "0.92em", color: "#607d8b" }}>
+              Checked on: {new Date(doc.document_check_date).toLocaleString("en-US", {
+                timeZone: "Asia/Kolkata",
+                hour12: true,
+              })}
             </div>
           )}
-        </FormControl>
-        
-        {/* TDS Options */}
-        <FormGroup row style={{ marginTop: "15px" }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formik.values.do_shipping_line_invoice.is_tds}
+          {/* Amount Details as number only */}
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            id={`${docType}[${docIndex}].document_amount_details`}
+            name={`${docType}[${docIndex}].document_amount_details`}
+            label="Amount Details"
+            value={doc.document_amount_details}
+            onChange={(e) =>
+              formik.setFieldValue(
+                `${docType}[${docIndex}].document_amount_details`,
+                e.target.value.replace(/[^0-9.]/g, "")
+              )
+            }
+            sx={{ mb: 2 }}
+            type="number"
+            inputProps={{ min: 0 }}
+          />
+          {/* Security Deposit specific fields */}
+          {isSecurityDeposit && (
+            <>
+              <TextField
+                fullWidth
+                size="small"
+                margin="normal"
+                variant="outlined"
+                id={`${docType}[${docIndex}].utr`}
+                name={`${docType}[${docIndex}].utr`}
+                label="UTR"
+                value={doc.utr}
                 onChange={(e) =>
                   formik.setFieldValue(
-                    "do_shipping_line_invoice.is_tds",
-                    e.target.checked
+                    `${docType}[${docIndex}].utr`,
+                    e.target.value.replace(/[^0-9]/g, "")
                   )
                 }
-                name="is_tds"
-                color="primary"
+                sx={{ mb: 2 }}
+                type="number"
+                inputProps={{ min: 0 }}
               />
-            }
-            label="TDS"
-          />
-          
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formik.values.do_shipping_line_invoice.is_non_tds}
+              <TextField
+                fullWidth
+                size="small"
+                margin="normal"
+                variant="outlined"
+                type="date"
+                id={`${docType}[${docIndex}].Validity_upto`}
+                name={`${docType}[${docIndex}].Validity_upto`}
+                label="Validity Upto"
+                value={doc.Validity_upto}
                 onChange={(e) =>
                   formik.setFieldValue(
-                    "do_shipping_line_invoice.is_non_tds",
-                    e.target.checked
+                    `${docType}[${docIndex}].Validity_upto`,
+                    e.target.value
                   )
                 }
-                name="is_non_tds"
-                color="primary"
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
               />
-            }
-            label="Non-TDS"
-          />
-        </FormGroup>
-        
-        {/* Payment Dates */}
-        <Row>
-          <Col xs={12} md={6}>
-            <TextField
-              fullWidth
-              size="small"
-              margin="normal"
-              variant="outlined"
-              type="date"
-              id="payment_request_date"
-              name="payment_request_date"
-              label="Payment Request Date"
-              value={formik.values.do_shipping_line_invoice.payment_request_date}
-              onChange={(e) =>
-                formik.setFieldValue(
-                  "do_shipping_line_invoice.payment_request_date",
-                  e.target.value
-                )
-              }
-              InputLabelProps={{ shrink: true }}
-            />
-          </Col>
-          
-          <Col xs={12} md={6}>
-            <TextField
-              fullWidth
-              size="small"
-              margin="normal"
-              variant="outlined"
-              type="date"
-              id="payment_made_date"
-              name="payment_made_date"
-              label="Payment Made Date"
-              value={formik.values.do_shipping_line_invoice.payment_made_date}
-              onChange={(e) =>
-                formik.setFieldValue(
-                  "do_shipping_line_invoice.payment_made_date",
-                  e.target.value
-                )
-              }
-              InputLabelProps={{ shrink: true }}
-            />
-          </Col>
-        </Row>
-      </div>
-      
-      {/* Insurance */}
-      <div style={{ marginBottom: "20px", padding: "15px", border: "1px solid #eee", borderRadius: "5px" }}>
-        <h5>Insurance</h5>
-        
-        <Row>
-          <Col xs={12} md={6}>
-            <FileUpload
-              label="Upload Insurance Documents"
-              bucketPath="insurance_copy"
-              onFilesUploaded={(newFiles) => {
-                const existingFiles = formik.values.insurance_copy.url || [];
-                const updatedFiles = [...existingFiles, ...newFiles];
-                formik.setFieldValue("insurance_copy.url", updatedFiles);
-                setFileSnackbar(true);
-              }}
-              multiple={true}
-            />
-            
-            <ImagePreview
-              images={formik.values.insurance_copy.url || []}
-              onDeleteImage={(index) => {
-                const updatedFiles = [...formik.values.insurance_copy.url];
-                updatedFiles.splice(index, 1);
-                formik.setFieldValue("insurance_copy.url", updatedFiles);
-                setFileSnackbar(true);
-              }}
-            />
-          </Col>
-          
-          <Col xs={12} md={6}>
-            <TextField
-              fullWidth
-              size="small"
-              margin="normal"
-              variant="outlined"
-              type="date"
-              id="insurance_document_check_date"
-              name="insurance_document_check_date"
-              label="Document Check Date"
-              value={formik.values.insurance_copy.document_check_date}
-              onChange={(e) =>
-                formik.setFieldValue(
-                  "insurance_copy.document_check_date",
-                  e.target.value
-                )
-              }
-              InputLabelProps={{ shrink: true }}
-            />
-            
-            <TextField
-              fullWidth
-              size="small"
-              margin="normal"
-              variant="outlined"
-              id="insurance_document_amount_details"
-              name="insurance_document_amount_details"
-              label="Amount Details"
-              value={formik.values.insurance_copy.document_amount_details}
-              onChange={(e) =>
-                formik.setFieldValue(
-                  "insurance_copy.document_amount_details",
-                  e.target.value
-                )
-              }
-            />
-          </Col>
-        </Row>
-      </div>
+            </>
+          )}
+        </Col>
+      </Row>
+      {isShippingInvoice && (
+        <>
+          <Row style={{ marginTop: 8 }}>
+            <Col xs={12} md={6}>
+              <FormControl component="fieldset" sx={{ width: '100%' }}>
+                <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Payment Mode</FormLabel>
+                <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                  <FormControlLabel
+                    control={
+                      <input
+                        type="radio"
+                        checked={doc.payment_mode === "Odex"}
+                        onChange={handlePaymentModeChange(docIndex, "Odex")}
+                        name={`payment_mode_${docIndex}`}
+                        style={{ marginRight: 8 }}
+                      />
+                    }
+                    label={<span style={{ marginLeft: 4 }}>Odex</span>}
+                    sx={{ mr: 3 }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <input
+                        type="radio"
+                        checked={doc.payment_mode === "Wire Transfer"}
+                        onChange={handlePaymentModeChange(docIndex, "Wire Transfer")}
+                        name={`payment_mode_${docIndex}`}
+                        style={{ marginRight: 8 }}
+                      />
+                    }
+                    label={<span style={{ marginLeft: 4 }}>Wire Transfer</span>}
+                    sx={{ mr: 3 }}
+                  />
+                </div>
+                {doc.payment_mode === "Wire Transfer" && (
+                  <div style={{ marginLeft: "30px", padding: "10px 0 0 0", borderLeft: "2px solid #ddd", marginTop: "10px" }}>
+                    <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Wire Transfer Method</FormLabel>
+                    <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                      {["RTGS", "NEFT", "IMPS"].map((method) => (
+                        <FormControlLabel
+                          key={method}
+                          control={
+                            <input
+                              type="radio"
+                              checked={doc.wire_transfer_method === method}
+                              onChange={() => formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].wire_transfer_method`, method)}
+                              name={`wire_transfer_method_${docIndex}`}
+                              style={{ marginRight: 8 }}
+                            />
+                          }
+                          label={<span style={{ marginLeft: 4 }}>{method}</span>}
+                          sx={{ mr: 3 }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </FormControl>
+            </Col>
+            <Col xs={12} md={6}>
+              <FormControl component="fieldset" sx={{ width: '100%' }}>
+                <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>TDS</FormLabel>
+                <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                  <FormControlLabel
+                    control={
+                      <input
+                        type="radio"
+                        checked={doc.is_tds}
+                        onChange={() => {
+                          formik.setFieldValue(`${docType}[${docIndex}].is_tds`, true);
+                          formik.setFieldValue(`${docType}[${docIndex}].is_non_tds`, false);
+                        }}
+                        name={`tds_group_${docIndex}`}
+                        style={{ marginRight: 8 }}
+                      />
+                    }
+                    label={<span style={{ marginLeft: 4 }}>TDS</span>}
+                    sx={{ mr: 3 }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <input
+                        type="radio"
+                        checked={doc.is_non_tds}
+                        onChange={() => {
+                          formik.setFieldValue(`${docType}[${docIndex}].is_tds`, false);
+                          formik.setFieldValue(`${docType}[${docIndex}].is_non_tds`, true);
+                        }}
+                        name={`tds_group_${docIndex}`}
+                        style={{ marginRight: 8 }}
+                      />
+                    }
+                    label={<span style={{ marginLeft: 4 }}>Non-TDS</span>}
+                    sx={{ mr: 3 }}
+                  />
+                </div>
+              </FormControl>
+            </Col>
+          </Row>
+          <Row style={{ marginTop: 8 }}>
+            <Col xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                margin="normal"
+                variant="outlined"
+                type="date"
+                id={`${docType}[${docIndex}].payment_request_date`}
+                name={`${docType}[${docIndex}].payment_request_date`}
+                label="Payment Request Date"
+                value={doc.payment_request_date}
+                onChange={(e) =>
+                  formik.setFieldValue(
+                    `${docType}[${docIndex}].payment_request_date`,
+                    e.target.value
+                  )
+                }
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
+              />
+            </Col>
+            <Col xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                margin="normal"
+                variant="outlined"
+                type="date"
+                id={`${docType}[${docIndex}].payment_made_date`}
+                name={`${docType}[${docIndex}].payment_made_date`}
+                label="Payment Made Date"
+                value={doc.payment_made_date}
+                onChange={(e) =>
+                  formik.setFieldValue(
+                    `${docType}[${docIndex}].payment_made_date`,
+                    e.target.value
+                  )
+                }
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
+              />
+            </Col>
+          </Row>
+        </>
+      )}
     </div>
   );
+};
 
   return (
     <>

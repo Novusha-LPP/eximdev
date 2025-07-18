@@ -10,7 +10,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
 
   try {
     const [containerStats, beStats] = await Promise.all([
-      // CONTAINER LOGIC (based on out_of_charge)
+      // CONTAINER AGGREGATION
       JobModel.aggregate([
         {
           $match: {
@@ -37,6 +37,8 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         {
           $group: {
             _id: "$importer",
+
+            // Total 20ft containers
             container20Ft: {
               $sum: {
                 $size: {
@@ -48,6 +50,8 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 },
               },
             },
+
+            // Total 40ft containers
             container40Ft: {
               $sum: {
                 $size: {
@@ -59,6 +63,44 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 },
               },
             },
+
+            // LCL 20ft containers
+            lcl20Ft: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$consignment_type", "LCL"] },
+                  {
+                    $size: {
+                      $filter: {
+                        input: "$container_nos",
+                        as: "container",
+                        cond: { $eq: ["$$container.size", "20"] },
+                      },
+                    },
+                  },
+                  0,
+                ],
+              },
+            },
+
+            // LCL 40ft containers
+            lcl40Ft: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$consignment_type", "LCL"] },
+                  {
+                    $size: {
+                      $filter: {
+                        input: "$container_nos",
+                        as: "container",
+                        cond: { $eq: ["$$container.size", "40"] },
+                      },
+                    },
+                  },
+                  0,
+                ],
+              },
+            },
           },
         },
         {
@@ -67,11 +109,13 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
             importer: "$_id",
             container20Ft: 1,
             container40Ft: 1,
+            lcl20Ft: 1,
+            lcl40Ft: 1,
           },
         },
       ]),
 
-      // BE DATE LOGIC (based on be_date month, regardless of out_of_charge)
+      // BE DATE AGGREGATION
       JobModel.aggregate([
         {
           $match: {
@@ -111,20 +155,20 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
       ]),
     ]);
 
-    // Merge both results by importer
+    // MERGE RESULTS BY IMPORTER
     const merged = {};
 
-    // Merge container stats first
     for (const entry of containerStats) {
       merged[entry.importer] = {
         importer: entry.importer,
         container20Ft: entry.container20Ft,
         container40Ft: entry.container40Ft,
-        beDateCount: 0, // default if no beDate
+        lcl20Ft: entry.lcl20Ft,
+        lcl40Ft: entry.lcl40Ft,
+        beDateCount: 0,
       };
     }
 
-    // Merge be stats
     for (const entry of beStats) {
       if (merged[entry.importer]) {
         merged[entry.importer].beDateCount = entry.beDateCount;
@@ -133,12 +177,13 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           importer: entry.importer,
           container20Ft: 0,
           container40Ft: 0,
+          lcl20Ft: 0,
+          lcl40Ft: 0,
           beDateCount: entry.beDateCount,
         };
       }
     }
 
-    // Convert object back to array
     const result = Object.values(merged).sort((a, b) =>
       a.importer.localeCompare(b.importer)
     );

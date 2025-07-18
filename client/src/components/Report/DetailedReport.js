@@ -296,7 +296,12 @@ const DetailedReport = () => {
     const monthName = months.find(m => m.value === month)?.label || 'Unknown';
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Import Clearing Details of ${monthName}-${year}`, 15, 15);
+    // Center the title
+    const title = `Import Clearing Details of ${monthName}-${year}`;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const textWidth = doc.getTextWidth(title);
+    const x = (pageWidth - textWidth) / 2;
+    doc.text(title, x, 15);
 
     // Prepare table headers exactly as in PDF
     const tableHeaders = [
@@ -330,6 +335,7 @@ const DetailedReport = () => {
     });
 
     // Add main table with exact styling from PDF
+    // Golden brown RGB: [205, 133, 63]
     doc.autoTable({
       head: [tableHeaders],
       body: tableData,
@@ -338,8 +344,8 @@ const DetailedReport = () => {
         fontSize: 6,
         cellPadding: 1,
         overflow: 'linebreak',
-        lineColor: [0, 0, 0],
-        lineWidth: 0.1,
+        lineColor: [205, 133, 63], // Golden brown
+        lineWidth: 0.3,
         textColor: [0, 0, 0]
       },
       headStyles: {
@@ -349,7 +355,7 @@ const DetailedReport = () => {
         fontSize: 6,
         halign: 'center',
         valign: 'middle',
-        lineColor: [0, 0, 0],
+        lineColor: [205, 133, 63], // Golden brown
         lineWidth: 0.5
       },
       bodyStyles: {
@@ -357,8 +363,8 @@ const DetailedReport = () => {
         textColor: [0, 0, 0],
         fontSize: 6,
         valign: 'middle',
-        lineColor: [0, 0, 0],
-        lineWidth: 0.1
+        lineColor: [205, 133, 63], // Golden brown
+        lineWidth: 0.3
       },
       alternateRowStyles: {
         fillColor: [255, 255, 255], // Keep white, no alternating colors like PDF
@@ -381,7 +387,7 @@ const DetailedReport = () => {
       },
       margin: { top: 25, right: 5, bottom: 15, left: 5 },
       theme: 'grid',
-      tableLineColor: [0, 0, 0],
+      tableLineColor: [205, 133, 63], // Golden brown
       tableLineWidth: 0.5
     });
 

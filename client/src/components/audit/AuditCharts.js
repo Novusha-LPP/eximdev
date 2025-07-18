@@ -228,7 +228,7 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
   return (
     <Grid container spacing={3} sx={{ mb: 4 }}>
       {/* Header with Actions */}
-      <Grid item xs={12}>
+      {/* <Grid item xs={12}>
         <Fade in={true}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box>
@@ -258,10 +258,10 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
             </Box>
           </Box>
         </Fade>
-      </Grid>
+      </Grid> */}
 
       {/* Stats Overview */}
-      <Grid item xs={12}>
+      {/* <Grid item xs={12}>
         <Fade in={true}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
@@ -302,10 +302,10 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
             </Grid>
           </Grid>
         </Fade>
-      </Grid>
+      </Grid> */}
 
       {/* Activity Timeline */}
-      <Grid item xs={12} md={8}>
+      <Grid item xs={12} md={12}>
         <Fade in={true} style={{ transitionDelay: '200ms' }}>
           <Card sx={{ 
             ...glassMorphismCard, 

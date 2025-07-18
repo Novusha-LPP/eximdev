@@ -276,7 +276,13 @@ const AuditTrailViewer = ({ job_no, year }) => {
       }
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
+        if (key === 'groupBy') {
+          if (filters.fromDate && filters.toDate && value) {
+            params.append('groupBy', value);
+          }
+        } else if (value) {
+          params.append(key, value);
+        }
       });
       let filterUser = '';
       if (user.role !== 'Admin') {
@@ -314,7 +320,7 @@ const AuditTrailViewer = ({ job_no, year }) => {
       const params = new URLSearchParams();
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
       if (filters.toDate) params.append('toDate', filters.toDate);
-      if (filters.groupBy) params.append('groupBy', filters.groupBy);
+      if (filters.groupBy && filters.fromDate && filters.toDate) params.append('groupBy', filters.groupBy);
       // Always use userFilter for admin, else use user.username
       if (user.role !== 'Admin') {
         params.append('username', user.username);
@@ -477,7 +483,7 @@ const AuditTrailViewer = ({ job_no, year }) => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
       <AuditHeader colorPalette={colorPalette} />
       
       <AuditFilters
@@ -495,23 +501,28 @@ const AuditTrailViewer = ({ job_no, year }) => {
         handleResetFilters={handleResetFilters}
       />
 
-      <Box sx={{ mt: 3 }}>
-        <Paper sx={{ width: '100%', mb: 3 }}>
+      <Box sx={{ mt: 2, mb: 0 }}>
+        <Paper sx={{ width: '100%', mb: 1, boxShadow: colorPalette.shadowSecondary, borderRadius: 2 }}>
           <Tabs
             value={activeTab}
             onChange={handleTabChange}
             sx={{
+              minHeight: 40,
               borderBottom: 1,
               borderColor: 'divider',
               '& .MuiTab-root': {
                 textTransform: 'none',
                 fontWeight: 600,
                 color: colorPalette.textSecondary,
+                minHeight: 40,
+                px: 2,
+                py: 0.5,
                 '&.Mui-selected': {
                   color: colorPalette.primary
                 }
               }
             }}
+            TabIndicatorProps={{ style: { height: 3, borderRadius: 2 } }}
           >
             <Tab label="Statistics" />
             <Tab label="Audit Trail" />
@@ -519,26 +530,28 @@ const AuditTrailViewer = ({ job_no, year }) => {
         </Paper>
 
         {activeTab === 0 && (
-          <AuditContent
-            stats={stats}
-            colorPalette={colorPalette}
-            glassMorphismCard={glassMorphismCard}
-            AnimatedCounter={AnimatedCounter}
-            StatusIndicator={StatusIndicator}
-            statsLoading={statsLoading}
-            LoadingSkeleton={LoadingSkeleton}
-            alpha={alpha}
-            pagination={pagination}
-            activeTab={activeTab}
-            auditData={auditData}
-            filters={filters}
-            handlePageChange={handlePageChange}
-            userFilter={userFilter} // <-- pass userFilter to AuditContent
-          />
+          <Box sx={{ px: { xs: 0, sm: 0.5, md: 1 }, py: 0.5, mb: 0 }}>
+            <AuditContent
+              stats={stats}
+              colorPalette={colorPalette}
+              glassMorphismCard={glassMorphismCard}
+              AnimatedCounter={AnimatedCounter}
+              StatusIndicator={StatusIndicator}
+              statsLoading={statsLoading}
+              LoadingSkeleton={LoadingSkeleton}
+              alpha={alpha}
+              pagination={pagination}
+              activeTab={activeTab}
+              auditData={auditData}
+              filters={filters}
+              handlePageChange={handlePageChange}
+              userFilter={userFilter}
+            />
+          </Box>
         )}
 
         {activeTab === 1 && (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 1, px: { xs: 0, sm: 1, md: 2 } }}>
             <AuditTable
               auditData={auditData}
               loading={loading}
@@ -555,13 +568,13 @@ const AuditTrailViewer = ({ job_no, year }) => {
             
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 0 }}>
                 <Pagination
                   count={pagination.totalPages}
                   page={pagination.currentPage}
                   onChange={handlePageChange}
                   color="primary"
-                  size="large"
+                  size="medium"
                   sx={{
                     '& .MuiPaginationItem-root': {
                       color: colorPalette.primary,
@@ -569,7 +582,9 @@ const AuditTrailViewer = ({ job_no, year }) => {
                       '&.Mui-selected': {
                         backgroundColor: colorPalette.primary,
                         color: 'white'
-                      }
+                      },
+                      mx: 0.5,
+                      my: 0
                     }
                   }}
                 />

@@ -489,7 +489,7 @@ const MonthlyContainers = () => {
                 </Tooltip>
               </Box>
 
-              <Button 
+              {/* <Button 
                 type="submit" 
                 variant="contained" 
                 color="primary" 
@@ -506,7 +506,7 @@ const MonthlyContainers = () => {
                 }}
               >
                 {loading ? "Loading..." : "Get Report"}
-              </Button>
+              </Button> */}
               <Button
                 variant="contained"
                 color="primary"
@@ -515,7 +515,6 @@ const MonthlyContainers = () => {
                 sx={{
                   borderRadius: 2,
                   px: 3,
-                  ml: 2,
                   background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
                   '&:hover': {
                     background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
@@ -523,25 +522,7 @@ const MonthlyContainers = () => {
                 }}
                 onClick={() => navigate('/report/detailed')}
               >
-                View Detailed Report
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                startIcon={<span role="img" aria-label="Export Report">📤</span>}
-                sx={{
-                  borderRadius: 2,
-                  px: 3,
-                  ml: 2,
-                  background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
-                  }
-                }}
-                onClick={() => navigate('/report/export')}
-              >
-                Export Report
+                Detailed Report
               </Button>
             </Box>
           </CardContent>

@@ -55,9 +55,10 @@ function BillingPending() {
       setLoading(true);
       setError(null);
       
-      // Using your working API URL structure
+      // Use API base from environment variable
+      const apiBase = process.env.REACT_APP_API_STRING || '';
       const response = await axios.get(
-        `http://localhost:9000/api/report/billing-pending`,
+        `${apiBase}/report/billing-pending`,
         {
           params: {
             year: selectedYear

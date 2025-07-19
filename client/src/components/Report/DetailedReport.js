@@ -343,42 +343,32 @@ const DetailedReport = () => {
     // Add main worksheet
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
 
-    // Create summary worksheet
-    const summaryData = generateSummaryData();
+    // Create summary worksheet using generateSummaryRows
     const monthName = months.find(m => m.value === month)?.label || 'Unknown';
     const summarySheet = [];
-    
-    // Add header
     summarySheet.push([`Summary -- ${monthName} --${year}`]);
-    summarySheet.push(['PARTICULARS', 'Details', '20', '40', 'TEUS', 'CONT.']);
-    
-    // Add data for each location
-    Object.entries(summaryData).forEach(([location, data]) => {
-      summarySheet.push([location, 'Scrap', data.scrap.count20, data.scrap.count40, data.scrap.teus, data.scrap.containers]);
-      summarySheet.push([location, 'Others', data.others.count20, data.others.count40, data.others.teus, data.others.containers]);
-      summarySheet.push([location, 'Total', data.total.count20, data.total.count40, data.total.teus, data.total.containers]);
+    summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
+    const summaryRows = generateSummaryRows();
+    summaryRows.forEach(row => {
+      summarySheet.push([
+        row.location,
+        row.details,
+        row.count20,
+        row.count40,
+        row.teus,
+        row.containers
+      ]);
     });
-    
-    // Add totals
-    const totalTeus = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.teus, 0);
-    const totalContainers = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.containers, 0);
-    const total20 = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.count20, 0);
-    const total40 = Object.values(summaryData).reduce((sum, loc) => sum + loc.total.count40, 0);
-    
-    summarySheet.push(['EX-BOND', '', 0, 0, 0, 0]);
-    summarySheet.push(['LCL', '', 0, 0, 0, 0]);
-    summarySheet.push(['TOTAL', '', total20, total40, totalTeus, totalContainers]);
 
     const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
-    
     // Auto-fit summary columns
     const summaryColWidths = [
-      { wch: 20 }, // PARTICULARS
+      { wch: 20 }, // Particulars
       { wch: 12 }, // Details
       { wch: 8 },  // 20
       { wch: 8 },  // 40
       { wch: 10 }, // TEUS
-      { wch: 10 }  // CONT.
+      { wch: 10 }  // Containers
     ];
     summaryWorksheet['!cols'] = summaryColWidths;
 
@@ -392,33 +382,28 @@ const DetailedReport = () => {
 
   const exportToPDF = async () => {
     const doc = new jsPDF('l', 'mm', 'a4');
-    
-    // Add title - exactly like the PDF
+    // Main report page
     const monthName = months.find(m => m.value === month)?.label || 'Unknown';
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    // Center the title
     const title = `Import Clearing Details of ${monthName}-${year}`;
     const pageWidth = doc.internal.pageSize.getWidth();
     const textWidth = doc.getTextWidth(title);
     const x = (pageWidth - textWidth) / 2;
     doc.text(title, x, 15);
 
-    // Prepare table headers exactly as in PDF
+    // Main table
     const tableHeaders = [
       'Srl No.', 'JOB No', 'LOCATION', 'IMPORTERS NAME', 'COMMODITY', 
       'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
       'No. of Contr & Size', 'Teus', 'CLRG DATE', 'REMARKS'
     ];
-
-    // Prepare table data
     const tableData = data.map((row, index) => {
       const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
       const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
       const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-      
       return [
-        String(index + 1).padStart(4, "0"), // Srl No with 4 digits
+        String(index + 1).padStart(4, "0"),
         row.job_no || '',
         row.location || '',
         row.importer || '',
@@ -427,16 +412,13 @@ const DetailedReport = () => {
         beDate,
         containerNos,
         row.totalContainers || '',
-        '20/40', // Size column
+        '20/40',
         row.noOfContrSize || '',
         row.teus || '',
         clrgDate,
         row.remarks || ''
       ];
     });
-
-    // Add main table with exact styling from PDF
-    // Golden brown RGB: [205, 133, 63]
     doc.autoTable({
       head: [tableHeaders],
       body: tableData,
@@ -445,50 +427,111 @@ const DetailedReport = () => {
         fontSize: 6,
         cellPadding: 1,
         overflow: 'linebreak',
-        lineColor: [205, 133, 63], // Golden brown
+        lineColor: [205, 133, 63],
         lineWidth: 0.3,
         textColor: [0, 0, 0]
       },
       headStyles: {
-        fillColor: [255, 255, 255], // White background like PDF
-        textColor: [0, 0, 0], // Black text
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
         fontStyle: 'bold',
         fontSize: 6,
         halign: 'center',
         valign: 'middle',
-        lineColor: [205, 133, 63], // Golden brown
+        lineColor: [205, 133, 63],
         lineWidth: 0.5
       },
       bodyStyles: {
-        fillColor: [255, 255, 255], // White background
+        fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
         fontSize: 6,
         valign: 'middle',
-        lineColor: [205, 133, 63], // Golden brown
+        lineColor: [205, 133, 63],
         lineWidth: 0.3
       },
       alternateRowStyles: {
-        fillColor: [255, 255, 255], // Keep white, no alternating colors like PDF
+        fillColor: [255, 255, 255],
       },
       columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },  // Srl No.
-        1: { cellWidth: 12, halign: 'center' },  // Job No
-        2: { cellWidth: 18, halign: 'center' },  // Location
-        3: { cellWidth: 40, halign: 'left' },    // Importer
-        4: { cellWidth: 55, halign: 'left' },    // Commodity
-        5: { cellWidth: 18, halign: 'center' },  // B/E No
-        6: { cellWidth: 18, halign: 'center' },  // Date
-        7: { cellWidth: 22, halign: 'center' },  // Container No
-        8: { cellWidth: 12, halign: 'center' },  // No. of Cntr
-        9: { cellWidth: 10, halign: 'center' },  // Size
-        10: { cellWidth: 18, halign: 'center' }, // No. of Contr & Size
-        11: { cellWidth: 12, halign: 'center' }, // TEUs
-        12: { cellWidth: 18, halign: 'center' }, // Clrg Date
-        13: { cellWidth: 20, halign: 'center' }, // Remarks
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 12, halign: 'center' },
+        2: { cellWidth: 18, halign: 'center' },
+        3: { cellWidth: 40, halign: 'left' },
+        4: { cellWidth: 55, halign: 'left' },
+        5: { cellWidth: 18, halign: 'center' },
+        6: { cellWidth: 18, halign: 'center' },
+        7: { cellWidth: 22, halign: 'center' },
+        8: { cellWidth: 12, halign: 'center' },
+        9: { cellWidth: 10, halign: 'center' },
+        10: { cellWidth: 18, halign: 'center' },
+        11: { cellWidth: 12, halign: 'center' },
+        12: { cellWidth: 18, halign: 'center' },
+        13: { cellWidth: 20, halign: 'center' },
       },
       margin: { top: 25, right: 5, bottom: 15, left: 5 },
       theme: 'grid',
-      tableLineColor: [205, 133, 63], // Golden brown
+      tableLineColor: [205, 133, 63],
+      tableLineWidth: 0.5
+    });
+
+    // Add summary table on a new page
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    const summaryTitle = `Summary - ${monthName} ${year}`;
+    const summaryTextWidth = doc.getTextWidth(summaryTitle);
+    const summaryX = (doc.internal.pageSize.getWidth() - summaryTextWidth) / 2;
+    doc.text(summaryTitle, summaryX, 15);
+
+    // Prepare summary table data
+    const summaryRows = generateSummaryRows();
+    const summaryHeaders = ['Particulars', 'Details', '20', '40', 'TEUS', 'Containers'];
+    const summaryBody = summaryRows.map(row => [
+      row.location,
+      row.details,
+      row.count20,
+      row.count40,
+      row.teus,
+      row.containers
+    ]);
+    doc.autoTable({
+      head: [summaryHeaders],
+      body: summaryBody,
+      startY: 25,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [205, 133, 63],
+        lineWidth: 0.3,
+        textColor: [0, 0, 0]
+      },
+      headStyles: {
+        fillColor: [255, 224, 178],
+        textColor: [51, 51, 51],
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [205, 133, 63],
+        lineWidth: 0.5
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [51, 51, 51],
+        fontSize: 8,
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [205, 133, 63],
+        lineWidth: 0.3
+      },
+      alternateRowStyles: {
+        fillColor: [247, 250, 255],
+      },
+      margin: { top: 25, right: 5, bottom: 15, left: 5 },
+      theme: 'grid',
+      tableLineColor: [205, 133, 63],
       tableLineWidth: 0.5
     });
 

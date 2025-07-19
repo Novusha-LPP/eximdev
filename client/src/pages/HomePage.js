@@ -62,7 +62,6 @@ import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTo
 import ReportTabs from "../components/Report/ReportTabs.js";
 import MonthlyContainers from "../components/Report/monthlyContainers.js";
 import DetailedReport from "../components/Report/DetailedReport.js";
-import ExportReport from "../components/Report/ExportReport.js";
 
 // import auditrail
 import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
@@ -251,10 +250,7 @@ function HomePage() {
               path="/report/detailed"
               element={<DetailedReport />}
             />
-<Route
-              path="/report/export"
-              element={<ExportReport />}
-            />
+
 <Route
               path="/audit-trail"
               element={<AuditTrailViewer />}

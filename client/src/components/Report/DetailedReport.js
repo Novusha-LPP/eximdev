@@ -31,7 +31,11 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-  CircularProgress
+   CircularProgress,
+   Dialog,
+   DialogTitle,
+   DialogContent,
+   DialogActions
 } from "@mui/material";
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -71,6 +75,7 @@ const DetailedReport = () => {
   const [exportType, setExportType] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const years = [
     { value: "25-26", label: "25-26" },
@@ -168,6 +173,102 @@ const DetailedReport = () => {
     });
     
     return locationGroups;
+  };
+
+  // Generate summary for dialog (with LCL row)
+  const generateSummaryRows = () => {
+    const summaryData = {};
+    let lclContainers = 0, lcl20 = 0, lcl40 = 0, lclTeus = 0;
+    let lclTeusSubtract = 0;
+    let total20 = 0, total40 = 0, totalTeus = 0, totalContainers = 0;
+    let scrapTotal20 = 0, scrapTotal40 = 0, scrapTotalTeus = 0, scrapTotalContainers = 0;
+    let othersTotal20 = 0, othersTotal40 = 0, othersTotalTeus = 0, othersTotalContainers = 0;
+    data.forEach(row => {
+      const location = row.location || 'Unknown';
+      const remarks = (row.remarks || '').toLowerCase();
+      const consignmentType = (row.consignment_type || '').toUpperCase();
+      const sizeInfo = row.noOfContrSize || '';
+      const count20 = parseInt((sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1]) || 0;
+      const count40 = parseInt((sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1]) || 0;
+      const teus = parseInt(row.teus) || 0;
+      const containers = parseInt(row.totalContainers) || 0;
+      if (consignmentType === 'LCL' || remarks.includes('lcl')) {
+        lclContainers += containers;
+        lcl20 += count20;
+        lcl40 += count40;
+        lclTeus += teus;
+        lclTeusSubtract += (count20 * 1) + (count40 * 2);
+        return;
+      }
+      if (!summaryData[location]) {
+        summaryData[location] = {
+          scrap: { count20: 0, count40: 0, teus: 0, containers: 0 },
+          others: { count20: 0, count40: 0, teus: 0, containers: 0 }
+        };
+      }
+      if (remarks.includes('scrap')) {
+        summaryData[location].scrap.count20 += count20;
+        summaryData[location].scrap.count40 += count40;
+        summaryData[location].scrap.teus += teus;
+        summaryData[location].scrap.containers += containers;
+        scrapTotal20 += count20;
+        scrapTotal40 += count40;
+        scrapTotalTeus += teus;
+        scrapTotalContainers += containers;
+      } else {
+        summaryData[location].others.count20 += count20;
+        summaryData[location].others.count40 += count40;
+        summaryData[location].others.teus += teus;
+        summaryData[location].others.containers += containers;
+        othersTotal20 += count20;
+        othersTotal40 += count40;
+        othersTotalTeus += teus;
+        othersTotalContainers += containers;
+      }
+      total20 += count20;
+      total40 += count40;
+      totalTeus += teus;
+      totalContainers += containers;
+    });
+    // Build rows in requested order
+    const scrapRows = [];
+    const othersRows = [];
+    const icdTotalRows = [];
+    Object.entries(summaryData).forEach(([location, details]) => {
+      scrapRows.push({ location, details: 'Scrap', ...details.scrap });
+    });
+    Object.entries(summaryData).forEach(([location, details]) => {
+      othersRows.push({ location, details: 'Others', ...details.others });
+    });
+    Object.entries(summaryData).forEach(([location, details]) => {
+      // ICD-wise total = Scrap + Others for this location
+      icdTotalRows.push({
+        location,
+        details: 'TOTAL',
+        count20: details.scrap.count20 + details.others.count20,
+        count40: details.scrap.count40 + details.others.count40,
+        teus: details.scrap.teus + details.others.teus,
+        containers: details.scrap.containers + details.others.containers
+      });
+    });
+    const rows = [];
+    // All scrap rows
+    rows.push(...scrapRows);
+    // All others rows
+    rows.push(...othersRows);
+    // ICD-wise total rows
+    rows.push(...icdTotalRows);
+    // ...removed SCRAP TOTAL and OTHERS TOTAL rows...
+    // LCL row
+    rows.push({ location: 'LCL', details: '', count20: lcl20, count40: lcl40, teus: lclTeus, containers: lclContainers });
+    // Calculate summary TOTAL TEUS as sum of all ICD-wise total TEUS
+    const summaryTotalTeus = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
+    const summaryTotal20 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count20) || 0), 0);
+    const summaryTotal40 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count40) || 0), 0);
+    const summaryTotalContainers = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.containers) || 0), 0);
+    // Final TOTAL row
+    rows.push({ location: 'TOTAL', details: '', count20: summaryTotal20, count40: summaryTotal40, teus: summaryTotalTeus, containers: summaryTotalContainers });
+    return rows;
   };
 
   // Export functionality
@@ -421,7 +522,7 @@ const DetailedReport = () => {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}
       >
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, display: 'flex', gap: 1 }}>
           {/* Export Button with Dark Blue Gradient */}
           <Button
             variant="contained"
@@ -449,6 +550,34 @@ const DetailedReport = () => {
             }}
           >
             {exportLoading ? `Exporting ${exportType}...` : 'Export Report'}
+          </Button>
+
+          {/* Summary Button */}
+          <Button
+            variant="outlined"
+            startIcon={<TableViewIcon fontSize="small" sx={{ color: '#1976d2' }} />}
+            onClick={() => setSummaryOpen(true)}
+            disabled={loading || data.length === 0}
+            size="small"
+            sx={{
+              fontWeight: 'bold',
+              borderColor: '#1976d2',
+              color: '#1976d2',
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #fdf6f0 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #bbdefb 0%, #ffe0b2 100%)',
+                borderColor: '#1976d2',
+                color: '#1565c0'
+              },
+              '&:disabled': {
+                color: '#bdbdbd',
+                borderColor: '#bdbdbd',
+                background: 'linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%)'
+              },
+              transition: 'all 0.3s ease'
+            }}
+          >
+            Summary
           </Button>
 
           {/* Export Options Menu */}
@@ -508,6 +637,43 @@ const DetailedReport = () => {
             </MenuItem>
           </Menu>
         </Box>
+    {/* Summary Dialog */}
+    <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ fontWeight: 'bold', background: 'linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)' }}>
+        Summary - {months.find(m => m.value === month)?.label} {year}
+      </DialogTitle>
+      <DialogContent sx={{ background: '#fff' }}>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {generateSummaryRows().map((row, idx) => (
+                <TableRow key={idx} sx={{ background: row.location === 'LCL' ? '#e3f2fd' : (row.details === 'Scrap' ? '#fffde7' : row.details === 'Others' ? '#f7faff' : undefined) }}>
+                  <TableCell align="center" sx={{ fontWeight: row.location === 'LCL' ? 'bold' : 'normal' }}>{row.location}</TableCell>
+                  <TableCell align="center">{row.details}</TableCell>
+                  <TableCell align="center">{row.count20}</TableCell>
+                  <TableCell align="center">{row.count40}</TableCell>
+                  <TableCell align="center">{row.teus}</TableCell>
+                  <TableCell align="center">{row.containers}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setSummaryOpen(false)} color="primary" variant="contained">Close</Button>
+      </DialogActions>
+    </Dialog>
         
         <Typography 
           variant="h6" 
@@ -589,7 +755,17 @@ const DetailedReport = () => {
               Report Summary: {data.length} records found for {months.find(m => m.value === month)?.label} {year}
             </Typography>
             <Typography variant="body2" sx={{ color: '#666' }}>
-              Total TEUs: {data.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0)}
+              Total TEUs: {
+                (() => {
+                  const totalTeus = data.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
+                  const lclTeus = data.reduce((sum, row) => {
+                    const consType = (row.consignment_type || '').toUpperCase();
+                    const remarks = (row.remarks || '').toLowerCase();
+                    return (consType === 'LCL' || remarks.includes('lcl')) ? sum + (parseInt(row.teus) || 0) : sum;
+                  }, 0);
+                  return totalTeus - lclTeus;
+                })()
+              }
             </Typography>
           </Box>
         </Card>

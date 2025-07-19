@@ -144,7 +144,8 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           noOfContrSize: 1,
           teus: 1,
           out_of_charge: 1,
-          remarks: 1
+          remarks: 1,
+          consignment_type: 1 // <-- NEW FIELD ADDED HERE
         }
       }
     ]);
@@ -155,5 +156,4 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
     res.status(500).json({ message: "Failed to generate import clearance report." });
   }
 });
-
 export default router;

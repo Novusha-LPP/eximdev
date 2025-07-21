@@ -211,11 +211,11 @@ function HomePage() {
 
             {/* Import DO */}
             <Route path="/import-do" element={<ImportDO />} />
-            <Route path="/edit-do-list/:_id" element={<EditDoList />} />
-            <Route path="/edit-do-planning/:_id" element={<EditDoPlanning />} />
-            <Route path="edit-do-completed/:_id" element={<EditDoCompleted />} />
+            <Route path="/edit-do-list/:job_no/:year" element={<EditDoList />} />
+            <Route path="/edit-do-planning/:job_no/:year" element={<EditDoPlanning />} />
+            <Route path="/edit-do-completed/:job_no/:year" element={<EditDoCompleted />} />
             <Route
-              path="/edit-billing-sheet/:_id"
+              path="/edit-billing-sheet/:job_no/:year"
               element={<EditBillingSheet />}
             />            {/* Import DSR */}
             <Route path="/import-dsr" element={<ImportDSR />} />

@@ -18,8 +18,11 @@ import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportDO";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+
 
 function EditBillingSheet() {
+  const params = useParams();
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -27,7 +30,8 @@ function EditBillingSheet() {
     open: false,
     message: "",
   });
-  const { _id } = useParams();
+
+   const { job_no, year } = params
   const { user } = useContext(UserContext); // Access user from context
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,12 +88,12 @@ function EditBillingSheet() {
       try {
         // Get user info from context or localStorage fallback
         const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userId = user?.selectedJobId || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
         
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-do-billing/${data._id}`,
+          `${process.env.REACT_APP_API_STRING}/update-do-billing/${data.selectedJobId}`,
           values,
           {
             headers: {
@@ -144,7 +148,7 @@ function EditBillingSheet() {
       setError(null);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
         );
         const jobData = res.data.job || {};
         setData(jobData);
@@ -166,7 +170,7 @@ function EditBillingSheet() {
       }
     }
     getData();
-  }, [_id]);
+  }, [selectedJobId]);
 
   if (loading) return <p>Loading data...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
@@ -189,37 +193,13 @@ function EditBillingSheet() {
         </Button>
       </Box>
 
-      {data && (
-        <div className="job-details-container">
-          <Row>
-            <Col>
-              <h4>
-                Job Number: {data.job_no} | Custom House: {data.custom_house}
-              </h4>
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12} lg={6}>
-              <strong>Importer:</strong> {data.importer}
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12} lg={6}>
-              <strong>Importer Address:</strong> {data.importer_address}
-              <IconButton
-                size="small"
-                onClick={() =>
-                  navigator.clipboard.writeText(data.importer_address)
-                }
-              >
-                <abbr title="Copy Importer Address">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </Col>
-          </Row>
-        </div>
-      )}
+
+{data && (
+  <JobDetailsStaticData
+    data={data}
+    params={{ job_no, year }}
+  />
+)}
 
       <div className="job-details-container">
         <form onSubmit={formik.handleSubmit}>

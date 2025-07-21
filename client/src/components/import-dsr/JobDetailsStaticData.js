@@ -6,6 +6,8 @@ import { handleCopyText } from "../../utils/handleCopyText";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 
+
+
 function JobDetailsStaticData(props) {
   if (props.data) {
     const inv_value = (props.data.cif_amount / props.data.exrate).toFixed(2);
@@ -19,6 +21,40 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
+
+    const handleCopy = useCallback((event, text) => {
+    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+    event.stopPropagation();
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
   
   const getShippingLineUrl = (shippingLine, blNumber, containerFirst) => {
     const shippingLineUrls = {
@@ -477,6 +513,24 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.bank_name}</span>
         </Col>
       </Row>
+                    <Row className="job-detail-row">
+                      <Col xs={12} lg={5}>
+                        <strong>Importer Address:&nbsp;</strong>
+                        <span className="non-editable-text">
+                          {props.data.importer_address}
+                        </span>
+                        <IconButton
+                          size="small"
+                          onClick={(event) =>
+                            handleCopy(event, props.data.importer_address)
+                          }
+                        >
+                          <abbr title="Copy Importer Address">
+                            <ContentCopyIcon fontSize="inherit" />
+                          </abbr>
+                        </IconButton>
+                      </Col>
+                    </Row>
  
     </div>
   );

@@ -31,15 +31,17 @@ import {
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 
 function EditDoPlanning() {
+  const params = useParams();
+    const [data, setData] = useState(null);
+    const { job_no, year } = params;
   const [selectedDocumentType, setSelectedDocumentType] = useState("");
 const [showWireTransferOptions, setShowWireTransferOptions] = useState({});
-  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true); // Loading state
   const [kycData, setKycData] = useState("");
   const [fileSnackbar, setFileSnackbar] = useState(false);
-  const { _id } = useParams();
 
   // Modal and other states
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -115,7 +117,7 @@ const getCurrentISOString = () => {
     async function getData() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
         );
 
         // Ensure correct access to the job object
@@ -148,7 +150,7 @@ const getCurrentISOString = () => {
           is_final: false,
           document_check_date: "",
           payment_mode: [],
-          document_charge_details: "",
+          document_amount_details: "",
           payment_request_date: "",
           payment_made_date: "",
           is_tds: false,
@@ -186,7 +188,7 @@ const getCurrentISOString = () => {
     }
 
     getData();
-  }, [_id]);
+  }, [selectedJobId]);
 
 
   const formik = useFormik({
@@ -217,7 +219,7 @@ do_shipping_line_invoice: [{
       document_check_status: false,
       payment_mode: "",
       wire_transfer_method: "",
-      document_charge_details: "",
+      document_amount_details: "",
       payment_request_date: "",
       payment_made_date: "",
       is_tds: false,
@@ -249,7 +251,7 @@ do_shipping_line_invoice: [{
       // Convert booleans back to "Yes" or "No"
       const dataToSubmit = {
         ...values,
-        _id,
+        selectedJobId,
         do_Revalidation_Completed: values.do_Revalidation_Completed,
         shipping_line_invoice: values.shipping_line_invoice ? "Yes" : "No",
         payment_made: values.payment_made ? "Yes" : "No",
@@ -278,7 +280,7 @@ do_shipping_line_invoice: [{
       try {
         // Get user info from context or localStorage fallback
         const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
+        const userId = user?.selectedJobId || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
         
         
@@ -381,7 +383,7 @@ const handleAddDocument = () => {
     newDocument.is_final = false;
     newDocument.payment_mode = "";
     newDocument.wire_transfer_method = "";
-    newDocument.document_charge_details = "";
+    newDocument.document_amount_details = "";
     newDocument.payment_request_date = "";
     newDocument.payment_made_date = "";
     newDocument.is_tds = false;
@@ -459,7 +461,7 @@ const handleRemoveDocument = (docType, index) => {
           is_final: false,
           document_check_date: "",
           payment_mode: [],
-          document_charge_details: "",
+          document_amount_details: "",
           payment_request_date: "",
           payment_made_date: "",
           is_tds: false,
@@ -1053,6 +1055,29 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
   );
 };
 
+ if (!job_no || !year) {
+    return (
+      <div>
+        <Box sx={{ mb: 2 }}>
+          <Button
+            variant="contained"
+            onClick={handleBackClick}
+            sx={{
+              backgroundColor: "#1976d2",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#333",
+              },
+            }}
+          >
+            Back to Job List
+          </Button>
+        </Box>
+        <div>Error: Missing job_no or year parameters in URL</div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Back Button */}
@@ -1071,6 +1096,13 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
           Back to Job List
         </Button>
       </Box>
+
+{data && (
+  <JobDetailsStaticData
+    data={data}
+    params={{ job_no, year }}
+  />
+)}
 
       <div style={{ margin: "20px 0" }}>
         {data && (

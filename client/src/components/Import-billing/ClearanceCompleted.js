@@ -452,7 +452,7 @@ function ClearanceCompleted() {
         Cell: ({ cell }) => {
           const { chargesDetails } = cell.row.original;
 
-          // Filter charges that have URLs (regardless of charge details)
+          // Filter charges that have URLs (regardless of Amount Details)
           const validCharges = chargesDetails?.filter((charge) => 
             charge.url && charge.url.length > 0
           ) || [];
@@ -487,13 +487,13 @@ function ClearanceCompleted() {
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      color: charge.document_charge_details ? "blue" : "#ff6b6b",
+                      color: charge.document_amount_details ? "blue" : "#ff6b6b",
                       textDecoration: "underline",
                       cursor: "pointer",
                       marginBottom: "5px",
                     }}
                   >
-                    {serialNumber++}. {charge.document_name} {charge.url.length > 1 ? `${urlIndex + 1}` : ''} - {charge.document_charge_details ? `₹${parseFloat(charge.document_charge_details).toFixed(2)}` : "No charge details"}
+                    {serialNumber++}. {charge.document_name} {charge.url.length > 1 ? `${urlIndex + 1}` : ''} - {charge.document_amount_details ? `₹${parseFloat(charge.document_amount_details).toFixed(2)}` : "No Amount Details"}
                   </a>
                 ))
               )}

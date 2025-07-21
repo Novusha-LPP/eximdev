@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -17,15 +17,20 @@ import {
   Autocomplete,
   Box,
 } from "@mui/material";
+import { useParams } from "react-router-dom";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
+
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function List() {
+  const { job_no, year } = useParams();
+  const bl_no_ref = useRef();
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = React.useState(0);
@@ -80,6 +85,8 @@ function List() {
       document.body.removeChild(textArea);
     }
   };
+
+  
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -251,7 +258,7 @@ function List() {
       header: "Job No ",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
+        const { job_no, custom_house, _id, type_of_b_e, year, consignment_type } =
           cell.row.original;
 
         return (
@@ -268,7 +275,7 @@ function List() {
               // 1) Set the selected job in state so we can highlight it
               setSelectedJobId(_id);
               // 2) Navigate to the detail page, and pass search/filter state
-              navigate(`/edit-do-list/${_id}`, {
+              navigate(`/edit-do-list/${job_no}/${year}`, {
                 state: {
                   selectedJobId: _id,
                   searchQuery,

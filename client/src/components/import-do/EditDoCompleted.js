@@ -27,13 +27,16 @@ import { Row, Col } from "react-bootstrap";
 
 // Import your user context or authentication hook here
 import { UserContext } from "../../contexts/UserContext";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+
 
 function EditDoCompleted() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true); // Loading state
   const [kycData, setKycData] = useState("");
   const [fileSnackbar, setFileSnackbar] = useState(false);
-  const { _id } = useParams();
+  const params = useParams();
+  const { job_no, year } = params;
 
   // Modal and other states
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -42,11 +45,10 @@ function EditDoCompleted() {
   const container_number_ref = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const { selectedJobId } = location.state || {};
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
   // This might be the job you're editing...
-  const { selectedJobId } = location.state || {};
-
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
 
@@ -111,7 +113,7 @@ function EditDoCompleted() {
     async function getData() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
         );
 
         // Ensure correct access to the job object
@@ -154,7 +156,7 @@ function EditDoCompleted() {
     }
 
     getData();
-  }, [_id]);
+  }, [selectedJobId]);
 
   const formik = useFormik({
     initialValues: {
@@ -180,7 +182,7 @@ function EditDoCompleted() {
       // Convert booleans back to "Yes" or "No"
       const dataToSubmit = {
         ...values,
-        _id,
+        selectedJobId,
         do_Revalidation_Completed: values.do_Revalidation_Completed,
         shipping_line_invoice: values.shipping_line_invoice ? "Yes" : "No",
         payment_made: values.payment_made ? "Yes" : "No",
@@ -325,6 +327,8 @@ function EditDoCompleted() {
     });
   };
 
+  
+
   // Handle checkbox change for do_completed
   const handleCheckboxChange = (event) => {
     if (event.target.checked) {
@@ -424,6 +428,31 @@ function EditDoCompleted() {
 
   if (!data) return <p>Failed to load job details.</p>; // Handle missing data
 
+    // Fix 7: Add loading state and error handling before return
+    if (!job_no || !year) {
+      return (
+        <div>
+          <Box sx={{ mb: 2 }}>
+            <Button
+              variant="contained"
+              onClick={handleBackClick}
+              sx={{
+                backgroundColor: "#1976d2",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              }}
+            >
+              Back to Job List
+            </Button>
+          </Box>
+          <div>Error: Missing job_no or year parameters in URL</div>
+        </div>
+      );
+    }
+  
+
   return (
     <>
       {/* Back to Job List Button */}
@@ -443,42 +472,16 @@ function EditDoCompleted() {
         </Button>
       </Box>
 
+      {data && (
+  <JobDetailsStaticData
+    data={data}
+    params={{ job_no, year }}
+  />
+)}
+
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
-            <div className="job-details-container">
-              <Row>
-                <h4>
-                  Job Number:&nbsp;{data.job_no}&nbsp;|&nbsp;
-                  {data && `Custom House: ${data.custom_house}`}
-                </h4>
-              </Row>
-
-              <Row className="job-detail-row">
-                <Col xs={12} lg={5}>
-                  <strong>Importer:&nbsp;</strong>
-                  <span className="non-editable-text">{data.importer}</span>
-                </Col>
-              </Row>
-              <Row className="job-detail-row">
-                <Col xs={12} lg={5}>
-                  <strong>Importer Address:&nbsp;</strong>
-                  <span className="non-editable-text">
-                    {data.importer_address}
-                  </span>
-                  <IconButton
-                    size="small"
-                    onClick={(event) =>
-                      handleCopy(event, data.importer_address)
-                    }
-                  >
-                    <abbr title="Copy Importer Address">
-                      <ContentCopyIcon fontSize="inherit" />
-                    </abbr>
-                  </IconButton>
-                </Col>
-              </Row>
-            </div>
             <form onSubmit={formik.handleSubmit}>
               <div className="job-details-container">
                 <strong>KYC Documents:&nbsp;</strong>

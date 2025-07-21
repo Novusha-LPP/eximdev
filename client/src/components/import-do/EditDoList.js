@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Checkbox, FormControlLabel, Button, Box } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "axios";
@@ -9,9 +9,13 @@ import { TextField } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { TabContext } from "./ImportDO";
 import { UserContext } from "../../contexts/UserContext";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 
 function EditDoList() {
-  const { _id } = useParams();
+  // Fix 1: Properly destructure all needed parameters
+  const params = useParams();
+  const { job_no, year } = params;
+    
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState(false);
   const [jobDetails, setJobDetails] = React.useState({
@@ -19,16 +23,21 @@ function EditDoList() {
     importer: "",
     awb_bl_no: "",
   });
+  
+  const bl_no_ref = useRef();
   const kycDocsRef = React.useRef();
   const location = useLocation();
+    const { selectedJobId } = location.state || {};
   const navigate = useNavigate();
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext);
+  const [data, setData] = useState(null);
+
   
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
-  // Store search parameters from location state
+
   // Store search parameters from location state
   React.useEffect(() => {
     if (location.state) {
@@ -80,11 +89,18 @@ function EditDoList() {
     });
   };
 
+  // Second useEffect for KYC and bond status
   React.useEffect(() => {
     async function getData() {
+      // Fix 6: Add parameter validation here too
+      if (!selectedJobId) {
+        console.warn("Missing _id parameter for KYC data fetch");
+        return;
+      }
+
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${_id}`
+          `${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${selectedJobId}`
         );
         const {
           shipping_line_kyc_completed,
@@ -107,13 +123,28 @@ function EditDoList() {
         // Set job details for display
         setJobDetails({ job_no, importer, awb_bl_no });
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching KYC data:", error);
       }
     }
 
     getData();
     // eslint-disable-next-line
-  }, [_id]);
+  }, [selectedJobId]);
+
+    useEffect(() => {
+      fetchJobDetails();
+    }, [job_no, year]);
+  
+    const fetchJobDetails = async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+        );
+        setData(response.data);
+      } catch (error) {
+        console.error("Error fetching job details:", error);
+      }
+    };
 
   const formik = useFormik({
     initialValues: {
@@ -131,7 +162,7 @@ function EditDoList() {
       try {
         const data = {
           ...values,
-          _id,
+          selectedJobId,
           shipping_line_bond_completed: values.shipping_line_bond_completed
             ? "Yes"
             : "No",
@@ -146,7 +177,7 @@ function EditDoList() {
         const userData = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
           'Content-Type': 'application/json',
-          'user-id': userData._id || 'unknown',
+          'user-id': userData.selectedJobId || 'unknown',
           'username': userData.username || 'unknown',
           'user-role': userData.role || 'unknown'
         };
@@ -162,7 +193,6 @@ function EditDoList() {
           `${process.env.REACT_APP_API_STRING}/update-do-list`,
           data,
           { headers }
-      
         );
         
         setSnackbar(true);
@@ -195,6 +225,31 @@ function EditDoList() {
     },
   });
 
+  // Fix 7: Add loading state and error handling before return
+  if (!job_no || !year) {
+    return (
+      <div>
+        <Box sx={{ mb: 2 }}>
+          <Button
+            variant="contained"
+            onClick={handleBackToJobList}
+            sx={{
+              backgroundColor: "#1976d2",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#333",
+              },
+            }}
+          >
+            Back to Job List
+          </Button>
+        </Box>
+        <div>Error: Missing job_no or year parameters in URL</div>
+      </div>
+    );
+  }
+
+
   return (
     <div>
       {/* Back to Job List Button */}
@@ -213,21 +268,12 @@ function EditDoList() {
           Back to Job List
         </Button>
       </Box>
-
-      <h3>
-        <abbr title="Job Number" style={{ textDecoration: "none" }}>
-          {jobDetails.job_no}
-        </abbr>{" "}
-        |
-        <abbr title="Airway Bill/BL Number" style={{ textDecoration: "none" }}>
-          {jobDetails.awb_bl_no}
-        </abbr>{" "}
-        |
-        <abbr title="Importer" style={{ textDecoration: "none" }}>
-          {jobDetails.importer}
-        </abbr>
-      </h3>
-
+{data && (
+  <JobDetailsStaticData
+    data={data}
+    params={{ job_no, year }}
+  />
+)}
       <form onSubmit={formik.handleSubmit}>
         <FormControlLabel
           control={

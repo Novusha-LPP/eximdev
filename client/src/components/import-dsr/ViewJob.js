@@ -3687,7 +3687,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                               document_name: doc.document_name,
                               url: urls,
                               document_check_date: "",
-                              document_charge_details: "",
+                              document_amount_details: "",
                             });
                           }
                           setSelectedChargesDocuments(updatedChargesDocuments);
@@ -3696,7 +3696,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                       />
                       <div style={{ marginTop: "10px" }}>
                         <TextField
-                          label="Charge Details"
+                          label="Amount Details"
                           variant="outlined"
                           size="small"
                           fullWidth
@@ -3707,7 +3707,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                             pattern: "[0-9]+(\\.[0-9]+)?",
                           }}
                           value={
-                            selectedChargesDoc.document_charge_details || ""
+                            selectedChargesDoc.document_amount_details || ""
                           }
                           onChange={(e) => {
                             // Only allow numbers and decimal points
@@ -3725,13 +3725,13 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                               if (existingIndex !== -1) {
                                 updatedChargesDocuments[
                                   existingIndex
-                                ].document_charge_details = value;
+                                ].document_amount_details = value;
                               } else {
                                 updatedChargesDocuments.push({
                                   document_name: doc.document_name,
                                   url: [],
                                   document_check_date: "",
-                                  document_charge_details: value,
+                                  document_amount_details: value,
                                 });
                               }
                               setSelectedChargesDocuments(

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useEffect, useRef , useCallback} from "react";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -15,6 +15,7 @@ import {
   MenuItem,
   Autocomplete,
 } from "@mui/material";
+import { useParams } from "react-router-dom";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
@@ -37,6 +38,8 @@ function DoPlanning() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
+  const { job_no, year } = useParams();
+  const bl_no_ref = useRef();
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100; // Number of items per page
   const [selectedJobId, setSelectedJobId] = useState(
@@ -46,6 +49,7 @@ function DoPlanning() {
   const { user } = useContext(UserContext);
 
  
+
   // Remove the automatic clearing - we'll handle this from the tab component instead
 
   React.useEffect(() => {
@@ -239,7 +243,7 @@ function DoPlanning() {
       header: "Job No",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
+        const { job_no, custom_house, _id, type_of_b_e, consignment_type, year } =
           cell.row.original;
 
          return (
@@ -256,7 +260,7 @@ function DoPlanning() {
               setSelectedJobId(_id);
               
               // 2) Navigate to the detail page, and pass selectedJobId and search state
-              navigate(`/edit-do-planning/${_id}`, {
+              navigate(`/edit-do-planning/${job_no}/${year}`, {
                 state: {
                   selectedJobId: _id,
                   searchQuery,

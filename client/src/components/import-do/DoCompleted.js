@@ -265,7 +265,7 @@ function DoCompleted() {
       header: "Job No",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
+        const { job_no, custom_house, _id, type_of_b_e, consignment_type, year } =
           cell.row.original;
 
         return (
@@ -282,7 +282,7 @@ function DoCompleted() {
               setSelectedJobId(_id);
 
               // 2) Navigate to the detail page, and pass selectedJobId and search state
-              navigate(`/edit-do-completed/${_id}`, {
+              navigate(`/edit-do-completed/${job_no}/${year}`, {
                 state: {
                   selectedJobId: _id,
                   searchQuery,

@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import useTabs from "../../customHooks/useTabs";
 import ImportBilling from "./ImportBilling";
 import ClearanceCompleted from "./ClearanceCompleted";
+import PaymentRequested from "./PaymentRequested";
+import PaymentCompleted from "./PaymentCompleted";
 
 // Create a context to share tab state between components
 export const TabContext = React.createContext({
@@ -59,6 +61,8 @@ function ImportBillingTab() {
           >
             <Tab label="Import Billing" {...a11yProps(0)} />
             <Tab label="Clearance Completed" {...a11yProps(1)} />
+            <Tab label="Payment Requested" {...a11yProps(2)} />
+            <Tab label="Payment Completed" {...a11yProps(3)} />
           </Tabs>
         </Box>
 
@@ -68,6 +72,12 @@ function ImportBillingTab() {
         </CustomTabPanel>
         <CustomTabPanel value={value} index={1}>
           <ClearanceCompleted />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={2}>
+          <PaymentRequested />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={3}>
+          <PaymentCompleted />
         </CustomTabPanel>
       </Box>
     </TabContext.Provider>

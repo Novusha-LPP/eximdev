@@ -68,6 +68,8 @@ import ReportTabs from "../components/Report/ReportTabs.js";
 import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
 // import billing 
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
+
+import EditPaymentRequest from "../components/Import-billing/EditPaymentRequest.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -252,6 +254,8 @@ function HomePage() {
             {/* import billing */}
             <Route path="/import-billing" element={<ImportBillingTab />} />
             <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
+            <Route path="/view-payment-request-job/:job_no/:year" element={<EditPaymentRequest />} />
+
             
 
             {/* Inward Register */}

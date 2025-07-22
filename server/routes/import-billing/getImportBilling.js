@@ -200,7 +200,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob eta out_of_charge delivery_date chargesDetails detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date"
+        "priorityJob _id eta out_of_charge delivery_date chargesDetails detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date"
       )
       .sort({ gateway_igm_date: 1 });
 
@@ -242,6 +242,258 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
+// GET /api/get-payment-requested-jobs
+router.get("/api/get-payment-requested-jobs", icdFilter, async (req, res) => {
+  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+
+  const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? year.toString() : null;
+
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    return res.status(400).json({ message: "Invalid page number" });
+  }
+  if (isNaN(limitNumber) || limitNumber < 1) {
+    return res.status(400).json({ message: "Invalid limit value" });
+  }
+
+  try {
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build match conditions
+    const matchConditions = {
+      $and: [
+        req.icdFilterCondition,
+        { status: { $regex: /^pending$/i } },
+        { "do_shipping_line_invoice.is_payment_requested": true },
+      ]
+    };
+
+    if (selectedYear) {
+      matchConditions.$and.push({ year: selectedYear });
+    }
+    
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      matchConditions.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
+    }
+
+    if (search && search.trim()) {
+      matchConditions.$and.push({
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { be_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+        ]
+      });
+    }
+
+    const pipeline = [
+      { $match: matchConditions },
+      {
+        $addFields: {
+          has_pending_payments: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: "$do_shipping_line_invoice",
+                    as: "invoice",
+                    cond: {
+                      $and: [
+                        { $eq: ["$$invoice.is_payment_requested", true] },
+                        {
+                          $or: [
+                            { $eq: ["$$invoice.payment_made_date", ""] },
+                            { $eq: ["$$invoice.payment_made_date", null] },
+                            { $not: { $ifNull: ["$$invoice.payment_made_date", false] } }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+      { $match: { has_pending_payments: true } },
+      {
+        $project: {
+          priorityJob: 1,
+          eta: 1,
+          out_of_charge: 1,
+          delivery_date: 1,
+          chargesDetails: 1,
+          detailed_status: 1,
+          esanchit_completed_date_time: 1,
+          status: 1,
+          be_date: 1,
+          be_no: 1,
+          job_no: 1,
+          year: 1,
+          importer: 1,
+          custom_house: 1,
+          gateway_igm_date: 1,
+          discharge_date: 1,
+          document_entry_completed: 1,
+          documentationQueries: 1,
+          eSachitQueries: 1,
+          documents: 1,
+          cth_documents: 1,
+          all_documents: 1,
+          consignment_type: 1,
+          type_of_b_e: 1,
+          awb_bl_date: 1,
+          awb_bl_no: 1,
+          detention_from: 1,
+          container_nos: 1,
+          ooc_copies: 1,
+          icd_cfs_invoice_img: 1,
+          shipping_line_invoice_imgs: 1,
+          concor_invoice_and_receipt_copy: 1,
+          billing_completed_date: 1,
+          do_shipping_line_invoice: 1
+        }
+      },
+      { $sort: { gateway_igm_date: 1 } }
+    ];
+
+    const allJobs = await JobModel.aggregate(pipeline);
+    const totalJobs = allJobs.length;
+    const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
+
+    return res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
+    });
+  } catch (err) {
+    console.error("Error fetching payment requested jobs:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+
+router.get("/api/get-payment-completed-jobs", icdFilter, async (req, res) => {
+  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+
+  const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? year.toString() : null;
+
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    return res.status(400).json({ message: "Invalid page number" });
+  }
+  if (isNaN(limitNumber) || limitNumber < 1) {
+    return res.status(400).json({ message: "Invalid limit value" });
+  }
+
+  try {
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build query: status pending and at least one payment requested
+    const baseQuery = {
+      $and: [
+        req.icdFilterCondition,
+        { status: { $regex: /^pending$/i } },
+        { "do_shipping_line_invoice.is_payment_requested": true },
+        { "do_shipping_line_invoice": { $exists: true, $ne: [] } }
+      ],
+    };
+
+    if (search && search.trim()) {
+      baseQuery.$and.push({
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { be_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+        ]
+      });
+    }
+    
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
+    
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
+    }
+
+    const allJobsFromDB = await JobModel.find(baseQuery)
+      .select(
+        "priorityJob eta out_of_charge delivery_date chargesDetails detailed_status esanchit_completed_date_time status be_date be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date do_shipping_line_invoice"
+      )
+      .sort({ gateway_igm_date: 1 });
+
+    // Filter jobs where ALL do_shipping_line_invoice have payment_made_date
+    const filteredJobs = allJobsFromDB.filter(job => {
+      if (!job.do_shipping_line_invoice || job.do_shipping_line_invoice.length === 0) {
+        return false;
+      }
+      
+      // Check if ALL invoices have payment_made_date available
+      const allPaymentsMade = job.do_shipping_line_invoice.every(invoice => 
+        invoice.payment_made_date && 
+        invoice.payment_made_date !== "" && 
+        invoice.payment_made_date !== null
+      );
+      
+      return allPaymentsMade;
+    });
+
+    const totalJobs = filteredJobs.length;
+    const paginatedJobs = filteredJobs.slice(skip, skip + limitNumber);
+
+    // Add payment status information
+    const jobsWithStatus = paginatedJobs.map(job => {
+      const jobObj = job.toObject();
+      
+      // Add payment summary
+      jobObj.payment_summary = {
+        total_invoices: jobObj.do_shipping_line_invoice?.length || 0,
+        payment_requested_count: jobObj.do_shipping_line_invoice?.filter(inv => inv.is_payment_requested).length || 0,
+        payment_made_count: jobObj.do_shipping_line_invoice?.filter(inv => 
+          inv.payment_made_date && inv.payment_made_date !== ""
+        ).length || 0,
+        receipt_uploaded_count: jobObj.do_shipping_line_invoice?.filter(inv => 
+          inv.payment_recipt && Array.isArray(inv.payment_recipt) && inv.payment_recipt.length > 0
+        ).length || 0,
+        all_payments_completed: true,
+        completion_dates: jobObj.do_shipping_line_invoice?.map(inv => ({
+          document_name: inv.document_name,
+          payment_made_date: inv.payment_made_date,
+          has_receipt: inv.payment_recipt && Array.isArray(inv.payment_recipt) && inv.payment_recipt.length > 0
+        }))
+      };
+      
+      return jobObj;
+    });
+
+    return res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: jobsWithStatus,
+    });
+  } catch (err) {
+    console.error("Error fetching payment completed jobs:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
 
 
 export default router;

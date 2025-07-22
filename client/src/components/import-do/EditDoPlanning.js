@@ -703,6 +703,35 @@ const renderChargesSection = () => (
     {formik.values.security_deposit.map((doc, index) => 
       renderDocumentSection(doc, index, "security_deposit", index > 0, user)
     )}
+
+    {/* DO Copies Row - show below security deposit */}
+    <Row>
+      <Col>
+        <FileUpload
+          label="Upload DO Copies"
+          bucketPath="do_copies"
+          onFilesUploaded={(newFiles) => {
+            console.log("Uploading new DO Copies:", newFiles);
+            const existingFiles = formik.values.do_copies || [];
+            const updatedFiles = [...existingFiles, ...newFiles];
+            formik.setFieldValue("do_copies", updatedFiles);
+            setFileSnackbar(true); // Show success snackbar
+          }}
+          multiple={true}
+        />
+
+        <ImagePreview
+          images={formik.values.do_copies || []}
+          onDeleteImage={(index) => {
+            const updatedFiles = [...formik.values.do_copies];
+            updatedFiles.splice(index, 1);
+            formik.setFieldValue("do_copies", updatedFiles);
+            setFileSnackbar(true); // Show success snackbar
+          }}
+        />
+      </Col>
+    </Row>
+
     {/* Render all other documents */}
     {formik.values.other_do_documents.map((doc, index) => 
       renderDocumentSection(doc, index, "other_do_documents", true, user)
@@ -1007,44 +1036,46 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
           </Row>
           <Row style={{ marginTop: 8 }}>
             <Col xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                margin="normal"
-                variant="outlined"
-                type="date"
-                id={`${docType}[${docIndex}].payment_request_date`}
-                name={`${docType}[${docIndex}].payment_request_date`}
-                label="Payment Request Date"
-                value={doc.payment_request_date}
-                onChange={(e) =>
-                  formik.setFieldValue(
-                    `${docType}[${docIndex}].payment_request_date`,
-                    e.target.value
-                  )
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!doc.payment_request_date}
+                    onChange={e => {
+                      const value = e.target.checked ? new Date().toISOString() : "";
+                      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_request_date`, value);
+                      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_payment_requested`, e.target.checked);
+                    }}
+                    name={`do_shipping_line_invoice[${docIndex}].is_payment_requested`}
+                    color="primary"
+                  />
                 }
-                InputLabelProps={{ shrink: true }}
+                label={
+                  doc.payment_request_date
+                    ? `Payment Requested: ${new Date(doc.payment_request_date).toLocaleString("en-IN", { hour12: true })}`
+                    : "Payment Requested"
+                }
                 sx={{ mb: 2 }}
               />
             </Col>
             <Col xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                margin="normal"
-                variant="outlined"
-                type="date"
-                id={`${docType}[${docIndex}].payment_made_date`}
-                name={`${docType}[${docIndex}].payment_made_date`}
-                label="Payment Made Date"
-                value={doc.payment_made_date}
-                onChange={(e) =>
-                  formik.setFieldValue(
-                    `${docType}[${docIndex}].payment_made_date`,
-                    e.target.value
-                  )
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!doc.payment_made_date}
+                    onChange={e => {
+                      const value = e.target.checked ? new Date().toISOString() : "";
+                      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_made_date`, value);
+                      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_payment_made`, e.target.checked);
+                    }}
+                    name={`do_shipping_line_invoice[${docIndex}].is_payment_made`}
+                    color="primary"
+                  />
                 }
-                InputLabelProps={{ shrink: true }}
+                label={
+                  doc.payment_made_date
+                    ? `Payment Made: ${new Date(doc.payment_made_date).toLocaleString("en-IN", { hour12: true })}`
+                    : "Payment Made"
+                }
                 sx={{ mb: 2 }}
               />
             </Col>
@@ -1107,39 +1138,6 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
-            <div className="job-details-container">
-              <Row>
-                <h4>
-                  Job Number:&nbsp;{data.job_no}&nbsp;|&nbsp;
-                  {data && `Custom House: ${data.custom_house}`}
-                </h4>
-              </Row>
-
-              <Row className="job-detail-row">
-                <Col xs={12} lg={5}>
-                  <strong>Importer:&nbsp;</strong>
-                  <span className="non-editable-text">{data.importer}</span>
-                </Col>
-              </Row>
-              <Row className="job-detail-row">
-                <Col xs={12} lg={5}>
-                  <strong>Importer Address:&nbsp;</strong>
-                  <span className="non-editable-text">
-                    {data.importer_address}
-                  </span>
-                  <IconButton
-                    size="small"
-                    onClick={(event) =>
-                      handleCopy(event, data.importer_address)
-                    }
-                  >
-                    <abbr title="Copy Importer Address">
-                      <ContentCopyIcon fontSize="inherit" />
-                    </abbr>
-                  </IconButton>
-                </Col>
-              </Row>
-            </div>
             <form onSubmit={formik.handleSubmit}>
               <div className="job-details-container">
                 <strong>KYC Documents:&nbsp;</strong>
@@ -1160,7 +1158,7 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
               </div>
                             {renderChargesSection()}
 
-              <div className="job-details-container">
+              {/* <div className="job-details-container">
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -1345,33 +1343,7 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
                   onChange={formik.handleChange}
                   InputLabelProps={{ shrink: true }}
                 />
-                <Row>
-                  <Col>
-                    <FileUpload
-                      label="Upload DO Copies"
-                      bucketPath="do_copies"
-                      onFilesUploaded={(newFiles) => {
-                        console.log("Uploading new DO Copies:", newFiles);
-                        const existingFiles = formik.values.do_copies || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue("do_copies", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                      multiple={true}
-                    />
-
-                    <ImagePreview
-                      images={formik.values.do_copies || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [...formik.values.do_copies];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue("do_copies", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                    />
-                  </Col>
-                </Row>
-              </div>
+              </div> */}
 
               <div className="job-details-container">
                 <h5>DO Queries</h5>

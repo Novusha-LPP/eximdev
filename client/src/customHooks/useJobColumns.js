@@ -15,15 +15,15 @@ import { useSearchQuery } from "../contexts/SearchQueryContext";
 function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { 
-    searchQuery, 
-    detailedStatus, 
-    selectedICD, 
+  const {
+    searchQuery,
+    detailedStatus,
+    selectedICD,
     selectedImporter,
     setSearchQuery,
     setDetailedStatus,
     setSelectedICD,
-    setSelectedImporter
+    setSelectedImporter,
   } = useSearchQuery();
 
   const handleCopy = (event, text) => {
@@ -101,11 +101,12 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   // Optimized columns array
   const columns = useMemo(
     () => [
-   {
+      {
         accessorKey: "job_no",
         header: "Job No",
         enableSorting: false,
-        size: 150,        Cell: ({ cell }) => {
+        size: 150,
+        Cell: ({ cell }) => {
           const {
             job_no,
             year,
@@ -182,7 +183,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
 
           // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
           if (
-            (detailed_status === "Custom Clearance Completed" && container_nos) ||
+            (detailed_status === "Custom Clearance Completed" &&
+              container_nos) ||
             detailed_status === "BE Noted, Clearance Pending" ||
             detailed_status === "PCV Done, Duty Payment Pending"
           ) {
@@ -210,29 +212,25 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 textColor = "black"; // Black text on yellow background
               }
             });
-          }          return (
-            <div
-              onClick={() => {
-                if (customNavigation) {
-                  customNavigation(job_no, year);
-                } else {
-                  navigate(`/import-dsr/job/${job_no}/${year}`, {
-                    state: { currentTab: 1 },
-                  });
-                }
-              }}
-              style={{
-                cursor: "pointer",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-              }}
-            >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
-            </div>
+          }
+          return (
+<a
+  href={`/import-dsr/job/${job_no}/${year}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{
+    cursor: "pointer",
+    color: textColor,
+    backgroundColor: bgColor || "transparent",
+    padding: "10px",
+    borderRadius: "5px",
+    textAlign: "center",
+    display: "inline-block", // to mimic div behavior
+    textDecoration: "none",
+  }}
+>
+  {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+</a>
           );
         },
       },
@@ -252,28 +250,36 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
           const adCode = row?.original?.adCode || "";
-          
+
           return (
             <>
-              <span><strong>Importer: </strong>{importer}</span>
-          
+              <span>
+                <strong>Importer: </strong>
+                {importer}
+              </span>
+
               <Tooltip title="Supplier/Exporter" arrow>
-                <div style={{marginTop :"5px"}}><strong>Exporter: </strong>{supplier_exporter}</div>
+                <div style={{ marginTop: "5px" }}>
+                  <strong>Exporter: </strong>
+                  {supplier_exporter}
+                </div>
               </Tooltip>
-           
+
               <Tooltip title="FTA Benefit" arrow>
-                <span style={{marginTop :"5px"}}>{`FTA Benefit: ${ftaDisplay}`}</span>
+                <span
+                  style={{ marginTop: "5px" }}
+                >{`FTA Benefit: ${ftaDisplay}`}</span>
               </Tooltip>
               <Tooltip title="Hss" arrow>
-                <span style={{marginTop :"5px"}}>{`Hss: ${hssDisplay}`}</span>
+                <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>
               </Tooltip>
               <span style={{ marginTop: "5px" }}>
-  <strong>AD Code: </strong> {adCode ? adCode : "NA"}
-</span>
+                <strong>AD Code: </strong> {adCode ? adCode : "NA"}
+              </span>
             </>
           );
         },
-      },      
+      },
 
       {
         accessorKey: "awb_bl_no",
@@ -432,11 +438,14 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             </React.Fragment>
           );
         },
-      },      {
+      },
+      {
         accessorKey: "dates",
         header: "Dates",
         size: 470,
-        Cell: ({ cell }) => <EditableDateCell cell={cell} onRowDataUpdate={handleRowDataUpdate} />,
+        Cell: ({ cell }) => (
+          <EditableDateCell cell={cell} onRowDataUpdate={handleRowDataUpdate} />
+        ),
       },
 
       {
@@ -444,8 +453,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         header: "BE Number and Date",
         size: 200,
         Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
-      }, 
-           
+      },
+
       {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
@@ -453,7 +462,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
           const jobData = cell.row.original;
-          
+
           return (
             <React.Fragment>
               {containerNos?.map((container, id) => (
@@ -466,7 +475,13 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                     {container.container_number}
                   </a>
                   | "{container.size}"
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
                     <IconButton
                       size="small"
                       onClick={(event) =>
@@ -477,14 +492,15 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                         <ContentCopyIcon fontSize="inherit" />
                       </abbr>
                     </IconButton>
-                      {/* Delivery Challan Download Icon */}                    <DeliveryChallanPdf 
-                      year={jobData.year} 
+                    {/* Delivery Challan Download Icon */}{" "}
+                    <DeliveryChallanPdf
+                      year={jobData.year}
                       jobNo={jobData.job_no}
                       containerIndex={id}
                       renderAsIcon={true}
                     />
-                    <IgstCalculationPDF 
-                      year={jobData.year} 
+                    <IgstCalculationPDF
+                      year={jobData.year}
                       jobNo={jobData.job_no}
                       containerIndex={id}
                       renderAsIcon={true}
@@ -601,7 +617,16 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         },
       },
     ],
-    [getPortLocation, handleCopy, navigate, location, searchQuery, detailedStatus, selectedICD, selectedImporter]
+    [
+      getPortLocation,
+      handleCopy,
+      navigate,
+      location,
+      searchQuery,
+      detailedStatus,
+      selectedICD,
+      selectedImporter,
+    ]
   );
 
   return columns;

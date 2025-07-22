@@ -93,7 +93,7 @@ function EditBillingSheet() {
         
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-do-billing/${data.selectedJobId}`,
+          `${process.env.REACT_APP_API_STRING}/update-do-billing/${selectedJobId}`,
           values,
           {
             headers: {

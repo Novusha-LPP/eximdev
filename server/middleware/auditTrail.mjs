@@ -422,9 +422,7 @@ setImmediate(async () => {
             // SECOND: If other changes exist, filter them and log
             const changes = findChanges(originalDocument, updatedDocument);
             
-            if (changes.length > 0) {
-              console.log(`📝 [req.jobInfo path] Logging ${changes.length} changes for audit trail`);
-              
+            if (changes.length > 0) {              
               // Final safety check: ensure no detailed_status changes slipped through
               const filteredChanges = changes.filter(change => 
                 change.field !== 'detailed_status' && 

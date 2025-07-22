@@ -7,7 +7,6 @@ const router = express.Router();
 // Extract job info middleware for audit trail
 const extractJobInfo = async (req, res, next) => {
   try {
-    console.log("🔍 Extracting job info for DO Billing update:", req.params.id);
     if (req.params.id) {
       // Fetch job details to get job_no and year
       const job = await JobModel.findOne({ _id: req.params.id }).lean();

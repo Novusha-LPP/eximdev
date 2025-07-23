@@ -231,21 +231,35 @@ function JobList(props) {
     [rows, refreshTrigger] // Add refreshTrigger as dependency to force re-calculation
   );  // Add unresolved queries filter state
   // Helper to check if a job has any unresolved queries
-  const hasUnresolvedQuery = (job) => {
-    const queryKeys = [
-      "do_queries",
-      "documentationQueries",
-      "eSachitQueries",
-      "submissionQueries",
-    ];
-    return queryKeys.some((key) => {
-      const queries = job[key];
-      if (!Array.isArray(queries)) return false;
-      return queries.some(
-        (q) => !(q.resolved === true || (!!q.reply && q.reply.trim() !== ""))
-      );
+const hasUnresolvedQuery = (job) => {
+  const queryKeys = [
+    "do_queries",
+    "documentationQueries",
+    "eSachitQueries", 
+    "submissionQueries",
+  ];
+  
+  return queryKeys.some((key) => {
+    const queries = job[key];
+    
+    if (!Array.isArray(queries) || queries.length === 0) {
+      return false;
+    }
+    
+    return queries.some((query) => {
+      // A query is considered unresolved if:
+      // 1. resolved is not explicitly true, OR
+      // 2. resolved is true but there's no meaningful reply (if reply is required)
+      
+      // If you want to require both resolved=true AND a non-empty reply:
+      // return !(query.resolved === true && query.reply && query.reply.trim() !== "");
+      
+      // If resolved=true is sufficient regardless of reply:
+      return query.resolved !== true;
     });
-  };
+  });
+};
+
 
   // Filtered table data based on unresolved toggle
   const filteredRows = useMemo(() => {

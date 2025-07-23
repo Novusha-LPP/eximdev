@@ -48,26 +48,59 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
 
     // Build the base query
     // Build the base query
-    const baseQuery = {
-      $and: [
-        { status: { $regex: /^pending$/i } },
-        { be_no: { $in: [null, ""] } }, // Exclude "cancelled"
-        { job_no: { $ne: null } }, // Ensure job_no is not null
-        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
-        {
-          detailed_status: {
-            $in: statusOrder,
-          },
-        },
-        {
-          $or: [
-            { documentation_completed_date_time: { $exists: false } },
-            { documentation_completed_date_time: "" },
-          ],
-        },
-        searchQuery,
+const baseQuery = {
+  $and: [
+    { status: { $regex: /^pending$/i } },
+    { be_no: { $in: [null, ""] } },
+    { awb_bl_no: { $ne: null, $ne: "" } },
+    { job_no: { $ne: null } },
+    { out_of_charge: { $eq: "" } },
+    {
+      detailed_status: {
+        $in: statusOrder,
+      },
+    },
+    {
+      $or: [
+        { documentation_completed_date_time: { $exists: false } },
+        { documentation_completed_date_time: "" },
       ],
-    };
+    },
+    // All three required documents with valid URLs
+    {
+      $and: [
+        {
+          "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] }
+        },
+        {
+          "cth_documents": {
+            $elemMatch: {
+              document_name: "Bill of Lading",
+              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+            }
+          }
+        },
+        {
+          "cth_documents": {
+            $elemMatch: {
+              document_name: "Packing List",
+              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+            }
+          }
+        },
+        {
+          "cth_documents": {
+            $elemMatch: {
+              document_name: "Commercial Invoice",
+              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+            }
+          }
+        }
+      ]
+    },
+    searchQuery,
+  ],
+};
 
     // ✅ Add Year Filter if provided
     // ✅ Ensure year is correctly formatted before applying the filter

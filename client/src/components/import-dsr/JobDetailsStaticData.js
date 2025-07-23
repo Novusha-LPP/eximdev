@@ -463,6 +463,10 @@ function JobDetailsStaticData(props) {
           <strong>Net Weight (KGS):&nbsp;</strong>
           <span className="non-editable-text">{props.data.job_net_weight}</span>
         </Col>
+        <Col xs={12} lg={3}>
+          <strong>BE Filling Type:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.be_filing_type}</span>
+        </Col>
       </Row>
 
            <Row className="job-detail-row">

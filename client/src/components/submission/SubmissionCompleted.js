@@ -24,7 +24,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
-function Submission() {
+function SubmissionCompleted() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState("");
@@ -194,7 +194,7 @@ const handleSearchInputChange = (event) => {
       setLoading(true);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-submission-jobs`,
+          `${process.env.REACT_APP_API_STRING}/get-submission-completed-jobs`,
           {
             params: {
               page: currentPage,
@@ -269,16 +269,6 @@ const handlePageChange = (event, newPage) => {
 
         return (
           <div
-            onClick={() =>
-              navigate(`/submission-job/${job_no}/${year}`, {
-                state: {
-                  selectedJobId: job_no,
-                  searchQuery,
-                  selectedImporter,
-                  currentPage: page,
-                },
-              })
-            }
             style={{
               cursor: "pointer",
               color: "blue",
@@ -453,7 +443,7 @@ const handlePageChange = (event, newPage) => {
     },
       {
       accessorKey: "be_filing_info",
-      header: "BE Filling Type",
+      header: "BE Filing Type",
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
@@ -556,7 +546,25 @@ const handlePageChange = (event, newPage) => {
         );
       },
     },
-
+             {
+      accessorKey: "submission_completed_date_time",
+      header: "Submission date",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        const { submission_completed_date_time } = row.original;
+        return (
+          <div style={{ textAlign: "left" }}>
+            {submission_completed_date_time
+              ? new Date(submission_completed_date_time).toLocaleString("en-US", {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })
+              : "Not Submitted"}
+          </div>
+        );
+      },
+    },
     {
       accessorKey: "cth_documents",
       header: "E-sanchit Doc",
@@ -766,4 +774,4 @@ const handlePageChange = (event, newPage) => {
   );
 }
 
-export default React.memo(Submission);
+export default React.memo(SubmissionCompleted);

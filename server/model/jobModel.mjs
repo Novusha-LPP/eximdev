@@ -315,6 +315,7 @@ const jobSchema = new mongoose.Schema({
 
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },
+  is_obl_recieved: { type: Boolean, default: false },
 
   ////////////////////////////////////////////////// documentation
   documentation_completed_date_time: { type: String, trim: true },

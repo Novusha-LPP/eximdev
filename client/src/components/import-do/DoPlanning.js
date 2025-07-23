@@ -397,65 +397,107 @@ function DoPlanning() {
     );
   },
 },
-    {
-      accessorKey: "awb_bl_no",
-      header: "BL Number",
-      size: 200,
-      Cell: ({ row }) => {
-        const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
-        const voyageNo = row.original.voyage_no?.toString() || "N/A";
-        const line_no = row.original.line_no || "N/A";
+{
+  accessorKey: "awb_bl_no",
+  header: "BL Number",
+  size: 200,
+  Cell: ({ row }) => {
+    const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
+    const voyageNo = row.original.voyage_no?.toString() || "N/A";
+    const line_no = row.original.line_no || "N/A";
+    const [isOblReceived, setIsOblReceived] = React.useState(row.original.is_obl_recieved || false);
+    const _id = row.original._id;
 
-        return (         
-          <React.Fragment>
-            <BLNumberCell
-              blNumber={row.original.awb_bl_no}
-              portOfReporting={row.original.port_of_reporting}
-              shippingLine={row.original.shipping_line_airline}
-              containerNos={row.original.container_nos}
+    const handleToggleOBL = async (event) => {
+      const newValue = event.target.checked;
+      setIsOblReceived(newValue); // Update UI immediately
+      
+      try {
+        const updateData = {
+          is_obl_recieved: newValue
+        };
+        
+        const headers = {
+          'Content-Type': 'application/json',
+          // Add your authorization headers here if needed
+          // 'Authorization': `Bearer ${token}`
+        };
+
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+        
+        console.log('OBL status updated successfully');
+        
+      } catch (error) {
+        console.error('Error updating OBL status:', error);
+        // Revert the UI state if API call fails
+        setIsOblReceived(!newValue);
+        // Handle error - maybe show a toast notification
+      }
+    };
+
+    return (         
+      <React.Fragment>
+        <BLNumberCell
+          blNumber={row.original.awb_bl_no}
+          portOfReporting={row.original.port_of_reporting}
+          shippingLine={row.original.shipping_line_airline}
+          containerNos={row.original.container_nos}
+        />
+
+        <div>
+          {vesselFlight}
+          <IconButton
+            size="small"
+            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+            onClick={(event) => handleCopy(event, vesselFlight)}
+          >
+            <abbr title="Copy Vessel">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div>
+        { `Vessel Voyage: ${voyageNo}`}
+          <IconButton
+            size="small"
+            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+            onClick={(event) => handleCopy(event, voyageNo)}
+          >
+            <abbr title="Copy Voyage Number">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+        
+        <div>
+        { `Line No: ${line_no}`}
+          <IconButton
+            size="small"
+            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+            onClick={(event) => handleCopy(event, line_no)}
+          >
+            <abbr title="Copy Line No Number">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div>
+          <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+            <input
+              type="checkbox"
+              checked={isOblReceived}
+              onChange={handleToggleOBL}
+              style={{ marginRight: '6px' }}
             />
-
-            <div>
-              {vesselFlight}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, vesselFlight)}
-              >
-                <abbr title="Copy Vessel">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
-
-            <div>
-            { `Vessel Voyage: ${voyageNo}`}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, voyageNo)}
-              >
-                <abbr title="Copy Voyage Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
-            <div>
-            { `Line No: ${line_no}`}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, line_no)}
-              >
-                <abbr title="Copy Line No Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
-          </React.Fragment>
-        );
-      },
-    },
+            OBL Received
+          </label>
+        </div>
+      </React.Fragment>
+    );
+  },
+},
 
     {
       accessorKey: "container_numbers",

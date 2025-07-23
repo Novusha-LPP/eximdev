@@ -26,7 +26,7 @@ import EditCompletedKyc from "../components/customerKyc/EditCompletedKyc.js";
 import Documentation from "../components/documentation/Documentation.js";
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
 // Submission
-import Submission from "../components/submission/Submission.js";
+import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
 // Employee KYC
 import EmployeeKYC from "../components/employeeKyc/EmployeeKYC.js";
@@ -183,7 +183,7 @@ function HomePage() {
             />
 
             {/* Submission */}
-            <Route path="/submission" element={<Submission />} />
+            <Route path="/submission" element={<SubmissionTabs />} />
             <Route
               path="/submission-job/:job_no/:year"
               element={<SubmissionJob />}

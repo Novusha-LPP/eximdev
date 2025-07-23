@@ -1519,8 +1519,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     type="datetime-local"
                     id="discharge_date"
                     name="discharge_date"
-                    disabled={ExBondflag || isSubmissionDate}
+                    disabled={!formik.values.vessel_berthing || ExBondflag || isSubmissionDate}
                     value={
+                      
                       formik.values.discharge_date
                         ? formik.values.discharge_date.length === 10
                           ? `${formik.values.discharge_date}T00:00`
@@ -2410,28 +2411,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                 }}
                 data={data}
               />
-              {/* <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Job Sticker Upload"
-                  bucketPath="job-sticker"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles =
-                      formik.values.job_sticker_upload || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                  multiple={true}
-                />
-
-                <ImagePreview
-                  images={formik.values.job_sticker_upload || []}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...formik.values.job_sticker_upload];
-                    updatedFiles.splice(index, 1);
-                    formik.setFieldValue("job_sticker_upload", updatedFiles);
-                  }}
-                />
-              </Col> */}
               <Col xs={12} lg={4}>
                 {/* Only show FileUpload if there's NO PDF in the array */}
 

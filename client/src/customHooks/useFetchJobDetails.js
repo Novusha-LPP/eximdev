@@ -336,6 +336,7 @@ function useFetchJobDetails(
       checkedDocs: [],
       container_nos: [],
       obl_telex_bl: "",
+      is_obl_recieved: false,
       document_received_date: "",
       vessel_berthing: "",
       gateway_igm_date: "",
@@ -528,6 +529,7 @@ function useFetchJobDetails(
           out_of_charge: values.out_of_charge,
           checked: values.checked,
           obl_telex_bl: values.obl_telex_bl,
+          is_obl_recieved: values.is_obl_recieved,
           document_received_date: values.document_received_date,
           type_of_Do: values.type_of_Do,
           type_of_b_e: values.type_of_b_e,
@@ -737,7 +739,7 @@ function useFetchJobDetails(
       formik.setValues({
         ...{ container_nos },
         checkedDocs: data.checkedDocs === undefined ? [] : data.checkedDocs,
-        obl_telex_bl: data.obl_telex_bl ? data.obl_telex_bl : "",
+        is_obl_recieved: data.is_obl_recieved ? data.is_obl_recieved : "",
         document_received_date: data.document_received_date
           ? data.document_received_date
           : "",

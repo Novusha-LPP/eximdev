@@ -2956,21 +2956,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   style={{ justifyContent: "flex-start" }}
                 >
                   <strong>
-                    {formik.values.obl_telex_bl === "OBL"
-                      ? "Original Document Received Date:"
-                      : "Document Received Date:"}
+                   {formik.values.is_obl_recieved? "OBL Recived By DO Team ": ""}
                   </strong>
-                  &nbsp;
-                  {formik.values.document_received_date && (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(
-                        formik.values.document_received_date
-                      ).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  )}
+                
                 </div>
               </Col>
               <Col xs={12} lg={4}>

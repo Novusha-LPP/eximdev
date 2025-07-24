@@ -199,7 +199,7 @@ const jobSchema = new mongoose.Schema({
   do_revalidation_upto_job_level: { type: String, trim: true },
   do_revalidation: { type: Boolean },
   do_revalidation_date: { type: String },
-  rail_out_date: { type: String },
+  // rail_out_date: { type: String },
   examinationPlanning: { type: Boolean },
   examination_planning_date: { type: String, trim: true },
   processed_be_attachment: [{ type: String }],

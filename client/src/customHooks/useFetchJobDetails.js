@@ -373,7 +373,7 @@ function useFetchJobDetails(
       cth_no: "",
       checklist: [],
       job_sticker_upload: [],
-      rail_out_date: "",
+      // rail_out_date: "",
       remarks: "",
       description: "",
       consignment_type: "",
@@ -469,7 +469,7 @@ function useFetchJobDetails(
           do_revalidation_upto_job_level: values.do_revalidation_upto_job_level,
           checklist: values.checklist,
           job_sticker_upload: values.job_sticker_upload,
-          rail_out_date: values.rail_out_date,
+          // rail_out_date: values.rail_out_date,
           remarks: values.remarks,
           description: values.description,
           consignment_type: values.consignment_type,
@@ -788,8 +788,8 @@ function useFetchJobDetails(
         job_sticker_upload:
           data.job_sticker_upload === undefined ? [] : data.job_sticker_upload,
         remarks: data.remarks === undefined ? "" : data.remarks,
-        rail_out_date:
-          data.rail_out_date === undefined ? "" : data.rail_out_date,
+        // rail_out_date:
+        //   data.rail_out_date === undefined ? "" : data.rail_out_date,
         description: data.description === undefined ? "" : data.description,
         consignment_type:
           data.consignment_type === undefined ? "" : data.consignment_type,

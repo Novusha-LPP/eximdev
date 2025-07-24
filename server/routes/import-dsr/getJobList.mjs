@@ -30,7 +30,7 @@ const parseDate = (dateStr) => {
 const defaultFields = `
   job_no cth_no year importer custom_house awb_bl_no container_nos vessel_berthing total_duty do_doc_recieved_date is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies
   gateway_igm_date discharge_date detailed_status be_no be_date loading_port free_time
-  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity rail_out_date cth_documents payment_method supplier_exporter gross_weight job_net_weight processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time origin_country hss saller_name adCode assessment_date by_road_movement_date description invoice_number invoice_date delivery_chalan_file duty_paid_date intrest_ammount sws_ammount igst_ammount bcd_ammount assessable_ammount
+  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity cth_documents payment_method supplier_exporter gross_weight job_net_weight processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time origin_country hss saller_name adCode assessment_date by_road_movement_date description invoice_number invoice_date delivery_chalan_file duty_paid_date intrest_ammount sws_ammount igst_ammount bcd_ammount assessable_ammount
 `;
 
 const additionalFieldsByStatus = {

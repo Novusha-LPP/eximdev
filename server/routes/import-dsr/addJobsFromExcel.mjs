@@ -219,12 +219,12 @@ router.post("/api/jobs/add-job",
         lineNoUpdate = line_no;
       }
       // Only update iceCodeUpdate if it's empty in the database
-      if (
-        ie_code_no && // Excel has a valid iceCodeUpdate
-        (!iceCodeUpdate || iceCodeUpdate.trim() === "")
-      ) {
-        iceCodeUpdate = ie_code_no;
-      }
+      // if (
+      //   ie_code_no && // Excel has a valid iceCodeUpdate
+      //   (!iceCodeUpdate || iceCodeUpdate.trim() === "")
+      // ) {
+      //   iceCodeUpdate = ie_code_no;
+      // }
 
       if (existingJob) {
         // Logic to merge or update container sizes

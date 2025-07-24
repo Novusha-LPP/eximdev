@@ -5,7 +5,6 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 // import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
 import {
   IconButton,
   TextField,
@@ -13,7 +12,6 @@ import {
   InputLabel,
   Select,
   Typography,
-  Chip,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import "../../styles/job-details.scss";
@@ -64,8 +62,6 @@ function JobDetails() {
   const { setTabValue } = React.useContext(TabValueContext);
   const {
     setSearchQuery,
-    setDetailedStatus,
-    setSelectedICD,
     setSelectedImporter,
   } = useSearchQuery();
 

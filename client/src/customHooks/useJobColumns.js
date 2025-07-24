@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DownloadIcon from "@mui/icons-material/Download";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
@@ -20,15 +19,10 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
     detailedStatus,
     selectedICD,
     selectedImporter,
-    setSearchQuery,
-    setDetailedStatus,
-    setSelectedICD,
-    setSelectedImporter,
   } = useSearchQuery();
 
-  
-    const formatDate = useCallback((dateStr) => {
-      if (dateStr) {
+  const formatDate = useCallback((dateStr) => {
+    if (dateStr) {
         const date = new Date(dateStr);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");

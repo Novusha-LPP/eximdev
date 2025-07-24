@@ -739,7 +739,7 @@ function useFetchJobDetails(
       formik.setValues({
         ...{ container_nos },
         checkedDocs: data.checkedDocs === undefined ? [] : data.checkedDocs,
-        is_obl_recieved: data.is_obl_recieved ? data.is_obl_recieved : "",
+        is_obl_recieved: data.is_obl_recieved ? data.is_obl_recieved : false,
         document_received_date: data.document_received_date
           ? data.document_received_date
           : "",

@@ -217,16 +217,10 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             });
           }
           return (
-            <div
-              onClick={() => {
-                if (customNavigation) {
-                  customNavigation(job_no, year);
-                } else {
-                  navigate(`/import-dsr/job/${job_no}/${year}`, {
-                    state: { currentTab: 1 },
-                  });
-                }
-              }}
+            <a
+              href={`/import-dsr/job/${job_no}/${year}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 cursor: "pointer",
                 color: textColor,
@@ -234,11 +228,13 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 padding: "10px",
                 borderRadius: "5px",
                 textAlign: "center",
+                display: "inline-block", // to mimic div behavior
+                textDecoration: "none",
               }}
             >
               {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
-            </div>
+            </a>
           );
         },
       },

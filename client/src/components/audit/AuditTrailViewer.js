@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import {
   Box,
@@ -12,7 +12,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   TextField,
   Select,
   MenuItem,
@@ -33,10 +32,11 @@ import {
   DialogContent,
   DialogActions,
   Slide,
-  Autocomplete
+  Autocomplete,
+  Fade,
+  Zoom
 } from '@mui/material';
 import { UserContext } from "../../contexts/UserContext";
-
 import {
   LineChart,
   Line,
@@ -48,14 +48,13 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
   BarChart,
-  Bar,
-  Legend
+  Bar
 } from 'recharts';
 import {
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
-  Search as SearchIcon,
   Event as CalendarIcon,
   Person as PersonIcon,
   Description as DocumentIcon,
@@ -64,11 +63,12 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 
+// Transition component for Dialog
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: '' } }) => {
+const AuditTrailViewer = ({ job_no, year }) => {
   const [auditData, setAuditData] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useContext(UserContext);
@@ -77,11 +77,11 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     page: 1,
     limit: 10,
     action: '',
-    username: currentUser.role === 'Admin' ? '' : user.username,
+    username: user.role === 'Admin' ? '' : user.username,
     field: '',
     fromDate: '',
     toDate: '',
-    groupBy: 'day', // default grouping
+    groupBy: 'day',
     search: ''
   });
   const [stats, setStats] = useState(null);
@@ -91,11 +91,30 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
   const [expandedRow, setExpandedRow] = useState(null);
   const [userList, setUserList] = useState([]);
   const [selectedUserForFilter, setSelectedUserForFilter] = useState(null);
+  const [userFilter, setUserFilter] = useState(user.role === 'Admin' ? '' : user.username);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [statsError, setStatsError] = useState("");
 
-  // Date filter UI state
-  // These are controlled by filters.fromDate and filters.toDate
+  // White and blue color palette
+  const colorPalette = {
+    primary: '#1976D2',
+    secondary: '#90CAF9',
+    accent: '#E3F2FD',
+    light: '#F5F7FA',
+    darkBlue: '#0D47A1',
+    textPrimary: '#212121',
+    textSecondary: '#757575',
+    gradient: 'linear-gradient(135deg, #1976D2 0%, #90CAF9 100%)',
+    cardGradient: 'linear-gradient(135deg, #FFFFFF 0%, #E3F2FD 100%)'
+  };
 
-  // Handler for date change (single date or range)
+  const actionColors = {
+    CREATE: '#4CAF50',
+    UPDATE: '#2196F3',
+    DELETE: '#F44336',
+    READ: '#9C27B0'
+  };
+
   const handleDateChange = (field, value) => {
     setFilters(prev => ({
       ...prev,
@@ -104,21 +123,18 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     }));
   };
 
-  // When groupBy changes, set date range accordingly
   useEffect(() => {
     const today = new Date();
     let fromDate = filters.fromDate;
     let toDate = filters.toDate;
     if (filters.groupBy === 'day' || filters.groupBy === 'hour') {
-      // Set both to today
       const yyyy = today.getFullYear();
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const dd = String(today.getDate()).padStart(2, '0');
       fromDate = `${yyyy}-${mm}-${dd}`;
       toDate = `${yyyy}-${mm}-${dd}`;
     } else if (filters.groupBy === 'week') {
-      // Set to current week (Monday to Sunday)
-      const dayOfWeek = today.getDay() || 7; // Sunday=0, so set to 7
+      const dayOfWeek = today.getDay() || 7;
       const monday = new Date(today);
       monday.setDate(today.getDate() - dayOfWeek + 1);
       const sunday = new Date(monday);
@@ -132,79 +148,67 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       fromDate = `${yyyy1}-${mm1}-${dd1}`;
       toDate = `${yyyy2}-${mm2}-${dd2}`;
     } else if (filters.groupBy === 'month') {
-      // Set to current month
       const yyyy = today.getFullYear();
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       fromDate = `${yyyy}-${mm}-01`;
-      // Last day of month
       const lastDay = new Date(yyyy, today.getMonth() + 1, 0).getDate();
       toDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
     }
-    // Only update if changed
     if (filters.fromDate !== fromDate || filters.toDate !== toDate) {
       setFilters(prev => ({ ...prev, fromDate, toDate }));
     }
   }, [filters.groupBy]);
 
-  // Ocean color palette
-  const oceanColors = {
-    primary: '#006994',
-    secondary: '#0891B2',
-    accent: '#22D3EE',
-    light: '#E0F2FE',
-    darkBlue: '#0C4A6E',
-    teal: '#0D9488',
-    lightTeal: '#5EEAD4',
-    gradient: 'linear-gradient(135deg, #0891B2 0%, #22D3EE 100%)',
-    cardGradient: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)'
-  };
-
-  const actionColors = {
-    CREATE: '#10B981',
-    UPDATE: '#3B82F6',
-    DELETE: '#EF4444',
-    READ: '#8B5CF6'
-  };
-
-  // Fetch all users (Admin only)
   const fetchAllUsers = async () => {
     if (user.role !== 'Admin') return;
-    
+
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`);
-      // Transform user data for autocomplete
       const transformedUsers = response.data.map(user => ({
         label: user.username,
         value: user.username,
         id: user._id
       }));
       setUserList(transformedUsers);
-      
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
-  // Fetch audit trail data
+  // Fetch user list for admin filter
+  useEffect(() => {
+    if (user.role === 'Admin') {
+      fetch('/api/audit/user-mappings')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUserList(data.data.map(u => ({ label: u.username, value: u.username, userId: u.userId })));
+          }
+        });
+    }
+  }, [user.role]);
+
+  // Ensure selected username is sent in API call for admin
   const fetchAuditTrail = async () => {
     setLoading(true);
     try {
       let url = `${process.env.REACT_APP_API_STRING}/audit-trail`;
-      
       if (job_no && year) {
         url = `${process.env.REACT_APP_API_STRING}/audit-trail/job/${job_no}/${year}`;
       }
-
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
-
-      // For non-Admin users, always filter by current user
+      let filterUser = '';
       if (user.role !== 'Admin') {
         params.set('username', user.username);
+        filterUser = user.username;
+      } else if (userFilter) {
+        params.set('username', userFilter);
+        filterUser = userFilter;
       }
-
+      console.log('Fetching audit trail for user:', filterUser || 'All Users (admin)');
       const response = await axios.get(`${url}?${params}`);
       setAuditData(response.data.auditTrail || []);
       setPagination(response.data.pagination || {});
@@ -215,51 +219,64 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     }
   };
 
-  // Fetch statistics
   const fetchStats = async () => {
     setStatsLoading(true);
+    setStatsError("");
+    // Validate date range before API call
+    if (filters.fromDate && filters.toDate) {
+      const from = new Date(filters.fromDate);
+      const to = new Date(filters.toDate);
+      if (from > to) {
+        setStatsError("Invalid time range: From Date must be before or equal to To Date.");
+        setStatsLoading(false);
+        return;
+      }
+    }
     try {
       const params = new URLSearchParams();
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
       if (filters.toDate) params.append('toDate', filters.toDate);
       if (filters.groupBy) params.append('groupBy', filters.groupBy);
-
-      // For non-Admin users, always filter by current user
       if (user.role !== 'Admin') {
         params.append('username', user.username);
+      } else if (userFilter) {
+        params.append('username', userFilter);
       }
 
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`);
 
-      // Group dailyActivity by hour using timestamp
+      if(filters.fromDate > filters.toDate) {
+        setStatsError("Invalid time range: From Date must be before or equal to To Date.");
+        setStatsLoading(false);
+        return;
+      }
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`);
       const raw = response.data.dailyActivity || [];
-      // If already grouped by hour, use as is; else, group here
       let hourlyMap = {};
       raw.forEach(item => {
-        // item.timestamp is expected
         const d = new Date(item.timestamp || item.date);
         if (!isNaN(d)) {
-          const label = `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:00`;
+          const label = `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })}`;
           if (!hourlyMap[label]) hourlyMap[label] = 0;
           hourlyMap[label] += item.count || 1;
         }
       });
       const transformedDailyActivity = Object.entries(hourlyMap).map(([date, actions]) => ({ date, actions }));
-
-      console.log(transformedDailyActivity)
-      // Transform actionTypes data for PieChart
       const transformedActionTypes = response.data.actionTypes?.map(item => ({
         name: item._id,
         value: item.count,
-        color: actionColors[item._id] || oceanColors.primary
+        color: actionColors[item._id] || colorPalette.primary
       })) || [];
-
       setStats({
         ...response.data,
         dailyActivity: transformedDailyActivity,
         actionTypes: transformedActionTypes
       });
     } catch (error) {
+      if (error.response && error.response.status === 400) {
+        setStatsError(error.response.data.message || "Invalid time range.");
+      } else {
+        setStatsError("Error fetching audit trail stats.");
+      }
       console.error('Error fetching stats:', error);
     } finally {
       setStatsLoading(false);
@@ -272,9 +289,8 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     if (user.role === 'Admin') {
       fetchAllUsers();
     }
-  }, [filters, job_no, year]);
+  }, [filters, job_no, year, user.role]);
 
-  // Initialize selected user for filter based on current filters
   useEffect(() => {
     if (user.role === 'Admin' && filters.username && userList.length > 0) {
       const user = userList.find(u => u.value === filters.username);
@@ -290,9 +306,13 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     }));
   };
 
-  const handleUserFilterChange = (event, newValue) => {
-    setSelectedUserForFilter(newValue);
-    handleFilterChange('username', newValue ? newValue.value : '');
+  // Add user filter change handler
+  const handleUserFilterChange = (event) => {
+    const value = event.target.value;
+    setUserFilter(value);
+    console.log('User filter changed:', value);
+    // Trigger data refresh when user filter changes
+    setFilters(prev => ({ ...prev, username: value }));
   };
 
   const handlePageChange = (event, page) => {
@@ -323,9 +343,8 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
   };
 
   const formatChangeDescription = (change, timestamp) => {
-    const time = format(timestamp, 'HH:mm');
+    const time = format(new Date(timestamp), 'HH:mm');
     const fieldName = change.field || change.fieldPath;
-    
     switch (change.changeType) {
       case 'ADDED':
         return `${fieldName} was set to "${change.newValue}" at ${time}`;
@@ -340,37 +359,35 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     }
   };
 
-  const renderChanges = (changes, timestamp) => {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pl: 2, borderLeft: `2px solid ${oceanColors.accent}` }}>
-        {changes.map((change, index) => (
-          <Typography 
-            key={index} 
-            variant="body2" 
-            sx={{ 
-              color: oceanColors.darkBlue,
-              fontStyle: 'italic',
-              padding: '4px 8px',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '4px'
-            }}
-          >
-            {formatChangeDescription(change, timestamp)}
-          </Typography>
-        ))}
-      </Box>
-    );
-  };
+  const renderChanges = (changes, timestamp) => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pl: 2, borderLeft: `2px solid ${colorPalette.accent}` }}>
+      {changes.map((change, index) => (
+        <Typography
+          key={index}
+          variant="body2"
+          sx={{
+            color: colorPalette.textSecondary,
+            fontStyle: 'italic',
+            padding: '4px 8px',
+            backgroundColor: colorPalette.accent,
+            borderRadius: '4px'
+          }}
+        >
+          {formatChangeDescription(change, timestamp)}
+        </Typography>
+      ))}
+    </Box>
+  );
 
   const renderUserAvatar = (username) => {
-    if (!username) return <Avatar sx={{ bgcolor: oceanColors.secondary, width: 32, height: 32, fontSize: '0.75rem' }}>?</Avatar>;
+    if (!username) return <Avatar sx={{ bgcolor: colorPalette.primary, width: 32, height: 32, fontSize: '0.75rem' }}>?</Avatar>;
     const initials = username.split('.')
       .map(part => part.charAt(0).toUpperCase())
       .join('');
     return (
-      <Avatar sx={{ 
-        bgcolor: oceanColors.secondary, 
-        width: 32, 
+      <Avatar sx={{
+        bgcolor: colorPalette.primary,
+        width: 32,
         height: 32,
         fontSize: '0.75rem'
       }}>
@@ -383,106 +400,114 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     statsLoading ? (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, color: oceanColors.primary }}>
+        <Typography variant="body2" sx={{ mt: 2, color: colorPalette.primary }}>
           Loading statistics...
         </Typography>
       </Box>
     ) : (
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <DocumentIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                  Total Actions
+          <Zoom in={true}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <DocumentIcon sx={{ color: colorPalette.primary, mr: 1 }} />
+                  <Typography variant="h6" sx={{ color: colorPalette.darkBlue }}>
+                    Total Actions
+                  </Typography>
+                </Box>
+                <Typography variant="h4" sx={{ color: colorPalette.primary, fontWeight: 'bold' }}>
+                  {stats?.summary?.totalActions || 0}
                 </Typography>
-              </Box>
-              <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-                {stats?.summary?.totalActions || 0}
-              </Typography>
-              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-                Across all projects
-              </Typography>
-            </CardContent>
-          </Card>
+                <Typography variant="body2" sx={{ color: colorPalette.darkBlue, mt: 1 }}>
+                  Across all projects
+                </Typography>
+              </CardContent>
+            </Card>
+          </Zoom>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <PersonIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                  Active Users
+          <Zoom in={true} style={{ transitionDelay: '100ms' }}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <PersonIcon sx={{ color: colorPalette.primary, mr: 1 }} />
+                  <Typography variant="h6" sx={{ color: colorPalette.darkBlue }}>
+                    Active Users
+                  </Typography>
+                </Box>
+                <Typography variant="h4" sx={{ color: colorPalette.primary, fontWeight: 'bold' }}>
+                  {stats?.summary?.totalUsers || 0}
                 </Typography>
-              </Box>
-              <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-                {stats?.summary?.totalUsers || 0}
-              </Typography>
-              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-                In the last 30 days
-              </Typography>
-            </CardContent>
-          </Card>
+                <Typography variant="body2" sx={{ color: colorPalette.darkBlue, mt: 1 }}>
+                  In the last 30 days
+                </Typography>
+              </CardContent>
+            </Card>
+          </Zoom>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <DocumentIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                  Documents
+          <Zoom in={true} style={{ transitionDelay: '200ms' }}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <DocumentIcon sx={{ color: colorPalette.primary, mr: 1 }} />
+                  <Typography variant="h6" sx={{ color: colorPalette.darkBlue }}>
+                    Documents
+                  </Typography>
+                </Box>
+                <Typography variant="h4" sx={{ color: colorPalette.primary, fontWeight: 'bold' }}>
+                  {stats?.summary?.totalDocuments || 0}
                 </Typography>
-              </Box>
-              <Typography variant="h4" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-                {stats?.summary?.totalDocuments || 0}
-              </Typography>
-              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-                Modified this year
-              </Typography>
-            </CardContent>
-          </Card>
+                <Typography variant="body2" sx={{ color: colorPalette.darkBlue, mt: 1 }}>
+                  Modified this year
+                </Typography>
+              </CardContent>
+            </Card>
+          </Zoom>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-          }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <ViewIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-                <Typography variant="h6" sx={{ color: oceanColors.darkBlue }}>
-                  Most Active
+          <Zoom in={true} style={{ transitionDelay: '300ms' }}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <ViewIcon sx={{ color: colorPalette.primary, mr: 1 }} />
+                  <Typography variant="h6" sx={{ color: colorPalette.darkBlue }}>
+                    Most Active
+                  </Typography>
+                </Box>
+                <Typography variant="h5" sx={{ color: colorPalette.primary, fontWeight: 'bold' }}>
+                  {stats?.topUsers?.length > 0 ? stats.topUsers[0]._id : 'N/A'}
                 </Typography>
-              </Box>
-              <Typography variant="h5" sx={{ color: oceanColors.primary, fontWeight: 'bold' }}>
-                {stats?.topUsers?.length > 0 ? stats.topUsers[0]._id : 'N/A'}
-              </Typography>
-              <Typography variant="body2" sx={{ color: oceanColors.darkBlue, mt: 1 }}>
-                {stats?.topUsers?.length > 0 ? `${stats.topUsers[0].count} actions` : ''}
-              </Typography>
-            </CardContent>
-          </Card>
+                <Typography variant="body2" sx={{ color: colorPalette.darkBlue, mt: 1 }}>
+                  {stats?.topUsers?.length > 0 ? `${stats.topUsers[0].count} actions` : ''}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Zoom>
         </Grid>
       </Grid>
     )
@@ -492,359 +517,388 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
     statsLoading ? (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, color: oceanColors.primary }}>
+        <Typography variant="body2" sx={{ mt: 2, color: colorPalette.primary }}>
           Loading statistics...
         </Typography>
       </Box>
     ) : (
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={8}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            p: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-          }}>
-            <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
-              <CalendarIcon sx={{ mr: 1 }} /> Daily Activity Trend
-            </Typography>
-            {(!stats?.dailyActivity || stats.dailyActivity.length === 0) ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography variant="body2" sx={{ color: oceanColors.primary }}>
-                  No activity data available for the selected period.
-                </Typography>
-              </Box>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={stats?.dailyActivity || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={oceanColors.accent} opacity={0.5} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke={oceanColors.primary} 
-                    tick={{ fontSize: 12 }}
-                    interval={0}
-                    angle={-30}
-                    height={60}
-                  />
-                  <YAxis 
-                    stroke={oceanColors.primary} 
-                    tick={{ fontSize: 12 }}
-                  />
-                  <ChartTooltip 
-                    formatter={(value) => [`${value} actions`, 'Actions']}
-                    labelFormatter={(label) => `Date: ${label}`}
-                    contentStyle={{ 
-                      backgroundColor: oceanColors.light,
-                      border: `1px solid ${oceanColors.accent}`,
-                      borderRadius: '8px'
-                    }} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="actions" 
-                    stroke={oceanColors.primary} 
-                    strokeWidth={3}
-                    dot={{ fill: oceanColors.accent, strokeWidth: 2, r: 5 }}
-                    activeDot={{ r: 8, fill: oceanColors.secondary }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
+          <Fade in={true}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              p: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+            }}>
+              <Typography variant="h6" sx={{ color: colorPalette.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
+                <CalendarIcon sx={{ mr: 1 }} /> Daily Activity Trend
+              </Typography>
+              {(!stats?.dailyActivity || stats.dailyActivity.length === 0) ? (
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: colorPalette.primary }}>
+                    No activity data available for the selected period.
+                  </Typography>
+                </Box>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={stats?.dailyActivity || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.accent} opacity={0.5} />
+                    <XAxis
+                      dataKey="date"
+                      stroke={colorPalette.primary}
+                      tick={{ fontSize: 12 }}
+                      interval={0}
+                      angle={-30}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis
+                      stroke={colorPalette.primary}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <ChartTooltip
+                      formatter={(value) => [`${value} actions`, 'Actions']}
+                      labelFormatter={(label) => `Date: ${label}`}
+                      contentStyle={{
+                        backgroundColor: colorPalette.light,
+                        border: `1px solid ${colorPalette.accent}`,
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="actions"
+                      stroke={colorPalette.primary}
+                      strokeWidth={3}
+                      dot={{ fill: colorPalette.accent, strokeWidth: 2, r: 5 }}
+                      activeDot={{ r: 8, fill: colorPalette.secondary }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
+          </Fade>
         </Grid>
-        
+
         <Grid item xs={12} md={4}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            p: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)',
-            height: '100%'
-          }}>
-            <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
-              <FilterIcon sx={{ mr: 1 }} /> Action Distribution
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={stats?.actionTypes || []}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="value"
-                  nameKey="name"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {(stats?.actionTypes || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <ChartTooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Card>
+          <Fade in={true} style={{ transitionDelay: '100ms' }}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              p: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)',
+              height: '100%'
+            }}>
+              <Typography variant="h6" sx={{ color: colorPalette.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
+                <FilterIcon sx={{ mr: 1 }} /> Action Distribution
+              </Typography>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={stats?.actionTypes || []}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {stats?.actionTypes?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip />
+                  <Legend layout="vertical" verticalAlign="middle" align="right" />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+          </Fade>
         </Grid>
-        
+
         <Grid item xs={12}>
-          <Card sx={{ 
-            background: oceanColors.cardGradient,
-            border: `1px solid ${oceanColors.accent}`,
-            borderRadius: 2,
-            p: 2,
-            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-          }}>
-            <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
-              <PersonIcon sx={{ mr: 1 }} /> Top Users
-            </Typography>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={stats?.topUsers || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke={oceanColors.accent} opacity={0.5} />
-                <XAxis dataKey="_id" stroke={oceanColors.primary} />
-                <YAxis stroke={oceanColors.primary} />
-                <ChartTooltip 
-                  contentStyle={{ 
-                    backgroundColor: oceanColors.light,
-                    border: `1px solid ${oceanColors.accent}`,
-                    borderRadius: '8px'
-                  }} 
-                />
-                <Bar 
-                  dataKey="count" 
-                  fill={oceanColors.primary} 
-                  radius={[4, 4, 0, 0]}
-                  barSize={30}
-                >
-                  {(stats?.topUsers || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={oceanColors.primary} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
+          <Fade in={true} style={{ transitionDelay: '200ms' }}>
+            <Card sx={{
+              background: colorPalette.cardGradient,
+              border: `1px solid ${colorPalette.accent}`,
+              borderRadius: 2,
+              p: 2,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+            }}>
+              <Typography variant="h6" sx={{ color: colorPalette.primary, mb: 2, display: 'flex', alignItems: 'center' }}>
+                <PersonIcon sx={{ mr: 1 }} /> Top Users
+              </Typography>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={stats?.topUsers || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.accent} opacity={0.5} />
+                  <XAxis dataKey="_id" stroke={colorPalette.primary} />
+                  <YAxis stroke={colorPalette.primary} />
+                  <ChartTooltip
+                    contentStyle={{
+                      backgroundColor: colorPalette.light,
+                      border: `1px solid ${colorPalette.accent}`,
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill={colorPalette.primary}
+                    radius={[4, 4, 0, 0]}
+                    barSize={30}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </Fade>
         </Grid>
       </Grid>
     )
   );
 
-  // Date filter UI (above tabs, applies to all tabs)
   const renderDateFilter = () => (
-    <Card sx={{
-      p: 2,
-      mb: 2,
-      background: oceanColors.cardGradient,
-      border: `1px solid ${oceanColors.accent}`,
-      borderRadius: 2,
-      boxShadow: '0 2px 8px rgba(8, 145, 178, 0.08)'
-    }}>
-      <Grid container spacing={2} alignItems="center">
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            fullWidth
-            size="small"
-            type="date"
-            label="From Date"
-            InputLabelProps={{ shrink: true }}
-            value={filters.fromDate}
-            onChange={e => handleDateChange('fromDate', e.target.value)}
-            sx={{ backgroundColor: 'white' }}
-          />
+    <Fade in={true}>
+      <Card sx={{
+        p: 2,
+        mb: 2,
+        background: colorPalette.cardGradient,
+        border: `1px solid ${colorPalette.accent}`,
+        borderRadius: 2,
+        boxShadow: '0 2px 8px rgba(25, 118, 210, 0.08)'
+      }}>
+        <Grid container spacing={2} alignItems="center">
+          {/* Add user filter for admin */}
+          {user.role === 'Admin' && (
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small" sx={{ backgroundColor: 'white', borderRadius: 1 }}>
+                <InputLabel id="user-filter-label">Filter by User</InputLabel>
+                <Select
+                  labelId="user-filter-label"
+                  id="user-filter-select"
+                  value={userFilter}
+                  label="Filter by User"
+                  onChange={handleUserFilterChange}
+                >
+                  <MenuItem value="">All Users</MenuItem>
+                  {userList.map((user) => (
+                    <MenuItem key={user.value} value={user.value}>
+                      {user.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label="From Date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.fromDate}
+              onChange={e => handleDateChange('fromDate', e.target.value)}
+              sx={{ backgroundColor: 'white', borderRadius: 1 }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label="To Date"
+              InputLabelProps={{ shrink: true }}
+              value={filters.toDate}
+              onChange={e => handleDateChange('toDate', e.target.value)}
+              sx={{ backgroundColor: 'white', borderRadius: 1 }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small" sx={{ backgroundColor: 'white', borderRadius: 1 }}>
+              <InputLabel id="group-by-label">Group By</InputLabel>
+              <Select
+                labelId="group-by-label"
+                id="group-by-select"
+                value={filters.groupBy}
+                label="Group By"
+                onChange={e => handleDateChange('groupBy', e.target.value)}
+              >
+                <MenuItem value="hour">Hourly</MenuItem>
+                <MenuItem value="day">Daily</MenuItem>
+                <MenuItem value="week">Weekly</MenuItem>
+                <MenuItem value="month">Monthly</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            fullWidth
-            size="small"
-            type="date"
-            label="To Date"
-            InputLabelProps={{ shrink: true }}
-            value={filters.toDate}
-            onChange={e => handleDateChange('toDate', e.target.value)}
-            sx={{ backgroundColor: 'white' }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }}>
-            <InputLabel id="group-by-label">Group By</InputLabel>
-            <Select
-              labelId="group-by-label"
-              id="group-by-select"
-              value={filters.groupBy}
-              label="Group By"
-              onChange={e => handleDateChange('groupBy', e.target.value)}
-            >
-              <MenuItem value="hour">Hourly</MenuItem>
-              <MenuItem value="day">Daily</MenuItem>
-              <MenuItem value="week">Weekly</MenuItem>
-              <MenuItem value="month">Monthly</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-      </Grid>
-    </Card>
+      </Card>
+    </Fade>
   );
 
   const renderAuditTable = () => (
-    <Card sx={{ 
-      borderRadius: 2,
-      background: 'white',
-      border: `1px solid ${oceanColors.accent}`,
-      overflow: 'hidden',
-      boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-    }}>
-      <Box sx={{ 
-        p: 2, 
-        background: oceanColors.gradient,
-        color: 'white',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+    <Fade in={true}>
+      <Card sx={{
+        borderRadius: 2,
+        background: 'white',
+        border: `1px solid ${colorPalette.accent}`,
+        overflow: 'hidden',
+        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
       }}>
-        <Typography variant="h6">Audit Trail Records</Typography>
-        <Box>
-          <Tooltip title="Refresh data">
-            <IconButton 
-              sx={{ color: 'white' }} 
-              onClick={() => {
-                fetchAuditTrail();
-                if (!job_no) fetchStats();
-              }}
-            >
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+        <Box sx={{
+          p: 2,
+          background: colorPalette.gradient,
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Typography variant="h6">Audit Trail Records</Typography>
+          <Box>
+            <Tooltip title="Refresh data">
+              <IconButton
+                sx={{ color: 'white' }}
+                onClick={() => {
+                  fetchAuditTrail();
+                  if (!job_no) fetchStats();
+                }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
-      </Box>
-      
-      {loading ? (
-        <Box sx={{ p: 3 }}>
-          <LinearProgress sx={{ mb: 2 }} />
-          <Typography variant="body1" align="center" sx={{ color: oceanColors.primary }}>
-            Loading audit trail data...
-          </Typography>
-        </Box>
-      ) : (
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: oceanColors.light }}>
-                <TableCell sx={{ color: oceanColors.primary, fontWeight: 'bold', width: '15%' }}>
-                  Timestamp
-                </TableCell>
-                <TableCell sx={{ color: oceanColors.primary, fontWeight: 'bold', width: '15%' }}>
-                  Action
-                </TableCell>
-                <TableCell sx={{ color: oceanColors.primary, fontWeight: 'bold', width: '20%' }}>
-                  User
-                </TableCell>
-                <TableCell sx={{ color: oceanColors.primary, fontWeight: 'bold', width: '15%' }}>
-                  Job No/Year
-                </TableCell>
-                <TableCell sx={{ color: oceanColors.primary, fontWeight: 'bold', width: '35%' }}>
-                  Changes
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {auditData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                    <Typography variant="body1" sx={{ color: oceanColors.primary }}>
-                      No audit trail data found
-                    </Typography>
+
+        {loading ? (
+          <Box sx={{ p: 3 }}>
+            <LinearProgress sx={{ mb: 2 }} />
+            <Typography variant="body1" align="center" sx={{ color: colorPalette.primary }}>
+              Loading audit trail data...
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: colorPalette.accent }}>
+                  <TableCell sx={{ color: colorPalette.primary, fontWeight: 'bold', width: '15%' }}>
+                    Timestamp
+                  </TableCell>
+                  <TableCell sx={{ color: colorPalette.primary, fontWeight: 'bold', width: '15%' }}>
+                    Action
+                  </TableCell>
+                  <TableCell sx={{ color: colorPalette.primary, fontWeight: 'bold', width: '20%' }}>
+                    User
+                  </TableCell>
+                  <TableCell sx={{ color: colorPalette.primary, fontWeight: 'bold', width: '15%' }}>
+                    Job No/Year
+                  </TableCell>
+                  <TableCell sx={{ color: colorPalette.primary, fontWeight: 'bold', width: '35%' }}>
+                    Changes
                   </TableCell>
                 </TableRow>
-              ) : (
-                auditData.map((entry) => (
-                  <React.Fragment key={entry._id}>
-                    <TableRow 
-                      hover
-                      sx={{ 
-                        '&:hover': { backgroundColor: '#F0F9FF' },
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => toggleRowExpand(entry._id)}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: oceanColors.darkBlue }}>
-                          {format(new Date(entry.timestamp), 'dd MMM yyyy')}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: oceanColors.secondary }}>
-                          {format(new Date(entry.timestamp), 'HH:mm:ss')}
-                        </Typography>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Chip 
-                          label={entry.action} 
-                          size="small" 
-                          sx={{ 
-                            backgroundColor: actionColors[entry.action] || oceanColors.secondary,
-                            color: 'white',
-                            fontWeight: 'bold'
-                          }}
-                        />
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {renderUserAvatar(entry.username)}
-                          <Box sx={{ ml: 1.5 }}>
-                            <Typography variant="body2" sx={{ color: oceanColors.darkBlue, fontWeight: 'bold' }}>
-                              {entry.username}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: oceanColors.primary }}>
-                              {entry.userRole}
-                            </Typography>
+              </TableHead>
+              <TableBody>
+                {auditData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body1" sx={{ color: colorPalette.primary }}>
+                        No audit trail data found
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  auditData.map((entry) => (
+                    <React.Fragment key={entry._id}>
+                      <TableRow
+                        hover
+                        sx={{
+                          '&:hover': { backgroundColor: colorPalette.accent },
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => toggleRowExpand(entry._id)}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: colorPalette.textPrimary }}>
+                            {format(new Date(entry.timestamp), 'dd MMM yyyy')}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: colorPalette.textSecondary }}>
+                            {format(new Date(entry.timestamp), 'HH:mm:ss')}
+                          </Typography>
+                        </TableCell>
+
+                        <TableCell>
+                          <Chip
+                            label={entry.action}
+                            size="small"
+                            sx={{
+                              backgroundColor: actionColors[entry.action] || colorPalette.primary,
+                              color: 'white',
+                              fontWeight: 'bold'
+                            }}
+                          />
+                        </TableCell>
+
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {renderUserAvatar(entry.username)}
+                            <Box sx={{ ml: 1.5 }}>
+                              <Typography variant="body2" sx={{ color: colorPalette.textPrimary, fontWeight: 'bold' }}>
+                                {entry.username}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: colorPalette.primary }}>
+                                {entry.userRole}
+                              </Typography>
+                            </Box>
                           </Box>
-                        </Box>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: oceanColors.darkBlue }}>
-                          {entry.job_no}/{entry.year}
-                        </Typography>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: oceanColors.darkBlue }}>
-                          {entry.changes[0]?.changeType} on {entry.changes[0]?.field}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: oceanColors.secondary }}>
-                          {entry.changes.length} change{entry.changes.length > 1 ? 's' : ''}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    
-                    {expandedRow === entry._id && (
-                      <TableRow>
-                        <TableCell colSpan={5} sx={{ backgroundColor: '#F8FAFC', py: 2, px: 4 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <ExpandIcon sx={{ color: oceanColors.primary, mr: 1 }} />
-                            <Typography variant="subtitle2" sx={{ color: oceanColors.primary }}>
-                              Change Details
-                            </Typography>
-                          </Box>
-                          {renderChanges(entry.changes, entry.timestamp)}
-                          {entry.ipAddress && (
-                            <Typography variant="caption" sx={{ mt: 2, display: 'block', color: oceanColors.secondary }}>
-                              IP Address: {entry.ipAddress}
-                            </Typography>
-                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: colorPalette.textPrimary }}>
+                            {entry.job_no}/{entry.year}
+                          </Typography>
+                        </TableCell>
+
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: colorPalette.textPrimary }}>
+                            {entry.changes[0]?.changeType} on {entry.changes[0]?.field}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: colorPalette.textSecondary }}>
+                            {entry.changes.length} change{entry.changes.length > 1 ? 's' : ''}
+                          </Typography>
                         </TableCell>
                       </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Card>
+
+                      {expandedRow === entry._id && (
+                        <TableRow>
+                          <TableCell colSpan={5} sx={{ backgroundColor: colorPalette.accent, py: 2, px: 4 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <ExpandIcon sx={{ color: colorPalette.primary, mr: 1 }} />
+                              <Typography variant="subtitle2" sx={{ color: colorPalette.primary }}>
+                                Change Details
+                              </Typography>
+                            </Box>
+                            {renderChanges(entry.changes, entry.timestamp)}
+                            {entry.ipAddress && (
+                              <Typography variant="caption" sx={{ mt: 2, display: 'block', color: colorPalette.textSecondary }}>
+                                IP Address: {entry.ipAddress}
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Card>
+    </Fade>
   );
+
 
   const renderFilterDialog = () => (
     <Dialog
@@ -854,8 +908,8 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       fullWidth
       maxWidth="sm"
     >
-      <DialogTitle sx={{ 
-        background: oceanColors.gradient,
+      <DialogTitle sx={{
+        background: colorPalette.gradient,
         color: 'white',
         display: 'flex',
         alignItems: 'center'
@@ -865,7 +919,6 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
       </DialogTitle>
       <DialogContent sx={{ pt: 3 }}>
         <Grid container spacing={2}>
-          {/* User filter in dialog (Admin only) */}
           {user.role === 'Admin' && (
             <Grid item xs={12}>
               <Autocomplete
@@ -875,9 +928,9 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
                 getOptionLabel={(option) => option.label || ''}
                 size="small"
                 renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    label="Select User" 
+                  <TextField
+                    {...params}
+                    label="Select User"
                     fullWidth
                   />
                 )}
@@ -892,7 +945,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
               />
             </Grid>
           )}
-          
+
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -902,7 +955,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
               onChange={(e) => handleFilterChange('field', e.target.value)}
             />
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -914,7 +967,7 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
               onChange={(e) => handleFilterChange('fromDate', e.target.value)}
             />
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -929,20 +982,20 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button 
+        <Button
           onClick={handleResetFilters}
           color="secondary"
         >
           Clear All
         </Button>
-        <Button 
+        <Button
           onClick={() => {
             setOpenFilterDialog(false);
             fetchAuditTrail();
             if (!job_no) fetchStats();
           }}
           variant="contained"
-          sx={{ background: oceanColors.gradient }}
+          sx={{ background: colorPalette.gradient }}
         >
           Apply Filters
         </Button>
@@ -951,40 +1004,45 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
   );
 
   return (
-    <Box sx={{ 
-      p: 3, 
-      background: `linear-gradient(135deg, ${oceanColors.light} 0%, #F8FAFC 100%)`,
+    <Box sx={{
+      p: 3,
+      background: `linear-gradient(135deg, ${colorPalette.light} 0%, #F8FAFC 100%)`,
       minHeight: '100vh'
     }}>
-      {/* Header */}
-      <Box sx={{ 
-        mb: 4, 
-        p: 3, 
-        background: oceanColors.gradient,
+      {statsError && (
+        <Box sx={{ mb: 2, p: 2, background: colorPalette.accent, borderRadius: 2 }}>
+          <Typography variant="body2" sx={{ color: colorPalette.primary, fontWeight: 'bold' }}>
+            {statsError}
+          </Typography>
+        </Box>
+      )}
+      <Box sx={{
+        mb: 4,
+        p: 3,
+        background: colorPalette.gradient,
         borderRadius: 2,
         color: 'white',
-        boxShadow: '0 4px 12px rgba(8, 145, 178, 0.3)'
+        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)'
       }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-          🌊 Audit Trail Dashboard {job_no && year && `- Job ${job_no}/${year}`}
+        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
+          Audit Trail Dashboard {job_no && year && `- Job ${job_no}/${year}`}
         </Typography>
         <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-          {currentUser.role === 'Admin' 
-            ? 'Administrator View - All Audit Data' 
-            : `User View - ${currentUser.username}'s Activity`}
+          {user.role === 'Admin'
+            ? 'Administrator View - All Audit Data'
+            : `User View - ${user.username}'s Activity`}
         </Typography>
       </Box>
 
-      {/* Tabs */}
       <Box sx={{ mb: 3 }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={handleTabChange} 
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
           indicatorColor="primary"
           textColor="primary"
           sx={{
             '& .MuiTabs-indicator': {
-              backgroundColor: oceanColors.primary,
+              backgroundColor: colorPalette.primary,
               height: 3
             }
           }}
@@ -996,114 +1054,111 @@ const AuditTrailViewer = ({ job_no, year, currentUser = { username: '', role: ''
         <Divider />
       </Box>
 
-      {/* Content based on active tab */}
-      {/* Date filter above tabs, applies to all tabs */}
       {renderDateFilter()}
-
       {activeTab === 0 && (
         <>
           {stats && renderSummaryCards()}
           {stats && renderCharts()}
         </>
       )}
-
       {activeTab === 1 && (
         <>
-          {/* Keep advanced filters for user/action, but remove date fields from there */}
           {renderAuditTable()}
         </>
       )}
-
       {activeTab === 2 && stats && (
-        <Card sx={{ 
-          p: 3, 
-          background: oceanColors.cardGradient,
-          border: `1px solid ${oceanColors.accent}`,
-          borderRadius: 2,
-          boxShadow: '0 4px 12px rgba(8, 145, 178, 0.1)'
-        }}>
-          <Typography variant="h6" sx={{ color: oceanColors.primary, mb: 3 }}>
-            Audit Statistics
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ p: 2, backgroundColor: 'white', boxShadow: 1 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2, color: oceanColors.darkBlue }}>
-                  Recent Activity
-                </Typography>
-                <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                  {(stats.recentActivity || []).map((activity) => (
-                    <Box 
-                      key={activity._id} 
-                      sx={{ 
-                        mb: 2, 
-                        p: 2, 
-                        borderLeft: `3px solid ${actionColors[activity.action] || oceanColors.primary}`,
-                        backgroundColor: '#F8FAFC'
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: oceanColors.darkBlue }}>
-                        {activity.username} - {activity.action}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: oceanColors.secondary }}>
-                        {format(new Date(activity.timestamp), 'dd MMM yyyy HH:mm')}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1, color: oceanColors.darkBlue }}>
-                        {activity.changes[0]?.field}: {activity.changes[0]?.changeType}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ p: 2, backgroundColor: 'white', boxShadow: 1 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2, color: oceanColors.darkBlue }}>
-                  Action Distribution
-                </Typography>
-                <Box sx={{ height: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={stats.actionTypes || []}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        dataKey="value"
-                        nameKey="name"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+        <Fade in={true}>
+          <Card sx={{
+            p: 3,
+            background: colorPalette.cardGradient,
+            border: `1px solid ${colorPalette.accent}`,
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.1)'
+          }}>
+            <Typography variant="h6" sx={{ color: colorPalette.primary, mb: 3 }}>
+              Audit Statistics
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Card sx={{ p: 2, backgroundColor: 'white', boxShadow: 1 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, color: colorPalette.darkBlue }}>
+                    Recent Activity
+                  </Typography>
+                  <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                    {(stats.recentActivity || []).map((activity) => (
+                      <Box
+                        key={activity._id}
+                        sx={{
+                          mb: 2,
+                          p: 2,
+                          borderLeft: `3px solid ${actionColors[activity.action] || colorPalette.primary}`,
+                          backgroundColor: colorPalette.accent
+                        }}
                       >
-                        {(stats.actionTypes || []).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Card>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: colorPalette.darkBlue }}>
+                          {activity.username} - {activity.action}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: colorPalette.textSecondary }}>
+                          {format(new Date(activity.timestamp), 'dd MMM yyyy HH:mm')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 1, color: colorPalette.darkBlue }}>
+                          {activity.changes[0]?.field}: {activity.changes[0]?.changeType}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Card sx={{ p: 2, backgroundColor: 'white', boxShadow: 1 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, color: colorPalette.darkBlue }}>
+                    Action Distribution
+                  </Typography>
+                  <Box sx={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={stats.actionTypes || []}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          nameKey="name"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {stats?.actionTypes?.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip />
+                        <Legend layout="vertical" verticalAlign="middle" align="right" />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </Card>
+              </Grid>
             </Grid>
-          </Grid>
-        </Card>
+          </Card>
+        </Fade>
       )}
 
-      {/* Pagination */}
+
       {pagination.totalPages > 1 && activeTab === 1 && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
-          <Typography variant="body2" sx={{ color: oceanColors.darkBlue }}>
+          <Typography variant="body2" sx={{ color: colorPalette.darkBlue }}>
             Showing {auditData.length} of {pagination.totalItems} records
           </Typography>
           <Pagination
             count={pagination.totalPages}
-            page={pagination.currentPage}
+            page={filters.page}
             onChange={handlePageChange}
             color="primary"
             sx={{
               '& .MuiPaginationItem-root': {
-                color: oceanColors.primary,
+                color: colorPalette.primary,
                 '&.Mui-selected': {
-                  backgroundColor: oceanColors.primary,
+                  backgroundColor: colorPalette.primary,
                   color: 'white'
                 }
               }

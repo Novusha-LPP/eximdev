@@ -339,7 +339,7 @@ function JobDetails() {
     formik.values.vessel_berthing,
     formik.values.gateway_igm_date,
     formik.values.discharge_date,
-    formik.values.rail_out_date,
+    // formik.values.rail_out_date,
     formik.values.arrival_date, // Ensure this is included
     formik.values.container_rail_out_date,
     formik.values.out_of_charge,

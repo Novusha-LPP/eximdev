@@ -98,11 +98,7 @@ export const convertToExcel = async (
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
     }
-    ${item.rail_out_date ? ` | Rail-Out: ${item.rail_out_date}` : ""}${
-      item.examination_date
-        ? ` | Examination Date: ${formatDate(item.examination_date)}`
-        : ""
-    }${
+    ${
       item.duty_paid_date
         ? ` | Duty Paid Date: ${formatDate(item.duty_paid_date)}`
         : ""

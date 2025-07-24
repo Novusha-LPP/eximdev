@@ -14,24 +14,20 @@ import { useSearchQuery } from "../contexts/SearchQueryContext";
 function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    searchQuery,
-    detailedStatus,
-    selectedICD,
-    selectedImporter,
-  } = useSearchQuery();
+  const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
+    useSearchQuery();
 
   const formatDate = useCallback((dateStr) => {
     if (dateStr) {
-        const date = new Date(dateStr);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}/${month}/${day}`;
-      } else {
-        return dateStr;
-      }
-    }, []);
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}/${month}/${day}`;
+    } else {
+      return dateStr;
+    }
+  }, []);
 
   const handleCopy = (event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -221,23 +217,28 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             });
           }
           return (
-<a
-  href={`/import-dsr/job/${job_no}/${year}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{
-    cursor: "pointer",
-    color: textColor,
-    backgroundColor: bgColor || "transparent",
-    padding: "10px",
-    borderRadius: "5px",
-    textAlign: "center",
-    display: "inline-block", // to mimic div behavior
-    textDecoration: "none",
-  }}
->
-  {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
-</a>
+            <div
+              onClick={() => {
+                if (customNavigation) {
+                  customNavigation(job_no, year);
+                } else {
+                  navigate(`/import-dsr/job/${job_no}/${year}`, {
+                    state: { currentTab: 1 },
+                  });
+                }
+              }}
+              style={{
+                cursor: "pointer",
+                color: textColor,
+                backgroundColor: bgColor || "transparent",
+                padding: "10px",
+                borderRadius: "5px",
+                textAlign: "center",
+              }}
+            >
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
+            </div>
           );
         },
       },
@@ -544,99 +545,100 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
       //     )),
       // },
 
-{
-  accessorKey: "do_validity",
-  header: "DO Completed & Validity",
-  enableSorting: false,
-  size: 200,
-  Cell: ({ row }) => {
-    const do_validity = row.original.do_validity;
-    const do_completed = row.original.do_completed;
-    const isDoDocRecieved = row.original.is_do_doc_recieved;
-    const isOblRecieved = row.original.is_obl_recieved;
-    const doDocRecievedDate = row.original.do_doc_recieved_date;
-    const oblRecievedDate = row.original.obl_recieved_date;
-    const do_copies = row.original.do_copies;
+      {
+        accessorKey: "do_validity",
+        header: "DO Completed & Validity",
+        enableSorting: false,
+        size: 200,
+        Cell: ({ row }) => {
+          const do_validity = row.original.do_validity;
+          const do_completed = row.original.do_completed;
+          const isDoDocRecieved = row.original.is_do_doc_recieved;
+          const isOblRecieved = row.original.is_obl_recieved;
+          const doDocRecievedDate = row.original.do_doc_recieved_date;
+          const oblRecievedDate = row.original.obl_recieved_date;
+          const do_copies = row.original.do_copies;
 
-    const doCopies = do_copies;
-    const doCompleted = formatDate(do_completed);
-    const doValidity = formatDate(do_validity);
-    const formattedOblRecievedDate = formatDate(oblRecievedDate);
-    const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
+          const doCopies = do_copies;
+          const doCompleted = formatDate(do_completed);
+          const doValidity = formatDate(do_validity);
+          const formattedOblRecievedDate = formatDate(oblRecievedDate);
+          const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
 
-    return (
-      <div style={{ textAlign: "left" }}>
-        {/* First: Show OBL received status if available */}
-        {isOblRecieved && (
-          <div style={{ marginBottom: "5px" }}>
-            <span style={{ color: "green", fontWeight: "bold" }}>
-              OBL received by DO team
-            </span>
-            {formattedOblRecievedDate && (
-              <div style={{ fontSize: "12px", color: "#666" }}>
-                Date: {formattedOblRecievedDate}
+          return (
+            <div style={{ textAlign: "left" }}>
+              {/* First: Show OBL received status if available */}
+              {isOblRecieved && (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "green", fontWeight: "bold" }}>
+                    OBL received by DO team
+                  </span>
+                  {formattedOblRecievedDate && (
+                    <div style={{ fontSize: "12px", color: "#666" }}>
+                      Date: {formattedOblRecievedDate}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Second: Show DO document sent status if available */}
+              {isDoDocRecieved && (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "blue", fontWeight: "bold" }}>
+                    DO document sent to shipping line
+                  </span>
+                  {formattedDoDocRecievedDate && (
+                    <div style={{ fontSize: "12px", color: "#666" }}>
+                      Date: {formattedDoDocRecievedDate}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Rest of the content in current order */}
+              <div>
+                {doCompleted ? (
+                  <strong>DO Completed Date: {doCompleted}</strong>
+                ) : (
+                  <span style={{ color: "gray" }}>No DO Completed Date</span>
+                )}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Second: Show DO document sent status if available */}
-        {isDoDocRecieved && (
-          <div style={{ marginBottom: "5px" }}>
-            <span style={{ color: "blue", fontWeight: "bold" }}>
-              DO document sent to shipping line
-            </span>
-            {formattedDoDocRecievedDate && (
-              <div style={{ fontSize: "12px", color: "#666" }}>
-                Date: {formattedDoDocRecievedDate}
+              <div>
+                {doValidity ? (
+                  <strong>DO Validity: {doValidity}</strong>
+                ) : (
+                  <span style={{ color: "gray" }}>No DO Validity</span>
+                )}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Rest of the content in current order */}
-        <div>
-          {doCompleted ? (
-            <strong>DO Completed Date: {doCompleted}</strong>
-          ) : (
-            <span style={{color: "gray"}}>No DO Completed Date</span>
-          )}
-        </div>
-        
-        <div>
-          {doValidity ? (
-            <strong>DO Validity: {doValidity}</strong>
-          ) : (
-            <span style={{color: "gray"}}>No DO Validity</span>
-          )}
-        </div>
-
-        {Array.isArray(doCopies) && doCopies.length > 0 ? (
-          <div style={{ marginTop: "4px" }}>
-            {doCopies.map((url, index) => (
-              <div key={index}>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#007bff", textDecoration: "underline" }}
-                >
-                  DO Copy {index + 1}
-                </a>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ marginBottom: "5px" }}>
-            <span style={{ color: "gray" }}>
-              No DO copies
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  },
-},
+              {Array.isArray(doCopies) && doCopies.length > 0 ? (
+                <div style={{ marginTop: "4px" }}>
+                  {doCopies.map((url, index) => (
+                    <div key={index}>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#007bff",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        DO Copy {index + 1}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "gray" }}>No DO copies</span>
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
 
       {
         accessorKey: "cth_documents",

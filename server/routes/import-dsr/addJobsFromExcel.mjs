@@ -192,39 +192,39 @@ router.post("/api/jobs/add-job",
       const filter = { year, job_no };
 
       // Check if the job already exists in the database
-      const existingJob = await JobModel.findOne(filter);
-      let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
-      let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
-      let lineNoUpdate = existingJob?.line_no || "";
-      let iceCodeUpdate = existingJob?.ie_code_no || "";
+        const existingJob = await JobModel.findOne(filter);
+        let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+        let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
+        let lineNoUpdate = existingJob?.line_no || "";
+        let iceCodeUpdate = existingJob?.ie_code_no || "";
 
-      // Only update vessel_berthing if it's empty in the database
-      if (
-        vessel_berthing && // Excel has a valid vessel_berthing date
-        (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
-      ) {
-        vesselBerthingToUpdate = vessel_berthing;
-      }
-      if (
-        gateway_igm_date && // Excel has a valid vessel_berthing date
-        (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
-      ) {
-        gateway_igm_dateUpdate = gateway_igm_date;
-      }
-      // Only update lineNoUpdate if it's empty in the database
-      if (
-        line_no && // Excel has a valid lineNoUpdate
-        (!lineNoUpdate || lineNoUpdate.trim() === "")
-      ) {
-        lineNoUpdate = line_no;
-      }
-      // Only update iceCodeUpdate if it's empty in the database
-      // if (
-      //   ie_code_no && // Excel has a valid iceCodeUpdate
-      //   (!iceCodeUpdate || iceCodeUpdate.trim() === "")
-      // ) {
-      //   iceCodeUpdate = ie_code_no;
-      // }
+        // Only update vessel_berthing if it's empty in the database
+        if (
+          vessel_berthing && // Excel has a valid vessel_berthing date
+          (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
+        ) {
+          vesselBerthingToUpdate = vessel_berthing;
+        }
+        if (
+          gateway_igm_date && // Excel has a valid vessel_berthing date
+          (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
+        ) {
+          gateway_igm_dateUpdate = gateway_igm_date;
+        }
+        // Only update lineNoUpdate if it's empty in the database
+        if (
+          line_no && // Excel has a valid lineNoUpdate
+          (!lineNoUpdate || lineNoUpdate.trim() === "")
+        ) {
+          lineNoUpdate = line_no;
+        }
+        // Only update iceCodeUpdate if it's empty in the database
+        if (
+          ie_code_no && // Excel has a valid iceCodeUpdate
+          (!iceCodeUpdate || iceCodeUpdate.trim() === "")
+        ) {
+          iceCodeUpdate = ie_code_no;
+        }
 
       if (existingJob) {
         // Logic to merge or update container sizes

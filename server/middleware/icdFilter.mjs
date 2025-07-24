@@ -19,7 +19,6 @@ const applyUserIcdFilter = async (req, res, next) => {
 
     // If no username provided, proceed without filtering (for backward compatibility)
     if (!username) {
-      console.warn('⚠️ No username provided for ICD filtering');
       return next();
     }
 
@@ -105,7 +104,6 @@ export const applyUserImporterFilter = async (req, res, next) => {
       req.body?.username;
 
     if (!username) {
-      console.warn('⚠️ No username provided for Importer filtering');
       return next();
     }
 

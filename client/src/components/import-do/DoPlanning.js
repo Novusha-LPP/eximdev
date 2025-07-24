@@ -14,6 +14,8 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -411,27 +413,20 @@ function DoPlanning() {
     const handleToggleOBL = async (event) => {
       const newValue = event.target.checked;
       setIsOblReceived(newValue); // Update UI immediately
-      
       try {
+        const now = new Date().toISOString();
         const updateData = {
-          is_obl_recieved: newValue
+          is_obl_recieved: newValue,
+          obl_recieved_date: now
         };
-        
         const headers = {
           'Content-Type': 'application/json',
-          // Add your authorization headers here if needed
-          // 'Authorization': `Bearer ${token}`
         };
-
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-        
-        console.log('OBL status updated successfully');
-        
+        console.log('OBL status and date updated successfully');
       } catch (error) {
         console.error('Error updating OBL status:', error);
-        // Revert the UI state if API call fails
         setIsOblReceived(!newValue);
-        // Handle error - maybe show a toast notification
       }
     };
 
@@ -542,20 +537,52 @@ function DoPlanning() {
       Cell: ({ cell, row }) => {
         const displayDate = cell.getValue(); // "displayDate" from backend
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
-        const  typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
+        const typeOfDo = row.original.type_of_Do;
+        const isDoDocRecieved = row.original.is_do_doc_recieved || false;
+        const _id = row.original._id;
+        const [checked, setChecked] = React.useState(isDoDocRecieved);
+
+        const handleToggleDoDoc = async (event) => {
+          const newValue = event.target.checked;
+          setChecked(newValue);
+          try {
+            const now = new Date().toISOString();
+            const updateData = {
+              is_do_doc_recieved: newValue,
+              do_doc_recieved_date: now
+            };
+            const headers = {
+              'Content-Type': 'application/json',
+            };
+            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+            // Optionally show a toast or notification
+          } catch (error) {
+            setChecked(!newValue);
+          }
+        };
 
         return (
           <div
             style={{
-              backgroundColor: dayDifference > 0 ? "#FFCCCC" : "#CCFFCC", // Red if dayDifference is positive
+              backgroundColor: dayDifference > 0 ? "#FFCCCC" : "#CCFFCC",
               padding: "8px",
               borderRadius: "4px",
             }}
           >
             {displayDate}{" "}
-            
             {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
             <div>Type Of Do: {typeOfDo}</div>
+            <div>
+          <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={handleToggleDoDoc}
+              style={{ marginRight: '6px' }}
+            />
+            Do document send to shipping line
+          </label>
+        </div>
           </div>
         );
       },

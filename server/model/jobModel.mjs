@@ -304,7 +304,8 @@ const jobSchema = new mongoose.Schema({
   shipping_line_invoice: { type: String, trim: true },
   shipping_line_invoice_date: { type: String },
   shipping_line_invoice_imgs: [{ type: String, trim: true }],
-  do_queries: [{ query: { type: String }, reply: { type: String } , resolved: { type: Boolean, default: false } }],
+  do_queries: [{ query: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
+  dsr_queries: [{ query: { type: String }, select_module: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
   do_completed: { type: String, trim: true },
   // *******
   icd_cfs_invoice: { type: String, trim: true },
@@ -316,7 +317,11 @@ const jobSchema = new mongoose.Schema({
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },
   is_obl_recieved: { type: Boolean, default: false },
+  obl_recieved_date: { type: String, trim: true },
 
+
+  is_do_doc_recieved: { type: Boolean, default: false },
+  do_doc_recieved_date: { type: String, trim: true },
   ////////////////////////////////////////////////// documentation
   documentation_completed_date_time: { type: String, trim: true },
 

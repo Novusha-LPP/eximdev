@@ -415,7 +415,6 @@ setImmediate(async () => {
           if (updatedDocument) {
             // FIRST: Check if only detailed_status and system fields changed
             if (isOnlyDetailedStatusChange(originalDocument, updatedDocument)) {
-              console.log(`ℹ️ [req.jobInfo path] Only detailed_status and system fields changed, skipping audit trail entirely`);
               return; // Exit early, don't create any audit record
             }
             

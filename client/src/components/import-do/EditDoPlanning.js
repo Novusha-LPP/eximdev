@@ -827,6 +827,44 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
           </Button>
         )}
       </div>
+      {/* Draft/Final radio buttons directly below document name for Shipping Line Invoice */}
+      {isShippingInvoice && (
+        <Row style={{ marginBottom: 8 }}>
+          <Col xs={12}>
+            <FormControl component="fieldset" sx={{ width: '100%' }}>
+              <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Document Status</FormLabel>
+              <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <input
+                      type="radio"
+                      checked={doc.is_draft}
+                      onChange={handleDraftFinalChange(docIndex, 'draft')}
+                      name={`draft_final_${docIndex}`}
+                      style={{ marginRight: 8 }}
+                    />
+                  }
+                  label={<span style={{ marginLeft: 4 }}>Draft</span>}
+                  sx={{ mr: 3 }}
+                />
+                <FormControlLabel
+                  control={
+                    <input
+                      type="radio"
+                      checked={doc.is_final}
+                      onChange={handleDraftFinalChange(docIndex, 'final')}
+                      name={`draft_final_${docIndex}`}
+                      style={{ marginRight: 8 }}
+                    />
+                  }
+                  label={<span style={{ marginLeft: 4 }}>Final</span>}
+                  sx={{ mr: 3 }}
+                />
+              </div>
+            </FormControl>
+          </Col>
+        </Row>
+      )}
       <Row>
         <Col xs={12} md={6} style={{ borderRight: '1px solid #f0f0f0', paddingRight: 24 }}>
           {docType === "other_do_documents" && (
@@ -883,13 +921,23 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
             label={<span style={{ fontWeight: 500 }}>Document Checked</span>}
             sx={{ mb: 1 }}
           />
+          {/* Disabled Document Check Date field */}
           {doc.document_check_status && doc.document_check_date && (
-            <div style={{ marginTop: "5px", fontSize: "0.92em", color: "#607d8b" }}>
-              Checked on: {new Date(doc.document_check_date).toLocaleString("en-US", {
+            <TextField
+              fullWidth
+              size="small"
+              margin="normal"
+              variant="outlined"
+              id={`${docType}[${docIndex}].document_check_date`}
+              name={`${docType}[${docIndex}].document_check_date`}
+              label="Document Check Date"
+              value={new Date(doc.document_check_date).toLocaleString("en-US", {
                 timeZone: "Asia/Kolkata",
                 hour12: true,
               })}
-            </div>
+              disabled={true}
+              sx={{ mb: 2 }}
+            />
           )}
           {/* Amount Details as number only */}
           <TextField
@@ -1077,17 +1125,32 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
                 }
                 sx={{ mb: 2 }}
               />
+              {/* Show receipt documents below Payment Requested date */}
+              {doc.payment_recipt && doc.payment_recipt.length > 0 && (
+                <div style={{ margin: "10px 0" }}>
+                  <strong>Payment Receipt:</strong>
+                  <div>
+                    {doc.payment_recipt.map((url, i) => (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#007bff", textDecoration: "underline", display: "block", marginTop: "4px" }}
+                      >
+                        Receipt {i + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Col>
             <Col xs={12} md={6}>
               <FormControlLabel
                 control={
                   <Checkbox
                     checked={!!doc.payment_made_date}
-                    onChange={e => {
-                      const value = e.target.checked ? new Date().toISOString() : "";
-                      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_made_date`, value);
-                      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_payment_made`, e.target.checked);
-                    }}
+                    disabled={true}
                     name={`do_shipping_line_invoice[${docIndex}].is_payment_made`}
                     color="primary"
                   />

@@ -571,91 +571,91 @@ function ImportOperations() {
         );
       },
     },
-    {
-      accessorKey: "Doc",
-      header: "Docs",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ row }) => {
-        const {
-          cth_documents,
-          all_documents,
-          checklist,
-        } = row.original;
+    // {
+    //   accessorKey: "Doc",
+    //   header: "Docs",
+    //   enableSorting: false,
+    //   size: 150,
+    //   Cell: ({ row }) => {
+    //     const {
+    //       cth_documents,
+    //       all_documents,
+    //       checklist,
+    //     } = row.original;
 
-        const getFirstLink = (input) => {
-          if (Array.isArray(input)) {
-            return input.length > 0 ? input[0] : null;
-          }
-          return input || null;
-        };
+    //     const getFirstLink = (input) => {
+    //       if (Array.isArray(input)) {
+    //         return input.length > 0 ? input[0] : null;
+    //       }
+    //       return input || null;
+    //     };
 
-        const checklistLink = getFirstLink(checklist);
+    //     const checklistLink = getFirstLink(checklist);
 
-        return (
-          <div style={{ textAlign: "left" }}>
-            {checklistLink ? (
-              <div style={{ marginBottom: "5px" }}>
-                <a
-                  href={checklistLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "blue",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Checklist
-                </a>
-              </div>
-            ) : (
-              <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>No Checklist</span>
-              </div>
-            )}
+    //     return (
+    //       <div style={{ textAlign: "left" }}>
+    //         {checklistLink ? (
+    //           <div style={{ marginBottom: "5px" }}>
+    //             <a
+    //               href={checklistLink}
+    //               target="_blank"
+    //               rel="noopener noreferrer"
+    //               style={{
+    //                 color: "blue",
+    //                 textDecoration: "underline",
+    //                 cursor: "pointer",
+    //               }}
+    //             >
+    //               Checklist
+    //             </a>
+    //           </div>
+    //         ) : (
+    //           <div style={{ marginBottom: "5px" }}>
+    //             <span style={{ color: "gray" }}>No Checklist</span>
+    //           </div>
+    //         )}
 
-            {Array.isArray(cth_documents) &&
-              cth_documents
-                .filter((doc) => doc.url && doc.url.length > 0)
-                .map((doc) => (
-                  <div key={doc._id} style={{ marginBottom: "5px" }}>
-                    <a
-                      href={doc.url[0]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "blue",
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {doc.document_name}
-                    </a>
-                  </div>
-                ))}
+    //         {Array.isArray(cth_documents) &&
+    //           cth_documents
+    //             .filter((doc) => doc.url && doc.url.length > 0)
+    //             .map((doc) => (
+    //               <div key={doc._id} style={{ marginBottom: "5px" }}>
+    //                 <a
+    //                   href={doc.url[0]}
+    //                   target="_blank"
+    //                   rel="noopener noreferrer"
+    //                   style={{
+    //                     color: "blue",
+    //                     textDecoration: "underline",
+    //                     cursor: "pointer",
+    //                   }}
+    //                 >
+    //                   {doc.document_name}
+    //                 </a>
+    //               </div>
+    //             ))}
 
-            {Array.isArray(all_documents) &&
-              all_documents.map((docUrl, index) => (
-                <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={docUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "green",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Doc{index + 1}
-                  </a>
-                </div>
-              ))}
-          </div>
-        );
-      },
-    },
+    //         {Array.isArray(all_documents) &&
+    //           all_documents.map((docUrl, index) => (
+    //             <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
+    //               <a
+    //                 href={docUrl}
+    //                 target="_blank"
+    //                 rel="noopener noreferrer"
+    //                 style={{
+    //                   color: "green",
+    //                   textDecoration: "underline",
+    //                   cursor: "pointer",
+    //                 }}
+    //               >
+    //                 Doc{index + 1}
+    //               </a>
+    //             </div>
+    //           ))}
+    //       </div>
+    //     );
+    //   },
+    // },
     {
       id: "jS",
       header: "Job Sticker",

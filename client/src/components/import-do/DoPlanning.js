@@ -27,6 +27,11 @@ import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DoPlanning() {
+  const [doDocCounts, setDoDocCounts] = useState({
+  totalJobs: 0,
+  prepared: 0,
+  notPrepared: 0
+});
    const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
@@ -150,52 +155,60 @@ function DoPlanning() {
 
   // Fetch jobs with pagination and search
   // Fetch jobs with pagination
-  const fetchJobs = useCallback(
-    async (
-      currentPage,
-      currentSearchQuery,
-      currentYear,
-      currentICD,
-      selectedImporter
-    ) => {
-      setLoading(true);
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
-          {
-            params: {
-              page: currentPage,
-              limit,
-              search: currentSearchQuery,
-              year: currentYear,
-              selectedICD: currentICD,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
-              username: user?.username || "", // ✅ Send username for ICD filtering
-            },
-          }
-        );
+const fetchJobs = useCallback(
+  async (
+    currentPage,
+    currentSearchQuery,
+    currentYear,
+    currentICD,
+    selectedImporter
+  ) => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
+        {
+          params: {
+            page: currentPage,
+            limit,
+            search: currentSearchQuery,
+            year: currentYear,
+            selectedICD: currentICD,
+            importer: selectedImporter?.trim() || "",
+            username: user?.username || "",
+          },
+        }
+      );
 
-        const {
-          totalJobs,
-          totalPages,
-          currentPage: returnedPage,
-          jobs,
-        } = res.data;
+      const {
+        totalJobs,
+        totalPages,
+        currentPage: returnedPage,
+        jobs,
+        doDocCounts, // Get the new counts
+      } = res.data;
 
-        setRows(jobs);
-        setTotalPages(totalPages);
-        // setPage(returnedPage); // Ensure the page state stays in sync
-        setTotalJobs(totalJobs);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
-        setTotalPages(1);
-      } finally {
-        setLoading(false);
+      setRows(jobs);
+      setTotalPages(totalPages);
+      setTotalJobs(totalJobs);
+      
+      // Set the DO Doc counts
+      if (doDocCounts) {
+        setDoDocCounts(doDocCounts);
       }
-    },
-    [limit, user?.username] // Dependencies - add username
-  );
+      
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setRows([]);
+      setTotalPages(1);
+      setDoDocCounts({ totalJobs: 0, prepared: 0, notPrepared: 0 });
+    } finally {
+      setLoading(false);
+    }
+  },
+  [limit, user?.username]
+);
+
 
   // Fetch jobs when dependencies change
   useEffect(() => {
@@ -238,6 +251,55 @@ function DoPlanning() {
         setCurrentPage(1); // Reset to first page when user types
 
   };
+
+  // 3. Add display component for the counts (place this where you want to show the counts)
+const DoDocCountsDisplay = () => (
+  <div style={{ 
+    display: 'flex', 
+    gap: '20px', 
+    padding: '10px', 
+    backgroundColor: '#f5f5f5', 
+    borderRadius: '8px', 
+    marginBottom: '20px' 
+  }}>
+    <div style={{ 
+      padding: '10px 15px', 
+      backgroundColor: '#e3f2fd', 
+      borderRadius: '5px',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1976d2' }}>
+        {doDocCounts.totalJobs}
+      </div>
+      <div style={{ fontSize: '12px', color: '#666' }}>Total Jobs</div>
+    </div>
+    
+    <div style={{ 
+      padding: '10px 15px', 
+      backgroundColor: '#e8f5e8', 
+      borderRadius: '5px',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2e7d32' }}>
+        {doDocCounts.prepared}
+      </div>
+      <div style={{ fontSize: '12px', color: '#666' }}>DO Doc Prepared</div>
+    </div>
+    
+    <div style={{ 
+      padding: '10px 15px', 
+      backgroundColor: '#ffebee', 
+      borderRadius: '5px',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d32f2f' }}>
+        {doDocCounts.notPrepared}
+      </div>
+      <div style={{ fontSize: '12px', color: '#666' }}>DO Doc Not Prepared</div>
+    </div>
+  </div>
+);
+
 
   const columns = [
     {
@@ -284,16 +346,38 @@ function DoPlanning() {
       header: "Importer",
       enableSorting: false,
       size: 250,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const importerName = cell?.getValue()?.toString();
+        const _id = row.original._id;
+        const isDoDocPrepared = row.original.is_do_doc_prepared || false;
+        const [checked, setChecked] = React.useState(isDoDocPrepared);
+
+        const handleToggleDoDocPrepared = async (event) => {
+          const newValue = event.target.checked;
+          setChecked(newValue);
+          try {
+            const now = new Date().toISOString();
+            const updateData = {
+              is_do_doc_prepared: newValue,
+              do_doc_prepared_date: now
+            };
+            const headers = {
+              'Content-Type': 'application/json',
+            };
+            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+          } catch (error) {
+            setChecked(!newValue);
+          }
+        };
+
         return (
           <React.Fragment>
-            {cell?.getValue()?.toString()}
-
+            {importerName}
             <IconButton
               size="small"
               onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
+                handleCopy(event, importerName);
               }}
             >
               <abbr title="Copy Party Name">
@@ -301,6 +385,15 @@ function DoPlanning() {
               </abbr>
             </IconButton>
             <br />
+            <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', marginTop: '4px' }}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={handleToggleDoDocPrepared}
+                style={{ marginRight: '6px' }}
+              />
+              DO Doc Prepared
+            </label>
           </React.Fragment>
         );
       },
@@ -839,7 +932,13 @@ function DoPlanning() {
           variant="body1"
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
         >
-          Job Count: {totalJobs}
+           <div>
+    {/* Add the counts display */}
+    <DoDocCountsDisplay />
+    
+    {/* Your existing table and other components */}
+    {/* ... rest of your component */}
+  </div>
         </Typography>
 
         <Autocomplete

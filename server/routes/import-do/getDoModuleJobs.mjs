@@ -25,7 +25,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
-    const selectedYear = year ? year.trim() : ""; // ✅ Keep year as a string
+    const selectedYear = year ? year.trim() : "";
 
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
@@ -101,14 +101,13 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 
     // ✅ Apply user-based ICD filter from middleware
     if (req.userIcdFilter) {
-      // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
     } 
 
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer awb_bl_no is_obl_recieved shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
+        "job_no year importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
       )
       .lean();
 
@@ -129,7 +128,12 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // Combine results and remove duplicates
     const uniqueJobs = [...new Set([...allJobs, ...filteredJobs])];
 
-    // **Step 4: Calculate additional fields (displayDate & dayDifference)**
+    // **Step 4: Calculate DO Doc Prepared counts**
+    const totalJobsCount = uniqueJobs.length;
+    const doDocPreparedTrueCount = uniqueJobs.filter(job => job.is_do_doc_prepared === true).length;
+    const doDocPreparedFalseCount = uniqueJobs.filter(job => job.is_do_doc_prepared !== true).length;
+
+    // **Step 5: Calculate additional fields (displayDate & dayDifference)**
     const jobsWithCalculatedFields = uniqueJobs.map((job) => {
       const jobLevelDate = job.do_validity_upto_job_level
         ? new Date(job.do_validity_upto_job_level)
@@ -160,26 +164,32 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       };
     });
 
-    // **Step 5: Sorting logic**
+    // **Step 6: Sorting logic**
     jobsWithCalculatedFields.sort((a, b) => {
       if (a.dayDifference > 0 && b.dayDifference <= 0) return -1;
       if (a.dayDifference <= 0 && b.dayDifference > 0) return 1;
       if (a.dayDifference > 0 && b.dayDifference > 0) {
-        return b.dayDifference - a.dayDifference; // Descending by dayDifference
+        return b.dayDifference - a.dayDifference;
       }
-      return new Date(a.displayDate) - new Date(b.displayDate); // Ascending by displayDate
+      return new Date(a.displayDate) - new Date(b.displayDate);
     });
 
-    // **Step 6: Apply pagination**
+    // **Step 7: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
 
-    // ✅ Return paginated response
+    // ✅ Return paginated response with counts
     res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      // Add the new counts
+      doDocCounts: {
+        totalJobs: totalJobsCount,
+        prepared: doDocPreparedTrueCount,
+        notPrepared: doDocPreparedFalseCount
+      }
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);

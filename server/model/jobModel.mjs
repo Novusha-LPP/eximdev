@@ -322,6 +322,8 @@ const jobSchema = new mongoose.Schema({
 
   is_do_doc_recieved: { type: Boolean, default: false },
   do_doc_recieved_date: { type: String, trim: true },
+  is_do_doc_prepared: { type: Boolean, default: false },
+  do_doc_prepared_date: { type: String, trim: true },
   ////////////////////////////////////////////////// documentation
   documentation_completed_date_time: { type: String, trim: true },
 

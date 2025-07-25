@@ -444,63 +444,76 @@ function ClearanceCompleted() {
           );
         },
       },
-      {
-        accessorKey: "expenses",
-        header: "Expenses",
-        enableSorting: false,
-        size: 300,
-        Cell: ({ cell }) => {
-          const { chargesDetails } = cell.row.original;
+{
+  accessorKey: "expenses",
+  header: "Expenses",
+  enableSorting: false,
+  size: 300,
+  Cell: ({ cell }) => {
+    const { chargesDetails } = cell.row.original;
 
-          // Filter charges that have URLs (regardless of Amount Details)
-          const validCharges = chargesDetails?.filter((charge) => 
-            charge.url && charge.url.length > 0
-          ) || [];
+    // If no charges at all, show "No expenses"
+    if (!chargesDetails || chargesDetails.length === 0) {
+      return (
+        <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
+      );
+    }
 
-          // If no charges, show "No expenses"
-          if (validCharges.length === 0) {
+    // Static number to start from 1
+    let serialNumber = 1;
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          justifyContent: "flex-start",
+          gap: "5px",
+          width: "100%",
+        }}
+      >
+        {/* Loop through all charges */}
+        {chargesDetails.map((charge, chargeIndex) => {
+          // If charge has URLs, show as links
+          if (charge.url && charge.url.length > 0) {
+            return charge.url.map((url, urlIndex) => (
+              <a
+                key={`${charge.document_name}-${urlIndex}-${serialNumber}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: charge.document_amount_details ? "blue" : "#ff6b6b",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  marginBottom: "5px",
+                }}
+              >
+                {serialNumber++}. {charge.document_name} {charge.url.length > 1 ? `${urlIndex + 1}` : ''} - {charge.document_amount_details ? `₹${parseFloat(charge.document_amount_details).toFixed(2)}` : "No Amount Details"}
+              </a>
+            ));
+          } 
+          // If no URL but charge details exist, show as plain text
+          else {
             return (
-              <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
+              <div
+                key={`charge-${chargeIndex}-${serialNumber}`}
+                style={{
+                  color: charge.document_amount_details ? "#333" : "#666",
+                  marginBottom: "5px",
+                  fontSize: "14px",
+                }}
+              >
+                {serialNumber++}. {charge.document_name || "Unnamed Charge"} - {charge.document_amount_details ? `₹${parseFloat(charge.document_amount_details).toFixed(2)}` : "No Amount Details"}
+              </div>
             );
           }
-
-          // Static number to start from 1
-          let serialNumber = 1;
-
-          return (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                justifyContent: "flex-start",
-                gap: "5px",
-                width: "100%",
-              }}
-            >
-              {/* Loop through all charges and display each document with serial number */}
-              {validCharges.map((charge) => 
-                charge.url.map((url, urlIndex) => (
-                  <a
-                    key={`${charge.document_name}-${urlIndex}-${serialNumber}`}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: charge.document_amount_details ? "blue" : "#ff6b6b",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {serialNumber++}. {charge.document_name} {charge.url.length > 1 ? `${urlIndex + 1}` : ''} - {charge.document_amount_details ? `₹${parseFloat(charge.document_amount_details).toFixed(2)}` : "No Amount Details"}
-                  </a>
-                ))
-              )}
-            </div>
-          );
-        },
-      },
+        })}
+      </div>
+    );
+  },
+},
     ],
     [navigate, handleCopy]
   );

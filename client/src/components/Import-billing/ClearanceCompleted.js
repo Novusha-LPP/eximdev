@@ -467,8 +467,8 @@ function ClearanceCompleted() {
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "flex-start",
-          justifyContent: "flex-start",
+          alignItems: "center",
+          justifyContent: "center",
           gap: "5px",
           width: "100%",
         }}

@@ -254,50 +254,52 @@ const fetchJobs = useCallback(
 
   // 3. Add display component for the counts (place this where you want to show the counts)
 const DoDocCountsDisplay = () => (
+<div style={{ 
+  display: 'flex', 
+  gap: '16px', 
+  padding: '4px 8px', 
+  backgroundColor: '#f5f5f5', 
+  borderRadius: '8px', 
+  marginBottom: '10px' 
+}}>
   <div style={{ 
-    display: 'flex', 
-    gap: '20px', 
-    padding: '10px', 
-    backgroundColor: '#f5f5f5', 
-    borderRadius: '8px', 
-    marginBottom: '20px' 
+    padding: '4px 8px', 
+    backgroundColor: '#e3f2fd', 
+    borderRadius: '5px',
+    textAlign: 'center'
   }}>
-    <div style={{ 
-      padding: '10px 15px', 
-      backgroundColor: '#e3f2fd', 
-      borderRadius: '5px',
-      textAlign: 'center'
-    }}>
-      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1976d2' }}>
-        {doDocCounts.totalJobs}
-      </div>
-      <div style={{ fontSize: '12px', color: '#666' }}>Total Jobs</div>
+    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1976d2' }}>
+      {doDocCounts.totalJobs}
     </div>
-    
-    <div style={{ 
-      padding: '10px 15px', 
-      backgroundColor: '#e8f5e8', 
-      borderRadius: '5px',
-      textAlign: 'center'
-    }}>
-      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2e7d32' }}>
-        {doDocCounts.prepared}
-      </div>
-      <div style={{ fontSize: '12px', color: '#666' }}>DO Doc Prepared</div>
-    </div>
-    
-    <div style={{ 
-      padding: '10px 15px', 
-      backgroundColor: '#ffebee', 
-      borderRadius: '5px',
-      textAlign: 'center'
-    }}>
-      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d32f2f' }}>
-        {doDocCounts.notPrepared}
-      </div>
-      <div style={{ fontSize: '12px', color: '#666' }}>DO Doc Not Prepared</div>
-    </div>
+    <div style={{ fontSize: '11px', color: '#666' }}>Total Jobs</div>
   </div>
+  
+  <div style={{ 
+    padding: '4px 8px', 
+    backgroundColor: '#e8f5e8', 
+    borderRadius: '5px',
+    textAlign: 'center'
+  }}>
+    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2e7d32' }}>
+      {doDocCounts.prepared}
+    </div>
+    <div style={{ fontSize: '11px', color: '#666' }}>DO Doc Prepared</div>
+  </div>
+  
+  <div style={{ 
+    padding: '4px 8px', 
+    backgroundColor: '#ffebee', 
+    borderRadius: '5px',
+    textAlign: 'center'
+  }}>
+    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#d32f2f' }}>
+      {doDocCounts.notPrepared}
+    </div>
+    <div style={{ fontSize: '8px', color: '#666' }}>DO Doc Not Prepared</div>
+  </div>
+</div>
+
+
 );
 
 
@@ -307,37 +309,28 @@ const DoDocCountsDisplay = () => (
       header: "Job No",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type, year } =
-          cell.row.original;
-
-         return (
-          <div
+        const { job_no, custom_house, _id, type_of_b_e, consignment_type, year } = cell.row.original;
+        const textColor = "blue";
+        const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
+        return (
+          <a
+            href={`/edit-do-planning/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === _id ? "#ffffcc" : "transparent",
+              backgroundColor: bgColor,
               textAlign: "center",
               cursor: "pointer",
-              color: "blue",
-            }}            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);
-              
-              // 2) Navigate to the detail page, and pass selectedJobId and search state
-              navigate(`/edit-do-planning/${job_no}/${year}`, {
-                state: {
-                  selectedJobId: _id,
-                  searchQuery,
-                  selectedImporter,
-                  currentTab: 2,
-                  currentPage,
-                },
-              });
+              color: textColor,
+              padding: "10px",
+              borderRadius: "5px",
+              display: "inline-block",
+              textDecoration: "none",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
-          </div>
+          </a>
         );
       },
     },

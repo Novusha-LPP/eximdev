@@ -60,7 +60,7 @@ function ImportDO() {
             <Tab label="DO Planning" {...a11yProps(2)} />
             <Tab label="DO Completed" {...a11yProps(3)} />
             <Tab label="Billing Sheet" {...a11yProps(4)} />
-            <Tab label="KYC Details" {...a11yProps(5)} />
+            {/* <Tab label="KYC Details" {...a11yProps(5)} /> */}
           </Tabs>
         </Box>
         <CustomTabPanel value={value} index={0}>
@@ -78,9 +78,9 @@ function ImportDO() {
         <CustomTabPanel value={value} index={4}>
           <BillingSheet />
         </CustomTabPanel>
-        <CustomTabPanel value={value} index={5}>
+        {/* <CustomTabPanel value={value} index={5}>
           <KycDetails />
-        </CustomTabPanel>
+        </CustomTabPanel> */}
       </Box>
     </TabContext.Provider>
   );

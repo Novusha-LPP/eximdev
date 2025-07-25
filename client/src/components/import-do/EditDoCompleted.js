@@ -502,9 +502,30 @@ function EditDoCompleted() {
     <div className="job-details-container">
       <JobDetailsRowHeading heading="Charges" />
       {/* Render all shipping line invoice documents */}
-      {formik.values.do_shipping_line_invoice.map((doc, index) => 
-        renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)
-      )}
+      {formik.values.do_shipping_line_invoice.map((doc, index) => (
+        <React.Fragment key={index}>
+          {renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)}
+          {/* Show payment receipt if available */}
+          {doc.payment_recipt && doc.payment_recipt.length > 0 && (
+            <div style={{ margin: "10px 0" }}>
+              <strong>Payment Receipt:</strong>
+              <div>
+                {doc.payment_recipt.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#007bff", textDecoration: "underline", display: "block", marginTop: "4px" }}
+                  >
+                    Receipt {i + 1}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </React.Fragment>
+      ))}
       {/* Render all insurance copy documents */}
       {formik.values.insurance_copy.map((doc, index) => 
         renderDocumentSection(doc, index, "insurance_copy", index > 0, user)
@@ -517,27 +538,15 @@ function EditDoCompleted() {
       {/* DO Copies Row - show below security deposit */}
       <Row>
         <Col>
-          <FileUpload
-            label="Upload DO Copies"
-            bucketPath="do_copies"
-            onFilesUploaded={(newFiles) => {
-              console.log("Uploading new DO Copies:", newFiles);
-              const existingFiles = formik.values.do_copies || [];
-              const updatedFiles = [...existingFiles, ...newFiles];
-              formik.setFieldValue("do_copies", updatedFiles);
-              setFileSnackbar(true); // Show success snackbar
-            }}
-            multiple={true}
-          />
-
           <ImagePreview
             images={formik.values.do_copies || []}
             onDeleteImage={(index) => {
               const updatedFiles = [...formik.values.do_copies];
               updatedFiles.splice(index, 1);
               formik.setFieldValue("do_copies", updatedFiles);
-              setFileSnackbar(true); // Show success snackbar
+              setFileSnackbar(true);
             }}
+            readOnly={true}
           />
         </Col>
       </Row>
@@ -546,16 +555,17 @@ function EditDoCompleted() {
       {formik.values.other_do_documents.map((doc, index) => 
         renderDocumentSection(doc, index, "other_do_documents", true, user)
       )}
-      {/* Dropdown and Add Document Button */}
-      <div style={{ marginTop: "20px", padding: "15px", border: "2px dashed #ccc", borderRadius: "5px" }}>
+      {/* Disabled Dropdown and Add Document Button */}
+      <div style={{ marginTop: "20px", padding: "15px", border: "2px dashed #ccc", borderRadius: "5px", opacity: 0.5 }}>
         <Row>
           <Col xs={12} md={6}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" disabled={true}>
               <InputLabel>Select Document Type</InputLabel>
               <Select
                 value={selectedDocumentType}
                 onChange={(e) => setSelectedDocumentType(e.target.value)}
                 label="Select Document Type"
+                disabled={true}
               >
                 <MenuItem value="Shipping Line Invoice">Shipping Line Invoice</MenuItem>
                 <MenuItem value="Insurance">Insurance Copy</MenuItem>
@@ -568,7 +578,7 @@ function EditDoCompleted() {
             <Button
               variant="contained"
               onClick={handleAddDocument}
-              disabled={!selectedDocumentType}
+              disabled={true}
               style={{ marginTop: "8px" }}
             >
               Add Document

@@ -692,9 +692,30 @@ const renderChargesSection = () => (
   <div className="job-details-container">
     <JobDetailsRowHeading heading="Charges" />
     {/* Render all shipping line invoice documents */}
-    {formik.values.do_shipping_line_invoice.map((doc, index) => 
-      renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)
-    )}
+    {formik.values.do_shipping_line_invoice.map((doc, index) => (
+      <React.Fragment key={index}>
+        {renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)}
+        {/* Show payment receipt if available */}
+        {doc.payment_recipt && doc.payment_recipt.length > 0 && (
+          <div style={{ margin: "10px 0" }}>
+            <strong>Payment Receipt:</strong>
+            <div>
+              {doc.payment_recipt.map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#007bff", textDecoration: "underline", display: "block", marginTop: "4px" }}
+                >
+                  Receipt {i + 1}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </React.Fragment>
+    ))}
     {/* Render all insurance copy documents */}
     {formik.values.insurance_copy.map((doc, index) => 
       renderDocumentSection(doc, index, "insurance_copy", index > 0, user)

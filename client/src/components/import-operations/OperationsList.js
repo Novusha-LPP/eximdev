@@ -26,7 +26,7 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
-
+import { Link } from "react-router-dom";
 function OperationsList() {
  const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
@@ -268,41 +268,27 @@ const fetchJobs = useCallback(
       enableSorting: false,
       size: 150,
       Cell: ({ row }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
-          row.original;        return (
-          <div
-            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(job_no);
+        const { job_no, year, type_of_b_e, consignment_type, custom_house } = row.original;
 
-              // 2) Navigate to the detail page, and pass search/filter state
-              navigate(
-                `/import-operations/list-operation-job/${job_no}/${year}`,
-                {
-                  state: {
-                    selectedJobId: job_no,
-                    searchQuery,
-                    selectedImporter,
-                    selectedICD,
-                    selectedYearState,
-                    currentTab: 0, // Operations List tab index
-                    fromJobList: true,
-                    currentPage
-                  },
-                }
-              );
-            }}
+        return (
+          <Link
+            to={`/import-operations/list-operation-job/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === job_no ? "#ffffcc" : "transparent",
+              display: 'inline-block',
+              backgroundColor: selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              textDecoration: "none",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
-          </div>
+          </Link>
         );
       },
     },

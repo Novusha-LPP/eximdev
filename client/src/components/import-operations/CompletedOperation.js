@@ -19,7 +19,7 @@ import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { TabContext } from "./ImportOperations.js";
@@ -390,37 +390,30 @@ function CompletedOperations() {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
+        // Build query string for context passing
+      
 
         return (
-          <div
+          <Link
+            to={`/import-operations/view-job/${jobNo}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              backgroundColor:
-                selectedJobId === jobNo ? "#ffffcc" : "transparent",
+              display: 'inline-block',
+              backgroundColor: selectedJobId === jobNo ? "#ffffcc" : "transparent",
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
+              padding: "10px",
+              borderRadius: "5px",
+              textDecoration: "none",
             }}
-            onClick={() => {
-              setSelectedJobId(jobNo);
-              
-              navigate(`/import-operations/view-job/${jobNo}/${year}`, {
-                state: {
-                  selectedJobId: jobNo,
-                  searchQuery,
-                  selectedImporter,
-                  selectedICD,
-                  selectedYearState,
-                  currentTab: 2,
-                  fromJobList: true,
-                  currentPage: page, // Pass current page
-                },
-              });
-            }}
+            onClick={() => setSelectedJobId(jobNo)}
           >
             {jobNo}
             <br />
             <small>{icdCode}</small>
-          </div>
+          </Link>
         );
       },
     },

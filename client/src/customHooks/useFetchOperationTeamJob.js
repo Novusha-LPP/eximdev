@@ -9,7 +9,7 @@ function useFetchOperationTeamJob(params) {
   const [data, setData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { setCurrentTab } = useContext(TabContext);
+  const { setCurrentTab, currentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
   
   // Store search parameters from location state
@@ -95,7 +95,7 @@ function useFetchOperationTeamJob(params) {
         
         
         // Determine which tab to navigate to
-        const tabIndex = storedSearchParams?.currentTab ?? 2;
+        const tabIndex = storedSearchParams?.currentTab ?? 2  ;
         
         // Set the current tab in context
         setCurrentTab(tabIndex);

@@ -27,6 +27,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
 import { TabContext } from "./ImportOperations.js";
 import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
+import { Link } from "react-router-dom";
 
 function ImportOperations() {
   const { currentTab } = useContext(TabContext);
@@ -37,6 +38,7 @@ function ImportOperations() {
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
+
   const navigate = useNavigate();
   // Remove local page state and use persistent pagination from context
   const [totalPages, setTotalPages] = useState(1);
@@ -390,37 +392,28 @@ function ImportOperations() {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
+        // Build query string for context passing
 
         return (
-          <div
+          <Link
+            to={`/import-operations/view-job/${jobNo}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              backgroundColor:
-                selectedJobId === jobNo ? "#ffffcc" : "transparent",
+              display: 'inline-block',
+              backgroundColor: selectedJobId === jobNo ? "#ffffcc" : "transparent",
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}
-            onClick={() => {
-              setSelectedJobId(jobNo);
-              navigate(`/import-operations/view-job/${jobNo}/${year}`, {
-                state: {
-                  selectedJobId: jobNo,
-                  searchQuery,
-                  selectedImporter,
-                  selectedICD,
-                  selectedYearState,
-                  detailedStatusExPlan,
-                  currentTab: 1,
-                  currentPage,
-                  fromJobList: true,
-                },
-              });
+              padding: "10px",
+              borderRadius: "5px",
+              textDecoration: "none",
             }}
           >
             {jobNo}
             <br />
             <small>{icdCode}</small>
-          </div>
+          </Link>
         );
       },
     },

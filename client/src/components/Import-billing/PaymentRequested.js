@@ -337,31 +337,30 @@ function PaymentRequested() {
             });
           }
 
+          // Build query string for context passing
+          const queryParams = new URLSearchParams({
+            selectedJobId: _id,
+     
+          }).toString();
+
           return (
-            <div
-              onClick={() =>
-                navigate(`/view-payment-request-job/${job_no}/${year}`, {
-                  state: {
-                    selectedJobId: _id,
-                    searchQuery,
-                    selectedImporter,
-                    currentTab: 2,
-                    currentPage,
-                  },
-                })
-              }
+            <Link
+              to={`/view-payment-request-job/${job_no}/${year}?${queryParams}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
+                display: 'inline-block',
                 cursor: "pointer",
                 color: textColor,
                 backgroundColor: bgColor || "transparent",
                 padding: "10px",
                 borderRadius: "5px",
                 textAlign: "center",
+                textDecoration: "none",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
-            </div>
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+            </Link>
           );
         },
       },

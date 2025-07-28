@@ -30,6 +30,8 @@ import {
   InputLabel
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
+import { useSearchParams } from "react-router-dom";
+
 
 // Import your user context or authentication hook here
 import { UserContext } from "../../contexts/UserContext";
@@ -54,10 +56,13 @@ function EditPaymentRequest() {
   const container_number_ref = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedJobId } = location.state || {};
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext);
   const [storedSearchParams, setStoredSearchParams] = useState(null);
+  const [param] = useSearchParams();
+
+const jobId = param.get("selectedJobId");
+
 
   // Helper function to get current ISO string
   const getCurrentISOString = () => {
@@ -78,12 +83,12 @@ function EditPaymentRequest() {
   // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
+      const { searchQuery, selectedImporter, jobId, currentTab, currentPage } = location.state;
       
       const params = {
         searchQuery,
         selectedImporter,
-        selectedJobId,
+        jobId,
         currentTab: currentTab ?? 2,
         currentPage,
       };
@@ -103,7 +108,7 @@ function EditPaymentRequest() {
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: storedSearchParams.selectedJobId,
+          jobId: storedSearchParams.jobId,
           currentPage: storedSearchParams.currentPage,
         }),
       },
@@ -126,7 +131,7 @@ function EditPaymentRequest() {
     async function getData() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`
         );
 
         const jobData = res.data.job;
@@ -197,7 +202,7 @@ function EditPaymentRequest() {
     }
 
     getData();
-  }, [selectedJobId]);
+  }, [jobId]);
 
   const formik = useFormik({
     initialValues: {
@@ -257,7 +262,7 @@ function EditPaymentRequest() {
     onSubmit: async (values, { resetForm }) => {
       const dataToSubmit = {
         ...values,
-        selectedJobId,
+        jobId,
         do_Revalidation_Completed: values.do_Revalidation_Completed,
         shipping_line_invoice: values.shipping_line_invoice ? "Yes" : "No",
         payment_made: values.payment_made ? "Yes" : "No",
@@ -282,7 +287,7 @@ function EditPaymentRequest() {
 
       try {
         const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?.selectedJobId || localStorage.getItem('userId') || 'unknown';
+        const userId = user?.jobId || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
         
         const res = await axios.patch(
@@ -307,7 +312,7 @@ function EditPaymentRequest() {
             fromJobDetails: true,
             tabIndex: tabIndex,
             scrollPosition,
-            selectedJobId,
+            jobId,
             searchQuery: storedSearchParams?.searchQuery || "",
             selectedImporter: storedSearchParams?.selectedImporter || "",
             currentPage: storedSearchParams?.currentPage,

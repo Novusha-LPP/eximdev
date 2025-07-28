@@ -17,6 +17,7 @@ import {
   Checkbox,
   FormControlLabel,
 } from "@mui/material";
+import { Link } from "react-router-dom";
 import { useParams } from "react-router-dom";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
@@ -304,36 +305,50 @@ const DoDocCountsDisplay = () => (
 
 
   const columns = [
-    {
-      accessorKey: "job_no",
-      header: "Job No",
-      size: 120,
-      Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type, year } = cell.row.original;
-        const textColor = "blue";
-        const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
-        return (
-          <a
-            href={`/edit-do-planning/${job_no}/${year}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              backgroundColor: bgColor,
-              textAlign: "center",
-              cursor: "pointer",
-              color: textColor,
-              padding: "10px",
-              borderRadius: "5px",
-              display: "inline-block",
-              textDecoration: "none",
-            }}
-          >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-          </a>
-        );
-      },
-    },
+
+
+{
+  accessorKey: "job_no",
+  header: "Job No",
+  size: 120,
+  Cell: ({ cell }) => {
+    const {
+      job_no,
+      custom_house,
+      _id,
+      type_of_b_e,
+      consignment_type,
+      year,
+    } = cell.row.original;
+
+    const isSelected = selectedJobId === _id;
+
+    return (
+     <Link
+  to={`/edit-do-planning/${job_no}/${year}?jobId=${_id}}`}
+  target="_blank"
+
+        // target="_blank" // open in new tab
+        rel="noopener noreferrer"
+        onClick={() => setSelectedJobId(_id)} // still highlight in current table
+        style={{
+          backgroundColor: isSelected ? "#ffffcc" : "transparent",
+          textAlign: "center",
+          cursor: "pointer",
+          color: "blue",
+          display: "inline-block",
+          width: "100%",
+          padding: "5px",
+          textDecoration: "none",
+        }}
+      >
+        {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+        {custom_house}
+      </Link>
+    );
+  },
+},
+
     {
       accessorKey: "importer",
       header: "Importer",

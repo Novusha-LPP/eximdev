@@ -258,40 +258,28 @@ function List() {
       header: "Job No ",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, year, consignment_type } =
-          cell.row.original;
-
+        const { job_no, custom_house, _id, type_of_b_e, year, consignment_type } = cell.row.original;
+        const textColor = "blue";
+        const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
         return (
-          <div
+          <a
+            href={`/edit-do-list/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === _id ? "#ffffcc" : "transparent",
+              backgroundColor: bgColor,
               textAlign: "center",
               cursor: "pointer",
-              color: "blue",
-            }}
-            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);
-              // 2) Navigate to the detail page, and pass search/filter state
-              navigate(`/edit-do-list/${job_no}/${year}`, {
-                state: {
-                  selectedJobId: _id,
-                  searchQuery,
-                  selectedImporter,
-                  selectedICD,
-                  selectedYearState,
-                  fromJobList: true,
-                  currentTab: 1,
-                  currentPage,
-                },
-              });
+              color: textColor,
+              padding: "10px",
+              borderRadius: "5px",
+              display: "inline-block",
+              textDecoration: "none",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
-          </div>
+          </a>
         );
       },
     },

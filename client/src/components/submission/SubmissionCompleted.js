@@ -266,26 +266,31 @@ const handlePageChange = (event, newPage) => {
           custom_house,
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;
-
+        const textColor = "blue";
+        const bgColor = cell.row.original.priorityJob === "High Priority"
+          ? "orange"
+          : cell.row.original.priorityJob === "Priority"
+          ? "yellow"
+          : "transparent";
         return (
-          <div
+          <a
+            href={`/submission-job/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               cursor: "pointer",
-              color: "blue",
-              backgroundColor:
-                cell.row.original.priorityJob === "High Priority"
-                  ? "orange"
-                  : cell.row.original.priorityJob === "Priority"
-                  ? "yellow"
-                  : "transparent", // Dynamically set the background color
-              padding: "10px", // Add padding for better visibility
-              borderRadius: "5px", // Optional: Add some styling for aesthetics
+              color: textColor,
+              backgroundColor: bgColor,
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              display: "inline-block",
+              textDecoration: "none",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
-            <br />
-          </div>
+          </a>
         );
       },
     },

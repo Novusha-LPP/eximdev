@@ -1,4 +1,4 @@
-import express from "express";
+    import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
@@ -63,7 +63,7 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
         },
         {
           $or: [
-            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+            {documentation_completed_date_time: { $exists: true, $ne: "" } },
           ],
         },
         searchQuery,

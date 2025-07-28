@@ -5,7 +5,7 @@ import {
   useMaterialReactTable,
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   IconButton,
   TextField,
@@ -263,39 +263,47 @@ function DoCompleted() {
     {
       accessorKey: "job_no",
       header: "Job No",
-      size: 120,
+      enableSorting: false,
+      size: 150,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type, year } =
-          cell.row.original;
-
+        const {
+          job_no,
+          year,
+          type_of_b_e,
+          consignment_type,
+          _id,
+          custom_house,
+          priorityColor,
+        } = cell.row.original;
+        const textColor = "blue";
+        const bgColor = cell.row.original.priorityJob === "High Priority"
+          ? "orange"
+          : cell.row.original.priorityJob === "Priority"
+          ? "yellow"
+          : "transparent";
+        const isSelected = selectedJobId === _id;
+        // Get selectedImporter, currentPage, searchQuery from context
+        // ...existing code...
         return (
-          <div
+          <Link
+            to={`/edit-do-completed/${job_no}/${year}?jobId=${_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setSelectedJobId(_id)}
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === _id ? "#ffffcc" : "transparent",
+              backgroundColor: isSelected ? "#ffffcc" : bgColor,
               textAlign: "center",
               cursor: "pointer",
-              color: "blue",
-            }}            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);
-
-              // 2) Navigate to the detail page, and pass selectedJobId and search state
-              navigate(`/edit-do-completed/${job_no}/${year}`, {
-                state: {
-                  selectedJobId: _id,
-                  searchQuery,
-                  selectedImporter,
-                  currentTab: 3,
-                  currentPage,
-                },
-              });
+              color: textColor,
+              display: "inline-block",
+              width: "100%",
+              padding: "5px",
+              textDecoration: "none",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
-          </div>
+          </Link>
         );
       },
     },

@@ -30,7 +30,7 @@ import {
   InputLabel
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
-
+import { useSearchParams } from "react-router-dom";
 // Import your user context or authentication hook here
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
@@ -58,7 +58,9 @@ function EditDoCompleted() {
   const { user } = useContext(UserContext);
   
   const [storedSearchParams, setStoredSearchParams] = useState(null);
+  const [param] = useSearchParams();
 
+const jobId = param.get("jobId");
   // Helper function to get current ISO string
   const getCurrentISOString = () => {
     return new Date().toISOString();
@@ -88,7 +90,7 @@ function EditDoCompleted() {
         currentPage,
       };
       
-      setStoredSearchParams(params);
+    setStoredSearchParams(params);
     }
   }, [location.state]);
 
@@ -126,7 +128,7 @@ function EditDoCompleted() {
     async function getData() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`
         );
 
         const jobData = res.data.job;
@@ -506,24 +508,6 @@ function EditDoCompleted() {
         <React.Fragment key={index}>
           {renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)}
           {/* Show payment receipt if available */}
-          {doc.payment_recipt && doc.payment_recipt.length > 0 && (
-            <div style={{ margin: "10px 0" }}>
-              <strong>Payment Receipt:</strong>
-              <div>
-                {doc.payment_recipt.map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#007bff", textDecoration: "underline", display: "block", marginTop: "4px" }}
-                  >
-                    Receipt {i + 1}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
         </React.Fragment>
       ))}
       {/* Render all insurance copy documents */}

@@ -883,14 +883,6 @@ function ViewESanchitJob() {
             {/* Removed checklist approval warning */}
 
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleBackClick}
-                style={{ margin: "20px 0", flex: "0 0 auto" }}
-              >
-                Back
-              </Button>
               {!isDisabled && (
                 <button
                   className="btn sticky-btn"

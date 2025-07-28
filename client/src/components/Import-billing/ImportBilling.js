@@ -330,24 +330,24 @@ useEffect(() => {
           }
 
           return (
-            <div
-              onClick={() =>
-                navigate(`/view-billing-job/${job_no}/${year}`, {
-                  state: { currentTab: 1 },
-                })
-              }
-              style={{
-                cursor: "pointer",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-              }}
-            >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
-            </div>
+         <a
+  href={`/view-billing-job/${job_no}/${year}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{
+    display: 'inline-block',
+    cursor: "pointer",
+    color: textColor,
+    backgroundColor: bgColor || "transparent",
+    padding: "10px",
+    borderRadius: "5px",
+    textAlign: "center",
+    textDecoration: "none",
+  }}
+>
+  {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+</a>
+
           );
         },
       },

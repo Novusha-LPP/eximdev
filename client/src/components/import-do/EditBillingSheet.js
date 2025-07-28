@@ -19,6 +19,7 @@ import ImagePreview from "../../components/gallery/ImagePreview.js";
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportDO";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import { useSearchParams } from "react-router-dom";
 
 
 function EditBillingSheet() {
@@ -37,8 +38,9 @@ function EditBillingSheet() {
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
   // This might be the job you're editing...
-  const { selectedJobId } = location.state || {};
+const [param] = useSearchParams();
 
+const jobId = param.get("selectedJobId");
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
@@ -93,7 +95,7 @@ function EditBillingSheet() {
         
 
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-do-billing/${selectedJobId}`,
+          `${process.env.REACT_APP_API_STRING}/update-do-billing/${jobId}`,
           values,
           {
             headers: {
@@ -148,7 +150,7 @@ function EditBillingSheet() {
       setError(null);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`
         );
         const jobData = res.data.job || {};
         setData(jobData);
@@ -170,7 +172,7 @@ function EditBillingSheet() {
       }
     }
     getData();
-  }, [selectedJobId]);
+  }, [jobId]);
 
   if (loading) return <p>Loading data...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;

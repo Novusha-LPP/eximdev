@@ -32,11 +32,15 @@ import {
 import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import { useSearchParams } from "react-router-dom";
+
 
 function EditDoPlanning() {
-  const params = useParams();
+  const param = useParams();
+  const [params] = useSearchParams();
+
     const [data, setData] = useState(null);
-    const { job_no, year } = params;
+    const { job_no, year } = param;
   const [selectedDocumentType, setSelectedDocumentType] = useState("");
 const [showWireTransferOptions, setShowWireTransferOptions] = useState({});
   const [loading, setLoading] = useState(true); // Loading state
@@ -54,8 +58,8 @@ const [showWireTransferOptions, setShowWireTransferOptions] = useState({});
   const { user } = useContext(UserContext); // Access user from context
 
   // This might be the job you're editing...
-  const { selectedJobId } = location.state || {};
 
+const jobId = params.get("jobId");
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   // Helper function to get local datetime string in 'YYYY-MM-DDTHH:MM' format
@@ -74,17 +78,7 @@ const getCurrentISOString = () => {
 };
 
   // Store search parameters from location state
-  useEffect(() => {    if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
-      setStoredSearchParams({
-        searchQuery,
-        selectedImporter,
-        selectedJobId,
-        currentTab: currentTab ?? 2, // Default to Planning tab
-        currentPage,
-      });
-    }
-  }, [location.state]);  // Handle back click function
+
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 2;
     navigate("/import-do", {
@@ -94,7 +88,7 @@ const getCurrentISOString = () => {
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery,
           selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: storedSearchParams.selectedJobId,
+          jobId: storedSearchParams.jobId,
           currentPage: storedSearchParams.currentPage,
         }),
       },
@@ -117,7 +111,7 @@ const getCurrentISOString = () => {
     async function getData() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${selectedJobId}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`
         );
 
         // Ensure correct access to the job object
@@ -188,7 +182,7 @@ const getCurrentISOString = () => {
     }
 
     getData();
-  }, [selectedJobId]);
+  }, [jobId]);
 
 
   const formik = useFormik({
@@ -251,7 +245,7 @@ do_shipping_line_invoice: [{
       // Convert booleans back to "Yes" or "No"
       const dataToSubmit = {
         ...values,
-        selectedJobId,
+        jobId,
         do_Revalidation_Completed: values.do_Revalidation_Completed,
         shipping_line_invoice: values.shipping_line_invoice ? "Yes" : "No",
         payment_made: values.payment_made ? "Yes" : "No",
@@ -280,7 +274,7 @@ do_shipping_line_invoice: [{
       try {
         // Get user info from context or localStorage fallback
         const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?.selectedJobId || localStorage.getItem('userId') || 'unknown';
+        const userId = user?.jobId || localStorage.getItem('userId') || 'unknown';
         const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
         
         
@@ -304,7 +298,7 @@ do_shipping_line_invoice: [{
             fromJobDetails: true,
             tabIndex: tabIndex, // Use stored tab index
             scrollPosition, // Preserve scroll position
-            selectedJobId,
+            jobId,
             searchQuery: storedSearchParams?.searchQuery || "", // Preserve search query
             selectedImporter: storedSearchParams?.selectedImporter || "", // Preserve selected importer
             currentPage: storedSearchParams?.currentPage,
@@ -696,24 +690,7 @@ const renderChargesSection = () => (
       <React.Fragment key={index}>
         {renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)}
         {/* Show payment receipt if available */}
-        {doc.payment_recipt && doc.payment_recipt.length > 0 && (
-          <div style={{ margin: "10px 0" }}>
-            <strong>Payment Receipt:</strong>
-            <div>
-              {doc.payment_recipt.map((url, i) => (
-                <a
-                  key={i}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#007bff", textDecoration: "underline", display: "block", marginTop: "4px" }}
-                >
-                  Receipt {i + 1}
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+
       </React.Fragment>
     ))}
     {/* Render all insurance copy documents */}

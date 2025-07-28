@@ -292,7 +292,7 @@ const baseQuery = {
         // LCL conditions
         {
           $and: [
-            { consignment_type: "LCL" },
+            { consignment_type: "FCL" },
             { documentation_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
             { esanchit_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
             { discharge_date: { $exists: true, $nin: [null, "", undefined] } },
@@ -306,7 +306,7 @@ const baseQuery = {
         // FCL conditions
         {
           $and: [
-            { consignment_type: "FCL" },
+            { consignment_type: "LCL" },
             { documentation_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
             { esanchit_completed_date_time: { $exists: true, $nin: [null, "", undefined] } },
             { is_checklist_aprroved: { $exists: true, $ne: false } },

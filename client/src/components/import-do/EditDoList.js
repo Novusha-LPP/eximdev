@@ -10,6 +10,8 @@ import { Row, Col } from "react-bootstrap";
 import { TabContext } from "./ImportDO";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+
 
 function EditDoList() {
   // Fix 1: Properly destructure all needed parameters
@@ -229,21 +231,24 @@ function EditDoList() {
   if (!job_no || !year) {
     return (
       <div>
-        <Box sx={{ mb: 2 }}>
-          <Button
-            variant="contained"
-            onClick={handleBackToJobList}
-            sx={{
-              backgroundColor: "#1976d2",
-              color: "white",
-              "&:hover": {
-                backgroundColor: "#333",
-              },
-            }}
-          >
-            Back to Job List
-          </Button>
-        </Box>
+          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+            <Button
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBackToJobList}
+              sx={{
+                // fontWeight: 'bold',
+                backgroundColor: "black",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              }}
+            >
+              Back to Job List
+            </Button>
+          </Box>
+
         <div>Error: Missing job_no or year parameters in URL</div>
       </div>
     );
@@ -442,13 +447,14 @@ function EditDoList() {
         <br />
         
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <button
-            type="submit"
-            className="btn"
-            style={{ float: "right", margin: "20px" }}
-          >
-            Submit
-          </button>
+       <button
+                className="btn sticky-btn"
+                type="submit"
+                style={{ float: "right", margin: "10px" }}
+                aria-label="submit-btn"
+              >
+                Submit
+              </button>
         </div>
       </form>
 

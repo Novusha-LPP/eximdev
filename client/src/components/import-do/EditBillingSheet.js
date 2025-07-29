@@ -20,7 +20,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportDO";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
-
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 function EditBillingSheet() {
   const params = useParams();
@@ -32,23 +32,29 @@ function EditBillingSheet() {
     message: "",
   });
 
-   const { job_no, year } = params
+  const { job_no, year } = params;
   const { user } = useContext(UserContext); // Access user from context
   const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentTab } = useContext(TabContext);
   // This might be the job you're editing...
-const [param] = useSearchParams();
+  const [param] = useSearchParams();
 
-const jobId = param.get("selectedJobId");
+  const jobId = param.get("selectedJobId");
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
   // Store search parameters from location state
- React.useEffect(() => {
+  React.useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
-      
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        currentPage,
+      } = location.state;
+
       const params = {
         searchQuery,
         selectedImporter,
@@ -56,13 +62,13 @@ const jobId = param.get("selectedJobId");
         currentTab: currentTab ?? 4, // Default to Billing Sheet tab
         currentPage,
       };
-      
+
       setStoredSearchParams(params);
     }
-  }, [location.state]);  // Handle back click function
+  }, [location.state]); // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 4;
-    
+
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
@@ -89,29 +95,31 @@ const jobId = param.get("selectedJobId");
     onSubmit: async (values) => {
       try {
         // Get user info from context or localStorage fallback
-        const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?.selectedJobId || localStorage.getItem('userId') || 'unknown';
-        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
-        
+        const username =
+          user?.username || localStorage.getItem("username") || "unknown";
+        const userId =
+          user?.selectedJobId || localStorage.getItem("userId") || "unknown";
+        const userRole =
+          user?.role || localStorage.getItem("userRole") || "unknown";
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-billing/${jobId}`,
           values,
           {
             headers: {
-              'username': username,
-              'user-id': userId,
-              'user-role': userRole
-            }
+              username: username,
+              "user-id": userId,
+              "user-role": userRole,
+            },
           }
         );
-        
 
         // Update the local data state after successful update
         setData((prev) => ({
           ...prev,
           ...values,
-        }));        setFileSnackbar({
+        }));
+        setFileSnackbar({
           open: true,
           message: "Billing details updated successfully!",
         }); // Navigate back to the BillingSheet tab after submission
@@ -141,7 +149,6 @@ const jobId = param.get("selectedJobId");
       }
     },
   });
-
 
   // Fetch data when the component is mounted
   React.useEffect(() => {
@@ -179,12 +186,14 @@ const jobId = param.get("selectedJobId");
   return (
     <div style={{ margin: "20px" }}>
       {/* Back to Job List Button */}
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
         <Button
           variant="contained"
+          startIcon={<ArrowBackIcon />}
           onClick={handleBackClick}
           sx={{
-            backgroundColor: "#1976d2",
+            // fontWeight: 'bold',
+            backgroundColor: "black",
             color: "white",
             "&:hover": {
               backgroundColor: "#333",
@@ -195,13 +204,7 @@ const jobId = param.get("selectedJobId");
         </Button>
       </Box>
 
-
-{data && (
-  <JobDetailsStaticData
-    data={data}
-    params={{ job_no, year }}
-  />
-)}
+      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
       <div className="job-details-container">
         <form onSubmit={formik.handleSubmit}>
@@ -366,14 +369,23 @@ const jobId = param.get("selectedJobId");
               </Col>
             )}
           </Row>
-
-          <button
-            className="btn"
-            type="submit"
-            style={{ float: "right", marginTop: "20px" }}
-          >
-            Submit
-          </button>
+          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+            <Button
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBackClick}
+              sx={{
+                // fontWeight: 'bold',
+                backgroundColor: "black",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#333",
+                },
+              }}
+            >
+              Back to Job List
+            </Button>
+          </Box>
         </form>
       </div>
 

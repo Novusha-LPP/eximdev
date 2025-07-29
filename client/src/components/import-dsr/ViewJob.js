@@ -563,7 +563,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
   //       "Enter new document name:",
   //       currentDocument.document_name
   //     );
-  //     const newCode = prompt(
+  //     const newCode = prompt(handle
   //       "Enter new document code:",
   //       currentDocument.document_code
   //     );

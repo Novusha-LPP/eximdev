@@ -27,13 +27,14 @@ import {
   FormLabel,
   MenuItem,
   Select,
-  InputLabel
+  InputLabel,
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import { useSearchParams } from "react-router-dom";
 // Import your user context or authentication hook here
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 function EditDoCompleted() {
   const [data, setData] = useState(null);
@@ -42,7 +43,7 @@ function EditDoCompleted() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState("");
   const [showWireTransferOptions, setShowWireTransferOptions] = useState({});
-  
+
   const params = useParams();
   const { job_no, year } = params;
 
@@ -56,11 +57,11 @@ function EditDoCompleted() {
   const { selectedJobId } = location.state || {};
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext);
-  
+
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   const [param] = useSearchParams();
 
-const jobId = param.get("jobId");
+  const jobId = param.get("jobId");
   // Helper function to get current ISO string
   const getCurrentISOString = () => {
     return new Date().toISOString();
@@ -80,8 +81,14 @@ const jobId = param.get("jobId");
   // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { searchQuery, selectedImporter, selectedJobId, currentTab, currentPage } = location.state;
-      
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        currentPage,
+      } = location.state;
+
       const params = {
         searchQuery,
         selectedImporter,
@@ -89,15 +96,15 @@ const jobId = param.get("jobId");
         currentTab: currentTab ?? 3,
         currentPage,
       };
-      
-    setStoredSearchParams(params);
+
+      setStoredSearchParams(params);
     }
   }, [location.state]);
 
   // Handle back click function
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 3;
-    
+
     navigate("/import-do", {
       state: {
         fromJobDetails: true,
@@ -163,14 +170,14 @@ const jobId = param.get("jobId");
           is_tds: false,
           is_non_tds: false,
         };
-        
+
         const insuranceCopy = jobData.insurance_copy || {
           document_name: "Insurance",
           url: [],
           document_check_date: "",
           document_amount_details: "",
         };
-        
+
         const otherDoDocuments = jobData.other_do_documents || {
           document_name: "",
           url: [],
@@ -220,39 +227,45 @@ const jobId = param.get("jobId");
       do_Revalidation_Completed: false,
       container_nos: [],
 
-      do_shipping_line_invoice: [{
-        document_name: "Shipping Line Invoice",
-        url: [],
-        is_draft: false,
-        is_final: false,
-        document_check_date: "",
-        document_check_status: false,
-        payment_mode: "",
-        wire_transfer_method: "",
-        document_amount_details: "",
-        payment_request_date: "",
-        payment_made_date: "",
-        is_tds: false,
-        is_non_tds: false,
-      }],
+      do_shipping_line_invoice: [
+        {
+          document_name: "Shipping Line Invoice",
+          url: [],
+          is_draft: false,
+          is_final: false,
+          document_check_date: "",
+          document_check_status: false,
+          payment_mode: "",
+          wire_transfer_method: "",
+          document_amount_details: "",
+          payment_request_date: "",
+          payment_made_date: "",
+          is_tds: false,
+          is_non_tds: false,
+        },
+      ],
 
-      insurance_copy: [{
-        document_name: "Insurance",
-        url: [],
-        document_check_date: "",
-        document_amount_details: "",
-      }],
+      insurance_copy: [
+        {
+          document_name: "Insurance",
+          url: [],
+          document_check_date: "",
+          document_amount_details: "",
+        },
+      ],
 
       other_do_documents: [],
 
-      security_deposit: [{
-        document_name: "Security Deposit",
-        url: [],
-        document_check_date: "",
-        document_amount_details: "",
-        utr: "",
-        Validity_upto: "",
-      }],
+      security_deposit: [
+        {
+          document_name: "Security Deposit",
+          url: [],
+          document_check_date: "",
+          document_amount_details: "",
+          utr: "",
+          Validity_upto: "",
+        },
+      ],
     },
 
     onSubmit: async (values, { resetForm }) => {
@@ -270,39 +283,44 @@ const jobId = param.get("jobId");
           values.do_completed.trim() !== ""
             ? new Date(values.do_completed).toISOString()
             : "",
-        do_shipping_line_invoice: values.do_shipping_line_invoice.map(doc => ({
-          ...doc,
-          payment_mode: Array.isArray(doc.payment_mode)
-            ? doc.payment_mode.join(",")
-            : doc.payment_mode,
-        })),
+        do_shipping_line_invoice: values.do_shipping_line_invoice.map(
+          (doc) => ({
+            ...doc,
+            payment_mode: Array.isArray(doc.payment_mode)
+              ? doc.payment_mode.join(",")
+              : doc.payment_mode,
+          })
+        ),
         insurance_copy: values.insurance_copy,
         other_do_documents: values.other_do_documents,
         security_deposit: values.security_deposit,
       };
 
       try {
-        const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?.selectedJobId || localStorage.getItem('userId') || 'unknown';
-        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
-        
+        const username =
+          user?.username || localStorage.getItem("username") || "unknown";
+        const userId =
+          user?.selectedJobId || localStorage.getItem("userId") || "unknown";
+        const userRole =
+          user?.role || localStorage.getItem("userRole") || "unknown";
+
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
           dataToSubmit,
           {
             headers: {
-              'username': username,
-              'user-id': userId,
-              'user-role': userRole
-            }
+              username: username,
+              "user-id": userId,
+              "user-role": userRole,
+            },
           }
         );
-        
+
         resetForm();
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 3;
-        
+
         navigate("/import-do", {
           state: {
             fromJobDetails: true,
@@ -324,13 +342,19 @@ const jobId = param.get("jobId");
 
   // Handle payment mode change
   const handlePaymentModeChange = (docIndex, mode) => (e) => {
-    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_mode`, mode);
+    formik.setFieldValue(
+      `do_shipping_line_invoice[${docIndex}].payment_mode`,
+      mode
+    );
     if (mode !== "Wire Transfer") {
-      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].wire_transfer_method`, "");
+      formik.setFieldValue(
+        `do_shipping_line_invoice[${docIndex}].wire_transfer_method`,
+        ""
+      );
     }
-    setShowWireTransferOptions(prev => ({
+    setShowWireTransferOptions((prev) => ({
       ...prev,
-      [docIndex]: mode === "Wire Transfer"
+      [docIndex]: mode === "Wire Transfer",
     }));
   };
 
@@ -338,16 +362,23 @@ const jobId = param.get("jobId");
   const handleDocumentCheckChange = (docIndex, docType) => (e) => {
     const isChecked = e.target.checked;
     const currentTime = isChecked ? getCurrentISOString() : "";
-    
-    formik.setFieldValue(`${docType}[${docIndex}].document_check_status`, isChecked);
-    formik.setFieldValue(`${docType}[${docIndex}].document_check_date`, currentTime);
+
+    formik.setFieldValue(
+      `${docType}[${docIndex}].document_check_status`,
+      isChecked
+    );
+    formik.setFieldValue(
+      `${docType}[${docIndex}].document_check_date`,
+      currentTime
+    );
   };
 
   const handleAddDocument = () => {
     if (!selectedDocumentType) return;
-    
+
     const newDocument = {
-      document_name: selectedDocumentType === "other" ? "" : selectedDocumentType,
+      document_name:
+        selectedDocumentType === "other" ? "" : selectedDocumentType,
       url: [],
       document_check_date: "",
       document_amount_details: "",
@@ -412,50 +443,60 @@ const jobId = param.get("jobId");
   // Fetch KYC documents once data is loaded
   useEffect(() => {
     if (data) {
-      const doShippingLineInvoice = Array.isArray(data.do_shipping_line_invoice) && data.do_shipping_line_invoice.length > 0
-        ? data.do_shipping_line_invoice 
-        : [{
-            document_name: "Shipping Line Invoice",
-            url: [],
-            is_draft: false,
-            is_final: false,
-            document_check_date: "",
-            payment_mode: [],
-            document_amount_details: "",
-            payment_request_date: "",
-            payment_made_date: "",
-            is_tds: false,
-            is_non_tds: false,
-          }];
+      const doShippingLineInvoice =
+        Array.isArray(data.do_shipping_line_invoice) &&
+        data.do_shipping_line_invoice.length > 0
+          ? data.do_shipping_line_invoice
+          : [
+              {
+                document_name: "Shipping Line Invoice",
+                url: [],
+                is_draft: false,
+                is_final: false,
+                document_check_date: "",
+                payment_mode: [],
+                document_amount_details: "",
+                payment_request_date: "",
+                payment_made_date: "",
+                is_tds: false,
+                is_non_tds: false,
+              },
+            ];
 
-      const securityDeposit = Array.isArray(data.security_deposit) && data.security_deposit.length > 0
-        ? data.security_deposit 
-        : [{
-            document_name: "Security Deposit",
-            url: [],
-            document_check_date: "",
-            document_amount_details: "",
-            utr: "",
-            Validity_upto: "",
-          }];
-      
+      const securityDeposit =
+        Array.isArray(data.security_deposit) && data.security_deposit.length > 0
+          ? data.security_deposit
+          : [
+              {
+                document_name: "Security Deposit",
+                url: [],
+                document_check_date: "",
+                document_amount_details: "",
+                utr: "",
+                Validity_upto: "",
+              },
+            ];
+
       const wireTransferState = {};
       doShippingLineInvoice.forEach((doc, index) => {
         wireTransferState[index] = doc.payment_mode === "Wire Transfer";
       });
       setShowWireTransferOptions(wireTransferState);
 
-      const insuranceCopy = Array.isArray(data.insurance_copy) && data.insurance_copy.length > 0
-        ? data.insurance_copy 
-        : [{
-            document_name: "Insurance",
-            url: [],
-            document_check_date: "",
-            document_amount_details: "",
-          }];
-      
-      const otherDoDocuments = Array.isArray(data.other_do_documents) 
-        ? data.other_do_documents 
+      const insuranceCopy =
+        Array.isArray(data.insurance_copy) && data.insurance_copy.length > 0
+          ? data.insurance_copy
+          : [
+              {
+                document_name: "Insurance",
+                url: [],
+                document_check_date: "",
+                document_amount_details: "",
+              },
+            ];
+
+      const otherDoDocuments = Array.isArray(data.other_do_documents)
+        ? data.other_do_documents
         : [];
 
       const updatedData = {
@@ -480,7 +521,7 @@ const jobId = param.get("jobId");
       };
 
       formik.setValues(updatedData);
-     
+
       async function getKycDocs() {
         const importer = data.importer;
         const shipping_line_airline = data.shipping_line_airline;
@@ -506,7 +547,13 @@ const jobId = param.get("jobId");
       {/* Render all shipping line invoice documents */}
       {formik.values.do_shipping_line_invoice.map((doc, index) => (
         <React.Fragment key={index}>
-          {renderDocumentSection(doc, index, "do_shipping_line_invoice", index > 0, user)}
+          {renderDocumentSection(
+            doc,
+            index,
+            "do_shipping_line_invoice",
+            index > 0,
+            user
+          )}
         </React.Fragment>
       ))}
       {/* Render all insurance copy documents */}
@@ -519,7 +566,16 @@ const jobId = param.get("jobId");
       )}
 
       {/* DO Copies Row - show below security deposit */}
-      <div style={{ margin: '16px 0 8px 0', fontWeight: 600, fontSize: '1.1rem', color: '#1a237e' }}>DO Copies</div>
+      <div
+        style={{
+          margin: "16px 0 8px 0",
+          fontWeight: 600,
+          fontSize: "1.1rem",
+          color: "#1a237e",
+        }}
+      >
+        DO Copies
+      </div>
       <Row>
         <Col>
           <FileUpload
@@ -550,7 +606,14 @@ const jobId = param.get("jobId");
         renderDocumentSection(doc, index, "other_do_documents", true, user)
       )}
       {/* Dropdown and Add Document Button (enabled) */}
-      <div style={{ marginTop: "20px", padding: "15px", border: "2px dashed #ccc", borderRadius: "5px" }}>
+      <div
+        style={{
+          marginTop: "20px",
+          padding: "15px",
+          border: "2px dashed #ccc",
+          borderRadius: "5px",
+        }}
+      >
         <Row>
           <Col xs={12} md={6}>
             <FormControl fullWidth size="small">
@@ -560,7 +623,9 @@ const jobId = param.get("jobId");
                 onChange={(e) => setSelectedDocumentType(e.target.value)}
                 label="Select Document Type"
               >
-                <MenuItem value="Shipping Line Invoice">Shipping Line Invoice</MenuItem>
+                <MenuItem value="Shipping Line Invoice">
+                  Shipping Line Invoice
+                </MenuItem>
                 <MenuItem value="Insurance">Insurance Copy</MenuItem>
                 <MenuItem value="Security Deposit">Security Deposit</MenuItem>
                 <MenuItem value="other">Other Document</MenuItem>
@@ -583,36 +648,74 @@ const jobId = param.get("jobId");
   );
 
   // Render document section function (all fields enabled, draft/final, add/remove, etc.)
-  const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user) => {
+  const renderDocumentSection = (
+    doc,
+    docIndex,
+    docType,
+    isRemovable = false,
+    user
+  ) => {
     const isShippingInvoice = docType === "do_shipping_line_invoice";
     const isSecurityDeposit = docType === "security_deposit";
-    const bucketPath = docType === "do_shipping_line_invoice" ? "do_shipping_line_invoice" :
-      docType === "insurance_copy" ? "insurance_copy" :
-      docType === "security_deposit" ? "security_deposit" : "other_do_documents";
+    const bucketPath =
+      docType === "do_shipping_line_invoice"
+        ? "do_shipping_line_invoice"
+        : docType === "insurance_copy"
+        ? "insurance_copy"
+        : docType === "security_deposit"
+        ? "security_deposit"
+        : "other_do_documents";
     // Draft/Final radio button handler
     const handleDraftFinalChange = (type) => (e) => {
-      if (type === 'draft') {
-        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_draft`, true);
-        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_final`, false);
+      if (type === "draft") {
+        formik.setFieldValue(
+          `do_shipping_line_invoice[${docIndex}].is_draft`,
+          true
+        );
+        formik.setFieldValue(
+          `do_shipping_line_invoice[${docIndex}].is_final`,
+          false
+        );
       } else {
-        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_draft`, false);
-        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_final`, true);
+        formik.setFieldValue(
+          `do_shipping_line_invoice[${docIndex}].is_draft`,
+          false
+        );
+        formik.setFieldValue(
+          `do_shipping_line_invoice[${docIndex}].is_final`,
+          true
+        );
       }
     };
     // Payment mode change handler
     const handlePaymentModeChange = (mode) => (e) => {
-      formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_mode`, mode);
+      formik.setFieldValue(
+        `do_shipping_line_invoice[${docIndex}].payment_mode`,
+        mode
+      );
       if (mode !== "Wire Transfer") {
-        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].wire_transfer_method`, "");
+        formik.setFieldValue(
+          `do_shipping_line_invoice[${docIndex}].wire_transfer_method`,
+          ""
+        );
       }
-      setShowWireTransferOptions(prev => ({ ...prev, [docIndex]: mode === "Wire Transfer" }));
+      setShowWireTransferOptions((prev) => ({
+        ...prev,
+        [docIndex]: mode === "Wire Transfer",
+      }));
     };
     // Document check status handler
     const handleDocumentCheckChange = (e) => {
       const isChecked = e.target.checked;
       const currentTime = isChecked ? new Date().toISOString() : "";
-      formik.setFieldValue(`${docType}[${docIndex}].document_check_status`, isChecked);
-      formik.setFieldValue(`${docType}[${docIndex}].document_check_date`, currentTime);
+      formik.setFieldValue(
+        `${docType}[${docIndex}].document_check_status`,
+        isChecked
+      );
+      formik.setFieldValue(
+        `${docType}[${docIndex}].document_check_date`,
+        currentTime
+      );
     };
     return (
       <div
@@ -629,8 +732,24 @@ const jobId = param.get("jobId");
         }}
         className="charges-section-card"
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-          <h5 style={{ margin: 0, fontWeight: 600, color: '#1a237e', letterSpacing: 0.5 }}>{doc.document_name || 'Document'}</h5>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "18px",
+          }}
+        >
+          <h5
+            style={{
+              margin: 0,
+              fontWeight: 600,
+              color: "#1a237e",
+              letterSpacing: 0.5,
+            }}
+          >
+            {doc.document_name || "Document"}
+          </h5>
           {isRemovable && user?.role === "Admin" && (
             <Button
               variant="outlined"
@@ -647,15 +766,27 @@ const jobId = param.get("jobId");
         {isShippingInvoice && (
           <Row style={{ marginBottom: 8 }}>
             <Col xs={12}>
-              <FormControl component="fieldset" sx={{ width: '100%' }}>
-                <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Document Status</FormLabel>
-                <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+              <FormControl component="fieldset" sx={{ width: "100%" }}>
+                <FormLabel
+                  component="legend"
+                  sx={{ fontWeight: 500, color: "#333" }}
+                >
+                  Document Status
+                </FormLabel>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "32px",
+                    marginTop: 12,
+                    alignItems: "center",
+                  }}
+                >
                   <FormControlLabel
                     control={
                       <input
                         type="radio"
                         checked={doc.is_draft}
-                        onChange={handleDraftFinalChange('draft')}
+                        onChange={handleDraftFinalChange("draft")}
                         name={`draft_final_${docIndex}`}
                         style={{ marginRight: 8 }}
                       />
@@ -668,7 +799,7 @@ const jobId = param.get("jobId");
                       <input
                         type="radio"
                         checked={doc.is_final}
-                        onChange={handleDraftFinalChange('final')}
+                        onChange={handleDraftFinalChange("final")}
                         name={`draft_final_${docIndex}`}
                         style={{ marginRight: 8 }}
                       />
@@ -682,7 +813,11 @@ const jobId = param.get("jobId");
           </Row>
         )}
         <Row>
-          <Col xs={12} md={6} style={{ borderRight: '1px solid #f0f0f0', paddingRight: 24 }}>
+          <Col
+            xs={12}
+            md={6}
+            style={{ borderRight: "1px solid #f0f0f0", paddingRight: 24 }}
+          >
             {docType === "other_do_documents" && (
               <TextField
                 fullWidth
@@ -703,7 +838,10 @@ const jobId = param.get("jobId");
               onFilesUploaded={(newFiles) => {
                 const existingFiles = doc.url || [];
                 const updatedFiles = [...existingFiles, ...newFiles];
-                formik.setFieldValue(`${docType}[${docIndex}].url`, updatedFiles);
+                formik.setFieldValue(
+                  `${docType}[${docIndex}].url`,
+                  updatedFiles
+                );
                 setFileSnackbar(true);
               }}
               multiple={true}
@@ -713,7 +851,10 @@ const jobId = param.get("jobId");
               onDeleteImage={(index) => {
                 const updatedFiles = [...doc.url];
                 updatedFiles.splice(index, 1);
-                formik.setFieldValue(`${docType}[${docIndex}].url`, updatedFiles);
+                formik.setFieldValue(
+                  `${docType}[${docIndex}].url`,
+                  updatedFiles
+                );
                 setFileSnackbar(true);
               }}
             />
@@ -742,10 +883,13 @@ const jobId = param.get("jobId");
                 id={`${docType}[${docIndex}].document_check_date`}
                 name={`${docType}[${docIndex}].document_check_date`}
                 label="Document Check Date"
-                value={new Date(doc.document_check_date).toLocaleString("en-US", {
-                  timeZone: "Asia/Kolkata",
-                  hour12: true,
-                })}
+                value={new Date(doc.document_check_date).toLocaleString(
+                  "en-US",
+                  {
+                    timeZone: "Asia/Kolkata",
+                    hour12: true,
+                  }
+                )}
                 disabled={true}
                 sx={{ mb: 2 }}
               />
@@ -802,9 +946,21 @@ const jobId = param.get("jobId");
           <>
             <Row style={{ marginTop: 8 }}>
               <Col xs={12} md={6}>
-                <FormControl component="fieldset" sx={{ width: '100%' }}>
-                  <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Payment Mode</FormLabel>
-                  <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                <FormControl component="fieldset" sx={{ width: "100%" }}>
+                  <FormLabel
+                    component="legend"
+                    sx={{ fontWeight: 500, color: "#333" }}
+                  >
+                    Payment Mode
+                  </FormLabel>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "32px",
+                      marginTop: 12,
+                      alignItems: "center",
+                    }}
+                  >
                     <FormControlLabel
                       control={
                         <input
@@ -828,14 +984,35 @@ const jobId = param.get("jobId");
                           style={{ marginRight: 8 }}
                         />
                       }
-                      label={<span style={{ marginLeft: 4 }}>Wire Transfer</span>}
+                      label={
+                        <span style={{ marginLeft: 4 }}>Wire Transfer</span>
+                      }
                       sx={{ mr: 3 }}
                     />
                   </div>
                   {doc.payment_mode === "Wire Transfer" && (
-                    <div style={{ marginLeft: "30px", padding: "10px 0 0 0", borderLeft: "2px solid #ddd", marginTop: "10px" }}>
-                      <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Wire Transfer Method</FormLabel>
-                      <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                    <div
+                      style={{
+                        marginLeft: "30px",
+                        padding: "10px 0 0 0",
+                        borderLeft: "2px solid #ddd",
+                        marginTop: "10px",
+                      }}
+                    >
+                      <FormLabel
+                        component="legend"
+                        sx={{ fontWeight: 500, color: "#333" }}
+                      >
+                        Wire Transfer Method
+                      </FormLabel>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "32px",
+                          marginTop: 12,
+                          alignItems: "center",
+                        }}
+                      >
                         {["RTGS", "NEFT", "IMPS"].map((method) => (
                           <FormControlLabel
                             key={method}
@@ -843,12 +1020,19 @@ const jobId = param.get("jobId");
                               <input
                                 type="radio"
                                 checked={doc.wire_transfer_method === method}
-                                onChange={() => formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].wire_transfer_method`, method)}
+                                onChange={() =>
+                                  formik.setFieldValue(
+                                    `do_shipping_line_invoice[${docIndex}].wire_transfer_method`,
+                                    method
+                                  )
+                                }
                                 name={`wire_transfer_method_${docIndex}`}
                                 style={{ marginRight: 8 }}
                               />
                             }
-                            label={<span style={{ marginLeft: 4 }}>{method}</span>}
+                            label={
+                              <span style={{ marginLeft: 4 }}>{method}</span>
+                            }
                             sx={{ mr: 3 }}
                           />
                         ))}
@@ -858,17 +1042,35 @@ const jobId = param.get("jobId");
                 </FormControl>
               </Col>
               <Col xs={12} md={6}>
-                <FormControl component="fieldset" sx={{ width: '100%' }}>
-                  <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>TDS</FormLabel>
-                  <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                <FormControl component="fieldset" sx={{ width: "100%" }}>
+                  <FormLabel
+                    component="legend"
+                    sx={{ fontWeight: 500, color: "#333" }}
+                  >
+                    TDS
+                  </FormLabel>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "32px",
+                      marginTop: 12,
+                      alignItems: "center",
+                    }}
+                  >
                     <FormControlLabel
                       control={
                         <input
                           type="radio"
                           checked={doc.is_tds}
                           onChange={() => {
-                            formik.setFieldValue(`${docType}[${docIndex}].is_tds`, true);
-                            formik.setFieldValue(`${docType}[${docIndex}].is_non_tds`, false);
+                            formik.setFieldValue(
+                              `${docType}[${docIndex}].is_tds`,
+                              true
+                            );
+                            formik.setFieldValue(
+                              `${docType}[${docIndex}].is_non_tds`,
+                              false
+                            );
                           }}
                           name={`tds_group_${docIndex}`}
                           style={{ marginRight: 8 }}
@@ -883,8 +1085,14 @@ const jobId = param.get("jobId");
                           type="radio"
                           checked={doc.is_non_tds}
                           onChange={() => {
-                            formik.setFieldValue(`${docType}[${docIndex}].is_tds`, false);
-                            formik.setFieldValue(`${docType}[${docIndex}].is_non_tds`, true);
+                            formik.setFieldValue(
+                              `${docType}[${docIndex}].is_tds`,
+                              false
+                            );
+                            formik.setFieldValue(
+                              `${docType}[${docIndex}].is_non_tds`,
+                              true
+                            );
                           }}
                           name={`tds_group_${docIndex}`}
                           style={{ marginRight: 8 }}
@@ -903,10 +1111,18 @@ const jobId = param.get("jobId");
                   control={
                     <Checkbox
                       checked={!!doc.payment_request_date}
-                      onChange={e => {
-                        const value = e.target.checked ? new Date().toISOString() : "";
-                        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_request_date`, value);
-                        formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].is_payment_requested`, e.target.checked);
+                      onChange={(e) => {
+                        const value = e.target.checked
+                          ? new Date().toISOString()
+                          : "";
+                        formik.setFieldValue(
+                          `do_shipping_line_invoice[${docIndex}].payment_request_date`,
+                          value
+                        );
+                        formik.setFieldValue(
+                          `do_shipping_line_invoice[${docIndex}].is_payment_requested`,
+                          e.target.checked
+                        );
                       }}
                       name={`do_shipping_line_invoice[${docIndex}].is_payment_requested`}
                       color="primary"
@@ -914,7 +1130,9 @@ const jobId = param.get("jobId");
                   }
                   label={
                     doc.payment_request_date
-                      ? `Payment Requested: ${new Date(doc.payment_request_date).toLocaleString("en-IN", { hour12: true })}`
+                      ? `Payment Requested: ${new Date(
+                          doc.payment_request_date
+                        ).toLocaleString("en-IN", { hour12: true })}`
                       : "Payment Requested"
                   }
                   sx={{ mb: 2 }}
@@ -930,7 +1148,12 @@ const jobId = param.get("jobId");
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ color: "#007bff", textDecoration: "underline", display: "block", marginTop: "4px" }}
+                          style={{
+                            color: "#007bff",
+                            textDecoration: "underline",
+                            display: "block",
+                            marginTop: "4px",
+                          }}
                         >
                           Receipt {i + 1}
                         </a>
@@ -951,7 +1174,9 @@ const jobId = param.get("jobId");
                   }
                   label={
                     doc.payment_made_date
-                      ? `Payment Made: ${new Date(doc.payment_made_date).toLocaleString("en-IN", { hour12: true })}`
+                      ? `Payment Made: ${new Date(
+                          doc.payment_made_date
+                        ).toLocaleString("en-IN", { hour12: true })}`
                       : "Payment Made"
                   }
                   sx={{ mb: 2 }}
@@ -1012,8 +1237,6 @@ const jobId = param.get("jobId");
       ],
     });
   };
-
-  
 
   // Handle checkbox change for do_completed
   const handleCheckboxChange = (event) => {
@@ -1114,16 +1337,18 @@ const jobId = param.get("jobId");
 
   if (!data) return <p>Failed to load job details.</p>; // Handle missing data
 
-    // Fix 7: Add loading state and error handling before return
-    if (!job_no || !year) {
-      return (
-        <div>
-          <Box sx={{ mb: 2 }}>
+  // Fix 7: Add loading state and error handling before return
+  if (!job_no || !year) {
+    return (
+      <div>
+          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
             <Button
               variant="contained"
+              startIcon={<ArrowBackIcon />}
               onClick={handleBackClick}
               sx={{
-                backgroundColor: "#1976d2",
+                // fontWeight: 'bold',
+                backgroundColor: "black",
                 color: "white",
                 "&:hover": {
                   backgroundColor: "#333",
@@ -1133,16 +1358,15 @@ const jobId = param.get("jobId");
               Back to Job List
             </Button>
           </Box>
-          <div>Error: Missing job_no or year parameters in URL</div>
-        </div>
-      );
-    }
-  
+        <div>Error: Missing job_no or year parameters in URL</div>
+      </div>
+    );
+  }
 
   return (
     <>
       {/* Back to Job List Button */}
-      <Box sx={{ mb: 2 }}>
+          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
         <Button
           variant="contained"
           onClick={handleBackClick}
@@ -1158,12 +1382,7 @@ const jobId = param.get("jobId");
         </Button>
       </Box>
 
-      {data && (
-  <JobDetailsStaticData
-    data={data}
-    params={{ job_no, year }}
-  />
-)}
+      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
       <div style={{ margin: "20px 0" }}>
         {data && (
@@ -1186,7 +1405,7 @@ const jobId = param.get("jobId");
                 {data.obl_telex_bl || "N/A"}
                 <br />
               </div>
-{/* 
+              {/* 
               <div className="job-details-container">
                 <FormControlLabel
                   control={
@@ -1422,15 +1641,15 @@ const jobId = param.get("jobId");
                         variant="outlined"
                         id={`do_queries[${id}].query`}
                         name={`do_queries[${id}].query`}
-                              label="Query"
+                        label="Query"
                         value={item.query}
-                              onChange={formik.handleChange}
+                        onChange={formik.handleChange}
                       />
                       {item.reply}
                     </div>
                   );
                 })}
-                
+
                 <br />
               </div>
 
@@ -1443,7 +1662,7 @@ const jobId = param.get("jobId");
                         <Checkbox
                           checked={formik.values.do_completed !== ""}
                           onChange={handleCheckboxChange}
-                          disabled= {true} // Disable based on derived state
+                          disabled={true} // Disable based on derived state
                           name="do_completed"
                           color="primary"
                         />
@@ -1483,12 +1702,11 @@ const jobId = param.get("jobId");
                         InputLabelProps={{
                           shrink: true,
                         }}
-                        disabled= {true} // Disable based on derived state
+                        disabled={true} // Disable based on derived state
                       />
                     </Col>
                   )}
                 </Row>
-            
               </div>
 
               <br />
@@ -1496,12 +1714,11 @@ const jobId = param.get("jobId");
                 <JobDetailsRowHeading heading="Container Details" />
 
                 {renderContainerDetails()}
-
               </div>
 
               {renderChargesSection()}
               <button
-                className="btn"
+                className="btn sticky-btn"
                 type="submit"
                 style={{ float: "right", margin: "10px" }}
                 aria-label="submit-btn"

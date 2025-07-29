@@ -325,7 +325,7 @@ const DoDocCountsDisplay = () => (
 
     return (
      <Link
-  to={`/edit-do-planning/${job_no}/${year}?jobId=${_id}}`}
+  to={`/edit-do-planning/${job_no}/${year}?jobId=${_id}`}
   target="_blank"
 
         // target="_blank" // open in new tab
@@ -360,6 +360,14 @@ const DoDocCountsDisplay = () => (
         const isDoDocPrepared = row.original.is_do_doc_prepared || false;
         const [checked, setChecked] = React.useState(isDoDocPrepared);
 
+        // Get payment_recipt_date from do_shipping_line_invoice[0] if present
+        const doShippingLineInvoice = row.original.do_shipping_line_invoice;
+        let paymentReciptDate = '';
+        if (Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0) {
+          paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
+        }
+
+        
         const handleToggleDoDocPrepared = async (event) => {
           const newValue = event.target.checked;
           setChecked(newValue);
@@ -392,6 +400,11 @@ const DoDocCountsDisplay = () => (
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
+            {paymentReciptDate && (
+              <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
+                Payment Receipt Uploaded: {new Date(paymentReciptDate).toLocaleString('en-IN', { hour12: true })}
+              </div>
+            )}
             <br />
             <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', marginTop: '4px' }}>
               <input

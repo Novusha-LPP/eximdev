@@ -45,7 +45,8 @@ function EditPaymentRequest() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState("");
   const [showWireTransferOptions, setShowWireTransferOptions] = useState({});
-  
+  const [receiptTime, setReceiptTime] = useState("");
+
   const params = useParams();
   const { job_no, year } = params;
 
@@ -936,6 +937,8 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
                     const existingFiles = doc.payment_recipt || [];
                     const updatedFiles = [...existingFiles, ...newFiles];
                     formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_recipt`, updatedFiles);
+                    // Set the current date/time when a receipt is uploaded
+                    formik.setFieldValue(`do_shipping_line_invoice[${docIndex}].payment_recipt_date`, new Date().toISOString());
                     setFileSnackbar(true);
                   }}
                   multiple={true}
@@ -952,6 +955,12 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
                 {(!doc.payment_recipt || doc.payment_recipt.length === 0) && (
                   <div style={{ color: "#f44336", fontSize: "0.875rem", marginTop: "8px" }}>
                     * Payment receipt is required to submit the form
+                  </div>
+                )}
+                {/* Show payment receipt upload date/time if available */}
+                {doc.payment_recipt_date && (
+                  <div style={{ color: "#1976d2", fontSize: "0.95rem", marginTop: "8px" }}>
+                    Uploaded on: {new Date(doc.payment_recipt_date).toLocaleString("en-IN", { hour12: true })}
                   </div>
                 )}
               </Col>

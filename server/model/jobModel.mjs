@@ -397,6 +397,7 @@ do_shipping_line_invoice: [{
   is_payment_requested: { type: Boolean, default: false },
   is_non_tds: { type: Boolean, default: false },
   payment_recipt: [{ type: String, trim: true }],
+  payment_recipt_date: { type: String, trim: true },
 }],
 
 insurance_copy: [{

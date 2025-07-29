@@ -89,6 +89,9 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
     }${
+      railOutDates ? ` | ${railOutDates}` : ""
+    }
+    ${
       item.examination_date
         ? ` | Examination Date: ${formatDate(item.examination_date)}`
         : ""
@@ -104,9 +107,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
     }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${
       item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
-    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
-      railOutDates ? ` | ${railOutDates}` : ""
-    }`;
+    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
 
     const arrivalDates = formatContainerDates(
       item.container_nos,

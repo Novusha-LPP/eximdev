@@ -312,22 +312,50 @@ function DoCompleted() {
       header: "Importer",
       enableSorting: false,
       size: 250,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const importerName = cell?.getValue()?.toString();
+        const doShippingLineInvoice = row.original.do_shipping_line_invoice;
+        let paymentReciptDate = '';
+        if (Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0) {
+          paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
+        }
         return (
           <React.Fragment>
-            {cell?.getValue()?.toString()}
-
+            {importerName}
             <IconButton
               size="small"
               onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
+                handleCopy(event, importerName);
               }}
             >
               <abbr title="Copy Party Name">
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
+            {/* Show payment receipt links if available */}
+            {Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0 && doShippingLineInvoice.map((invoice, idx) =>
+              invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
+                <div key={idx} style={{ fontSize: '11px', color: '#388e3c', marginTop: '2px' }}>
+                  {invoice.payment_recipt.map((url, i) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#388e3c', textDecoration: 'underline', marginRight: 8 }}
+                    >
+                      View Payment Receipt {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ''}
+                    </a>
+                  ))}
+                </div>
+              ) : null
+            )}
+            {paymentReciptDate && (
+              <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
+                Payment Receipt Uploaded: {new Date(paymentReciptDate).toLocaleString('en-IN', { hour12: true })}
+              </div>
+            )}
             <br />
           </React.Fragment>
         );

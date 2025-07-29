@@ -106,8 +106,9 @@ export const convertToExcel = async (
       item.discharge_date ? item.discharge_date : item.vessel_berthing || ''
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
-    }
-    ${
+    }${
+      railOutDates ? ` | ${railOutDates}` : ""
+    }${
       item.duty_paid_date
         ? ` | Duty Paid Date: ${formatDate(item.duty_paid_date)}`
         : ""
@@ -127,8 +128,7 @@ export const convertToExcel = async (
               : `DOC-RCVD: ${item.document_received_date || ''}`
           }`
         : ""    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
-      item.remarks ? ` | Remarks: ${item.remarks}` : ""}${
-      railOutDates ? ` | ${railOutDates}` : ""
+      item.remarks ? ` | Remarks: ${item.remarks}` : ""}
     }${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
 
     // Safely handle container dates

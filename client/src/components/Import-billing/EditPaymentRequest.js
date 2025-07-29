@@ -637,6 +637,44 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
           </Button>
         )}
       </div>
+      {/* Draft/Final radio buttons for Shipping Line Invoice, disabled */}
+      {isShippingInvoice && (
+        <Row style={{ marginBottom: 8 }}>
+          <Col xs={12}>
+            <FormControl component="fieldset" sx={{ width: '100%' }} disabled={true}>
+              <FormLabel component="legend" sx={{ fontWeight: 500, color: '#333' }}>Document Status</FormLabel>
+              <div style={{ display: "flex", gap: "32px", marginTop: 12, alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <input
+                      type="radio"
+                      checked={doc.is_draft}
+                      name={`draft_final_${docIndex}`}
+                      style={{ marginRight: 8 }}
+                      disabled={true}
+                    />
+                  }
+                  label={<span style={{ marginLeft: 4 }}>Draft</span>}
+                  sx={{ mr: 3 }}
+                />
+                <FormControlLabel
+                  control={
+                    <input
+                      type="radio"
+                      checked={doc.is_final}
+                      name={`draft_final_${docIndex}`}
+                      style={{ marginRight: 8 }}
+                      disabled={true}
+                    />
+                  }
+                  label={<span style={{ marginLeft: 4 }}>Final</span>}
+                  sx={{ mr: 3 }}
+                />
+              </div>
+            </FormControl>
+          </Col>
+        </Row>
+      )}
       <Row>
         <Col xs={12} md={6} style={{ borderRight: '1px solid #f0f0f0', paddingRight: 24 }}>
           {docType === "other_do_documents" && (
@@ -690,7 +728,6 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
                 onChange={handleDocumentCheckChange(docIndex, docType)}
                 name={`${docType}[${docIndex}].document_check_status`}
                 color="primary"
-                disabled={true} // Disable checkbox
               />
             }
             label={<span style={{ fontWeight: 500 }}>Document Checked</span>}

@@ -892,6 +892,7 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
                 checked={doc.document_check_status || false}
                 onChange={handleDocumentCheckChange(docIndex, docType)}
                 name={`${docType}[${docIndex}].document_check_status`}
+                disabled={true}
                 color="primary"
               />
             }

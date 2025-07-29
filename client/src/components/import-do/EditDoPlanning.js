@@ -705,6 +705,7 @@ const renderChargesSection = () => (
     {/* DO Copies Row - show below security deposit */}
     <Row>
       <Col>
+        <h6 style={{ marginBottom: '8px', fontWeight: 600, color: '#1a237e' }}>DO Copies</h6>
         <FileUpload
           label="Upload DO Copies"
           bucketPath="do_copies"

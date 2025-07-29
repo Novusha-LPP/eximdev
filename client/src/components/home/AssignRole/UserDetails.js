@@ -139,6 +139,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
         {/* Importers Autocomplete */}
         <Autocomplete
           multiple
+          disableCloseOnSelect
           options={formattedImporterOptions}
           getOptionLabel={(option) => option.name}
           value={selectedOptions}

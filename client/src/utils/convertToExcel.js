@@ -129,7 +129,7 @@ export const convertToExcel = async (
           }`
         : ""    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
       item.remarks ? ` | Remarks: ${item.remarks}` : ""}
-    }${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
+    ${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
 
     // Safely handle container dates
     const arrivalDates = item.container_nos && item.container_nos.length > 0 

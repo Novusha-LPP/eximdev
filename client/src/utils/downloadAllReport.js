@@ -77,6 +77,13 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     )}`;
     const blNoAndDate = `${item.awb_bl_no} | ${formatDate(item.awb_bl_date)}`;
     const beNoAndDate = `${item.be_no} | ${formatDate(item.be_date)}`;
+    // Collect all container_rail_out_date values from container_nos
+    const railOutDates = (item.container_nos || [])
+      .map((container) => container.container_rail_out_date)
+      .filter((date) => date)
+      .map((date) => `Rail Out Date: ${formatDate(date)}`)
+      .join(" | ");
+
     const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
       item.discharge_date ? item.discharge_date : item.vessel_berthing
     }${
@@ -97,7 +104,9 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
     }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${
       item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
-    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
+    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
+      railOutDates ? ` | ${railOutDates}` : ""
+    }`;
 
     const arrivalDates = formatContainerDates(
       item.container_nos,

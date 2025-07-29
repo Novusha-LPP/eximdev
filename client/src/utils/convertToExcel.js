@@ -90,10 +90,19 @@ export const convertToExcel = async (
     const invoiceNoAndDate = `${item.invoice_number || ''} | ${formatDate(
       item.invoice_date
     )}`;
+
+
     
     const blNoAndDate = `${item.awb_bl_no || ''} | ${formatDate(item.awb_bl_date)}`;
     const beNoAndDate = `${item.be_no || ''} | ${formatDate(item.be_date)}`;
-      const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
+    // Collect all container_rail_out_date values from container_nos
+    const railOutDates = (item.container_nos || [])
+      .map((container) => container.container_rail_out_date)
+      .filter((date) => date)
+      .map((date) => `Rail Out Date: ${formatDate(date)}`)
+      .join(" | ");
+
+    const remarks = `${item.discharge_date ? "Discharge Date: " : "ETA: "}${
       item.discharge_date ? item.discharge_date : item.vessel_berthing || ''
     }${
       item.assessment_date ? ` | Assessment Date: ${item.assessment_date}` : ""
@@ -118,7 +127,8 @@ export const convertToExcel = async (
               : `DOC-RCVD: ${item.document_received_date || ''}`
           }`
         : ""    }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${
-      item.remarks ? ` | Remarks: ${item.remarks}` : ""
+      item.remarks ? ` | Remarks: ${item.remarks}` : ""}${
+      railOutDates ? ` | ${railOutDates}` : ""
     }${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
 
     // Safely handle container dates

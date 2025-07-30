@@ -558,17 +558,11 @@ function useFetchJobDetails(
       );
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
-      navigate("/import-dsr", {
-        state: {
-          fromJobDetails: true,
-          ...(storedSearchParams && {
-            searchQuery: storedSearchParams.searchQuery,
-            detailedStatus: storedSearchParams.detailedStatus,
-            selectedICD: storedSearchParams.selectedICD,
-            selectedImporter: storedSearchParams.selectedImporter,
-          }),
-        },
-      });
+           // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
     },
   });
   const filteredClearanceOptions =

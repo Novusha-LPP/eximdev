@@ -23,7 +23,8 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+    const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   
   const [rows, setRows] = useState([]);

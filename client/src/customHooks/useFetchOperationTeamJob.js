@@ -101,20 +101,11 @@ function useFetchOperationTeamJob(params) {
         setCurrentTab(tabIndex);
         
         // Navigate back with all the stored search parameters
-        navigate("/import-operations", {
-          state: {
-            fromJobDetails: true,
-            tabIndex: tabIndex,
-            selectedJobId: params.job_no,
-            ...(storedSearchParams && {
-              searchQuery: storedSearchParams.searchQuery,
-              selectedImporter: storedSearchParams.selectedImporter,
-              selectedICD: storedSearchParams.selectedICD,
-              selectedYearState: storedSearchParams.selectedYearState,              detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
-              currentPage: storedSearchParams.currentPage,
-            }),
-          },
-        });
+            // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
         
       } catch (error) {
         console.error("Error updating job:", error);

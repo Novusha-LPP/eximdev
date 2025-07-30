@@ -143,17 +143,11 @@ const SubmissionJob = () => {
         }
       );
 
-      navigate("/submission", {
-        state: {
-          fromJobDetails: true,
-          ...(storedSearchParams && {
-            searchQuery: storedSearchParams.searchQuery,
-            selectedImporter: storedSearchParams.selectedImporter,
-            selectedJobId: storedSearchParams.selectedJobId,
-            currentPage: storedSearchParams.currentPage,
-          }),
-        },
-      });
+          // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
       await fetchJobDetails();
     } catch (error) {
       console.error("Error updating job details:", error);

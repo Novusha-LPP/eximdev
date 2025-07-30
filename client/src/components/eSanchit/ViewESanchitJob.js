@@ -193,28 +193,31 @@ function ViewESanchitJob() {
         );
         setSnackbar(true);
 
-        // Determine which tab to navigate to
-        const tabIndex = storedSearchParams?.currentTab ?? 0;
+        // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
 
-        // Set the current tab in context
-        setCurrentTab(tabIndex);
-
-        // Navigate back with all the stored search parameters
-        navigate("/e-sanchit", {
-          state: {
-            fromJobDetails: true,
-            tabIndex: tabIndex,
-            selectedJobId: params.job_no,
-            ...(storedSearchParams && {
-              searchQuery: storedSearchParams.searchQuery,
-              selectedImporter: storedSearchParams.selectedImporter,
-              selectedICD: storedSearchParams.selectedICD,
-              selectedYearState: storedSearchParams.selectedYearState,
-              detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
-              page: storedSearchParams.page,
-            }),
-          },
-        });
+        // If window.close() fails (e.g., not opened by script), fallback to navigation
+        // setTimeout(() => {
+        //   const tabIndex = storedSearchParams?.currentTab ?? 0;
+        //   setCurrentTab(tabIndex);
+        //   navigate("/e-sanchit", {
+        //     state: {
+        //       fromJobDetails: true,
+        //       tabIndex: tabIndex,
+        //       selectedJobId: params.job_no,
+        //       ...(storedSearchParams && {
+        //         searchQuery: storedSearchParams.searchQuery,
+        //         selectedImporter: storedSearchParams.selectedImporter,
+        //         selectedICD: storedSearchParams.selectedICD,
+        //         selectedYearState: storedSearchParams.selectedYearState,
+        //         detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+        //         page: storedSearchParams.page,
+        //       }),
+        //     },
+        //   });
+        // }, 1000);
       } catch (error) {
         console.error("Error updating job:", error);
       }

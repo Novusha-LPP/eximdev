@@ -144,17 +144,11 @@ const DocumentationJob = () => {
         }
       );
       // Navigate back with preserved search parameters
-      const tabIndex = storedSearchParams?.currentTab ?? 0;
-      navigate("/documentation", {
-        state: {
-          fromJobDetails: true,
-          tabIndex: tabIndex, // Use tabIndex instead of currentTab
-          ...(storedSearchParams && {
-            searchQuery: storedSearchParams.searchQuery,
-            selectedImporter: storedSearchParams.selectedImporter,
-          }),
-        },
-      });
+          // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
 
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {

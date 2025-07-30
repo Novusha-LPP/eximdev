@@ -134,19 +134,11 @@ const OperationListJob = () => {
       
       // Navigate back with preserved search parameters
       const tabIndex = storedSearchParams?.currentTab ?? 0;
-      navigate("/import-operations", {
-        state: {
-          fromJobDetails: true,
-          tabIndex: tabIndex,
-          ...(storedSearchParams && {
-            searchQuery: storedSearchParams.searchQuery,
-            selectedImporter: storedSearchParams.selectedImporter,
-            selectedICD: storedSearchParams.selectedICD,
-            selectedYearState: storedSearchParams.selectedYearState,
-            selectedJobId: job_no,
-          }),
-        },
-      });
+     // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
       
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {

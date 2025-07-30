@@ -207,7 +207,7 @@ function BillingSheet() {
       try {
 
         const apiString =
-        process.env.REACT_APP_API_STRING || "http://localhost:5000"; // Fallback for dev
+        process.env.REACT_APP_API_STRING || "http://localhost:9000"; // Fallback for dev
       const res = await axios.get(`${apiString}/get-do-billing`, {
             params: {
               page: currentPage,

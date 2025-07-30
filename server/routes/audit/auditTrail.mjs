@@ -1,5 +1,7 @@
+
 import express from "express";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
+import UserModel from "../../model/userModel.mjs";
 import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
 const router = express.Router();
 
@@ -62,7 +64,52 @@ router.get("/api/audit-trail/user-logs/:userId", async (req, res) => {
 });
 
 
+// Get all users with details, assigned modules, and last activity date
+router.get("/api/audit-trail/all-users-with-activity", async (req, res) => {
+  try {
+    // Get all unique users from the audit trail with last activity
+    const usersActivity = await AuditTrailModel.aggregate([
+      {
+        $group: {
+          _id: "$username",
+          lastActivity: { $max: "$timestamp" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
 
+    // Fetch all users from the user model
+    const allUsers = await UserModel.find({}).lean();
+    // Map username to user details
+    const userMap = {};
+    allUsers.forEach(u => {
+      userMap[u.username] = u;
+    });
+
+    // Merge activity and user details
+    const users = usersActivity.map((u) => {
+      const userDetails = userMap[u._id] || {};
+      return {
+        username: u._id,
+        lastActivity: u.lastActivity,
+        first_name: userDetails.first_name || "",
+        last_name: userDetails.last_name || "",
+        email: userDetails.email || "",
+        company: userDetails.company || "",
+        role: userDetails.role || "",
+        modules: userDetails.modules || [],
+        assigned_importer_name: userDetails.assigned_importer_name || [],
+        selected_icd_code: userDetails.selected_icd_code || "",
+        // Add any other fields you want to expose
+      };
+    });
+
+    res.json({ users });
+  } catch (error) {
+    console.error("Error fetching all users with activity:", error);
+    res.status(500).json({ message: "Error fetching all users with activity", error: error.message });
+  }
+});
 
 // Get audit trail for a specific job
 router.get("/api/audit-trail/job/:job_no/:year", async (req, res) => {

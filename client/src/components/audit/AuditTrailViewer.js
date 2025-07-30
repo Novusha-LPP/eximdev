@@ -122,6 +122,8 @@ const AuditTrailViewer = ({ job_no, year }) => {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [activeUsersLoading, setActiveUsersLoading] = useState(false);
   const [openFilterDialog, setOpenFilterDialog] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   const [userList, setUserList] = useState([]);
@@ -367,6 +369,24 @@ const AuditTrailViewer = ({ job_no, year }) => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    // Fetch active users only when switching to the tab
+    if (newValue === 2 && activeUsers.length === 0) {
+      fetchActiveUsers();
+    }
+  };
+
+  // Fetch all active users with activity
+  const fetchActiveUsers = async () => {
+    setActiveUsersLoading(true);
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/all-users-with-activity`);
+      setActiveUsers(response.data.users || []);
+    } catch (error) {
+      setActiveUsers([]);
+      console.error('Error fetching active users:', error);
+    } finally {
+      setActiveUsersLoading(false);
+    }
   };
 
   const handleResetFilters = () => {
@@ -526,6 +546,7 @@ const AuditTrailViewer = ({ job_no, year }) => {
           >
             <Tab label="Statistics" />
             <Tab label="Audit Trail" />
+            <Tab label="All Active Users" />
           </Tabs>
         </Paper>
 
@@ -565,7 +586,6 @@ const AuditTrailViewer = ({ job_no, year }) => {
               fetchStats={fetchStats}
               job_no={job_no}
             />
-            
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 0 }}>
@@ -590,6 +610,60 @@ const AuditTrailViewer = ({ job_no, year }) => {
                 />
               </Box>
             )}
+          </Box>
+        )}
+
+        {activeTab === 2 && (
+          <Box sx={{ mt: 2, px: { xs: 0, sm: 1, md: 2 } }}>
+            <Paper sx={{ p: 2, borderRadius: 2, boxShadow: colorPalette.shadowSecondary }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: colorPalette.primary }}>
+                All Active Users
+              </Typography>
+              {activeUsersLoading ? (
+                <LoadingSkeleton rows={5} />
+              ) : (
+                <Box sx={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+                    <thead>
+                      <tr style={{ background: colorPalette.accentLight }}>
+                        <th style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, fontWeight: 700, color: colorPalette.primary }}>Username</th>
+                        <th style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, fontWeight: 700, color: colorPalette.primary }}>Role</th>
+                        <th style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, fontWeight: 700, color: colorPalette.primary }}>Modules</th>
+                        <th style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, fontWeight: 700, color: colorPalette.primary }}>Last Activity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeUsers.length === 0 && (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: 'center', color: colorPalette.textSecondary, padding: '16px' }}>
+                            No active users found.
+                          </td>
+                        </tr>
+                      )}
+                      {activeUsers.map((user, idx) => (
+                        <tr key={user.username + idx} style={{ background: idx % 2 === 0 ? colorPalette.light : '#fff' }}>
+                          <td style={{ padding: '10px', border: `1px solid ${colorPalette.accent}` }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {renderUserAvatar(user.username)}
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: colorPalette.textPrimary }}>{user.username}</Typography>
+                            </Box>
+                          </td>
+                          <td style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, color: colorPalette.textSecondary }}>
+                            {user.role || '-'}
+                          </td>
+                          <td style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, color: colorPalette.textSecondary }}>
+                            {user.modules && user.modules.length > 0 ? user.modules.join(', ') : '-'}
+                          </td>
+                          <td style={{ padding: '10px', border: `1px solid ${colorPalette.accent}`, color: colorPalette.textSecondary }}>
+                            {user.lastActivity ? new Date(user.lastActivity).toLocaleString('en-IN', { hour12: true }) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Box>
+              )}
+            </Paper>
           </Box>
         )}
       </Box>

@@ -126,11 +126,18 @@ function EditBillingSheet() {
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 4;
-     // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
-
+        navigate("/import-do", {
+          state: {
+            fromJobDetails: true,
+            tabIndex: tabIndex, // Use stored tab index
+            ...(storedSearchParams && {
+              searchQuery: storedSearchParams.searchQuery,
+              selectedImporter: storedSearchParams.selectedImporter,
+              selectedJobId: storedSearchParams.selectedJobId,
+              currentPage: storedSearchParams.currentPage,
+            }),
+          },
+        });
 
         setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
@@ -362,23 +369,14 @@ function EditBillingSheet() {
               </Col>
             )}
           </Row>
-          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
-            <Button
-              variant="contained"
-              startIcon={<ArrowBackIcon />}
-              onClick={handleBackClick}
-              sx={{
-                // fontWeight: 'bold',
-                backgroundColor: "black",
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "#333",
-                },
-              }}
-            >
-              Back to Job List
-            </Button>
-          </Box>
+                <button
+                className="btn sticky-btn"
+                type="submit"
+                style={{ float: "right", margin: "10px" }}
+                aria-label="submit-btn"
+              >
+                Submit
+              </button>
         </form>
       </div>
 

@@ -1,6 +1,5 @@
 // src/components/UserDetails/UserDetails.js
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useContext } from "react";
 import {
   Card,
   CardContent,
@@ -14,20 +13,45 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import PropTypes from "prop-types";
-import { importerOptions } from "../../MasterLists/MasterLists"; // Ensure the path is correct
+import { YearContext } from "../../../contexts/yearContext.js"; // Import YearContext
 
-// Convert importerOptions to the format required for Autocomplete
-const formattedImporterOptions = importerOptions.map((name) => ({ name }));
+// Remove static importerOptions, use dynamic fetching instead
+
 
 function UserDetails({ selectedUser, onClose, onSave }) {
   const [userData, setUserData] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
+  
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     type: "",
   });
   const [loading, setLoading] = useState(false);
+  const [importers, setImporters] = useState([]); // Dynamic importer list
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+
+  // Get importer list for MUI autocomplete
+  React.useEffect(() => {
+    async function getImporterList() {
+      if (selectedYearState) {
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+          );
+          setImporters(res.data);
+        } catch (error) {
+          setImporters([]);
+        }
+      }
+    }
+    getImporterList();
+  }, [selectedYearState]);
+
+  // Format importers for Autocomplete
+  const formattedImporterOptions = Array.isArray(importers)
+    ? importers.map((item) => ({ name: item.importer || item.name || item }))
+    : [];
 
   // Fetch user data if selectedUser is a string (username)
   useEffect(() => {

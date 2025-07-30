@@ -776,6 +776,24 @@ function EditDoPlanning() {
         </Col>
       </Row>
 
+<br></br>
+      <Col style={{ display: 'flex', alignItems: 'center' }}>
+            <TextField
+              type="date"
+              fullWidth
+              size="small"
+              margin="normal"
+              variant="outlined"
+              id="do_validity"
+              name="do_validity"
+              label="DO Validity"
+              value={formik.values.do_validity}
+              onChange={formik.handleChange}
+              InputLabelProps={{ shrink: true }}
+              sx={{ m: 0 }}
+            />
+          </Col>
+
       {/* Render all other documents */}
       {formik.values.other_do_documents.map((doc, index) =>
         renderDocumentSection(doc, index, "other_do_documents", true, user)
@@ -790,7 +808,7 @@ function EditDoPlanning() {
         }}
       >
         <Row>
-          <Col xs={12} md={6}>
+          <Col xs={12} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Select Document Type</InputLabel>
               <Select
@@ -807,12 +825,13 @@ function EditDoPlanning() {
               </Select>
             </FormControl>
           </Col>
-          <Col xs={12} md={6}>
+        
+          <Col xs={12} md={4} style={{ display: 'flex', alignItems: 'center' }}>
             <Button
               variant="contained"
               onClick={handleAddDocument}
               disabled={!selectedDocumentType}
-              style={{ marginTop: "8px" }}
+              style={{ marginLeft: 0, width: '100%' }}
             >
               Add Document
             </Button>
@@ -1593,6 +1612,7 @@ function EditDoPlanning() {
                   InputLabelProps={{ shrink: true }}
                 />
               </div> */}
+
 
               <div className="job-details-container">
                 <h5>DO Queries</h5>

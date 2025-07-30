@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
+import Charges from "../Charges/Charges";
 
 const ViewBillingJob = () => {
   const routeLocation = useLocation();
@@ -28,6 +29,8 @@ const ViewBillingJob = () => {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   
+
+  console.log(job_no, "jobNo")
   // Add stored search parameters state for consistency with SubmissionJob.js
   const [storedSearchParams, setStoredSearchParams] = useState(null);  // Store search parameters from location state
   useEffect(() => {
@@ -467,6 +470,9 @@ onSubmit: async (values) => {
               </Row>
             </Box>
           </div>
+
+          {/* Charges Section (below Billing Details) */}
+          <Charges job_no={job_no} year={year} />
 
           {/* Bill Completion Section */}
           <div className="job-details-container">

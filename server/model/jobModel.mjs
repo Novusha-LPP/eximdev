@@ -13,7 +13,7 @@ const cthDocumentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
-const chargesDetailsSchema = new mongoose.Schema({
+const DsrchargesSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   url: [{ type: String, trim: true }],
   document_check_date: { type: String, trim: true },
@@ -371,7 +371,7 @@ const jobSchema = new mongoose.Schema({
   ],
 
   /////////////////////////////////// Charges Details
-  chargesDetails: [chargesDetailsSchema],
+  Dsrcharges: [DsrchargesSchema],
 
 
   /////////////////////////////////// esanchit Charges Details

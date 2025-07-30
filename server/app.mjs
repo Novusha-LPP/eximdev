@@ -46,6 +46,9 @@ import login from "./routes/login.mjs";
 import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 
+// charges 
+import Charges from "./routes/ChargesSection/ChargesSection.js";
+
 // Accounts
 import addAdani from "./routes/accounts/addAdani.mjs";
 import addAMC from "./routes/accounts/addAMC.mjs";
@@ -370,6 +373,9 @@ if (cluster.isPrimary) {
 
       // handle delete
       app.use(handleS3Deletation);
+
+      // charges
+      app.use(Charges);
 
       // Accounts
       app.use(addAdani);

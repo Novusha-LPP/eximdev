@@ -249,17 +249,8 @@ function ESanchit() {
             priorityColor, // Add priorityColor from API response
           } = cell.row.original;
           return (
-            <div
-              onClick={() =>
-                navigate(`/esanchit-job/${job_no}/${year}`, {
-                  state: {
-                    searchQuery,
-                    selectedImporter,
-                    currentTab: 0,
-                    currentPage,
-                  },
-                })
-              }
+            <a
+              href={`/esanchit-job/${job_no}/${year}`}
               style={{
                 cursor: "pointer",
                 color: "blue",
@@ -271,12 +262,13 @@ function ESanchit() {
                     : "transparent", // Dynamically set the background color
                 padding: "10px", // Add padding for better visibility
                 borderRadius: "5px", // Optional: Add some styling for aesthetics
+                textDecoration: "none"
               }}
+              target="_blank"
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
               <br />
-            </div>
+            </a>
           );
         },
       },

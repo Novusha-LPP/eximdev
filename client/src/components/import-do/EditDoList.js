@@ -206,21 +206,11 @@ function EditDoList() {
         setCurrentTab(tabIndex);
         
         // Navigate back with all the stored search parameters
-        navigate("/import-do", {
-          state: {
-            fromJobDetails: true,
-            tabIndex: tabIndex,
-            ...(storedSearchParams && {
-              searchQuery: storedSearchParams.searchQuery,
-              selectedImporter: storedSearchParams.selectedImporter,
-              selectedICD: storedSearchParams.selectedICD,
-              selectedYearState: storedSearchParams.selectedYearState,
-              selectedJobId: storedSearchParams.selectedJobId,
-              page: storedSearchParams.page,
-            }),
-          },
-        });
-        
+     // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
       } catch (error) {
         console.error("Error updating job:", error);
       }

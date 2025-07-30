@@ -321,17 +321,11 @@ function EditDoCompleted() {
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 3;
 
-        navigate("/import-do", {
-          state: {
-            fromJobDetails: true,
-            tabIndex: tabIndex,
-            scrollPosition,
-            selectedJobId,
-            searchQuery: storedSearchParams?.searchQuery || "",
-            selectedImporter: storedSearchParams?.selectedImporter || "",
-            currentPage: storedSearchParams?.currentPage,
-          },
-        });
+     // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
 
         setCurrentTab(tabIndex);
       } catch (error) {

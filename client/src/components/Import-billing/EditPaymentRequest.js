@@ -308,17 +308,11 @@ const jobId = param.get("selectedJobId");
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 2;
         
-        navigate("/import-billing", {
-          state: {
-            fromJobDetails: true,
-            tabIndex: tabIndex,
-            scrollPosition,
-            jobId,
-            searchQuery: storedSearchParams?.searchQuery || "",
-            selectedImporter: storedSearchParams?.selectedImporter || "",
-            currentPage: storedSearchParams?.currentPage,
-          },
-        });
+     // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
 
         setCurrentTab(tabIndex);
       } catch (error) {

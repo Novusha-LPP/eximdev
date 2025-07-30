@@ -147,17 +147,11 @@ onSubmit: async (values) => {
     // Refresh data to confirm changes were saved
     fetchJobDetails();
       // Navigate back to billing list page with search state preservation
-    navigate("/import-billing", {
-      state: {
-        fromJobDetails: true,
-        ...(storedSearchParams && {
-          searchQuery: storedSearchParams.searchQuery || "",
-          selectedImporter: storedSearchParams.selectedImporter || "",
-          selectedJobId: storedSearchParams.selectedJobId || "",
-          currentTab: storedSearchParams.currentTab || 1
-        }),
-      }
-    });
+     // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
+
   } catch (error) {
     console.error("Error updating billing details:", error);
     alert("Failed to update billing details.");

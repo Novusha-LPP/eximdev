@@ -1137,7 +1137,11 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     id="do_completed"
                     name="do_completed"
                     label="Set Date (Admin Only)"
-                    value={formik.values.do_completed || ""}
+                    value={
+                      formik.values.do_completed
+                        ? new Date(formik.values.do_completed).toISOString().slice(0, 16)
+                        : ""
+                    }
                     onChange={(e) =>
                       formik.setFieldValue("do_completed", e.target.value)
                     } // Update formik value
@@ -1147,6 +1151,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   />
                 </Col>
               )}
+              
             </Row>
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={3}>

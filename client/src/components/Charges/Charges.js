@@ -406,6 +406,14 @@ const Charges = ({ job_no, year }) => {
       </Box>
 
       {/* Sections */}
+      
+      <Section 
+        title="DSR Charges" 
+        icon={<ReceiptIcon sx={{ color: '#10b981' }} />}
+      >
+        <DocumentTable docs={data.DsrCharges} fields={dsrFields} />
+      </Section>
+      
       <Section 
         title="E-Sanchit Charges" 
         icon={<DocumentIcon sx={{ color: '#3b82f6' }} />}
@@ -413,12 +421,6 @@ const Charges = ({ job_no, year }) => {
         <DocumentTable docs={data.esanchitCharges} fields={esanchitFields} />
       </Section>
 
-      <Section 
-        title="DSR Charges" 
-        icon={<ReceiptIcon sx={{ color: '#10b981' }} />}
-      >
-        <DocumentTable docs={data.chargesDetails} fields={dsrFields} />
-      </Section>
 
       <Section 
         title="DO Charges" 

@@ -360,11 +360,13 @@ const DoDocCountsDisplay = () => (
         const isDoDocPrepared = row.original.is_do_doc_prepared || false;
         const [checked, setChecked] = React.useState(isDoDocPrepared);
 
-        // Get payment_recipt_date from do_shipping_line_invoice[0] if present
+        // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
         const doShippingLineInvoice = row.original.do_shipping_line_invoice;
         let paymentReciptDate = '';
+        let paymentRequestDate = '';
         if (Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0) {
           paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
+          paymentRequestDate = doShippingLineInvoice[0].payment_request_date;
         }
 
         const handleToggleDoDocPrepared = async (event) => {
@@ -399,6 +401,17 @@ const DoDocCountsDisplay = () => (
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
+            {/* Show payment request info if available */}
+            {paymentRequestDate && (
+              <>
+                <div style={{ color: '#d32f2f', fontWeight: 500, fontSize: '12px', marginTop: 4 }}>
+                  Payment request sent to billing team
+                </div>
+                <div style={{ color: '#0288d1', fontWeight: 500, fontSize: '12px', marginBottom: 2 }}>
+                 Payment Request Date: {new Date(paymentRequestDate).toLocaleString('en-IN', { hour12: true })}
+                </div>
+              </>
+            )}
             {/* Show payment receipt links if available */}
             {Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0 && doShippingLineInvoice.map((invoice, idx) =>
               invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (

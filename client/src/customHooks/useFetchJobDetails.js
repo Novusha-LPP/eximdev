@@ -339,6 +339,10 @@ function useFetchJobDetails(
       is_obl_recieved: false,
       document_received_date: "",
       vessel_berthing: "",
+      hawb_hbl_no: "",
+      hawb_hbl_date: "",
+      awb_bl_date: "",
+      awb_bl_date: "",
       gateway_igm_date: "",
       gateway_igm: "",
       igm_date: "",
@@ -459,6 +463,10 @@ function useFetchJobDetails(
           documents: selectedDocuments,
           checkedDocs: values.checkedDocs,
           vessel_berthing: values.vessel_berthing,
+          hawb_hbl_no: values.hawb_hbl_no,
+          hawb_hbl_date: values.hawb_hbl_date,
+          awb_bl_no: values.awb_bl_no,
+          awb_bl_date: values.awb_bl_date,
           cth_no: values.cth_no,
           free_time: values.free_time,
           status: values.status,
@@ -839,6 +847,14 @@ function useFetchJobDetails(
           data.in_bond_be_date === undefined ? "" : data.in_bond_be_date,
         discharge_date:
           data.discharge_date === undefined ? "" : data.discharge_date,
+        hawb_hbl_date:
+          data.hawb_hbl_date === undefined ? "" : data.hawb_hbl_date,
+        hawb_hbl_no:
+          data.hawb_hbl_no === undefined ? "" : data.hawb_hbl_no,
+        awb_bl_date:
+          data.awb_bl_date === undefined ? "" : data.awb_bl_date,
+        awb_bl_no:
+          data.awb_bl_no === undefined ? "" : data.awb_bl_no,
         assessment_date:
           data.assessment_date === undefined ? "" : data.assessment_date,
         examination_date:

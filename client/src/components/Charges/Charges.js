@@ -53,8 +53,7 @@ const Section = ({ title, children, icon }) => (
 
 // Excel-like table component
 const DocumentTable = ({ docs, fields }) => {
-  const safeDocs = Array.isArray(docs) ? docs : [];
-  if (safeDocs.length === 0) {
+  if (!docs || docs.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info">
@@ -65,9 +64,13 @@ const DocumentTable = ({ docs, fields }) => {
   }
 
   const formatValue = (value, key) => {
-    if (!value && value !== false) return 'N/A';
+        // If the key is 'url' and value is empty/null, show 'Document not found'
+    if ((key === 'url' || key === 'document_charge_recipt_copy' || key === 'payment_recipt') && (!value || (Array.isArray(value) && value.length === 0))) {
+      return <span style={{ color: '#b91c1c', fontWeight: 500 }}>Document not found</span>;
+    }
 
-    // Format booleans
+    if (!value && value !== false) return 'N/A';
+    
     if (typeof value === 'boolean') {
       return (
         <Chip 
@@ -79,8 +82,7 @@ const DocumentTable = ({ docs, fields }) => {
         />
       );
     }
-
-    // Format URLs
+    
     if (key === 'url' && value) {
       return (
         <Link 
@@ -97,8 +99,7 @@ const DocumentTable = ({ docs, fields }) => {
         </Link>
       );
     }
-
-    // Format arrays
+    
     if (Array.isArray(value)) {
       // If array of URLs, show as links
       if (key === 'url' || key === 'payment_recipt') {
@@ -117,8 +118,8 @@ const DocumentTable = ({ docs, fields }) => {
       }
       return value.join(', ');
     }
-
-    // Format ISO date strings
+    
+     // Format ISO date strings
     if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/.test(value)) {
       const date = parseISO(value);
       if (isValid(date)) {
@@ -137,10 +138,47 @@ const DocumentTable = ({ docs, fields }) => {
     return String(value);
   };
 
-  // Filter out fields that have no data in any document
-  const relevantFields = fields.filter(field => 
-    safeDocs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null)
-  );
+  // Apply business rules to filter fields based on data conditions
+  const applyBusinessRules = (fields, docs) => {
+    return fields.filter(field => {
+      // Check if field has data in any document
+      const hasData = docs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null);
+      if (!hasData) return false;
+
+      // Business Rule 1: If payment_mode is not "Wire Transfer", don't show wire_transfer_method
+      if (field.key === 'wire_transfer_method') {
+        return docs.some(doc => 
+          doc.payment_mode && 
+          doc.payment_mode.toLowerCase().includes('wire transfer')
+        );
+      }
+
+      // Business Rule 2: Don't show is_payment_made if payment_made_date is available
+      if (field.key === 'is_payment_made') {
+        return !docs.some(doc => doc.payment_made_date);
+      }
+
+      // Business Rule 3: Don't show is_payment_requested if payment_request_date is available
+      if (field.key === 'is_payment_requested') {
+        return !docs.some(doc => doc.payment_request_date);
+      }
+
+      // Business Rule 4: If is_tds is true, don't show is_non_tds
+      if (field.key === 'is_non_tds') {
+        return !docs.some(doc => doc.is_tds === true);
+      }
+
+      // Business Rule 5: If is_non_tds is true, don't show is_tds
+      if (field.key === 'is_tds') {
+        return !docs.some(doc => doc.is_non_tds === true);
+      }
+
+      return true;
+    });
+  };
+
+  // Filter out fields based on business rules and data availability
+  const relevantFields = applyBusinessRules(fields, docs);
 
   return (
     <TableContainer>
@@ -164,7 +202,7 @@ const DocumentTable = ({ docs, fields }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {safeDocs.map((doc, index) => (
+          {docs.map((doc, index) => (
             <TableRow 
               key={index}
               sx={{ 
@@ -379,7 +417,7 @@ const Charges = ({ job_no, year }) => {
         title="DSR Charges" 
         icon={<ReceiptIcon sx={{ color: '#10b981' }} />}
       >
-        <DocumentTable docs={data.DsrCharges} fields={dsrFields} />
+        <DocumentTable docs={data.chargesDetails} fields={dsrFields} />
       </Section>
 
       <Section 

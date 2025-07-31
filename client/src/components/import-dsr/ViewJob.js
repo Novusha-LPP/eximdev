@@ -1387,6 +1387,102 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
           {/* Tracking status start*/}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Tracking Status" />
+
+             <Row style={{ marginTop: "20px" }}>
+              
+               <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>BL No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="awb_bl_no"
+                    name="awb_bl_no"
+                    // disabled={isSubmissionDate}
+                    value={formik.values.awb_bl_no  || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter IGM No"
+                  />
+                </div>
+              </Col>
+                           <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>BL Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="awb_bl_date"
+                    name="awb_bl_date"
+                    value={
+                      formik.values.awb_bl_date
+                        ? formik.values.awb_bl_date.length === 10
+                          ? `${formik.values.awb_bl_date}T00:00`
+                          : formik.values.awb_bl_date
+                        : ""
+                    }
+                    // disabled={ExBondflag || isSubmissionDate}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+             </Row>
+            
+                         <Row style={{ marginTop: "20px" }}>
+              
+               <Col xs={12} lg={4}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
+                  {/* Seller Name Field */}
+                  <strong>HAWBL No:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    id="hawb_hbl_no"
+                    name="hawb_hbl_no"
+                    // disabled={isSubmissionDate}
+                    value={formik.values.hawb_hbl_no  || ""}
+                    onChange={formik.handleChange}
+                    style={{ marginTop: "10px" }}
+                    placeholder="Enter IGM No"
+                  />
+                </div>
+              </Col>
+                           <Col xs={12} lg={4}>
+                <div className="job-detail-input-container">
+                  <strong>HAWBL Date:&nbsp;</strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    id="hawb_hbl_date"
+                    name="hawb_hbl_date"
+                    value={
+                      formik.values.hawb_hbl_date
+                        ? formik.values.hawb_hbl_date.length === 10
+                          ? `${formik.values.hawb_hbl_date}T00:00`
+                          : formik.values.hawb_hbl_date
+                        : ""
+                    }
+                    // disabled={ExBondflag || isSubmissionDate}
+                    onChange={formik.handleChange}
+                  />
+                </div>
+              </Col>
+             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -1573,76 +1669,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
               </Col>
             </Row>
             <Row style={{ marginTop: "20px" }}>
-              {/* <Col xs={12} lg={4}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Railout Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    id="rail_out_date"
-                    name="rail_out_date"
-                    value={
-                      formik.values.rail_out_date
-                        ? formik.values.rail_out_date
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      if (newValue) {
-                        // formik.setFieldValue("examinationPlanning", true);
-                        formik.setFieldValue("rail_out_date", newValue);
-                      } else {
-                        // formik.setFieldValue("examinationPlanning", false);
-                        formik.setFieldValue("rail_out_date", "");
-                      }
-                    }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </div>
-              </Col> */}
-              {/* <Col xs={12} lg={4} className="mb-3">
-                <div className="job-detail-input-container">
-                  <Checkbox
-                    checked={formik.values.checked}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setChecked(true);
-                        formik.setFieldValue("checked", true);
-                      } else {
-                        setChecked(false);
-                        formik.setFieldValue("checked", false);
-                      }
-                    }}
-                  />
-                  {!formik.values.checked && (
-                    <strong>All containers arrived at same date</strong>
-                  )}
-                  {formik.values.checked && (
-                    <>
-                      <strong>All Arrival Date:&nbsp;</strong>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        type="date"
-                        id="arrival_date"
-                        name="arrival_date"
-                        value={formik.values.arrival_date || ""}
-                        onChange={formik.handleChange}
-                      />
-                    </>
-                  )}
-                </div>
-              </Col> */}
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"

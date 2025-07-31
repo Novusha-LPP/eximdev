@@ -359,7 +359,18 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.no_of_pkgs}</span>
         </Col>
       </Row>
-      <Row>
+
+      <Row className="job-detail-row">
+          <Col xs={12} lg={5}>
+          <strong> HWBL No: &nbsp;</strong>
+          <span className="non-editable-text">{props.data.hawb_hbl_no}</span>
+        </Col>
+          <Col xs={12} lg={4}>
+          <strong> HWBL Date: &nbsp;</strong>
+          <span className="non-editable-text">{props.data.hawb_hbl_date}</span>
+        </Col>
+      </Row>
+      <Row className="job-detail-row">
         <Col xs={12} lg={5}>
           {/* Outer Flex Container */}
           <div style={{ display: "flex", flexDirection: "row" }}>

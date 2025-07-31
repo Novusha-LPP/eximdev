@@ -127,18 +127,10 @@ function EditBillingSheet() {
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 4;
-        navigate("/import-do", {
-          state: {
-            fromJobDetails: true,
-            tabIndex: tabIndex, // Use stored tab index
-            ...(storedSearchParams && {
-              searchQuery: storedSearchParams.searchQuery,
-              selectedImporter: storedSearchParams.selectedImporter,
-              selectedJobId: storedSearchParams.selectedJobId,
-              currentPage: storedSearchParams.currentPage,
-            }),
-          },
-        });
+            // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
 
         setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {

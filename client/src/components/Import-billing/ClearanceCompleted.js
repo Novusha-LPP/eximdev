@@ -450,10 +450,10 @@ function ClearanceCompleted() {
   enableSorting: false,
   size: 300,
   Cell: ({ cell }) => {
-    const { chargesDetails } = cell.row.original;
+    const { DsrCharges } = cell.row.original;
 
     // If no charges at all, show "No expenses"
-    if (!chargesDetails || chargesDetails.length === 0) {
+    if (!DsrCharges || DsrCharges.length === 0) {
       return (
         <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
       );
@@ -474,7 +474,7 @@ function ClearanceCompleted() {
         }}
       >
         {/* Loop through all charges */}
-        {chargesDetails.map((charge, chargeIndex) => {
+        {DsrCharges.map((charge, chargeIndex) => {
           // If charge has URLs, show as links
           if (charge.url && charge.url.length > 0) {
             return charge.url.map((url, urlIndex) => (

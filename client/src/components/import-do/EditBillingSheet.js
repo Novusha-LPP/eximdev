@@ -21,6 +21,7 @@ import { TabContext } from "./ImportDO";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import Charges from "../Charges/Charges.js";
 
 function EditBillingSheet() {
   const params = useParams();
@@ -206,6 +207,8 @@ function EditBillingSheet() {
 
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
+                 <Charges job_no={job_no} year={year} />
+
       <div className="job-details-container">
         <form onSubmit={formik.handleSubmit}>
           <Row>
@@ -303,7 +306,6 @@ function EditBillingSheet() {
               />
             </Col>
           </Row>
-
           <Row>
             <Col xs={12} md={6}>
               <div>

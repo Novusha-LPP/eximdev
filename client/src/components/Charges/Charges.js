@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { format, isValid, parseISO } from 'date-fns';
 import axios from 'axios';
 import { 
   Box, 
@@ -52,7 +53,8 @@ const Section = ({ title, children, icon }) => (
 
 // Excel-like table component
 const DocumentTable = ({ docs, fields }) => {
-  if (!docs || docs.length === 0) {
+  const safeDocs = Array.isArray(docs) ? docs : [];
+  if (safeDocs.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info">
@@ -64,7 +66,8 @@ const DocumentTable = ({ docs, fields }) => {
 
   const formatValue = (value, key) => {
     if (!value && value !== false) return 'N/A';
-    
+
+    // Format booleans
     if (typeof value === 'boolean') {
       return (
         <Chip 
@@ -76,7 +79,8 @@ const DocumentTable = ({ docs, fields }) => {
         />
       );
     }
-    
+
+    // Format URLs
     if (key === 'url' && value) {
       return (
         <Link 
@@ -93,17 +97,49 @@ const DocumentTable = ({ docs, fields }) => {
         </Link>
       );
     }
-    
+
+    // Format arrays
     if (Array.isArray(value)) {
+      // If array of URLs, show as links
+      if (key === 'url' || key === 'payment_recipt') {
+        return value.length > 0 ? value.map((url, i) => (
+          <span key={i}>
+            <Link 
+              href={url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              sx={{ color: '#1976d2', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              View {key === 'payment_recipt' ? `Receipt ${i+1}` : `File ${i+1}`}
+            </Link>{i < value.length - 1 ? ', ' : ''}
+          </span>
+        )) : 'N/A';
+      }
       return value.join(', ');
     }
-    
+
+    // Format ISO date strings
+    if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/.test(value)) {
+      const date = parseISO(value);
+      if (isValid(date)) {
+        return format(date, 'dd-MMM-yyyy, hh:mm a');
+      }
+    }
+
+    // Also format date fields (ending with _date or containing date)
+    if (typeof value === 'string' && (key.endsWith('date') || key.includes('date'))) {
+      const date = new Date(value);
+      if (isValid(date)) {
+        return format(date, 'dd-MMM-yyyy, hh:mm a');
+      }
+    }
+
     return String(value);
   };
 
   // Filter out fields that have no data in any document
   const relevantFields = fields.filter(field => 
-    docs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null)
+    safeDocs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null)
   );
 
   return (
@@ -128,7 +164,7 @@ const DocumentTable = ({ docs, fields }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {docs.map((doc, index) => (
+          {safeDocs.map((doc, index) => (
             <TableRow 
               key={index}
               sx={{ 
@@ -343,7 +379,7 @@ const Charges = ({ job_no, year }) => {
         title="DSR Charges" 
         icon={<ReceiptIcon sx={{ color: '#10b981' }} />}
       >
-        <DocumentTable docs={data.chargesDetails} fields={dsrFields} />
+        <DocumentTable docs={data.DsrCharges} fields={dsrFields} />
       </Section>
 
       <Section 

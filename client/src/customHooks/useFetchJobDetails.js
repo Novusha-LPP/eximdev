@@ -71,7 +71,7 @@ function useFetchJobDetails(
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
 
   // Charges section state
-  const [chargesDetails, setChargesDetails] = useState([
+  const [DsrCharges, setDsrCharges] = useState([
     {
       document_name: "Notary",
     },
@@ -215,10 +215,10 @@ function useFetchJobDetails(
       );
       setData(response.data);
       setSelectedDocuments(response.data.documents);
-      setSelectedChargesDocuments(response.data.chargesDetails || []);
+      setSelectedChargesDocuments(response.data.DsrCharges || []);
       
-      // Update chargesDetails to include custom charges from database
-      if (response.data.chargesDetails && response.data.chargesDetails.length > 0) {
+      // Update DsrCharges to include custom charges from database
+      if (response.data.DsrCharges && response.data.DsrCharges.length > 0) {
         const predefinedCharges = [
           { document_name: "Notary" },
           { document_name: "Duty" },
@@ -228,7 +228,7 @@ function useFetchJobDetails(
         ];
         
         // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = response.data.chargesDetails
+        const customChargesFromDB = response.data.DsrCharges
           .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
           .map(charge => ({ document_name: charge.document_name }));
         
@@ -239,7 +239,7 @@ function useFetchJobDetails(
         
         // Combine predefined and unique custom charges
         const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setChargesDetails(allCharges);
+        setDsrCharges(allCharges);
       }
     }
 
@@ -324,7 +324,7 @@ function useFetchJobDetails(
     }
     if (data) {
       setSelectedDocuments(data.documents);
-      setSelectedChargesDocuments(data.chargesDetails || []);
+      setSelectedChargesDocuments(data.DsrCharges || []);
     }
 
     getCthDocs();
@@ -430,7 +430,7 @@ function useFetchJobDetails(
       documentation_remark_box: false,
       remark_esanchit_input: "",
       remark_documentation_input: "",
-      chargesDetails: [],
+      DsrCharges: [],
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -552,7 +552,7 @@ function useFetchJobDetails(
           documentation_remark_box: values.documentation_remark_box,
           remark_esanchit_input: values.remark_esanchit_input,
           remark_documentation_input: values.remark_documentation_input,
-          chargesDetails: selectedChargesDocuments,
+          DsrCharges: selectedChargesDocuments,
         },
         { headers }
       );
@@ -918,11 +918,11 @@ function useFetchJobDetails(
         documentation_remark_box: data.documentation_remark_box === undefined ? false : data.documentation_remark_box,
         remark_esanchit_input: data.remark_esanchit_input === undefined ? "" : data.remark_esanchit_input,
         remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
-        chargesDetails: data.chargesDetails === undefined ? [] : data.chargesDetails,
+        DsrCharges: data.DsrCharges === undefined ? [] : data.DsrCharges,
       });
       
-      // Update chargesDetails state to include custom charges from database
-      if (data.chargesDetails && data.chargesDetails.length > 0) {
+      // Update DsrCharges state to include custom charges from database
+      if (data.DsrCharges && data.DsrCharges.length > 0) {
         const predefinedCharges = [
           { document_name: "Notary" },
           { document_name: "Duty" },
@@ -932,7 +932,7 @@ function useFetchJobDetails(
         ];
         
         // Get unique custom charges from database (excluding predefined ones)
-        const customChargesFromDB = data.chargesDetails
+        const customChargesFromDB = data.DsrCharges
           .filter(charge => !predefinedCharges.some(predefined => predefined.document_name === charge.document_name))
           .map(charge => ({ document_name: charge.document_name }));
         
@@ -943,7 +943,7 @@ function useFetchJobDetails(
         
         // Combine predefined and unique custom charges
         const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-        setChargesDetails(allCharges);
+        setDsrCharges(allCharges);
       }
     }
     // eslint-disable-next-line
@@ -1158,8 +1158,8 @@ function useFetchJobDetails(
     resetOtherDetails,
     
     // Charges related exports
-    chargesDetails,
-    setChargesDetails,
+    DsrCharges,
+    setDsrCharges,
     selectedChargesDocuments,
     setSelectedChargesDocuments,
     selectedChargesDocument,

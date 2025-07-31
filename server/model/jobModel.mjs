@@ -371,7 +371,7 @@ const jobSchema = new mongoose.Schema({
   ],
 
   /////////////////////////////////// Charges Details
-  Dsrcharges: [DsrchargesSchema],
+  DsrCharges: [DsrchargesSchema],
 
 
   /////////////////////////////////// esanchit Charges Details

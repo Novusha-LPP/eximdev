@@ -212,8 +212,8 @@ function JobDetails() {
     canChangeClearance,
     resetOtherDetails,
     // Charges related
-    chargesDetails,
-    setChargesDetails,
+    DsrCharges,
+    setDsrCharges,
     selectedChargesDocuments,
     setSelectedChargesDocuments,
     selectedChargesDocument,
@@ -3612,7 +3612,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
 
             {/* All Charges Documents (Predefined + Custom) in same row structure */}
             <Row>
-              {chargesDetails?.map((doc, index) => {
+              {DsrCharges?.map((doc, index) => {
                 const selectedChargesDoc =
                   selectedChargesDocuments.find(
                     (selected) => selected.document_name === doc.document_name
@@ -3744,11 +3744,11 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                           color: "#dc3545",
                         }}
                         onClick={() => {
-                          // Remove from chargesDetails
-                          const updatedChargesDetails = chargesDetails.filter(
+                          // Remove from DsrCharges
+                          const updatedDsrCharges = DsrCharges.filter(
                             (_, i) => i !== index
                           );
-                          setChargesDetails(updatedChargesDetails);
+                          setDsrCharges(updatedDsrCharges);
 
                           // Remove from selectedChargesDocuments
                           const updatedSelectedChargesDocuments =
@@ -3796,13 +3796,13 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   onClick={() => {
                     if (
                       newChargesDocumentName.trim() &&
-                      !chargesDetails.some(
+                      !DsrCharges.some(
                         (doc) =>
                           doc.document_name === newChargesDocumentName.trim()
                       )
                     ) {
-                      setChargesDetails([
-                        ...chargesDetails,
+                      setDsrCharges([
+                        ...DsrCharges,
                         {
                           document_name: newChargesDocumentName.trim(),
                         },
@@ -3812,7 +3812,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   }}
                   disabled={
                     !newChargesDocumentName.trim() ||
-                    chargesDetails.some(
+                    DsrCharges.some(
                       (doc) =>
                         doc.document_name === newChargesDocumentName.trim()
                     )

@@ -14,7 +14,7 @@ router.get('/api/charges-section/job-details', async (req, res) => {
     // Find the job by year and job_no
     const job = await JobModel.findOne({ year, job_no })
       .select({
-        chargesDetails: 1,
+        DsrCharges: 1,
         esanchitCharges: 1,
         do_shipping_line_invoice: 1,
         insurance_copy: 1,

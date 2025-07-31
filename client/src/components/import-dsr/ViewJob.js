@@ -1407,7 +1407,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     value={formik.values.awb_bl_no  || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    placeholder="Enter IGM No"
+                    placeholder="Enter BL No"
                   />
                 </div>
               </Col>
@@ -1455,7 +1455,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     value={formik.values.hawb_hbl_no  || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    placeholder="Enter IGM No"
+                    placeholder="Enter HAWBL No"
                   />
                 </div>
               </Col>

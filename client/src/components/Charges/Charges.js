@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { format, isValid, parseISO } from 'date-fns';
 import axios from 'axios';
 import { 
   Box, 
@@ -7,18 +6,18 @@ import {
   Paper, 
   Divider, 
   CircularProgress, 
-  Grid, 
-  Card,
-  CardContent,
   Chip,
-  Stack,
   Alert,
-  Link
+  Link,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
 import {
   Description as DocumentIcon,
-  AttachFile as FileIcon,
-  DateRange as DateIcon,
   Payment as PaymentIcon,
   Security as SecurityIcon,
   Receipt as ReceiptIcon
@@ -26,39 +25,46 @@ import {
 
 // Enhanced section wrapper with better styling
 const Section = ({ title, children, icon }) => (
-  <Card sx={{ 
+  <Paper sx={{ 
     mb: 3, 
-    borderRadius: 3, 
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    border: '1px solid #e3f2fd'
+    borderRadius: 2, 
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    border: '1px solid #e3f2fd',
+    overflow: 'hidden'
   }}>
-    <CardContent sx={{ p: 3 }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+    <Box sx={{ 
+      p: 2, 
+      backgroundColor: '#f5f5f5',
+      borderBottom: '1px solid #e0e0e0'
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {icon}
         <Typography variant="h6" sx={{ fontWeight: 600, color: '#1565c0' }}>
           {title}
         </Typography>
-      </Stack>
-      <Divider sx={{ mb: 3, borderColor: '#e3f2fd' }} />
+      </Box>
+    </Box>
+    <Box sx={{ p: 0 }}>
       {children}
-    </CardContent>
-  </Card>
+    </Box>
+  </Paper>
 );
 
-// Compact table-style document display
+// Excel-like table component
 const DocumentTable = ({ docs, fields }) => {
   if (!docs || docs.length === 0) {
     return (
-      <Alert severity="info" sx={{ borderRadius: 2 }}>
-        <Typography>No documents available for this section.</Typography>
-      </Alert>
+      <Box sx={{ p: 3 }}>
+        <Alert severity="info">
+          <Typography>No documents available for this section.</Typography>
+        </Alert>
+      </Box>
     );
   }
 
   const formatValue = (value, key) => {
     if (!value && value !== false) return 'N/A';
-
-    // Format booleans
+    
     if (typeof value === 'boolean') {
       return (
         <Chip 
@@ -66,11 +72,11 @@ const DocumentTable = ({ docs, fields }) => {
           size="small" 
           color={value ? 'success' : 'default'}
           variant="outlined"
+          sx={{ minWidth: 50 }}
         />
       );
     }
-
-    // Format URLs
+    
     if (key === 'url' && value) {
       return (
         <Link 
@@ -83,138 +89,96 @@ const DocumentTable = ({ docs, fields }) => {
             '&:hover': { textDecoration: 'underline' }
           }}
         >
-          View Document
+          View File
         </Link>
       );
     }
-
-    // Format arrays
+    
     if (Array.isArray(value)) {
-      // If array of URLs, show as links
-      if (key === 'url' || key === 'payment_recipt') {
-        return value.length > 0 ? value.map((url, i) => (
-          <span key={i}>
-            <Link 
-              href={url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              sx={{ color: '#1976d2', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-            >
-              View {key === 'payment_recipt' ? `Receipt ${i+1}` : `File ${i+1}`}
-            </Link>{i < value.length - 1 ? ', ' : ''}
-          </span>
-        )) : 'N/A';
-      }
       return value.join(', ');
     }
-
-    // Format ISO date strings
-    if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/.test(value)) {
-      const date = parseISO(value);
-      if (isValid(date)) {
-        return format(date, 'dd-MMM-yyyy, hh:mm a');
-      }
-    }
-
-    // Also format date fields (ending with _date or containing date)
-    if (typeof value === 'string' && (key.endsWith('date') || key.includes('date'))) {
-      const date = new Date(value);
-      if (isValid(date)) {
-        return format(date, 'dd-MMM-yyyy, hh:mm a');
-      }
-    }
-
+    
     return String(value);
   };
 
+  // Filter out fields that have no data in any document
+  const relevantFields = fields.filter(field => 
+    docs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null)
+  );
+
   return (
-    <Box sx={{ width: '100%' }}>
-      {docs.map((doc, docIndex) => (
-        <Paper key={docIndex} sx={{ 
-          mb: 3, 
-          overflow: 'hidden',
-          border: '1px solid #e2e8f0',
-          borderRadius: 2
-        }}>
-          {/* Document Header */}
-          {doc.document_name && (
-            <Box sx={{ 
-              p: 2, 
-              backgroundColor: '#f8fafc',
-              borderBottom: '1px solid #e2e8f0'
-            }}>
-              <Typography variant="h6" sx={{ 
-                fontWeight: 600, 
-                color: '#1e293b',
-                fontSize: '1rem'
-              }}>
-                {doc.document_name}
-              </Typography>
-            </Box>
-          )}
-          
-          {/* Fields in a compact grid */}
-          <Box sx={{ p: 2 }}>
-            <Grid container spacing={2}>
-              {fields.map(field => {
-                if (field.key === 'document_name') return null;
-                if (doc[field.key] === undefined || doc[field.key] === null) return null;
-                
-                return (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={field.key}>
-                    <Box sx={{ 
-                      p: 1.5,
-                      backgroundColor: '#f9fafb',
-                      borderRadius: 1,
-                      border: '1px solid #f1f5f9'
-                    }}>
-                      <Typography variant="caption" sx={{ 
-                        fontWeight: 600, 
-                        color: '#6b7280',
-                        textTransform: 'uppercase',
-                        fontSize: '0.7rem',
-                        letterSpacing: '0.5px',
-                        display: 'block',
-                        mb: 0.5
-                      }}>
-                        {field.label}
-                      </Typography>
-                      <Typography variant="body2" sx={{ 
-                        color: '#374151',
-                        fontWeight: 500,
-                        wordBreak: 'break-word'
-                      }}>
-                        {formatValue(doc[field.key], field.key)}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          </Box>
-        </Paper>
-      ))}
-    </Box>
+    <TableContainer>
+      <Table sx={{ minWidth: 650 }} size="small">
+        <TableHead>
+          <TableRow sx={{ backgroundColor: '#fafafa' }}>
+            {relevantFields.map((field) => (
+              <TableCell 
+                key={field.key}
+                sx={{ 
+                  fontWeight: 600,
+                  color: '#424242',
+                  borderBottom: '2px solid #e0e0e0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '0.875rem'
+                }}
+              >
+                {field.label}
+              </TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {docs.map((doc, index) => (
+            <TableRow 
+              key={index}
+              sx={{ 
+                '&:nth-of-type(odd)': { backgroundColor: '#fafafa' },
+                '&:hover': { backgroundColor: '#f0f0f0' },
+                '& td': { borderBottom: '1px solid #e0e0e0' }
+              }}
+            >
+              {relevantFields.map((field) => (
+                <TableCell 
+                  key={field.key}
+                  sx={{ 
+                    maxWidth: 200,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: field.key === 'document_name' ? 'normal' : 'nowrap',
+                    fontSize: '0.8rem',
+                    py: 1.5
+                  }}
+                >
+                  {formatValue(doc[field.key], field.key)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 };
 
 // Use the compact table instead of cards
 const DocumentList = DocumentTable;
 
-// Subsection component for DO charges
+// Subsection component for DO charges with table format
 const SubSection = ({ title, docs, fields }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h6" sx={{ 
       fontWeight: 600, 
       color: '#1e293b', 
       mb: 2,
-      fontSize: '1.1rem',
+      fontSize: '1rem',
       borderLeft: '4px solid #3b82f6',
-      pl: 2
+      pl: 2,
+      backgroundColor: '#f8fafc',
+      py: 1
     }}>
       {title}
     </Typography>
-    <DocumentList docs={docs} fields={fields} />
+    <DocumentTable docs={docs} fields={fields} />
   </Box>
 );
 
@@ -353,7 +317,7 @@ const Charges = ({ job_no, year }) => {
   return (
     <Box sx={{ p: 2, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, p: 2, backgroundColor: 'white', borderRadius: 2, boxShadow: 1 }}>
         <Typography variant="h4" sx={{ 
           fontWeight: 700, 
           color: '#1e293b',
@@ -363,7 +327,7 @@ const Charges = ({ job_no, year }) => {
           Charges Details
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Job No: {job_no} | Year: {year}
+          Job No: <strong>{job_no}</strong> | Year: <strong>{year}</strong>
         </Typography>
       </Box>
 
@@ -372,14 +336,14 @@ const Charges = ({ job_no, year }) => {
         title="E-Sanchit Charges" 
         icon={<DocumentIcon sx={{ color: '#3b82f6' }} />}
       >
-        <DocumentList docs={data.esanchitCharges} fields={esanchitFields} />
+        <DocumentTable docs={data.esanchitCharges} fields={esanchitFields} />
       </Section>
 
       <Section 
         title="DSR Charges" 
         icon={<ReceiptIcon sx={{ color: '#10b981' }} />}
       >
-        <DocumentList docs={data.chargesDetails} fields={dsrFields} />
+        <DocumentTable docs={data.chargesDetails} fields={dsrFields} />
       </Section>
 
       <Section 

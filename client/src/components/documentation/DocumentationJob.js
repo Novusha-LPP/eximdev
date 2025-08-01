@@ -520,9 +520,7 @@ const DocumentationJob = () => {
               <button
                 className="btn sticky-btn"
                 style={{ float: "right", margin: "20px" }}
-                type="submit"
-                disabled={!hasChecklist}
-              >
+                type="submit"              >
                 Submit
               </button>
             )}

@@ -216,9 +216,9 @@ function EditDoList() {
         
         // Navigate back with all the stored search parameters
      // Close the tab after successful submit
-        // setTimeout(() => {
-        //   window.close();
-        // }, 500);
+        setTimeout(() => {
+          window.close();
+        }, 500);
 
       } catch (error) {
         console.error("Error updating job:", error);

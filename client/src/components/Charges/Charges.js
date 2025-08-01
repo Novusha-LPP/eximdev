@@ -53,7 +53,9 @@ const Section = ({ title, children, icon }) => (
 
 // Excel-like table component
 const DocumentTable = ({ docs, fields }) => {
-  if (!docs || docs.length === 0) {
+  // Defensive: ensure docs is always an array
+  const docsArray = Array.isArray(docs) ? docs : (docs ? [docs] : []);
+  if (docsArray.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info">
@@ -64,13 +66,15 @@ const DocumentTable = ({ docs, fields }) => {
   }
 
   const formatValue = (value, key) => {
-        // If the key is 'url' and value is empty/null, show 'Document not found'
-    if ((key === 'url' || key === 'document_charge_recipt_copy' || key === 'payment_recipt') && (!value || (Array.isArray(value) && value.length === 0))) {
-      return <span style={{ color: '#b91c1c', fontWeight: 500 }}>Document not found</span>;
+    // Defensive: handle undefined/null/array values robustly
+    if ((key === 'url' || key === 'document_charge_recipt_copy' || key === 'payment_recipt')) {
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        return <span style={{ color: '#b91c1c', fontWeight: 500 }}>Document not found</span>;
+      }
     }
 
-    if (!value && value !== false) return 'N/A';
-    
+    if (value === undefined || value === null) return 'N/A';
+
     if (typeof value === 'boolean') {
       return (
         <Chip 
@@ -82,8 +86,8 @@ const DocumentTable = ({ docs, fields }) => {
         />
       );
     }
-    
-    if (key === 'url' && value) {
+
+    if (key === 'url' && value && typeof value === 'string') {
       return (
         <Link 
           href={value} 
@@ -99,27 +103,30 @@ const DocumentTable = ({ docs, fields }) => {
         </Link>
       );
     }
-    
+
     if (Array.isArray(value)) {
-      // If array of URLs, show as links
-      if (key === 'url' || key === 'payment_recipt') {
+      // Defensive: only map if array is not empty and contains strings
+      if ((key === 'url' || key === 'payment_recipt')) {
         return value.length > 0 ? value.map((url, i) => (
-          <span key={i}>
-            <Link 
-              href={url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              sx={{ color: '#1976d2', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-            >
-              View {key === 'payment_recipt' ? `Receipt ${i+1}` : `File ${i+1}`}
-            </Link>{i < value.length - 1 ? ', ' : ''}
-          </span>
+          typeof url === 'string' ? (
+            <span key={i}>
+              <Link 
+                href={url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                sx={{ color: '#1976d2', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+              >
+                View {key === 'payment_recipt' ? `Receipt ${i+1}` : `File ${i+1}`}
+              </Link>{i < value.length - 1 ? ', ' : ''}
+            </span>
+          ) : null
         )) : 'N/A';
       }
-      return value.join(', ');
+      // Defensive: join only string values
+      return value.filter(v => typeof v === 'string').join(', ');
     }
-    
-     // Format ISO date strings
+
+    // Format ISO date strings
     if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/.test(value)) {
       const date = parseISO(value);
       if (isValid(date)) {
@@ -135,19 +142,25 @@ const DocumentTable = ({ docs, fields }) => {
       }
     }
 
+    // Defensive: fallback for objects
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+
     return String(value);
   };
 
   // Apply business rules to filter fields based on data conditions
   const applyBusinessRules = (fields, docs) => {
+    const docsArray = Array.isArray(docs) ? docs : [];
     return fields.filter(field => {
       // Check if field has data in any document
-      const hasData = docs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null);
+      const hasData = docsArray.some(doc => doc[field.key] !== undefined && doc[field.key] !== null);
       if (!hasData) return false;
 
       // Business Rule 1: If payment_mode is not "Wire Transfer", don't show wire_transfer_method
       if (field.key === 'wire_transfer_method') {
-        return docs.some(doc => 
+        return docsArray.some(doc => 
           doc.payment_mode && 
           doc.payment_mode.toLowerCase().includes('wire transfer')
         );
@@ -155,22 +168,22 @@ const DocumentTable = ({ docs, fields }) => {
 
       // Business Rule 2: Don't show is_payment_made if payment_made_date is available
       if (field.key === 'is_payment_made') {
-        return !docs.some(doc => doc.payment_made_date);
+        return !docsArray.some(doc => doc.payment_made_date);
       }
 
       // Business Rule 3: Don't show is_payment_requested if payment_request_date is available
       if (field.key === 'is_payment_requested') {
-        return !docs.some(doc => doc.payment_request_date);
+        return !docsArray.some(doc => doc.payment_request_date);
       }
 
       // Business Rule 4: If is_tds is true, don't show is_non_tds
       if (field.key === 'is_non_tds') {
-        return !docs.some(doc => doc.is_tds === true);
+        return !docsArray.some(doc => doc.is_tds === true);
       }
 
       // Business Rule 5: If is_non_tds is true, don't show is_tds
       if (field.key === 'is_tds') {
-        return !docs.some(doc => doc.is_non_tds === true);
+        return !docsArray.some(doc => doc.is_non_tds === true);
       }
 
       return true;
@@ -178,7 +191,7 @@ const DocumentTable = ({ docs, fields }) => {
   };
 
   // Filter out fields based on business rules and data availability
-  const relevantFields = applyBusinessRules(fields, docs);
+  const relevantFields = applyBusinessRules(fields, docsArray);
 
   return (
     <TableContainer>
@@ -202,7 +215,7 @@ const DocumentTable = ({ docs, fields }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {docs.map((doc, index) => (
+          {docsArray.map((doc, index) => (
             <TableRow 
               key={index}
               sx={{ 

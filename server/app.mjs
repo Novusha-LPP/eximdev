@@ -120,7 +120,7 @@ import getDoBilling from "./routes/import-do/getDoBilling.mjs";
 import freeDaysConf from "./routes/import-do/freeDaysConf.mjs";
 import getDoModuleJobs from "./routes/import-do/getDoModuleJobs.mjs";
 import updateDoBilling from "./routes/import-do/updateDoBilling.mjs";
-import updateDoList from "./routes/import-do/updateDoList.mjs";
+import updateDoListRouter from './routes/import-do/updateDoList.mjs';
 import updateDoPlanning from "./routes/import-do/updateDoPlanning.mjs";
 import getKycDocuments from "./routes/import-do/getKycDocuments.mjs";
 import getShippingLines from "./routes/getShippingLines.mjs";
@@ -445,7 +445,7 @@ if (cluster.isPrimary) {
       app.use(freeDaysConf);
       app.use(getDoModuleJobs);
       app.use(updateDoBilling);
-      app.use(updateDoList);
+      app.use(updateDoListRouter);
       app.use(updateDoPlanning);
       app.use(getKycDocuments);
       app.use(getShippingLines);

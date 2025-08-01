@@ -263,7 +263,7 @@ function List() {
         const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
         return (
           <a
-            href={`/edit-do-list/${job_no}/${year}`}
+            href={`/edit-do-list/${job_no}/${year}?jobId=${_id}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{

@@ -11,12 +11,14 @@ import { TabContext } from "./ImportDO";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useSearchParams } from "react-router-dom";
+
 
 
 function EditDoList() {
   // Fix 1: Properly destructure all needed parameters
-  const params = useParams();
-  const { job_no, year } = params;
+  const param = useParams();
+  const { job_no, year } = param;
     
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState(false);
@@ -29,13 +31,15 @@ function EditDoList() {
   const bl_no_ref = useRef();
   const kycDocsRef = React.useRef();
   const location = useLocation();
-    const { selectedJobId } = location.state || {};
+  const [params] = useSearchParams();
+    const jobId = params.get("jobId");
+    
+
+    console.log(jobId, "jobId from params");
   const navigate = useNavigate();
   const { setCurrentTab } = useContext(TabContext);
   const { user } = useContext(UserContext);
   const [data, setData] = useState(null);
-
-  
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
@@ -44,7 +48,7 @@ function EditDoList() {
   React.useEffect(() => {
     if (location.state) {
       const { 
-        selectedJobId, 
+        jobId, 
         searchQuery, 
         selectedImporter, 
         selectedICD, 
@@ -55,7 +59,7 @@ function EditDoList() {
       } = location.state;
       
       const params = {
-        selectedJobId,
+        jobId,
         searchQuery,
         selectedImporter,
         selectedICD,
@@ -84,7 +88,7 @@ function EditDoList() {
           selectedImporter: storedSearchParams.selectedImporter,
           selectedICD: storedSearchParams.selectedICD,
           selectedYearState: storedSearchParams.selectedYearState,
-          selectedJobId: storedSearchParams.selectedJobId,
+          jobId: storedSearchParams.jobId,
           currentPage: storedSearchParams.currentPage,
         }),
       },
@@ -95,14 +99,14 @@ function EditDoList() {
   React.useEffect(() => {
     async function getData() {
       // Fix 6: Add parameter validation here too
-      if (!selectedJobId) {
+      if (!jobId) {
         console.warn("Missing _id parameter for KYC data fetch");
         return;
       }
 
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${selectedJobId}`
+          `${process.env.REACT_APP_API_STRING}/get-kyc-and-bond-status/${jobId}`
         );
         const {
           shipping_line_kyc_completed,
@@ -131,7 +135,7 @@ function EditDoList() {
 
     getData();
     // eslint-disable-next-line
-  }, [selectedJobId]);
+  }, [jobId]);
 
     useEffect(() => {
       fetchJobDetails();
@@ -164,7 +168,7 @@ function EditDoList() {
       try {
         const data = {
           ...values,
-          selectedJobId,
+     _id: jobId,
           shipping_line_bond_completed: values.shipping_line_bond_completed
             ? "Yes"
             : "No",
@@ -176,12 +180,17 @@ function EditDoList() {
             : "No",
         };
          // Get user info from localStorage for audit trail
-        const userData = JSON.parse(localStorage.getItem("exim_user") || "{}");
+         const username =
+          user?.username || localStorage.getItem("username") || "unknown";
+        const userId =
+          user?.jobId || localStorage.getItem("userId") || "unknown";
+        const userRole =
+          user?.role || localStorage.getItem("userRole") || "unknown";
         const headers = {
           'Content-Type': 'application/json',
-          'user-id': userData.selectedJobId || 'unknown',
-          'username': userData.username || 'unknown',
-          'user-role': userData.role || 'unknown'
+          'user-id': userId,
+          'username': username,
+          'user-role': userRole
         };
         
         // Log for debugging
@@ -207,9 +216,9 @@ function EditDoList() {
         
         // Navigate back with all the stored search parameters
      // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
+        // setTimeout(() => {
+        //   window.close();
+        // }, 500);
 
       } catch (error) {
         console.error("Error updating job:", error);

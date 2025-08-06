@@ -1296,46 +1296,74 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
               </Col>
               {/* Bill Agency No */}
               <Col xs={14} lg={3}>
-                <div className="flex items-center">
+                <div className="job-detail-input-container" style={{ justifyContent: "flex-start" }}>
                   <strong>Bill Agency:&nbsp;</strong>
-                  <span className="text-gray-900">
-                    {(data.bill_no?.split(",")[0] || "").trim()}
-                  </span>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    value={(formik.values.bill_no?.split(",")[0] || "").trim()}
+                    onChange={(e) => {
+                      const currentBillNo = formik.values.bill_no || "";
+                      const billParts = currentBillNo.split(",");
+                      const newBillNo = `${e.target.value.trim()},${(billParts[1] || "").trim()}`;
+                      formik.setFieldValue("bill_no", newBillNo);
+                    }}
+                    disabled={user?.role !== "Admin" || isSubmissionDate}
+                    style={{ marginTop: "10px" }}
+                  />
                 </div>
               </Col>
 
               {/* Bill Reimbursement No */}
               <Col xs={14} lg={3}>
-                <div className="flex items-center">
+                <div className="job-detail-input-container" style={{ justifyContent: "flex-start" }}>
                   <strong>Bill Reimbursement:&nbsp;</strong>
-                  <span className="text-gray-900">
-                    {(data.bill_no?.split(",")[1] || "").trim()}
-                  </span>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    value={(formik.values.bill_no?.split(",")[1] || "").trim()}
+                    onChange={(e) => {
+                      const currentBillNo = formik.values.bill_no || "";
+                      const billParts = currentBillNo.split(",");
+                      const newBillNo = `${(billParts[0] || "").trim()},${e.target.value.trim()}`;
+                      formik.setFieldValue("bill_no", newBillNo);
+                    }}
+                    disabled={user?.role !== "Admin" || isSubmissionDate}
+                    style={{ marginTop: "10px" }}
+                  />
                 </div>
               </Col>
 
               {/* Bill Date (First Only) */}
               <Col xs={12} lg={3}>
-                <div className="flex items-center">
+                <div className="job-detail-input-container" style={{ justifyContent: "flex-start" }}>
                   <strong>Bill Date:&nbsp;</strong>
-                  <span className="text-gray-900">
-                    {(() => {
-                      const firstDateStr = (data.bill_date || "")
-                        .split(",")[0]
-                        ?.trim();
-                      const firstDate = new Date(firstDateStr);
-                      return firstDate instanceof Date && !isNaN(firstDate)
-                        ? firstDate.toLocaleString("en-US", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })
-                        : "";
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    type="datetime-local"
+                    value={(() => {
+                      const firstDateStr = (formik.values.bill_date || "").split(",")[0]?.trim();
+                      if (firstDateStr) {
+                        const date = new Date(firstDateStr);
+                        if (!isNaN(date.getTime())) {
+                          return date.toISOString().slice(0, 16);
+                        }
+                      }
+                      return "";
                     })()}
-                  </span>
+                    onChange={(e) => {
+                      const currentBillDate = formik.values.bill_date || "";
+                      const dateParts = currentBillDate.split(",");
+                      const newBillDate = `${e.target.value},${(dateParts[1] || "").trim()}`;
+                      formik.setFieldValue("bill_date", newBillDate);
+                    }}
+                    disabled={user?.role !== "Admin" || isSubmissionDate}
+                    style={{ marginTop: "10px" }}
+                  />
                 </div>
               </Col>
             </Row>
@@ -2047,7 +2075,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     name="cth_no"
                     value={formik.values.cth_no || ""}
                     onChange={formik.handleChange}
-                    InputLabelProps={{ shrink: true }}
+                    // InputLabelProps={{ shrink: true }}
                     disabled={isSubmissionDate}
                   />
                 </div>

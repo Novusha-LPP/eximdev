@@ -266,6 +266,7 @@ function useFetchJobDetails(
   // Fetch CTH documents based on CTH number and Update additional CTH documents based on CTH number
   useEffect(() => {
     async function getCthDocs() {
+      // Always process existing cth_documents, even if cth_no is empty
       if (data?.cth_no) {
         const cthRes = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-cth-docs/${data?.cth_no}`
@@ -320,6 +321,9 @@ function useFetchJobDetails(
         }, []);
 
         setCthDocuments(uniqueDocuments);
+      } else if (data?.cth_documents && data.cth_documents.length > 0) {
+        // If no CTH number but we have existing cth_documents, display them
+        setCthDocuments(data.cth_documents);
       }
     }
     if (data) {
@@ -440,6 +444,8 @@ function useFetchJobDetails(
       cifValue: "",
       freight: "",
       insurance: "",
+      bill_no: "",
+      bill_date: "",
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -559,6 +565,8 @@ function useFetchJobDetails(
           freight: values.freight,      
           cifValue: values.cifValue,
           insurance: values.insurance,
+          bill_date: values.bill_date,
+          bill_no: values.bill_no,
           assessable_ammount: values.assessable_ammount,
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
@@ -578,9 +586,10 @@ function useFetchJobDetails(
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
            // Close the tab after successful submit
-        setTimeout(() => {
+                setTimeout(() => {
           window.close();
         }, 500);
+
 
     },
   });
@@ -940,7 +949,9 @@ function useFetchJobDetails(
         do_completed: data.do_completed === undefined ? "" : data.do_completed, 
         import_terms: data.import_terms === undefined ? "" : data.import_terms,
         freight: data.freight === undefined ? "" : data.freight, 
-        insurance: data.insurance === undefined ? "" : data.insurance, 
+        insurance: data.insurance === undefined ? "" : data.insurance,       
+        bill_date: data.insurance === undefined ? "" : data.bill_date,       
+        bill_no: data.bill_no === undefined ? "" : data.bill_no,
         cifValue:
           data.cifValue === undefined ? "" : data.cifValue,     
          out_of_charge:

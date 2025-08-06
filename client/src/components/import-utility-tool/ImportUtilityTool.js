@@ -54,7 +54,8 @@ const ImportUtilityTool = () => {
     severity: "success",
   });
   const [dutyCalculatorOpen, setDutyCalculatorOpen] = useState(false);
-  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);  const [dutyCalculatorForm, setDutyCalculatorForm] = useState({
+  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);  
+  const [dutyCalculatorForm, setDutyCalculatorForm] = useState({
     importTerms: 'CIF',
     cifValue: '',
     freight: '',

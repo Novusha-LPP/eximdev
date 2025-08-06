@@ -23,6 +23,7 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
+import FormLabel from "@mui/material/FormLabel";
 import AWS from "aws-sdk";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
 import JobDetailsStaticData from "./JobDetailsStaticData";
@@ -139,6 +140,15 @@ function JobDetails() {
     });
   };
 
+  // Import Terms handlers
+  const handleImportTermsChange = (event) => {
+    const value = event.target.value;
+    setImportTerms(value);
+    // Update formik
+    formik.setFieldValue('import_terms', value);
+  };
+
+
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     type: "", // "delete" or "resolve"
@@ -168,6 +178,9 @@ function JobDetails() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editValues, setEditValues] = useState({});
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
+
+  // Import Terms state
+  const [importTerms, setImportTerms] = useState('CIF');
 
   const {
     data,
@@ -254,6 +267,13 @@ function JobDetails() {
       setIsSubmissiondate(false);
     }
   }, [formik.values.submission_completed_date_time]);
+
+  // Sync import_terms from formik to local state when component loads
+  useEffect(() => {
+    if (formik.values.import_terms && formik.values.import_terms !== importTerms) {
+      setImportTerms(formik.values.import_terms);
+    }
+  }, [formik.values.import_terms]);
 
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
@@ -1793,6 +1813,65 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                       placeholder="Enter Bank Name"
                     />
                   </div>
+                </Col>
+              </Row>
+
+              {/* Import Terms Section */}
+              <Row style={{ marginTop: "20px" }}>
+                <Col xs={12}>
+                  <Box sx={{ mt: 2 }}>
+                    <FormControl component="fieldset">
+                      <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: '14px', color: '#34495e', mb: 1 }}>Import Terms</FormLabel>
+                      <RadioGroup
+                        aria-label="import-terms"
+                        name="import_terms"
+                        value={formik.values.import_terms || importTerms}
+                        onChange={handleImportTermsChange}
+                      >
+                        <FormControlLabel value="CIF" control={<Radio />} label="CIF" />
+                        <FormControlLabel value="FOB" control={<Radio />} label="FOB" />
+                        <FormControlLabel value="CF" control={<Radio />} label="C&F" />
+                        <FormControlLabel value="CI" control={<Radio />} label="C&I" />
+                      </RadioGroup>
+                    </FormControl>
+
+                    {/* Conditional Fields */}
+                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <TextField
+                        label={`${formik.values.import_terms || importTerms} Value (₹)`}
+                        type="number"
+                        name="cifValue"
+                        value={formik.values.cifValue || ''}
+                        onChange={formik.handleChange}
+                        size="small"
+                        sx={{ maxWidth: 220 }}
+                      />
+
+                      {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'CI') && (
+                        <TextField
+                          label="Freight (₹)"
+                          type="number"
+                          name="freight"
+                          value={formik.values.freight || ''}
+                          onChange={formik.handleChange}
+                          size="small"
+                          sx={{ maxWidth: 220 }}
+                        />
+                      )}
+
+                      {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'CF') && (
+                        <TextField
+                          label="Insurance (₹)"
+                          type="number"
+                          name="insurance"
+                          value={formik.values.insurance || ''}
+                          onChange={formik.handleChange}
+                          size="small"
+                          sx={{ maxWidth: 220 }}
+                        />
+                      )}
+                    </Box>
+                  </Box>
                 </Col>
               </Row>
             </Row>

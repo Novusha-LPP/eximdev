@@ -423,6 +423,7 @@ function useFetchJobDetails(
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
       do_completed: "",
+      import_terms: "",
       // container_rail_out_date: ""      assessable_ammount: "",
       igst_ammount: "",
       sws_ammount: "",
@@ -435,6 +436,10 @@ function useFetchJobDetails(
       remark_esanchit_input: "",
       remark_documentation_input: "",
       DsrCharges: [],
+      import_terms: "",
+      cifValue: "",
+      freight: "",
+      insurance: "",
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -549,11 +554,17 @@ function useFetchJobDetails(
           completed_operation_date: values.completed_operation_date,
           esanchit_completed_date_time: values.esanchit_completed_date_time,
           bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
-          do_completed: values.do_completed,          assessable_ammount: values.assessable_ammount,
+          do_completed: values.do_completed,   
+          import_terms: values.import_terms,
+          freight: values.freight,      
+          cifValue: values.cifValue,
+          insurance: values.insurance,
+          assessable_ammount: values.assessable_ammount,
           igst_ammount: values.igst_ammount,
           sws_ammount: values.sws_ammount,
           bcd_ammount: values.bcd_ammount,
-          intrest_ammount: values.intrest_ammount,          fine_ammount: values.fine_ammount,
+          intrest_ammount: values.intrest_ammount,         
+          fine_ammount: values.fine_ammount,
           penalty_ammount: values.penalty_ammount,
           total_duty: values.total_duty,
           esanchit_remark_box: values.esanchit_remark_box,
@@ -926,7 +937,13 @@ function useFetchJobDetails(
           data.bill_document_sent_to_accounts === undefined
             ? ""
             : data.bill_document_sent_to_accounts,
-        do_completed: data.do_completed === undefined ? "" : data.do_completed,        out_of_charge:
+        do_completed: data.do_completed === undefined ? "" : data.do_completed, 
+        import_terms: data.import_terms === undefined ? "" : data.import_terms,
+        freight: data.freight === undefined ? "" : data.freight, 
+        insurance: data.insurance === undefined ? "" : data.insurance, 
+        cifValue:
+          data.cifValue === undefined ? "" : data.cifValue,     
+         out_of_charge:
           data.out_of_charge === undefined ? "" : data.out_of_charge,
         checked: data.checked || false, // Make sure to set the checkbox state
         type_of_Do: data.type_of_Do || "",

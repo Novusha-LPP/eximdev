@@ -102,9 +102,9 @@ function useFetchOperationTeamJob(params) {
         
         // Navigate back with all the stored search parameters
             // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
+        // setTimeout(() => {
+        //   window.close();
+        // }, 500);
 
         
       } catch (error) {
@@ -129,12 +129,29 @@ function useFetchOperationTeamJob(params) {
         tare_weight: container.tare_weight || "",
         actual_weight: container.actual_weight || "",
         weight_shortage: container.weight_shortage || "",
+        weight_excess: container.weight_excess || "",
         weighment_slip_images: container.weighment_slip_images || [],
-        container_pre_damage_images:
-          container.container_pre_damage_images || [],
+        container_pre_damage_images: container.container_pre_damage_images || [],
         container_images: container.container_images || [],
         loose_material: container.loose_material || [],
         examination_videos: container.examination_videos || [],
+        // Include all the missing fields to preserve them
+        transporter: container.transporter || "",
+        vehicle_no: container.vehicle_no || "",
+        driver_name: container.driver_name || "",
+        driver_phone: container.driver_phone || "",
+        seal_no: container.seal_no || "",
+        do_revalidation_date: container.do_revalidation_date || "",
+        do_validity_upto_container_level: container.do_validity_upto_container_level || "",
+        required_do_validity_upto: container.required_do_validity_upto || "",
+        seal_number: container.seal_number || "",
+        container_rail_out_date: container.container_rail_out_date || "",
+        by_road_movement_date: container.by_road_movement_date || "",
+        emptyContainerOffLoadDate: container.emptyContainerOffLoadDate || "",
+        net_weight_as_per_PL_document: container.net_weight_as_per_PL_document || "",
+        delivery_chalan_file: container.delivery_chalan_file || "",
+        delivery_date: container.delivery_date || "",
+        do_revalidation: container.do_revalidation || [],
       }));
 
       formik.setValues({

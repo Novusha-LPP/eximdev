@@ -21,7 +21,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);

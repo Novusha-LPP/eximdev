@@ -452,8 +452,8 @@ security_deposit: [{
   icd_cfs_invoice_img: [{ type: String, trim: true }],
   upload_agency_bill_img: {type: String},
   upload_reimbursement_bill_img: { type: String },  
-  bill_amount: {type: String}
-  
+  bill_amount: {type: String},
+  do_list: { type: String, trim: true },
 });
 
 

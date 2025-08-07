@@ -41,6 +41,7 @@ function DoPlanning() {
   const [page, setPage] = useState(1); // Current page
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(""); // New status filter state
   // Use context for search functionality like E-Sanchit
   const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab1: currentPage, setCurrentPageDoTab1: setCurrentPage } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
@@ -55,6 +56,36 @@ function DoPlanning() {
     location.state?.selectedJobId || null
   );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
+
+  // Status filter options
+  const statusFilterOptions = [
+    { value: "", label: "All Status" },
+    { value: "do_doc_prepared", label: "DO Doc Prepared" },
+    { value: "do_doc_not_prepared", label: "DO Doc Not Prepared" },
+    { value: "payment_request_sent", label: "Payment Request Sent to Billing Team" },
+    { value: "payment_request_not_sent", label: "Payment Request Not Sent to Billing Team" },
+    { value: "payment_made", label: "Payment Made" },
+    { value: "payment_not_made", label: "Payment Not Made" },
+    { value: "obl_received", label: "OBL Received" },
+    { value: "obl_not_received", label: "OBL Not Received" },
+    { value: "doc_sent_to_shipping_line", label: "Doc Sent to Shipping Line" },
+    { value: "doc_not_sent_to_shipping_line", label: "Doc Not Sent to Shipping Line" }
+  ];
+
+  // DO List options
+  const doListOptions = [
+    { value: "", label: "Select DO List" },
+    { value: "ICD Khodiyar / ICD AHMEDABAD", label: "ICD Khodiyar / ICD AHMEDABAD" },
+    { value: "ICD SANAND", label: "ICD SANAND" },
+    { value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK", label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK" },
+    { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
+    { value: "Golden Horn Container Services (Nr. ICD Khodiyar)", label: "Golden Horn Container Services (Nr. ICD Khodiyar)" },
+    { value: "Golden Horn Container Services (Nr. ICD SANAND)", label: "Golden Horn Container Services (Nr. ICD SANAND)" },
+    { value: "JAY BHAVANI CONTAINERS YARD", label: "JAY BHAVANI CONTAINERS YARD" },
+    { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
+    { value: "SATURN GLOBAL TERMINAL PVT LTD", label: "SATURN GLOBAL TERMINAL PVT LTD" },
+    { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" }
+  ];
 
  
 
@@ -162,7 +193,8 @@ const fetchJobs = useCallback(
     currentSearchQuery,
     currentYear,
     currentICD,
-    selectedImporter
+    selectedImporter,
+    statusFilter = ""
   ) => {
     setLoading(true);
     try {
@@ -177,6 +209,7 @@ const fetchJobs = useCallback(
             selectedICD: currentICD,
             importer: selectedImporter?.trim() || "",
             username: user?.username || "",
+            statusFilter: statusFilter || "",
           },
         }
       );
@@ -220,7 +253,8 @@ const fetchJobs = useCallback(
         debouncedSearchQuery,
         selectedYearState,
         selectedICD,
-        selectedImporter
+        selectedImporter,
+        selectedStatusFilter
       );
     }
   }, [
@@ -229,6 +263,7 @@ const fetchJobs = useCallback(
     selectedYearState,
     selectedICD,
     selectedImporter,
+    selectedStatusFilter,
     user?.username,
     fetchJobs,
   ]);
@@ -237,6 +272,12 @@ const fetchJobs = useCallback(
     setSearchQuery(event.target.value);
         setCurrentPage(1); // Reset to first page when user types
 
+  };
+
+  // Handle status filter change
+  const handleStatusFilterChange = (event) => {
+    setSelectedStatusFilter(event.target.value);
+    setCurrentPage(1); // Reset to first page when filter changes
   };
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
@@ -257,46 +298,49 @@ const fetchJobs = useCallback(
 const DoDocCountsDisplay = () => (
 <div style={{ 
   display: 'flex', 
-  gap: '16px', 
-  padding: '4px 8px', 
-  backgroundColor: '#f5f5f5', 
-  borderRadius: '8px', 
-  marginBottom: '10px' 
+  gap: '12px', 
+  alignItems: 'center'
 }}>
   <div style={{ 
-    padding: '4px 8px', 
+    padding: '8px 16px', 
     backgroundColor: '#e3f2fd', 
-    borderRadius: '5px',
-    textAlign: 'center'
+    borderRadius: '8px',
+    textAlign: 'center',
+    border: '2px solid #1976d2',
+    minWidth: '80px'
   }}>
-    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1976d2' }}>
+    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1976d2' }}>
       {doDocCounts.totalJobs}
     </div>
-    <div style={{ fontSize: '11px', color: '#666' }}>Total Jobs</div>
+    <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Total Jobs</div>
   </div>
   
   <div style={{ 
-    padding: '4px 8px', 
+    padding: '8px 16px', 
     backgroundColor: '#e8f5e8', 
-    borderRadius: '5px',
-    textAlign: 'center'
+    borderRadius: '8px',
+    textAlign: 'center',
+    border: '2px solid #2e7d32',
+    minWidth: '80px'
   }}>
-    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2e7d32' }}>
+    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2e7d32' }}>
       {doDocCounts.prepared}
     </div>
-    <div style={{ fontSize: '11px', color: '#666' }}>DO Doc Prepared</div>
+    <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>DO Doc Prepared</div>
   </div>
   
   <div style={{ 
-    padding: '4px 8px', 
+    padding: '8px 16px', 
     backgroundColor: '#ffebee', 
-    borderRadius: '5px',
-    textAlign: 'center'
+    borderRadius: '8px',
+    textAlign: 'center',
+    border: '2px solid #d32f2f',
+    minWidth: '80px'
   }}>
-    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#d32f2f' }}>
+    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#d32f2f' }}>
       {doDocCounts.notPrepared}
     </div>
-    <div style={{ fontSize: '8px', color: '#666' }}>DO Doc Not Prepared</div>
+    <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>DO Doc Not Prepared</div>
   </div>
 </div>
 
@@ -357,8 +401,15 @@ const DoDocCountsDisplay = () => (
       Cell: ({ cell, row }) => {
         const importerName = cell?.getValue()?.toString();
         const _id = row.original._id;
-        const isDoDocPrepared = row.original.is_do_doc_prepared || false;
-        const [checked, setChecked] = React.useState(isDoDocPrepared);
+        const [isDoDocPrepared, setIsDoDocPrepared] = React.useState(row.original.is_do_doc_prepared || false);
+
+        // Sync local state when row data changes
+        React.useEffect(() => {
+          setIsDoDocPrepared(row.original.is_do_doc_prepared || false);
+        }, [row.original.is_do_doc_prepared]);
+
+        // Remove local state - use the data directly from the row
+        // const [checked, setChecked] = React.useState(isDoDocPrepared);
 
         // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
         const doShippingLineInvoice = row.original.do_shipping_line_invoice;
@@ -371,7 +422,14 @@ const DoDocCountsDisplay = () => (
 
         const handleToggleDoDocPrepared = async (event) => {
           const newValue = event.target.checked;
-          setChecked(newValue);
+          const previousValue = isDoDocPrepared;
+          
+          // Update local state immediately
+          setIsDoDocPrepared(newValue);
+          
+          // Update the row data directly
+          row.original.is_do_doc_prepared = newValue;
+          
           try {
             const now = new Date().toISOString();
             const updateData = {
@@ -382,8 +440,25 @@ const DoDocCountsDisplay = () => (
               'Content-Type': 'application/json',
             };
             await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+            
+            // Update the main state
+            setRows(prevRows => 
+              prevRows.map(r => 
+                r._id === _id ? { ...r, is_do_doc_prepared: newValue } : r
+              )
+            );
           } catch (error) {
-            setChecked(!newValue);
+            // Revert the changes on error
+            setIsDoDocPrepared(previousValue);
+            row.original.is_do_doc_prepared = previousValue;
+            console.error('Error updating DO doc prepared status:', error);
+            
+            // Revert the state as well
+            setRows(prevRows => 
+              prevRows.map(r => 
+                r._id === _id ? { ...r, is_do_doc_prepared: previousValue } : r
+              )
+            );
           }
         };
 
@@ -439,7 +514,7 @@ const DoDocCountsDisplay = () => (
             <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', marginTop: '4px' }}>
               <input
                 type="checkbox"
-                checked={checked}
+                checked={isDoDocPrepared}
                 onChange={handleToggleDoDocPrepared}
                 style={{ marginRight: '6px' }}
               />
@@ -554,9 +629,21 @@ const DoDocCountsDisplay = () => (
     const [isOblReceived, setIsOblReceived] = React.useState(row.original.is_obl_recieved || false);
     const _id = row.original._id;
 
+    // Sync local state when row data changes
+    React.useEffect(() => {
+      setIsOblReceived(row.original.is_obl_recieved || false);
+    }, [row.original.is_obl_recieved]);
+
     const handleToggleOBL = async (event) => {
       const newValue = event.target.checked;
-      setIsOblReceived(newValue); // Update UI immediately
+      const previousValue = isOblReceived;
+      
+      // Update local state immediately
+      setIsOblReceived(newValue);
+      
+      // Update the row data directly
+      row.original.is_obl_recieved = newValue;
+      
       try {
         const now = new Date().toISOString();
         const updateData = {
@@ -568,9 +655,25 @@ const DoDocCountsDisplay = () => (
         };
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
         console.log('OBL status and date updated successfully');
+        
+        // Update the main state
+        setRows(prevRows => 
+          prevRows.map(r => 
+            r._id === _id ? { ...r, is_obl_recieved: newValue } : r
+          )
+        );
       } catch (error) {
         console.error('Error updating OBL status:', error);
-        setIsOblReceived(!newValue);
+        // Revert the changes on error
+        setIsOblReceived(previousValue);
+        row.original.is_obl_recieved = previousValue;
+        
+        // Revert the state as well
+        setRows(prevRows => 
+          prevRows.map(r => 
+            r._id === _id ? { ...r, is_obl_recieved: previousValue } : r
+          )
+        );
       }
     };
 
@@ -682,13 +785,31 @@ const DoDocCountsDisplay = () => (
         const displayDate = cell.getValue(); // "displayDate" from backend
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
         const typeOfDo = row.original.type_of_Do;
-        const isDoDocRecieved = row.original.is_do_doc_recieved || false;
+        const [isDoDocRecieved, setIsDoDocRecieved] = React.useState(row.original.is_do_doc_recieved || false);
         const _id = row.original._id;
-        const [checked, setChecked] = React.useState(isDoDocRecieved);
+
+        // Sync local state when row data changes
+        React.useEffect(() => {
+          setIsDoDocRecieved(row.original.is_do_doc_recieved || false);
+          setSelectedDoList(row.original.do_list || "");
+        }, [row.original.is_do_doc_recieved, row.original.do_list]);
+        const [selectedDoList, setSelectedDoList] = React.useState(row.original.do_list || "");
+
+        // Sync local state when row data changes
+        React.useEffect(() => {
+          setSelectedDoList(row.original.do_list || "");
+        }, [row.original.do_list]);
 
         const handleToggleDoDoc = async (event) => {
           const newValue = event.target.checked;
-          setChecked(newValue);
+          const previousValue = isDoDocRecieved;
+          
+          // Update local state immediately
+          setIsDoDocRecieved(newValue);
+          
+          // Update the row data directly
+          row.original.is_do_doc_recieved = newValue;
+          
           try {
             const now = new Date().toISOString();
             const updateData = {
@@ -699,9 +820,66 @@ const DoDocCountsDisplay = () => (
               'Content-Type': 'application/json',
             };
             await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-            // Optionally show a toast or notification
+            
+            // Update the main state
+            setRows(prevRows => 
+              prevRows.map(r => 
+                r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
+              )
+            );
           } catch (error) {
-            setChecked(!newValue);
+            // Revert the changes on error
+            setIsDoDocRecieved(previousValue);
+            row.original.is_do_doc_recieved = previousValue;
+            console.error('Error updating DO doc received status:', error);
+            
+            // Revert the state as well
+            setRows(prevRows => 
+              prevRows.map(r => 
+                r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
+              )
+            );
+          }
+        };
+
+        const handleDoListChange = async (event) => {
+          const newValue = event.target.value;
+          const previousValue = selectedDoList;
+          
+          // Update local state immediately for UI responsiveness
+          setSelectedDoList(newValue);
+          
+          // Update the row data directly for immediate UI update
+          row.original.do_list = newValue;
+          
+          try {
+            const updateData = {
+              do_list: newValue
+            };
+            const headers = {
+              'Content-Type': 'application/json',
+            };
+            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+            console.log('DO list updated successfully');
+            
+            // Force a re-render by updating the rows state
+            setRows(prevRows => 
+              prevRows.map(r => 
+                r._id === _id ? { ...r, do_list: newValue } : r
+              )
+            );
+          } catch (error) {
+            // Revert the changes on error
+            setSelectedDoList(previousValue);
+            row.original.do_list = previousValue;
+            console.error('Error updating DO list:', error);
+            
+            // Revert the state as well
+            setRows(prevRows => 
+              prevRows.map(r => 
+                r._id === _id ? { ...r, do_list: previousValue } : r
+              )
+            );
           }
         };
 
@@ -720,12 +898,34 @@ const DoDocCountsDisplay = () => (
           <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
             <input
               type="checkbox"
-              checked={checked}
+              checked={isDoDocRecieved}
               onChange={handleToggleDoDoc}
               style={{ marginRight: '6px' }}
             />
             Do document send to shipping line
           </label>
+        </div>
+        
+        {/* DO List Dropdown */}
+        <div style={{ marginTop: '8px' }}>
+          <select
+            value={selectedDoList}
+            onChange={handleDoListChange}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              fontSize: '11px',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              backgroundColor: 'white'
+            }}
+          >
+            {doListOptions.map((option, index) => (
+              <option key={index} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
           </div>
         );
@@ -973,92 +1173,168 @@ const DoDocCountsDisplay = () => (
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
           width: "100%",
+          gap: "16px",
+          padding: "16px",
+          backgroundColor: "#f8f9fa",
+          borderRadius: "8px",
+          marginBottom: "8px",
         }}
       >
-        {/* Job Count Display */}
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
-        >
-           <div>
-    {/* Add the counts display */}
-    <DoDocCountsDisplay />
-    
-    {/* Your existing table and other components */}
-    {/* ... rest of your component */}
-  </div>
-        </Typography>
+        {/* First Row - Header and Counts */}
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e0e0e0",
+          paddingBottom: "12px"
+        }}>
+          <Typography
+            variant="h6"
+            sx={{ 
+              fontWeight: "600", 
+              color: "#1976d2",
+              fontSize: "1.2rem"
+            }}
+          >
+            DO Planning Dashboard
+          </Typography>
+          <DoDocCountsDisplay />
+        </div>
 
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-          renderInput={(params) => (
+        {/* Second Row - Filters */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "16px",
+            alignItems: "end",
+          }}
+        >
+
+
+          {/* Importer Filter */}
+          <Autocomplete
+            size="small"
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Importer"
+                fullWidth
+                sx={{ 
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'white',
+                  }
+                }}
+              />
+            )}
+          />
+
+          {/* Year Filter */}
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            label="Financial Year"
+            fullWidth
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'white',
+              }
+            }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {/* ICD Filter */}
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="ICD Location"
+            value={selectedICD}
+            onChange={(e) => {
+              setSelectedICD(e.target.value);
+              setCurrentPage(1);
+            }}
+            fullWidth
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'white',
+              }
+            }}
+          >
+            <MenuItem value="">All ICDs</MenuItem>
+            <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+            <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+            <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+          </TextField>
+
+          {/* Status Filter */}
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="Status Filter"
+            value={selectedStatusFilter}
+            onChange={handleStatusFilterChange}
+            fullWidth
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'white',
+              }
+            }}
+          >
+            {statusFilterOptions.map((option, index) => (
+              <MenuItem key={`status-${option.value}-${index}`} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+                    {/* Search Field - Takes more space */}
+          <div style={{ gridColumn: "span 2", minWidth: "300px" }}>
             <TextField
-              {...params}
-              variant="outlined"
+              placeholder="Search by Job No, Importer, AWB/BL Number..."
               size="small"
+              variant="outlined"
               fullWidth
-              label="Select Importer" // Placeholder text
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              label="Search"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => {
+                        setDebouncedSearchQuery(searchQuery);
+                        setCurrentPage(1);
+                      }}
+                      size="small"
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'white',
+                }
+              }}
             />
-          )}
-        />
-
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-
-      <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setCurrentPage(1); // Reset to the first page when the filter changes
-          }}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          <MenuItem value="">All ICDs</MenuItem>
-          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={handleSearchInputChange}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">                <IconButton
-                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-        />
+          </div>
+        </div>
       </div>
     ),
   });

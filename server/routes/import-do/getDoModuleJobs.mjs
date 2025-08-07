@@ -21,7 +21,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "" } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -104,10 +104,12 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push(req.userIcdFilter);
     } 
 
+    // Note: Status filter will be applied after fetching to ensure accuracy with complex nested arrays 
+
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
+        "job_no year do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
       )
       .lean();
 
@@ -128,13 +130,90 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // Combine results and remove duplicates
     const uniqueJobs = [...new Set([...allJobs, ...filteredJobs])];
 
+    // **Step 3.5: Apply status filter to the final combined jobs**
+    let finalFilteredJobs = uniqueJobs;
+    
+    if (statusFilter) {
+      const decodedStatusFilter = decodeURIComponent(statusFilter).trim();
+      console.log(`Applying status filter: ${decodedStatusFilter} to ${uniqueJobs.length} jobs`);
+      
+      finalFilteredJobs = uniqueJobs.filter((job) => {
+        switch (decodedStatusFilter) {
+          case "do_doc_prepared":
+            return job.is_do_doc_prepared === true;
+          
+          case "do_doc_not_prepared":
+            return job.is_do_doc_prepared !== true;
+          
+          case "payment_request_sent":
+            return job.do_shipping_line_invoice && 
+                   Array.isArray(job.do_shipping_line_invoice) && 
+                   job.do_shipping_line_invoice.length > 0 && 
+                   job.do_shipping_line_invoice.some(invoice => 
+                     invoice.payment_request_date && 
+                     invoice.payment_request_date !== "" && 
+                     invoice.payment_request_date !== null
+                   );
+          
+          case "payment_request_not_sent":
+            return !job.do_shipping_line_invoice || 
+                   !Array.isArray(job.do_shipping_line_invoice) || 
+                   job.do_shipping_line_invoice.length === 0 || 
+                   !job.do_shipping_line_invoice.some(invoice => 
+                     invoice.payment_request_date && 
+                     invoice.payment_request_date !== "" && 
+                     invoice.payment_request_date !== null
+                   );
+          
+          case "payment_made":
+            return job.do_shipping_line_invoice && 
+                   Array.isArray(job.do_shipping_line_invoice) && 
+                   job.do_shipping_line_invoice.length > 0 && 
+                   job.do_shipping_line_invoice.some(invoice => 
+                     invoice.is_payment_made === true || 
+                     (invoice.payment_made_date && 
+                      invoice.payment_made_date !== "" && 
+                      invoice.payment_made_date !== null)
+                   );
+          
+          case "payment_not_made":
+            return !job.do_shipping_line_invoice || 
+                   !Array.isArray(job.do_shipping_line_invoice) || 
+                   job.do_shipping_line_invoice.length === 0 || 
+                   !job.do_shipping_line_invoice.some(invoice => 
+                     invoice.is_payment_made === true || 
+                     (invoice.payment_made_date && 
+                      invoice.payment_made_date !== "" && 
+                      invoice.payment_made_date !== null)
+                   );
+          
+          case "obl_received":
+            return job.is_obl_recieved === true;
+          
+          case "obl_not_received":
+            return job.is_obl_recieved !== true;
+          
+          case "doc_sent_to_shipping_line":
+            return job.is_do_doc_recieved === true;
+          
+          case "doc_not_sent_to_shipping_line":
+            return job.is_do_doc_recieved !== true;
+          
+          default:
+            return true; // No filter for "All Status" or unknown values
+        }
+      });
+      
+      console.log(`After status filter: ${finalFilteredJobs.length} jobs remaining`);
+    }
+
     // **Step 4: Calculate DO Doc Prepared counts**
-    const totalJobsCount = uniqueJobs.length;
-    const doDocPreparedTrueCount = uniqueJobs.filter(job => job.is_do_doc_prepared === true).length;
-    const doDocPreparedFalseCount = uniqueJobs.filter(job => job.is_do_doc_prepared !== true).length;
+    const totalJobsCount = finalFilteredJobs.length;
+    const doDocPreparedTrueCount = finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length;
+    const doDocPreparedFalseCount = finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length;
 
     // **Step 5: Calculate additional fields (displayDate & dayDifference)**
-    const jobsWithCalculatedFields = uniqueJobs.map((job) => {
+    const jobsWithCalculatedFields = finalFilteredJobs.map((job) => {
       const jobLevelDate = job.do_validity_upto_job_level
         ? new Date(job.do_validity_upto_job_level)
         : null;

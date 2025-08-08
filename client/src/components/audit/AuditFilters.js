@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid, TextField, FormControl, InputLabel, Select, MenuItem, Button, CircularProgress, InputAdornment } from '@mui/material';
+import { Grid, TextField, FormControl, InputLabel, Select, MenuItem, Button, CircularProgress, InputAdornment, Autocomplete } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
 
@@ -140,25 +140,51 @@ const AuditFilters = ({
       </Grid>
       {user.role === 'Admin' && (
         <Grid item xs={12} sm={2} md={2}>
-          <FormControl fullWidth size="small">
-            <InputLabel>User</InputLabel>
-            <Select
-              value={userFilter}
-              label="User"
-              onChange={handleUserFilterChange}
-              sx={{
-                borderRadius: 1.5,
-                backgroundColor: colorPalette.primary + '04'
-              }}
-            >
-              <MenuItem value="">All Users</MenuItem>
-              {userList.map((user) => (
-                <MenuItem key={user.value + '-' + user.label} value={user.value}>
-                  {user.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            fullWidth
+            freeSolo
+            size="small"
+            options={userList?.filter(u => u && u.label).map((user) => user.label) || []}
+            value={userList?.find(u => u && u.value === userFilter)?.label || ""}
+            onInputChange={(event, newValue) => {
+              if (newValue === null || newValue === undefined) {
+                handleUserFilterChange({ target: { value: "" } });
+                return;
+              }
+              // Find the user object that matches the label
+              const selectedUser = userList?.find(u => u && u.label === newValue);
+              const userValue = selectedUser ? selectedUser.value : newValue;
+              handleUserFilterChange({ target: { value: userValue || "" } });
+            }}
+            onChange={(event, newValue) => {
+              if (newValue === null || newValue === undefined) {
+                handleUserFilterChange({ target: { value: "" } });
+                return;
+              }
+              // Handle selection from dropdown
+              const selectedUser = userList?.find(u => u && u.label === newValue);
+              const userValue = selectedUser ? selectedUser.value : newValue;
+              handleUserFilterChange({ target: { value: userValue || "" } });
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="User"
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    backgroundColor: colorPalette.primary + '04'
+                  }
+                }}
+              />
+            )}
+            renderOption={(props, option) => (
+              <li {...props} key={option || 'empty'}>
+                {option || 'No label'}
+              </li>
+            )}
+          />
         </Grid>
       )}
       <Grid item xs={12} sm={2} md={2}>

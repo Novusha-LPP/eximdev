@@ -316,9 +316,6 @@ const jobSchema = new mongoose.Schema({
   cifValue: { type: Number, trim: true },
   freight: { type: Number, trim: true },
   insurance: { type: Number, trim: true },
-  bcdRate: { type: Number, trim: true },
-  swsRate: { type: Number, trim: true },
-  igstRate: { type: Number, trim: true },
 
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },

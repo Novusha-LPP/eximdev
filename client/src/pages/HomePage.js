@@ -100,6 +100,7 @@ import Screen6 from "../components/Screens/Screen6.js";
 import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
+import AllUsersPage from "./AllUsersPage.js";
 
 
 const drawerWidth = 60;
@@ -256,6 +257,10 @@ function HomePage() {
 <Route
               path="/audit-trail"
               element={<AuditTrailViewer />}
+            />
+            <Route
+              path="/all-users"
+              element={<AllUsersPage />}
             />
             <Route path="/duty-calculator" element={<DutyCalculator />} />
             <Route path="/utilities" element={<UtilityParent />} />

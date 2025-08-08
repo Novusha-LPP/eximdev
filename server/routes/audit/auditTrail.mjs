@@ -520,34 +520,273 @@ router.get("/api/audit/user/:userId", async (req, res) => {
   }
 });
 
-// Get top 5 active users
-router.get("/api/audit-trail/top-users", async (req, res) => {
+// Get all users with activity statistics (for All Users page)
+router.get("/api/audit-trail/all-active-users", async (req, res) => {
   try {
-    const { fromDate, toDate } = req.query;
+    const { 
+      fromDate, 
+      toDate, 
+      limit = 20, 
+      page = 1, 
+      username, 
+      action,
+      sortBy = 'count', 
+      sortOrder = 'desc' 
+    } = req.query;
+    
     const filter = {};
+    
+    // Date range filter
     if (fromDate || toDate) {
       filter.timestamp = {};
       if (fromDate) filter.timestamp.$gte = new Date(fromDate);
       if (toDate) filter.timestamp.$lte = new Date(toDate);
     }
+    
+    // Username filter (partial match)
+    if (username) {
+      filter.username = { $regex: username, $options: 'i' };
+    }
+    
+    // Action filter
+    if (action) {
+      filter.action = action;
+    }
+    
+    // First, get all users with their statistics (no limit for complete data)
+    const allUsersStats = await AuditTrailModel.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: "$username",
+          count: { $sum: 1 },
+          lastActivity: { $max: "$timestamp" },
+          firstActivity: { $min: "$timestamp" },
+          actions: { $addToSet: "$action" }
+        }
+      },
+      { 
+        $sort: { 
+          [sortBy]: sortOrder === 'desc' ? -1 : 1 
+        } 
+      }
+    ]);
+    
+    // Apply pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const totalUsers = allUsersStats.length;
+    const paginatedUsers = allUsersStats.slice(skip, skip + parseInt(limit));
+    
+    res.json({ 
+      users: paginatedUsers,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalUsers / parseInt(limit)),
+        totalItems: totalUsers,
+        hasNext: skip + parseInt(limit) < totalUsers,
+        hasPrev: parseInt(page) > 1
+      },
+      debug: {
+        totalAuditTrailUsers: totalUsers,
+        message: `Showing users with audit trail activity. ${totalUsers} users have performed trackable actions.`
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching all active users:", error);
+    res.status(500).json({ message: "Error fetching all active users", error: error.message });
+  }
+});
+
+// Get ALL system users (including those without audit activity)
+router.get("/api/audit-trail/all-system-users", async (req, res) => {
+  try {
+    const { 
+      limit = 20, 
+      page = 1, 
+      username, 
+      sortBy = 'username', 
+      sortOrder = 'asc' 
+    } = req.query;
+    
+    // Get all users from UserModel
+    const userFilter = {};
+    if (username) {
+      userFilter.username = { $regex: username, $options: 'i' };
+    }
+    
+    const allSystemUsers = await UserModel.find(userFilter).lean();
+    
+    // Get audit activity for each user
+    const usersWithActivity = await Promise.all(
+      allSystemUsers.map(async (user) => {
+        const userActivity = await AuditTrailModel.aggregate([
+          { $match: { username: user.username } },
+          {
+            $group: {
+              _id: null,
+              count: { $sum: 1 },
+              lastActivity: { $max: "$timestamp" },
+              firstActivity: { $min: "$timestamp" },
+              actions: { $addToSet: "$action" }
+            }
+          }
+        ]);
+        
+        const activity = userActivity[0] || {
+          count: 0,
+          lastActivity: null,
+          firstActivity: null,
+          actions: []
+        };
+        
+        return {
+          _id: user.username,
+          userDetails: {
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+            company: user.company
+          },
+          count: activity.count,
+          lastActivity: activity.lastActivity,
+          firstActivity: activity.firstActivity,
+          actions: activity.actions,
+          hasActivity: activity.count > 0
+        };
+      })
+    );
+    
+    // Sort users
+    const sortField = sortBy === 'count' ? 'count' : 
+                     sortBy === 'lastActivity' ? 'lastActivity' : 
+                     '_id';
+    
+    usersWithActivity.sort((a, b) => {
+      const aVal = a[sortField] || (sortField === '_id' ? a._id : 0);
+      const bVal = b[sortField] || (sortField === '_id' ? b._id : 0);
+      
+      if (sortOrder === 'desc') {
+        return bVal > aVal ? 1 : -1;
+      }
+      return aVal > bVal ? 1 : -1;
+    });
+    
+    // Apply pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const totalUsers = usersWithActivity.length;
+    const paginatedUsers = usersWithActivity.slice(skip, skip + parseInt(limit));
+    
+    res.json({ 
+      users: paginatedUsers,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalUsers / parseInt(limit)),
+        totalItems: totalUsers,
+        hasNext: skip + parseInt(limit) < totalUsers,
+        hasPrev: parseInt(page) > 1
+      },
+      debug: {
+        totalSystemUsers: totalUsers,
+        activeUsers: usersWithActivity.filter(u => u.hasActivity).length,
+        inactiveUsers: usersWithActivity.filter(u => !u.hasActivity).length,
+        message: `Showing all system users including those without audit activity.`
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching all system users:", error);
+    res.status(500).json({ message: "Error fetching all system users", error: error.message });
+  }
+});
+
+// Get top active users with flexible filtering and pagination
+router.get("/api/audit-trail/top-users", async (req, res) => {
+  try {
+    const { 
+      fromDate, 
+      toDate, 
+      limit = 5, 
+      page = 1, 
+      username, 
+      action,
+      sortBy = 'count', 
+      sortOrder = 'desc' 
+    } = req.query;
+    
+    const filter = {};
+    
+    // Date range filter
+    if (fromDate || toDate) {
+      filter.timestamp = {};
+      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
+      if (toDate) filter.timestamp.$lte = new Date(toDate);
+    }
+    
+    // Username filter (partial match)
+    if (username) {
+      filter.username = { $regex: username, $options: 'i' };
+    }
+    
+    // Action filter
+    if (action) {
+      filter.action = action;
+    }
+    
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[sortBy] = sortDirection;
+    
     const topUsers = await AuditTrailModel.aggregate([
       { $match: filter },
       {
         $group: {
           _id: "$username",
           count: { $sum: 1 },
-          lastActivity: { $max: "$timestamp" }
+          lastActivity: { $max: "$timestamp" },
+          firstActivity: { $min: "$timestamp" },
+          actions: { $addToSet: "$action" }
         }
       },
-      { $sort: { count: -1 } },
-      { $limit: 5 }
+      { $sort: sortObj },
+      { $skip: skip },
+      { $limit: parseInt(limit) }
     ]);
-    res.json({ topUsers });
+    
+    // Get total count for pagination
+    const totalUsers = await AuditTrailModel.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: "$username",
+          count: { $sum: 1 }
+        }
+      },
+      { $count: "total" }
+    ]);
+    
+    const total = totalUsers[0]?.total || 0;
+    
+    res.json({ 
+      topUsers,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalItems: total,
+        hasNext: skip + parseInt(limit) < total,
+        hasPrev: parseInt(page) > 1
+      }
+    });
   } catch (error) {
     console.error("Error fetching top users:", error);
     res.status(500).json({ message: "Error fetching top users", error: error.message });
   }
 });
+
+
 
 // Get activity timeline for audit chart (day-wise for frontend line graph)
 router.get("/api/audit-trail/activity-timeline", async (req, res) => {

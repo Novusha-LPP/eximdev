@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { Grid, Card, Box, Typography, Chip, Grow } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { 
   Timeline as TimelineIcon, 
   Person as PersonIcon, 
@@ -10,8 +11,12 @@ import {
   TrendingUp as TrendingUpIcon,
   Event as EventIcon
 } from '@mui/icons-material';
+import { UserContext } from '../../contexts/UserContext';
 
 const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, StatusIndicator }) => {
+  const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  
   // Helper function to get the most common action
   const getMostCommonAction = () => {
     if (!stats?.actionBreakdown || stats.actionBreakdown.length === 0) return 'N/A';
@@ -101,11 +106,20 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
 
   // Top users state for API
   const [topUsers, setTopUsers] = useState([]);
+  const [topUsersLoading, setTopUsersLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_STRING}/audit-trail/top-users`)
+    setTopUsersLoading(true);
+    fetch(`${process.env.REACT_APP_API_STRING}/audit-trail/top-users?limit=4`)
       .then(res => res.json())
-      .then(data => setTopUsers(data.topUsers || []));
+      .then(data => {
+        setTopUsers(data.topUsers || []);
+        setTopUsersLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching top users:', err);
+        setTopUsersLoading(false);
+      });
   }, []);
 
   return (
@@ -208,11 +222,29 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
       ))}
       
       {/* Top Users Section (from API) - Compact Horizontal Layout */}
-      {topUsers.length > 0 && (
+      {topUsers.length > 0 && user?.role === 'Admin' && (
         <Grid item xs={12}>
-          <Typography variant="h6" sx={{ mb: 1, color: colorPalette.textPrimary, fontWeight: 700, fontSize: '1rem' }}>
-            Top Active Users
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="h6" sx={{ color: colorPalette.textPrimary, fontWeight: 700, fontSize: '1rem' }}>
+              Top Active Users
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: colorPalette.primary, 
+                fontWeight: 600, 
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                '&:hover': { textDecoration: 'underline' }
+              }}
+              onClick={() => {
+                // Navigate to detailed users page
+                navigate('/all-users');
+              }}
+            >
+              View All →
+            </Typography>
+          </Box>
           <Grid container spacing={1}>
             {topUsers.map((user, index) => (
               <Grid item xs={12} sm={6} md={3} key={index}>
@@ -272,6 +304,19 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
                       >
                         Last: {new Date(user.lastActivity).toLocaleDateString()}
                       </Typography>
+                      {user.actions && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: colorPalette.textSecondary,
+                            fontSize: '0.65rem',
+                            display: 'block',
+                            opacity: 0.8
+                          }}
+                        >
+                          {user.actions.length} action types
+                        </Typography>
+                      )}
                     </Box>
                   </Card>
                 </Grow>

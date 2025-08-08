@@ -1716,7 +1716,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     value={formik.values.no_of_pkgs || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
-                    placeholder="Enter Line No"
+                    placeholder="Enter No Of packages"
                   />
                 </div>
               </Col>
@@ -1849,7 +1849,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                 <Col xs={12}>
                   <Box sx={{ mt: 2 }}>
                     <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: '14px', color: '#34495e', mb: 2, display: 'block' }}>
-                      Import Terms
+                      Terms of Invoice
                     </FormLabel>
                     
                     <Box sx={{ 

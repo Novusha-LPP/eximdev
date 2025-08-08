@@ -325,69 +325,87 @@ function List() {
           gateway_igm,
         } = cell.row.original;
 
-        return (
-          <div>
-            <strong>BE No:</strong> {be_no || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, be_no)}
-            >
-              <abbr title="Copy BE No">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, be_date)}
-            >
-              <abbr title="Copy BE Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>GIGM No:</strong> {gateway_igm || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm)}
-            >
-              <abbr title="Copy GIGM">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, gateway_igm_date)}
-            >
-              <abbr title="Copy GIGM Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, igm_no)}
-            >
-              <abbr title="Copy IGM No">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            <br />
-            <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, igm_date)}
-            >
-              <abbr title="Copy IGM Date">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-          </div>
-        );
+    return (
+      <div>
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>BE No:</strong> {be_no || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, be_no)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy BE No">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, be_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy BE Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, gateway_igm)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy GIGM">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, gateway_igm_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy GIGM Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, igm_no)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy IGM No">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, igm_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy IGM Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+      </div>
+    );
       },
     },
 

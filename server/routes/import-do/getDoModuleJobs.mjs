@@ -212,6 +212,59 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     const doDocPreparedTrueCount = finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length;
     const doDocPreparedFalseCount = finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length;
 
+    // **Step 4.5: Calculate status filter counts**
+    const statusFilterCounts = {
+      all: finalFilteredJobs.length,
+      do_doc_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length,
+      do_doc_not_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length,
+      payment_request_sent: finalFilteredJobs.filter(job => 
+        job.do_shipping_line_invoice && 
+        Array.isArray(job.do_shipping_line_invoice) && 
+        job.do_shipping_line_invoice.length > 0 && 
+        job.do_shipping_line_invoice.some(invoice => 
+          invoice.payment_request_date && 
+          invoice.payment_request_date !== "" && 
+          invoice.payment_request_date !== null
+        )
+      ).length,
+      payment_request_not_sent: finalFilteredJobs.filter(job => 
+        !job.do_shipping_line_invoice || 
+        !Array.isArray(job.do_shipping_line_invoice) || 
+        job.do_shipping_line_invoice.length === 0 || 
+        !job.do_shipping_line_invoice.some(invoice => 
+          invoice.payment_request_date && 
+          invoice.payment_request_date !== "" && 
+          invoice.payment_request_date !== null
+        )
+      ).length,
+      payment_made: finalFilteredJobs.filter(job => 
+        job.do_shipping_line_invoice && 
+        Array.isArray(job.do_shipping_line_invoice) && 
+        job.do_shipping_line_invoice.length > 0 && 
+        job.do_shipping_line_invoice.some(invoice => 
+          invoice.is_payment_made === true || 
+          (invoice.payment_made_date && 
+           invoice.payment_made_date !== "" && 
+           invoice.payment_made_date !== null)
+        )
+      ).length,
+      payment_not_made: finalFilteredJobs.filter(job => 
+        !job.do_shipping_line_invoice || 
+        !Array.isArray(job.do_shipping_line_invoice) || 
+        job.do_shipping_line_invoice.length === 0 || 
+        !job.do_shipping_line_invoice.some(invoice => 
+          invoice.is_payment_made === true || 
+          (invoice.payment_made_date && 
+           invoice.payment_made_date !== "" && 
+           invoice.payment_made_date !== null)
+        )
+      ).length,
+      obl_received: finalFilteredJobs.filter(job => job.is_obl_recieved === true).length,
+      obl_not_received: finalFilteredJobs.filter(job => job.is_obl_recieved !== true).length,
+      doc_sent_to_shipping_line: finalFilteredJobs.filter(job => job.is_do_doc_recieved === true).length,
+      doc_not_sent_to_shipping_line: finalFilteredJobs.filter(job => job.is_do_doc_recieved !== true).length
+    };
+
     // **Step 5: Calculate additional fields (displayDate & dayDifference)**
     const jobsWithCalculatedFields = finalFilteredJobs.map((job) => {
       const jobLevelDate = job.do_validity_upto_job_level
@@ -268,7 +321,9 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
         totalJobs: totalJobsCount,
         prepared: doDocPreparedTrueCount,
         notPrepared: doDocPreparedFalseCount
-      }
+      },
+      // Add status filter counts
+      statusFilterCounts
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);

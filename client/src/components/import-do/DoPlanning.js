@@ -33,6 +33,10 @@ function DoPlanning() {
   prepared: 0,
   notPrepared: 0
 });
+  
+  // ✅ State for status filter counts
+  const [statusFilterCounts, setStatusFilterCounts] = useState({});
+  
    const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
@@ -57,19 +61,63 @@ function DoPlanning() {
   );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
-  // Status filter options
+  // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
-    { value: "", label: "All Status" },
-    { value: "do_doc_prepared", label: "DO Doc Prepared" },
-    { value: "do_doc_not_prepared", label: "DO Doc Not Prepared" },
-    { value: "payment_request_sent", label: "Payment Request Sent to Billing Team" },
-    { value: "payment_request_not_sent", label: "Payment Request Not Sent to Billing Team" },
-    { value: "payment_made", label: "Payment Made" },
-    { value: "payment_not_made", label: "Payment Not Made" },
-    { value: "obl_received", label: "OBL Received" },
-    { value: "obl_not_received", label: "OBL Not Received" },
-    { value: "doc_sent_to_shipping_line", label: "Doc Sent to Shipping Line" },
-    { value: "doc_not_sent_to_shipping_line", label: "Doc Not Sent to Shipping Line" }
+    { 
+      value: "", 
+      label: "All Status",
+      count: statusFilterCounts.total || 0
+    },
+    { 
+      value: "do_doc_prepared", 
+      label: "DO Doc Prepared",
+      count: statusFilterCounts.do_doc_prepared || 0
+    },
+    { 
+      value: "do_doc_not_prepared", 
+      label: "DO Doc Not Prepared",
+      count: statusFilterCounts.do_doc_not_prepared || 0
+    },
+    { 
+      value: "payment_request_sent", 
+      label: "Payment Request Sent to Billing Team",
+      count: statusFilterCounts.payment_request_sent || 0
+    },
+    { 
+      value: "payment_request_not_sent", 
+      label: "Payment Request Not Sent to Billing Team",
+      count: statusFilterCounts.payment_request_not_sent || 0
+    },
+    { 
+      value: "payment_made", 
+      label: "Payment Made",
+      count: statusFilterCounts.payment_made || 0
+    },
+    { 
+      value: "payment_not_made", 
+      label: "Payment Not Made",
+      count: statusFilterCounts.payment_not_made || 0
+    },
+    { 
+      value: "obl_received", 
+      label: "OBL Received",
+      count: statusFilterCounts.obl_received || 0
+    },
+    { 
+      value: "obl_not_received", 
+      label: "OBL Not Received",
+      count: statusFilterCounts.obl_not_received || 0
+    },
+    { 
+      value: "doc_sent_to_shipping_line", 
+      label: "Doc Sent to Shipping Line",
+      count: statusFilterCounts.doc_sent_to_shipping_line || 0
+    },
+    { 
+      value: "doc_not_sent_to_shipping_line", 
+      label: "Doc Not Sent to Shipping Line",
+      count: statusFilterCounts.doc_not_sent_to_shipping_line || 0
+    }
   ];
 
   // DO List options
@@ -220,6 +268,7 @@ const fetchJobs = useCallback(
         currentPage: returnedPage,
         jobs,
         doDocCounts, // Get the new counts
+        statusFilterCounts, // Get the status filter counts
       } = res.data;
 
       setRows(jobs);
@@ -229,6 +278,11 @@ const fetchJobs = useCallback(
       // Set the DO Doc counts
       if (doDocCounts) {
         setDoDocCounts(doDocCounts);
+      }
+
+      // Set the status filter counts
+      if (statusFilterCounts) {
+        setStatusFilterCounts(statusFilterCounts);
       }
       
     } catch (error) {
@@ -436,8 +490,12 @@ const DoDocCountsDisplay = () => (
               is_do_doc_prepared: newValue,
               do_doc_prepared_date: now
             };
+            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
             const headers = {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
+              "user-id": user.username || "unknown",
+              username: user.username || "unknown",
+              "user-role": user.role || "unknown",
             };
             await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
             
@@ -568,52 +626,83 @@ const DoDocCountsDisplay = () => (
 
     return (
       <div>
-        <strong>BE No:</strong> {be_no || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, be_no)}>
-          <abbr title="Copy BE No">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>BE No:</strong> {be_no || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, be_no)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy BE No">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, be_date)}>
-          <abbr title="Copy BE Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, be_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy BE Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm)}>
-          <abbr title="Copy GIGM">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, gateway_igm)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy GIGM">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm_date)}>
-          <abbr title="Copy GIGM Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, gateway_igm_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy GIGM Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, igm_no)}>
-          <abbr title="Copy IGM No">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, igm_no)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy IGM No">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, igm_date)}>
-          <abbr title="Copy IGM Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, igm_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy IGM Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
       </div>
     );
   },
@@ -650,9 +739,13 @@ const DoDocCountsDisplay = () => (
           is_obl_recieved: newValue,
           obl_recieved_date: now
         };
-        const headers = {
-          'Content-Type': 'application/json',
-        };
+ const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
         console.log('OBL status and date updated successfully');
         
@@ -816,9 +909,13 @@ const DoDocCountsDisplay = () => (
               is_do_doc_recieved: newValue,
               do_doc_recieved_date: now
             };
-            const headers = {
-              'Content-Type': 'application/json',
-            };
+           const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
             await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
             
             // Update the main state
@@ -856,9 +953,13 @@ const DoDocCountsDisplay = () => (
             const updateData = {
               do_list: newValue
             };
-            const headers = {
-              'Content-Type': 'application/json',
-            };
+           const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
             await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
             console.log('DO list updated successfully');
             
@@ -1296,8 +1397,38 @@ const DoDocCountsDisplay = () => (
             }}
           >
             {statusFilterOptions.map((option, index) => (
-              <MenuItem key={`status-${option.value}-${index}`} value={option.value}>
-                {option.label}
+              <MenuItem 
+                key={`status-${option.value}-${index}`} 
+                value={option.value}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingRight: '16px'
+                }}
+              >
+                <span>{option.label}</span>
+               <div
+                  style={{
+                    // backgroundColor: ' #ec7a80ff',
+                    color: '#000000ff',
+                    borderRadius: '100px',
+                    minWidth: '24px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    marginLeft: 'auto',
+                    border: '2px solid #e41515ff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    letterSpacing: '0.5px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {option.count}
+                </div>
               </MenuItem>
             ))}
           </TextField>

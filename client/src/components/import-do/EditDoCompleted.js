@@ -297,22 +297,18 @@ function EditDoCompleted() {
       };
 
       try {
-        const username =
-          user?.username || localStorage.getItem("username") || "unknown";
-        const userId =
-          user?.selectedJobId || localStorage.getItem("userId") || "unknown";
-        const userRole =
-          user?.role || localStorage.getItem("userRole") || "unknown";
-
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
           dataToSubmit,
           {
-            headers: {
-              username: username,
-              "user-id": userId,
-              "user-role": userRole,
-            },
+            headers: headers,
           }
         );
 

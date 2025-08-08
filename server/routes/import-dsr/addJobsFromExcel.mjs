@@ -397,6 +397,9 @@ function determineDetailedStatus(job) {
   const anyContainerArrivalDate = container_nos?.some((container) =>
     isValidDate(container.arrival_date)
   );
+  const anyContainer_rail_out_date = container_nos?.some((container) =>
+    isValidDate(container.container_rail_out_date)
+  );
 
   const emptyContainerOffLoadDate = container_nos?.
     every((container) =>
@@ -410,7 +413,6 @@ function determineDetailedStatus(job) {
   const validOutOfChargeDate = isValidDate(out_of_charge);
   const validPcvDate = isValidDate(pcv_date);
   const validDischargeDate = isValidDate(discharge_date);
-  // const validRailOutDate = isValidDate(rail_out_date);
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
 
@@ -434,8 +436,9 @@ function determineDetailedStatus(job) {
     return "Arrived, BE Note Pending";
   } else if (be_no) {
     return "BE Noted, Arrival Pending";
-  } 
-  else if (validDischargeDate) {
+  } else if (anyContainer_rail_out_date) {
+    return "Rail Out";
+  } else if (validDischargeDate) {
     return "Discharged";
   } else if (validGatewayIgmDate) {
     return "Gateway IGM Filed";

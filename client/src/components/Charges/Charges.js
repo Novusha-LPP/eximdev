@@ -53,7 +53,10 @@ const Section = ({ title, children, icon }) => (
 
 // Excel-like table component
 const DocumentTable = ({ docs, fields }) => {
-  if (!docs || docs.length === 0) {
+  // Add validation to ensure docs is an array
+  const validDocs = Array.isArray(docs) ? docs : [];
+  
+  if (validDocs.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info">
@@ -140,14 +143,17 @@ const DocumentTable = ({ docs, fields }) => {
 
   // Apply business rules to filter fields based on data conditions
   const applyBusinessRules = (fields, docs) => {
+    // Ensure docs is an array
+    const validDocs = Array.isArray(docs) ? docs : [];
+    
     return fields.filter(field => {
       // Check if field has data in any document
-      const hasData = docs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null);
+      const hasData = validDocs.some(doc => doc[field.key] !== undefined && doc[field.key] !== null);
       if (!hasData) return false;
 
       // Business Rule 1: If payment_mode is not "Wire Transfer", don't show wire_transfer_method
       if (field.key === 'wire_transfer_method') {
-        return docs.some(doc => 
+        return validDocs.some(doc => 
           doc.payment_mode && 
           doc.payment_mode.toLowerCase().includes('wire transfer')
         );
@@ -155,22 +161,22 @@ const DocumentTable = ({ docs, fields }) => {
 
       // Business Rule 2: Don't show is_payment_made if payment_made_date is available
       if (field.key === 'is_payment_made') {
-        return !docs.some(doc => doc.payment_made_date);
+        return !validDocs.some(doc => doc.payment_made_date);
       }
 
       // Business Rule 3: Don't show is_payment_requested if payment_request_date is available
       if (field.key === 'is_payment_requested') {
-        return !docs.some(doc => doc.payment_request_date);
+        return !validDocs.some(doc => doc.payment_request_date);
       }
 
       // Business Rule 4: If is_tds is true, don't show is_non_tds
       if (field.key === 'is_non_tds') {
-        return !docs.some(doc => doc.is_tds === true);
+        return !validDocs.some(doc => doc.is_tds === true);
       }
 
       // Business Rule 5: If is_non_tds is true, don't show is_tds
       if (field.key === 'is_tds') {
-        return !docs.some(doc => doc.is_non_tds === true);
+        return !validDocs.some(doc => doc.is_non_tds === true);
       }
 
       return true;
@@ -178,7 +184,7 @@ const DocumentTable = ({ docs, fields }) => {
   };
 
   // Filter out fields based on business rules and data availability
-  const relevantFields = applyBusinessRules(fields, docs);
+  const relevantFields = applyBusinessRules(fields, validDocs);
 
   return (
     <TableContainer>
@@ -202,7 +208,7 @@ const DocumentTable = ({ docs, fields }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {docs.map((doc, index) => (
+          {validDocs.map((doc, index) => (
             <TableRow 
               key={index}
               sx={{ 

@@ -1291,16 +1291,7 @@ const DoDocCountsDisplay = () => (
           borderBottom: "1px solid #e0e0e0",
           paddingBottom: "12px"
         }}>
-          <Typography
-            variant="h6"
-            sx={{ 
-              fontWeight: "600", 
-              color: "#1976d2",
-              fontSize: "1.2rem"
-            }}
-          >
-            DO Planning Dashboard
-          </Typography>
+          
           <DoDocCountsDisplay />
         </div>
 

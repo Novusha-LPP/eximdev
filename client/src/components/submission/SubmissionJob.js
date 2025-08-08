@@ -294,163 +294,157 @@ const SubmissionJob = () => {
             params={{ job_no, year }}
           />
 
-                    <div className="job-details-container">
-                      <JobDetailsRowHeading heading="Terms of Invoice" />
-                      <Row style={{ marginTop: "20px" }}>
-                        <Col xs={12}>
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'flex-start', 
-                            gap: 4,
-                            flexWrap: 'wrap',
-                            '@media (max-width: 768px)': {
-                              flexDirection: 'column',
-                              gap: 2
-                            }
-                          }}>
-                            {/* Import Terms Display */}
-                            <Box sx={{ minWidth: 200 }}>
-                              <Typography sx={{ 
-                                fontWeight: 600, 
-                                fontSize: '16px', 
-                                color: '#34495e', 
-                                mb: 2 
-                              }}>
-                                Import Terms
-                              </Typography>
-                              <Box sx={{
-                                padding: 2,
-                                backgroundColor: '#e3f2fd',
-                                borderRadius: 2,
-                                border: '2px solid #1976d2',
-                                textAlign: 'center'
-                              }}>
-                                <Typography sx={{ 
-                                  fontSize: '18px', 
-                                  fontWeight: 'bold',
-                                  color: '#1976d2'
-                                }}>
-                                  {data.import_terms || 'Not specified'}
-                                </Typography>
-                              </Box>
-                            </Box>
-          
-                            {/* Financial Details Display */}
-                            <Box sx={{ 
-                              flex: 1, 
-                              minWidth: 300,
-                              padding: 2,
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: 2,
-                              border: '1px solid #e9ecef'
-                            }}>
-                              <Typography sx={{ 
-                                fontWeight: 600, 
-                                fontSize: '16px', 
-                                color: '#34495e', 
-                                mb: 2 
-                              }}>
-                                Financial Details
-                              </Typography>
-                              
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {/* CIF/Primary Value */}
-                                {data.cifValue && (
-                                  <Box sx={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    padding: 1.5,
-                                    backgroundColor: 'white',
-                                    borderRadius: 1,
-                                    border: '1px solid #dee2e6'
-                                  }}>
-                                    <Typography sx={{ fontWeight: 500, color: '#495057' }}>
-                                      {data.import_terms || 'CIF'} Value:
-                                    </Typography>
-                                    <Typography sx={{ fontWeight: 'bold', color: '#28a745' }}>
-                                      ₹ {parseFloat(data.cifValue).toLocaleString('en-IN')}
-                                    </Typography>
-                                  </Box>
-                                )}
-          
-                                {/* Freight */}
-                                {data.freight && (
-                                  <Box sx={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    padding: 1.5,
-                                    backgroundColor: 'white',
-                                    borderRadius: 1,
-                                    border: '1px solid #dee2e6'
-                                  }}>
-                                    <Typography sx={{ fontWeight: 500, color: '#495057' }}>
-                                      Freight:
-                                    </Typography>
-                                    <Typography sx={{ fontWeight: 'bold', color: '#17a2b8' }}>
-                                      ₹ {parseFloat(data.freight).toLocaleString('en-IN')}
-                                    </Typography>
-                                  </Box>
-                                )}
-          
-                                {/* Insurance */}
-                                {data.insurance && (
-                                  <Box sx={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center',
-                                    padding: 1.5,
-                                    backgroundColor: 'white',
-                                    borderRadius: 1,
-                                    border: '1px solid #dee2e6'
-                                  }}>
-                                    <Typography sx={{ fontWeight: 500, color: '#495057' }}>
-                                      Insurance:
-                                    </Typography>
-                                    <Typography sx={{ fontWeight: 'bold', color: '#fd7e14' }}>
-                                      ₹ {parseFloat(data.insurance).toLocaleString('en-IN')}
-                                    </Typography>
-                                  </Box>
-                                )}
-          
-                                {/* Helper text based on import terms */}
-                                {data.import_terms && (
-                                  <Typography 
-                                    variant="caption" 
-                                    sx={{ 
-                                      color: '#6c757d', 
-                                      fontStyle: 'italic',
-                                      mt: 1,
-                                      padding: 1,
-                                      backgroundColor: '#e9ecef',
-                                      borderRadius: 1
-                                    }}
-                                  >
-                                    {data.import_terms === 'CIF' && 'Cost, Insurance & Freight included'}
-                                    {data.import_terms === 'FOB' && 'Free on Board - Freight & Insurance separate'}
-                                    {data.import_terms === 'CF' && 'Cost & Freight - Insurance separate'}
-                                    {data.import_terms === 'CI' && 'Cost & Insurance - Freight separate'}
-                                  </Typography>
-                                )}
-          
-                                {/* Show message if no financial data */}
-                                {!data.cifValue && !data.freight && !data.insurance && (
-                                  <Box sx={{ 
-                                    padding: 2, 
-                                    textAlign: 'center',
-                                    color: '#6c757d',
-                                    fontStyle: 'italic'
-                                  }}>
-                                    No financial details available
-                                  </Box>
-                                )}
-                              </Box>
-                            </Box>
-                          </Box>
-                        </Col>
-                      </Row>
-                    </div>
+                 <div className="job-details-container">
+  <Box sx={{ 
+    display: 'flex', 
+    alignItems: 'baseline',
+    gap: 3,
+  }}>
+    {/* Terms of Invoice Heading */}
+    <JobDetailsRowHeading 
+      heading="Terms of Invoice (FOB)" 
+      variant="subtitle2" 
+      sx={{ 
+        fontSize: '16px', 
+        fontWeight: 600,
+        color: '#2c3e50',
+        marginBottom: '8px'
+      }} 
+    />
+
+    {/* Financial Details Display - Government Style */}
+    <Box sx={{ 
+      maxWidth: 320,
+      minWidth: 280
+    }}>
+      <Box sx={{ 
+        backgroundColor: '#fafafa',
+        border: '1px solid #cccccc',
+        borderRadius: '2px',
+        overflow: 'hidden'
+      }}>
+        {(data.cifValue || data.freight || data.insurance) ? (
+          <Box>
+            {/* Header */}
+            <Box sx={{
+              backgroundColor: '#e8f4f8',
+              padding: '8px 12px',
+              borderBottom: '1px solid #cccccc'
+            }}>
+              <Typography sx={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#2c3e50',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Financial Details
+              </Typography>
+            </Box>
+
+            {/* Data Rows */}
+            <Box>
+              {/* CIF/Primary Value */}
+              {data.cifValue && (
+                <Box sx={{ 
+                  display: 'flex', 
+                  padding: '10px 12px',
+                  borderBottom: '1px solid #e5e5e5',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <Typography sx={{ 
+                    fontSize: '13px',
+                    color: '#555555',
+                    flex: 1,
+                    fontWeight: 500
+                  }}>
+                    {data.import_terms || 'CIF'} Value:
+                  </Typography>
+                  <Typography sx={{ 
+                    fontSize: '13px',
+                    color: '#2c3e50',
+                    fontWeight: 600,
+                    fontFamily: 'monospace'
+                  }}>
+                    ₹ {parseFloat(data.cifValue).toLocaleString('en-IN')}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Freight */}
+              {data.freight && (
+                <Box sx={{ 
+                  display: 'flex', 
+                  padding: '10px 12px',
+                  borderBottom: data.insurance ? '1px solid #e5e5e5' : 'none',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <Typography sx={{ 
+                    fontSize: '13px',
+                    color: '#555555',
+                    flex: 1,
+                    fontWeight: 500
+                  }}>
+                    Freight:
+                  </Typography>
+                  <Typography sx={{ 
+                    fontSize: '13px',
+                    color: '#2c3e50',
+                    fontWeight: 600,
+                    fontFamily: 'monospace'
+                  }}>
+                    ₹ {parseFloat(data.freight).toLocaleString('en-IN')}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Insurance */}
+              {data.insurance && (
+                <Box sx={{ 
+                  display: 'flex', 
+                  padding: '10px 12px',
+                  backgroundColor: '#ffffff'
+                }}>
+                  <Typography sx={{ 
+                    fontSize: '13px',
+                    color: '#555555',
+                    flex: 1,
+                    fontWeight: 500
+                  }}>
+                    Insurance:
+                  </Typography>
+                  <Typography sx={{ 
+                    fontSize: '13px',
+                    color: '#2c3e50',
+                    fontWeight: 600,
+                    fontFamily: 'monospace'
+                  }}>
+                    ₹ {parseFloat(data.insurance).toLocaleString('en-IN')}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        ) : (
+          <Box sx={{ 
+            padding: '20px 12px',
+            textAlign: 'center',
+            backgroundColor: '#ffffff'
+          }}>
+            <Typography sx={{
+              fontSize: '13px',
+              color: '#888888',
+              fontStyle: 'italic'
+            }}>
+              No financial details available
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    </Box>
+  </Box>
+</div>
+
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />

@@ -53,14 +53,14 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
       trend: getTrendIndicator('actions'),
       description: 'All recorded activities'
     },
-    {
-      title: 'Active Users',
-      value: stats?.summary?.totalUsers || 0,
-      icon: PersonIcon,
-      color: colorPalette.success,
-      trend: getTrendIndicator('users'),
-      description: 'Users with activity'
-    },
+     ...(user?.role === 'Admin' ? [{
+    title: 'Active Users',
+    value: stats?.summary?.totalUsers || 0,
+    icon: PersonIcon,
+    color: colorPalette.success,
+    trend: getTrendIndicator('users'),
+    description: 'Users with activity'
+  }] : []),
     {
       title: 'Documents Modified',
       value: stats?.summary?.totalDocuments || 0,

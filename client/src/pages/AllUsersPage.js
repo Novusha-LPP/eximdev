@@ -670,20 +670,7 @@ const AllUsersPage = () => {
         </Grid>
         
         {/* Debug Info */}
-        {pagination.totalItems <= 10 && (
-          <Box sx={{ mt: 2, p: 1.5, backgroundColor: '#f0f9ff', borderRadius: 1, border: '1px solid #bfdbfe' }}>
-            <Typography variant="body2" sx={{ color: '#1e40af', fontWeight: 600, mb: 1 }}>
-              📊 Debug Information:
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#1e40af', display: 'block' }}>
-              Only {pagination.totalItems} users have performed trackable actions (CREATE, UPDATE, etc.).
-              This shows ALL users with audit trail activity.
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#1e40af', display: 'block', mt: 0.5 }}>
-              To see all system users (including inactive ones), you may need a different endpoint.
-            </Typography>
-          </Box>
-        )}
+        
       </Card>
 
       {/* Users Grid */}

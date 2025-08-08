@@ -51,7 +51,7 @@ const CustomDot = ({ cx, cy, payload, dataKey, index, allData }) => {
   const prevValue = allData[index - 1][dataKey];
   const currValue = payload[dataKey];
   const isGrowth = currValue > prevValue;
-  
+
   return (
     <g>
       <circle 
@@ -204,6 +204,7 @@ const MonthlyContainers = () => {
   const [popperOpen, setPopperOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
+  const [selectedICD, setSelectedICD] = useState("");
   const navigate = useNavigate();
 
   const years = [
@@ -255,7 +256,9 @@ const MonthlyContainers = () => {
     setError("");
     try {
       const apiBase = process.env.REACT_APP_API_STRING || "";
-      const res = await axios.get(`${apiBase}/report/monthly-containers/${year}/${month}`);
+      // Add ICD as query parameter if selected
+      const icdParam = selectedICD ? `?custom_house=${encodeURIComponent(selectedICD)}` : "";
+      const res = await axios.get(`${apiBase}/report/monthly-containers/${year}/${month}${icdParam}`);
       setData(res.data);
     } catch (err) {
       setError("Failed to fetch data");
@@ -266,7 +269,7 @@ const MonthlyContainers = () => {
 
   useEffect(() => {
     fetchData();
-  }, [year, month]);
+  }, [year, month, selectedICD]);
 
   const handleSort = (column) => {
     const isAsc = sortColumn === column && sortDirection === 'asc';
@@ -489,24 +492,22 @@ const MonthlyContainers = () => {
                 </Tooltip>
               </Box>
 
-              {/* <Button 
-                type="submit" 
-                variant="contained" 
-                color="primary" 
-                disabled={loading} 
-                size="small"
-                startIcon={loading ? <RefreshIcon sx={{ animation: 'spin 1s linear infinite' }} /> : <RefreshIcon />}
-                sx={{ 
-                  borderRadius: 2,
-                  px: 3,
-                  background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
-                  }
-                }}
-              >
-                {loading ? "Loading..." : "Get Report"}
-              </Button> */}
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="icd-label">ICD Code</InputLabel>
+                <Select
+                  labelId="icd-label"
+                  value={selectedICD}
+                  onChange={(e) => setSelectedICD(e.target.value)}
+                  label="ICD Code"
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value="">All ICDs</MenuItem>
+                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+                </Select>
+              </FormControl>
+
               <Button
                 variant="contained"
                 color="primary"

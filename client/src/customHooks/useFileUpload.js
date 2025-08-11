@@ -5,13 +5,59 @@ import { useState } from "react";
 function useFileUpload(inputRef, alt, setAlt) {
   const [snackbar, setSnackbar] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleFileUpload = (event) => {
+    setLoading(true);
+    setError(null);
     const file = event.target.files[0];
 
     const reader = new FileReader();
-    reader.onload = handleFileRead;
+    reader.onload = (e) => validateAndProcessFile(e, file);
     reader.readAsBinaryString(file);
+  };
+
+  const validateAndProcessFile = async (event, file) => {
+    try {
+      const content = event.target.result;
+      const workbook = xlsx.read(content, { type: "binary" });
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      // Get all data including headers for validation
+      const allData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // Check if second row exists
+      if (allData.length < 2) {
+        setError("Invalid Excel format: File must contain at least 2 rows");
+        setLoading(false);
+        if (inputRef.current) inputRef.current.value = null;
+        return;
+      }
+
+      // Check for AHMEDABAD in the second row
+      const secondRow = allData[1];
+      const containsAhmedabad = secondRow.some(cell => 
+        String(cell || '').toUpperCase().includes("AHMEDABAD")
+      );
+
+      if (!containsAhmedabad) {
+        setError("Error: This file can only be processed for Ahmedabad branch");
+        setLoading(false);
+        if (inputRef.current) inputRef.current.value = null;
+        return;
+      }
+
+      // If validation passes, continue with existing processing
+      handleFileRead(event);
+      
+    } catch (err) {
+      console.error("Error validating file:", err);
+      setError("Error processing file. Please check the format.");
+      setLoading(false);
+      if (inputRef.current) inputRef.current.value = null;
+    }
   };
 
   const handleFileRead = async (event) => {
@@ -237,7 +283,6 @@ function useFileUpload(inputRef, alt, setAlt) {
         }
       });
 
-
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
@@ -266,10 +311,10 @@ function useFileUpload(inputRef, alt, setAlt) {
           console.error("Status update failed");
         }
       } else {
-        alert("Something went wrong during data upload");
+        setError("Something went wrong during data upload");
       }
     } catch (error) {
-      alert("Error occurred during the upload or status check");
+      setError("Error occurred during the upload or status check");
       console.error("Error:", error); // Log error
     } finally {
       setLoading(false);
@@ -282,7 +327,7 @@ function useFileUpload(inputRef, alt, setAlt) {
     setSnackbar(false);
   }, 2000);
 
-  return { handleFileUpload, snackbar, loading };
+  return { handleFileUpload, snackbar, loading, error };
 }
 
 export default useFileUpload;

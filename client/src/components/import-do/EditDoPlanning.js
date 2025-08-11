@@ -35,6 +35,20 @@ import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 
+  const doListOptions = [
+    { value: "", label: "Select DO List" },
+    { value: "ICD Khodiyar / ICD AHMEDABAD", label: "ICD Khodiyar / ICD AHMEDABAD" },
+    { value: "ICD SANAND", label: "ICD SANAND" },
+    { value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK", label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK" },
+    { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
+    { value: "Golden Horn Container Services (Nr. ICD Khodiyar)", label: "Golden Horn Container Services (Nr. ICD Khodiyar)" },
+    { value: "Golden Horn Container Services (Nr. ICD SANAND)", label: "Golden Horn Container Services (Nr. ICD SANAND)" },
+    { value: "JAY BHAVANI CONTAINERS YARD", label: "JAY BHAVANI CONTAINERS YARD" },
+    { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
+    { value: "SATURN GLOBAL TERMINAL PVT LTD", label: "SATURN GLOBAL TERMINAL PVT LTD" },
+    { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" }
+  ];
+
 function EditDoPlanning() {
   const param = useParams();
   const [params] = useSearchParams();
@@ -193,6 +207,7 @@ function EditDoPlanning() {
       do_documents: [],
       do_validity: "",
       do_copies: [],
+      do_list:" ",
       shipping_line_invoice: false,
       shipping_line_invoice_date: "",
       shipping_line_invoice_imgs: [],
@@ -200,7 +215,8 @@ function EditDoPlanning() {
       do_completed: "", // Initialize as empty string
       do_Revalidation_Completed: false,
       container_nos: [], // Ensure container_nos is initialized
-
+      is_do_doc_recieved: false,
+      do_doc_recieved_date: "",
       do_shipping_line_invoice: [
         {
           document_name: "Shipping Line Invoice",
@@ -271,6 +287,9 @@ function EditDoPlanning() {
         insurance_copy: values.insurance_copy,
         other_do_documents: values.other_do_documents,
         security_deposit: values.security_deposit,
+        do_list: values.do_list,
+        is_do_doc_recieved: values.is_do_doc_recieved,
+    do_doc_recieved_date: values.do_doc_recieved_date,
       };
 
       try {
@@ -547,6 +566,9 @@ function EditDoPlanning() {
         insurance_copy: insuranceCopy,
         other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
+        do_list: data.do_list|| "", 
+        is_do_doc_recieved: data.is_do_doc_recieved || false, // Add this field
+      do_doc_recieved_date: data.do_doc_recieved_date || "", 
       };
 
       formik.setValues(updatedData);
@@ -840,6 +862,8 @@ function EditDoPlanning() {
       </div>
     </div>
   );
+
+ 
 
   // 5. Updated renderDocumentSection function (replace the existing one)
   const renderDocumentSection = (
@@ -1683,6 +1707,49 @@ function EditDoPlanning() {
                 <br />
               </div>
 
+             // In the EditDoPlanning.js file, remove the checkbox from the DO List section
+<div className="job-details-container">
+  <h5 style={{ marginBottom: "12px", fontWeight: 600, color: "#1a237e" }}>
+    DO List 
+  </h5>
+  
+  {/* DO List dropdown - removed the checkbox */}
+  <div style={{ marginBottom: '16px' }}>
+    <select
+      value={formik.values.do_list || ""}
+      onChange={(e) => formik.setFieldValue("do_list", e.target.value)}
+      style={{
+        width: '100%',
+        padding: '8px 12px',
+        fontSize: '14px',
+        borderRadius: '4px',
+        border: '1px solid #ccc',
+        backgroundColor: 'white'
+      }}
+    >
+      {doListOptions.map((option, index) => (
+        <option key={index} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  </div>
+  
+  {/* Display selected DO List value if any */}
+  {formik.values.do_list && (
+    <div style={{ 
+      fontSize: '13px', 
+      color: '#388e3c',
+      padding: '4px 12px',
+      backgroundColor: '#e8f5e9',
+      borderRadius: '4px',
+      display: 'inline-block',
+      marginBottom: '10px'
+    }}>
+      <strong>Selected DO List:</strong> {formik.values.do_list}
+    </div>
+  )}
+</div>
               {/* DO Completed Section with Date Display and Admin Input */}
               <div className="job-details-container">
                 <Row>

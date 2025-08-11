@@ -556,9 +556,9 @@ function List() {
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => {
-        const { processed_be_attachment, cth_documents, checklist } =
+        const { processed_be_attachment, cth_documents = [], checklist } =
           cell.row.original;
-
+          
         // Helper function to safely get the first link if it's an array or a string
         const getFirstLink = (input) => {
           if (Array.isArray(input)) {
@@ -566,7 +566,7 @@ function List() {
           }
           return input || null;
         };
-
+        
         const checklistLink = getFirstLink(checklist);
         const processed_be_attachmentLink = getFirstLink(
           processed_be_attachment
@@ -625,14 +625,16 @@ function List() {
               (doc) =>
                 doc.url &&
                 doc.url.length > 0 &&
-                doc.document_name === "Pre-Shipment Inspection Certificate"
+                (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                  doc.document_name === "Bill of Lading")
             ) ? (
               cth_documents
                 .filter(
                   (doc) =>
                     doc.url &&
                     doc.url.length > 0 &&
-                    doc.document_name === "Pre-Shipment Inspection Certificate"
+                    (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                      doc.document_name === "Bill of Lading")
                 )
                 .map((doc) => (
                   <div key={doc._id} style={{ marginBottom: "5px" }}>
@@ -654,6 +656,8 @@ function List() {
               <span style={{ color: "gray" }}>
                 {" "}
                 No Pre-Shipment Inspection Certificate{" "}
+                <br />
+                No Bill of Lading{" "}
               </span>
             )}
           </div>

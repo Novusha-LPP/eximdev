@@ -26,6 +26,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { Cell } from "jspdf-autotable";
 
 function DoPlanning() {
   const [doDocCounts, setDoDocCounts] = useState({
@@ -869,133 +870,243 @@ const DoDocCountsDisplay = () => (
       },
     },
 
-    {
-      accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
-      header: "Required Do Validity Upto",
-      enableSorting: false,
-      size: 200,
-      Cell: ({ cell, row }) => {
-        const displayDate = cell.getValue(); // "displayDate" from backend
-        const dayDifference = row.original.dayDifference; // "dayDifference" from backend
-        const typeOfDo = row.original.type_of_Do;
-        const [isDoDocRecieved, setIsDoDocRecieved] = React.useState(row.original.is_do_doc_recieved || false);
-        const _id = row.original._id;
+    // {
+    //   accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
+    //   header: "Required Do Validity Upto",
+    //   enableSorting: false,
+    //   size: 200,
+    //   Cell: ({ cell, row }) => {
+    //     const displayDate = cell.getValue(); // "displayDate" from backend
+    //     const dayDifference = row.original.dayDifference; // "dayDifference" from backend
+    //     const typeOfDo = row.original.type_of_Do;
+    //     const [isDoDocRecieved, setIsDoDocRecieved] = React.useState(row.original.is_do_doc_recieved || false);
+    //     const _id = row.original._id;
 
-        // Sync local state when row data changes
-        React.useEffect(() => {
-          setIsDoDocRecieved(row.original.is_do_doc_recieved || false);
-          setSelectedDoList(row.original.do_list || "");
-        }, [row.original.is_do_doc_recieved, row.original.do_list]);
-        const [selectedDoList, setSelectedDoList] = React.useState(row.original.do_list || "");
+    //     // Sync local state when row data changes
+    //     React.useEffect(() => {
+    //       setIsDoDocRecieved(row.original.is_do_doc_recieved || false);
+    //       setSelectedDoList(row.original.do_list || "");
+    //     }, [row.original.is_do_doc_recieved, row.original.do_list]);
+    //     const [selectedDoList, setSelectedDoList] = React.useState(row.original.do_list || "");
 
-        // Sync local state when row data changes
-        React.useEffect(() => {
-          setSelectedDoList(row.original.do_list || "");
-        }, [row.original.do_list]);
+    //     // Sync local state when row data changes
+    //     React.useEffect(() => {
+    //       setSelectedDoList(row.original.do_list || "");
+    //     }, [row.original.do_list]);
 
-        const handleToggleDoDoc = async (event) => {
-          const newValue = event.target.checked;
-          const previousValue = isDoDocRecieved;
+    //     const handleToggleDoDoc = async (event) => {
+    //       const newValue = event.target.checked;
+    //       const previousValue = isDoDocRecieved;
           
-          // Update local state immediately
-          setIsDoDocRecieved(newValue);
+    //       // Update local state immediately
+    //       setIsDoDocRecieved(newValue);
           
-          // Update the row data directly
-          row.original.is_do_doc_recieved = newValue;
+    //       // Update the row data directly
+    //       row.original.is_do_doc_recieved = newValue;
           
-          try {
-            const now = new Date().toISOString();
-            const updateData = {
-              is_do_doc_recieved: newValue,
-              do_doc_recieved_date: now
-            };
-           const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
-      };
-            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+    //       try {
+    //         const now = new Date().toISOString();
+    //         const updateData = {
+    //           is_do_doc_recieved: newValue,
+    //           do_doc_recieved_date: now
+    //         };
+    //        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+    //   const headers = {
+    //     "Content-Type": "application/json",
+    //     "user-id": user.username || "unknown",
+    //     username: user.username || "unknown",
+    //     "user-role": user.role || "unknown",
+    //   };
+    //         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
             
-            // Update the main state
-            setRows(prevRows => 
-              prevRows.map(r => 
-                r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
-              )
-            );
-          } catch (error) {
-            // Revert the changes on error
-            setIsDoDocRecieved(previousValue);
-            row.original.is_do_doc_recieved = previousValue;
-            console.error('Error updating DO doc received status:', error);
+    //         // Update the main state
+    //         setRows(prevRows => 
+    //           prevRows.map(r => 
+    //             r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
+    //           )
+    //         );
+    //       } catch (error) {
+    //         // Revert the changes on error
+    //         setIsDoDocRecieved(previousValue);
+    //         row.original.is_do_doc_recieved = previousValue;
+    //         console.error('Error updating DO doc received status:', error);
             
-            // Revert the state as well
-            setRows(prevRows => 
-              prevRows.map(r => 
-                r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
-              )
-            );
-          }
+    //         // Revert the state as well
+    //         setRows(prevRows => 
+    //           prevRows.map(r => 
+    //             r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
+    //           )
+    //         );
+    //       }
+    //     };
+
+    //     const handleDoListChange = async (event) => {
+    //       const newValue = event.target.value;
+    //       const previousValue = selectedDoList;
+          
+    //       // Update local state immediately for UI responsiveness
+    //       setSelectedDoList(newValue);
+          
+    //       // Update the row data directly for immediate UI update
+    //       row.original.do_list = newValue;
+          
+    //       try {
+    //         const updateData = {
+    //           do_list: newValue
+    //         };
+    //        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+    //   const headers = {
+    //     "Content-Type": "application/json",
+    //     "user-id": user.username || "unknown",
+    //     username: user.username || "unknown",
+    //     "user-role": user.role || "unknown",
+    //   };
+    //         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+    //         console.log('DO list updated successfully');
+            
+    //         // Force a re-render by updating the rows state
+    //         setRows(prevRows => 
+    //           prevRows.map(r => 
+    //             r._id === _id ? { ...r, do_list: newValue } : r
+    //           )
+    //         );
+    //       } catch (error) {
+    //         // Revert the changes on error
+    //         setSelectedDoList(previousValue);
+    //         row.original.do_list = previousValue;
+    //         console.error('Error updating DO list:', error);
+            
+    //         // Revert the state as well
+    //         setRows(prevRows => 
+    //           prevRows.map(r => 
+    //             r._id === _id ? { ...r, do_list: previousValue } : r
+    //           )
+    //         );
+    //       }
+    //     };
+
+    //     return (
+    //       <div
+    //         style={{
+    //           backgroundColor: dayDifference > 0 ? "#FFCCCC" : "#CCFFCC",
+    //           padding: "8px",
+    //           borderRadius: "4px",
+    //         }}
+    //       >
+    //         {displayDate}{" "}
+    //         {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
+    //         <div>Type Of Do: {typeOfDo}</div>
+    //         <div>
+    //       <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+    //         <input
+    //           type="checkbox"
+    //           checked={isDoDocRecieved}
+    //           onChange={handleToggleDoDoc}
+    //           style={{ marginRight: '6px' }}
+    //         />
+    //         Do document send to shipping line
+    //       </label>
+    //     </div>
+        
+    //     {/* DO List Dropdown */}
+    //     <div style={{ marginTop: '8px' }}>
+    //       <select
+    //         value={selectedDoList}
+    //         onChange={handleDoListChange}
+    //         style={{
+    //           width: '100%',
+    //           padding: '4px 8px',
+    //           fontSize: '11px',
+    //           borderRadius: '4px',
+    //           border: '1px solid #ccc',
+    //           backgroundColor: 'white'
+    //         }}
+    //       >
+    //         {doListOptions.map((option, index) => (
+    //           <option key={index} value={option.value}>
+    //             {option.label}
+    //           </option>
+    //         ))}
+    //       </select>
+    //     </div>
+    //       </div>
+    //     );
+    //   },
+    // },
+   {
+  accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
+  header: "Required Do Validity Upto",
+  enableSorting: false,
+  size: 200,
+  Cell: ({row}) => {
+    const displayDate = row.original.displayDate || "N/A";
+    const do_list = row.original.do_list || "N/A";
+    const typeOfDo = row.original.type_of_Do || "N/A";
+    const [isDoDocRecieved, setIsDoDocRecieved] = React.useState(row.original.is_do_doc_recieved || false);
+    const _id = row.original._id;
+
+    // Sync local state when row data changes
+    React.useEffect(() => {
+      setIsDoDocRecieved(row.original.is_do_doc_recieved || false);
+    }, [row.original.is_do_doc_recieved]);
+
+    const handleToggleDoDoc = async (event) => {
+      event.stopPropagation(); // Prevent row click event
+      const newValue = event.target.checked;
+      const previousValue = isDoDocRecieved;
+      
+      // Update local state immediately
+      setIsDoDocRecieved(newValue);
+      
+      // Update the row data directly
+      row.original.is_do_doc_recieved = newValue;
+      
+      try {
+        const now = new Date().toISOString();
+        const updateData = {
+          is_do_doc_recieved: newValue,
+          do_doc_recieved_date: now
         };
-
-        const handleDoListChange = async (event) => {
-          const newValue = event.target.value;
-          const previousValue = selectedDoList;
-          
-          // Update local state immediately for UI responsiveness
-          setSelectedDoList(newValue);
-          
-          // Update the row data directly for immediate UI update
-          row.original.do_list = newValue;
-          
-          try {
-            const updateData = {
-              do_list: newValue
-            };
-           const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
-      };
-            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-            console.log('DO list updated successfully');
-            
-            // Force a re-render by updating the rows state
-            setRows(prevRows => 
-              prevRows.map(r => 
-                r._id === _id ? { ...r, do_list: newValue } : r
-              )
-            );
-          } catch (error) {
-            // Revert the changes on error
-            setSelectedDoList(previousValue);
-            row.original.do_list = previousValue;
-            console.error('Error updating DO list:', error);
-            
-            // Revert the state as well
-            setRows(prevRows => 
-              prevRows.map(r => 
-                r._id === _id ? { ...r, do_list: previousValue } : r
-              )
-            );
-          }
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+        
+        // Update the main state
+        setRows(prevRows => 
+          prevRows.map(r => 
+            r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
+          )
+        );
+      } catch (error) {
+        // Revert the changes on error
+        setIsDoDocRecieved(previousValue);
+        row.original.is_do_doc_recieved = previousValue;
+        console.error('Error updating DO doc received status:', error);
+        
+        // Revert the state as well
+        setRows(prevRows => 
+          prevRows.map(r => 
+            r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
+          )
+        );
+      }
+    };
 
-        return (
-          <div
-            style={{
-              backgroundColor: dayDifference > 0 ? "#FFCCCC" : "#CCFFCC",
-              padding: "8px",
-              borderRadius: "4px",
-            }}
-          >
-            {displayDate}{" "}
-            {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
-            <div>Type Of Do: {typeOfDo}</div>
-            <div>
+    return (
+      <div style={{
+        backgroundColor: row.original.dayDifference > 0 ? "#FFCCCC" : "#CCFFCC",
+        padding: "8px",
+        borderRadius: "4px",
+      }}>
+        <div>{displayDate}</div>
+        {row.original.dayDifference > 0 && <div>(+{row.original.dayDifference} days)</div>}
+        <div>Type Of Do: {typeOfDo}</div>
+        <div>
           <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
             <input
               type="checkbox"
@@ -1006,32 +1117,11 @@ const DoDocCountsDisplay = () => (
             Do document send to shipping line
           </label>
         </div>
-        
-        {/* DO List Dropdown */}
-        <div style={{ marginTop: '8px' }}>
-          <select
-            value={selectedDoList}
-            onChange={handleDoListChange}
-            style={{
-              width: '100%',
-              padding: '4px 8px',
-              fontSize: '11px',
-              borderRadius: '4px',
-              border: '1px solid #ccc',
-              backgroundColor: 'white'
-            }}
-          >
-            {doListOptions.map((option, index) => (
-              <option key={index} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-          </div>
-        );
-      },
-    },
+        <div style={{ marginTop: '5px', fontSize: '12px' }}><strong>EmptyOff LOC:</strong> {do_list}</div>
+      </div>
+    );
+  }
+},
     {
       accessorKey: "do_revalidation_upto",
       header: "DO Revalidation Upto",
@@ -1192,14 +1282,16 @@ const DoDocCountsDisplay = () => (
               (doc) =>
                 doc.url &&
                 doc.url.length > 0 &&
-                doc.document_name === "Pre-Shipment Inspection Certificate"
+                (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                  doc.document_name === "Bill of Lading")
             ) ? (
               cth_documents
                 .filter(
                   (doc) =>
                     doc.url &&
                     doc.url.length > 0 &&
-                    doc.document_name === "Pre-Shipment Inspection Certificate"
+                    (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                      doc.document_name === "Bill of Lading")
                 )
                 .map((doc) => (
                   <div key={doc._id} style={{ marginBottom: "5px" }}>
@@ -1218,7 +1310,12 @@ const DoDocCountsDisplay = () => (
                   </div>
                 ))
             ) : (
-              <span style={{ color: "gray" }}> No Pre-Shipment Inspection Certificate </span>
+              <span style={{ color: "gray" }}>
+                {" "}
+                No Pre-Shipment Inspection Certificate{" "}
+                <br />
+                No Bill of Lading{" "}
+              </span>
             )}
           </div>
         );

@@ -4,7 +4,7 @@ import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import Dashboard from "./Dashboard";
 import "../../styles/import-dsr.scss";
-import { MenuItem, TextField } from "@mui/material";
+import { Alert, MenuItem, TextField } from "@mui/material";
 import axios from "axios";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
 import JobTabs from "./JobTabs";
@@ -28,6 +28,7 @@ function ImportDSR() {
   const [selectedYear, setSelectedYear] = React.useState("");
   const [alt, setAlt] = React.useState(false);
   const [lastJobsDate, setLastJobsDate] = React.useState("");
+  
   const inputRef = React.useRef();
 
   const handleChange = (event, newValue) => {
@@ -44,7 +45,7 @@ function ImportDSR() {
     getLastJobsDate();
   }, [alt]);
 
-  const { handleFileUpload, snackbar, loading } = useFileUpload(
+  const { handleFileUpload, snackbar, loading, error , setError } = useFileUpload(
     inputRef,
     alt,
     setAlt
@@ -107,6 +108,15 @@ function ImportDSR() {
             </>
           )}
         </div>
+        {error && (
+          <Alert 
+            severity="error"
+            sx={{ marginTop: "10px", marginBottom: "10px" }}
+            onClose={() => setError(null)}
+          >
+            {error}
+          </Alert>
+        )}
 
         <CustomTabPanel value={tabValue} index={0}>
           <Dashboard />

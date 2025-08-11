@@ -1709,7 +1709,7 @@ function EditDoPlanning() {
 
 <div className="job-details-container">
   <h5 style={{ marginBottom: "12px", fontWeight: 600, color: "#1a237e" }}>
-    DO List 
+    EmptyOff LOC
   </h5>
   
   {/* DO List dropdown - removed the checkbox */}

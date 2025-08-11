@@ -43,7 +43,7 @@ function useFileUpload(inputRef, alt, setAlt) {
       );
 
       if (!containsAhmedabad) {
-        setError("Error: This file can only be processed for Ahmedabad branch");
+        setError("Error: The provided data is not valid for this import DSR.");
         setLoading(false);
         if (inputRef.current) inputRef.current.value = null;
         return;

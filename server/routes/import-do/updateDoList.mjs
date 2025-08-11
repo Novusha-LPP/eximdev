@@ -17,6 +17,7 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
     kyc_valid_upto,
     shipping_line_bond_valid_upto,
     shipping_line_bond_docs,
+    shipping_line_bond_charges
   } = req.body;
 
   try {
@@ -74,6 +75,7 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
             kyc_valid_upto,
             shipping_line_bond_valid_upto,
             shipping_line_bond_docs,
+            shipping_line_bond_charges,
           },
         }
       );
@@ -86,6 +88,7 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
         kyc_valid_upto,
         shipping_line_bond_valid_upto,
         shipping_line_bond_docs,
+        shipping_line_bond_charges,
       });
       await newKycDoc.save();
     }

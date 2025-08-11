@@ -270,6 +270,10 @@ const jobSchema = new mongoose.Schema({
 
   ////////////////////////////////////////////////// DO
   shipping_line_bond_completed: { type: String, trim: true },
+  shipping_line_bond_charges: {
+    type: String,
+    trim: true,
+  },
   shipping_line_bond_completed_date: { type: String, trim: true },
   shipping_line_kyc_completed: { type: String, trim: true },
   shipping_line_kyc_completed_date: { type: String, trim: true },

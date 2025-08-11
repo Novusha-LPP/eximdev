@@ -609,6 +609,7 @@ function DoCompleted() {
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
         const  typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
 
+              const do_list = row.original.do_list; // "do_list" from backend
         return (
           <div
             style={{
@@ -621,6 +622,8 @@ function DoCompleted() {
             
             {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
             <div>Type Of Do: {typeOfDo}</div>
+
+            <strong> EmptyOff LOC:</strong> {do_list}
           </div>
         );
       },
@@ -717,6 +720,7 @@ function DoCompleted() {
           do_completed,
           do_validity,
           do_copies,
+          cth_documents
         } = cell.row.original;
 
         const doCopies = do_copies
@@ -727,8 +731,45 @@ function DoCompleted() {
         return (
           <div style={{ textAlign: "left" }}>
             {/* Render the "Checklist" link or fallback text */}
+            {cth_documents &&
+            cth_documents.some(
+              (doc) =>
+                doc.url &&
+                doc.url.length > 0 &&
+                (
+                  doc.document_name === "Bill of Lading")
+            ) ? (
+              cth_documents
+                .filter(
+                  (doc) =>
+                    doc.url &&
+                    doc.url.length > 0 &&
+                    (
+                      doc.document_name === "Bill of Lading")
+                )
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))
+            ) : (
+              <span style={{ color: "gray" }}>
+                No Bill of Lading{" "}
+              </span>
+            )}  
 
-<div>
+          <div>
   {doCompleted ? (
     <strong>DO Completed Date: {doCompleted}</strong>
   ) : (

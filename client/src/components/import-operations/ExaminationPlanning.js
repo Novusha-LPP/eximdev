@@ -528,7 +528,7 @@ function ImportOperations() {
         const doValidity = row.original.do_validity;
         const doCompleted = row.original.do_completed;
         const doCopies = row.original.do_copies;
-
+        const do_list = row.original.do_list;
         return (
           <div style={{ textAlign: "center" }}>
             <div>
@@ -560,6 +560,10 @@ function ImportOperations() {
                 ))}
               </div>
             ) : null}
+    <div>
+                <strong>EmptyOff LOC:</strong> {do_list}
+              </div>
+        
           </div>
         );
       },

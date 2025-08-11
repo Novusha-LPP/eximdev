@@ -536,7 +536,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         header: "DO Completed & Validity",
         enableSorting: false,
         size: 200,
-        Cell: ({ row }) => {
+        Cell: ({row}) => {
+ 
           const do_validity = row.original.do_validity;
           const do_completed = row.original.do_completed;
           const isDoDocRecieved = row.original.is_do_doc_recieved;
@@ -544,7 +545,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const doDocRecievedDate = row.original.do_doc_recieved_date;
           const oblRecievedDate = row.original.obl_recieved_date;
           const do_copies = row.original.do_copies;
-
+          const do_list = row.original.do_list ;
           const doCopies = do_copies;
           const doCompleted = formatDate(do_completed);
           const doValidity = formatDate(do_validity);
@@ -621,6 +622,9 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                   <span style={{ color: "gray" }}>No DO copies</span>
                 </div>
               )}
+              <div>
+                <strong>EmptyOff LOC:</strong> {do_list}
+              </div>
             </div>
           );
         },

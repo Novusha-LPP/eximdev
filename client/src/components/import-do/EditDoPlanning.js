@@ -1707,7 +1707,6 @@ function EditDoPlanning() {
                 <br />
               </div>
 
-             // In the EditDoPlanning.js file, remove the checkbox from the DO List section
 <div className="job-details-container">
   <h5 style={{ marginBottom: "12px", fontWeight: 600, color: "#1a237e" }}>
     DO List 

@@ -46,6 +46,8 @@ router.get('/api/charges-section/job-details', async (req, res) => {
     })
       .select({
         shipping_line_bond_charges: 1,
+        shipping_line_bond_valid_upto: 1,
+        shipping_line_bond_docs: 1,
         importer: 1,
         shipping_line_airline: 1,
         _id: 0
@@ -57,7 +59,9 @@ router.get('/api/charges-section/job-details', async (req, res) => {
 
     const responseData = {
       ...job, 
-      shipping_line_bond_charges: kycDocuments?.shipping_line_bond_charges || ''
+      shipping_line_bond_charges: kycDocuments?.shipping_line_bond_charges || '',
+      shipping_line_bond_valid_upto: kycDocuments?.shipping_line_bond_valid_upto || '',
+      shipping_line_bond_docs: kycDocuments?.shipping_line_bond_docs || []
     }
 
     console.log('Final response data:', responseData);

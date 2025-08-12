@@ -398,12 +398,26 @@ const Charges = ({ job_no, year }) => {
   const shippingLineBondFields = [
     { key: 'document_name', label: 'Document Name' },
     { key: 'url', label: 'Files' },
-    { key: 'document_check_date', label: 'Check Date' },
-    { key: 'document_amount_details', label: 'Amount Details' },
-    { key: 'bond_reference_no', label: 'Bond Reference No' },
-    { key: 'bond_validity', label: 'Bond Validity' },
-    { key: 'shipping_line_name', label: 'Shipping Line Name' },
+    { key: 'document_amount_details', label: 'Bond Charges' },
+    { key: 'bond_validity', label: 'Bond Valid Upto' },
+    { key: 'shipping_line_name', label: 'Shipping Line' },
   ];
+
+  // Helper function to format bond charges data for table display
+  const formatBondChargesForTable = (data) => {
+    // Create a table row from the bond charges data
+    if (!data.shipping_line_bond_charges && !data.shipping_line_bond_valid_upto && (!data.shipping_line_bond_docs || data.shipping_line_bond_docs.length === 0)) {
+      return []; // Return empty array if no bond data
+    }
+
+    return [{
+      document_name: 'Shipping Line Bond',
+      url: data.shipping_line_bond_docs || [],
+      document_amount_details: data.shipping_line_bond_charges || '',
+      bond_validity: data.shipping_line_bond_valid_upto || '',
+      shipping_line_name: data.shipping_line_airline || ''
+    }]; // Return the formatted bond charges data
+  };
 
   return (
     <Box sx={{ p: 2, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
@@ -467,31 +481,12 @@ const Charges = ({ job_no, year }) => {
           fields={securityDepositFields} 
         />
       </Section>
-        <Section 
+  
+      <Section 
         title="Shipping Line Bond Charges" 
         icon={<SecurityIcon sx={{ color: '#8b5cf6' }} />}
       >
-        <Box sx={{ 
-          p: 3, 
-          backgroundColor: 'white', 
-          borderRadius: 2, 
-          boxShadow: 1,
-          border: '1px solid #e2e8f0'
-        }}>
-          {data.shipping_line_bond_charges ? (
-            <Typography variant="body1" sx={{ 
-              fontSize: '1rem',
-              lineHeight: 1.6,
-              color: '#374151'
-            }}>
-              {data.shipping_line_bond_charges}
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              No shipping line bond charges information available.
-            </Typography>
-          )}
-        </Box>
+        <DocumentTable docs={formatBondChargesForTable(data)} fields={shippingLineBondFields} />
       </Section>
     </Box>
   );

@@ -1,5 +1,6 @@
 import express from 'express';
 import JobModel from '../../model/jobModel.mjs';
+import KycDocumentsModel from '../../model/kycDocumentsModel.mjs';
 
 const router = express.Router();
 
@@ -22,6 +23,8 @@ router.get('/api/charges-section/job-details', async (req, res) => {
         security_deposit: 1,
         job_no: 1,
         year: 1,
+        importer: 1, // Add importer field
+        shipping_line_airline: 1, // Add shipping line field
         _id: 0
       })
       .lean();
@@ -30,7 +33,35 @@ router.get('/api/charges-section/job-details', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found.' });
     }
 
-    return res.json({ success: true, data: job });
+    console.log('Found job:', job);
+    console.log('Searching for KYC document with importer and shipping line:', { 
+      importer: job.importer, 
+      shipping_line_airline: job.shipping_line_airline 
+    });
+    
+    // Find KYC document by matching importer and shipping line
+    const kycDocuments = await KycDocumentsModel.findOne({ 
+      importer: job.importer,
+      shipping_line_airline: job.shipping_line_airline
+    })
+      .select({
+        shipping_line_bond_charges: 1,
+        importer: 1,
+        shipping_line_airline: 1,
+        _id: 0
+      })
+      .lean();
+
+    console.log('Found KYC document:', kycDocuments);
+    console.log('Bond charges from KYC:', kycDocuments?.shipping_line_bond_charges);
+
+    const responseData = {
+      ...job, 
+      shipping_line_bond_charges: kycDocuments?.shipping_line_bond_charges || ''
+    }
+
+    console.log('Final response data:', responseData);
+    return res.json({ success: true, data: responseData });
   } catch (err) {
     console.error('Error fetching job charges details:', err);
     return res.status(500).json({ success: false, message: 'Server error.' });

@@ -285,6 +285,7 @@ const Charges = ({ job_no, year }) => {
       
       if (res.data && res.data.success) {
         setData(res.data.data);
+        console.log('Fetched charges data:', res.data);
       } else {
         setError('No data found for the specified job.');
       }
@@ -394,6 +395,16 @@ const Charges = ({ job_no, year }) => {
     { key: 'Validity_upto', label: 'Validity Upto' },
   ];
 
+  const shippingLineBondFields = [
+    { key: 'document_name', label: 'Document Name' },
+    { key: 'url', label: 'Files' },
+    { key: 'document_check_date', label: 'Check Date' },
+    { key: 'document_amount_details', label: 'Amount Details' },
+    { key: 'bond_reference_no', label: 'Bond Reference No' },
+    { key: 'bond_validity', label: 'Bond Validity' },
+    { key: 'shipping_line_name', label: 'Shipping Line Name' },
+  ];
+
   return (
     <Box sx={{ p: 2, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
@@ -455,6 +466,32 @@ const Charges = ({ job_no, year }) => {
           docs={data.security_deposit} 
           fields={securityDepositFields} 
         />
+      </Section>
+        <Section 
+        title="Shipping Line Bond Charges" 
+        icon={<SecurityIcon sx={{ color: '#8b5cf6' }} />}
+      >
+        <Box sx={{ 
+          p: 3, 
+          backgroundColor: 'white', 
+          borderRadius: 2, 
+          boxShadow: 1,
+          border: '1px solid #e2e8f0'
+        }}>
+          {data.shipping_line_bond_charges ? (
+            <Typography variant="body1" sx={{ 
+              fontSize: '1rem',
+              lineHeight: 1.6,
+              color: '#374151'
+            }}>
+              {data.shipping_line_bond_charges}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No shipping line bond charges information available.
+            </Typography>
+          )}
+        </Box>
       </Section>
     </Box>
   );

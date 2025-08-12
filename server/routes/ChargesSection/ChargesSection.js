@@ -33,11 +33,7 @@ router.get('/api/charges-section/job-details', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found.' });
     }
 
-    console.log('Found job:', job);
-    console.log('Searching for KYC document with importer and shipping line:', { 
-      importer: job.importer, 
-      shipping_line_airline: job.shipping_line_airline 
-    });
+ 
     
     // Find KYC document by matching importer and shipping line
     const kycDocuments = await KycDocumentsModel.findOne({ 
@@ -54,8 +50,7 @@ router.get('/api/charges-section/job-details', async (req, res) => {
       })
       .lean();
 
-    console.log('Found KYC document:', kycDocuments);
-    console.log('Bond charges from KYC:', kycDocuments?.shipping_line_bond_charges);
+
 
     const responseData = {
       ...job, 
@@ -64,7 +59,7 @@ router.get('/api/charges-section/job-details', async (req, res) => {
       shipping_line_bond_docs: kycDocuments?.shipping_line_bond_docs || []
     }
 
-    console.log('Final response data:', responseData);
+   
     return res.json({ success: true, data: responseData });
   } catch (err) {
     console.error('Error fetching job charges details:', err);

@@ -135,13 +135,24 @@ const DocumentationJob = () => {
     e.preventDefault();
 
     try {
+
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
+      
       await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data._id}`,
         {
           documentation_completed_date_time:
             data.documentation_completed_date_time,
           documentationQueries: data.documentationQueries || [],
-        }
+        },
+                { headers }
+
       );
       // Navigate back with preserved search parameters
           // Close the tab after successful submit

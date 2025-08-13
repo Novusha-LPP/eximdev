@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   TextField,
   Button,
@@ -59,113 +59,6 @@ const IgstModal = ({
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // Calculate interest amount
-  const calculateInterestAmount = () => {
-    const totalDuty =
-      parseFloat(igstValues.bcd_ammount || 0) +
-      parseFloat(igstValues.sws_ammount || 0) +
-      parseFloat(igstValues.igst_ammount || 0);
-
-    const assessmentDate = dates?.assessment_date || rowData?.assessment_date;
-    const dutyPaidDate = dates?.duty_paid_date || rowData?.duty_paid_date;
-
-    if (totalDuty <= 0 || !assessmentDate || !dutyPaidDate) return 0;
-
-    const assessmentDateObj = new Date(assessmentDate);
-    const dutyPaidDateObj = new Date(dutyPaidDate);
-
-    if (isNaN(assessmentDateObj.getTime()) || isNaN(dutyPaidDateObj.getTime()))
-      return 0;
-    if (dutyPaidDateObj <= assessmentDateObj) return 0;
-
-    const daysBetween = calculateDaysBetween(assessmentDate, dutyPaidDate);
-    const interestAmount = ((totalDuty * 15) / 100 / 365) * daysBetween;
-
-    return Math.round(interestAmount * 100) / 100;
-  };
-
-  // Calculate penalty amount
-  const calculatePenaltyAmount = () => {
-    const beDate = rowData?.be_date 
-
-    // Get arrival_date from containers (use the first container that has arrival_date)
-    const containerWithArrival = containers.find((c) => c.arrival_date);
-    const arrivalDate = containerWithArrival ? containerWithArrival.arrival_date : null;
-
-    
-    if (!arrivalDate) return 0;
-
-    const arrivalDateObj = new Date(arrivalDate);
-    const beDateObj = beDate ? new Date(beDate) : null;
-
-    if (isNaN(arrivalDateObj.getTime())) return 0;
-
-    // Rule 1: If BE Date and Arrival Date are the same, penalty is ₹5000 flat
-    if (
-      beDateObj &&
-      !isNaN(beDateObj.getTime()) &&
-      arrivalDateObj.toDateString() === beDateObj.toDateString()
-    ) {
-      return 5000;
-    }
-
-    // Rule 2: If BE Date is missing, calculate penalty from arrival date to today
-    if (!beDate) {
-      const today = new Date();
-      // Calculate days including both start and end dates
-      const timeDiff = today.getTime() - arrivalDateObj.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
-      
-      if (daysDiff <= 0) return 0;
-      
-      let penalty = 0;
-      
-      // First 3 days: ₹5000 per day (including arrival date)
-      const firstThreeDays = Math.min(daysDiff, 3);
-      penalty += firstThreeDays * 5000;
-      
-      // From 4th day onward: ₹10000 per day
-      if (daysDiff > 3) {
-        const remainingDays = daysDiff - 3;
-        penalty += remainingDays * 10000;
-      }
-            return penalty;
-    }
-
-    // Rule 3: If both dates are present and BE Date is later than Arrival Date
-    if (beDateObj && !isNaN(beDateObj.getTime())) {
-      // If BE Date is before or same as Arrival Date, no penalty
-      if (beDateObj <= arrivalDateObj) {
-        return 0;
-      }
-      
-      // Calculate days including both start and end dates
-      // For dates like 15th to 17th, we want to count: 15th, 16th, 17th = 3 days
-      const timeDiff = beDateObj.getTime() - arrivalDateObj.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
-      
-
-      if (daysDiff <= 0) return 0;
-      
-      let penalty = 0;
-      
-      // First 3 days (including arrival date): ₹5000 per day
-      const firstThreeDays = Math.min(daysDiff, 3);
-      penalty += firstThreeDays * 5000;
-      
-      // From 4th day onward until BE Date: ₹10000 per day
-      if (daysDiff > 3) {
-        const remainingDays = daysDiff - 3;
-        penalty += remainingDays * 10000;
-      }
-      
-    
-      return penalty;
-    }
-
-    return 0;
-  };
-
   // Calculate duty amounts based on assessable value
   const calculateDutyAmounts = () => {
     const assessableValue = parseFloat(igstValues.assessable_ammount || 0);
@@ -224,16 +117,29 @@ const IgstModal = ({
     igstValues.igstRate,
   ]);
 
-  // Auto-calculate interest and penalty when relevant values change
-  useEffect(() => {
-    const interestAmount = calculateInterestAmount();
-    const penaltyAmount = calculatePenaltyAmount();
+  // Calculate interest amount using useMemo to avoid infinite loops
+  const calculatedInterestAmount = useMemo(() => {
+    const totalDuty =
+      parseFloat(igstValues.bcd_ammount || 0) +
+      parseFloat(igstValues.sws_ammount || 0) +
+      parseFloat(igstValues.igst_ammount || 0);
 
-    setIgstValues((prev) => ({
-      ...prev,
-      intrest_ammount: interestAmount.toFixed(2),
-      penalty_ammount: penaltyAmount.toFixed(2),
-    }));
+    const assessmentDate = dates?.assessment_date || rowData?.assessment_date;
+    const dutyPaidDate = dates?.duty_paid_date || rowData?.duty_paid_date;
+
+    if (totalDuty <= 0 || !assessmentDate || !dutyPaidDate) return 0;
+
+    const assessmentDateObj = new Date(assessmentDate);
+    const dutyPaidDateObj = new Date(dutyPaidDate);
+
+    if (isNaN(assessmentDateObj.getTime()) || isNaN(dutyPaidDateObj.getTime()))
+      return 0;
+    if (dutyPaidDateObj <= assessmentDateObj) return 0;
+
+    const daysBetween = calculateDaysBetween(assessmentDate, dutyPaidDate);
+    const interestAmount = ((totalDuty * 15) / 100 / 365) * daysBetween;
+
+    return Math.round(interestAmount * 100) / 100;
   }, [
     igstValues.bcd_ammount,
     igstValues.sws_ammount,
@@ -242,9 +148,84 @@ const IgstModal = ({
     dates?.duty_paid_date,
     rowData?.assessment_date,
     rowData?.duty_paid_date,
+  ]);
+
+  // Calculate penalty amount using useMemo to avoid infinite loops
+  const calculatedPenaltyAmount = useMemo(() => {
+    const beDate = rowData?.be_date;
+    const containerWithArrival = containers.find((c) => c.arrival_date);
+    const arrivalDate = containerWithArrival ? containerWithArrival.arrival_date : null;
+
+    if (!arrivalDate) return 0;
+
+    const arrivalDateObj = new Date(arrivalDate);
+    const beDateObj = beDate ? new Date(beDate) : null;
+
+    if (isNaN(arrivalDateObj.getTime())) return 0;
+
+    // Apply the same penalty calculation logic as in calculatePenaltyAmount
+    if (
+      beDateObj &&
+      !isNaN(beDateObj.getTime()) &&
+      arrivalDateObj.toDateString() === beDateObj.toDateString()
+    ) {
+      return 5000;
+    }
+
+    if (!beDate) {
+      const today = new Date();
+      const timeDiff = today.getTime() - arrivalDateObj.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+      
+      if (daysDiff <= 0) return 0;
+      
+      let penalty = 0;
+      const firstThreeDays = Math.min(daysDiff, 3);
+      penalty += firstThreeDays * 5000;
+      
+      if (daysDiff > 3) {
+        const remainingDays = daysDiff - 3;
+        penalty += remainingDays * 10000;
+      }
+      return penalty;
+    }
+
+    if (beDateObj && !isNaN(beDateObj.getTime())) {
+      if (beDateObj <= arrivalDateObj) {
+        return 0;
+      }
+      
+      const timeDiff = beDateObj.getTime() - arrivalDateObj.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+      
+      if (daysDiff <= 0) return 0;
+      
+      let penalty = 0;
+      const firstThreeDays = Math.min(daysDiff, 3);
+      penalty += firstThreeDays * 5000;
+      
+      if (daysDiff > 3) {
+        const remainingDays = daysDiff - 3;
+        penalty += remainingDays * 10000;
+      }
+      
+      return penalty;
+    }
+
+    return 0;
+  }, [
     rowData?.be_date,
     containers,
   ]);
+
+  // Update calculated values when they change
+  useEffect(() => {
+    setIgstValues((prev) => ({
+      ...prev,
+      intrest_ammount: calculatedInterestAmount.toFixed(2),
+      penalty_ammount: calculatedPenaltyAmount.toFixed(2),
+    }));
+  }, [calculatedInterestAmount, calculatedPenaltyAmount]);
 
   
   const handleCthDataFetch = async () => {

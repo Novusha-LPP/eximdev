@@ -45,7 +45,7 @@ import EditDoCompleted from "../components/import-do/EditDoCompleted.js";
 import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
-import ViewJob from "../components/import-dsr/ViewJob.js";
+import ViewJob from "../components/import-dsr/ViewJob/ViewJob.js";
 // Import Operations
 import ImportOperations from "../components/import-operations/ImportOperations.js";
 import DocumentationTab from "../components/documentation/DocumentationTab.js";

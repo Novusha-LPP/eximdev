@@ -85,7 +85,8 @@ const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false })
           </TableHead>
           <TableBody>
             {imageArray.map((link, index) => (
-              <TableRow key={index}>                <TableCell>
+              <TableRow key={index}>
+                <TableCell>
                   {link ? (
                     <a
                       href={link}

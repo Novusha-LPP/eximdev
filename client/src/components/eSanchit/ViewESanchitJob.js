@@ -165,6 +165,7 @@ function ViewESanchitJob() {
       cth_documents: data.cth_documents || [],
       esanchitCharges: esanchitCharges || [],
       queries: data.eSachitQueries || [{ query: "", reply: "" }],
+      dsr_queries: data.dsr_queries || [],
       esanchit_completed_date_time: data.esanchit_completed_date_time || "",
     },
     enableReinitialize: true,
@@ -176,6 +177,7 @@ function ViewESanchitJob() {
           queries: values.queries, // Send queries as `eSachitQueries`
           esanchit_completed_date_time:
             values.esanchit_completed_date_time || "",
+          dsr_queries: values.dsr_queries || [],
         };
 
         // Get user info from localStorage for audit trail
@@ -733,89 +735,129 @@ function ViewESanchitJob() {
               {renderAllDocuments(data.all_documents)}
             </div>
 
-            <div className="job-details-container">
+<div className="job-details-container">
               <h4>Queries</h4>
-              {formik.values.queries.map((item, id) => {
-                const isResolved =
-                  item.resolved === true ||
-                  (!!item.reply && item.reply.trim() !== "");
-                return (
-                  <Row key={id} style={{ marginBottom: "20px" }}>
-                    <Col xs={12} lg={5}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        size="small"
-                        label={isResolved ? "Query (Resolved)" : "Query"}
-                        name={`queries[${id}].query`}
-                        value={item.query}
-                        onChange={formik.handleChange}
-                        disabled={isResolved}
-                        InputProps={{
-                          style: isResolved
-                            ? {
-                                border: "2px solid #4caf50",
-                                background: "#eaffea",
-                              }
-                            : {},
-                        }}
-                      />
-                    </Col>
-                    <Col xs={12} lg={5}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        size="small"
-                        label={isResolved ? "Reply (Resolved)" : "Reply"}
-                        name={`queries[${id}].reply`}
-                        value={item.reply}
-                        onChange={formik.handleChange}
-                        InputProps={{
-                          readOnly: true,
-                          style: isResolved
-                            ? {
-                                border: "2px solid #4caf50",
-                                background: "#eaffea",
-                              }
-                            : {},
-                        }}
-                      />
-                    </Col>
-                    {isResolved && (
-                      <Col
-                        xs={12}
-                        lg={2}
-                        style={{ display: "flex", alignItems: "center" }}
-                      >
-                        <span
-                          style={{
-                            color: "#388e3c",
-                            fontWeight: "bold",
-                            marginLeft: 8,
-                          }}
-                        >
-                          Resolved
-                        </span>
-                      </Col>
-                    )}
-                  </Row>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() =>
-                  formik.setFieldValue("queries", [
-                    ...formik.values.queries,
-                    { query: "", reply: "" },
-                  ])
-                }
-                className="btn"
+  <br />
+
+  {/* Group queries by module */}
+  {Object.entries(
+    formik.values.dsr_queries.reduce((acc, item) => {
+      if (!acc[item.select_module]) acc[item.select_module] = [];
+      acc[item.select_module].push(item);
+      return acc;
+    }, {})
+  ).map(([moduleName, queries]) => (
+    <div key={moduleName} style={{ marginBottom: "20px" }}>
+      <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
+        {moduleName} Queries
+      </h5>
+
+      {queries.map((item, id) => {
+        const index = formik.values.dsr_queries.findIndex(q => q === item);
+        const isResolved =
+          item.resolved === true ||
+          (!!item.reply && item.reply.trim() !== "");
+
+        return (
+          <Row key={id} style={{ marginBottom: "20px" }}>
+            <Col xs={12} lg={4}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label={isResolved ? "Query (Resolved)" : "Query"}
+                name={`dsr_queries[${index}].query`}
+                value={item.query}
+                onChange={formik.handleChange}
+                disabled={isResolved}
+                InputProps={{
+                  style: isResolved
+                    ? {
+                        border: "2px solid #4caf50",
+                        background: "#eaffea",
+                      }
+                    : {},
+                }}
+              />
+            </Col>
+
+            <Col xs={12} lg={4}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label={isResolved ? "Reply (Resolved)" : "Reply"}
+                name={`dsr_queries[${index}].reply`}
+                value={item.reply}
+                onChange={formik.handleChange}
+                InputProps={{
+                  readOnly: true,
+                  style: isResolved
+                    ? {
+                        border: "2px solid #4caf50",
+                        background: "#eaffea",
+                      }
+                    : {},
+                }}
+              />
+            </Col>
+
+            <Col xs={12} lg={2} className="d-flex align-items-center">
+              <TextField
+                select
+                fullWidth
+                size="small"
+                name={`dsr_queries[${index}].select_module`}
+                value={item.select_module || ""}
+                onChange={formik.handleChange}
+                disabled={isResolved}
+                SelectProps={{ native: true }}
               >
-                Add Query
-              </button>
-            </div>
+                <option value="">Select Module</option>
+                <option value="DSR">DSR</option>
+                <option value="DO">DO</option>
+                <option value="Documentation">Documentation</option>
+                <option value="E-Sanchit">E-Sanchit</option>
+                <option value="Submission">Submission</option>
+                <option value="Operations">Operations</option>
+              </TextField>
+            </Col>
+
+            {isResolved && (
+              <Col xs={12} lg={2} className="d-flex align-items-center">
+                <span
+                  style={{
+                    color: "#388e3c",
+                    fontWeight: "bold",
+                    marginLeft: 8,
+                  }}
+                >
+                  Resolved
+                </span>
+              </Col>
+            )}
+          </Row>
+        );
+      })}
+    </div>
+  ))}
+
+  {/* Add Query Button */}
+  <button
+    type="button"
+    onClick={() =>
+      formik.setFieldValue("dsr_queries", [
+        ...formik.values.dsr_queries,
+        { query: "", reply: "", select_module: "", resolved: false },
+      ])
+    }
+    className="btn"
+  >
+    Add Query
+  </button>
+</div>
 
             <div className="job-details-container">
               <h4>All Cleared E-Sanchit</h4>

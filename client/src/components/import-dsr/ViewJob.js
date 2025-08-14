@@ -711,272 +711,132 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
           </div>
           {/* Importer info End*/}
 
-         <div className="job-details-container">
-      <JobDetailsRowHeading heading="Queries" />
-      <br />
+<div className="job-details-container">
+  <JobDetailsRowHeading heading="Queries" />
+  <br />
 
-      {[
-        { key: "do_queries", label: "DO Queries" },
-        { key: "documentationQueries", label: "Documentation Queries" },
-        { key: "eSachitQueries", label: "E-Sanchit Queries" },
-        { key: "submissionQueries", label: "Submission Queries" },
-      ].map(
-        ({ key, label }) =>
-          formik.values[key]?.length > 0 && (
-            <div key={key} style={{ marginBottom: '20px' }}>
-              <div
-                style={{
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+  {/* Group queries by module */}
+  {Object.entries(
+    formik.values.dsr_queries.reduce((acc, item) => {
+      if (!acc[item.select_module]) acc[item.select_module] = [];
+      acc[item.select_module].push(item);
+      return acc;
+    }, {})
+  ).map(([moduleName, queries]) => (
+    <div key={moduleName} style={{ marginBottom: "20px" }}>
+      <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
+        {moduleName} Queries
+      </h5>
+
+      {queries.map((item, id) => {
+        const index = formik.values.dsr_queries.findIndex(q => q === item);
+        const isResolved =
+          item.resolved === true ||
+          (!!item.reply && item.reply.trim() !== "");
+
+        return (
+          <Row key={id} style={{ marginBottom: "20px" }}>
+            <Col xs={12} lg={4}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label={isResolved ? "Query (Resolved)" : "Query"}
+                name={`dsr_queries[${index}].query`}
+                value={item.query}
+                onChange={formik.handleChange}
+                disabled={isResolved}
+                InputProps={{
+                  style: isResolved
+                    ? {
+                        border: "2px solid #4caf50",
+                        background: "#eaffea",
+                      }
+                    : {},
                 }}
+              />
+            </Col>
+
+            <Col xs={12} lg={4}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label={isResolved ? "Reply (Resolved)" : "Reply"}
+                name={`dsr_queries[${index}].reply`}
+                value={item.reply}
+                onChange={formik.handleChange}
+                InputProps={{
+                  readOnly: true,
+                  style: isResolved
+                    ? {
+                        border: "2px solid #4caf50",
+                        background: "#eaffea",
+                      }
+                    : {},
+                }}
+              />
+            </Col>
+
+            <Col xs={12} lg={2} className="d-flex align-items-center">
+              <TextField
+                select
+                fullWidth
+                size="small"
+                name={`dsr_queries[${index}].select_module`}
+                value={item.select_module || ""}
+                onChange={formik.handleChange}
+                disabled={isResolved}
+                SelectProps={{ native: true }}
               >
-                <h5 
+                <option value="">Select Module</option>
+                <option value="DSR">DSR</option>
+                <option value="DO">DO</option>
+                <option value="Documentation">Documentation</option>
+                <option value="E-Sanchit">E-Sanchit</option>
+                <option value="Submission">Submission</option>
+                <option value="Operations">Operations</option>
+              </TextField>
+            </Col>
+
+            {isResolved && (
+              <Col xs={12} lg={2} className="d-flex align-items-center">
+                <span
                   style={{
-                    margin: '0 0 16px 0',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#1e293b',
-                    borderBottom: '1px solid #e2e8f0',
-                    paddingBottom: '6px',
+                    color: "#388e3c",
+                    fontWeight: "bold",
+                    marginLeft: 8,
                   }}
                 >
-                  {label}
-                </h5>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {formik.values[key].map((item, id) => {
-                    const isResolved = item.resolved;
-                    const namePrefix = `${key}[${id}]`;
-
-                    return (
-                      <div
-                        key={id}
-                        style={{
-                          backgroundColor: isResolved ? '#f1f5f9' : '#ffffff',
-                          borderRadius: '8px',
-                          padding: '12px',
-                          border: `1px solid ${isResolved ? '#cbd5e1' : '#e2e8f0'}`,
-                          boxShadow: isResolved 
-                            ? '0 1px 2px rgba(0, 0, 0, 0.05)' 
-                            : '0 1px 3px rgba(0, 0, 0, 0.06)',
-                          transition: 'all 0.2s ease',
-                          position: 'relative',
-                          opacity: isResolved ? 0.8 : 1,
-                        }}
-                      >
-                        <Row className="align-items-center" style={{ minHeight: '40px' }}>
-                          <Col xs={12} md={1} className="d-flex align-items-center justify-content-center">
-                            {!isResolved ? (
-                              <div
-                                style={{
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#fef2f2',
-                                  border: '1px solid #fca5a5',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: '8px',
-                                    height: '8px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#dc2626',
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <div
-                                style={{
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#f0fdf4',
-                                  border: '1px solid #86efac',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <CheckCircleIcon
-                                  style={{
-                                    fontSize: '16px',
-                                    color: '#16a34a',
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </Col>
-
-                          <Col xs={12} md={4}>
-                            <div
-                              style={{
-                                fontSize: '0.875rem',
-                                fontWeight: '500',
-                                color: '#1e293b',
-                                lineHeight: '1.4',
-                                marginBottom: '2px',
-                              }}
-                            >
-                              {item.query}
-                            </div>
-                          </Col>
-
-                          <Col xs={12} md={5}>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              variant="outlined"
-                              id={`${namePrefix}.reply`}
-                              name={`${namePrefix}.reply`}
-                              placeholder="Enter reply..."
-                              value={item.reply}
-                              disabled={isResolved}
-                              onChange={formik.handleChange}
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  borderRadius: '6px',
-                                  backgroundColor: isResolved ? '#f8fafc' : '#ffffff',
-                                  fontSize: '0.875rem',
-                                  minHeight: '36px',
-                                  '& fieldset': {
-                                    borderColor: '#e2e8f0',
-                                  },
-                                  '&:hover fieldset': {
-                                    borderColor: '#cbd5e1',
-                                  },
-                                  '&.Mui-focused fieldset': {
-                                    borderColor: '#64748b',
-                                    borderWidth: '1px',
-                                  },
-                                  '&.Mui-disabled': {
-                                    backgroundColor: '#f8fafc',
-                                    '& fieldset': {
-                                      borderColor: '#e2e8f0',
-                                    },
-                                  },
-                                },
-                                '& .MuiInputBase-input': {
-                                  padding: '8px 12px',
-                                },
-                              }}
-                            />
-                          </Col>
-
-                          <Col
-                            xs={12}
-                            md={2}
-                            className="d-flex align-items-center justify-content-center gap-2"
-                          >
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: '6px',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              {!isResolved && (
-                                <Tooltip title="Mark as Resolved" arrow>
-                                  <div
-                                    style={{
-                                      padding: '6px',
-                                      borderRadius: '6px',
-                                      backgroundColor: '#f0fdf4',
-                                      border: '1px solid #dcfce7',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.target.style.backgroundColor = '#dcfce7';
-                                      e.target.style.transform = 'translateY(-1px)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.target.style.backgroundColor = '#f0fdf4';
-                                      e.target.style.transform = 'translateY(0)';
-                                    }}
-                                    onClick={() =>
-                                      setConfirmDialog({
-                                        open: true,
-                                        type: "resolve",
-                                        queryKey: key,
-                                        queryIndex: id,
-                                      })
-                                    }
-                                  >
-                                    <CheckCircleIcon
-                                      style={{
-                                        fontSize: '18px',
-                                        color: '#16a34a',
-                                      }}
-                                    />
-                                  </div>
-                                </Tooltip>
-                              )}
-
-                              {user.role === "Admin" && (
-                                <Tooltip title="Delete Query" arrow>
-                                  <div
-                                    style={{
-                                      padding: '6px',
-                                      borderRadius: '6px',
-                                      backgroundColor: '#fef2f2',
-                                      border: '1px solid #fecaca',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.target.style.backgroundColor = '#fecaca';
-                                      e.target.style.transform = 'translateY(-1px)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.target.style.backgroundColor = '#fef2f2';
-                                      e.target.style.transform = 'translateY(0)';
-                                    }}
-                                    onClick={() =>
-                                      setConfirmDialog({
-                                        open: true,
-                                        type: "delete",
-                                        queryKey: key,
-                                        queryIndex: id,
-                                      })
-                                    }
-                                  >
-                                    <DeleteIcon
-                                      style={{
-                                        fontSize: '18px',
-                                        color: '#dc2626',
-                                      }}
-                                    />
-                                  </div>
-                                </Tooltip>
-                              )}
-                            </div>
-                          </Col>
-                        </Row>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )
-      )}
+                  Resolved
+                </span>
+              </Col>
+            )}
+          </Row>
+        );
+      })}
     </div>
+  ))}
+
+  {/* Add Query Button */}
+  <button
+    type="button"
+    onClick={() =>
+      formik.setFieldValue("dsr_queries", [
+        ...formik.values.dsr_queries,
+        { query: "", reply: "", select_module: "", resolved: false },
+      ])
+    }
+    className="btn"
+  >
+    Add Query
+  </button>
+</div>
+
+
+
 
           {/* completion status start*/}
           <div className="job-details-container">

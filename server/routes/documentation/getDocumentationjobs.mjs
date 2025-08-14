@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -189,53 +190,29 @@ const baseQuery = {
     });
   }
 });
+router.patch("/api/update-documentation-job/:job_no/:year", async (req, res) => {
+  const { job_no, year } = req.params;
+  const { documentation_completed_date_time, dsr_queries } = req.body;
 
-router.patch("/api/update-documentation-job/:id", async (req, res) => {
-  try {
-    const { id } = req.params; // Get the job ID from the URL
-    const { documentation_completed_date_time } = req.body; // Take the custom date from the request body
-
-    // Validate the provided date (if any)
-    if (
-      documentation_completed_date_time &&
-      isNaN(Date.parse(documentation_completed_date_time))
-    ) {
-      return res.status(400).json({
-        message: "Invalid date format. Please provide a valid ISO date string.",
-      });
-    }
-
-    // Find the job by ID and update the documentation_completed_date_time field
-    const updatedJob = await JobModel.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          documentation_completed_date_time:
-            documentation_completed_date_time || "", // Use provided date or current date-time
-        },
-      },
-      { new: true, lean: true } // Return the updated document
-    );
-
-    if (!updatedJob) {
-      return res
-        .status(404)
-        .json({ message: "Job not found with the specified ID" });
-    }
-
-    res.status(200).json({
-      message: "Job updated successfully",
-      updatedJob,
-    });
-  } catch (err) {
-    console.error("Error updating job:", err);
-
-    // Return a detailed error message
-    res.status(500).json({
-      message: "Internal Server Error. Unable to update the job.",
-      error: err.message,
-    });
+  let update = {};
+  if (documentation_completed_date_time !== undefined) {
+    update.documentation_completed_date_time = documentation_completed_date_time || "";
   }
+  if (dsr_queries !== undefined) {
+    update.dsr_queries = dsr_queries;
+  }
+
+  const updatedJob = await JobModel.findOneAndUpdate(
+    { job_no, year },
+    { $set: update },
+    { new: true, lean: true }
+  );
+
+  if (!updatedJob) {
+    return res.status(404).json({ message: "Job not found" });
+  }
+
+  res.status(200).json({ message: "Job updated successfully", updatedJob });
 });
 
 export default router;

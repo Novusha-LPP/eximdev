@@ -142,7 +142,7 @@ router.patch("/api/update-esanchit-job/:job_no/:year",
   auditMiddleware('Job'),
   async (req, res) => {
   const { job_no, year } = req.params;
-  const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time } = req.body;
+  const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
 
   try {
     // Find the job by job_no and year
@@ -163,6 +163,11 @@ router.patch("/api/update-esanchit-job/:job_no/:year",
 
     if (queries) {
       job.eSachitQueries = queries;
+    }
+
+    // Update dsr_queries if provided
+    if (dsr_queries) {
+      job.dsr_queries = dsr_queries;
     }
 
     // Update esanchit_completed_date_time only if it exists in the request

@@ -446,6 +446,7 @@ function useFetchJobDetails(
       insurance: "",
       bill_no: "",
       bill_date: "",
+      dsr_queries: [],
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -580,6 +581,7 @@ function useFetchJobDetails(
           remark_esanchit_input: values.remark_esanchit_input,
           remark_documentation_input: values.remark_documentation_input,
           DsrCharges: selectedChargesDocuments,
+          dsr_queries: values.dsr_queries,
         },
         { headers }
       );
@@ -955,7 +957,7 @@ function useFetchJobDetails(
         cifValue:
           data.cifValue === undefined ? "" : data.cifValue,     
          out_of_charge:
-          data.out_of_charge === undefined ? "" : data.out_of_charge,
+          data.out_of_charge === undefined || data.out_of_charge === null ? "" : data.out_of_charge,
         checked: data.checked || false, // Make sure to set the checkbox state
         type_of_Do: data.type_of_Do || "",
         esanchit_remark_box: data.esanchit_remark_box === undefined ? false : data.esanchit_remark_box,
@@ -963,6 +965,7 @@ function useFetchJobDetails(
         remark_esanchit_input: data.remark_esanchit_input === undefined ? "" : data.remark_esanchit_input,
         remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
         DsrCharges: data.DsrCharges === undefined ? [] : data.DsrCharges,
+        dsr_queries: data.dsr_queries === undefined ? [] : data.dsr_queries,
       });
       
       // Update DsrCharges state to include custom charges from database

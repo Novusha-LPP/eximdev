@@ -317,9 +317,9 @@ const jobSchema = new mongoose.Schema({
   icd_cfs_invoice_date: { type: String, trim: true },
 
   import_terms: { type: String, trim: true },
-  cifValue: { type: Number, trim: true },
-  freight: { type: Number, trim: true },
-  insurance: { type: Number, trim: true },
+  cifValue: { type: String, trim: true },
+  freight: { type: String, trim: true },
+  insurance: { type: String, trim: true },
 
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },

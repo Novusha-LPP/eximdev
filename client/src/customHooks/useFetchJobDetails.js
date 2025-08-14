@@ -595,6 +595,10 @@ function useFetchJobDetails(
 
     },
   });
+
+  // Utility function to handle undefined/null checks
+const safeValue = (value, defaultVal = "") =>
+  value === undefined || value === null ? defaultVal : value;
   const filteredClearanceOptions =
     clearanceOptionsMapping[formik.values.type_of_b_e] || [];
   // When the BE type changes, update Formik's clearanceValue field to the first available option only if no value is set.
@@ -647,327 +651,174 @@ function useFetchJobDetails(
           : ""
       );
 
-      const container_nos = data.container_nos?.map((container) => ({
-        do_revalidation:
-          container.do_revalidation === undefined
-            ? []
-            : container.do_revalidation,
-        required_do_validity_upto:
-          container.required_do_validity_upto === undefined
-            ? ""
-            : container.required_do_validity_upto,
-        arrival_date: checked
-          ? data.arrival_date || "" // If checked, use the common arrival date
-          : container.arrival_date === undefined
-          ? ""
-          : convertDateFormatForUI(container.arrival_date),
-        container_number: container.container_number,
-        size: container.size === undefined ? "20" : container.size,
-        seal_number:
-          container.seal_number === undefined ? "" : container.seal_number,
-        net_weight_as_per_PL_document:
-          container.net_weight_as_per_PL_document === undefined
-            ? ""
-            : container.net_weight_as_per_PL_document,
-        container_rail_out_date:
-          container.container_rail_out_date === undefined
-            ? ""
-            : container.container_rail_out_date,
-        by_road_movement_date:
-          container.by_road_movement_date === undefined
-            ? ""
-            : container.by_road_movement_date,
-        delivery_date:
-          container.delivery_date === undefined ? "" : container.delivery_date,
-        emptyContainerOffLoadDate:
-          container.emptyContainerOffLoadDate === undefined
-            ? ""
-            : container.emptyContainerOffLoadDate,
-        weighment_slip_images:
-          container.weighment_slip_images === undefined
-            ? []
-            : container.weighment_slip_images,
-        container_images:
-          container.container_images === undefined
-            ? []
-            : container.container_images,
-        loose_material_photo:
-          container.loose_material_photo === undefined
-            ? []
-            : container.loose_material_photo,
-        loose_material:
-          container.loose_material === undefined
-            ? []
-            : container.loose_material,
-        examination_videos:
-          container.examination_videos === undefined
-            ? []
-            : container.examination_videos,
-        container_pre_damage_images:
-          container.container_pre_damage_images === undefined
-            ? []
-            : container.container_pre_damage_images,
-        physical_weight:
-          container.physical_weight === undefined
-            ? ""
-            : container.physical_weight,
-        do_revalidation_date:
-          container.do_revalidation_date === undefined
-            ? ""
-            : container.do_revalidation_date,
-        do_validity_upto_container_level:
-          container.do_validity_upto_container_level === undefined
-            ? ""
-            : container.do_validity_upto_container_level,
-        do_revalidation_upto_container_level:
-          container.do_revalidation_upto_container_level === undefined
-            ? ""
-            : container.do_revalidation_upto_container_level,
-        tare_weight:
-          container.tare_weight === undefined ? "" : container.tare_weight,
-        actual_weight:
-          container.actual_weight === undefined ? "" : container.actual_weight,
-        net_weight:
-          container.net_weight === undefined ? "" : container.net_weight,
-        container_gross_weight:
-          container.container_gross_weight === undefined
-            ? ""
-            : container.container_gross_weight,
-        weight_shortage:
-          container.physical_weight &&
-          container.container_gross_weight &&
-          container.actual_weight &&
-          container.tare_weight &&
-          container.physical_weight !== "0" &&
-          container.container_gross_weight !== "0" &&
-          container.actual_weight !== "0" &&
-          container.tare_weight !== "0"
-            ? container.weight_shortage
-            : "",
+const container_nos = safeValue(data.container_nos, []).map((container) => ({
+  do_revalidation: safeValue(container.do_revalidation, []),
+  required_do_validity_upto: safeValue(container.required_do_validity_upto),
+  arrival_date: checked
+    ? safeValue(data.arrival_date)
+    : safeValue(container.arrival_date)
+    ? convertDateFormatForUI(container.arrival_date)
+    : "",
+  container_number: safeValue(container.container_number),
+  size: safeValue(container.size, "20"),
+  seal_number: safeValue(container.seal_number),
+  net_weight_as_per_PL_document: safeValue(container.net_weight_as_per_PL_document),
+  container_rail_out_date: safeValue(container.container_rail_out_date),
+  by_road_movement_date: safeValue(container.by_road_movement_date),
+  delivery_date: safeValue(container.delivery_date),
+  emptyContainerOffLoadDate: safeValue(container.emptyContainerOffLoadDate),
+  weighment_slip_images: safeValue(container.weighment_slip_images, []),
+  container_images: safeValue(container.container_images, []),
+  loose_material_photo: safeValue(container.loose_material_photo, []),
+  loose_material: safeValue(container.loose_material, []),
+  examination_videos: safeValue(container.examination_videos, []),
+  container_pre_damage_images: safeValue(container.container_pre_damage_images, []),
+  physical_weight: safeValue(container.physical_weight),
+  do_revalidation_date: safeValue(container.do_revalidation_date),
+  do_validity_upto_container_level: safeValue(container.do_validity_upto_container_level),
+  do_revalidation_upto_container_level: safeValue(container.do_revalidation_upto_container_level),
+  tare_weight: safeValue(container.tare_weight),
+  actual_weight: safeValue(container.actual_weight),
+  net_weight: safeValue(container.net_weight),
+  container_gross_weight: safeValue(container.container_gross_weight),
+  weight_shortage:
+    safeValue(container.physical_weight) &&
+    safeValue(container.container_gross_weight) &&
+    safeValue(container.actual_weight) &&
+    safeValue(container.tare_weight) &&
+    container.physical_weight !== "0" &&
+    container.container_gross_weight !== "0" &&
+    container.actual_weight !== "0" &&
+    container.tare_weight !== "0"
+      ? safeValue(container.weight_shortage)
+      : "",
+  weight_excess:
+    safeValue(container.physical_weight) &&
+    safeValue(container.container_gross_weight) &&
+    safeValue(container.actual_weight) &&
+    safeValue(container.tare_weight) &&
+    container.physical_weight !== "0" &&
+    container.container_gross_weight !== "0" &&
+    container.actual_weight !== "0" &&
+    container.tare_weight !== "0"
+      ? safeValue(container.weight_excess)
+      : "",
+  transporter: safeValue(container.transporter),
+}));
 
-        weight_excess:
-          container.physical_weight &&
-          container.container_gross_weight &&
-          container.actual_weight &&
-          container.tare_weight &&
-          container.physical_weight !== "0" &&
-          container.container_gross_weight !== "0" &&
-          container.actual_weight !== "0" &&
-          container.tare_weight !== "0"
-            ? container.weight_excess
-            : "",
-        transporter:
-          container.transporter === undefined ? "" : container.transporter,
-      }));
 
-      formik.setValues({
-        ...{ container_nos },
-        checkedDocs: data.checkedDocs === undefined ? [] : data.checkedDocs,
-        is_obl_recieved: data.is_obl_recieved ? data.is_obl_recieved : false,
-        document_received_date: data.document_received_date
-          ? data.document_received_date
-          : "",
-        arrival_date: data.arrival_date || "",
-        vessel_berthing:
-          data.vessel_berthing === undefined
-            ? ""
-            : new Date(data.vessel_berthing)
-                .toLocaleDateString("en-CA")
-                .split("/")
-                .reverse()
-                .join("-"),
-        free_time: data.free_time === undefined ? 0 : data.free_time,
-        status: data.status,
-        detailed_status:
-          data.detailed_status === undefined
-            ? "ETA Date Pending"
-            : data.detailed_status,
-        do_validity: data.do_validity === undefined ? "" : data.do_validity,
-        cth_no: data.cth_no === undefined ? "" : data.cth_no,
-        doPlanning: data.doPlanning === undefined ? false : data.doPlanning,
-        do_planning_date:
-          data.do_planning_date === undefined ? "" : data.do_planning_date,        is_checklist_aprroved:
-          data.is_checklist_aprroved === undefined ? "" : data.is_checklist_aprroved,
-        is_checklist_clicked:
-          data.is_checklist_clicked === undefined ? false : Boolean(data.is_checklist_clicked),
-        is_checklist_aprroved_date:
-          data.is_checklist_aprroved_date === undefined ? "" : data.is_checklist_aprroved_date,
-        examinationPlanning:
-          data.examinationPlanning === undefined
-            ? false
-            : data.examinationPlanning,
-        examination_planning_date:
-          data.examination_planning_date === undefined
-            ? ""
-            : data.examination_planning_date,
-        do_validity_upto_job_level:
-          data.do_validity_upto_job_level === undefined
-            ? ""
-            : data.do_validity_upto_job_level,
-        do_revalidation_upto_job_level:
-          data.do_revalidation_upto_job_level === undefined
-            ? ""
-            : data.do_revalidation_upto_job_level,
-        checklist: data.checklist === undefined ? [] : data.checklist,
-        job_sticker_upload:
-          data.job_sticker_upload === undefined ? [] : data.job_sticker_upload,
-        remarks: data.remarks === undefined ? "" : data.remarks,
-        // rail_out_date:
-        //   data.rail_out_date === undefined ? "" : data.rail_out_date,
-        description: data.description === undefined ? "" : data.description,
-        consignment_type:
-          data.consignment_type === undefined ? "" : data.consignment_type,
-        sims_reg_no: data.sims_reg_no === undefined ? "" : data.sims_reg_no,
-        pims_reg_no: data.pims_reg_no === undefined ? "" : data.pims_reg_no,
-        nfmims_reg_no:
-          data.nfmims_reg_no === undefined ? "" : data.nfmims_reg_no,
-        sims_date: data.sims_date === undefined ? "" : data.sims_date,
-        pims_date: data.pims_date === undefined ? "" : data.pims_date,
-        nfmims_date: data.nfmims_date === undefined ? "" : data.nfmims_date,
-        delivery_date:
-          data.delivery_date === undefined ? "" : data.delivery_date,
-        gateway_igm_date:
-          data.gateway_igm_date === undefined ? "" : data.gateway_igm_date,
-        gateway_igm:
-          data.gateway_igm === undefined ? "" : data.gateway_igm,
-        igm_date:
-          data.igm_date === undefined ? "" : data.igm_date,
-        igm_no:
-          data.igm_no === undefined ? "" : data.igm_no,
-        line_no:
-          data.line_no === undefined ? "" : data.line_no,
-        no_of_pkgs:
-          data.no_of_pkgs === undefined ? "" : data.no_of_pkgs,
-        hss: data.hss === undefined ? "" : data.hss,
-        saller_name: data.saller_name === undefined ? "" : data.saller_name,
-        adCode: data.adCode === undefined ? "" : data.adCode,
-        bank_name: data.bank_name === undefined ? "" : data.bank_name,
-        firstCheck: data.firstCheck === undefined ? "" : data.firstCheck,
-        priorityJob:
-          data.priorityJob === undefined ? "Normal" : data.priorityJob,
-        emptyContainerOffLoadDate:
-          data.emptyContainerOffLoadDate === undefined
-            ? ""
-            : data.emptyContainerOffLoadDate,
-        job_net_weight:
-          data.job_net_weight === undefined ? "" : data.job_net_weight,
-        payment_method:
-          data.payment_method === undefined
-            ? "Transaction"
-            : data.payment_method,
-        gross_weight: data.gross_weight === undefined ? "" : data.gross_weight,
-        fta_Benefit_date_time:
-          data.fta_Benefit_date_time === undefined
-            ? ""
-            : data.fta_Benefit_date_time,
-        be_no: data.be_no === undefined ? "" : data.be_no,
-        in_bond_be_no:
-          data.in_bond_be_no === undefined ? "" : data.in_bond_be_no,
-        be_date: data.be_date === undefined ? "" : data.be_date,
-        be_filing_type: data.be_filing_type === undefined ? "" : data.be_filing_type,
-        in_bond_be_date:
-          data.in_bond_be_date === undefined ? "" : data.in_bond_be_date,
-        discharge_date:
-          data.discharge_date === undefined ? "" : data.discharge_date,
-        hawb_hbl_date:
-          data.hawb_hbl_date === undefined ? "" : data.hawb_hbl_date,
-        hawb_hbl_no:
-          data.hawb_hbl_no === undefined ? "" : data.hawb_hbl_no,
-        awb_bl_date:
-          data.awb_bl_date === undefined ? "" : data.awb_bl_date,
-        awb_bl_no:
-          data.awb_bl_no === undefined ? "" : data.awb_bl_no,
-        assessment_date:
-          data.assessment_date === undefined ? "" : data.assessment_date,
-        examination_date:
-          data.examination_date === undefined ? "" : data.examination_date,
-        pcv_date: data.pcv_date === undefined ? "" : data.pcv_date,
-        type_of_b_e: data.type_of_b_e === undefined ? "" : data.type_of_b_e,
-        exBondValue: data.exBondValue === undefined ? "" : data.exBondValue,
-        scheme: data.scheme === undefined ? "" : data.scheme,
-        clearanceValue:
-          data.clearanceValue === undefined ? "" : data.clearanceValue,
-        duty_paid_date:
-          data.duty_paid_date === undefined ? "" : data.duty_paid_date,        assessable_ammount:
-          data.assessable_ammount === undefined ? "" : data.assessable_ammount,
-        penalty_ammount:
-          data.penalty_ammount === undefined ? "" : data.penalty_ammount,
-        fine_ammount:
-          data.fine_ammount === undefined ? "" : data.fine_ammount,
-        igst_ammount: data.igst_ammount === undefined ? "" : data.igst_ammount,
-        sws_ammount: data.sws_ammount === undefined ? "" : data.sws_ammount,
-        intrest_ammount:
-          data.intrest_ammount === undefined ? "" : data.intrest_ammount,
-        bcd_ammount: data.bcd_ammount === undefined ? "" : data.bcd_ammount,
-        total_duty: data.total_duty === undefined ? "" : data.total_duty,
-
-        do_copies: data.do_copies === undefined ? [] : data.do_copies,
-        do_queries: data.do_queries === undefined ? [] : data.do_queries,
-        documentationQueries:
-          data.documentationQueries === undefined
-            ? []
-            : data.documentationQueries,
-        submissionQueries:
-          data.submissionQueries === undefined ? [] : data.submissionQueries,
-        eSachitQueries:
-          data.eSachitQueries === undefined ? [] : data.eSachitQueries,
-        processed_be_attachment:
-          data.processed_be_attachment === undefined
-            ? []
-            : data.processed_be_attachment,
-        ooc_copies: data.ooc_copies === undefined ? [] : data.ooc_copies,
-        in_bond_ooc_copies:
-          data.in_bond_ooc_copies === undefined ? [] : data.in_bond_ooc_copies,
-        gate_pass_copies:
-          data.gate_pass_copies === undefined ? [] : data.gate_pass_copies,
-        all_documents:
-          data.all_documents === undefined ? [] : data.all_documents,
-        do_revalidation:
-          data.do_revalidation === undefined ? false : data.do_revalidation,
-        do_revalidation_date:
-          data.do_revalidation_date === undefined
-            ? ""
-            : data.do_revalidation_date,
-        documentation_completed_date_time:
-          data.documentation_completed_date_time === undefined
-            ? ""
-            : data.documentation_completed_date_time,
-        submission_completed_date_time:
-          data.submission_completed_date_time === undefined
-            ? ""
-            : data.submission_completed_date_time,
-        completed_operation_date:
-          data.completed_operation_date === undefined
-            ? ""
-            : data.completed_operation_date,
-        esanchit_completed_date_time:
-          data.esanchit_completed_date_time === undefined
-            ? ""
-            : data.esanchit_completed_date_time,
-        bill_document_sent_to_accounts:
-          data.bill_document_sent_to_accounts === undefined
-            ? ""
-            : data.bill_document_sent_to_accounts,
-        do_completed: data.do_completed === undefined ? "" : data.do_completed, 
-        import_terms: data.import_terms === undefined ? "" : data.import_terms,
-        freight: data.freight === undefined ? "" : data.freight, 
-        insurance: data.insurance === undefined ? "" : data.insurance,       
-        bill_date: data.insurance === undefined ? "" : data.bill_date,       
-        bill_no: data.bill_no === undefined ? "" : data.bill_no,
-        cifValue:
-          data.cifValue === undefined ? "" : data.cifValue,     
-         out_of_charge:
-          data.out_of_charge === undefined || data.out_of_charge === null ? "" : data.out_of_charge,
-        checked: data.checked || false, // Make sure to set the checkbox state
-        type_of_Do: data.type_of_Do || "",
-        esanchit_remark_box: data.esanchit_remark_box === undefined ? false : data.esanchit_remark_box,
-        documentation_remark_box: data.documentation_remark_box === undefined ? false : data.documentation_remark_box,
-        remark_esanchit_input: data.remark_esanchit_input === undefined ? "" : data.remark_esanchit_input,
-        remark_documentation_input: data.remark_documentation_input === undefined ? "" : data.remark_documentation_input,
-        DsrCharges: data.DsrCharges === undefined ? [] : data.DsrCharges,
-        dsr_queries: data.dsr_queries === undefined ? [] : data.dsr_queries,
-      });
-      
+formik.setValues({
+  container_nos,
+  checkedDocs: safeValue(data.checkedDocs, []),
+  is_obl_recieved: safeValue(data.is_obl_recieved, false),
+  document_received_date: safeValue(data.document_received_date),
+  arrival_date: safeValue(data.arrival_date),
+  vessel_berthing: safeValue(data.vessel_berthing)
+    ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
+    : "",
+  free_time: safeValue(data.free_time, 0),
+  status: safeValue(data.status),
+  detailed_status: safeValue(data.detailed_status, "ETA Date Pending"),
+  do_validity: safeValue(data.do_validity),
+  cth_no: safeValue(data.cth_no),
+  doPlanning: safeValue(data.doPlanning, false),
+  do_planning_date: safeValue(data.do_planning_date),
+  is_checklist_aprroved: safeValue(data.is_checklist_aprroved),
+  is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
+  is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
+  examinationPlanning: safeValue(data.examinationPlanning, false),
+  examination_planning_date: safeValue(data.examination_planning_date),
+  do_validity_upto_job_level: safeValue(data.do_validity_upto_job_level),
+  do_revalidation_upto_job_level: safeValue(data.do_revalidation_upto_job_level),
+  checklist: safeValue(data.checklist, []),
+  job_sticker_upload: safeValue(data.job_sticker_upload, []),
+  remarks: safeValue(data.remarks),
+  description: safeValue(data.description),
+  consignment_type: safeValue(data.consignment_type),
+  sims_reg_no: safeValue(data.sims_reg_no),
+  pims_reg_no: safeValue(data.pims_reg_no),
+  nfmims_reg_no: safeValue(data.nfmims_reg_no),
+  sims_date: safeValue(data.sims_date),
+  pims_date: safeValue(data.pims_date),
+  nfmims_date: safeValue(data.nfmims_date),
+  delivery_date: safeValue(data.delivery_date),
+  gateway_igm_date: safeValue(data.gateway_igm_date),
+  gateway_igm: safeValue(data.gateway_igm),
+  igm_date: safeValue(data.igm_date),
+  igm_no: safeValue(data.igm_no),
+  line_no: safeValue(data.line_no),
+  no_of_pkgs: safeValue(data.no_of_pkgs),
+  hss: safeValue(data.hss),
+  saller_name: safeValue(data.saller_name),
+  adCode: safeValue(data.adCode),
+  bank_name: safeValue(data.bank_name),
+  firstCheck: safeValue(data.firstCheck),
+  priorityJob: safeValue(data.priorityJob, "Normal"),
+  emptyContainerOffLoadDate: safeValue(data.emptyContainerOffLoadDate),
+  job_net_weight: safeValue(data.job_net_weight),
+  payment_method: safeValue(data.payment_method, "Transaction"),
+  gross_weight: safeValue(data.gross_weight),
+  fta_Benefit_date_time: safeValue(data.fta_Benefit_date_time),
+  be_no: safeValue(data.be_no),
+  in_bond_be_no: safeValue(data.in_bond_be_no),
+  be_date: safeValue(data.be_date),
+  be_filing_type: safeValue(data.be_filing_type),
+  in_bond_be_date: safeValue(data.in_bond_be_date),
+  discharge_date: safeValue(data.discharge_date),
+  hawb_hbl_date: safeValue(data.hawb_hbl_date),
+  hawb_hbl_no: safeValue(data.hawb_hbl_no),
+  awb_bl_date: safeValue(data.awb_bl_date),
+  awb_bl_no: safeValue(data.awb_bl_no),
+  assessment_date: safeValue(data.assessment_date),
+  examination_date: safeValue(data.examination_date),
+  pcv_date: safeValue(data.pcv_date),
+  type_of_b_e: safeValue(data.type_of_b_e),
+  exBondValue: safeValue(data.exBondValue),
+  scheme: safeValue(data.scheme),
+  clearanceValue: safeValue(data.clearanceValue),
+  duty_paid_date: safeValue(data.duty_paid_date),
+  assessable_ammount: safeValue(data.assessable_ammount),
+  penalty_ammount: safeValue(data.penalty_ammount),
+  fine_ammount: safeValue(data.fine_ammount),
+  igst_ammount: safeValue(data.igst_ammount),
+  sws_ammount: safeValue(data.sws_ammount),
+  intrest_ammount: safeValue(data.intrest_ammount),
+  bcd_ammount: safeValue(data.bcd_ammount),
+  total_duty: safeValue(data.total_duty),
+  do_copies: safeValue(data.do_copies, []),
+  do_queries: safeValue(data.do_queries, []),
+  documentationQueries: safeValue(data.documentationQueries, []),
+  submissionQueries: safeValue(data.submissionQueries, []),
+  eSachitQueries: safeValue(data.eSachitQueries, []),
+  processed_be_attachment: safeValue(data.processed_be_attachment, []),
+  ooc_copies: safeValue(data.ooc_copies, []),
+  in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
+  gate_pass_copies: safeValue(data.gate_pass_copies, []),
+  all_documents: safeValue(data.all_documents, []),
+  do_revalidation: safeValue(data.do_revalidation, false),
+  do_revalidation_date: safeValue(data.do_revalidation_date),
+  documentation_completed_date_time: safeValue(data.documentation_completed_date_time),
+  submission_completed_date_time: safeValue(data.submission_completed_date_time),
+  completed_operation_date: safeValue(data.completed_operation_date),
+  esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
+  bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
+  do_completed: safeValue(data.do_completed),
+  import_terms: safeValue(data.import_terms),
+  freight: safeValue(data.freight),
+  insurance: safeValue(data.insurance),
+  bill_date: safeValue(data.bill_date),
+  bill_no: safeValue(data.bill_no),
+  cifValue: safeValue(data.cifValue),
+  out_of_charge: safeValue(data.out_of_charge),
+  checked: safeValue(data.checked, false),
+  type_of_Do: safeValue(data.type_of_Do),
+  esanchit_remark_box: safeValue(data.esanchit_remark_box, false),
+  documentation_remark_box: safeValue(data.documentation_remark_box, false),
+  remark_esanchit_input: safeValue(data.remark_esanchit_input),
+  remark_documentation_input: safeValue(data.remark_documentation_input),
+  DsrCharges: safeValue(data.DsrCharges, []),
+  dsr_queries: safeValue(data.dsr_queries, []),
+});
       // Update DsrCharges state to include custom charges from database
       if (data.DsrCharges && data.DsrCharges.length > 0) {
         const predefinedCharges = [

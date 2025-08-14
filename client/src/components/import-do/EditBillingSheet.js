@@ -22,6 +22,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Charges from "../Charges/Charges.js";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function EditBillingSheet() {
   const params = useParams();
@@ -71,16 +72,6 @@ function EditBillingSheet() {
     const tabIndex = storedSearchParams?.currentTab ?? 4;
 
     navigate("/import-do", {
-      state: {
-        fromJobDetails: true,
-        tabIndex: tabIndex, // Use stored tab index
-        ...(storedSearchParams && {
-          searchQuery: storedSearchParams.searchQuery,
-          selectedImporter: storedSearchParams.selectedImporter,
-          selectedJobId: storedSearchParams.selectedJobId,
-          currentPage: storedSearchParams.currentPage,
-        }),
-      },
     });
   };
 
@@ -91,6 +82,7 @@ function EditBillingSheet() {
       other_invoices_img: [],
       shipping_line_invoice_imgs: [],
       bill_document_sent_to_accounts: "",
+      dsr_queries: [],
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -105,7 +97,8 @@ function EditBillingSheet() {
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-billing/${jobId}`,
-          values,
+          { ...values, dsr_queries: values.dsr_queries || [] },
+
           {
             headers: {
               username: username,
@@ -143,6 +136,21 @@ function EditBillingSheet() {
     },
   });
 
+       const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+      
+    }));
+     formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
+
   // Fetch data when the component is mounted
   React.useEffect(() => {
     async function getData() {
@@ -163,6 +171,7 @@ function EditBillingSheet() {
           shipping_line_invoice_imgs: jobData.shipping_line_invoice_imgs || [],
           bill_document_sent_to_accounts:
             jobData.bill_document_sent_to_accounts || "",
+            dsr_queries: jobData.dsr_queries || [],
         });
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -198,6 +207,19 @@ function EditBillingSheet() {
       </Box>
 
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+
+      {data && data.dsr_queries &&  (
+  <div className="job-details-container">
+    <QueriesComponent
+      queries={data.dsr_queries}
+      onQueriesChange={handleQueriesChange}
+      title="DSR Queries"
+      showResolveButton={true}
+      readOnlyReply={true}
+      onResolveQuery={handleResolveQuery}
+    />
+  </div>
+)}
 
                  <Charges job_no={job_no} year={year} />
 

@@ -26,6 +26,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
@@ -90,7 +91,7 @@ function ViewOperationsJob() {
     });
   };
 
-  const { data, formik } = useFetchOperationTeamJob(params);
+  const { data, formik, setData } = useFetchOperationTeamJob(params);
 
   const extractFileName = (url) => {
     try {
@@ -102,6 +103,21 @@ function ViewOperationsJob() {
     }
   };
 
+  
+       const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+      
+    }));
+     formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
   const handleContainerFileUpload = async (e, container_number, fileType) => {
     if (e.target.files.length === 0) {
       alert("No file selected");
@@ -343,6 +359,19 @@ function ViewOperationsJob() {
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
           />
+
+            {data && data.dsr_queries &&  (
+  <div className="job-details-container">
+    <QueriesComponent
+      queries={data.dsr_queries}
+      onQueriesChange={handleQueriesChange}
+      title="DSR Queries"
+      showResolveButton={true}
+      readOnlyReply={true}
+      onResolveQuery={handleResolveQuery}
+    />
+  </div>
+)}
           {/* ********************** CTH Documents ********************** */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />

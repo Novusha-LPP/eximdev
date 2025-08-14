@@ -35,6 +35,7 @@ import { useSearchParams } from "react-router-dom";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function EditDoCompleted() {
   const [data, setData] = useState(null);
@@ -329,6 +330,19 @@ function EditDoCompleted() {
       }
     },
   });
+
+       const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+    }));
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
 
   // Handle payment mode change
   const handlePaymentModeChange = (docIndex, mode) => (e) => {
@@ -1374,6 +1388,19 @@ function EditDoCompleted() {
 
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
+      {data && data.dsr_queries && (
+  <div >
+    <QueriesComponent
+      queries={data.dsr_queries}
+      onQueriesChange={handleQueriesChange}
+      title="DSR Queries"
+      showResolveButton={true}
+      readOnlyReply={true}
+      onResolveQuery={handleResolveQuery}
+    />
+  </div>
+)}
+
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
@@ -1395,253 +1422,7 @@ function EditDoCompleted() {
                 {data.obl_telex_bl || "N/A"}
                 <br />
               </div>
-              {/* 
-              <div className="job-details-container">
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.shipping_line_invoice}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "shipping_line_invoice",
-                          e.target.checked
-                        )
-                      }
-                      name="shipping_line_invoice"
-                      color="primary"
-                      disabled= {true}
-                    />
-                  }
-                  label="Shipping line invoice"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.payment_made}
-                      onChange={(e) =>
-                        formik.setFieldValue("payment_made", e.target.checked)
-                      }
-                      name="payment_made"
-                                          color="primary"
-                                          disabled= {true}
-                    />
-                  }
-                  label="Payment Made"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.do_processed}
-                      onChange={(e) =>
-                        formik.setFieldValue("do_processed", e.target.checked)
-                      }
-                      name="do_processed"
-                                          color="primary"
-                                          disabled= {true}
-                    />
-                  }
-                  label="DO processed"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.other_invoices}
-                      onChange={(e) =>
-                        formik.setFieldValue("other_invoices", e.target.checked)
-                      }
-                      name="other_invoices"
-                                          color="primary"
-                                          disabled= {true}
-                                          
-                    />
-                  }
-                  label="Other invoices"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.security_deposit}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "security_deposit",
-                          e.target.checked
-                        )
-                      }
-                      name="security_deposit"
-                                          color="primary"
-                                          disabled= {true}
-                    />
-                  }
-                  label="Security Deposit"
-                />
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  type="date"
-                  id="shipping_line_invoice_date"
-                  name="shipping_line_invoice_date"
-                  label="Shipping line invoice date"
-                  value={formik.values.shipping_line_invoice_date}
-                  onChange={formik.handleChange}
-                                  InputLabelProps={{ shrink: true }}
-                                  disabled= {true}
-                />
-                <Row>
-                  <Col>
-                    <FileUpload
-                      label="Upload Shipping Line Invoices"
-                      bucketPath="shipping_line_invoice_imgs"
-                      onFilesUploaded={(newFiles) => {
-                        
-                        const existingFiles =
-                          formik.values.shipping_line_invoice_imgs || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue(
-                          "shipping_line_invoice_imgs",
-                          updatedFiles
-                        );
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                                          multiple={true}
-                                          readOnly= {true}
-                    />
-
-                    <ImagePreview
-                      images={formik.values.shipping_line_invoice_imgs || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [
-                          ...formik.values.shipping_line_invoice_imgs,
-                        ];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue(
-                          "shipping_line_invoice_imgs",
-                          updatedFiles
-                        );
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                    />
-                  </Col>
-
-                  <Col>
-                    <FileUpload
-                      label="DO Documents"
-                      bucketPath="do_documents"
-                      onFilesUploaded={(newFiles) => {
-                        const existingFiles = formik.values.do_documents || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue("do_documents", updatedFiles);
-                          setFileSnackbar(true); // Show success snackbar
-                                          }}
-                                          readOnly= {true}
-                      multiple={true}
-                    />
-
-                    <ImagePreview
-                      images={formik.values.do_documents || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [...formik.values.do_documents];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue("do_documents", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                    />
-                  </Col>
-
-                  <Col></Col>
-                </Row>
-                <br />
-                {formik.values.security_deposit === true && (
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="security_amount"
-                    name="security_amount"
-                    label="Security amount"
-                    value={formik.values.security_amount}
-                                      onChange={formik.handleChange}
-                                      readOnly= {true}
-                  />
-                )}
-                <strong>UTR:&nbsp;</strong>
-                {formik.values.utr?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <a href={file}>{file}</a>
-                      <br />
-                    </div>
-                  );
-                })}
-                <br />
-                <br />
-                <TextField
-                  type="date"
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="do_validity"
-                  name="do_validity"
-                  label="DO Validity"
-                  value={formik.values.do_validity}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                  readOnly= {true}
-                />
-                <Row>
-                  <Col>
-                    <FileUpload
-                      label="Upload DO Copies"
-                      bucketPath="do_copies"
-                      onFilesUploaded={(newFiles) => {
-                        const existingFiles = formik.values.do_copies || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue("do_copies", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                                          multiple={true}
-                                          readOnly= {true}
-                    />
-
-                    <ImagePreview
-                      images={formik.values.do_copies || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [...formik.values.do_copies];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue("do_copies", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                    />
-                  </Col>
-                </Row>
-              </div> */}
-
-              <div className="job-details-container">
-                <h5>DO Queries</h5>
-                {formik.values.do_queries.map((item, id) => {
-                  return (
-                    <div key={id}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        id={`do_queries[${id}].query`}
-                        name={`do_queries[${id}].query`}
-                        label="Query"
-                        value={item.query}
-                        onChange={formik.handleChange}
-                      />
-                      {item.reply}
-                    </div>
-                  );
-                })}
-
-                <br />
-              </div>
+           
 
               {/* DO Completed Section with Date Display and Admin Input */}
               <div className="job-details-container">

@@ -18,6 +18,7 @@ import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import QueriesComponent from "../../utils/QueriesComponent";
 
 const DocumentationJob = () => {
   const routeLocation = useLocation();
@@ -101,6 +102,18 @@ const DocumentationJob = () => {
       console.error("Error fetching job details:", error);
     }
   };
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
+      ...prev,
+      dsr_queries: updatedQueries,
+    }));
+  };
+
+  const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log("Query resolved:", resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
 
   const handleCheckboxChange = (e) => {
     const isChecked = e.target.checked;
@@ -135,31 +148,28 @@ const DocumentationJob = () => {
     e.preventDefault();
 
     try {
-
-        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
         "Content-Type": "application/json",
         "user-id": user.username || "unknown",
         username: user.username || "unknown",
         "user-role": user.role || "unknown",
       };
-      
-     await axios.patch(
-  `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data.job_no}/${data.year}`,
-  {
-    documentation_completed_date_time: data.documentation_completed_date_time,
-    dsr_queries: data.dsr_queries || [],
-  },
-  { headers }
 
-
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data.job_no}/${data.year}`,
+        {
+          documentation_completed_date_time:
+            data.documentation_completed_date_time,
+          dsr_queries: data.dsr_queries || [],
+        },
+        { headers }
       );
       // Navigate back with preserved search parameters
-          // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
-
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
@@ -325,156 +335,208 @@ const DocumentationJob = () => {
             params={{ job_no, year }}
           />
 
-         <div className="job-details-container">
-  <Box sx={{ 
-    display: 'flex', 
-    alignItems: 'baseline',
-    gap: 3,
-  }}>
-    {/* Terms of Invoice Heading */}
-    <JobDetailsRowHeading 
-      heading="Terms of Invoice (FOB)" 
-      variant="subtitle2" 
-      sx={{ 
-        fontSize: '16px', 
-        fontWeight: 600,
-        color: '#2c3e50',
-        marginBottom: '8px'
-      }} 
-    />
+          <div className="job-details-container">
+            <QueriesComponent
+              queries={data.dsr_queries}
+              onQueriesChange={handleQueriesChange}
+              title="DSR Queries"
+              showResolveButton={true}
+              readOnlyReply={true}
+              onResolveQuery={handleResolveQuery}
+            />
+          </div>
 
-    {/* Financial Details Display - Government Style */}
-    <Box sx={{ 
-      maxWidth: 320,
-      minWidth: 280
-    }}>
-      <Box sx={{ 
-        backgroundColor: '#fafafa',
-        border: '1px solid #cccccc',
-        borderRadius: '2px',
-        overflow: 'hidden'
-      }}>
-        {(data.cifValue || data.freight || data.insurance) ? (
-          <Box>
-            {/* Header */}
-            <Box sx={{
-              backgroundColor: '#e8f4f8',
-              padding: '8px 12px',
-              borderBottom: '1px solid #cccccc'
-            }}>
-              <Typography sx={{
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#2c3e50',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Financial Details
-              </Typography>
+          <div className="job-details-container">
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 3,
+              }}
+            >
+              {/* Terms of Invoice Heading */}
+              <JobDetailsRowHeading
+                heading="Terms of Invoice (FOB)"
+                variant="subtitle2"
+                sx={{
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  color: "#2c3e50",
+                  marginBottom: "8px",
+                }}
+              />
+
+              {/* Financial Details Display - Government Style */}
+              <Box
+                sx={{
+                  maxWidth: 320,
+                  minWidth: 280,
+                }}
+              >
+                <Box
+                  sx={{
+                    backgroundColor: "#fafafa",
+                    border: "1px solid #cccccc",
+                    borderRadius: "2px",
+                    overflow: "hidden",
+                  }}
+                >
+                  {data.cifValue || data.freight || data.insurance ? (
+                    <Box>
+                      {/* Header */}
+                      <Box
+                        sx={{
+                          backgroundColor: "#e8f4f8",
+                          padding: "8px 12px",
+                          borderBottom: "1px solid #cccccc",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: "#2c3e50",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          Financial Details
+                        </Typography>
+                      </Box>
+
+                      {/* Data Rows */}
+                      <Box>
+                        {/* CIF/Primary Value */}
+                        {data.cifValue && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              borderBottom: "1px solid #e5e5e5",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {data.import_terms || "CIF"} Value:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.cifValue).toLocaleString(
+                                "en-IN"
+                              )}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Freight */}
+                        {data.freight && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              borderBottom: data.insurance
+                                ? "1px solid #e5e5e5"
+                                : "none",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              Freight:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.freight).toLocaleString("en-IN")}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Insurance */}
+                        {data.insurance && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              Insurance:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.insurance).toLocaleString(
+                                "en-IN"
+                              )}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        backgroundColor: "#ffffff",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: "13px",
+                          color: "#888888",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No financial details available
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
             </Box>
-
-            {/* Data Rows */}
-            <Box>
-              {/* CIF/Primary Value */}
-              {data.cifValue && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  padding: '10px 12px',
-                  borderBottom: '1px solid #e5e5e5',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#555555',
-                    flex: 1,
-                    fontWeight: 500
-                  }}>
-                    {data.import_terms || 'CIF'} Value:
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#2c3e50',
-                    fontWeight: 600,
-                    fontFamily: 'monospace'
-                  }}>
-                    ₹ {parseFloat(data.cifValue).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Freight */}
-              {data.freight && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  padding: '10px 12px',
-                  borderBottom: data.insurance ? '1px solid #e5e5e5' : 'none',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#555555',
-                    flex: 1,
-                    fontWeight: 500
-                  }}>
-                    Freight:
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#2c3e50',
-                    fontWeight: 600,
-                    fontFamily: 'monospace'
-                  }}>
-                    ₹ {parseFloat(data.freight).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Insurance */}
-              {data.insurance && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  padding: '10px 12px',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#555555',
-                    flex: 1,
-                    fontWeight: 500
-                  }}>
-                    Insurance:
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#2c3e50',
-                    fontWeight: 600,
-                    fontFamily: 'monospace'
-                  }}>
-                    ₹ {parseFloat(data.insurance).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ 
-            padding: '20px 12px',
-            textAlign: 'center',
-            backgroundColor: '#ffffff'
-          }}>
-            <Typography sx={{
-              fontSize: '13px',
-              color: '#888888',
-              fontStyle: 'italic'
-            }}>
-              No financial details available
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    </Box>
-  </Box>
-</div>
+          </div>
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />
             {renderDocuments(data.cth_documents, "CTH Documents")}
@@ -528,159 +590,168 @@ const DocumentationJob = () => {
           </div>
 
           {/* Documentation Queries Section */}
-<div className="job-details-container">
-  <JobDetailsRowHeading heading="Documentation Queries" />
-  <br />
+          <div className="job-details-container">
+            <JobDetailsRowHeading heading="Documentation Queries" />
+            <br />
 
-  {/* Group queries by module */}
-  {Object.entries(
-    (data.dsr_queries || []).reduce((acc, item) => {
-      if (!acc[item.select_module]) acc[item.select_module] = [];
-      acc[item.select_module].push(item);
-      return acc;
-    }, {})
-  ).map(([moduleName, queries]) => (
-    <div key={moduleName} style={{ marginBottom: "20px" }}>
-      <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
-        {moduleName || 'Unassigned'} Queries
-      </h5>
+            {/* Group queries by module */}
+            {Object.entries(
+              (data.dsr_queries || []).reduce((acc, item) => {
+                if (!acc[item.select_module]) acc[item.select_module] = [];
+                acc[item.select_module].push(item);
+                return acc;
+              }, {})
+            ).map(([moduleName, queries]) => (
+              <div key={moduleName} style={{ marginBottom: "20px" }}>
+                <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
+                  {moduleName || "Unassigned"} Queries
+                </h5>
 
-      {queries.map((item, id) => {
-        const index = data.dsr_queries.findIndex(q => q === item);
-        const isResolved =
-          item.resolved === true ||
-          (!!item.reply && item.reply.trim() !== "");
+                {queries.map((item, id) => {
+                  const index = data.dsr_queries.findIndex((q) => q === item);
+                  const isResolved =
+                    item.resolved === true ||
+                    (!!item.reply && item.reply.trim() !== "");
 
-        return (
-          <Row key={id} style={{ marginBottom: "20px" }}>
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Query (Resolved)" : "Query"}
-                value={item.query}
-                onChange={(e) => {
-                  const updated = [...data.dsr_queries];
-                  updated[index] = {
-                    ...updated[index],
-                    query: e.target.value
-                  };
-                  setData(prev => ({
-                    ...prev,
-                    dsr_queries: updated
-                  }));
-                }}
-                disabled={isResolved}
-                InputProps={{
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
+                  return (
+                    <Row key={id} style={{ marginBottom: "20px" }}>
+                      <Col xs={12} lg={4}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label={isResolved ? "Query (Resolved)" : "Query"}
+                          value={item.query}
+                          onChange={(e) => {
+                            const updated = [...data.dsr_queries];
+                            updated[index] = {
+                              ...updated[index],
+                              query: e.target.value,
+                            };
+                            setData((prev) => ({
+                              ...prev,
+                              dsr_queries: updated,
+                            }));
+                          }}
+                          disabled={isResolved}
+                          InputProps={{
+                            style: isResolved
+                              ? {
+                                  border: "2px solid #4caf50",
+                                  background: "#eaffea",
+                                }
+                              : {},
+                          }}
+                        />
+                      </Col>
 
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Reply (Resolved)" : "Reply"}
-                value={item.reply}
-                onChange={(e) => {
-                  const updated = [...data.dsr_queries];
-                  updated[index] = {
-                    ...updated[index],
-                    reply: e.target.value
-                  };
-                  setData(prev => ({
-                    ...prev,
-                    dsr_queries: updated
-                  }));
-                }}
-                InputProps={{
-                  readOnly: true,
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
+                      <Col xs={12} lg={4}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          size="small"
+                          label={isResolved ? "Reply (Resolved)" : "Reply"}
+                          value={item.reply}
+                          onChange={(e) => {
+                            const updated = [...data.dsr_queries];
+                            updated[index] = {
+                              ...updated[index],
+                              reply: e.target.value,
+                            };
+                            setData((prev) => ({
+                              ...prev,
+                              dsr_queries: updated,
+                            }));
+                          }}
+                          InputProps={{
+                            readOnly: true,
+                            style: isResolved
+                              ? {
+                                  border: "2px solid #4caf50",
+                                  background: "#eaffea",
+                                }
+                              : {},
+                          }}
+                        />
+                      </Col>
 
-            <Col xs={12} lg={2} className="d-flex align-items-center">
-              <TextField
-                select
-                fullWidth
-                size="small"
-                value={item.select_module || ""}
-                onChange={(e) => {
-                  const updated = [...data.dsr_queries];
-                  updated[index] = {
-                    ...updated[index],
-                    select_module: e.target.value
-                  };
-                  setData(prev => ({
-                    ...prev,
-                    dsr_queries: updated
-                  }));
-                }}
-                disabled={isResolved}
-                SelectProps={{ native: true }}
-              >
-                <option value="">Select Module</option>
-                <option value="DSR">DSR</option>
-                <option value="DO">DO</option>
-                <option value="Documentation">Documentation</option>
-                <option value="E-Sanchit">E-Sanchit</option>
-                <option value="Submission">Submission</option>
-                <option value="Operations">Operations</option>
-              </TextField>
-            </Col>
+                      <Col xs={12} lg={2} className="d-flex align-items-center">
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          value={item.select_module || ""}
+                          onChange={(e) => {
+                            const updated = [...data.dsr_queries];
+                            updated[index] = {
+                              ...updated[index],
+                              select_module: e.target.value,
+                            };
+                            setData((prev) => ({
+                              ...prev,
+                              dsr_queries: updated,
+                            }));
+                          }}
+                          disabled={isResolved}
+                          SelectProps={{ native: true }}
+                        >
+                          <option value="">Select Module</option>
+                          <option value="DSR">DSR</option>
+                          <option value="DO">DO</option>
+                          <option value="Documentation">Documentation</option>
+                          <option value="E-Sanchit">E-Sanchit</option>
+                          <option value="Submission">Submission</option>
+                          <option value="Operations">Operations</option>
+                        </TextField>
+                      </Col>
 
-            {isResolved && (
-              <Col xs={12} lg={2} className="d-flex align-items-center">
-                <span
-                  style={{
-                    color: "#388e3c",
-                    fontWeight: "bold",
-                    marginLeft: 8,
-                  }}
-                >
-                  Resolved
-                </span>
-              </Col>
-            )}
-          </Row>
-        );
-      })}
-    </div>
-  ))}
+                      {isResolved && (
+                        <Col
+                          xs={12}
+                          lg={2}
+                          className="d-flex align-items-center"
+                        >
+                          <span
+                            style={{
+                              color: "#388e3c",
+                              fontWeight: "bold",
+                              marginLeft: 8,
+                            }}
+                          >
+                            Resolved
+                          </span>
+                        </Col>
+                      )}
+                    </Row>
+                  );
+                })}
+              </div>
+            ))}
 
-  {/* Add Query Button */}
-  <button
-    type="button"
-    onClick={() => {
-      setData(prev => ({
-        ...prev,
-        dsr_queries: [
-          ...(prev.dsr_queries || []),
-          { query: "", reply: "", select_module: "", resolved: false }
-        ]
-      }));
-    }}
-    className="btn"
-  >
-    Add Query
-  </button>
-</div>
+            {/* Add Query Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setData((prev) => ({
+                  ...prev,
+                  dsr_queries: [
+                    ...(prev.dsr_queries || []),
+                    {
+                      query: "",
+                      reply: "",
+                      select_module: "",
+                      resolved: false,
+                    },
+                  ],
+                }));
+              }}
+              className="btn"
+            >
+              Add Query
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit}>
             <div className="job-details-container">
@@ -736,7 +807,8 @@ const DocumentationJob = () => {
               <button
                 className="btn sticky-btn"
                 style={{ float: "right", margin: "20px" }}
-                type="submit"              >
+                type="submit"
+              >
                 Submit
               </button>
             )}

@@ -14,6 +14,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useSearchParams } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
+import QueriesComponent from "../../utils/QueriesComponent";
 
 function EditDoList() {
   // CSS styles for upload containers
@@ -232,6 +233,7 @@ const uploadContainerStyles = `
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
+  console.log(data, "RESPONSE")
   // Store search parameters from location state
   React.useEffect(() => {
     if (location.state) {
@@ -259,6 +261,8 @@ const uploadContainerStyles = `
       setStoredSearchParams(params);
     }
   }, [location.state]);
+
+ 
 
   // Handle back to job list navigation
   const handleBackToJobList = () => {
@@ -340,6 +344,19 @@ const uploadContainerStyles = `
   useEffect(() => {
     fetchJobDetails();
   }, [job_no, year]);
+
+   const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+    }));
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
 
   const fetchJobDetails = async () => {
     try {
@@ -475,8 +492,20 @@ const uploadContainerStyles = `
         <JobDetailsStaticData
           data={data}
           params={{ job_no, year }}
-        />
+        /> 
       )}
+        {data && data.dsr_queries && (
+  <div className="job-details-container">
+    <QueriesComponent
+      queries={data.dsr_queries}
+      onQueriesChange={handleQueriesChange}
+      title="DSR Queries"
+      showResolveButton={true}
+      readOnlyReply={true}
+      onResolveQuery={handleResolveQuery}
+    />
+  </div>
+)}
       <form onSubmit={formik.handleSubmit}>
         <FormControlLabel
           control={

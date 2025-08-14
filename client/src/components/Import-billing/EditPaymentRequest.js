@@ -36,6 +36,7 @@ import { useSearchParams } from "react-router-dom";
 // Import your user context or authentication hook here
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function EditPaymentRequest() {
   const [someReceiptsUploaded, setsomeReceiptsUploaded] = useState(false);
@@ -223,6 +224,7 @@ const jobId = param.get("selectedJobId");
       do_completed: "",
       do_Revalidation_Completed: false,
       container_nos: [],
+      dsr_queries:  [],
 
     do_shipping_line_invoice: [{
       document_name: "Shipping Line Invoice",
@@ -332,6 +334,22 @@ const jobId = param.get("selectedJobId");
       [docIndex]: mode === "Wire Transfer"
     }));
   };
+
+         const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+      
+    }));
+     formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
+
 
   // Document check status handler
   const handleDocumentCheckChange = (docIndex, docType) => (e) => {
@@ -485,6 +503,7 @@ useEffect(() => {
         insurance_copy: insuranceCopy,
         other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
+        dsr_queries: data.dsr_queries || [],
       };
 
       formik.setValues(updatedData);
@@ -1203,6 +1222,18 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
     params={{ job_no, year }}
   />
 )}
+      {data && data.dsr_queries &&  (
+  <div className="job-details-container">
+    <QueriesComponent
+      queries={data.dsr_queries}
+      onQueriesChange={handleQueriesChange}
+      title="DSR Queries"
+      showResolveButton={true}
+      readOnlyReply={true}
+      onResolveQuery={handleResolveQuery}
+    />
+  </div>
+)}
 
       <div style={{ margin: "20px 0" }}>
         {data && (
@@ -1292,20 +1323,14 @@ const renderDocumentSection = (doc, docIndex, docType, isRemovable = false, user
               </div>
 
               {renderChargesSection()}
-             <button
-  className="btn"
-  type="submit"
-  style={{ 
-    float: "right", 
-    margin: "10px",
-    backgroundColor: someReceiptsUploaded ? "#1976d2" : "#ccc",
-    cursor: someReceiptsUploaded ? "pointer" : "not-allowed"
-  }}
-  aria-label="submit-btn"
-  disabled={!someReceiptsUploaded}
->
-  Submit
-</button>
+           <button
+                className="btn sticky-btn"
+                type="submit"
+                style={{ float: "right", margin: "10px" }}
+                aria-label="submit-btn"
+              >
+                Submit
+              </button>
 
 {/* Add validation message */}
 {!someReceiptsUploaded && (

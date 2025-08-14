@@ -18,6 +18,7 @@ import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 // Utility function to get current local datetime in ISO format (YYYY-MM-DDTHH:MM)
 const getCurrentLocalDateTime = () => {
@@ -64,7 +65,19 @@ const SubmissionJob = () => {
       setStoredSearchParams(params);
     }
   }, [location.state]);
-  
+
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
+      ...prev,
+      dsr_queries: updatedQueries,
+    }));
+  };
+
+  const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log("Query resolved:", resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
   // Handle back click function
   const handleBackClick = () => {
     navigate("/submission", {
@@ -105,7 +118,7 @@ const SubmissionJob = () => {
       if (response.data.checklist) {
         setVerifiedChecklistUploads(response.data.checklist);
       }
-      
+
       if (Array.isArray(response.data.submissionQueries)) {
         setSubmissionQueries(response.data.submissionQueries);
       } else {
@@ -143,10 +156,10 @@ const SubmissionJob = () => {
         }
       );
 
-          // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
       await fetchJobDetails();
     } catch (error) {
@@ -294,157 +307,208 @@ const SubmissionJob = () => {
             params={{ job_no, year }}
           />
 
-                 <div className="job-details-container">
-  <Box sx={{ 
-    display: 'flex', 
-    alignItems: 'baseline',
-    gap: 3,
-  }}>
-    {/* Terms of Invoice Heading */}
-    <JobDetailsRowHeading 
-      heading="Terms of Invoice (FOB)" 
-      variant="subtitle2" 
-      sx={{ 
-        fontSize: '16px', 
-        fontWeight: 600,
-        color: '#2c3e50',
-        marginBottom: '8px'
-      }} 
-    />
+          <div className="job-details-container">
+            <QueriesComponent
+              queries={data.dsr_queries}
+              onQueriesChange={handleQueriesChange}
+              title="DSR Queries"
+              showResolveButton={true}
+              readOnlyReply={true}
+              onResolveQuery={handleResolveQuery}
+            />
+          </div>
 
-    {/* Financial Details Display - Government Style */}
-    <Box sx={{ 
-      maxWidth: 320,
-      minWidth: 280
-    }}>
-      <Box sx={{ 
-        backgroundColor: '#fafafa',
-        border: '1px solid #cccccc',
-        borderRadius: '2px',
-        overflow: 'hidden'
-      }}>
-        {(data.cifValue || data.freight || data.insurance) ? (
-          <Box>
-            {/* Header */}
-            <Box sx={{
-              backgroundColor: '#e8f4f8',
-              padding: '8px 12px',
-              borderBottom: '1px solid #cccccc'
-            }}>
-              <Typography sx={{
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#2c3e50',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Financial Details
-              </Typography>
+          <div className="job-details-container">
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 3,
+              }}
+            >
+              {/* Terms of Invoice Heading */}
+              <JobDetailsRowHeading
+                heading="Terms of Invoice (FOB)"
+                variant="subtitle2"
+                sx={{
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  color: "#2c3e50",
+                  marginBottom: "8px",
+                }}
+              />
+
+              {/* Financial Details Display - Government Style */}
+              <Box
+                sx={{
+                  maxWidth: 320,
+                  minWidth: 280,
+                }}
+              >
+                <Box
+                  sx={{
+                    backgroundColor: "#fafafa",
+                    border: "1px solid #cccccc",
+                    borderRadius: "2px",
+                    overflow: "hidden",
+                  }}
+                >
+                  {data.cifValue || data.freight || data.insurance ? (
+                    <Box>
+                      {/* Header */}
+                      <Box
+                        sx={{
+                          backgroundColor: "#e8f4f8",
+                          padding: "8px 12px",
+                          borderBottom: "1px solid #cccccc",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: "#2c3e50",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          Financial Details
+                        </Typography>
+                      </Box>
+
+                      {/* Data Rows */}
+                      <Box>
+                        {/* CIF/Primary Value */}
+                        {data.cifValue && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              borderBottom: "1px solid #e5e5e5",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {data.import_terms || "CIF"} Value:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.cifValue).toLocaleString(
+                                "en-IN"
+                              )}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Freight */}
+                        {data.freight && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              borderBottom: data.insurance
+                                ? "1px solid #e5e5e5"
+                                : "none",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              Freight:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.freight).toLocaleString("en-IN")}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Insurance */}
+                        {data.insurance && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              Insurance:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.insurance).toLocaleString(
+                                "en-IN"
+                              )}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        backgroundColor: "#ffffff",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: "13px",
+                          color: "#888888",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No financial details available
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
             </Box>
-
-            {/* Data Rows */}
-            <Box>
-              {/* CIF/Primary Value */}
-              {data.cifValue && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  padding: '10px 12px',
-                  borderBottom: '1px solid #e5e5e5',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#555555',
-                    flex: 1,
-                    fontWeight: 500
-                  }}>
-                    {data.import_terms || 'CIF'} Value:
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#2c3e50',
-                    fontWeight: 600,
-                    fontFamily: 'monospace'
-                  }}>
-                    ₹ {parseFloat(data.cifValue).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Freight */}
-              {data.freight && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  padding: '10px 12px',
-                  borderBottom: data.insurance ? '1px solid #e5e5e5' : 'none',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#555555',
-                    flex: 1,
-                    fontWeight: 500
-                  }}>
-                    Freight:
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#2c3e50',
-                    fontWeight: 600,
-                    fontFamily: 'monospace'
-                  }}>
-                    ₹ {parseFloat(data.freight).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Insurance */}
-              {data.insurance && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  padding: '10px 12px',
-                  backgroundColor: '#ffffff'
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#555555',
-                    flex: 1,
-                    fontWeight: 500
-                  }}>
-                    Insurance:
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '13px',
-                    color: '#2c3e50',
-                    fontWeight: 600,
-                    fontFamily: 'monospace'
-                  }}>
-                    ₹ {parseFloat(data.insurance).toLocaleString('en-IN')}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ 
-            padding: '20px 12px',
-            textAlign: 'center',
-            backgroundColor: '#ffffff'
-          }}>
-            <Typography sx={{
-              fontSize: '13px',
-              color: '#888888',
-              fontStyle: 'italic'
-            }}>
-              No financial details available
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    </Box>
-  </Box>
-</div>
-
+          </div>
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />
@@ -467,159 +531,6 @@ const SubmissionJob = () => {
             {({ values, setFieldValue, isSubmitting }) => (
               <Form>
                 {/* Submission Queries Section */}
-<div className="job-details-container">
-  <JobDetailsRowHeading heading="Submission Queries" />
-  <br />
-
-  {/* Group queries by module */}
-  {Object.entries(
-    (data.dsr_queries || []).reduce((acc, item) => {
-      if (!acc[item.select_module]) acc[item.select_module] = [];
-      acc[item.select_module].push(item);
-      return acc;
-    }, {})
-  ).map(([moduleName, queries]) => (
-    <div key={moduleName} style={{ marginBottom: "20px" }}>
-      <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
-        {moduleName || 'Unassigned'} Queries
-      </h5>
-
-      {queries.map((item, id) => {
-        const index = data.dsr_queries.findIndex(q => q === item);
-        const isResolved =
-          item.resolved === true ||
-          (!!item.reply && item.reply.trim() !== "");
-
-        return (
-          <Row key={id} style={{ marginBottom: "20px" }}>
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Query (Resolved)" : "Query"}
-                value={item.query}
-                onChange={(e) => {
-                  const updated = [...data.dsr_queries];
-                  updated[index] = {
-                    ...updated[index],
-                    query: e.target.value
-                  };
-                  setData(prev => ({
-                    ...prev,
-                    dsr_queries: updated
-                  }));
-                }}
-                disabled={isResolved}
-                InputProps={{
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
-
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Reply (Resolved)" : "Reply"}
-                value={item.reply}
-                onChange={(e) => {
-                  const updated = [...data.dsr_queries];
-                  updated[index] = {
-                    ...updated[index],
-                    reply: e.target.value
-                  };
-                  setData(prev => ({
-                    ...prev,
-                    dsr_queries: updated
-                  }));
-                }}
-                InputProps={{
-                  readOnly: true,
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
-
-            <Col xs={12} lg={2} className="d-flex align-items-center">
-              <TextField
-                select
-                fullWidth
-                size="small"
-                value={item.select_module || ""}
-                onChange={(e) => {
-                  const updated = [...data.dsr_queries];
-                  updated[index] = {
-                    ...updated[index],
-                    select_module: e.target.value
-                  };
-                  setData(prev => ({
-                    ...prev,
-                    dsr_queries: updated
-                  }));
-                }}
-                disabled={isResolved}
-                SelectProps={{ native: true }}
-              >
-                <option value="">Select Module</option>
-                <option value="DSR">DSR</option>
-                <option value="DO">DO</option>
-                <option value="Documentation">Documentation</option>
-                <option value="E-Sanchit">E-Sanchit</option>
-                <option value="Submission">Submission</option>
-                <option value="Operations">Operations</option>
-              </TextField>
-            </Col>
-
-            {isResolved && (
-              <Col xs={12} lg={2} className="d-flex align-items-center">
-                <span
-                  style={{
-                    color: "#388e3c",
-                    fontWeight: "bold",
-                    marginLeft: 8,
-                  }}
-                >
-                  Resolved
-                </span>
-              </Col>
-            )}
-          </Row>
-        );
-      })}
-    </div>
-  ))}
-
-  {/* Add Query Button */}
-  <button
-    type="button"
-    onClick={() => {
-      setData(prev => ({
-        ...prev,
-        dsr_queries: [
-          ...(prev.dsr_queries || []),
-          { query: "", reply: "", select_module: "", resolved: false }
-        ]
-      }));
-    }}
-    className="btn"
-  >
-    Add Query
-  </button>
-</div>
 
                 <div className="job-details-container">
                   <JobDetailsRowHeading heading="Checklist Document" />

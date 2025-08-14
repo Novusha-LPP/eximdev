@@ -53,6 +53,7 @@ import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function JobDetails() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -233,6 +234,7 @@ function JobDetails() {
     setSelectedChargesDocument,
     newChargesDocumentName,
     setNewChargesDocumentName,
+    setData,
     // schemeOptions,
   } = useFetchJobDetails(
     params,
@@ -561,48 +563,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
   const handleGenerate = () => {
     pdfRef.current?.generatePdf();
   };
-  // const handleOpenDialog = (doc, action) => {
-  //   setCurrentDocument(doc);
-  //   setActionType(action);
-  //   setDialogOpen(true);
-  // };
-
-  // const handleCloseDialog = () => {
-  //   setDialogOpen(false);
-  //   setCurrentDocument(null);
-  //   setActionType("");
-  // };
-
-  // const handleConfirmDialog = () => {
-  //   if (actionType === "delete") {
-  //     setCthDocuments((prevDocs) =>
-  //       prevDocs.filter((doc) => doc !== currentDocument)
-  //     );
-  //   } else if (actionType === "edit") {
-  //     const newName = prompt(
-  //       "Enter new document name:",
-  //       currentDocument.document_name
-  //     );
-  //     const newCode = prompt(handle
-  //       "Enter new document code:",
-  //       currentDocument.document_code
-  //     );
-
-  //     if (newName && newCode) {
-  //       setCthDocuments((prevDocs) =>
-  //         prevDocs.map((doc) =>
-  //           doc === currentDocument
-  //             ? { ...doc, document_name: newName, document_code: newCode }
-  //             : doc
-  //         )
-  //       );
-  //     }
-  //   }
-  //   handleCloseDialog();
-  // };
-  /**
-   * Handle PDF generation and download
-   */
 
   const handleOpenDialog = (doc, isEdit = false) => {
     setCurrentDocument(doc);
@@ -647,6 +607,20 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
     setDutyModalOpen(false);
   };
 
+  
+  const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+    }));
+  };
+
+  
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  }
   const handleDutySubmit = async (updateData) => {
     try {
       // Update formik values with IGST values from the modal
@@ -672,6 +646,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`; // Fixed template literal syntax
   }
+
 
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
@@ -711,129 +686,16 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
           </div>
           {/* Importer info End*/}
 
-<div className="job-details-container">
-  <JobDetailsRowHeading heading="Queries" />
-  <br />
-
-  {/* Group queries by module */}
-  {Object.entries(
-    formik.values.dsr_queries.reduce((acc, item) => {
-      if (!acc[item.select_module]) acc[item.select_module] = [];
-      acc[item.select_module].push(item);
-      return acc;
-    }, {})
-  ).map(([moduleName, queries]) => (
-    <div key={moduleName} style={{ marginBottom: "20px" }}>
-      <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
-        {moduleName} Queries
-      </h5>
-
-      {queries.map((item, id) => {
-        const index = formik.values.dsr_queries.findIndex(q => q === item);
-        const isResolved =
-          item.resolved === true ||
-          (!!item.reply && item.reply.trim() !== "");
-
-        return (
-          <Row key={id} style={{ marginBottom: "20px" }}>
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Query (Resolved)" : "Query"}
-                name={`dsr_queries[${index}].query`}
-                value={item.query}
-                onChange={formik.handleChange}
-                disabled={isResolved}
-                InputProps={{
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
-
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Reply (Resolved)" : "Reply"}
-                name={`dsr_queries[${index}].reply`}
-                value={item.reply}
-                onChange={formik.handleChange}
-                InputProps={{
-                  readOnly: true,
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
-
-            <Col xs={12} lg={2} className="d-flex align-items-center">
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name={`dsr_queries[${index}].select_module`}
-                value={item.select_module || ""}
-                onChange={formik.handleChange}
-                disabled={isResolved}
-                SelectProps={{ native: true }}
-              >
-                <option value="">Select Module</option>
-                <option value="DSR">DSR</option>
-                <option value="DO">DO</option>
-                <option value="Documentation">Documentation</option>
-                <option value="E-Sanchit">E-Sanchit</option>
-                <option value="Submission">Submission</option>
-                <option value="Operations">Operations</option>
-              </TextField>
-            </Col>
-
-            {isResolved && (
-              <Col xs={12} lg={2} className="d-flex align-items-center">
-                <span
-                  style={{
-                    color: "#388e3c",
-                    fontWeight: "bold",
-                    marginLeft: 8,
-                  }}
-                >
-                  Resolved
-                </span>
-              </Col>
-            )}
-          </Row>
-        );
-      })}
+<div>
+      <QueriesComponent
+        queries={data.dsr_queries}
+        onQueriesChange={handleQueriesChange}
+        title="DSR Queries"
+        showResolveButton={true}
+        readOnlyReply={true}
+        onResolveQuery={handleResolveQuery}
+      />
     </div>
-  ))}
-
-  {/* Add Query Button */}
-  <button
-    type="button"
-    onClick={() =>
-      formik.setFieldValue("dsr_queries", [
-        ...formik.values.dsr_queries,
-        { query: "", reply: "", select_module: "", resolved: false },
-      ])
-    }
-    className="btn"
-  >
-    Add Query
-  </button>
-</div>
 
 
 

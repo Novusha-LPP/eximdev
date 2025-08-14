@@ -1064,6 +1064,7 @@ formik.setValues({
     setSelectedChargesDocument,
     newChargesDocumentName,
     setNewChargesDocumentName,
+    setData
   };
 }
 

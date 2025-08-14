@@ -71,6 +71,7 @@ function useFetchOperationTeamJob(params) {
       out_of_charge: "",
       custodian_gate_pass: [],
       concor_invoice_and_receipt_copy: [],
+                  dsr_queries: [],
     },
 
     onSubmit: async (values) => {
@@ -164,13 +165,14 @@ function useFetchOperationTeamJob(params) {
         completed_operation_date: data.completed_operation_date || "",
         out_of_charge: data.out_of_charge || "",
         custodian_gate_pass: data.custodian_gate_pass || [],
+         dsr_queries: data.dsr_queries || [],
         concor_invoice_and_receipt_copy:
           data.concor_invoice_and_receipt_copy || [],
       });
     }
   }, [data]); // When data changes, formik values are updated
 
-  return { data, formik };
+  return { data, formik, setData};
 }
 
 export default useFetchOperationTeamJob;

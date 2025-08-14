@@ -22,6 +22,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 const cth_Dropdown = [
   { document_name: "Certificate of Origin", document_code: "861000" },
@@ -138,6 +139,18 @@ function ViewESanchitJob() {
     });
   };
 
+  const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+    }));
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
   // Fetch data
   useEffect(() => {
     async function getData() {
@@ -200,26 +213,6 @@ function ViewESanchitJob() {
           window.close();
         }, 500);
 
-        // If window.close() fails (e.g., not opened by script), fallback to navigation
-        // setTimeout(() => {
-        //   const tabIndex = storedSearchParams?.currentTab ?? 0;
-        //   setCurrentTab(tabIndex);
-        //   navigate("/e-sanchit", {
-        //     state: {
-        //       fromJobDetails: true,
-        //       tabIndex: tabIndex,
-        //       selectedJobId: params.job_no,
-        //       ...(storedSearchParams && {
-        //         searchQuery: storedSearchParams.searchQuery,
-        //         selectedImporter: storedSearchParams.selectedImporter,
-        //         selectedICD: storedSearchParams.selectedICD,
-        //         selectedYearState: storedSearchParams.selectedYearState,
-        //         detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
-        //         page: storedSearchParams.page,
-        //       }),
-        //     },
-        //   });
-        // }, 1000);
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -398,6 +391,18 @@ function ViewESanchitJob() {
               params={params}
               setSnackbar={setSnackbar}
             />
+
+            
+<div style={{ margin: "20px 0" }}>
+      <QueriesComponent
+        queries={data.dsr_queries}
+        onQueriesChange={handleQueriesChange}
+        title="Esanchit Queries"
+        showResolveButton={true}
+        readOnlyReply={true}
+        onResolveQuery={handleResolveQuery}
+      />
+    </div>
 
             {/* Charges section */}
             <div className="job-details-container">
@@ -735,129 +740,6 @@ function ViewESanchitJob() {
               {renderAllDocuments(data.all_documents)}
             </div>
 
-<div className="job-details-container">
-              <h4>Queries</h4>
-  <br />
-
-  {/* Group queries by module */}
-  {Object.entries(
-    formik.values.dsr_queries.reduce((acc, item) => {
-      if (!acc[item.select_module]) acc[item.select_module] = [];
-      acc[item.select_module].push(item);
-      return acc;
-    }, {})
-  ).map(([moduleName, queries]) => (
-    <div key={moduleName} style={{ marginBottom: "20px" }}>
-      <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
-        {moduleName} Queries
-      </h5>
-
-      {queries.map((item, id) => {
-        const index = formik.values.dsr_queries.findIndex(q => q === item);
-        const isResolved =
-          item.resolved === true ||
-          (!!item.reply && item.reply.trim() !== "");
-
-        return (
-          <Row key={id} style={{ marginBottom: "20px" }}>
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Query (Resolved)" : "Query"}
-                name={`dsr_queries[${index}].query`}
-                value={item.query}
-                onChange={formik.handleChange}
-                disabled={isResolved}
-                InputProps={{
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
-
-            <Col xs={12} lg={4}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={isResolved ? "Reply (Resolved)" : "Reply"}
-                name={`dsr_queries[${index}].reply`}
-                value={item.reply}
-                onChange={formik.handleChange}
-                InputProps={{
-                  readOnly: true,
-                  style: isResolved
-                    ? {
-                        border: "2px solid #4caf50",
-                        background: "#eaffea",
-                      }
-                    : {},
-                }}
-              />
-            </Col>
-
-            <Col xs={12} lg={2} className="d-flex align-items-center">
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name={`dsr_queries[${index}].select_module`}
-                value={item.select_module || ""}
-                onChange={formik.handleChange}
-                disabled={isResolved}
-                SelectProps={{ native: true }}
-              >
-                <option value="">Select Module</option>
-                <option value="DSR">DSR</option>
-                <option value="DO">DO</option>
-                <option value="Documentation">Documentation</option>
-                <option value="E-Sanchit">E-Sanchit</option>
-                <option value="Submission">Submission</option>
-                <option value="Operations">Operations</option>
-              </TextField>
-            </Col>
-
-            {isResolved && (
-              <Col xs={12} lg={2} className="d-flex align-items-center">
-                <span
-                  style={{
-                    color: "#388e3c",
-                    fontWeight: "bold",
-                    marginLeft: 8,
-                  }}
-                >
-                  Resolved
-                </span>
-              </Col>
-            )}
-          </Row>
-        );
-      })}
-    </div>
-  ))}
-
-  {/* Add Query Button */}
-  <button
-    type="button"
-    onClick={() =>
-      formik.setFieldValue("dsr_queries", [
-        ...formik.values.dsr_queries,
-        { query: "", reply: "", select_module: "", resolved: false },
-      ])
-    }
-    className="btn"
-  >
-    Add Query
-  </button>
-</div>
 
             <div className="job-details-container">
               <h4>All Cleared E-Sanchit</h4>

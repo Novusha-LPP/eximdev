@@ -28,60 +28,68 @@ const extractJobInfo = async (req, res, next) => {
 };
 
 // PATCH route for updating billing details
-router.patch("/api/update-do-billing/:id", extractJobInfo, auditMiddleware("Job"), async (req, res) => {
-  const { id } = req.params; // Extract job ID from URL params
-  const {
-    icd_cfs_invoice,
-    icd_cfs_invoice_img,
-    other_invoices_img,
-    shipping_line_invoice_imgs,
-    bill_document_sent_to_accounts,
-  } = req.body; // Extract fields from request body
+router.patch(
+  "/api/update-do-billing/:id",
+  extractJobInfo,
+  auditMiddleware("Job"),
+  async (req, res) => {
+    try {
+      const jobId = req.params.id;
+      const updateData = req.body;
 
-  try {
-    // Find the existing job document by ID
-    const job = await JobModel.findById(id);
+      // ✅ Allowed fields for DO Billing update
+      const allowedUpdates = [
+        "icd_cfs_invoice",
+        "icd_cfs_invoice_img",
+        "other_invoices_img",
+        "shipping_line_invoice_imgs",
+        "bill_document_sent_to_accounts",
+        "dsr_queries" // ✅ allow updating dsr_queries from billing stage too
+      ];
 
-    if (!job) {
-      return res.status(404).json({
+      // Validate fields sent by client
+      const actualUpdates = Object.keys(updateData);
+      const isValidOperation = actualUpdates.every((field) =>
+        allowedUpdates.includes(field)
+      );
+
+      if (!isValidOperation) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid updates detected.",
+          invalidFields: actualUpdates.filter((f) => !allowedUpdates.includes(f))
+        });
+      }
+
+      // Perform update in one go
+      const updatedJob = await JobModel.findByIdAndUpdate(
+        jobId,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
+
+      if (!updatedJob) {
+        return res.status(404).json({
+          success: false,
+          message: "Job not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Billing details updated successfully",
+        updatedJob,
+      });
+    } catch (error) {
+      console.error("❌ Error updating billing details:", error);
+      res.status(500).json({
         success: false,
-        message: "Job not found",
+        message: "Internal server error",
+        error: error.message,
       });
     }
-
-    // Update fields only if they are provided
-    if (typeof icd_cfs_invoice !== "undefined") {
-      job.icd_cfs_invoice = icd_cfs_invoice;
-    }
-    if (Array.isArray(icd_cfs_invoice_img)) {
-      job.icd_cfs_invoice_img = icd_cfs_invoice_img;
-    }
-    if (Array.isArray(other_invoices_img)) {
-      job.other_invoices_img = other_invoices_img;
-    }
-    if (Array.isArray(shipping_line_invoice_imgs)) {
-      job.shipping_line_invoice_imgs = shipping_line_invoice_imgs;
-    }
-    if (bill_document_sent_to_accounts) {
-      job.bill_document_sent_to_accounts = bill_document_sent_to_accounts;
-    }
-
-    // Save the updated job document to the database
-    const updatedJob = await job.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Billing details updated successfully",
-      updatedJob,
-    });
-  } catch (error) {
-    console.error("Error updating billing details:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
   }
-});
+);
+
 
 export default router;

@@ -34,6 +34,7 @@ import { Row, Col } from "react-bootstrap";
 import { UserContext } from "../../contexts/UserContext";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
   const doListOptions = [
     { value: "", label: "Select DO List" },
@@ -560,13 +561,13 @@ function EditDoPlanning() {
           data.security_deposit === "Yes" || data.security_deposit === true, // Handle similar cases for security_deposit
         // do_completed is already handled in getData()
         do_Revalidation_Completed: data.do_Revalidation_Completed,
-        do_queries: data.do_queries || [{ query: "", reply: "" }],
+        dsr_queries: data.dsr_queries || [],
         container_nos: data.container_nos || [],
         do_shipping_line_invoice: doShippingLineInvoice,
         insurance_copy: insuranceCopy,
         other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
-        do_list: data.do_list|| "", 
+        do_list: data.do_list || "",  
         is_do_doc_recieved: data.is_do_doc_recieved || false, // Add this field
       do_doc_recieved_date: data.do_doc_recieved_date || "", 
       };
@@ -591,6 +592,18 @@ function EditDoPlanning() {
     }
   }, [data]); // **Removed 'isDoCompletedEnabled' and 'formik' from dependencies**
 
+  const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+    }));
+  };
+
+   const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
   //
   const handleCopy = useCallback((event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -799,67 +812,74 @@ function EditDoPlanning() {
       </Row>
 
 <br></br>
-      <Col style={{ display: 'flex', alignItems: 'center' }}>
-            <TextField
-              type="date"
-              fullWidth
-              size="small"
-              margin="normal"
-              variant="outlined"
-              id="do_validity"
-              name="do_validity"
-              label="DO Validity"
-              value={formik.values.do_validity}
-              onChange={formik.handleChange}
-              InputLabelProps={{ shrink: true }}
-              sx={{ m: 0 }}
-            />
-          </Col>
+
 
       {/* Render all other documents */}
       {formik.values.other_do_documents.map((doc, index) =>
         renderDocumentSection(doc, index, "other_do_documents", true, user)
       )}
       {/* Dropdown and Add Document Button */}
-      <div
-        style={{
-          marginTop: "20px",
-          padding: "15px",
-          border: "2px dashed #ccc",
-          borderRadius: "5px",
-        }}
+ <div
+  style={{
+    marginTop: "20px",
+    padding: "15px",
+    border: "2px dashed #ccc",
+    borderRadius: "5px",
+  }}
+>
+  <Row className="g-3" style={{ alignItems: "center" }}>
+    {/* DO Validity Date */}
+    <Col xs={12} md={4}>
+      <TextField
+        type="date"
+        fullWidth
+        size="small"
+        margin="normal"
+        variant="outlined"
+        id="do_validity"
+        name="do_validity"
+        label="DO Validity"
+        value={formik.values.do_validity}
+        onChange={formik.handleChange}
+        InputLabelProps={{ shrink: true }}
+        sx={{ m: 0 }}
+      />
+    </Col>
+
+    {/* Document Type Select */}
+    <Col xs={12} md={4}>
+      <FormControl fullWidth size="small">
+        <InputLabel>Select Document Type</InputLabel>
+        <Select
+          value={selectedDocumentType}
+          onChange={(e) => setSelectedDocumentType(e.target.value)}
+          label="Select Document Type"
+        >
+          <MenuItem value="Shipping Line Invoice">
+            Shipping Line Invoice
+          </MenuItem>
+          <MenuItem value="Insurance">Insurance Copy</MenuItem>
+          <MenuItem value="Security Deposit">Security Deposit</MenuItem>
+          <MenuItem value="other">Other Document</MenuItem>
+        </Select>
+      </FormControl>
+    </Col>
+
+    {/* Add Document Button */}
+    <Col xs={12} md={4}>
+      <Button
+        variant="contained"
+        onClick={handleAddDocument}
+        disabled={!selectedDocumentType}
+        fullWidth
+        style={{ height: "40px" }}
       >
-        <Row>
-          <Col xs={12} md={4}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Select Document Type</InputLabel>
-              <Select
-                value={selectedDocumentType}
-                onChange={(e) => setSelectedDocumentType(e.target.value)}
-                label="Select Document Type"
-              >
-                <MenuItem value="Shipping Line Invoice">
-                  Shipping Line Invoice
-                </MenuItem>
-                <MenuItem value="Insurance">Insurance Copy</MenuItem>
-                <MenuItem value="Security Deposit">Security Deposit</MenuItem>
-                <MenuItem value="other">Other Document</MenuItem>
-              </Select>
-            </FormControl>
-          </Col>
-        
-          <Col xs={12} md={4} style={{ display: 'flex', alignItems: 'center' }}>
-            <Button
-              variant="contained"
-              onClick={handleAddDocument}
-              disabled={!selectedDocumentType}
-              style={{ marginLeft: 0, width: '100%' }}
-            >
-              Add Document
-            </Button>
-          </Col>
-        </Row>
-      </div>
+        Add Document
+      </Button>
+    </Col>
+  </Row>
+</div>
+
     </div>
   );
 
@@ -1427,6 +1447,16 @@ function EditDoPlanning() {
 
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
+<div>
+      <QueriesComponent
+        queries={data.dsr_queries}
+        onQueriesChange={handleQueriesChange}
+        title="DSR Queries"
+        showResolveButton={true}
+        readOnlyReply={true}
+        onResolveQuery={handleResolveQuery}
+      />
+    </div>
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
@@ -1449,263 +1479,6 @@ function EditDoPlanning() {
                 <br />
               </div>
               {renderChargesSection()}
-
-              {/* <div className="job-details-container">
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.shipping_line_invoice}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "shipping_line_invoice",
-                          e.target.checked
-                        )
-                      }
-                      name="shipping_line_invoice"
-                      color="primary"
-                    />
-                  }
-                  label="Shipping line invoice"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.payment_made}
-                      onChange={(e) =>
-                        formik.setFieldValue("payment_made", e.target.checked)
-                      }
-                      name="payment_made"
-                      color="primary"
-                    />
-                  }
-                  label="Payment Made"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.do_processed}
-                      onChange={(e) =>
-                        formik.setFieldValue("do_processed", e.target.checked)
-                      }
-                      name="do_processed"
-                      color="primary"
-                    />
-                  }
-                  label="DO processed"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.other_invoices}
-                      onChange={(e) =>
-                        formik.setFieldValue("other_invoices", e.target.checked)
-                      }
-                      name="other_invoices"
-                      color="primary"
-                    />
-                  }
-                  label="Other invoices"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formik.values.security_deposit}
-                      onChange={(e) =>
-                        formik.setFieldValue(
-                          "security_deposit",
-                          e.target.checked
-                        )
-                      }
-                      name="security_deposit"
-                      color="primary"
-                    />
-                  }
-                  label="Security Deposit"
-                />
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  type="date"
-                  id="shipping_line_invoice_date"
-                  name="shipping_line_invoice_date"
-                  label="Shipping line invoice date"
-                  value={formik.values.shipping_line_invoice_date}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <Row>
-                  <Col>
-                    <FileUpload
-                      label="Upload Shipping Line Invoices"
-                      bucketPath="shipping_line_invoice_imgs"
-                      onFilesUploaded={(newFiles) => {
-                      
-                        const existingFiles =
-                          formik.values.shipping_line_invoice_imgs || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue(
-                          "shipping_line_invoice_imgs",
-                          updatedFiles
-                        );
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                      multiple={true}
-                    />
-
-                    <ImagePreview
-                      images={formik.values.shipping_line_invoice_imgs || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [
-                          ...formik.values.shipping_line_invoice_imgs,
-                        ];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue(
-                          "shipping_line_invoice_imgs",
-                          updatedFiles
-                        );
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                    />
-                  </Col>
-
-                  <Col>
-                    <FileUpload
-                      label="DO Documents"
-                      bucketPath="do_documents"
-                      onFilesUploaded={(newFiles) => {
-                        console.log("Uploading new DO Documents:", newFiles);
-                        const existingFiles = formik.values.do_documents || [];
-                        const updatedFiles = [...existingFiles, ...newFiles];
-                        formik.setFieldValue("do_documents", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                      multiple={true}
-                    />
-
-                    <ImagePreview
-                      images={formik.values.do_documents || []}
-                      onDeleteImage={(index) => {
-                        const updatedFiles = [...formik.values.do_documents];
-                        updatedFiles.splice(index, 1);
-                        formik.setFieldValue("do_documents", updatedFiles);
-                        setFileSnackbar(true); // Show success snackbar
-                      }}
-                    />
-                  </Col>
-
-                  <Col></Col>
-                </Row>
-                <br />
-                {formik.values.security_deposit === true && (
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="security_amount"
-                    name="security_amount"
-                    label="Security amount"
-                    value={formik.values.security_amount}
-                    onChange={formik.handleChange}
-                  />
-                )}
-                <strong>UTR:&nbsp;</strong>
-                {formik.values.utr?.map((file, index) => {
-                  return (
-                    <div key={index}>
-                      <a href={file}>{file}</a>
-                      <br />
-                    </div>
-                  );
-                })}
-                <br />
-                <br />
-                <TextField
-                  type="date"
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  id="do_validity"
-                  name="do_validity"
-                  label="DO Validity"
-                  value={formik.values.do_validity}
-                  onChange={formik.handleChange}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </div> */}
-
-
-              <div className="job-details-container">
-                <h5>DO Queries</h5>
-                {formik.values.do_queries.map((item, id) => {
-                  const isResolved =
-                    item.resolved === true ||
-                    (!!item.reply && item.reply.trim() !== "");
-                  return (
-                    <div key={id} style={{ marginBottom: 16 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        id={`do_queries[${id}].query`}
-                        name={`do_queries[${id}].query`}
-                        label={isResolved ? "Query (Resolved)" : "Query"}
-                        value={item.query}
-                        onChange={formik.handleChange}
-                        disabled={isResolved}
-                        InputProps={{
-                          style: isResolved
-                            ? {
-                                border: "2px solid #4caf50",
-                                background: "#eaffea",
-                              }
-                            : {},
-                        }}
-                      />
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        id={`do_queries[${id}].reply`}
-                        name={`do_queries[${id}].reply`}
-                        label={isResolved ? "Reply (Resolved)" : "Reply"}
-                        value={item.reply}
-                        InputProps={{
-                          readOnly: true,
-                          style: isResolved
-                            ? {
-                                border: "2px solid #4caf50",
-                                background: "#eaffea",
-                              }
-                            : {},
-                        }}
-                        onChange={formik.handleChange}
-                      />
-                      {isResolved && (
-                        <span
-                          style={{
-                            color: "#388e3c",
-                            fontWeight: "bold",
-                            marginLeft: 8,
-                          }}
-                        >
-                          Resolved
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                <button type="button" className="btn" onClick={handleAddField}>
-                  Add Query
-                </button>
-                <br />
-                <br />
-              </div>
 
 <div className="job-details-container">
   <h5 style={{ marginBottom: "12px", fontWeight: 600, color: "#1a237e" }}>

@@ -19,6 +19,7 @@ import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
 import Charges from "../Charges/Charges";
+import QueriesComponent from "../../utils/QueriesComponent";
 
 const ViewBillingJob = () => {
   const routeLocation = useLocation();
@@ -101,6 +102,7 @@ const ViewBillingJob = () => {
   const { agencyBill, reimbursementBill } = extractBillInfo();
   const { agencyDate, reimbursementDate } = extractBillDates();
 
+  
   // Formik setup
   const formik = useFormik({
     initialValues: {
@@ -112,7 +114,8 @@ const ViewBillingJob = () => {
       reimbursement_bill_amount: data?.bill_amount?.split(',')?.[1] || "",
       upload_agency_bill_img: data?.upload_agency_bill_img || "",
       upload_reimbursement_bill_img: data?.upload_reimbursement_bill_img || "",
-      billing_completed_date: data?.billing_completed_date || ""
+      billing_completed_date: data?.billing_completed_date || "",
+      dsr_queries: data?.dsr_queries || [],
     },
     enableReinitialize: true,
 onSubmit: async (values) => {
@@ -129,6 +132,7 @@ onSubmit: async (values) => {
       upload_agency_bill_img: values.upload_agency_bill_img,
       upload_reimbursement_bill_img: values.upload_reimbursement_bill_img,
       billing_completed_date: values.billing_completed_date,
+      dsr_queries: values.dsr_queries || []
     };
     
     // Get user info from localStorage for audit trail
@@ -200,11 +204,29 @@ onSubmit: async (values) => {
     }
   };
 
+  
+  
+       const handleQueriesChange = (updatedQueries) => {
+    setData(prev => ({
+      ...prev,
+      dsr_queries: updatedQueries
+      
+    }));
+     formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+  };
+
+     const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log('Query resolved:', resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
+
   const isFieldDisabled = formik.values.agency_bill_date && formik.values.agency_bill_no&& formik.values.reimbursement_bill_no && formik.values.reimbursement_bill_date
   const renderDocuments = (documents, type) => {
     if (!documents || documents.length === 0) {
       return <p>No {type} uploaded yet.</p>;
     }
+    
 
 
 
@@ -336,6 +358,19 @@ onSubmit: async (values) => {
             bl_no_ref={bl_no_ref}
             params={{ job_no, year }}
           />
+
+                {data && data.dsr_queries &&  (
+            <div className="job-details-container">
+              <QueriesComponent
+                queries={data.dsr_queries}
+                onQueriesChange={handleQueriesChange}
+                title="DSR Queries"
+                showResolveButton={true}
+                readOnlyReply={true}
+                onResolveQuery={handleResolveQuery}
+              />
+            </div>
+          )}
 
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />

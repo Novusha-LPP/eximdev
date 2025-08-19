@@ -140,15 +140,15 @@ function ViewESanchitJob() {
   };
 
   const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
+      dsr_queries: updatedQueries,
     }));
   };
 
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
   };
   // Fetch data
@@ -212,7 +212,6 @@ function ViewESanchitJob() {
         setTimeout(() => {
           window.close();
         }, 500);
-
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -392,17 +391,16 @@ function ViewESanchitJob() {
               setSnackbar={setSnackbar}
             />
 
-            
-<div style={{ margin: "20px 0" }}>
-      <QueriesComponent
-        queries={data.dsr_queries}
-        onQueriesChange={handleQueriesChange}
-        title="Esanchit Queries"
-        showResolveButton={true}
-        readOnlyReply={true}
-        onResolveQuery={handleResolveQuery}
-      />
-    </div>
+            <div>
+              <QueriesComponent
+                queries={data.dsr_queries}
+                onQueriesChange={handleQueriesChange}
+                title="Esanchit Queries"
+                showResolveButton={true}
+                readOnlyReply={false}
+                onResolveQuery={handleResolveQuery}
+              />
+            </div>
 
             {/* Charges section */}
             <div className="job-details-container">
@@ -739,7 +737,6 @@ function ViewESanchitJob() {
               <h4>All Documents</h4>
               {renderAllDocuments(data.all_documents)}
             </div>
-
 
             <div className="job-details-container">
               <h4>All Cleared E-Sanchit</h4>

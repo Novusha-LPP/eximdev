@@ -36,19 +36,37 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useSearchParams } from "react-router-dom";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 
-  const doListOptions = [
-    { value: "", label: "Select DO List" },
-    { value: "ICD Khodiyar / ICD AHMEDABAD", label: "ICD Khodiyar / ICD AHMEDABAD" },
-    { value: "ICD SANAND", label: "ICD SANAND" },
-    { value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK", label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK" },
-    { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
-    { value: "Golden Horn Container Services (Nr. ICD Khodiyar)", label: "Golden Horn Container Services (Nr. ICD Khodiyar)" },
-    { value: "Golden Horn Container Services (Nr. ICD SANAND)", label: "Golden Horn Container Services (Nr. ICD SANAND)" },
-    { value: "JAY BHAVANI CONTAINERS YARD", label: "JAY BHAVANI CONTAINERS YARD" },
-    { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
-    { value: "SATURN GLOBAL TERMINAL PVT LTD", label: "SATURN GLOBAL TERMINAL PVT LTD" },
-    { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" }
-  ];
+const doListOptions = [
+  { value: "", label: "Select DO List" },
+  {
+    value: "ICD Khodiyar / ICD AHMEDABAD",
+    label: "ICD Khodiyar / ICD AHMEDABAD",
+  },
+  { value: "ICD SANAND", label: "ICD SANAND" },
+  {
+    value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
+    label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
+  },
+  { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
+  {
+    value: "Golden Horn Container Services (Nr. ICD Khodiyar)",
+    label: "Golden Horn Container Services (Nr. ICD Khodiyar)",
+  },
+  {
+    value: "Golden Horn Container Services (Nr. ICD SANAND)",
+    label: "Golden Horn Container Services (Nr. ICD SANAND)",
+  },
+  {
+    value: "JAY BHAVANI CONTAINERS YARD",
+    label: "JAY BHAVANI CONTAINERS YARD",
+  },
+  { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
+  {
+    value: "SATURN GLOBAL TERMINAL PVT LTD",
+    label: "SATURN GLOBAL TERMINAL PVT LTD",
+  },
+  { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
+];
 
 function EditDoPlanning() {
   const param = useParams();
@@ -208,7 +226,7 @@ function EditDoPlanning() {
       do_documents: [],
       do_validity: "",
       do_copies: [],
-      do_list:" ",
+      do_list: " ",
       shipping_line_invoice: false,
       shipping_line_invoice_date: "",
       shipping_line_invoice_imgs: [],
@@ -290,7 +308,7 @@ function EditDoPlanning() {
         security_deposit: values.security_deposit,
         do_list: values.do_list,
         is_do_doc_recieved: values.is_do_doc_recieved,
-    do_doc_recieved_date: values.do_doc_recieved_date,
+        do_doc_recieved_date: values.do_doc_recieved_date,
       };
 
       try {
@@ -319,11 +337,10 @@ function EditDoPlanning() {
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 2;
 
-             // Close the tab after successful submit
+        // Close the tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
-
 
         setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
@@ -567,9 +584,9 @@ function EditDoPlanning() {
         insurance_copy: insuranceCopy,
         other_do_documents: otherDoDocuments,
         security_deposit: securityDeposit,
-        do_list: data.do_list || "",  
+        do_list: data.do_list || "",
         is_do_doc_recieved: data.is_do_doc_recieved || false, // Add this field
-      do_doc_recieved_date: data.do_doc_recieved_date || "", 
+        do_doc_recieved_date: data.do_doc_recieved_date || "",
       };
 
       formik.setValues(updatedData);
@@ -593,15 +610,15 @@ function EditDoPlanning() {
   }, [data]); // **Removed 'isDoCompletedEnabled' and 'formik' from dependencies**
 
   const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
+      dsr_queries: updatedQueries,
     }));
   };
 
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
   };
   //
@@ -811,79 +828,75 @@ function EditDoPlanning() {
         </Col>
       </Row>
 
-<br></br>
-
+      <br></br>
 
       {/* Render all other documents */}
       {formik.values.other_do_documents.map((doc, index) =>
         renderDocumentSection(doc, index, "other_do_documents", true, user)
       )}
       {/* Dropdown and Add Document Button */}
- <div
-  style={{
-    marginTop: "20px",
-    padding: "15px",
-    border: "2px dashed #ccc",
-    borderRadius: "5px",
-  }}
->
-  <Row className="g-3" style={{ alignItems: "center" }}>
-    {/* DO Validity Date */}
-    <Col xs={12} md={4}>
-      <TextField
-        type="date"
-        fullWidth
-        size="small"
-        margin="normal"
-        variant="outlined"
-        id="do_validity"
-        name="do_validity"
-        label="DO Validity"
-        value={formik.values.do_validity}
-        onChange={formik.handleChange}
-        InputLabelProps={{ shrink: true }}
-        sx={{ m: 0 }}
-      />
-    </Col>
-
-    {/* Document Type Select */}
-    <Col xs={12} md={4}>
-      <FormControl fullWidth size="small">
-        <InputLabel>Select Document Type</InputLabel>
-        <Select
-          value={selectedDocumentType}
-          onChange={(e) => setSelectedDocumentType(e.target.value)}
-          label="Select Document Type"
-        >
-          <MenuItem value="Shipping Line Invoice">
-            Shipping Line Invoice
-          </MenuItem>
-          <MenuItem value="Insurance">Insurance Copy</MenuItem>
-          <MenuItem value="Security Deposit">Security Deposit</MenuItem>
-          <MenuItem value="other">Other Document</MenuItem>
-        </Select>
-      </FormControl>
-    </Col>
-
-    {/* Add Document Button */}
-    <Col xs={12} md={4}>
-      <Button
-        variant="contained"
-        onClick={handleAddDocument}
-        disabled={!selectedDocumentType}
-        fullWidth
-        style={{ height: "40px" }}
+      <div
+        style={{
+          marginTop: "20px",
+          padding: "15px",
+          border: "2px dashed #ccc",
+          borderRadius: "5px",
+        }}
       >
-        Add Document
-      </Button>
-    </Col>
-  </Row>
-</div>
+        <Row className="g-3" style={{ alignItems: "center" }}>
+          {/* DO Validity Date */}
+          <Col xs={12} md={4}>
+            <TextField
+              type="date"
+              fullWidth
+              size="small"
+              margin="normal"
+              variant="outlined"
+              id="do_validity"
+              name="do_validity"
+              label="DO Validity"
+              value={formik.values.do_validity}
+              onChange={formik.handleChange}
+              InputLabelProps={{ shrink: true }}
+              sx={{ m: 0 }}
+            />
+          </Col>
 
+          {/* Document Type Select */}
+          <Col xs={12} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Select Document Type</InputLabel>
+              <Select
+                value={selectedDocumentType}
+                onChange={(e) => setSelectedDocumentType(e.target.value)}
+                label="Select Document Type"
+              >
+                <MenuItem value="Shipping Line Invoice">
+                  Shipping Line Invoice
+                </MenuItem>
+                <MenuItem value="Insurance">Insurance Copy</MenuItem>
+                <MenuItem value="Security Deposit">Security Deposit</MenuItem>
+                <MenuItem value="other">Other Document</MenuItem>
+              </Select>
+            </FormControl>
+          </Col>
+
+          {/* Add Document Button */}
+          <Col xs={12} md={4}>
+            <Button
+              variant="contained"
+              onClick={handleAddDocument}
+              disabled={!selectedDocumentType}
+              fullWidth
+              style={{ height: "40px" }}
+            >
+              Add Document
+            </Button>
+          </Col>
+        </Row>
+      </div>
     </div>
   );
-
- 
 
   // 5. Updated renderDocumentSection function (replace the existing one)
   const renderDocumentSection = (
@@ -1447,16 +1460,16 @@ function EditDoPlanning() {
 
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
-<div>
-      <QueriesComponent
-        queries={data.dsr_queries}
-        onQueriesChange={handleQueriesChange}
-        title="DSR Queries"
-        showResolveButton={true}
-        readOnlyReply={true}
-        onResolveQuery={handleResolveQuery}
-      />
-    </div>
+      <div>
+        <QueriesComponent
+          queries={data.dsr_queries}
+          onQueriesChange={handleQueriesChange}
+          title="Do Queries"
+          showResolveButton={true}
+          readOnlyReply={false}
+          onResolveQuery={handleResolveQuery}
+        />
+      </div>
       <div style={{ margin: "20px 0" }}>
         {data && (
           <div>
@@ -1480,48 +1493,58 @@ function EditDoPlanning() {
               </div>
               {renderChargesSection()}
 
-<div className="job-details-container">
-  <h5 style={{ marginBottom: "12px", fontWeight: 600, color: "#1a237e" }}>
-    EmptyOff LOC
-  </h5>
-  
-  {/* DO List dropdown - removed the checkbox */}
-  <div style={{ marginBottom: '16px' }}>
-    <select
-      value={formik.values.do_list || ""}
-      onChange={(e) => formik.setFieldValue("do_list", e.target.value)}
-      style={{
-        width: '100%',
-        padding: '8px 12px',
-        fontSize: '14px',
-        borderRadius: '4px',
-        border: '1px solid #ccc',
-        backgroundColor: 'white'
-      }}
-    >
-      {doListOptions.map((option, index) => (
-        <option key={index} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </div>
-  
-  {/* Display selected DO List value if any */}
-  {formik.values.do_list && (
-    <div style={{ 
-      fontSize: '13px', 
-      color: '#388e3c',
-      padding: '4px 12px',
-      backgroundColor: '#e8f5e9',
-      borderRadius: '4px',
-      display: 'inline-block',
-      marginBottom: '10px'
-    }}>
-      <strong>Selected DO List:</strong> {formik.values.do_list}
-    </div>
-  )}
-</div>
+              <div className="job-details-container">
+                <h5
+                  style={{
+                    marginBottom: "12px",
+                    fontWeight: 600,
+                    color: "#1a237e",
+                  }}
+                >
+                  EmptyOff LOC
+                </h5>
+
+                {/* DO List dropdown - removed the checkbox */}
+                <div style={{ marginBottom: "16px" }}>
+                  <select
+                    value={formik.values.do_list || ""}
+                    onChange={(e) =>
+                      formik.setFieldValue("do_list", e.target.value)
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      fontSize: "14px",
+                      borderRadius: "4px",
+                      border: "1px solid #ccc",
+                      backgroundColor: "white",
+                    }}
+                  >
+                    {doListOptions.map((option, index) => (
+                      <option key={index} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Display selected DO List value if any */}
+                {formik.values.do_list && (
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "#388e3c",
+                      padding: "4px 12px",
+                      backgroundColor: "#e8f5e9",
+                      borderRadius: "4px",
+                      display: "inline-block",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    <strong>Selected DO List:</strong> {formik.values.do_list}
+                  </div>
+                )}
+              </div>
               {/* DO Completed Section with Date Display and Admin Input */}
               <div className="job-details-container">
                 <Row>

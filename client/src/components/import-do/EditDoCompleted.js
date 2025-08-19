@@ -299,12 +299,12 @@ function EditDoCompleted() {
 
       try {
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
-      };
+        const headers = {
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
+        };
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-planning`,
           dataToSubmit,
@@ -318,11 +318,10 @@ function EditDoCompleted() {
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 3;
 
-     // Close the tab after successful submit
+        // Close the tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
-
 
         setCurrentTab(tabIndex);
       } catch (error) {
@@ -331,16 +330,16 @@ function EditDoCompleted() {
     },
   });
 
-       const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
+      dsr_queries: updatedQueries,
     }));
   };
 
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
   };
 
@@ -1345,23 +1344,23 @@ function EditDoCompleted() {
   if (!job_no || !year) {
     return (
       <div>
-          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
-            <Button
-              variant="contained"
-              startIcon={<ArrowBackIcon />}
-              onClick={handleBackClick}
-              sx={{
-                // fontWeight: 'bold',
-                backgroundColor: "black",
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "#333",
-                },
-              }}
-            >
-              Back to Job List
-            </Button>
-          </Box>
+        <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={handleBackClick}
+            sx={{
+              // fontWeight: 'bold',
+              backgroundColor: "black",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#333",
+              },
+            }}
+          >
+            Back to Job List
+          </Button>
+        </Box>
         <div>Error: Missing job_no or year parameters in URL</div>
       </div>
     );
@@ -1370,7 +1369,7 @@ function EditDoCompleted() {
   return (
     <>
       {/* Back to Job List Button */}
-          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+      <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
         <Button
           variant="contained"
           onClick={handleBackClick}
@@ -1389,17 +1388,17 @@ function EditDoCompleted() {
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
       {data && data.dsr_queries && (
-  <div >
-    <QueriesComponent
-      queries={data.dsr_queries}
-      onQueriesChange={handleQueriesChange}
-      title="DSR Queries"
-      showResolveButton={true}
-      readOnlyReply={true}
-      onResolveQuery={handleResolveQuery}
-    />
-  </div>
-)}
+        <div>
+          <QueriesComponent
+            queries={data.dsr_queries}
+            onQueriesChange={handleQueriesChange}
+            title="DO Queries"
+            showResolveButton={true}
+            readOnlyReply={false}
+            onResolveQuery={handleResolveQuery}
+          />
+        </div>
+      )}
 
       <div style={{ margin: "20px 0" }}>
         {data && (
@@ -1422,7 +1421,6 @@ function EditDoCompleted() {
                 {data.obl_telex_bl || "N/A"}
                 <br />
               </div>
-           
 
               {/* DO Completed Section with Date Display and Admin Input */}
               <div className="job-details-container">

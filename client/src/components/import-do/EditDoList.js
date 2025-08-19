@@ -18,8 +18,8 @@ import QueriesComponent from "../../utils/QueriesComponent";
 
 function EditDoList() {
   // CSS styles for upload containers
- // Update the uploadContainerStyles constant to include these additional styles:
-const uploadContainerStyles = `
+  // Update the uploadContainerStyles constant to include these additional styles:
+  const uploadContainerStyles = `
   .upload-container {
     border: 2px solid #e3e8ef;
     border-radius: 12px;
@@ -210,7 +210,7 @@ const uploadContainerStyles = `
   // Fix 1: Properly destructure all needed parameters
   const param = useParams();
   const { job_no, year } = param;
-    
+
   const [fileSnackbar, setFileSnackbar] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState(false);
   const [jobDetails, setJobDetails] = React.useState({
@@ -218,13 +218,13 @@ const uploadContainerStyles = `
     importer: "",
     awb_bl_no: "",
   });
-  
+
   const bl_no_ref = useRef();
-  
+
   const location = useLocation();
   const [params] = useSearchParams();
   const jobId = params.get("jobId");
-    
+
   console.log(jobId, "jobId from params");
   const navigate = useNavigate();
   const { setCurrentTab } = useContext(TabContext);
@@ -233,21 +233,21 @@ const uploadContainerStyles = `
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = React.useState(null);
 
-  console.log(data, "RESPONSE")
+  console.log(data, "RESPONSE");
   // Store search parameters from location state
   React.useEffect(() => {
     if (location.state) {
-      const { 
-        jobId, 
-        searchQuery, 
-        selectedImporter, 
-        selectedICD, 
+      const {
+        jobId,
+        searchQuery,
+        selectedImporter,
+        selectedICD,
         selectedYearState,
         fromJobList,
         currentTab,
-        currentPage
+        currentPage,
       } = location.state;
-      
+
       const params = {
         jobId,
         searchQuery,
@@ -262,15 +262,13 @@ const uploadContainerStyles = `
     }
   }, [location.state]);
 
- 
-
   // Handle back to job list navigation
   const handleBackToJobList = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 1; // Default to List tab (index 1)
-    
+
     // Set the current tab in context
     setCurrentTab(tabIndex);
-    
+
     // Navigate back to the Import DO with all stored search parameters
     navigate("/import-do", {
       state: {
@@ -321,7 +319,8 @@ const uploadContainerStyles = `
           ...formik.values,
           shipping_line_kyc_completed: shipping_line_kyc_completed === "Yes",
           shipping_line_bond_completed: shipping_line_bond_completed === "Yes",
-          shipping_line_invoice_received: shipping_line_invoice_received === "Yes",
+          shipping_line_invoice_received:
+            shipping_line_invoice_received === "Yes",
           kyc_documents: kyc_documents || [],
           kyc_valid_upto: kyc_valid_upto || "",
           shipping_line_bond_valid_upto: shipping_line_bond_valid_upto || "",
@@ -345,16 +344,16 @@ const uploadContainerStyles = `
     fetchJobDetails();
   }, [job_no, year]);
 
-   const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
+      dsr_queries: updatedQueries,
     }));
   };
 
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
   };
 
@@ -397,47 +396,46 @@ const uploadContainerStyles = `
             ? "Yes"
             : "No",
         };
-         // Get user info from localStorage for audit trail
-         const username =
+        // Get user info from localStorage for audit trail
+        const username =
           user?.username || localStorage.getItem("username") || "unknown";
         const userId =
           user?.jobId || localStorage.getItem("userId") || "unknown";
         const userRole =
           user?.role || localStorage.getItem("userRole") || "unknown";
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': userId,
-          'username': username,
-          'user-role': userRole
+          "Content-Type": "application/json",
+          "user-id": userId,
+          username: username,
+          "user-role": userRole,
         };
-        
+
         // Log for debugging
-        console.log('DO update - sending user info:', {
-          userId: headers['user-id'],
-          username: headers['username'],
-          role: headers['user-role']
+        console.log("DO update - sending user info:", {
+          userId: headers["user-id"],
+          username: headers["username"],
+          role: headers["user-role"],
         });
-        
+
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-list`,
           data,
           { headers }
         );
-        
+
         setSnackbar(true);
-        
+
         // Determine which tab to navigate to
         const tabIndex = storedSearchParams?.tabIndex ?? 1; // Default to List tab (index 1)
-        
+
         // Set the current tab in context
         setCurrentTab(tabIndex);
-        
+
         // Navigate back with all the stored search parameters
         // Close the tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
-
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -488,24 +486,19 @@ const uploadContainerStyles = `
           Back to Job List
         </Button>
       </Box>
-      {data && (
-        <JobDetailsStaticData
-          data={data}
-          params={{ job_no, year }}
-        /> 
+      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+      {data && data.dsr_queries && (
+        <div>
+          <QueriesComponent
+            queries={data.dsr_queries}
+            onQueriesChange={handleQueriesChange}
+            title="Do Queries"
+            showResolveButton={true}
+            readOnlyReply={false}
+            onResolveQuery={handleResolveQuery}
+          />
+        </div>
       )}
-        {data && data.dsr_queries && (
-  <div className="job-details-container">
-    <QueriesComponent
-      queries={data.dsr_queries}
-      onQueriesChange={handleQueriesChange}
-      title="DSR Queries"
-      showResolveButton={true}
-      readOnlyReply={true}
-      onResolveQuery={handleResolveQuery}
-    />
-  </div>
-)}
       <form onSubmit={formik.handleSubmit}>
         <FormControlLabel
           control={
@@ -547,10 +540,9 @@ const uploadContainerStyles = `
           <Col className="col-md-4">
             <div className="upload-container">
               <div className="section-header">
-               
                 <h6>KYC Documents</h6>
               </div>
-              
+
               <div className="form-field">
                 <label className="field-label">KYC Valid Until</label>
                 <TextField
@@ -566,7 +558,7 @@ const uploadContainerStyles = `
                   InputLabelProps={{ shrink: true }}
                 />
               </div>
-              
+
               <FileUpload
                 label="Upload KYC Documents"
                 bucketPath="kyc_documents"
@@ -588,14 +580,13 @@ const uploadContainerStyles = `
               />
             </div>
           </Col>
-          
+
           <Col className="col-md-4">
             <div className="upload-container">
               <div className="section-header">
-               
                 <h6>Shipping Line Bond Documents</h6>
               </div>
-              
+
               <div className="form-field">
                 <label className="field-label">Bond Charges (Optional)</label>
                 <TextField
@@ -609,12 +600,13 @@ const uploadContainerStyles = `
                   onChange={formik.handleChange}
                 />
               </div>
-              
+
               <FileUpload
                 label="Upload Bond Documents"
                 bucketPath="shipping_line_bond_docs"
                 onFilesUploaded={(newFiles) => {
-                  const existingFiles = formik.values.shipping_line_bond_docs || [];
+                  const existingFiles =
+                    formik.values.shipping_line_bond_docs || [];
                   const updatedFiles = [...existingFiles, ...newFiles];
                   formik.setFieldValue("shipping_line_bond_docs", updatedFiles);
                   setFileSnackbar(true);
@@ -624,21 +616,22 @@ const uploadContainerStyles = `
               <ImagePreview
                 images={formik.values.shipping_line_bond_docs || []}
                 onDeleteImage={(index) => {
-                  const updatedFiles = [...formik.values.shipping_line_bond_docs];
+                  const updatedFiles = [
+                    ...formik.values.shipping_line_bond_docs,
+                  ];
                   updatedFiles.splice(index, 1);
                   formik.setFieldValue("shipping_line_bond_docs", updatedFiles);
                 }}
               />
             </div>
           </Col>
-          
+
           <Col className="col-md-4">
             <div className="upload-container">
               <div className="section-header">
-             
                 <h6>Shipping Line Insurance</h6>
               </div>
-              
+
               <div className="form-field">
                 <label className="field-label">Bond Valid Until</label>
                 <TextField
@@ -654,12 +647,13 @@ const uploadContainerStyles = `
                   InputLabelProps={{ shrink: true }}
                 />
               </div>
-              
+
               <FileUpload
                 label="Upload Insurance Documents"
                 bucketPath="shipping_line_insurance"
                 onFilesUploaded={(newFiles) => {
-                  const existingFiles = formik.values.shipping_line_insurance || [];
+                  const existingFiles =
+                    formik.values.shipping_line_insurance || [];
                   const updatedFiles = [...existingFiles, ...newFiles];
                   formik.setFieldValue("shipping_line_insurance", updatedFiles);
                   setFileSnackbar(true);
@@ -669,7 +663,9 @@ const uploadContainerStyles = `
               <ImagePreview
                 images={formik.values.shipping_line_insurance || []}
                 onDeleteImage={(index) => {
-                  const updatedFiles = [...formik.values.shipping_line_insurance];
+                  const updatedFiles = [
+                    ...formik.values.shipping_line_insurance,
+                  ];
                   updatedFiles.splice(index, 1);
                   formik.setFieldValue("shipping_line_insurance", updatedFiles);
                 }}
@@ -679,12 +675,7 @@ const uploadContainerStyles = `
         </Row>
 
         <div className="submit-section">
-          <button
-            className="submit-btn"
-            type="submit"
-            aria-label="submit-btn"
-
-          >
+          <button className="submit-btn" type="submit" aria-label="submit-btn">
             Submit Documents
           </button>
         </div>
@@ -693,9 +684,7 @@ const uploadContainerStyles = `
       <Snackbar
         open={snackbar || fileSnackbar}
         message={
-          snackbar
-            ? "Submitted successfully!"
-            : "File uploaded successfully!"
+          snackbar ? "Submitted successfully!" : "File uploaded successfully!"
         }
         sx={{ left: "auto !important", right: "24px !important" }}
         onClose={() => {

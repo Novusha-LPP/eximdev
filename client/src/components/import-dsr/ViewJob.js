@@ -62,10 +62,7 @@ function JobDetails() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { setTabValue } = React.useContext(TabValueContext);
-  const {
-    setSearchQuery,
-    setSelectedImporter,
-  } = useSearchQuery();
+  const { setSearchQuery, setSelectedImporter } = useSearchQuery();
 
   const [storedSearchParams, setStoredSearchParams] = useState(null);
   useEffect(() => {
@@ -146,9 +143,8 @@ function JobDetails() {
     const value = event.target.value;
     setImportTerms(value);
     // Update formik
-    formik.setFieldValue('import_terms', value);
+    formik.setFieldValue("import_terms", value);
   };
-
 
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
@@ -181,7 +177,7 @@ function JobDetails() {
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
 
   // Import Terms state
-  const [importTerms, setImportTerms] = useState('CIF');
+  const [importTerms, setImportTerms] = useState("CIF");
 
   const {
     data,
@@ -272,7 +268,10 @@ function JobDetails() {
 
   // Sync import_terms from formik to local state when component loads
   useEffect(() => {
-    if (formik.values.import_terms && formik.values.import_terms !== importTerms) {
+    if (
+      formik.values.import_terms &&
+      formik.values.import_terms !== importTerms
+    ) {
       setImportTerms(formik.values.import_terms);
     }
   }, [formik.values.import_terms]);
@@ -344,12 +343,12 @@ function JobDetails() {
   };
 
   function toISTLocalInput(date) {
-  if (!date) return "";
-  const d = new Date(date);
-  // Convert to IST by adding 5.5 hours (19800 seconds)
-  d.setMinutes(d.getMinutes() + d.getTimezoneOffset() + 330);
-  return d.toISOString().slice(0, 16);
-}
+    if (!date) return "";
+    const d = new Date(date);
+    // Convert to IST by adding 5.5 hours (19800 seconds)
+    d.setMinutes(d.getMinutes() + d.getTimezoneOffset() + 330);
+    return d.toISOString().slice(0, 16);
+  }
   // // Trigger the `updateDetailedStatus` function when form values change
   useEffect(() => {
     updateDetailedStatus();
@@ -391,30 +390,29 @@ function JobDetails() {
   //   }
   // };
 
-
   // ...existing code...
 
-// Helper to get the correct date for "Delivery Completed"
-const getDeliveryCompletedDate = () => {
-  const containers = formik.values.container_nos || [];
-  if (!containers.length) return null;
+  // Helper to get the correct date for "Delivery Completed"
+  const getDeliveryCompletedDate = () => {
+    const containers = formik.values.container_nos || [];
+    if (!containers.length) return null;
 
-  // LCL: use delivery_date, else use emptyContainerOffLoadDate
-  const isLCL = formik.values.consignment_type === "LCL";
-  const key = isLCL ? "delivery_date" : "emptyContainerOffLoadDate";
+    // LCL: use delivery_date, else use emptyContainerOffLoadDate
+    const isLCL = formik.values.consignment_type === "LCL";
+    const key = isLCL ? "delivery_date" : "emptyContainerOffLoadDate";
 
-  // Check if all containers have the required date
-  const allHaveDate = containers.every(c => c[key]);
-  if (!allHaveDate) return null;
+    // Check if all containers have the required date
+    const allHaveDate = containers.every((c) => c[key]);
+    if (!allHaveDate) return null;
 
-  // Get the last container's date
-  const lastDate = containers[containers.length - 1][key];
-  return lastDate || null;
-};
+    // Get the last container's date
+    const lastDate = containers[containers.length - 1][key];
+    return lastDate || null;
+  };
 
-const deliveryCompletedDate = getDeliveryCompletedDate();
+  const deliveryCompletedDate = getDeliveryCompletedDate();
 
-// ...existing code...
+  // ...existing code...
   const handleBlStatusChange = (event) => {
     const selectedValue = event.target.value;
 
@@ -607,20 +605,18 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
     setDutyModalOpen(false);
   };
 
-  
   const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
+      dsr_queries: updatedQueries,
     }));
   };
 
-  
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
-  }
+  };
   const handleDutySubmit = async (updateData) => {
     try {
       // Update formik values with IGST values from the modal
@@ -646,7 +642,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`; // Fixed template literal syntax
   }
-
 
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
@@ -686,19 +681,16 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
           </div>
           {/* Importer info End*/}
 
-<div>
-      <QueriesComponent
-        queries={data.dsr_queries}
-        onQueriesChange={handleQueriesChange}
-        title="DSR Queries"
-        showResolveButton={true}
-        readOnlyReply={true}
-        onResolveQuery={handleResolveQuery}
-      />
-    </div>
-
-
-
+          <div>
+            <QueriesComponent
+              queries={data.dsr_queries}
+              onQueriesChange={handleQueriesChange}
+              title="DSR Queries"
+              showResolveButton={true}
+              readOnlyReply={false}
+              onResolveQuery={handleResolveQuery}
+            />
+          </div>
 
           {/* completion status start*/}
           <div className="job-details-container">
@@ -881,7 +873,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     label="Set Date (Admin Only)"
                     value={
                       formik.values.do_completed
-                        ? new Date(formik.values.do_completed).toISOString().slice(0, 16)
+                        ? new Date(formik.values.do_completed)
+                            .toISOString()
+                            .slice(0, 16)
                         : ""
                     }
                     onChange={(e) =>
@@ -893,7 +887,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   />
                 </Col>
               )}
-              
             </Row>
             <Row style={{ marginTop: "10px" }}>
               <Col xs={12} lg={3}>
@@ -942,56 +935,57 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   />
                 </Col>
               )}
-       <Col xs={12} lg={3}>
-  <div className="job-detail-input-container">
-    <strong>
-      Delivery Completed :{" "}
-      {deliveryCompletedDate ? (
-        <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-          {
-          new Date(deliveryCompletedDate).toLocaleString("en-US", {
-            timeZone: "Asia/Kolkata",
-            hour12: true,
-          })
-          }
-        </span>
-      ) : (
-        <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-          Pending
-        </span>
-      )}
-    </strong>
-  </div>
-</Col>
-{user?.role === "Admin" && (
-  <Col xs={12} md={3}>
-    <TextField
-      type="datetime-local"
-      fullWidth
-      size="small"
-      margin="normal"
-      variant="outlined"
-      id="bill_document_sent_to_accounts"
-      name="bill_document_sent_to_accounts"
-      label="Set Date (Admin Only)"
-      value={
-        deliveryCompletedDate
-          ? formatDateForInput(deliveryCompletedDate)
-          : ""
-      }
-      onChange={(e) =>
-        formik.setFieldValue(
-          "bill_document_sent_to_accounts",
-          e.target.value
-        )
-      }
-      disabled={!deliveryCompletedDate}
-      InputLabelProps={{
-        shrink: true,
-      }}
-    />
-  </Col>
-)}
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>
+                    Delivery Completed :{" "}
+                    {deliveryCompletedDate ? (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        {new Date(deliveryCompletedDate).toLocaleString(
+                          "en-US",
+                          {
+                            timeZone: "Asia/Kolkata",
+                            hour12: true,
+                          }
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+                        Pending
+                      </span>
+                    )}
+                  </strong>
+                </div>
+              </Col>
+              {user?.role === "Admin" && (
+                <Col xs={12} md={3}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    id="bill_document_sent_to_accounts"
+                    name="bill_document_sent_to_accounts"
+                    label="Set Date (Admin Only)"
+                    value={
+                      deliveryCompletedDate
+                        ? formatDateForInput(deliveryCompletedDate)
+                        : ""
+                    }
+                    onChange={(e) =>
+                      formik.setFieldValue(
+                        "bill_document_sent_to_accounts",
+                        e.target.value
+                      )
+                    }
+                    disabled={!deliveryCompletedDate}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Col>
+              )}
             </Row>
             <Row style={{ marginTop: "20px" }}>
               {/* Bill Document Sent */}
@@ -1018,7 +1012,10 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
               </Col>
               {/* Bill Agency No */}
               <Col xs={14} lg={3}>
-                <div className="job-detail-input-container" style={{ justifyContent: "flex-start" }}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
                   <strong>Bill Agency:&nbsp;</strong>
                   <TextField
                     fullWidth
@@ -1028,7 +1025,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     onChange={(e) => {
                       const currentBillNo = formik.values.bill_no || "";
                       const billParts = currentBillNo.split(",");
-                      const newBillNo = `${e.target.value.trim()},${(billParts[1] || "").trim()}`;
+                      const newBillNo = `${e.target.value.trim()},${(
+                        billParts[1] || ""
+                      ).trim()}`;
                       formik.setFieldValue("bill_no", newBillNo);
                     }}
                     disabled={user?.role !== "Admin" || isSubmissionDate}
@@ -1039,7 +1038,10 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
 
               {/* Bill Reimbursement No */}
               <Col xs={14} lg={3}>
-                <div className="job-detail-input-container" style={{ justifyContent: "flex-start" }}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
                   <strong>Bill Reimbursement:&nbsp;</strong>
                   <TextField
                     fullWidth
@@ -1049,7 +1051,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     onChange={(e) => {
                       const currentBillNo = formik.values.bill_no || "";
                       const billParts = currentBillNo.split(",");
-                      const newBillNo = `${(billParts[0] || "").trim()},${e.target.value.trim()}`;
+                      const newBillNo = `${(
+                        billParts[0] || ""
+                      ).trim()},${e.target.value.trim()}`;
                       formik.setFieldValue("bill_no", newBillNo);
                     }}
                     disabled={user?.role !== "Admin" || isSubmissionDate}
@@ -1060,7 +1064,10 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
 
               {/* Bill Date (First Only) */}
               <Col xs={12} lg={3}>
-                <div className="job-detail-input-container" style={{ justifyContent: "flex-start" }}>
+                <div
+                  className="job-detail-input-container"
+                  style={{ justifyContent: "flex-start" }}
+                >
                   <strong>Bill Date:&nbsp;</strong>
                   <TextField
                     fullWidth
@@ -1068,7 +1075,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     variant="outlined"
                     type="datetime-local"
                     value={(() => {
-                      const firstDateStr = (formik.values.bill_date || "").split(",")[0]?.trim();
+                      const firstDateStr = (formik.values.bill_date || "")
+                        .split(",")[0]
+                        ?.trim();
                       if (firstDateStr) {
                         const date = new Date(firstDateStr);
                         if (!isNaN(date.getTime())) {
@@ -1080,7 +1089,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     onChange={(e) => {
                       const currentBillDate = formik.values.bill_date || "";
                       const dateParts = currentBillDate.split(",");
-                      const newBillDate = `${e.target.value},${(dateParts[1] || "").trim()}`;
+                      const newBillDate = `${e.target.value},${(
+                        dateParts[1] || ""
+                      ).trim()}`;
                       formik.setFieldValue("bill_date", newBillDate);
                     }}
                     disabled={user?.role !== "Admin" || isSubmissionDate}
@@ -1152,7 +1163,9 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     </MenuItem>
 
                     <MenuItem value="Billing Pending">Billing Pending</MenuItem>
-                    <MenuItem value="Status Completed">Status Completed</MenuItem>
+                    <MenuItem value="Status Completed">
+                      Status Completed
+                    </MenuItem>
                   </TextField>
                 </div>
               </Col>
@@ -1163,9 +1176,8 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Tracking Status" />
 
-             <Row style={{ marginTop: "20px" }}>
-              
-               <Col xs={12} lg={4}>
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
@@ -1179,14 +1191,14 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     id="awb_bl_no"
                     name="awb_bl_no"
                     // disabled={isSubmissionDate}
-                    value={formik.values.awb_bl_no  || ""}
+                    value={formik.values.awb_bl_no || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter BL No"
                   />
                 </div>
               </Col>
-                           <Col xs={12} lg={4}>
+              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>BL Date:&nbsp;</strong>
                   <TextField
@@ -1209,11 +1221,10 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   />
                 </div>
               </Col>
-             </Row>
-            
-                         <Row style={{ marginTop: "20px" }}>
-              
-               <Col xs={12} lg={4}>
+            </Row>
+
+            <Row style={{ marginTop: "20px" }}>
+              <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
                   style={{ justifyContent: "flex-start" }}
@@ -1227,14 +1238,14 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     id="hawb_hbl_no"
                     name="hawb_hbl_no"
                     // disabled={isSubmissionDate}
-                    value={formik.values.hawb_hbl_no  || ""}
+                    value={formik.values.hawb_hbl_no || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter HAWBL No"
                   />
                 </div>
               </Col>
-                           <Col xs={12} lg={4}>
+              <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
                   <strong>HAWBL Date:&nbsp;</strong>
                   <TextField
@@ -1257,7 +1268,7 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   />
                 </div>
               </Col>
-             </Row>
+            </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
                 <div className="job-detail-input-container">
@@ -1386,9 +1397,12 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                     type="datetime-local"
                     id="discharge_date"
                     name="discharge_date"
-                    disabled={!formik.values.vessel_berthing || ExBondflag || isSubmissionDate}
+                    disabled={
+                      !formik.values.vessel_berthing ||
+                      ExBondflag ||
+                      isSubmissionDate
+                    }
                     value={
-                      
                       formik.values.discharge_date
                         ? formik.values.discharge_date.length === 10
                           ? `${formik.values.discharge_date}T00:00`
@@ -1570,20 +1584,31 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
               <Row style={{ marginTop: "20px" }}>
                 <Col xs={12}>
                   <Box sx={{ mt: 2 }}>
-                    <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: '14px', color: '#34495e', mb: 2, display: 'block' }}>
+                    <FormLabel
+                      component="legend"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        color: "#34495e",
+                        mb: 2,
+                        display: "block",
+                      }}
+                    >
                       Terms of Invoice
                     </FormLabel>
-                    
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'flex-start', 
-                      gap: 4,
-                      flexWrap: 'wrap',
-                      '@media (max-width: 768px)': {
-                        flexDirection: 'column',
-                        gap: 2
-                      }
-                    }}>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 4,
+                        flexWrap: "wrap",
+                        "@media (max-width: 768px)": {
+                          flexDirection: "column",
+                          gap: 2,
+                        },
+                      }}
+                    >
                       {/* Radio Group Section */}
                       <Box sx={{ minWidth: 200 }}>
                         <FormControl component="fieldset">
@@ -1594,105 +1619,142 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                             onChange={handleImportTermsChange}
                             sx={{ gap: 0.5 }}
                           >
-                            <FormControlLabel 
-                              value="CIF" 
-                              control={<Radio size="small" />} 
-                              label={<Typography sx={{ fontSize: '14px' }}>CIF</Typography>}
+                            <FormControlLabel
+                              value="CIF"
+                              control={<Radio size="small" />}
+                              label={
+                                <Typography sx={{ fontSize: "14px" }}>
+                                  CIF
+                                </Typography>
+                              }
                             />
-                            <FormControlLabel 
-                              value="FOB" 
-                              control={<Radio size="small" />} 
-                              label={<Typography sx={{ fontSize: '14px' }}>FOB</Typography>}
+                            <FormControlLabel
+                              value="FOB"
+                              control={<Radio size="small" />}
+                              label={
+                                <Typography sx={{ fontSize: "14px" }}>
+                                  FOB
+                                </Typography>
+                              }
                             />
-                            <FormControlLabel 
-                              value="CF" 
-                              control={<Radio size="small" />} 
-                              label={<Typography sx={{ fontSize: '14px' }}>C&F</Typography>}
+                            <FormControlLabel
+                              value="CF"
+                              control={<Radio size="small" />}
+                              label={
+                                <Typography sx={{ fontSize: "14px" }}>
+                                  C&F
+                                </Typography>
+                              }
                             />
-                            <FormControlLabel 
-                              value="CI" 
-                              control={<Radio size="small" />} 
-                              label={<Typography sx={{ fontSize: '14px' }}>C&I</Typography>}
+                            <FormControlLabel
+                              value="CI"
+                              control={<Radio size="small" />}
+                              label={
+                                <Typography sx={{ fontSize: "14px" }}>
+                                  C&I
+                                </Typography>
+                              }
                             />
                           </RadioGroup>
                         </FormControl>
                       </Box>
 
                       {/* Conditional Fields Section */}
-                      <Box sx={{ 
-                        flex: 1, 
-                        minWidth: 300,
-                        padding: 2,
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: 2,
-                        border: '1px solid #e9ecef'
-                      }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <Box
+                        sx={{
+                          flex: 1,
+                          minWidth: 300,
+                          padding: 2,
+                          backgroundColor: "#f8f9fa",
+                          borderRadius: 2,
+                          border: "1px solid #e9ecef",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
+                          }}
+                        >
                           <TextField
-                            label={`${formik.values.import_terms || importTerms} Value (₹)`}
+                            label={`${
+                              formik.values.import_terms || importTerms
+                            } Value (₹)`}
                             type="number"
                             name="cifValue"
-                            value={formik.values.cifValue || ''}
+                            value={formik.values.cifValue || ""}
                             onChange={formik.handleChange}
                             size="small"
                             variant="outlined"
-                            sx={{ 
+                            sx={{
                               maxWidth: 250,
-                              '& .MuiOutlinedInput-root': {
-                                backgroundColor: 'white'
-                              }
+                              "& .MuiOutlinedInput-root": {
+                                backgroundColor: "white",
+                              },
                             }}
                           />
 
-                          {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'CI') && (
+                          {((formik.values.import_terms || importTerms) ===
+                            "FOB" ||
+                            (formik.values.import_terms || importTerms) ===
+                              "CI") && (
                             <TextField
                               label="Freight (₹)"
                               type="number"
                               name="freight"
-                              value={formik.values.freight || ''}
+                              value={formik.values.freight || ""}
                               onChange={formik.handleChange}
                               size="small"
                               variant="outlined"
-                              sx={{ 
+                              sx={{
                                 maxWidth: 250,
-                                '& .MuiOutlinedInput-root': {
-                                  backgroundColor: 'white'
-                                }
+                                "& .MuiOutlinedInput-root": {
+                                  backgroundColor: "white",
+                                },
                               }}
                             />
                           )}
 
-                          {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'CF') && (
+                          {((formik.values.import_terms || importTerms) ===
+                            "FOB" ||
+                            (formik.values.import_terms || importTerms) ===
+                              "CF") && (
                             <TextField
                               label="Insurance (₹)"
                               type="number"
                               name="insurance"
-                              value={formik.values.insurance || ''}
+                              value={formik.values.insurance || ""}
                               onChange={formik.handleChange}
                               size="small"
                               variant="outlined"
-                              sx={{ 
+                              sx={{
                                 maxWidth: 250,
-                                '& .MuiOutlinedInput-root': {
-                                  backgroundColor: 'white'
-                                }
+                                "& .MuiOutlinedInput-root": {
+                                  backgroundColor: "white",
+                                },
                               }}
                             />
                           )}
 
                           {/* Helper text based on selected import terms */}
-                          <Typography 
-                            variant="caption" 
-                            sx={{ 
-                              color: '#6c757d', 
-                              fontStyle: 'italic',
-                              mt: 1
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#6c757d",
+                              fontStyle: "italic",
+                              mt: 1,
                             }}
                           >
-                            {(formik.values.import_terms || importTerms) === 'CIF' && 'Cost, Insurance & Freight included'}
-                            {(formik.values.import_terms || importTerms) === 'FOB' && 'Free on Board - Add freight & insurance'}
-                            {(formik.values.import_terms || importTerms) === 'CF' && 'Cost & Freight - Add insurance'}
-                            {(formik.values.import_terms || importTerms) === 'CI' && 'Cost & Insurance - Add freight'}
+                            {(formik.values.import_terms || importTerms) ===
+                              "CIF" && "Cost, Insurance & Freight included"}
+                            {(formik.values.import_terms || importTerms) ===
+                              "FOB" &&
+                              "Free on Board - Add freight & insurance"}
+                            {(formik.values.import_terms || importTerms) ===
+                              "CF" && "Cost & Freight - Add insurance"}
+                            {(formik.values.import_terms || importTerms) ===
+                              "CI" && "Cost & Insurance - Add freight"}
                           </Typography>
                         </Box>
                       </Box>
@@ -1946,32 +2008,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   </TextField>
                 </div>
               </Col>
-
-              {/* Scheme Selection */}
-              {/* <Col xs={12} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  variant="outlined"
-                  label="Scheme:"
-                  name="scheme"
-                  value={formik.values.scheme}
-                  onChange={formik.handleChange}
-                  style={{ marginBottom: "16px" }}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select Scheme
-                  </MenuItem>
-                  {schemeOptions.map((schemeOption, index) => (
-                    <MenuItem key={index} value={schemeOption}>
-                      {schemeOption}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Col> */}
-
               {/* Ex-Bond Details (shown only if Clearance Under is "Ex-Bond") */}
               <Col xs={12} lg={4}>
                 {ExBondflag && (
@@ -2888,9 +2924,10 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                   style={{ justifyContent: "flex-start" }}
                 >
                   <strong>
-                   {formik.values.is_obl_recieved? "OBL Recived By DO Team ": ""}
+                    {formik.values.is_obl_recieved
+                      ? "OBL Recived By DO Team "
+                      : ""}
                   </strong>
-                
                 </div>
               </Col>
               <Col xs={12} lg={4}>
@@ -3945,30 +3982,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                           )}
                         </div>
                       </Col>
-
-                      {/* <Col xs={12} lg={1}>
-                        <div className="job-detail-input-container">
-                          <strong>Free Time:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            select
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            id="free_time"
-                            name="free_time"
-                            value={formik.values.free_time}
-                            onChange={formik.handleChange}
-                            disabled={user.role !== "Admin"} // Disable if the user is not Admin
-                          >
-                            {options?.map((option, id) => (
-                              <MenuItem key={id} value={option}>
-                                {option}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </div>
-                      </Col> */}
                       <Col xs={12} lg={2} className="flex-div">
                         <strong>Detention From:&nbsp;</strong>
                         {detentionFrom[index]}
@@ -3977,40 +3990,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                         <strong>DO Validity:&nbsp;</strong>
                         {subtractOneDay(detentionFrom[index])}
                       </Col>
-                      {/* <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>DO Validity :&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            key={index}
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            type="date"
-                            id={`do_validity_upto_container_level_${index}`}
-                            name={`container_nos[${index}].do_validity_upto_container_level`}
-                            value={container.do_validity_upto_container_level}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col> */}
-                      {/* <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Required DO Validity Upto:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            key={index}
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            type="date"
-                            id={`required_do_validity_upto_${index}`}
-                            name={`container_nos[${index}].required_do_validity_upto`}
-                            value={container.required_do_validity_upto}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col> */}
                       <Col xs={12} lg={3}>
                         <div className="job-detail-input-container">
                           <strong>Required DO Validity Upto:&nbsp;</strong>
@@ -4153,22 +4132,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
                           />
                         </div>
                       </Col>
-                      {/* <Col xs={12} lg={3}>
-                        <div className="job-detail-input-container">
-                          <strong>Weight as per Document:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            key={index}
-                            size="small"
-                            margin="normal"
-                            variant="outlined"
-                            id={`net_weight_${index}`}
-                            name={`container_nos[${index}].net_weight`}
-                            value={container.net_weight}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col> */}
                     </Row>
 
                     <Row>
@@ -4441,66 +4404,6 @@ const deliveryCompletedDate = getDeliveryCompletedDate();
         }
         sx={{ left: "auto !important", right: "24px !important" }}
       />
-      {/* Modal for Review and Alteration */}
-      {/* Modal for Review and Alteration */}
-      {/* Modal for Review and Download */}
-      {/* <Modal
-        show={showModal}
-        onHide={handleCloseModal}
-        size="lg"
-        centered
-        style={{ marginTop: "40px" }}
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Review and Download Job Sticker</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <JobStickerPDF
-            ref={jobStickerRef}
-            jobData={{
-              job_no: formik.values.job_no,
-              year: formik.values.year,
-              importer: formik.values.importer,
-              be_no: formik.values.be_no,
-              be_date: formik.values.be_date,
-              invoice_number: formik.values.invoice_number,
-              invoice_date: formik.values.invoice_date,
-              loading_port: formik.values.loading_port,
-              no_of_pkgs: formik.values.no_of_pkgs,
-              description: formik.values.description,
-              gross_weight: formik.values.gross_weight,
-              job_net_weight: formik.values.job_net_weight,
-              gateway_igm: formik.values.gateway_igm,
-              gateway_igm_date: formik.values.gateway_igm_date,
-              igm_no: formik.values.igm_no,
-              igm_date: formik.values.igm_date,
-              awb_bl_no: formik.values.awb_bl_no,
-              awb_bl_date: formik.values.awb_bl_date,
-              shipping_line_airline: formik.values.shipping_line_airline,
-              custom_house: formik.values.custom_house,
-              container_nos: formik.values.container_nos,
-            }}
-            data={data}
-          />
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={handleCloseModal}
-            disabled={isDownloading}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleDownload}
-            disabled={isDownloading}
-          >
-            {isDownloading ? "Downloading..." : "Download PDF"}
-          </Button>
-        </Modal.Footer>
-      </Modal> */}
-      {/* Confirm Deletion */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>

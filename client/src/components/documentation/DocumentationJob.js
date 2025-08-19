@@ -335,13 +335,13 @@ const DocumentationJob = () => {
             params={{ job_no, year }}
           />
 
-          <div className="job-details-container">
+          <div>
             <QueriesComponent
               queries={data.dsr_queries}
               onQueriesChange={handleQueriesChange}
-              title="DSR Queries"
+              title="Documentation Queries"
               showResolveButton={true}
-              readOnlyReply={true}
+              readOnlyReply={false}
               onResolveQuery={handleResolveQuery}
             />
           </div>
@@ -587,170 +587,6 @@ const DocumentationJob = () => {
                 }}
               />
             </div>
-          </div>
-
-          {/* Documentation Queries Section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Documentation Queries" />
-            <br />
-
-            {/* Group queries by module */}
-            {Object.entries(
-              (data.dsr_queries || []).reduce((acc, item) => {
-                if (!acc[item.select_module]) acc[item.select_module] = [];
-                acc[item.select_module].push(item);
-                return acc;
-              }, {})
-            ).map(([moduleName, queries]) => (
-              <div key={moduleName} style={{ marginBottom: "20px" }}>
-                <h5 style={{ fontWeight: "bold", marginBottom: "10px" }}>
-                  {moduleName || "Unassigned"} Queries
-                </h5>
-
-                {queries.map((item, id) => {
-                  const index = data.dsr_queries.findIndex((q) => q === item);
-                  const isResolved =
-                    item.resolved === true ||
-                    (!!item.reply && item.reply.trim() !== "");
-
-                  return (
-                    <Row key={id} style={{ marginBottom: "20px" }}>
-                      <Col xs={12} lg={4}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          size="small"
-                          label={isResolved ? "Query (Resolved)" : "Query"}
-                          value={item.query}
-                          onChange={(e) => {
-                            const updated = [...data.dsr_queries];
-                            updated[index] = {
-                              ...updated[index],
-                              query: e.target.value,
-                            };
-                            setData((prev) => ({
-                              ...prev,
-                              dsr_queries: updated,
-                            }));
-                          }}
-                          disabled={isResolved}
-                          InputProps={{
-                            style: isResolved
-                              ? {
-                                  border: "2px solid #4caf50",
-                                  background: "#eaffea",
-                                }
-                              : {},
-                          }}
-                        />
-                      </Col>
-
-                      <Col xs={12} lg={4}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          size="small"
-                          label={isResolved ? "Reply (Resolved)" : "Reply"}
-                          value={item.reply}
-                          onChange={(e) => {
-                            const updated = [...data.dsr_queries];
-                            updated[index] = {
-                              ...updated[index],
-                              reply: e.target.value,
-                            };
-                            setData((prev) => ({
-                              ...prev,
-                              dsr_queries: updated,
-                            }));
-                          }}
-                          InputProps={{
-                            readOnly: true,
-                            style: isResolved
-                              ? {
-                                  border: "2px solid #4caf50",
-                                  background: "#eaffea",
-                                }
-                              : {},
-                          }}
-                        />
-                      </Col>
-
-                      <Col xs={12} lg={2} className="d-flex align-items-center">
-                        <TextField
-                          select
-                          fullWidth
-                          size="small"
-                          value={item.select_module || ""}
-                          onChange={(e) => {
-                            const updated = [...data.dsr_queries];
-                            updated[index] = {
-                              ...updated[index],
-                              select_module: e.target.value,
-                            };
-                            setData((prev) => ({
-                              ...prev,
-                              dsr_queries: updated,
-                            }));
-                          }}
-                          disabled={isResolved}
-                          SelectProps={{ native: true }}
-                        >
-                          <option value="">Select Module</option>
-                          <option value="DSR">DSR</option>
-                          <option value="DO">DO</option>
-                          <option value="Documentation">Documentation</option>
-                          <option value="E-Sanchit">E-Sanchit</option>
-                          <option value="Submission">Submission</option>
-                          <option value="Operations">Operations</option>
-                        </TextField>
-                      </Col>
-
-                      {isResolved && (
-                        <Col
-                          xs={12}
-                          lg={2}
-                          className="d-flex align-items-center"
-                        >
-                          <span
-                            style={{
-                              color: "#388e3c",
-                              fontWeight: "bold",
-                              marginLeft: 8,
-                            }}
-                          >
-                            Resolved
-                          </span>
-                        </Col>
-                      )}
-                    </Row>
-                  );
-                })}
-              </div>
-            ))}
-
-            {/* Add Query Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setData((prev) => ({
-                  ...prev,
-                  dsr_queries: [
-                    ...(prev.dsr_queries || []),
-                    {
-                      query: "",
-                      reply: "",
-                      select_module: "",
-                      resolved: false,
-                    },
-                  ],
-                }));
-              }}
-              className="btn"
-            >
-              Add Query
-            </button>
           </div>
 
           <form onSubmit={handleSubmit}>

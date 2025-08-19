@@ -307,13 +307,13 @@ const SubmissionJob = () => {
             params={{ job_no, year }}
           />
 
-          <div className="job-details-container">
+          <div>
             <QueriesComponent
               queries={data.dsr_queries}
               onQueriesChange={handleQueriesChange}
-              title="DSR Queries"
+              title="Submission Queries"
               showResolveButton={true}
-              readOnlyReply={true}
+              readOnlyReply={false}
               onResolveQuery={handleResolveQuery}
             />
           </div>

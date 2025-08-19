@@ -46,18 +46,18 @@ function ViewOperationsJob() {
   const { selectedJobId, searchQuery, page } = location.state || {};
 
   // Add stored search parameters state
-  const [storedSearchParams, setStoredSearchParams] = useState(null);  // Store search parameters from location state
+  const [storedSearchParams, setStoredSearchParams] = useState(null); // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        selectedJobId, 
-        currentTab, 
-        selectedICD, 
-        selectedYearState, 
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        selectedICD,
+        selectedYearState,
         detailedStatusExPlan,
-        currentPage 
+        currentPage,
       } = location.state;
       setStoredSearchParams({
         searchQuery,
@@ -70,10 +70,10 @@ function ViewOperationsJob() {
         currentPage,
       });
     }
-  }, [location.state]);  // Handle back click function - following e-sanchit pattern exactly
+  }, [location.state]); // Handle back click function - following e-sanchit pattern exactly
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab
-    
+
     navigate("/import-operations", {
       state: {
         fromJobDetails: true,
@@ -103,19 +103,17 @@ function ViewOperationsJob() {
     }
   };
 
-  
-       const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
-      
+      dsr_queries: updatedQueries,
     }));
-     formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+    formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
   };
 
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
   };
   const handleContainerFileUpload = async (e, container_number, fileType) => {
@@ -360,18 +358,18 @@ function ViewOperationsJob() {
             setSnackbar={setSnackbar}
           />
 
-            {data && data.dsr_queries &&  (
-  <div className="job-details-container">
-    <QueriesComponent
-      queries={data.dsr_queries}
-      onQueriesChange={handleQueriesChange}
-      title="DSR Queries"
-      showResolveButton={true}
-      readOnlyReply={true}
-      onResolveQuery={handleResolveQuery}
-    />
-  </div>
-)}
+          {data && data.dsr_queries && (
+            <div>
+              <QueriesComponent
+                queries={data.dsr_queries}
+                onQueriesChange={handleQueriesChange}
+                title="Oprations Queries"
+                showResolveButton={true}
+                readOnlyReply={false}
+                onResolveQuery={handleResolveQuery}
+              />
+            </div>
+          )}
           {/* ********************** CTH Documents ********************** */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />

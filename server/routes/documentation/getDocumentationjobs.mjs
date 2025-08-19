@@ -45,7 +45,8 @@ router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) =
       "Gateway IGM Filed",
       "Estimated Time of Arrival",
       "ETA Date Pending",
-      "Arrived, BE Note Pending"
+      "Arrived, BE Note Pending",
+      "Rail Out"
     ];
 
     // Build the base query

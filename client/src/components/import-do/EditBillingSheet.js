@@ -71,8 +71,7 @@ function EditBillingSheet() {
   const handleBackClick = () => {
     const tabIndex = storedSearchParams?.currentTab ?? 4;
 
-    navigate("/import-do", {
-    });
+    navigate("/import-do", {});
   };
 
   const formik = useFormik({
@@ -120,7 +119,7 @@ function EditBillingSheet() {
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
         const tabIndex = storedSearchParams?.currentTab ?? 4;
-            // Close the tab after successful submit
+        // Close the tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
@@ -136,18 +135,17 @@ function EditBillingSheet() {
     },
   });
 
-       const handleQueriesChange = (updatedQueries) => {
-    setData(prev => ({
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
       ...prev,
-      dsr_queries: updatedQueries
-      
+      dsr_queries: updatedQueries,
     }));
-     formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+    formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
   };
 
-   const handleResolveQuery = (resolvedQuery, index) => {
+  const handleResolveQuery = (resolvedQuery, index) => {
     // Custom logic when a query is resolved
-    console.log('Query resolved:', resolvedQuery);
+    console.log("Query resolved:", resolvedQuery);
     // You can add API calls, notifications, etc.
   };
 
@@ -171,7 +169,7 @@ function EditBillingSheet() {
           shipping_line_invoice_imgs: jobData.shipping_line_invoice_imgs || [],
           bill_document_sent_to_accounts:
             jobData.bill_document_sent_to_accounts || "",
-            dsr_queries: jobData.dsr_queries || [],
+          dsr_queries: jobData.dsr_queries || [],
         });
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -208,20 +206,20 @@ function EditBillingSheet() {
 
       {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
 
-      {data && data.dsr_queries &&  (
-  <div className="job-details-container">
-    <QueriesComponent
-      queries={data.dsr_queries}
-      onQueriesChange={handleQueriesChange}
-      title="DSR Queries"
-      showResolveButton={true}
-      readOnlyReply={true}
-      onResolveQuery={handleResolveQuery}
-    />
-  </div>
-)}
+      {data && data.dsr_queries && (
+        <div>
+          <QueriesComponent
+            queries={data.dsr_queries}
+            onQueriesChange={handleQueriesChange}
+            title="DO Queries"
+            showResolveButton={true}
+            readOnlyReply={false}
+            onResolveQuery={handleResolveQuery}
+          />
+        </div>
+      )}
 
-                 <Charges job_no={job_no} year={year} />
+      <Charges job_no={job_no} year={year} />
 
       <div className="job-details-container">
         <form onSubmit={formik.handleSubmit}>
@@ -385,14 +383,14 @@ function EditBillingSheet() {
               </Col>
             )}
           </Row>
-                <button
-                className="btn sticky-btn"
-                type="submit"
-                style={{ float: "right", margin: "10px" }}
-                aria-label="submit-btn"
-              >
-                Submit
-              </button>
+          <button
+            className="btn sticky-btn"
+            type="submit"
+            style={{ float: "right", margin: "10px" }}
+            aria-label="submit-btn"
+          >
+            Submit
+          </button>
         </form>
       </div>
 

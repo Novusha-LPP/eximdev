@@ -263,6 +263,9 @@ const jobSchema = new mongoose.Schema({
   intrest_ammount: { type: String, trim: true },
   fine_ammount: { type: String, trim: true },
   penalty_ammount: { type: String, trim: true },
+  penalty_by_us: { type: Boolean, default: false },
+  penalty_by_importer: { type: Boolean, default: false },
+  zero_penalty_as_per_bill_of_entry: { type: Boolean, default: false },
 
 
   ////////////////////////////////////////////////// E-sanchit

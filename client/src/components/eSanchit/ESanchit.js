@@ -318,20 +318,7 @@ function ESanchit() {
           );
         },
       },
-        {
-        accessorKey: "remark_esanchit_input",
-        header: "Remarks",
-        enableSorting: false,
-        size: 400,
-        Cell: ({ cell }) => {
-          const { remark_esanchit_input } = cell.row.original;
-          return (
-            <div style={{ padding: "5px", wordWrap: "break-word" }}>
-              {remark_esanchit_input || "No remarks"}
-            </div>
-          );
-        },
-      },
+
       {
         accessorKey: "Doc",
         header: "Doc - IRN Details",

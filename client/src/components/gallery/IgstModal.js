@@ -356,8 +356,8 @@ const IgstModal = ({
       parseFloat(igstValues.igst_ammount || 0) +
       parseFloat(igstValues.sws_ammount || 0) +
       parseFloat(igstValues.intrest_ammount || 0) +
-      parseFloat(igstValues.penalty_ammount || 0) + // Manually entered penalty
-      parseFloat(igstValues.fine_ammount || 0)      // Auto-calculated fine
+      parseFloat(igstValues.penalty_amount || 0) + // Manually entered penalty
+      parseFloat(igstValues.fine_amount || 0)      // Auto-calculated fine
     ).toFixed(2);
 
     const updateData = {
@@ -366,8 +366,8 @@ const IgstModal = ({
       bcd_ammount: igstValues.bcd_ammount,
       sws_ammount: igstValues.sws_ammount,
       intrest_ammount: igstValues.intrest_ammount,
-      penalty_ammount: igstValues.penalty_ammount, // Manually entered
-      fine_ammount: igstValues.fine_ammount,       // Auto-calculated
+      penalty_amount: igstValues.penalty_amount, // Manually entered
+      fine_amount: igstValues.fine_amount,       // Auto-calculated
       total_duty: totalDuty,
       igst_rate: igstValues.igstRate,
       penalty_by_us: igstValues.penalty_by_us,

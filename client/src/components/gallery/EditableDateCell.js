@@ -320,8 +320,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             [field]: finalValue || null,
           };
 
-          // Auto-calculate detention date
-          if (field === "arrival_date") {
+          // Auto-calculate detention date - only for non-LCL consignments
+          if (field === "arrival_date" && consignment_type !== "LCL") {
             if (!finalValue) {
               updatedContainer.detention_from = "";
             } else {
@@ -399,7 +399,13 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       }
     }
   };
+  
   const handleFreeTimeChange = (value) => {
+    // Don't update free time for LCL consignments
+    if (consignment_type === "LCL") {
+      return;
+    }
+
     setLocalFreeTime(value);
     
     // Get user info from localStorage for audit trail
@@ -452,6 +458,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       })
       .catch((err) => console.error("Error Updating Free Time:", err));
   };
+  
   const isIgstFieldsAvailable =
     assessable_ammount && igst_ammount;
 
@@ -679,33 +686,37 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
                 <br />
 
-                <div style={{ marginBottom: "10px" }}>
-                  <strong>Free time:</strong>{" "}
-                  <div
-                    style={{
-                      display: "inline-block",
-                      minWidth: "80px",
-                      marginLeft: "5px",
-                    }}
-                  >
-                    <TextField
-                      select
-                      size="small"
-                      variant="outlined"
-                      value={localFreeTime || ""}
-                      onChange={(e) => handleFreeTimeChange(e.target.value)}
-                      style={{ minWidth: "80px" }}
+                {/* Hide free time section for LCL consignments */}
+                {consignment_type !== "LCL" && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <strong>Free time:</strong>{" "}
+                    <div
+                      style={{
+                        display: "inline-block",
+                        minWidth: "80px",
+                        marginLeft: "5px",
+                      }}
                     >
-                      {options.map((option, id) => (
-                        <MenuItem key={id} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                      <TextField
+                        select
+                        size="small"
+                        variant="outlined"
+                        value={localFreeTime || ""}
+                        onChange={(e) => handleFreeTimeChange(e.target.value)}
+                        style={{ minWidth: "80px" }}
+                      >
+                        {options.map((option, id) => (
+                          <MenuItem key={id} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <br />
+                {/* Hide detention date for LCL consignments */}
                 {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
                   <>
                     <strong>Detention F.:</strong>

@@ -1507,6 +1507,7 @@ function JobDetails() {
                 </Col>
               )}
 
+{ formik.values.consignment_type  !== "LCL"&&
               <Col xs={12} lg={4}>
                 <div
                   className="job-detail-input-container"
@@ -1534,6 +1535,8 @@ function JobDetails() {
                   </TextField>
                 </div>
               </Col>
+}
+
               <Row style={{ marginTop: "20px" }}>
                 <Col xs={12} lg={4}>
                   <div
@@ -2512,135 +2515,6 @@ function JobDetails() {
                     )}
                   </div>
                 </Col>{" "}
-                {/* Remark Checkboxes Section */}
-                <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
-                  <div className="job-detail-input-container">
-                    <FormControl component="fieldset">
-                      <strong
-                        style={{ marginBottom: "10px", display: "block" }}
-                      >
-                        Remark Type:
-                      </strong>
-                      <FormGroup row>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formik.values.esanchit_remark_box}
-                              onChange={(e) => {
-                                formik.setFieldValue(
-                                  "esanchit_remark_box",
-                                  e.target.checked
-                                );
-                                // If unchecking and documentation is also unchecked, clear the remark
-                                if (
-                                  !e.target.checked &&
-                                  !formik.values.documentation_remark_box
-                                ) {
-                                  formik.setFieldValue(
-                                    "remark_esanchit_input",
-                                    ""
-                                  );
-                                }
-                              }}
-                            />
-                          }
-                          label="Esanchit Remark"
-                        />
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formik.values.documentation_remark_box}
-                              onChange={(e) => {
-                                formik.setFieldValue(
-                                  "documentation_remark_box",
-                                  e.target.checked
-                                );
-                                // If unchecking and esanchit is also unchecked, clear the remark
-                                if (
-                                  !e.target.checked &&
-                                  !formik.values.esanchit_remark_box
-                                ) {
-                                  formik.setFieldValue(
-                                    "remark_documentation_input",
-                                    ""
-                                  );
-                                }
-                              }}
-                            />
-                          }
-                          label="Documentation Remark"
-                        />
-                      </FormGroup>
-                    </FormControl>
-                  </div>
-                </Col>
-                <Col xs={12} lg={4} style={{ marginTop: "10px" }}>
-                  {/* Conditional Input Fields */}
-                  {(formik.values.esanchit_remark_box ||
-                    formik.values.documentation_remark_box) && (
-                    <div style={{ marginTop: "15px" }}>
-                      <TextField
-                        fullWidth
-                        label={
-                          formik.values.esanchit_remark_box &&
-                          formik.values.documentation_remark_box
-                            ? "Combined Remark (Esanchit & Documentation)"
-                            : formik.values.esanchit_remark_box
-                            ? "Esanchit Remark"
-                            : "Documentation Remark"
-                        }
-                        multiline
-                        rows={3}
-                        value={
-                          formik.values.esanchit_remark_box &&
-                          formik.values.documentation_remark_box
-                            ? formik.values.remark_esanchit_input || ""
-                            : formik.values.esanchit_remark_box
-                            ? formik.values.remark_esanchit_input || ""
-                            : formik.values.remark_documentation_input || ""
-                        }
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (
-                            formik.values.esanchit_remark_box &&
-                            formik.values.documentation_remark_box
-                          ) {
-                            // Both selected: update both fields with same value
-                            formik.setFieldValue(
-                              "remark_esanchit_input",
-                              value
-                            );
-                            formik.setFieldValue(
-                              "remark_documentation_input",
-                              value
-                            );
-                          } else if (formik.values.esanchit_remark_box) {
-                            // Only esanchit selected
-                            formik.setFieldValue(
-                              "remark_esanchit_input",
-                              value
-                            );
-                          } else {
-                            // Only documentation selected
-                            formik.setFieldValue(
-                              "remark_documentation_input",
-                              value
-                            );
-                          }
-                        }}
-                        variant="outlined"
-                        placeholder={
-                          formik.values.esanchit_remark_box &&
-                          formik.values.documentation_remark_box
-                            ? "Enter remark"
-                            : formik.values.esanchit_remark_box
-                            ? "Enter esanchit remark..."
-                            : "Enter documentation remark..."
-                        }
-                      />
-                    </div>
-                  )}
-                </Col>
               </Row>
             </Row>
             <Row style={{ marginTop: "20px" }}>

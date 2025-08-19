@@ -232,9 +232,13 @@ const FreeDaysConf = () => {
   };
 
   const handleEditClick = (row) => {
+    if(row.consignment_type !== "LCL") {
     setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
     setFreeTimeValue(row.free_time); // Set the current value for editing
     setCurrentPageBeforeEdit(page); // Remember the current page before editing
+    } else {
+      alert("Free Time cannot be edited for LCL consignment type.");
+    }
   };
 
   const handleSave = async (id) => {

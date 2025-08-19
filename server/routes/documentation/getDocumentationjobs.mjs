@@ -129,7 +129,7 @@ const baseQuery = {
     // Fetch jobs from the database
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob job_no year importer remark_documentation_input type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status checklist"
+        "priorityJob job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status checklist"
       )
       .lean();
 
@@ -142,14 +142,6 @@ const baseQuery = {
       return 5; // Default rank for jobs without a priority
     };    // Sort jobs by remark priority first, then by job priority, then by status
     const sortedJobs = allJobs.sort((a, b) => {
-      // First priority: Jobs with documentation remarks
-      const hasRemarkA = a.remark_documentation_input && a.remark_documentation_input.trim() !== "";
-      const hasRemarkB = b.remark_documentation_input && b.remark_documentation_input.trim() !== "";
-      
-      if (hasRemarkA && !hasRemarkB) return -1; // A has remark, B doesn't - A comes first
-      if (!hasRemarkA && hasRemarkB) return 1;  // B has remark, A doesn't - B comes first
-      
-      // If both have remarks or both don't have remarks, sort by priority
       const priorityDifference = priorityRank(a) - priorityRank(b);
       if (priorityDifference !== 0) {
         return priorityDifference; // Sort by priority if different

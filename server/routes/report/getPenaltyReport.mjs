@@ -9,18 +9,18 @@ router.get("/api/report/penalty", async (req, res) => {
     const jobs = await JobModel.find({
       $or: [
         { intrest_ammount: { $exists: true, $ne: "", $ne: "0", $ne: null } },
-        { fine_ammount: { $exists: true, $ne: "", $ne: "0", $ne: null } },
-        { penalty_ammount: { $exists: true, $ne: "", $ne: "0", $ne: null } }
+        { fine_amount: { $exists: true, $ne: "", $ne: "0", $ne: null } },
+        { penalty_amount: { $exists: true, $ne: "", $ne: "0", $ne: null } }
       ]
     })
-    .select("job_no importer intrest_ammount fine_ammount penalty_ammount")
+    .select("job_no importer intrest_ammount fine_amount penalty_amount")
     .sort({ job_no: 1 });
 
     // Filter out jobs where all penalty fields are "0" or empty
     const filteredJobs = jobs.filter(job => {
       const interest = parseFloat(job.intrest_ammount) || 0;
-      const fine = parseFloat(job.fine_ammount) || 0;
-      const penalty = parseFloat(job.penalty_ammount) || 0;
+      const fine = parseFloat(job.fine_amount) || 0;
+      const penalty = parseFloat(job.penalty_amount) || 0;
       
       return interest > 0 || fine > 0 || penalty > 0;
     });
@@ -28,12 +28,12 @@ router.get("/api/report/penalty", async (req, res) => {
     // Sort jobs based on penalty type priority
     const sortedJobs = filteredJobs.sort((a, b) => {
       const aInterest = parseFloat(a.intrest_ammount) || 0;
-      const aFine = parseFloat(a.fine_ammount) || 0;
-      const aPenalty = parseFloat(a.penalty_ammount) || 0;
+      const aFine = parseFloat(a.fine_amount) || 0;
+      const aPenalty = parseFloat(a.penalty_amount) || 0;
       
       const bInterest = parseFloat(b.intrest_ammount) || 0;
-      const bFine = parseFloat(b.fine_ammount) || 0;
-      const bPenalty = parseFloat(b.penalty_ammount) || 0;
+      const bFine = parseFloat(b.fine_amount) || 0;
+      const bPenalty = parseFloat(b.penalty_amount) || 0;
       
       // Create priority scores based on which penalty types exist
       const getPriorityScore = (interest, fine, penalty) => {

@@ -79,8 +79,8 @@ function Penalty() {
 
   // Calculate summary metrics
   const totalInterest = data.reduce((sum, job) => sum + (parseFloat(job.intrest_ammount) || 0), 0);
-  const totalFines = data.reduce((sum, job) => sum + (parseFloat(job.fine_ammount) || 0), 0);
-  const totalPenalties = data.reduce((sum, job) => sum + (parseFloat(job.penalty_ammount) || 0), 0);
+  const totalFines = data.reduce((sum, job) => sum + (parseFloat(job.fine_amount) || 0), 0);
+  const totalPenalties = data.reduce((sum, job) => sum + (parseFloat(job.penalty_amount) || 0), 0);
   const totalAmount = totalInterest + totalFines + totalPenalties;
   // Filter data based on search term and selected importer
   const filteredData = data.filter(job => {
@@ -353,8 +353,8 @@ function Penalty() {
                 <TableBody>
                   {paginatedData.map((job, index) => {
                     const jobTotal = (parseFloat(job.intrest_ammount) || 0) + 
-                                   (parseFloat(job.fine_ammount) || 0) + 
-                                   (parseFloat(job.penalty_ammount) || 0);
+                                   (parseFloat(job.fine_amount) || 0) + 
+                                   (parseFloat(job.penalty_amount) || 0);
                     
                     return (
                       <TableRow 
@@ -385,18 +385,18 @@ function Penalty() {
                         </TableCell>
                         <TableCell align="right" sx={{ py: 2 }}>
                           <Chip
-                            label={formatAmount(job.fine_ammount)}
+                            label={formatAmount(job.fine_amount)}
                             size="small"
-                            color={parseFloat(job.fine_ammount) > 0 ? "error" : "default"}
-                            variant={parseFloat(job.fine_ammount) > 0 ? "filled" : "outlined"}
+                            color={parseFloat(job.fine_amount) > 0 ? "error" : "default"}
+                            variant={parseFloat(job.fine_amount) > 0 ? "filled" : "outlined"}
                           />
                         </TableCell>
                         <TableCell align="right" sx={{ py: 2 }}>
                           <Chip
-                            label={formatAmount(job.penalty_ammount)}
+                            label={formatAmount(job.penalty_amount)}
                             size="small"
-                            color={parseFloat(job.penalty_ammount) > 0 ? "secondary" : "default"}
-                            variant={parseFloat(job.penalty_ammount) > 0 ? "filled" : "outlined"}
+                            color={parseFloat(job.penalty_amount) > 0 ? "secondary" : "default"}
+                            variant={parseFloat(job.penalty_amount) > 0 ? "filled" : "outlined"}
                           />
                         </TableCell>
                         <TableCell align="right" sx={{ py: 2 }}>

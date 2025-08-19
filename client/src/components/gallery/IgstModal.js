@@ -47,8 +47,8 @@ const IgstModal = ({
     bcd_ammount: "",
     sws_ammount: "",
     intrest_ammount: "",
-    penalty_ammount: "", // This will be manually entered
-    fine_ammount: "", // This will be auto-calculated
+    penalty_amount: "", // This will be manually entered
+    fine_amount: "", // This will be auto-calculated
     bcdRate: "",
     swsRate: "10",
     igstRate: "",
@@ -56,6 +56,8 @@ const IgstModal = ({
     penalty_by_importer: false,
     zero_penalty_as_per_bill_of_entry: false,
   });
+
+  console.log("fine",igstValues.fine_amount);
   // Initialize IGST values when modal opens or rowData changes
   useEffect(() => {
     if (open && rowData) {
@@ -65,8 +67,8 @@ const IgstModal = ({
         bcd_ammount: rowData.bcd_ammount || "",
         sws_ammount: rowData.sws_ammount || "",
         intrest_ammount: rowData.intrest_ammount || "",
-        penalty_ammount: rowData.penalty_ammount || "", // Manually entered
-        fine_ammount: rowData.fine_ammount || "", // Will be recalculated
+        penalty_amount: rowData.penalty_amount || "", // Manually entered
+        fine_amount: rowData.fine_amount || "", // Will be recalculated
         bcdRate: "",
         swsRate: "10",
         igstRate: rowData.igst_rate || "",
@@ -255,7 +257,7 @@ const IgstModal = ({
     setIgstValues((prev) => ({
       ...prev,
       intrest_ammount: interestAmount.toFixed(2),
-      fine_ammount: fineAmount.toFixed(2),
+      fine_amount: fineAmount.toFixed(2),
     }));
   }, [
     igstValues.bcd_ammount,
@@ -354,40 +356,28 @@ const IgstModal = ({
       parseFloat(igstValues.igst_ammount || 0) +
       parseFloat(igstValues.sws_ammount || 0) +
       parseFloat(igstValues.intrest_ammount || 0) +
-      parseFloat(igstValues.penalty_ammount || 0) +
-      parseFloat(igstValues.fine_ammount || 0)
+      parseFloat(igstValues.penalty_ammount || 0) + // Manually entered penalty
+      parseFloat(igstValues.fine_ammount || 0)      // Auto-calculated fine
     ).toFixed(2);
 
-    const handleSubmit = () => {
-      const totalDuty = (
-        parseFloat(igstValues.bcd_ammount || 0) +
-        parseFloat(igstValues.igst_ammount || 0) +
-        parseFloat(igstValues.sws_ammount || 0) +
-        parseFloat(igstValues.intrest_ammount || 0) +
-        parseFloat(igstValues.penalty_ammount || 0) + // Manually entered penalty
-        parseFloat(igstValues.fine_ammount || 0)
-      ) // Auto-calculated fine
-        .toFixed(2);
-
-      const updateData = {
-        assessable_ammount: igstValues.assessable_ammount,
-        igst_ammount: igstValues.igst_ammount,
-        bcd_ammount: igstValues.bcd_ammount,
-        sws_ammount: igstValues.sws_ammount,
-        intrest_ammount: igstValues.intrest_ammount,
-        penalty_ammount: igstValues.penalty_ammount, // Manually entered
-        fine_ammount: igstValues.fine_ammount, // Auto-calculated
-        total_duty: totalDuty,
-        igst_rate: igstValues.igstRate,
-        penalty_by_us: igstValues.penalty_by_us,
-        penalty_by_importer: igstValues.penalty_by_importer,
-        zero_penalty_as_per_bill_of_entry:
-          igstValues.zero_penalty_as_per_bill_of_entry,
-      };
-
-      onSubmit(updateData);
+    const updateData = {
+      assessable_ammount: igstValues.assessable_ammount,
+      igst_ammount: igstValues.igst_ammount,
+      bcd_ammount: igstValues.bcd_ammount,
+      sws_ammount: igstValues.sws_ammount,
+      intrest_ammount: igstValues.intrest_ammount,
+      penalty_ammount: igstValues.penalty_ammount, // Manually entered
+      fine_ammount: igstValues.fine_ammount,       // Auto-calculated
+      total_duty: totalDuty,
+      igst_rate: igstValues.igstRate,
+      penalty_by_us: igstValues.penalty_by_us,
+      penalty_by_importer: igstValues.penalty_by_importer,
+      zero_penalty_as_per_bill_of_entry: igstValues.zero_penalty_as_per_bill_of_entry,
     };
+
+    onSubmit(updateData);
   };
+
 
   return (
     <Dialog
@@ -828,11 +818,11 @@ const IgstModal = ({
                 </Typography>
                 <TextField
                   type="number"
-                  value={igstValues.penalty_ammount}
+                  value={igstValues.penalty_amount}
                   onChange={(e) =>
                     setIgstValues((prev) => ({
                       ...prev,
-                      penalty_ammount: e.target.value,
+                      penalty_amount: e.target.value,
                     }))
                   }
                   size="small"
@@ -1019,7 +1009,7 @@ const IgstModal = ({
                     }}
                   >
                     ₹
-                    {parseFloat(igstValues.fine_ammount || 0).toLocaleString(
+                    {parseFloat(igstValues.fine_amount || 0).toLocaleString(
                       "en-IN",
                       {
                         minimumFractionDigits: 2,
@@ -1179,7 +1169,7 @@ const IgstModal = ({
                     <Radio
                       size="small"
                       disabled={
-                        parseFloat(igstValues.penalty_ammount || 0) > 10000
+                        parseFloat(igstValues.penalty_amount || 0) > 10000
                       }
                       sx={{
                         color: "#9f7aea",
@@ -1198,13 +1188,13 @@ const IgstModal = ({
                         fontSize: "0.75rem",
                         fontWeight: 600,
                         color:
-                          parseFloat(igstValues.penalty_ammount || 0) > 10000
+                          parseFloat(igstValues.penalty_amount || 0) > 10000
                             ? "#a0aec0"
                             : "#2d3748",
                       }}
                     >
                       Zero Penalty as per Bill of Entry
-                      {parseFloat(igstValues.penalty_ammount || 0) > 10000 && (
+                      {parseFloat(igstValues.penalty_amount || 0) > 10000 && (
                         <Tooltip title="Disabled for penalties above ₹10,000">
                           <InfoOutlinedIcon
                             sx={{
@@ -1231,7 +1221,7 @@ const IgstModal = ({
                       backgroundColor: "#faf5ff",
                     },
                     opacity:
-                      parseFloat(igstValues.penalty_ammount || 0) > 10000
+                      parseFloat(igstValues.penalty_amount || 0) > 10000
                         ? 0.7
                         : 1,
                   }}
@@ -1310,13 +1300,13 @@ const IgstModal = ({
                   },
                   {
                     label: "Penalty Amount",
-                    value: igstValues.penalty_ammount,
+                    value: igstValues.penalty_amount,
                     color: "#e53e3e",
                     icon: <WarningAmberIcon sx={{ fontSize: 14 }} />,
                   },
                   {
                     label: "Fine Amount",
-                    value: igstValues.fine_ammount,
+                    value: igstValues.fine_amount,
                     color: "#38a169",
                     icon: <MonetizationOnIcon sx={{ fontSize: 14 }} />,
                   },
@@ -1419,8 +1409,8 @@ const IgstModal = ({
                     parseFloat(igstValues.igst_ammount || 0) +
                     parseFloat(igstValues.sws_ammount || 0) +
                     parseFloat(igstValues.intrest_ammount || 0) +
-                    parseFloat(igstValues.penalty_ammount || 0) +
-                    parseFloat(igstValues.fine_ammount || 0)
+                    parseFloat(igstValues.penalty_amount || 0) +
+                    parseFloat(igstValues.fine_amount || 0)
                   ).toLocaleString("en-IN", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,

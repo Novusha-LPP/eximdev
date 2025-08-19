@@ -34,8 +34,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     job_net_weight,
     bcd_ammount,
     sws_ammount,
-    penalty_ammount,
-    fine_ammount,
+    penalty_amount,
+    fine_amount,
   } = rowData;
 
   // Memoize initial dates to prevent unnecessary re-renders

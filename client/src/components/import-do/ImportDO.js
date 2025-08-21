@@ -7,6 +7,7 @@ import List from "./List";
 import DoPlanning from "./DoPlanning";
 import DoCompleted from "./DoCompleted.js";
 import BillingSheet from "./BillingSheet";
+import ImportBilling from "../Import-billing/ImportBilling.js";
 import useTabs from "../../customHooks/useTabs";
 import KycDetails from "./KycDetails";
 import FreeDaysConf from "./FreeDaysConf";
@@ -60,6 +61,7 @@ function ImportDO() {
             <Tab label="DO Planning" {...a11yProps(2)} />
             <Tab label="DO Completed" {...a11yProps(3)} />
             <Tab label="Billing Sheet" {...a11yProps(4)} />
+            <Tab label="Sent to Account Team" {...a11yProps(4)} />
             {/* <Tab label="KYC Details" {...a11yProps(5)} /> */}
           </Tabs>
         </Box>
@@ -77,6 +79,9 @@ function ImportDO() {
         </CustomTabPanel>
         <CustomTabPanel value={value} index={4}>
           <BillingSheet />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={5}>
+          <ImportBilling />
         </CustomTabPanel>
         {/* <CustomTabPanel value={value} index={5}>
           <KycDetails />

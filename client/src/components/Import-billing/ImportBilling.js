@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { TabContext } from "../eSanchit/ESanchitTab.js";
 import {
   TextField,
   InputAdornment,
@@ -21,6 +20,7 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import DocsCell from "../gallery/DocsCell.js";
+import { TabContext } from "../import-do/ImportDO.js";
 
 function ImportBilling() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -41,6 +41,8 @@ function ImportBilling() {
   const location = useLocation();
   const [importers, setImporters] = useState("");
   
+    console.log(currentTab, "tab")
+
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
@@ -341,26 +343,40 @@ useEffect(() => {
             });
           }
 
-          return (
-         <a
-  href={`/view-billing-job/${job_no}/${year}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{
-    display: 'inline-block',
-    cursor: "pointer",
-    color: textColor,
-    backgroundColor: bgColor || "transparent",
-    padding: "10px",
-    borderRadius: "5px",
-    textAlign: "center",
-    textDecoration: "none",
-  }}
->
-  {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
-</a>
+return currentTab === 0 ? (
+  <a
+    href={`/view-billing-job/${job_no}/${year}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      display: "inline-block",
+      cursor: "pointer",
+      color: textColor,
+      backgroundColor: bgColor || "transparent",
+      padding: "10px",
+      borderRadius: "5px",
+      textAlign: "center",
+      textDecoration: "none",
+    }}
+  >
+    {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+  </a>
+) : (
+  <div
+    style={{
+      display: "inline-block",
+      cursor: "default",
+      color: textColor,
+      backgroundColor: bgColor || "transparent",
+      padding: "10px",
+      borderRadius: "5px",
+      textAlign: "center",
+    }}
+  >
+    {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+  </div>
+);
 
-          );
         },
       },
       {

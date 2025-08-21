@@ -493,246 +493,258 @@ function ViewESanchitJob() {
               ))}
             </div>
 
-            <div className="job-details-container">
-              <h4>Documents</h4>
-              {formik.values.cth_documents?.map((document, index) => (
-                <div
-                  key={index}
+<div className="job-details-container">
+  <h4>Documents</h4>
+  {formik.values.cth_documents
+    ?.filter(document => document.is_sent_to_esanchit === true)
+    ?.map((document, index) => (
+    <div
+      key={index}
+      style={{
+        marginBottom: "20px",
+        padding: "10px",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+      }}
+    >
+      <Row className="align-items-center">
+        {/* File Upload & Image Preview */}
+        <Col
+          xs={12}
+          lg={4}
+          key={`cth-${index}`}
+          style={{ marginBottom: "20px", position: "relative" }}
+        >
+          <FileUpload
+            label={`${document.document_name} (${document.document_code})`}
+            bucketPath={`cth-documents/${document.document_name}`}
+            onFilesUploaded={(urls) => {
+              const updatedDocuments = [
+                ...formik.values.cth_documents,
+              ];
+              // Find the original index in the unfiltered array
+              const originalIndex = formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              );
+              updatedDocuments[originalIndex].url = [
+                ...(updatedDocuments[originalIndex].url || []),
+                ...urls,
+              ];
+              formik.setFieldValue(
+                "cth_documents",
+                updatedDocuments
+              );
+              setFileSnackbar(true);
+            }}
+            multiple={true}
+            readOnly={isDisabled}
+          />
+          <ImagePreview
+            images={document.url || []}
+            onDeleteImage={(deleteIndex) => {
+              const updatedDocuments = [
+                ...formik.values.cth_documents,
+              ];
+              // Find the original index in the unfiltered array
+              const originalIndex = formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              );
+              updatedDocuments[originalIndex].url.splice(deleteIndex, 1);
+              formik.setFieldValue(
+                "cth_documents",
+                updatedDocuments
+              );
+            }}
+            readOnly={isDisabled}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+            }}
+          >
+            {!isDisabled && (
+              <>
+                <span
                   style={{
-                    marginBottom: "20px",
-                    padding: "10px",
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
+                    cursor: "pointer",
+                    marginRight: "10px",
+                    color: "#007bff",
                   }}
+                  onClick={() => handleOpenDialog(document, true)}
                 >
-                  <Row className="align-items-center">
-                    {/* File Upload & Image Preview */}
-                    <Col
-                      xs={12}
-                      lg={4}
-                      key={`cth-${index}`}
-                      style={{ marginBottom: "20px", position: "relative" }}
-                    >
-                      <FileUpload
-                        label={`${document.document_name} (${document.document_code})`}
-                        bucketPath={`cth-documents/${document.document_name}`}
-                        onFilesUploaded={(urls) => {
-                          const updatedDocuments = [
-                            ...formik.values.cth_documents,
-                          ];
-                          updatedDocuments[index].url = [
-                            ...(updatedDocuments[index].url || []),
-                            ...urls,
-                          ];
-                          formik.setFieldValue(
-                            "cth_documents",
-                            updatedDocuments
-                          );
-                          setFileSnackbar(true);
-                        }}
-                        multiple={true}
-                        readOnly={isDisabled}
-                      />
-                      <ImagePreview
-                        images={document.url || []}
-                        onDeleteImage={(deleteIndex) => {
-                          const updatedDocuments = [
-                            ...formik.values.cth_documents,
-                          ];
-                          updatedDocuments[index].url.splice(deleteIndex, 1);
-                          formik.setFieldValue(
-                            "cth_documents",
-                            updatedDocuments
-                          );
-                        }}
-                        readOnly={isDisabled}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "10px",
-                          right: "10px",
-                        }}
-                      >
-                        {!isDisabled && (
-                          <>
-                            <span
-                              style={{
-                                cursor: "pointer",
-                                marginRight: "10px",
-                                color: "#007bff",
-                              }}
-                              onClick={() => handleOpenDialog(document, true)}
-                            >
-                              <i className="fas fa-edit" title="Edit"></i>
-                            </span>
-                            <span
-                              style={{ cursor: "pointer", color: "#dc3545" }}
-                              onClick={() => handleOpenDialog(document, false)}
-                            >
-                              <i
-                                className="fas fa-trash-alt"
-                                title="Delete"
-                              ></i>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </Col>
+                  <i className="fas fa-edit" title="Edit"></i>
+                </span>
+                <span
+                  style={{ cursor: "pointer", color: "#dc3545" }}
+                  onClick={() => handleOpenDialog(document, false)}
+                >
+                  <i
+                    className="fas fa-trash-alt"
+                    title="Delete"
+                  ></i>
+                </span>
+              </>
+            )}
+          </div>
+        </Col>
 
-                    {/* IRN Input */}
-                    <Col xs={12} lg={4}>
-                      <TextField
-                        size="small"
-                        label="IRN"
-                        name={`cth_documents[${index}].irn`}
-                        value={formik.values.cth_documents[index]?.irn || ""}
-                        onChange={formik.handleChange}
-                        fullWidth
-                        disabled={isDisabled}
-                      />
-                    </Col>
+        {/* IRN Input */}
+        <Col xs={12} lg={4}>
+          <TextField
+            size="small"
+            label="IRN"
+            name={`cth_documents[${formik.values.cth_documents.findIndex(
+              doc => doc.document_code === document.document_code && 
+                     doc.document_name === document.document_name
+            )}].irn`}
+            value={document.irn || ""}
+            onChange={(e) => {
+              const updatedDocuments = [...formik.values.cth_documents];
+              const originalIndex = formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              );
+              updatedDocuments[originalIndex].irn = e.target.value;
+              formik.setFieldValue("cth_documents", updatedDocuments);
+            }}
+            fullWidth
+            disabled={isDisabled}
+          />
+        </Col>
 
-                    <Col xs={12} lg={4}>
-                      <div>
-                        <Checkbox
-                          checked={
-                            !!formik.values.cth_documents[index]
-                              ?.document_check_date
-                          }
-                          onChange={() => {
-                            const updatedDocuments = [
-                              ...formik.values.cth_documents,
-                            ];
-                            if (updatedDocuments[index].document_check_date) {
-                              // Clear the date-time when checkbox is unchecked
-                              updatedDocuments[index].document_check_date = "";
-                            } else {
-                              // Set current date-time when checkbox is checked
-                              updatedDocuments[index].document_check_date =
-                                new Date(
-                                  Date.now() -
-                                    new Date().getTimezoneOffset() * 60000
-                                )
-                                  .toISOString()
-                                  .slice(0, 16);
-                            }
-                            formik.setFieldValue(
-                              "cth_documents",
-                              updatedDocuments
-                            );
-                          }}
-                          disabled={isDisabled}
-                        />
-                        <strong>Approved Date</strong>
-                        {formik.values.cth_documents[index]
-                          ?.document_check_date && (
-                          <span
-                            style={{ marginLeft: "10px", fontWeight: "bold" }}
-                          >
-                            {new Date(
-                              formik.values.cth_documents[
-                                index
-                              ]?.document_check_date
-                            ).toLocaleString("en-US", {
-                              timeZone: "Asia/Kolkata",
-                              hour12: true,
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      {user.role === "Admin" && (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="datetime-local"
-                          name={`cth_documents[${index}].document_check_date`}
-                          value={
-                            formik.values.cth_documents[index]
-                              ?.document_check_date || ""
-                          }
-                          onChange={(e) => {
-                            const updatedDocuments = [
-                              ...formik.values.cth_documents,
-                            ];
-                            updatedDocuments[index].document_check_date =
-                              e.target.value;
-                            formik.setFieldValue(
-                              "cth_documents",
-                              updatedDocuments
-                            );
-                          }}
-                          InputLabelProps={{
-                            shrink: true,
-                          }}
-                          disabled={isDisabled}
-                        />
-                      )}
-                    </Col>
-                  </Row>
-                </div>
-              ))}
+        <Col xs={12} lg={4}>
+          <div>
+            <Checkbox
+              checked={!!document.document_check_date}
+              onChange={() => {
+                const updatedDocuments = [...formik.values.cth_documents];
+                const originalIndex = formik.values.cth_documents.findIndex(
+                  doc => doc.document_code === document.document_code && 
+                         doc.document_name === document.document_name
+                );
+                if (updatedDocuments[originalIndex].document_check_date) {
+                  // Clear the date-time when checkbox is unchecked
+                  updatedDocuments[originalIndex].document_check_date = "";
+                } else {
+                  // Set current date-time when checkbox is checked
+                  updatedDocuments[originalIndex].document_check_date =
+                    new Date(
+                      Date.now() -
+                        new Date().getTimezoneOffset() * 60000
+                    )
+                      .toISOString()
+                      .slice(0, 16);
+                }
+                formik.setFieldValue("cth_documents", updatedDocuments);
+              }}
+              disabled={isDisabled}
+            />
+            <strong>Approved Date</strong>
+            {document.document_check_date && (
+              <span
+                style={{ marginLeft: "10px", fontWeight: "bold" }}
+              >
+                {new Date(document.document_check_date).toLocaleString("en-US", {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })}
+              </span>
+            )}
+          </div>
+          {user.role === "Admin" && (
+            <TextField
+              fullWidth
+              size="small"
+              type="datetime-local"
+              name={`cth_documents[${formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              )}].document_check_date`}
+              value={document.document_check_date || ""}
+              onChange={(e) => {
+                const updatedDocuments = [...formik.values.cth_documents];
+                const originalIndex = formik.values.cth_documents.findIndex(
+                  doc => doc.document_code === document.document_code && 
+                         doc.document_name === document.document_name
+                );
+                updatedDocuments[originalIndex].document_check_date = e.target.value;
+                formik.setFieldValue("cth_documents", updatedDocuments);
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              disabled={isDisabled}
+            />
+          )}
+        </Col>
+      </Row>
+    </div>
+  ))}
 
-              <div>
-                <Row style={{ marginBottom: "20px", alignItems: "center" }}>
-                  <Col xs={12} lg={3}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel shrink={true}>Select Document</InputLabel>
-                      <Select
-                        disabled={isDisabled}
-                        value={selectedDocument}
-                        onChange={(e) => {
-                          setSelectedDocument(e.target.value);
-                        }}
-                        displayEmpty
-                        label="Select Document"
-                      >
-                        {cth_Dropdown.map((doc) => (
-                          <MenuItem
-                            key={doc.document_code}
-                            value={doc.document_code}
-                          >
-                            {doc.document_name}
-                          </MenuItem>
-                        ))}
-                        <MenuItem value="other">Other</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Col>
-                  {selectedDocument === "other" && (
-                    <>
-                      <Col xs={12} lg={3}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="New Document Name"
-                          value={newDocumentName}
-                          onChange={(e) => setNewDocumentName(e.target.value)}
-                        />
-                      </Col>
-                      <Col xs={12} lg={3}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="New Document Code"
-                          value={newDocumentCode}
-                          onChange={(e) => setNewDocumentCode(e.target.value)}
-                        />
-                      </Col>
-                    </>
-                  )}
-                  <Col
-                    xs={12}
-                    lg={2}
-                    style={{ display: "flex", justifyContent: "flex-end" }}
-                  >
-                    <button type="button" className="btn" onClick={addDocument}>
-                      Add Document
-                    </button>
-                  </Col>
-                </Row>
-              </div>
-            </div>
+  <div>
+    <Row style={{ marginBottom: "20px", alignItems: "center" }}>
+      <Col xs={12} lg={3}>
+        <FormControl fullWidth size="small">
+          <InputLabel shrink={true}>Select Document</InputLabel>
+          <Select
+            disabled={isDisabled}
+            value={selectedDocument}
+            onChange={(e) => {
+              setSelectedDocument(e.target.value);
+            }}
+            displayEmpty
+            label="Select Document"
+          >
+            {cth_Dropdown.map((doc) => (
+              <MenuItem
+                key={doc.document_code}
+                value={doc.document_code}
+              >
+                {doc.document_name}
+              </MenuItem>
+            ))}
+            <MenuItem value="other">Other</MenuItem>
+          </Select>
+        </FormControl>
+      </Col>
+      {selectedDocument === "other" && (
+        <>
+          <Col xs={12} lg={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="New Document Name"
+              value={newDocumentName}
+              onChange={(e) => setNewDocumentName(e.target.value)}
+            />
+          </Col>
+          <Col xs={12} lg={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="New Document Code"
+              value={newDocumentCode}
+              onChange={(e) => setNewDocumentCode(e.target.value)}
+            />
+          </Col>
+        </>
+      )}
+      <Col
+        xs={12}
+        lg={2}
+        style={{ display: "flex", justifyContent: "flex-end" }}
+      >
+        <button type="button" className="btn" onClick={addDocument}>
+          Add Document
+        </button>
+      </Col>
+    </Row>
+  </div>
+</div>
 
             <div className="job-details-container">
               <h4>All Documents</h4>

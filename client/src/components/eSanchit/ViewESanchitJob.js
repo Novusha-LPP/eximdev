@@ -394,8 +394,9 @@ function ViewESanchitJob() {
             <div>
               <QueriesComponent
                 queries={data.dsr_queries}
+                currentModule="E-Sanchit"
                 onQueriesChange={handleQueriesChange}
-                title="Esanchit Queries"
+                title="E-sanchit Queries"
                 showResolveButton={true}
                 readOnlyReply={false}
                 onResolveQuery={handleResolveQuery}

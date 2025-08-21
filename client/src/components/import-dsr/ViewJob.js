@@ -684,6 +684,7 @@ function JobDetails() {
           <div>
             <QueriesComponent
               queries={data.dsr_queries}
+              currentModule="Import DSR"
               onQueriesChange={handleQueriesChange}
               title="DSR Queries"
               showResolveButton={true}

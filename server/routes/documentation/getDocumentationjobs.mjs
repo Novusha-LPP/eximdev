@@ -21,7 +21,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer, year } = req.query;
+    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -105,6 +105,14 @@ const baseQuery = {
   ],
 };
 
+    // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
+
     // ✅ Add Year Filter if provided
     // ✅ Ensure year is correctly formatted before applying the filter
     if (year && year !== "Select Year") {
@@ -153,6 +161,16 @@ const baseQuery = {
       );
     });
 
+    const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
     // Apply pagination after sorting
     const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
@@ -166,6 +184,7 @@ const baseQuery = {
         currentPage: pageNumber,
         jobs: [], // ✅ Return an empty array instead of 404
         message: "No data found for the selected filters",
+        unresolvedCount
       });
     }
 
@@ -174,6 +193,7 @@ const baseQuery = {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount, // ✅ Include unresolved count
     });
   } catch (err) {
     console.error("Error fetching documentation jobs:", err.stack);

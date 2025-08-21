@@ -1457,6 +1457,7 @@ function EditPaymentRequest() {
         <div>
           <QueriesComponent
             queries={data.dsr_queries}
+            currentModule="Payment Request"
             onQueriesChange={handleQueriesChange}
             title="Accounts Queries"
             showResolveButton={true}

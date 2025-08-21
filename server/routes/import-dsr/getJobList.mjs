@@ -215,14 +215,9 @@ router.get(
       }
 
       // Add unresolvedOnly filter if requested
- if (unresolvedOnly === "true") {
+if (unresolvedOnly === "true") {
   query.$and.push({
-    $or: [
-      { do_queries: { $elemMatch: { resolved: { $ne: true } } } },
-      { documentationQueries: { $elemMatch: { resolved: { $ne: true } } } },
-      { eSachitQueries: { $elemMatch: { resolved: { $ne: true } } } },
-      { submissionQueries: { $elemMatch: { resolved: { $ne: true } } } },
-    ]
+    dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
   });
 }
 

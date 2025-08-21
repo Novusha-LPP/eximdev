@@ -5,7 +5,9 @@ import { MaterialReactTable } from "material-react-table";
 import {
   IconButton,
   TextField,
+  Button,
   Box,
+  Badge,
   Pagination,
   CircularProgress,
   Typography,
@@ -27,18 +29,28 @@ function Documentation() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
-  
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
-  const [totalJobs, setTotalJobs] = React.useState(0);  const [totalPages, setTotalPages] = React.useState(1);
+  const [totalJobs, setTotalJobs] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const limit = 100; // Number of items per page
-  
+
   // Use context for searchQuery, selectedImporter, and currentPage for documentation tab
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDocTab0: currentPage, setCurrentPageDocTab0: setCurrentPage } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState(searchQuery);
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageDocTab0: currentPage,
+    setCurrentPageDocTab0: setCurrentPage,
+  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] =
+    React.useState(searchQuery);
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -124,7 +136,13 @@ function Documentation() {
         setSelectedImporter(location.state.selectedImporter);
       }
     }
-  }, [location.state?.fromJobDetails, location.state?.searchQuery, location.state?.selectedImporter, setSearchQuery, setSelectedImporter]);
+  }, [
+    location.state?.fromJobDetails,
+    location.state?.searchQuery,
+    location.state?.selectedImporter,
+    setSearchQuery,
+    setSelectedImporter,
+  ]);
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
@@ -132,7 +150,8 @@ function Documentation() {
       currentPage,
       currentSearchQuery,
       selectedImporter,
-      selectedYearState
+      selectedYearState,
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -144,8 +163,9 @@ function Documentation() {
               limit,
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
-              year: selectedYearState || "", // ✅ Send year to backend
+              year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -155,32 +175,34 @@ function Documentation() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount, // ✅ Get unresolved count from response
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
-        // setPage(returnedPage);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
-        setRows([]); // Reset rows if an error occurs
+        setRows([]);
         setTotalPages(1);
+        setUnresolvedCount(0);
       } finally {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
+    [limit, user?.username] // ✅ Add username as a dependency
   );
-  // ✅ Added selectedYear as a dependency
 
- // Fetch jobs when page or debounced search query changes
-  useEffect(() => {    if (selectedYearState && user?.username) {
+  useEffect(() => {
+    if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
       fetchJobs(
         currentPage,
         debouncedSearchQuery,
         selectedImporter,
-        selectedYearState
+        selectedYearState,
+        showUnresolvedOnly
       );
     }
   }, [
@@ -189,9 +211,9 @@ function Documentation() {
     selectedImporter,
     selectedYearState,
     user?.username,
+    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
     fetchJobs,
   ]);
-
   // Remove the automatic clearing - we'll handle this from the tab component instead
 
   // Debounce search input to avoid excessive API calls
@@ -200,7 +222,8 @@ function Documentation() {
       setDebouncedSearchQuery(searchQuery);
     }, 500); // 500ms delay
 
-    return () => clearTimeout(handler);  }, [searchQuery]);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
     setCurrentPage(newPage);
@@ -240,11 +263,12 @@ function Documentation() {
                   : "transparent", // Dynamically set the background color
               padding: "10px", // Add padding for better visibility
               borderRadius: "5px", // Optional: Add some styling for aesthetics
-              textDecoration: "none"
+              textDecoration: "none",
             }}
             target="_blank" // Open in a new tab
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
             <br />
           </a>
         );
@@ -288,7 +312,7 @@ function Documentation() {
         );
       },
     },
-      
+
     {
       accessorKey: "Doc",
       header: "Docs",
@@ -429,7 +453,7 @@ function Documentation() {
           ))}
         </TextField>
 
-    <TextField
+        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
@@ -437,7 +461,9 @@ function Documentation() {
           onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
-              <InputAdornment position="end">                <IconButton
+              <InputAdornment position="end">
+                {" "}
+                <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
                     setCurrentPage(1);
@@ -450,13 +476,63 @@ function Documentation() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   };
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable {...tableConfig} />      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+      <MaterialReactTable {...tableConfig} />{" "}
+      <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
         <Pagination
           count={totalPages}
           page={currentPage}
@@ -471,4 +547,3 @@ function Documentation() {
 }
 
 export default React.memo(Documentation);
-

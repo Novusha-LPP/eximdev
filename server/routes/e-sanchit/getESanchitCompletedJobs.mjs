@@ -21,7 +21,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
-  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 
   // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -61,7 +61,13 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
      ],
    };
 
-
+    // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
@@ -98,6 +104,16 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
       return rank(a) - rank(b);
     });
 
+    const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
     // Pagination
     const totalJobs = rankedJobs.length;
     const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
@@ -109,6 +125,7 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
         totalPages: 1,
         currentPage: pageNumber,
         jobs: [], // Return an empty array instead of 404
+        unresolvedCount
       });
     }
     // Send response
@@ -117,6 +134,7 @@ router.get("/api/get-esanchit-completed-jobs", applyUserIcdFilter, async (req, r
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
     });
   } catch (err) {
     console.error("Error fetching data:", err);

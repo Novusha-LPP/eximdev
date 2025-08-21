@@ -491,6 +491,7 @@ function EditDoList() {
         <div>
           <QueriesComponent
             queries={data.dsr_queries}
+            currentModule="Do List"
             onQueriesChange={handleQueriesChange}
             title="Do Queries"
             showResolveButton={true}

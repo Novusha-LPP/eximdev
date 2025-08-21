@@ -8,7 +8,9 @@ import {
   InputAdornment,
   IconButton,
   Pagination,
+  Button,
   Box,
+  Badge,
   Typography,
   MenuItem,
   Autocomplete,
@@ -24,7 +26,17 @@ import DocsCell from "../gallery/DocsCell.js";
 function PaymentRequested() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();    useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageTab0: currentPage,
+    setCurrentPageTab0: setCurrentPage,
+  } = useSearchQuery();
+  useSearchQuery();
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
@@ -108,6 +120,7 @@ function PaymentRequested() {
       currentSearchQuery,
       selectedImporter,
       selectedYearState,
+      unresolvedOnly = false,
       username
     ) => {
       setLoading(true);
@@ -122,6 +135,7 @@ function PaymentRequested() {
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "",
               username: username || "",
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -131,21 +145,23 @@ function PaymentRequested() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount, // ✅ Get unresolved count from response
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
-        console.error("Error fetching billing ready jobs:", error);
+        console.error("Error fetching data:", error);
         setRows([]);
         setTotalPages(1);
+        setUnresolvedCount(0);
       } finally {
         setLoading(false);
       }
     },
-    [limit]
+    [limit, user?.username]
   );
 
   // Fetch jobs when dependencies change
@@ -156,7 +172,8 @@ function PaymentRequested() {
         debouncedSearchQuery,
         selectedImporter,
         selectedYearState,
-        user.username
+        showUnresolvedOnly,
+          user.username,
       );
     }
   }, [
@@ -165,6 +182,7 @@ function PaymentRequested() {
     selectedImporter,
     selectedYearState,
     user?.username,
+    showUnresolvedOnly,
     fetchJobs,
   ]);
 
@@ -340,7 +358,6 @@ function PaymentRequested() {
           // Build query string for context passing
           const queryParams = new URLSearchParams({
             selectedJobId: _id,
-     
           }).toString();
 
           return (
@@ -349,7 +366,7 @@ function PaymentRequested() {
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                display: 'inline-block',
+                display: "inline-block",
                 cursor: "pointer",
                 color: textColor,
                 backgroundColor: bgColor || "transparent",
@@ -359,7 +376,8 @@ function PaymentRequested() {
                 textDecoration: "none",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
             </Link>
           );
         },
@@ -405,8 +423,8 @@ function PaymentRequested() {
           const { be_no, be_date } = cell.row.original;
           return (
             <div>
-              {be_no || "-"} <br /> 
-              {be_date ? new Date(be_date).toLocaleDateString('en-GB') : "-"}
+              {be_no || "-"} <br />
+              {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
             </div>
           );
         },
@@ -469,7 +487,7 @@ function PaymentRequested() {
         >
           Total Jobs: {totalJobs}
         </Typography>
-        
+
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
@@ -523,6 +541,56 @@ function PaymentRequested() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   };

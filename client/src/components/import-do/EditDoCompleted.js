@@ -1391,6 +1391,7 @@ function EditDoCompleted() {
         <div>
           <QueriesComponent
             queries={data.dsr_queries}
+            currentModule="Do Completed"
             onQueriesChange={handleQueriesChange}
             title="DO Queries"
             showResolveButton={true}

@@ -20,7 +20,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract query parameters
-    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year } = req.query;
+    const { page = 1, limit = 10, search = "", importer = "", icd_code = "", year, unresolvedOnly } = req.query;
 
     // Validate and parse pagination parameters
     const pageNumber = parseInt(page, 10);
@@ -100,6 +100,13 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       ],
     };
 
+        // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear }); // Match year as a string
@@ -148,6 +155,17 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       return priorityRank(a) - priorityRank(b);
     });
 
+       const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
+
     // Apply pagination after sorting
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
 
@@ -156,12 +174,14 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       totalPages: Math.ceil(jobs.length / limitNumber), // Total pages based on limit
       currentPage: pageNumber, // Current page
       jobs: paginatedJobs, // Array of jobs for the current page
+      unresolvedCount
     });
   } catch (error) {
     console.error("Error fetching submission jobs:", error.stack);
     res.status(500).json({
       message: "Internal Server Error",
       error: error.message,
+      unresolvedCount
     });
   }
 });

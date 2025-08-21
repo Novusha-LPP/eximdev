@@ -362,8 +362,9 @@ function ViewOperationsJob() {
             <div>
               <QueriesComponent
                 queries={data.dsr_queries}
+                currentModule="Operations"
                 onQueriesChange={handleQueriesChange}
-                title="Oprations Queries"
+                title="Operations Queries"
                 showResolveButton={true}
                 readOnlyReply={false}
                 onResolveQuery={handleResolveQuery}

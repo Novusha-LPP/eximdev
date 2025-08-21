@@ -22,7 +22,7 @@ const buildSearchQuery = (search) => ({
 
 router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
-  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 
   // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -30,7 +30,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
-  const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
+  const selectedYear = year ? year.toString() : null; // ✅ Ensure it's a string
 
   if (isNaN(pageNumber) || pageNumber < 1) {
     return res.status(400).json({ message: "Invalid page number" });
@@ -63,11 +63,15 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
         },
         searchQuery,
       ],
-
-      
     };
-    
 
+    // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
@@ -89,9 +93,11 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob  detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries"
       )
-      .sort({ gateway_igm_date: 1 });    // Custom sorting with remark priority
+      .sort({ gateway_igm_date: 1 });
+    
+    // Custom sorting with remark priority
     const rankedJobs = allJobs.sort((a, b) => {
       const rank = (job) => {
         if (job.priorityJob === "High Priority") return 1;
@@ -102,6 +108,17 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
       };
       return rank(a) - rank(b);
     });
+
+    // Get count of jobs with unresolved queries (for badge)
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+    
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
 
     // Pagination
     const totalJobs = rankedJobs.length;
@@ -114,14 +131,17 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
         totalPages: 1,
         currentPage: pageNumber,
         jobs: [], // Return an empty array instead of 404
+        unresolvedCount, // ✅ Include unresolved count
       });
     }
+    
     // Send response
     return res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount, // ✅ Include unresolved count
     });
   } catch (err) {
     console.error("Error fetching data:", err);

@@ -1463,6 +1463,7 @@ function EditDoPlanning() {
       <div>
         <QueriesComponent
           queries={data.dsr_queries}
+          currentModule="Do Planning"
           onQueriesChange={handleQueriesChange}
           title="Do Queries"
           showResolveButton={true}

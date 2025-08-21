@@ -106,7 +106,7 @@ function JobTabs() {
       }
     }
     fetchUnresolvedCount();
-  }, []);
+  }, [showUnresolvedOnly]);
 
   return (
     <Box sx={{ width: "100%" }}>

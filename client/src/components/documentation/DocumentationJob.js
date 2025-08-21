@@ -338,6 +338,7 @@ const DocumentationJob = () => {
           <div>
             <QueriesComponent
               queries={data.dsr_queries}
+              currentModule="Documentation"
               onQueriesChange={handleQueriesChange}
               title="Documentation Queries"
               showResolveButton={true}

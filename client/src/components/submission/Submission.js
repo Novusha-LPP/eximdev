@@ -7,10 +7,12 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   TextField,
-  Box,
   Pagination,
   Typography,
   InputAdornment,
+  Button,
+  Box,
+  Badge,
   IconButton,
   MenuItem,
   Autocomplete,
@@ -23,15 +25,19 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // En
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { UserContext } from "../../contexts/UserContext";
 
 function Submission() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
+      const { user } = useContext(UserContext);
   const [importers, setImporters] = useState("");
-
+const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+    const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
+  
 // Use context for search functionality and pagination like E-Sanchit
 const { 
   searchQuery, setSearchQuery, 
@@ -189,7 +195,8 @@ const handleSearchInputChange = (event) => {
       currentPage,
       currentSearchQuery,
       selectedImporter,
-      selectedYearState
+      selectedYearState,
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -202,6 +209,8 @@ const handleSearchInputChange = (event) => {
               year: selectedYearState || "", // ✅ Ensure year is sent
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+               username: user?.username || "", // ✅ Send username for ICD filtering
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -211,13 +220,16 @@ const handleSearchInputChange = (event) => {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
         setPage(returnedPage);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
+        setUnresolvedCount(0);
         console.error("Error fetching data:", error);
         setRows([]); // Reset rows if an error occurs
         setTotalPages(1);
@@ -230,12 +242,16 @@ const handleSearchInputChange = (event) => {
 
   // Fetch jobs when page or debounced search query changes
   useEffect(() => {
-    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs( page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+    }
   }, [
     page,
     debouncedSearchQuery,
     selectedImporter,
     selectedYearState,
+    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
     fetchJobs,
   ]);
   // Debounce search input
@@ -740,6 +756,56 @@ const handlePageChange = (event, newPage) => {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+        
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Box sx={{ position: 'relative' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                      sx={{
+                         borderRadius: 3,
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      fontSize: '0.875rem',
+                      padding: '8px 20px',
+                      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                        transform: 'translateY(-1px)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0px)',
+                      },
+                      }}
+                    >
+                      {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                    </Button>
+                    <Badge 
+                      badgeContent={unresolvedCount} 
+                      color="error" 
+                      overlap="circular" 
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      sx={{ 
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        '& .MuiBadge-badge': {
+                          fontSize: '0.75rem',
+                          minWidth: '18px',
+                          height: '18px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+                
       </div>
     ),
   };

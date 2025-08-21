@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import icdFilter from "../../middleware/icdFilter.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+
 
 const router = express.Router();
 
@@ -23,9 +25,9 @@ const buildSearchQuery = (search) => ({
 });
 
 
-router.get("/api/get-billing-import-job", async (req, res) => {
+router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
-  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 
   // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -64,6 +66,13 @@ router.get("/api/get-billing-import-job", async (req, res) => {
       ],
     };
 
+        // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+
     // ✅ Apply Search Filter if Provided
     if (search && search.trim()) {
       baseQuery.$and.push(buildSearchQuery(search.trim()));
@@ -100,6 +109,15 @@ router.get("/api/get-billing-import-job", async (req, res) => {
       return rank(a) - rank(b);
     });
 
+     // Get count of jobs with unresolved queries (for badge)
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
     // Pagination
     const totalJobs = rankedJobs.length;
     const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
@@ -111,6 +129,7 @@ router.get("/api/get-billing-import-job", async (req, res) => {
         totalPages: 1,
         currentPage: pageNumber,
         jobs: [], // Return an empty array instead of 404
+        unresolvedCount
       });
     }
     // Send response
@@ -119,6 +138,7 @@ router.get("/api/get-billing-import-job", async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
     });
   } catch (err) {
     console.error("Error fetching data:", err);
@@ -131,10 +151,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
   // Extract and decode query parameters
   const { page = 1, limit = 100, search = "", importer, year, detailed_status } = req.query;
 
-  // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
-
-  // Validate query parameters
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
   const selectedYear = year ? year.toString() : null;
@@ -147,7 +164,6 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
   }
 
   try {
-    // Calculate pagination skip value
     const skip = (pageNumber - 1) * limitNumber;
 
     // Build the base query with detailed_status filter
@@ -230,7 +246,6 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
       });
     }
 
-    // Send response
     return res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
@@ -245,8 +260,11 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
 
 
 // GET /api/get-payment-requested-jobs
-router.get("/api/get-payment-requested-jobs", icdFilter, async (req, res) => {
-  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+router.get("/api/get-payment-requested-jobs", applyUserIcdFilter, async (req, res) => {
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
+
+  // ✅ Debug logging to see what parameters are being received
+  console.log("Query parameters received:", req.query);
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
   const pageNumber = parseInt(page, 10);
@@ -263,17 +281,31 @@ router.get("/api/get-payment-requested-jobs", icdFilter, async (req, res) => {
   try {
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Build match conditions
+    // Build match conditions with proper ICD filter validation
     const matchConditions = {
       $and: [
-        req.icdFilterCondition,
         { status: { $regex: /^pending$/i } },
         { "do_shipping_line_invoice.is_payment_requested": true },
       ]
     };
 
+    // ✅ Apply user-based ICD filter from middleware (same as E-Sanchit API)
+    if (req.userIcdFilter) {
+      matchConditions.$and.push(req.userIcdFilter);
+      console.log("Applied userIcdFilter:", req.userIcdFilter);
+    } else {
+      console.log("No userIcdFilter found in req object");
+    }
+
     if (selectedYear) {
       matchConditions.$and.push({ year: selectedYear });
+    }
+
+    // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      matchConditions.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
     }
     
     if (decodedImporter && decodedImporter !== "Select Importer") {
@@ -359,12 +391,90 @@ router.get("/api/get-payment-requested-jobs", icdFilter, async (req, res) => {
           shipping_line_invoice_imgs: 1,
           concor_invoice_and_receipt_copy: 1,
           billing_completed_date: 1,
-          do_shipping_line_invoice: 1
+          do_shipping_line_invoice: 1,
+          dsr_queries: 1
         }
       },
       { $sort: { gateway_igm_date: 1 } }
     ];
 
+    // ✅ Build separate query for unresolved count to avoid filtering issues
+    const unresolvedMatchConditions = {
+      $and: [
+        { status: { $regex: /^pending$/i } },
+        { "do_shipping_line_invoice.is_payment_requested": true },
+        { dsr_queries: { $elemMatch: { resolved: { $ne: true } } } }
+      ]
+    };
+
+    // Add ICD filter for unresolved count (same as main query)
+    if (req.userIcdFilter) {
+      unresolvedMatchConditions.$and.push(req.userIcdFilter);
+    }
+
+    // Add year filter if provided
+    if (selectedYear) {
+      unresolvedMatchConditions.$and.push({ year: selectedYear });
+    }
+
+    // Add importer filter if provided  
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      unresolvedMatchConditions.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
+    }
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      unresolvedMatchConditions.$and.push({
+        $or: [
+          { job_no: { $regex: search, $options: "i" } },
+          { be_no: { $regex: search, $options: "i" } },
+          { importer: { $regex: search, $options: "i" } },
+        ]
+      });
+    }
+    
+    // ✅ Build separate query for unresolved count that matches the main pipeline logic
+const unresolvedPipeline = [
+  { $match: unresolvedMatchConditions },
+  {
+    $addFields: {
+      has_pending_payments: {
+        $gt: [
+          {
+            $size: {
+              $filter: {
+                input: "$do_shipping_line_invoice",
+                as: "invoice",
+                cond: {
+                  $and: [
+                    { $eq: ["$$invoice.is_payment_requested", true] },
+                    {
+                      $or: [
+                        { $eq: ["$$invoice.payment_made_date", ""] },
+                        { $eq: ["$$invoice.payment_made_date", null] },
+                        { $not: { $ifNull: ["$$invoice.payment_made_date", false] } }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          0
+        ]
+      }
+    }
+  },
+  { $match: { has_pending_payments: true } },
+  { $count: "total" }
+];
+
+    
+    const unresolvedResult = await JobModel.aggregate(unresolvedPipeline);
+    const unresolvedCount = unresolvedResult.length > 0 ? unresolvedResult[0].total : 0;
+    
     const allJobs = await JobModel.aggregate(pipeline);
     const totalJobs = allJobs.length;
     const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
@@ -374,6 +484,7 @@ router.get("/api/get-payment-requested-jobs", icdFilter, async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
     });
   } catch (err) {
     console.error("Error fetching payment requested jobs:", err);
@@ -381,9 +492,7 @@ router.get("/api/get-payment-requested-jobs", icdFilter, async (req, res) => {
   }
 });
 
-
-
-router.get("/api/get-payment-completed-jobs", icdFilter, async (req, res) => {
+router.get("/api/get-payment-completed-jobs", applyUserIcdFilter, async (req, res) => {
   const { page = 1, limit = 100, search = "", importer, year } = req.query;
 
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";

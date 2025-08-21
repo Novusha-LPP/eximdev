@@ -210,6 +210,7 @@ function EditBillingSheet() {
         <div>
           <QueriesComponent
             queries={data.dsr_queries}
+            currentModule="Billing Sheet"
             onQueriesChange={handleQueriesChange}
             title="DO Queries"
             showResolveButton={true}

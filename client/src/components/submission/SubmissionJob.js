@@ -310,6 +310,7 @@ const SubmissionJob = () => {
           <div>
             <QueriesComponent
               queries={data.dsr_queries}
+              currentModule="Submission"
               onQueriesChange={handleQueriesChange}
               title="Submission Queries"
               showResolveButton={true}

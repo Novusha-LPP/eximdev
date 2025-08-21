@@ -358,6 +358,7 @@ const ViewBillingJob = () => {
               <div>
                 <QueriesComponent
                   queries={data.dsr_queries}
+                  currentModule="Import Billing"
                   onQueriesChange={handleQueriesChange}
                   title="Accounts Queries"
                   showResolveButton={true}

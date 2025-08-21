@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   TextField,
   Button,
@@ -18,7 +18,7 @@ import {
 } from "@mui/icons-material";
 
 /**
- * Compact Reusable Queries Component
+ * Enhanced Compact Reusable Queries Component
  * @param {Object} props
  * @param {Array} props.queries - Array of query objects
  * @param {Function} props.onQueriesChange - Callback when queries change
@@ -27,6 +27,7 @@ import {
  * @param {Boolean} props.readOnlyReply - Whether reply field should be read-only
  * @param {Boolean} props.showResolveButton - Whether to show resolve button
  * @param {Function} props.onResolveQuery - Callback when query is resolved
+ * @param {String} props.currentModule - Current module name to track query source
  */
 const QueriesComponent = ({
   queries = [],
@@ -44,65 +45,77 @@ const QueriesComponent = ({
   readOnlyReply = false,
   showResolveButton = true,
   onResolveQuery = null,
+  currentModule = "DSR", // New prop to track current module
 }) => {
   const [expanded, setExpanded] = useState(false);
 
-  // Update a specific query
-  const updateQuery = (index, field, value) => {
+  // Debounced update function to reduce re-renders
+  const debouncedUpdate = useCallback((updatedQueries) => {
+    onQueriesChange(updatedQueries);
+  }, [onQueriesChange]);
+
+  // Update a specific query with optimized performance
+  const updateQuery = useCallback((index, field, value) => {
     const updated = [...queries];
     updated[index] = {
       ...updated[index],
       [field]: value,
     };
-    onQueriesChange(updated);
-  };
+    debouncedUpdate(updated);
+  }, [queries, debouncedUpdate]);
 
-  // Add new query
-  const addQuery = () => {
+  // Add new query with source module tracking
+  const addQuery = useCallback(() => {
     const newQuery = {
       query: "",
       reply: "",
       select_module: "",
+      current_module: currentModule, // Track where the query originated from
       resolved: false,
+      created_at: new Date().toISOString(),
     };
-    onQueriesChange([...queries, newQuery]);
+    debouncedUpdate([...queries, newQuery]);
     setExpanded(true); // Auto expand when adding
-  };
+  }, [queries, currentModule, debouncedUpdate]);
 
   // Remove query
-  const removeQuery = (index) => {
+  const removeQuery = useCallback((index) => {
     const updated = queries.filter((_, i) => i !== index);
-    onQueriesChange(updated);
-  };
+    debouncedUpdate(updated);
+  }, [queries, debouncedUpdate]);
 
-  // Resolve query
-  const resolveQuery = (index) => {
+  // Resolve query - only when explicitly called
+  const resolveQuery = useCallback((index) => {
     const updated = [...queries];
     updated[index] = {
       ...updated[index],
       resolved: true,
+      resolved_at: new Date().toISOString(),
     };
-    onQueriesChange(updated);
+    debouncedUpdate(updated);
 
     if (onResolveQuery) {
       onResolveQuery(updated[index], index);
     }
-  };
+  }, [queries, onResolveQuery, debouncedUpdate]);
 
   // Unresolve query
-  const unresolveQuery = (index) => {
+  const unresolveQuery = useCallback((index) => {
     const updated = [...queries];
     updated[index] = {
       ...updated[index],
       resolved: false,
+      resolved_at: null,
     };
-    onQueriesChange(updated);
-  };
+    debouncedUpdate(updated);
+  }, [queries, debouncedUpdate]);
 
-  const resolvedCount = queries.filter(
-    (q) => q.resolved === true || (!!q.reply && q.reply.trim() !== "")
-  ).length;
-  const pendingCount = queries.length - resolvedCount;
+  // Memoized calculations for performance
+  const { resolvedCount, pendingCount } = useMemo(() => {
+    const resolved = queries.filter((q) => q.resolved === true).length;
+    const pending = queries.length - resolved;
+    return { resolvedCount: resolved, pendingCount: pending };
+  }, [queries]);
 
   return (
     <div
@@ -235,9 +248,7 @@ const QueriesComponent = ({
           }}
         >
           {queries.map((item, index) => {
-            const isResolved =
-              item.resolved === true ||
-              (!!item.reply && item.reply.trim() !== "");
+            const isResolved = item.resolved === true;
 
             return (
               <div
@@ -272,12 +283,32 @@ const QueriesComponent = ({
                   </div>
                 )}
 
+                {/* Source Module Indicator */}
+                {item.current_module && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "8px",
+                      left: "8px",
+                      backgroundColor: "#3b82f6",
+                      color: "white",
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    From: {item.current_module}
+                  </div>
+                )}
+
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr auto auto",
+                    gridTemplateColumns: "1fr 1fr 120px auto",
                     gap: "12px",
                     alignItems: "start",
+                    marginTop: item.current_module ? "20px" : "0",
                   }}
                 >
                   {/* Query Field */}
@@ -300,58 +331,73 @@ const QueriesComponent = ({
                     }}
                   />
 
-                  {/* Reply Field */}
+                  {/* Reply Field - Optimized for better performance */}
                   <TextField
                     multiline
                     rows={1}
                     size="small"
                     label="Reply"
-                    value={item.reply}
-                    onChange={(e) =>
-                      updateQuery(index, "reply", e.target.value)
-                    }
-                    InputProps={{ readOnly: readOnlyReply }}
+                    value={item.reply || ""}
+                    onChange={(e) => {
+                      // Direct update without auto-resolve
+                      updateQuery(index, "reply", e.target.value);
+                    }}
+                    InputProps={{ 
+                      readOnly: readOnlyReply,
+                      style: { transition: "none" } // Remove transitions for faster typing
+                    }}
                     variant="outlined"
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         fontSize: "14px",
                         borderRadius: "6px",
                       },
+                      "& .MuiInputBase-input": {
+                        transition: "none !important", // Remove input transitions
+                      }
                     }}
                   />
 
-                  {/* Module Selection */}
-                  <TextField
-                    select
-                    size="small"
-                    value={item.select_module || ""}
-                    onChange={(e) =>
-                      updateQuery(index, "select_module", e.target.value)
-                    }
-                    disabled={isResolved}
-                    SelectProps={{ native: true }}
-                    variant="outlined"
-                    style={{ minWidth: "120px" }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        fontSize: "14px",
-                        borderRadius: "6px",
-                      },
-                    }}
-                  >
-                    <option value="">Select</option>
-                    {modules.map((module) => (
-                      <option key={module} value={module}>
-                        {module}
-                      </option>
-                    ))}
-                  </TextField>
-
-                  {/* Actions */}
+                  {/* Module Selection with Actions in horizontal layout */}
                   <div
                     style={{
                       display: "flex",
-                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <TextField
+                      select
+                      size="small"
+                      value={item.select_module || ""}
+                      onChange={(e) =>
+                        updateQuery(index, "select_module", e.target.value)
+                      }
+                      disabled={isResolved}
+                      SelectProps={{ native: true }}
+                      variant="outlined"
+                      style={{ minWidth: "80px", flex: 1 }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          fontSize: "14px",
+                          borderRadius: "6px",
+                        },
+                      }}
+                    >
+                      <option value="">Select</option>
+                      {modules.map((module) => (
+                        <option key={module} value={module}>
+                          {module}
+                        </option>
+                      ))}
+                    </TextField>
+                  </div>
+
+                  {/* Actions - Now horizontal */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
                       gap: "4px",
                     }}
                   >
@@ -368,7 +414,7 @@ const QueriesComponent = ({
                           </Tooltip>
                         )
                       : showResolveButton && (
-                          <Tooltip title="Resolve">
+                          <Tooltip title="Mark as Resolved">
                             <IconButton
                               size="small"
                               onClick={() => resolveQuery(index)}
@@ -379,7 +425,7 @@ const QueriesComponent = ({
                             </IconButton>
                           </Tooltip>
                         )}
-                    <Tooltip title="Delete">
+                    <Tooltip title="Delete Query">
                       <IconButton
                         size="small"
                         onClick={() => removeQuery(index)}
@@ -390,6 +436,24 @@ const QueriesComponent = ({
                     </Tooltip>
                   </div>
                 </div>
+
+                {/* Query metadata for debugging/tracking */}
+                {item.created_at && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#94a3b8",
+                      marginTop: "8px",
+                      display: "flex",
+                      gap: "16px",
+                    }}
+                  >
+                    <span>Created: {new Date(item.created_at).toLocaleString()}</span>
+                    {item.resolved_at && (
+                      <span>Resolved: {new Date(item.resolved_at).toLocaleString()}</span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

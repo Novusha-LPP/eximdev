@@ -15,7 +15,9 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Button,
   Box,
+  Badge,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
@@ -42,13 +44,13 @@ function List() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
-
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  
-  
+
   // Use context for searchQuery, selectedImporter, and currentPage for List DO tab
   const {
     searchQuery,
@@ -86,7 +88,6 @@ function List() {
     }
   };
 
-  
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -160,7 +161,8 @@ function List() {
       currentSearchQuery,
       currentYear,
       currentICD,
-      selectedImporter
+      selectedImporter,
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -175,6 +177,7 @@ function List() {
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
               username: user?.username || "", // ✅ Send username for ICD filtering
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -184,14 +187,17 @@ function List() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount, // ✅ Get unresolved count from response
         } = res.data;
         setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
+        setRows([]);
         setTotalPages(1);
+        setUnresolvedCount(0);
       } finally {
         setLoading(false);
       }
@@ -201,7 +207,6 @@ function List() {
 
   // Fetch jobs with pagination
   useEffect(() => {
- 
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
       fetchJobs(
@@ -209,7 +214,8 @@ function List() {
         debouncedSearchQuery,
         selectedYearState, // ✅ Now using the persistent state
         selectedICD,
-        selectedImporter
+        selectedImporter,
+        showUnresolvedOnly
       );
     }
   }, [
@@ -219,6 +225,7 @@ function List() {
     selectedICD,
     selectedImporter,
     user?.username,
+    showUnresolvedOnly,
     fetchJobs,
   ]);
 
@@ -258,7 +265,14 @@ function List() {
       header: "Job No ",
       size: 120,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, year, consignment_type } = cell.row.original;
+        const {
+          job_no,
+          custom_house,
+          _id,
+          type_of_b_e,
+          year,
+          consignment_type,
+        } = cell.row.original;
         const textColor = "blue";
         const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
         return (
@@ -325,87 +339,123 @@ function List() {
           gateway_igm,
         } = cell.row.original;
 
-    return (
-      <div>
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>BE No:</strong> {be_no || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, be_no)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy BE No">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+        return (
+          <div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>BE No:</strong> {be_no || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, be_no)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy BE No">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, be_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy BE Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, be_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy BE Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, gateway_igm)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy GIGM">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, gateway_igm)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy GIGM">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, gateway_igm_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy GIGM Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, gateway_igm_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy GIGM Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, igm_no)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy IGM No">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, igm_no)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy IGM No">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, igm_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy IGM Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-      </div>
-    );
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, igm_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy IGM Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+          </div>
+        );
       },
     },
 
@@ -556,9 +606,12 @@ function List() {
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => {
-        const { processed_be_attachment, cth_documents = [], checklist } =
-          cell.row.original;
-          
+        const {
+          processed_be_attachment,
+          cth_documents = [],
+          checklist,
+        } = cell.row.original;
+
         // Helper function to safely get the first link if it's an array or a string
         const getFirstLink = (input) => {
           if (Array.isArray(input)) {
@@ -566,7 +619,7 @@ function List() {
           }
           return input || null;
         };
-        
+
         const checklistLink = getFirstLink(checklist);
         const processed_be_attachmentLink = getFirstLink(
           processed_be_attachment
@@ -633,7 +686,8 @@ function List() {
                   (doc) =>
                     doc.url &&
                     doc.url.length > 0 &&
-                    (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                    (doc.document_name ===
+                      "Pre-Shipment Inspection Certificate" ||
                       doc.document_name === "Bill of Lading")
                 )
                 .map((doc) => (
@@ -655,8 +709,7 @@ function List() {
             ) : (
               <span style={{ color: "gray" }}>
                 {" "}
-                No Pre-Shipment Inspection Certificate{" "}
-                <br />
+                No Pre-Shipment Inspection Certificate <br />
                 No Bill of Lading{" "}
               </span>
             )}
@@ -801,6 +854,55 @@ function List() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   });

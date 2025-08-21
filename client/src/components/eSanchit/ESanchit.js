@@ -8,7 +8,9 @@ import {
   InputAdornment,
   IconButton,
   Pagination,
+  Button,
   Box,
+  Badge,
   Typography,
   MenuItem,
   Autocomplete,
@@ -26,7 +28,8 @@ function ESanchit() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
     const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
-  
+    const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+    const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 0
@@ -106,12 +109,13 @@ function ESanchit() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
-  const fetchJobs = useCallback(
+ const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
       selectedImporter,
-      selectedYearState
+      selectedYearState,
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -125,6 +129,7 @@ function ESanchit() {
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Ensure year is sent
               username: user?.username || "", // ✅ Send username for ICD filtering
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -134,38 +139,29 @@ function ESanchit() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount, // ✅ Get unresolved count from response
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
-        // setPage(returnedPage);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
         setRows([]);
         setTotalPages(1);
+        setUnresolvedCount(0);
       } finally {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, user?.username] // ✅ Add username as a dependency
+    [limit, user?.username] // ✅ Add username as a dependency
   );
-  // // Add this useEffect in your ESanchit component
-  // React.useEffect(() => {
-  //   // Clear search state when this tab becomes active, unless coming from job details
-  //   if (
-  //     currentTab === 0 &&
-  //     !(location.state && location.state.fromJobDetails)
-  //   ) {
-  //     setSearchQuery("");
-  //     setSelectedImporter("");
-  //   }
-  // }, [currentTab, setSearchQuery, setSelectedImporter, location.state]);
 
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-          fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState);
+      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
     }
   }, [
     currentPage,
@@ -173,9 +169,9 @@ function ESanchit() {
     selectedImporter,
     selectedYearState,
     user?.username,
+    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
     fetchJobs,
   ]);
-
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -494,6 +490,56 @@ function ESanchit() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: 'relative' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                 borderRadius: 3,
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.875rem',
+              padding: '8px 20px',
+              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+              color: '#ffffff',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                transform: 'translateY(-1px)',
+              },
+              '&:active': {
+                transform: 'translateY(0px)',
+              },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge 
+              badgeContent={unresolvedCount} 
+              color="error" 
+              overlap="circular" 
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              sx={{ 
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                '& .MuiBadge-badge': {
+                  fontSize: '0.75rem',
+                  minWidth: '18px',
+                  height: '18px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }
+              }}
+            />
+          </Box>
+        </Box>
+        
       </div>
     ),
   };
@@ -501,7 +547,8 @@ function ESanchit() {
   return (
     <div style={{ height: "80%" }}>
       <>
-        <MaterialReactTable {...tableConfig} />        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <MaterialReactTable {...tableConfig} />       
+         <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
           <Pagination
             count={totalPages}
             page={currentPage}

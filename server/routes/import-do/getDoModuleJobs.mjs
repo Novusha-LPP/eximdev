@@ -21,7 +21,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "" } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -79,6 +79,13 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
         },
       ],
     };
+
+     if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
 
     if(selectedYear){
       baseQuery.$and.push({ year: selectedYear });
@@ -306,6 +313,16 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
       return new Date(a.displayDate) - new Date(b.displayDate);
     });
 
+    const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
     // **Step 7: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
@@ -323,7 +340,8 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
         notPrepared: doDocPreparedFalseCount
       },
       // Add status filter counts
-      statusFilterCounts
+      statusFilterCounts,
+      unresolvedCount
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);
@@ -336,7 +354,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -379,7 +397,12 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       ],
     };
     
-      
+        // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }  
     
     if(selectedYear){
       baseQuery.$and.push({ year: selectedYear });
@@ -471,6 +494,16 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       return new Date(a.displayDate) - new Date(b.displayDate); // Ascending by displayDate
     });
 
+     const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
     // **Step 6: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
@@ -481,6 +514,7 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);

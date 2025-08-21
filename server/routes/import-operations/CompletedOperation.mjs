@@ -15,6 +15,7 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
       selectedICD,
       importer,
       year,
+      unresolvedOnly
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -87,12 +88,27 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
+         if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
 
     // Fetch data with pagination
     const allJobs = await JobModel.find(baseQuery)
       .sort({ completed_operation_date: -1 })
       .lean();
 
+         const unresolvedQueryBase = { ...baseQuery };
+              unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+                !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+              );
+              unresolvedQueryBase.$and.push({
+                dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+              });
+              
+              const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+      
     const totalJobs = allJobs.length;
     const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
 
@@ -102,6 +118,7 @@ router.get("/api/get-completed-operations/:username", applyUserIcdFilter, async 
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+            unresolvedCount
     });
   } catch (error) {
     console.error("❌ Error fetching completed operations:", error);

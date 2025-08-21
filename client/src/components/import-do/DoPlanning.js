@@ -11,6 +11,9 @@ import {
   TextField,
   InputAdornment,
   Pagination,
+  Button,
+  Box,
+  Badge,
   Typography,
   MenuItem,
   Autocomplete,
@@ -37,7 +40,8 @@ function DoPlanning() {
   
   // ✅ State for status filter counts
   const [statusFilterCounts, setStatusFilterCounts] = useState({});
-  
+      const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+      const [unresolvedCount, setUnresolvedCount] = useState(0);
    const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
@@ -243,7 +247,9 @@ const fetchJobs = useCallback(
     currentYear,
     currentICD,
     selectedImporter,
-    statusFilter = ""
+    statusFilter = "",
+    unresolvedOnly = false
+
   ) => {
     setLoading(true);
     try {
@@ -259,6 +265,8 @@ const fetchJobs = useCallback(
             importer: selectedImporter?.trim() || "",
             username: user?.username || "",
             statusFilter: statusFilter || "",
+            unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+
           },
         }
       );
@@ -270,15 +278,18 @@ const fetchJobs = useCallback(
         jobs,
         doDocCounts, // Get the new counts
         statusFilterCounts, // Get the status filter counts
+        unresolvedCount, // ✅ Get unresolved count from response
       } = res.data;
 
       setRows(jobs);
       setTotalPages(totalPages);
       setTotalJobs(totalJobs);
+      setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+
       
       // Set the DO Doc counts
       if (doDocCounts) {
-        setDoDocCounts(doDocCounts);
+        setDoDocCounts(doDocCounts);  
       }
 
       // Set the status filter counts
@@ -291,6 +302,9 @@ const fetchJobs = useCallback(
       setRows([]);
       setTotalPages(1);
       setDoDocCounts({ totalJobs: 0, prepared: 0, notPrepared: 0 });
+      setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+      setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+
     } finally {
       setLoading(false);
     }
@@ -309,7 +323,9 @@ const fetchJobs = useCallback(
         selectedYearState,
         selectedICD,
         selectedImporter,
-        selectedStatusFilter
+        selectedStatusFilter,
+        selectedYearState,
+        showUnresolvedOnly
       );
     }
   }, [
@@ -320,6 +336,8 @@ const fetchJobs = useCallback(
     selectedImporter,
     selectedStatusFilter,
     user?.username,
+    selectedYearState,
+    showUnresolvedOnly,
     fetchJobs,
   ]);
   // Handle search input change
@@ -1553,6 +1571,54 @@ const DoDocCountsDisplay = () => (
               }}
             />
           </div>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Box sx={{ position: 'relative' }}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                        sx={{
+                           borderRadius: 3,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
+                        padding: '8px 20px',
+                        background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                          boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                          transform: 'translateY(-1px)',
+                        },
+                        '&:active': {
+                          transform: 'translateY(0px)',
+                        },
+                        }}
+                      >
+                        {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                      </Button>
+                      <Badge 
+                        badgeContent={unresolvedCount} 
+                        color="error" 
+                        overlap="circular" 
+                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        sx={{ 
+                          position: 'absolute',
+                          top: 4,
+                          right: 4,
+                          '& .MuiBadge-badge': {
+                            fontSize: '0.75rem',
+                            minWidth: '18px',
+                            height: '18px',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                          }
+                        }}
+                      />
+                    </Box>
+          </Box>
         </div>
       </div>
     ),

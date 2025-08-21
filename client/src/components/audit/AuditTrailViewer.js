@@ -117,7 +117,7 @@ const AuditTrailViewer = ({ job_no, year }) => {
     fromDate: '',
     toDate: '',
     groupBy: 'day',
-    search: ''
+    job_no: ''
   });
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -278,10 +278,14 @@ const AuditTrailViewer = ({ job_no, year }) => {
       }
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
+        
         if (key === 'groupBy') {
           if (filters.fromDate && filters.toDate && value) {
             params.append('groupBy', value);
           }
+          
+if (job_no) params.append('search', job_no);
+if (year) params.append('year', year);
         } else if (value) {
           params.append(key, value);
         }

@@ -28,6 +28,7 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     importer = "", // NEW: Capture importer from query params
     detailedStatusExPlan = "all",
     year,
+    unresolvedOnly
   } = req.query;
 
 
@@ -147,6 +148,12 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
       ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
+             if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
        // ✅ Apply Year Filter if Provided
        if (selectedYear) {
         baseQuery.$and.push({ year: selectedYear });
@@ -194,6 +201,18 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
       ...otherJobs,
     ];
 
+
+     const unresolvedQueryBase = { ...baseQuery };
+            unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+              !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+            );
+            unresolvedQueryBase.$and.push({
+              dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+            });
+            
+            const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
+
     // **Paginate grouped jobs**
     const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
 
@@ -202,6 +221,8 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
       totalPages: Math.ceil(totalJobs / limit),
       currentPage: parseInt(page),
       jobs: paginatedJobs,
+            unresolvedCount
+
     });
   } catch (error) {
     console.error("❌ Error fetching operations planning jobs:", error);

@@ -47,23 +47,29 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
     const searchQuery = search ? buildSearchQuery(search) : {};
 
     // Construct base query
-    const baseQuery = {
-      $and: [
-        { status: { $regex: /^pending$/i } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-        { job_no: { $ne: null } },
-        { out_of_charge: { $eq: "" } },
+  // Construct base query
+const baseQuery = {
+  $and: [
+    { status: { $regex: /^pending$/i } },
+    { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+    { job_no: { $ne: null } },
+    { out_of_charge: { $eq: "" } },
         {
-          $or: [
-            { esanchit_completed_date_time: { $exists: false } },
-            { esanchit_completed_date_time: "" },
-            { esanchit_completed_date_time: null },
-            { "cth_documents.document_check_date": "" },
-          ],
-        },
-        searchQuery,
+      cth_documents: { $elemMatch: { is_sent_to_esanchit: true } }
+    },
+    {
+      $or: [
+        { esanchit_completed_date_time: { $exists: false } },
+        { esanchit_completed_date_time: "" },
+        { esanchit_completed_date_time: null },
+        { "cth_documents.document_check_date": "" },
       ],
-    };
+    },
+    // 🔹 This enforces at least one document with is_sent_to_esanchit === true
+
+    searchQuery,
+  ],
+};
 
     // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {

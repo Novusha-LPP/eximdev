@@ -12,6 +12,9 @@ import {
   MenuItem,
   TextField,
   Pagination,
+  Button,
+  Box,
+  Badge,
   Typography,
   Autocomplete
 } from "@mui/material";
@@ -33,6 +36,8 @@ function ImportOperations() {
   const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
+        const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+        const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState([]);
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
@@ -110,7 +115,8 @@ function ImportOperations() {
     yearState,
     currentStatus,
     currentICD,
-    currentImporter
+    currentImporter,
+        unresolvedOnly = false
   ) => {
     // Don't make API calls if component isn't initialized, user not available, or no username
     if (!isInitialized || !yearState || !user?.username) {
@@ -134,6 +140,8 @@ function ImportOperations() {
             detailedStatusExPlan: currentStatus,
             selectedICD: currentICD,
             importer: currentImporter?.trim() || "",
+                        unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+
           },
           signal: controller.signal,
         }
@@ -146,9 +154,12 @@ function ImportOperations() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+                  unresolvedCount, // ✅ Get unresolved count from response
+
         } = res.data;        setRows(Array.isArray(jobs) ? jobs : []);
         setTotalPages(totalPages || 1);
         setTotalJobs(totalJobs || 0);
+              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
         abortControllerRef.current = null;
       }
     } catch (error) {
@@ -162,6 +173,8 @@ function ImportOperations() {
         setRows([]);
         setTotalPages(1);
         setTotalJobs(0);
+              setUnresolvedCount(0);
+
         abortControllerRef.current = null;
       }
     }
@@ -268,7 +281,8 @@ function ImportOperations() {
         selectedYearState,
         detailedStatusExPlan,
         selectedICD,
-        selectedImporter
+        selectedImporter,
+        showUnresolvedOnly
       );
     }
   }, [
@@ -280,7 +294,8 @@ function ImportOperations() {
     selectedICD,
     selectedImporter,
     isInitialized,
-    location.state
+    location.state,
+        showUnresolvedOnly,
   ]);
 
   // Cleanup on unmount
@@ -809,6 +824,55 @@ function ImportOperations() {
           onChange={handleSearchInputChange}
           sx={{ width: "250px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{ position: 'relative' }}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                                sx={{
+                                   borderRadius: 3,
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                fontSize: '0.875rem',
+                                padding: '8px 20px',
+                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                                  transform: 'translateY(-1px)',
+                                },
+                                '&:active': {
+                                  transform: 'translateY(0px)',
+                                },
+                                }}
+                              >
+                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                              </Button>
+                              <Badge 
+                                badgeContent={unresolvedCount} 
+                                color="error" 
+                                overlap="circular" 
+                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                sx={{ 
+                                  position: 'absolute',
+                                  top: 4,
+                                  right: 4,
+                                  '& .MuiBadge-badge': {
+                                    fontSize: '0.75rem',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                  }
+                                }}
+                              />
+                            </Box>
+                  </Box>
       </div>
     ),
   }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, detailedStatusExPlan, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery]);

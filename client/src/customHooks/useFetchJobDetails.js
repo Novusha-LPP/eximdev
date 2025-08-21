@@ -48,7 +48,7 @@ function useFetchJobDetails(
   const [data, setData] = useState(null);
   const [detentionFrom, setDetentionFrom] = useState([]);
   const navigate = useNavigate();
-  const [cthDocuments, setCthDocuments] = useState([
+  const [ cthDocuments, setCthDocuments] = useState([
     {
       document_name: "Commercial Invoice",
       document_code: "380000",

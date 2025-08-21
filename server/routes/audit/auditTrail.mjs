@@ -228,11 +228,11 @@ router.get("/api/audit-trail/document/:documentId", async (req, res) => {
 // Get comprehensive audit trail with advanced filters
 router.get("/api/audit-trail", async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 50, 
-      action, 
-      username, 
+    const {
+      page = 1,
+      limit = 50,
+      action,
+      username,
       documentType,
       job_no,
       year,
@@ -241,29 +241,35 @@ router.get("/api/audit-trail", async (req, res) => {
       toDate,
       ipAddress
     } = req.query;
-    
+
+    const { search } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Build filter query
     const filter = {};
     if (action) filter.action = action;
     if (username) filter.username = { $regex: username, $options: 'i' };
     if (documentType) filter.documentType = documentType;
-    if (job_no) filter.job_no = job_no;
+    if (job_no) filter.job_no = { $regex: job_no, $options: 'i' }; // regex search on job_no for flexibility
     if (year) filter.year = year;
     if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
     if (ipAddress) filter.ipAddress = { $regex: ipAddress, $options: 'i' };
-    
+    if (search)  filter.job_no = { $regex: search, $options: 'i' };
+
     // Date range filter: default to current date if not provided
     const dateFilter = {};
     let adjustedToDate = toDate;
     if (fromDate && toDate) {
       const from = new Date(fromDate);
       const to = new Date(toDate);
+
       // If fromDate is after toDate, return error
       if (from > to) {
-        return res.status(400).json({ message: "Invalid time range: fromDate must be before or equal to toDate" });
+        return res.status(400).json({
+          message: "Invalid time range: fromDate must be before or equal to toDate"
+        });
       }
+
       // If fromDate and toDate are the same day, increment toDate by 1 day
       if (
         from.getFullYear() === to.getFullYear() &&
@@ -274,27 +280,29 @@ router.get("/api/audit-trail", async (req, res) => {
         adjustedToDate = to.toISOString().slice(0, 10);
       }
     }
+
     if (fromDate || toDate) {
       dateFilter.timestamp = {};
       if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
       if (adjustedToDate) dateFilter.timestamp.$lte = new Date(adjustedToDate);
-      
+      Object.assign(filter, dateFilter); // Apply date filter to the main filter
     } else {
-      // Default: current date 00:00 to 23:59
+      // Default: current date 00:00 to 23:59:59.999
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       filter.timestamp = { $gte: start, $lte: end };
     }
-    
+
+    // Fetch audit trail data with pagination
     const auditTrail = await AuditTrailModel.find(filter)
       .sort({ timestamp: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
-    
+
     const total = await AuditTrailModel.countDocuments(filter);
-    
+
     res.json({
       auditTrail,
       pagination: {
@@ -310,6 +318,7 @@ router.get("/api/audit-trail", async (req, res) => {
     res.status(500).json({ message: "Error fetching audit trail", error: error.message });
   }
 });
+
 
 // Get audit trail statistics
 router.get("/api/audit-trail/stats", async (req, res) => {

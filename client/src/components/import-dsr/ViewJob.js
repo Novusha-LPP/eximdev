@@ -5,6 +5,7 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 // import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import JobStickerPDF from "./JobStickerPDF";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import { format } from "date-fns";
 import {
   IconButton,
   TextField,
@@ -3257,201 +3258,341 @@ function JobDetails() {
           </div>
           {/* Tracking status end*/}
 
-          {/* document section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Documents" />
-            <br />
+{/* document section */}
+<div className="job-details-container">
+  <JobDetailsRowHeading heading="Documents" />
+  <br />
 
-            {/* CTH Documents Section */}
-
-            <Row>
-              {cthDocuments?.map((doc, index) => (
-                <Col
-                  xs={12}
-                  lg={4}
-                  key={`cth-${index}`}
-                  style={{ marginBottom: "20px", position: "relative" }}
-                >
-                  <div className="" tyle={{ display: "inline" }}>
-                    <FileUpload
-                      label={`${doc.document_name} (${doc.document_code})`}
-                      bucketPath={`cth-documents/${doc.document_name}`}
-                      onFilesUploaded={(urls) => {
-                        const updatedDocuments = [...cthDocuments];
-                        updatedDocuments[index].url = [
-                          ...(updatedDocuments[index].url || []),
-                          ...urls,
-                        ]; // Append new URLs
-                        setCthDocuments(updatedDocuments);
-                      }}
-                      multiple={true} // Allow multiple uploads
-                    />
-                  </div>
-                  <ImagePreview
-                    images={doc.url || []} // Pass all uploaded URLs
-                    onDeleteImage={(deleteIndex) => {
-                      const updatedDocuments = [...cthDocuments];
-                      updatedDocuments[index].url = updatedDocuments[
-                        index
-                      ].url.filter((_, i) => i !== deleteIndex); // Remove the specific URL
-                      setCthDocuments(updatedDocuments);
-                    }}
-                    readOnly={false}
-                  />
-                  {/* Small icons for Edit and Delete */}
-                  {user?.role === "Admin" && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "10px",
-                        right: "10px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          cursor: "pointer",
-                          marginRight: "10px",
-                          color: "#007bff",
-                        }}
-                        onClick={() => handleOpenDialog(doc, true)}
-                      >
-                        <i className="fas fa-edit" title="Edit"></i>
-                      </span>
-                      <span
-                        style={{ cursor: "pointer", color: "#dc3545" }}
-                        onClick={() => handleOpenDialog(doc, false)}
-                      >
-                        <i className="fas fa-trash-alt" title="Delete"></i>
-                      </span>
-                    </div>
-                  )}
-                </Col>
-              ))}
-            </Row>
-            {/*  */}
-
-            {/* Add Document Section */}
-            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
-              <Col xs={12} lg={3}>
-                <FormControl
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                >
-                  <InputLabel>Select Document</InputLabel>
-                  <Select
-                    value={selectedDocument}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      if (selectedValue === "other") {
-                        setNewDocumentName("");
-                        setNewDocumentCode("");
-                      }
-                      setSelectedDocument(selectedValue);
-                    }}
-                    label="Select Document"
-                  >
-                    {cth_Dropdown.map((doc) => (
-                      <MenuItem
-                        key={doc.document_code}
-                        value={doc.document_code}
-                      >
-                        {doc.document_name}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="other">Other</MenuItem>
-                  </Select>
-                </FormControl>
-              </Col>
-
-              {selectedDocument === "other" && (
+  {/* CTH Documents Section */}
+  <Row>
+    {cthDocuments?.map((doc, index) => (
+      <Col
+        xs={12}
+        md={6}
+        lg={4}
+        key={`cth-${index}`}
+        style={{ marginBottom: "30px", position: "relative" }}
+      >
+        <div className="document-card" style={{ 
+          border: "1px solid #e0e0e0", 
+          borderRadius: "8px", 
+          padding: "15px",
+          backgroundColor: "#fafafa"
+        }}>
+          {/* Document Header with Title and Actions */}
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center",
+            marginBottom: "15px",
+            borderBottom: "1px solid #e0e0e0",
+            paddingBottom: "10px"
+          }}>
+            <h6 style={{ 
+              margin: 0, 
+              fontWeight: "600",
+              color: "#333"
+            }}>
+              {doc.document_name} ({doc.document_code})
+            </h6>
+            
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: "10px" }}>
+              {user?.role === "Admin" && (
                 <>
-                  {" "}
-                  <Col xs={12} lg={4}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      label="New Document Name"
-                      value={newDocumentName}
-                      onChange={(e) => setNewDocumentName(e.target.value)} // Update state for document name
-                      onKeyDown={preventFormSubmitOnEnter}
-                    />
-                  </Col>
-                  <Col xs={12} lg={3}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      margin="normal"
-                      variant="outlined"
-                      label="New Document Code"
-                      value={newDocumentCode}
-                      onChange={(e) => setNewDocumentCode(e.target.value)} // Update state for document code
-                      onKeyDown={preventFormSubmitOnEnter}
-                    />
-                  </Col>
+                  <span
+                    style={{
+                      cursor: "pointer",
+                      color: "#007bff",
+                      fontSize: "14px"
+                    }}
+                    onClick={() => handleOpenDialog(doc, true)}
+                    title="Edit Document"
+                  >
+                    <i className="fas fa-edit"></i>
+                  </span>
+                  <span
+                    style={{ 
+                      cursor: "pointer", 
+                      color: "#dc3545",
+                      fontSize: "14px"
+                    }}
+                    onClick={() => handleOpenDialog(doc, false)}
+                    title="Delete Document"
+                  >
+                    <i className="fas fa-trash-alt"></i>
+                  </span>
                 </>
               )}
-
-              <Col
-                xs={12}
-                lg={2}
-                style={{ display: "flex", alignItems: "center" }}
+              {/* Remove from list button */}
+              <span
+                style={{ 
+                  cursor: "pointer", 
+                  color: "#6c757d",
+                  fontSize: "14px"
+                }}
+                onClick={() => {
+                  const updatedDocuments = cthDocuments.filter((_, i) => i !== index);
+                  setCthDocuments(updatedDocuments);
+                }}
+                title="Remove from list"
               >
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ marginTop: "8px", height: "fit-content" }}
-                  onClick={() => {
-                    if (
-                      selectedDocument !== "other" &&
-                      selectedDocument &&
-                      cth_Dropdown.some(
-                        (doc) => doc.document_code === selectedDocument
-                      )
-                    ) {
-                      const selectedDoc = cth_Dropdown.find(
-                        (doc) => doc.document_code === selectedDocument
-                      );
-                      setCthDocuments([
-                        ...cthDocuments,
-                        {
-                          document_name: selectedDoc.document_name,
-                          document_code: selectedDoc.document_code,
-                          url: [],
-                          document_check_date: "",
-                        },
-                      ]);
-                    } else if (
-                      selectedDocument === "other" &&
-                      newDocumentName.trim() &&
-                      newDocumentCode.trim()
-                    ) {
-                      setCthDocuments([
-                        ...cthDocuments,
-                        {
-                          document_name: newDocumentName,
-                          document_code: newDocumentCode,
-                          url: [],
-                          document_check_date: "",
-                        },
-                      ]);
-                      setNewDocumentName("");
-                      setNewDocumentCode("");
-                    }
-                    setSelectedDocument(""); // Reset dropdown
-                  }}
-                >
-                  Add Document
-                </button>
-              </Col>
-            </Row>
-
-            {/*  */}
-            {/*  */}
+                <i className="fas fa-times-circle"></i>
+              </span>
+            </div>
           </div>
+
+          {/* Document Details Row */}
+          <Row style={{ marginBottom: "15px" }}>
+            {/* Document Check Date */}
+            <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
+              <div style={{
+                padding: "8px 12px",
+                border: "1px solid #e0e0e0",
+                borderRadius: "4px",
+                backgroundColor: "#f9f9f9",
+                fontSize: "14px",
+                color: "#555"
+              }}>
+                <strong style={{ color: "#333", marginRight: "8px" }}>
+                  Completed Date:
+                </strong>
+                {doc.document_check_date ? 
+                  new Date(doc.document_check_date).toLocaleString('en-IN', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  }) : 
+                  <span style={{ color: "#999", fontStyle: "italic" }}>Not set</span>
+                }
+              </div>
+            </Col>
+
+            {/* Is Sent to E-Sanchit Checkbox */}
+            <Col xs={12} md={6} style={{ 
+              display: "flex", 
+              alignItems: "center",
+              marginBottom: "10px"
+            }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={doc.is_sent_to_esanchit || false}
+                    onChange={(e) => {
+                      const updatedDocuments = [...cthDocuments];
+                      updatedDocuments[index].is_sent_to_esanchit = e.target.checked;
+                      setCthDocuments(updatedDocuments);
+                    }}
+                    color="primary"
+                    size="small"
+                  />
+                }
+                label={
+                  <span style={{ fontSize: "14px", color: "#555" }}>
+                    Sent to E-Sanchit
+                  </span>
+                }
+              />
+            </Col>
+          </Row>
+
+          {/* File Upload Section */}
+          <div style={{ marginBottom: "15px" }}>
+            <FileUpload
+              label="Upload Documents"
+              bucketPath={`cth-documents/${doc.document_name}`}
+              onFilesUploaded={(urls) => {
+                const updatedDocuments = [...cthDocuments];
+                updatedDocuments[index].url = [
+                  ...(updatedDocuments[index].url || []),
+                  ...urls,
+                ];
+                setCthDocuments(updatedDocuments);
+              }}
+              multiple={true}
+            />
+          </div>
+
+          {/* Image Preview Section */}
+          <ImagePreview
+            images={doc.url || []}
+            onDeleteImage={(deleteIndex) => {
+              const updatedDocuments = [...cthDocuments];
+              updatedDocuments[index].url = updatedDocuments[index].url.filter(
+                (_, i) => i !== deleteIndex
+              );
+              setCthDocuments(updatedDocuments);
+            }}
+            readOnly={false}
+          />
+        </div>
+      </Col>
+    ))}
+  </Row>
+
+  {/* Add Document Section */}
+  <div style={{ 
+    backgroundColor: "#f8f9fa", 
+    border: "2px dashed #dee2e6", 
+    borderRadius: "8px", 
+    padding: "20px", 
+    marginTop: "20px" 
+  }}>
+    <h6 style={{ 
+      marginBottom: "15px", 
+      color: "#6c757d",
+      fontWeight: "500"
+    }}>
+      Add New Document
+    </h6>
+    
+    <Row>
+      <Col xs={12} lg={4}>
+        <FormControl
+          fullWidth
+          size="small"
+          margin="normal"
+          variant="outlined"
+        >
+          <InputLabel>Select Document</InputLabel>
+          <Select
+            value={selectedDocument}
+            onChange={(e) => {
+              const selectedValue = e.target.value;
+              if (selectedValue === "other") {
+                setNewDocumentName("");
+                setNewDocumentCode("");
+              }
+              setSelectedDocument(selectedValue);
+            }}
+            label="Select Document"
+          >
+            {cth_Dropdown
+              .filter(doc => 
+                !cthDocuments.some(
+                  existingDoc => existingDoc.document_code === doc.document_code
+                )
+              )
+              .map((doc) => (
+                <MenuItem
+                  key={doc.document_code}
+                  value={doc.document_code}
+                >
+                  {doc.document_name}
+                </MenuItem>
+              ))
+            }
+            <MenuItem value="other">
+              <em>Other (Custom Document)</em>
+            </MenuItem>
+          </Select>
+        </FormControl>
+      </Col>
+
+      {selectedDocument === "other" && (
+        <>
+          <Col xs={12} lg={3}>
+            <TextField
+              fullWidth
+              size="small"
+              margin="normal"
+              variant="outlined"
+              label="Document Name"
+              value={newDocumentName}
+              onChange={(e) => setNewDocumentName(e.target.value)}
+              onKeyDown={preventFormSubmitOnEnter}
+              required
+            />
+          </Col>
+          <Col xs={12} lg={3}>
+            <TextField
+              fullWidth
+              size="small"
+              margin="normal"
+              variant="outlined"
+              label="Document Code"
+              value={newDocumentCode}
+              onChange={(e) => setNewDocumentCode(e.target.value)}
+              onKeyDown={preventFormSubmitOnEnter}
+              required
+            />
+          </Col>
+        </>
+      )}
+
+      <Col
+        xs={12}
+        lg={2}
+        style={{ display: "flex", alignItems: "center" }}
+      >
+        <button
+          type="button"
+          className="btn btn-outline-primary"
+          style={{ 
+            marginTop: "8px", 
+            height: "fit-content",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px"
+          }}
+          onClick={() => {
+            if (
+              selectedDocument !== "other" &&
+              selectedDocument &&
+              cth_Dropdown.some(
+                (doc) => doc.document_code === selectedDocument
+              )
+            ) {
+              const selectedDoc = cth_Dropdown.find(
+                (doc) => doc.document_code === selectedDocument
+              );
+              setCthDocuments([
+                ...cthDocuments,
+                {
+                  document_name: selectedDoc.document_name,
+                  document_code: selectedDoc.document_code,
+                  url: [],
+                  document_check_date: "",
+                  is_sent_to_esanchit: false,
+                },
+              ]);
+            } else if (
+              selectedDocument === "other" &&
+              newDocumentName.trim() &&
+              newDocumentCode.trim()
+            ) {
+              setCthDocuments([
+                ...cthDocuments,
+                {
+                  document_name: newDocumentName.trim(),
+                  document_code: newDocumentCode.trim(),
+                  url: [],
+                  document_check_date: "",
+                  is_sent_to_esanchit: false,
+                },
+              ]);
+              setNewDocumentName("");
+              setNewDocumentCode("");
+            }
+            setSelectedDocument("");
+          }}
+          disabled={
+            !selectedDocument || 
+            (selectedDocument === "other" && 
+              (!newDocumentName.trim() || !newDocumentCode.trim())
+            )
+          }
+        >
+          <i className="fas fa-plus"></i>
+          Add Document
+        </button>
+      </Col>
+    </Row>
+  </div>
+</div>
 
           {/* charges section */}
           <div className="job-details-container">

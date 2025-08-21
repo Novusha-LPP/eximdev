@@ -29,6 +29,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       selectedICD,
       obl_telex_bl,
       year,
+      unresolvedOnly,
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -68,6 +69,13 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       ],
     };
 
+    
+     if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
@@ -109,6 +117,17 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       )
       .lean();
 
+       const unresolvedQueryBase = { ...baseQuery };
+              unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+                !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+              );
+              unresolvedQueryBase.$and.push({
+                dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+              });
+              
+              const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+      
+
     // **Step 3: Apply Pagination**
     const totalJobs = allJobs.length;
     const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
@@ -119,6 +138,8 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
+
     });
   } catch (error) {
     console.error("Error in /api/get-do-billing:", error.stack || error);

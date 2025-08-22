@@ -272,18 +272,19 @@ function ViewESanchitJob() {
   };
 
   // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
-  const areAllApproved = () => {
-    return (
-      !isDisabled &&
-      formik.values.cth_documents.every(
-        (doc) =>
+const areAllApproved = () => {
+  return (
+    !isDisabled &&
+    formik.values.cth_documents
+      .filter(doc => doc.is_sent_to_esanchit) // Only consider sent documents
+      .every(
+        doc =>
           !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
-          !!doc.irn && // IRN is a non-empty string
-          doc.irn.trim() !== "" // IRN is not just whitespace
+          !!doc.irn &&                 // IRN is non-empty
+          doc.irn.trim() !== ""        // IRN is not just whitespace
       )
-    );
-  };
-
+  );
+};
   // Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
   useEffect(() => {
     if (areAllApproved()) {

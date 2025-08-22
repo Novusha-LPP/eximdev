@@ -64,6 +64,7 @@ const buildSearchQuery = (search) => ({
     { be_date: { $regex: escapeRegex(search), $options: "i" } },
     { loading_port: { $regex: escapeRegex(search), $options: "i" } },
     { port_of_reporting: { $regex: escapeRegex(search), $options: "i" } },
+    { hawb_hbl_no: { $regex: escapeRegex(search), $options: "i" } },
     {
       "container_nos.container_number": {
         $regex: escapeRegex(search),

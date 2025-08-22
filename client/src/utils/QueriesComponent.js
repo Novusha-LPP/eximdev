@@ -28,6 +28,7 @@ import {
  * @param {Boolean} props.showResolveButton - Whether to show resolve button
  * @param {Function} props.onResolveQuery - Callback when query is resolved
  * @param {String} props.currentModule - Current module name to track query source
+ * @param {String} props.userName - Current Username name to track query source
  */
 const QueriesComponent = ({
   queries = [],
@@ -46,23 +47,30 @@ const QueriesComponent = ({
   showResolveButton = true,
   onResolveQuery = null,
   currentModule = "DSR", // New prop to track current module
+  userName = "",
 }) => {
   const [expanded, setExpanded] = useState(false);
 
   // Debounced update function to reduce re-renders
-  const debouncedUpdate = useCallback((updatedQueries) => {
-    onQueriesChange(updatedQueries);
-  }, [onQueriesChange]);
+  const debouncedUpdate = useCallback(
+    (updatedQueries) => {
+      onQueriesChange(updatedQueries);
+    },
+    [onQueriesChange]
+  );
 
   // Update a specific query with optimized performance
-  const updateQuery = useCallback((index, field, value) => {
-    const updated = [...queries];
-    updated[index] = {
-      ...updated[index],
-      [field]: value,
-    };
-    debouncedUpdate(updated);
-  }, [queries, debouncedUpdate]);
+  const updateQuery = useCallback(
+    (index, field, value) => {
+      const updated = [...queries];
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+      debouncedUpdate(updated);
+    },
+    [queries, debouncedUpdate]
+  );
 
   // Add new query with source module tracking
   const addQuery = useCallback(() => {
@@ -79,36 +87,45 @@ const QueriesComponent = ({
   }, [queries, currentModule, debouncedUpdate]);
 
   // Remove query
-  const removeQuery = useCallback((index) => {
-    const updated = queries.filter((_, i) => i !== index);
-    debouncedUpdate(updated);
-  }, [queries, debouncedUpdate]);
+  const removeQuery = useCallback(
+    (index) => {
+      const updated = queries.filter((_, i) => i !== index);
+      debouncedUpdate(updated);
+    },
+    [queries, debouncedUpdate]
+  );
 
   // Resolve query - only when explicitly called
-  const resolveQuery = useCallback((index) => {
-    const updated = [...queries];
-    updated[index] = {
-      ...updated[index],
-      resolved: true,
-      resolved_at: new Date().toISOString(),
-    };
-    debouncedUpdate(updated);
+  const resolveQuery = useCallback(
+    (index) => {
+      const updated = [...queries];
+      updated[index] = {
+        ...updated[index],
+        resolved: true,
+        resolved_at: new Date().toISOString(),
+        resolved_by: userName || "Unknown", // <-- track resolver
+      };
+      debouncedUpdate(updated);
 
-    if (onResolveQuery) {
-      onResolveQuery(updated[index], index);
-    }
-  }, [queries, onResolveQuery, debouncedUpdate]);
-
+      if (onResolveQuery) {
+        onResolveQuery(updated[index], index);
+      }
+    },
+    [queries, onResolveQuery, debouncedUpdate, userName]
+  );
   // Unresolve query
-  const unresolveQuery = useCallback((index) => {
-    const updated = [...queries];
-    updated[index] = {
-      ...updated[index],
-      resolved: false,
-      resolved_at: null,
-    };
-    debouncedUpdate(updated);
-  }, [queries, debouncedUpdate]);
+  const unresolveQuery = useCallback(
+    (index) => {
+      const updated = [...queries];
+      updated[index] = {
+        ...updated[index],
+        resolved: false,
+        resolved_at: null,
+      };
+      debouncedUpdate(updated);
+    },
+    [queries, debouncedUpdate]
+  );
 
   // Memoized calculations for performance
   const { resolvedCount, pendingCount } = useMemo(() => {
@@ -342,9 +359,9 @@ const QueriesComponent = ({
                       // Direct update without auto-resolve
                       updateQuery(index, "reply", e.target.value);
                     }}
-                    InputProps={{ 
+                    InputProps={{
                       readOnly: readOnlyReply,
-                      style: { transition: "none" } // Remove transitions for faster typing
+                      style: { transition: "none" }, // Remove transitions for faster typing
                     }}
                     variant="outlined"
                     sx={{
@@ -354,7 +371,7 @@ const QueriesComponent = ({
                       },
                       "& .MuiInputBase-input": {
                         transition: "none !important", // Remove input transitions
-                      }
+                      },
                     }}
                   />
 
@@ -448,10 +465,47 @@ const QueriesComponent = ({
                       gap: "16px",
                     }}
                   >
-                    <span>Created: {new Date(item.created_at).toLocaleString()}</span>
-                    {item.resolved_at && (
-                      <span>Resolved: {new Date(item.resolved_at).toLocaleString()}</span>
-                    )}
+                    <span>
+                      Created: {new Date(item.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Source Module Indicator (left corner) */}
+                {item.current_module && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "8px",
+                      left: "8px",
+                      backgroundColor: "#3b82f6",
+                      color: "white",
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    From: {item.current_module}
+                  </div>
+                )}
+
+                {/* Resolved By Username (right corner) */}
+                {item.resolved && item.resolved_by && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "8px",
+                      right: "8px",
+                      backgroundColor: "#16a34a", // green background
+                      color: "white",
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    By: {item.resolved_by}
                   </div>
                 )}
               </div>

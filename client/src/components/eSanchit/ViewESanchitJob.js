@@ -401,6 +401,7 @@ const areAllApproved = () => {
                 showResolveButton={true}
                 readOnlyReply={false}
                 onResolveQuery={handleResolveQuery}
+                userName={user?.username}
               />
             </div>
 

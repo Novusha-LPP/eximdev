@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { type } from "os";
 
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
@@ -309,7 +310,7 @@ const jobSchema = new mongoose.Schema({
   shipping_line_invoice_date: { type: String },
   shipping_line_invoice_imgs: [{ type: String, trim: true }],
   do_queries: [{ query: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
-  dsr_queries: [{ query: { type: String }, current_module: { type: String }, select_module: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
+  dsr_queries: [{ query: { type: String }, current_module: { type: String }, select_module: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false }, resolved_by: {type: String} }],
   do_completed: { type: String, trim: true },
   // *******
   icd_cfs_invoice: { type: String, trim: true },

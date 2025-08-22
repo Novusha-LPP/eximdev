@@ -1469,6 +1469,7 @@ function EditDoPlanning() {
           showResolveButton={true}
           readOnlyReply={false}
           onResolveQuery={handleResolveQuery}
+          userName={user?.username}
         />
       </div>
       <div style={{ margin: "20px 0" }}>

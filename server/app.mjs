@@ -50,6 +50,7 @@ import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
 import Charges from "./routes/ChargesSection/ChargesSection.js";
 
 // Accounts
+import Accounts from "./routes/accounts/accounts.js";
 import addAdani from "./routes/accounts/addAdani.mjs";
 import addAMC from "./routes/accounts/addAMC.mjs";
 import addCC from "./routes/accounts/addCC.mjs";
@@ -378,6 +379,8 @@ if (cluster.isPrimary) {
       app.use(Charges);
 
       // Accounts
+
+      app.use("/api",Accounts);
       app.use(addAdani);
       app.use(addAMC);
       app.use(addCC);

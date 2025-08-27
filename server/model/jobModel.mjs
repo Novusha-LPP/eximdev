@@ -5,6 +5,51 @@ const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
 
+
+
+const fieldSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  type: { 
+    type: String, 
+    required: true, 
+    enum: ['text', 'number', 'date', 'select', 'boolean'] 
+  },
+  required: { type: Boolean, default: false },
+  options: [{ type: String }], // For select fields
+  order: { type: Number, default: 0 }
+});
+
+const masterTypeSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  fields: [fieldSchema],
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const customFieldSchema = new mongoose.Schema({
+  fieldId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  value: { type: mongoose.Schema.Types.Mixed, required: true }
+});
+
+const accountEntrySchema = new mongoose.Schema({
+  masterTypeId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'MasterType', 
+    required: true 
+  },
+  companyName: { type: String, required: true },
+  address: { type: String, required: true },
+  dueDate: { type: Date, required: true },
+  reminderFrequency: { 
+    type: String, 
+    required: true, 
+    enum: ['monthly', 'quarterly', 'half-yearly', 'yearly'] 
+  },
+  customFields: [customFieldSchema],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 const cthDocumentSchema = new mongoose.Schema({
   cth: { type: Number, trim: true },
   document_name: { type: String, trim: true },
@@ -359,6 +404,12 @@ const jobSchema = new mongoose.Schema({
   instructions: { type: String },
   goods_pickup: { type: String },
   goods_delivery: { type: String },
+
+  
+  ////////////////////////////////////////////form data
+  account_fields: [masterTypeSchema],
+
+  account_types: [accountEntrySchema],
 
   ////////////////////////////////////////////////// CTH Documents
   cth_documents: [cthDocumentSchema],

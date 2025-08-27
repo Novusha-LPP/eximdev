@@ -43,7 +43,7 @@ const accountEntrySchema = new mongoose.Schema({
     },
     type: {
       type: String,
-      enum: ['text', 'number', 'date', 'email', 'phone', 'select', 'boolean'],
+      enum: ['text', 'number', 'date', 'email', 'phone', 'upload',  'select', 'boolean'],
       default: 'text'
     },
     required: {

@@ -19,19 +19,27 @@ import {
   Switch,
   FormControlLabel,
   Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Card,
   CardContent,
   CardHeader,
   Divider,
-  Stack,
-  Alert
+  Stack
 } from '@mui/material';
 import { Add, Delete, Edit, Save, Cancel, Visibility, Business, Clear } from '@mui/icons-material';
+import FileUpload from '../gallery/FileUpload';
+import ImagePreview from '../gallery/ImagePreview';
 
 const MasterTypeManager = () => {
   const [masterTypes, setMasterTypes] = useState([]);
   const [masterEntries, setMasterEntries] = useState([]);
   const [selectedMasterType, setSelectedMasterType] = useState('');
+  const [filteredEntries, setFilteredEntries] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [viewDialog, setViewDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
@@ -63,21 +71,16 @@ const MasterTypeManager = () => {
     fetchMasterEntries();
   }, []);
 
-  // Helper function to format date for input fields (YYYY-MM-DD)
-  const formatDateForInput = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
-    return date.toISOString().split('T')[0];
-  };
-
-  // Helper function to format date for display
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return 'Not set';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Not set';
-    return date.toLocaleDateString();
-  };
+  useEffect(() => {
+    if (selectedMasterType && masterEntries.length > 0) {
+      const filtered = masterEntries.filter(entry => 
+        entry.masterTypeName === selectedMasterType
+      );
+      setFilteredEntries(filtered);
+    } else {
+      setFilteredEntries([]);
+    }
+  }, [selectedMasterType, masterEntries]);
 
   const fetchMasterTypes = async () => {
     try {
@@ -108,29 +111,10 @@ const MasterTypeManager = () => {
       setShowInlineForm(false);
       setOpenDialog(true);
     } else if (value) {
-      const existingEntry = masterEntries.find(entry => entry.masterTypeName === value);
-      const masterTypeStructure = masterTypes.find(mt => mt.name === value);
-      
-      if (existingEntry) {
-        setMasterData({
-          id: existingEntry._id,
-          masterType: value,
-          defaultFields: {
-            ...existingEntry.defaultFields,
-            // Format dates properly for input fields
-            billingDate: formatDateForInput(existingEntry.defaultFields.billingDate),
-            dueDate: formatDateForInput(existingEntry.defaultFields.dueDate)
-          },
-          customFields: existingEntry.customFields.map(cf => ({
-            ...cf,
-            id: cf.id || Date.now() + Math.random(),
-            // Format date values for date type fields
-            value: cf.type === 'date' ? formatDateForInput(cf.value) : cf.value
-          })) || []
-        });
-        setEditMode(true);
-      } else if (masterTypeStructure) {
-        setMasterData({
+      const existingMaster = masterTypes.find(mt => mt.name === value);
+      if (existingMaster) {
+        setMasterData(prev => ({
+          ...prev,
           id: null,
           masterType: value,
           defaultFields: {
@@ -140,17 +124,19 @@ const MasterTypeManager = () => {
             dueDate: '',
             reminder: 'monthly'
           },
-          customFields: masterTypeStructure.fields.map(field => ({
+          customFields: existingMaster.fields.map(field => ({
             id: Date.now() + Math.random(),
             name: field.name,
-            value: field.type === 'date' ? '' : '',
+            value: '',
             type: field.type,
             required: field.required
           })) || []
-        });
-        setEditMode(false);
+        }));
+      } else {
+        resetFormForExisting(value);
       }
       setShowInlineForm(true);
+      setEditMode(false);
     } else {
       setShowInlineForm(false);
     }
@@ -172,26 +158,45 @@ const MasterTypeManager = () => {
     setEditMode(false);
   };
 
-  const clearInlineForm = () => {
-    setSelectedMasterType('');
-    setShowInlineForm(false);
-    resetForm();
+  const resetFormForExisting = (masterType) => {
+    setMasterData({
+      id: null,
+      masterType: masterType,
+      defaultFields: {
+        companyName: '',
+        address: '',
+        billingDate: '',
+        dueDate: '',
+        reminder: 'monthly'
+      },
+      customFields: []
+    });
+    setEditMode(false);
   };
 
-  // Add custom field to existing master type (for editing)
-  const addCustomFieldToExisting = () => {
-    const newField = {
-      id: Date.now(),
-      name: '',
-      value: '',
-      type: 'text',
-      required: false
-    };
-    
-    setMasterData(prev => ({
-      ...prev,
-      customFields: [...prev.customFields, newField]
-    }));
+  const clearInlineForm = () => {
+    if (selectedMasterType && selectedMasterType !== 'CREATE_NEW') {
+      const existingMaster = masterTypes.find(mt => mt.name === selectedMasterType);
+      setMasterData(prev => ({
+        ...prev,
+        id: null,
+        defaultFields: {
+          companyName: '',
+          address: '',
+          billingDate: '',
+          dueDate: '',
+          reminder: 'monthly'
+        },
+        customFields: existingMaster ? existingMaster.fields.map(field => ({
+          id: Date.now() + Math.random(),
+          name: field.name,
+          value: '',
+          type: field.type,
+          required: field.required
+        })) : []
+      }));
+    }
+    setEditMode(false);
   };
 
   const addCustomField = () => {
@@ -233,35 +238,22 @@ const MasterTypeManager = () => {
     }));
   };
 
+  const handleEdit = (entry) => {
+    setEditMode(true);
+    setMasterData({
+      id: entry._id,
+      masterType: entry.masterTypeName,
+      defaultFields: { ...entry.defaultFields },
+      customFields: entry.customFields.map(cf => ({
+        ...cf,
+        id: cf.id || Date.now() + Math.random()
+      })) || []
+    });
+    setShowInlineForm(true);
+  };
+
   const handleInlineSubmit = async () => {
     try {
-      // If in edit mode and adding new custom fields, update the master type structure first
-      if (editMode) {
-        const masterTypeStructure = masterTypes.find(mt => mt.name === selectedMasterType);
-        const existingFieldNames = masterTypeStructure.fields.map(f => f.name);
-        const newFields = masterData.customFields.filter(cf => !existingFieldNames.includes(cf.name) && cf.name.trim() !== '');
-        
-        if (newFields.length > 0) {
-          const updatedFields = [
-            ...masterTypeStructure.fields,
-            ...newFields.map(cf => ({
-              name: cf.name,
-              type: cf.type,
-              required: cf.required
-            }))
-          ];
-          
-          await fetch(`${process.env.REACT_APP_API_STRING}/master-types/${masterTypeStructure._id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...masterTypeStructure, fields: updatedFields })
-          });
-          
-          // Refresh master types
-          await fetchMasterTypes();
-        }
-      }
-
       const masterEntry = {
         masterType: selectedMasterType,
         defaultFields: masterData.defaultFields,
@@ -281,20 +273,15 @@ const MasterTypeManager = () => {
       });
 
       if (response.ok) {
+        clearInlineForm();
         fetchMasterEntries();
-        const updatedEntry = await response.json();
-        setMasterData(prev => ({
-          ...prev,
-          id: updatedEntry._id || prev.id
-        }));
-        setEditMode(true);
       }
     } catch (error) {
       console.error('Error saving master:', error);
     }
   };
 
-  const handleCreateNewMasterType = async () => {
+  const handleSubmit = async () => {
     try {
       const masterTypeStructure = {
         name: masterData.masterType,
@@ -326,47 +313,45 @@ const MasterTypeManager = () => {
       if (response.ok) {
         setOpenDialog(false);
         setSelectedMasterType(masterData.masterType);
-        await fetchMasterTypes();
-        await fetchMasterEntries();
-        
-        const newEntry = masterEntries.find(entry => entry.masterTypeName === masterData.masterType);
-        if (newEntry) {
-          setMasterData({
-            id: newEntry._id,
-            masterType: masterData.masterType,
-            defaultFields: {
-              ...newEntry.defaultFields,
-              billingDate: formatDateForInput(newEntry.defaultFields.billingDate),
-              dueDate: formatDateForInput(newEntry.defaultFields.dueDate)
-            },
-            customFields: newEntry.customFields.map(cf => ({
-              ...cf,
-              id: cf.id || Date.now() + Math.random(),
-              value: cf.type === 'date' ? formatDateForInput(cf.value) : cf.value
-            })) || []
-          });
-          setEditMode(true);
-          setShowInlineForm(true);
-        }
+        fetchMasterTypes();
+        fetchMasterEntries();
+        resetForm();
       }
     } catch (error) {
-      console.error('Error creating master type:', error);
+      console.error('Error saving master:', error);
     }
   };
 
   const getMasterTypeOptions = () => {
     const customTypes = masterTypes.map(mt => mt.name);
-    return [...new Set([...customTypes])];
+    const allTypes = [...new Set([...customTypes])];
+    return allTypes;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getDaysUntilDue = (dueDate) => {
+    if (!dueDate) return null;
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getStatusColor = (daysUntilDue) => {
+    if (daysUntilDue === null) return 'default';
+    if (daysUntilDue < 0) return 'error';
+    if (daysUntilDue <= 7) return 'warning';
+    return 'success';
   };
 
   const handleViewEntry = (entry) => {
     setSelectedEntry(entry);
     setViewDialog(true);
-  };
-
-  const getEntryStatus = (masterTypeName) => {
-    const entry = masterEntries.find(e => e.masterTypeName === masterTypeName);
-    return entry ? 'Configured' : 'Not Configured';
   };
 
   return (
@@ -377,22 +362,6 @@ const MasterTypeManager = () => {
       bgcolor: '#f8fafc',
       minHeight: '100vh'
     }}>
-      {/* Header */}
-      <Box sx={{ mb: 3, textAlign: 'center' }}>
-        <Typography 
-          variant="h4" 
-          sx={{ 
-            fontWeight: 700, 
-            color: '#1e293b',
-            mb: 1
-          }}
-        >
-          Master Management
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Configure your business master data - one entry per master type
-        </Typography>
-      </Box>
 
       {/* Master Type Selection */}
       <Paper 
@@ -406,7 +375,7 @@ const MasterTypeManager = () => {
         }}
       >
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: '0.875rem' }}>Select Master Type</InputLabel>
               <Select
@@ -424,15 +393,7 @@ const MasterTypeManager = () => {
               >
                 {getMasterTypeOptions().map((type) => (
                   <MenuItem key={type} value={type} sx={{ fontSize: '0.875rem' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                      <span>{type}</span>
-                      <Chip 
-                        size="small" 
-                        label={getEntryStatus(type)}
-                        color={getEntryStatus(type) === 'Configured' ? 'success' : 'default'}
-                        sx={{ ml: 2 }}
-                      />
-                    </Box>
+                    {type}
                   </MenuItem>
                 ))}
                 <MenuItem value="CREATE_NEW" sx={{ fontSize: '0.875rem', color: '#059669' }}>
@@ -444,23 +405,13 @@ const MasterTypeManager = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={6}>
-            {selectedMasterType && selectedMasterType !== 'CREATE_NEW' && (
-              <Alert 
-                severity="info" 
-                sx={{ fontSize: '0.875rem' }}
-              >
-                {editMode ? 'Editing existing entry' : 'Creating new entry'} for {selectedMasterType}
-              </Alert>
-            )}
-          </Grid>
         </Grid>
       </Paper>
 
       <Grid container spacing={3}>
         {/* Inline Form */}
         {showInlineForm && selectedMasterType !== 'CREATE_NEW' && (
-          <Grid item xs={12} lg={6}>
+          <Grid item xs={12} lg={5}>
             <Card 
               elevation={2}
               sx={{ 
@@ -474,7 +425,7 @@ const MasterTypeManager = () => {
                 title={
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                      {editMode ? `Edit ${selectedMasterType}` : `Configure ${selectedMasterType}`}
+                      {editMode ? 'Edit Entry' : 'Add New Entry'}
                     </Typography>
                     <IconButton 
                       size="small" 
@@ -557,96 +508,174 @@ const MasterTypeManager = () => {
                   </Box>
 
                   {/* Custom Fields */}
-            <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
-                  Additional Custom Fields
+<Box>
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
+      Additional Custom Fields
+    </Typography>
+    <Button 
+      startIcon={<Add />} 
+      onClick={addCustomField}
+      size="small"
+      variant="outlined"
+      sx={{ borderRadius: 2, textTransform: 'none' }}
+    >
+      Add Field
+    </Button>
+  </Box>
+{masterData.customFields.map((field) => (
+  <Paper 
+    key={field.id}
+    sx={{ 
+      p: 2, 
+      mb: 2,
+      bgcolor: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: 2
+    }}
+  >
+    <Grid container spacing={2} alignItems="flex-start">
+      {/* Field Name */}
+      <Grid item xs={12} md={3}>
+        <TextField
+          fullWidth
+          label="Field Name"
+          size="small"
+          value={field.name}
+          onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
+        />
+      </Grid>
+      
+      {/* Value Field - Conditionally rendered based on type */}
+      <Grid item xs={12} md={field.type === 'upload' ? 6 : 3}>
+        {field.type === 'date' ? (
+          <TextField
+            fullWidth
+            label="Default Value"
+            size="small"
+            type="date"
+            value={field.value}
+            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        ) : field.type === 'upload' ? (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <FileUpload
+                bucketPath={`custom-fields/${field.name || 'unnamed-field'}`}
+                onFilesUploaded={(newFiles) => {
+                  const existingFiles = Array.isArray(field.value) ? field.value : [];
+                  const updatedFiles = [...existingFiles, ...newFiles];
+                  updateCustomField(field.id, 'value', updatedFiles);
+                }}
+                multiple={true}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  backgroundColor: "#3b82f6",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: "600",
+                  textAlign: "center",
+                  textTransform: 'uppercase',
+                  transition: "background-color 0.3s",
+                  '&:hover': {
+                    backgroundColor: "#2563eb",
+                  }
+                }}
+                label="UPLOAD"
+              />
+              {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {field.value.length} file(s) selected
                 </Typography>
-                <Button 
-                  startIcon={<Add />} 
-                  onClick={addCustomField}
-                  size="small"
-                  variant="outlined"
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
-                  Add Field
-                </Button>
-              </Box>
-
-              {masterData.customFields.map((field) => (
-                <Paper 
-                  key={field.id}
-                  sx={{ 
-                    p: 2, 
-                    mb: 2,
-                    bgcolor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 2
-                  }}
-                >
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Field Name"
-                        size="small"
-                        value={field.name}
-                        onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Default Value"
-                        size="small"
-                        value={field.value}
-                        type={field.type}
-                        onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-                        {...(field.type === 'date' && { InputLabelProps: { shrink: true } })}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Type</InputLabel>
-                        <Select
-                          value={field.type}
-                          label="Type"
-                          onChange={(e) => updateCustomField(field.id, 'type', e.target.value)}
-                        >
-                          <MenuItem value="text">Text</MenuItem>
-                          <MenuItem value="number">Number</MenuItem>
-                          <MenuItem value="date">Date</MenuItem>
-                          <MenuItem value="email">Email</MenuItem>
-                          <MenuItem value="phone">Phone</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={field.required}
-                            onChange={(e) => updateCustomField(field.id, 'required', e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label="Required"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <IconButton 
-                        color="error" 
-                        onClick={() => removeCustomField(field.id)}
-                        size="small"
-                        sx={{ '&:hover': { bgcolor: '#fee2e2' } }}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              ))}
+              )}
             </Box>
+            
+            {/* Show uploaded files preview */}
+            {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+              <Box sx={{ 
+                mt: 1, 
+                p: 1, 
+                bgcolor: 'white', 
+                borderRadius: 1,
+                border: '1px solid #e2e8f0'
+              }}>
+                <ImagePreview
+                  images={field.value}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...field.value];
+                    updatedFiles.splice(index, 1);
+                    updateCustomField(field.id, 'value', updatedFiles);
+                  }}
+                  showFileName={true}
+                />
+              </Box>
+            )}
+          </Box>
+        ) : (
+          <TextField
+            fullWidth
+            label="Default Value"
+            size="small"
+            type={field.type}
+            value={field.value}
+            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+            {...(field.type === 'email' && { 
+              inputProps: { 
+                pattern: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" 
+              } 
+            })}
+            {...(field.type === 'phone' && { 
+              inputProps: { 
+                pattern: "[0-9]{3}-[0-9]{3}-[0-9]{4}" 
+              } 
+            })}
+          />
+        )}
+      </Grid>
+      
+      {/* Type Selector */}
+      <Grid item xs={6} md={2}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Type</InputLabel>
+          <Select
+            value={field.type}
+            label="Type"
+            onChange={(e) => {
+              updateCustomField(field.id, 'type', e.target.value);
+              updateCustomField(field.id, 'value', e.target.value === 'upload' ? [] : '');
+            }}
+          >
+            <MenuItem value="text">Text</MenuItem>
+            <MenuItem value="number">Number</MenuItem>
+            <MenuItem value="date">Date</MenuItem>
+            <MenuItem value="email">Email</MenuItem>
+            <MenuItem value="phone">Phone</MenuItem>
+            <MenuItem value="upload">Upload</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      
+      {/* Delete Button */}
+      <Grid item xs={2} md={1}>
+        <IconButton 
+          color="error" 
+          onClick={() => removeCustomField(field.id)}
+          size="small"
+          sx={{ '&:hover': { bgcolor: '#fee2e2' } }}
+        >
+          <Delete fontSize="small" />
+        </IconButton>
+      </Grid>
+    </Grid>
+  </Paper>
+))}
+</Box>
+
+
 
                   {/* Action Buttons */}
                   <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
@@ -666,7 +695,7 @@ const MasterTypeManager = () => {
                         }
                       }}
                     >
-                      {editMode ? 'Update Entry' : 'Save Entry'}
+                      {editMode ? 'Update' : 'Save Entry'}
                     </Button>
                     <Button
                       variant="outlined"
@@ -686,9 +715,9 @@ const MasterTypeManager = () => {
           </Grid>
         )}
 
-        {/* Master Types Overview */}
+        {/* Entries Table */}
         {selectedMasterType && selectedMasterType !== 'CREATE_NEW' && (
-          <Grid item xs={12} lg={showInlineForm ? 6 : 12}>
+          <Grid item xs={12} lg={showInlineForm ? 7 : 12}>
             <Paper 
               elevation={2} 
               sx={{ 
@@ -703,90 +732,129 @@ const MasterTypeManager = () => {
                 borderBottom: '1px solid #e2e8f0'
               }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                  {selectedMasterType} Configuration
+                  {selectedMasterType} Entries ({filteredEntries.length})
                 </Typography>
               </Box>
 
-              <Box sx={{ p: 3 }}>
-                {masterData.defaultFields.companyName ? (
-                  <Stack spacing={2}>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                        Company Name
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                        {masterData.defaultFields.companyName}
-                      </Typography>
-                    </Box>
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          Address
-                        </Typography>
-                        <Typography variant="body1">
-                          {masterData.defaultFields.address || 'Not provided'}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          Billing Date
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatDateForDisplay(masterData.defaultFields.billingDate)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          Due Date
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatDateForDisplay(masterData.defaultFields.dueDate)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                          Reminder
-                        </Typography>
-                        <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
-                          {masterData.defaultFields.reminder}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-
-                    {masterData.customFields.length > 0 && (
-                      <>
-                        <Divider sx={{ my: 2 }} />
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1e293b', mb: 1 }}>
-                          Additional Information
-                        </Typography>
-                        <Grid container spacing={2}>
-                          {masterData.customFields.map((field, index) => (
-                            <Grid item xs={6} key={index}>
-                              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                {field.name}
-                              </Typography>
-                              <Typography variant="body1">
-                                {field.type === 'date' ? formatDateForDisplay(field.value) : (field.value || 'Not provided')}
-                              </Typography>
-                            </Grid>
-                          ))}
-                        </Grid>
-                      </>
-                    )}
-                  </Stack>
-                ) : (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <Business sx={{ fontSize: 48, color: '#94a3b8', mb: 2 }} />
-                    <Typography color="text.secondary" sx={{ mb: 2 }}>
-                      No data configured for {selectedMasterType}
-                    </Typography>
+              {filteredEntries.length === 0 ? (
+                <Box sx={{ p: 6, textAlign: 'center' }}>
+                  <Business sx={{ fontSize: 48, color: '#94a3b8', mb: 2 }} />
+                  <Typography color="text.secondary" sx={{ mb: 3, fontSize: '1.1rem' }}>
+                    No entries found for {selectedMasterType}
+                  </Typography>
+                  {!showInlineForm && (
                     <Typography variant="body2" color="text.secondary">
-                      Use the form on the left to configure this master type
+                      Select this master type to start adding entries
                     </Typography>
-                  </Box>
-                )}
-              </Box>
+                  )}
+                </Box>
+              ) : (
+                <TableContainer sx={{ maxHeight: 600 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569' }}>
+                          Company
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569' }}>
+                          Address
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569' }}>
+                          Due Date
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569' }}>
+                          Status
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, bgcolor: '#f8fafc', color: '#475569', width: 120 }}>
+                          Actions
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredEntries.map((entry, index) => {
+                        const daysUntilDue = getDaysUntilDue(entry.defaultFields.dueDate);
+                        const statusColor = getStatusColor(daysUntilDue);
+                        
+                        return (
+                          <TableRow 
+                            key={entry._id} 
+                            hover
+                            sx={{
+                              '&:hover': { 
+                                bgcolor: '#f1f5f9',
+                              },
+                              bgcolor: editMode && masterData.id === entry._id ? '#eff6ff' : 'inherit'
+                            }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {entry.defaultFields.companyName}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200 }}>
+                                {entry.defaultFields.address ? 
+                                  (entry.defaultFields.address.length > 30 ? 
+                                    `${entry.defaultFields.address.substring(0, 30)}...` : 
+                                    entry.defaultFields.address
+                                  ) : 'Not provided'
+                                }
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {formatDate(entry.defaultFields.dueDate)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              {daysUntilDue !== null && (
+                                <Chip
+                                  size="small"
+                                  label={
+                                    daysUntilDue < 0 
+                                      ? `Overdue ${Math.abs(daysUntilDue)}d`
+                                      : `${daysUntilDue}d left`
+                                  }
+                                  color={statusColor}
+                                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <IconButton 
+                                  size="small"
+                                  onClick={() => handleViewEntry(entry)}
+                                  sx={{ 
+                                    '&:hover': { 
+                                      bgcolor: '#e0f2fe',
+                                      color: '#0277bd'
+                                    }
+                                  }}
+                                >
+                                  <Visibility fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => handleEdit(entry)}
+                                  sx={{ 
+                                    '&:hover': { 
+                                      bgcolor: '#fff3e0',
+                                      color: '#ef6c00'
+                                    }
+                                  }}
+                                >
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </Paper>
           </Grid>
         )}
@@ -808,12 +876,9 @@ const MasterTypeManager = () => {
               <Typography variant="h5" color="text.primary" gutterBottom sx={{ fontWeight: 600 }}>
                 Welcome to Master Management
               </Typography>
-              <Typography color="text.secondary" sx={{ fontSize: '1.1rem', maxWidth: 600, mx: 'auto', mb: 2 }}>
-                Select a master type from the dropdown above to configure its data, 
+              <Typography color="text.secondary" sx={{ fontSize: '1.1rem', maxWidth: 600, mx: 'auto' }}>
+                Select a master type from the dropdown above to view existing entries and add new ones, 
                 or create a new master type to get started.
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Each master type can have only one configuration entry.
               </Typography>
             </Paper>
           </Grid>
@@ -855,7 +920,7 @@ const MasterTypeManager = () => {
 
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569', mb: 2 }}>
-                Company Information
+                Company Information Fields
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -919,20 +984,174 @@ const MasterTypeManager = () => {
             </Box>
 
             <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
-                  Additional Custom Fields
+<Box>
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
+      Additional Custom Fields
+    </Typography>
+    <Button 
+      startIcon={<Add />} 
+      onClick={addCustomField}
+      size="small"
+      variant="outlined"
+      sx={{ borderRadius: 2, textTransform: 'none' }}
+    >
+      Add Field
+    </Button>
+  </Box>
+{masterData.customFields.map((field) => (
+  <Paper 
+    key={field.id}
+    sx={{ 
+      p: 2, 
+      mb: 2,
+      bgcolor: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: 2
+    }}
+  >
+    <Grid container spacing={2} alignItems="flex-start">
+      {/* Field Name */}
+      <Grid item xs={12} md={3}>
+        <TextField
+          fullWidth
+          label="Field Name"
+          size="small"
+          value={field.name}
+          onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
+        />
+      </Grid>
+      
+      {/* Value Field - Conditionally rendered based on type */}
+      <Grid item xs={12} md={field.type === 'upload' ? 6 : 3}>
+        {field.type === 'date' ? (
+          <TextField
+            fullWidth
+            label="Default Value"
+            size="small"
+            type="date"
+            value={field.value}
+            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        ) : field.type === 'upload' ? (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <FileUpload
+                bucketPath={`custom-fields/${field.name || 'unnamed-field'}`}
+                onFilesUploaded={(newFiles) => {
+                  const existingFiles = Array.isArray(field.value) ? field.value : [];
+                  const updatedFiles = [...existingFiles, ...newFiles];
+                  updateCustomField(field.id, 'value', updatedFiles);
+                }}
+                multiple={true}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  backgroundColor: "#3b82f6",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: "600",
+                  textAlign: "center",
+                  textTransform: 'uppercase',
+                  transition: "background-color 0.3s",
+                  '&:hover': {
+                    backgroundColor: "#2563eb",
+                  }
+                }}
+                label="UPLOAD"
+              />
+              {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {field.value.length} file(s) selected
                 </Typography>
-                <Button 
-                  startIcon={<Add />} 
-                  onClick={addCustomField}
-                  size="small"
-                  variant="outlined"
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
-                  Add Field
-                </Button>
+              )}
+            </Box>
+            
+            {/* Show uploaded files preview */}
+            {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+              <Box sx={{ 
+                mt: 1, 
+                p: 1, 
+                bgcolor: 'white', 
+                borderRadius: 1,
+                border: '1px solid #e2e8f0'
+              }}>
+                <ImagePreview
+                  images={field.value}
+                  onDeleteImage={(index) => {
+                    const updatedFiles = [...field.value];
+                    updatedFiles.splice(index, 1);
+                    updateCustomField(field.id, 'value', updatedFiles);
+                  }}
+                  showFileName={true}
+                />
               </Box>
+            )}
+          </Box>
+        ) : (
+          <TextField
+            fullWidth
+            label="Default Value"
+            size="small"
+            type={field.type}
+            value={field.value}
+            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+            {...(field.type === 'email' && { 
+              inputProps: { 
+                pattern: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" 
+              } 
+            })}
+            {...(field.type === 'phone' && { 
+              inputProps: { 
+                pattern: "[0-9]{3}-[0-9]{3}-[0-9]{4}" 
+              } 
+            })}
+          />
+        )}
+      </Grid>
+      
+      {/* Type Selector */}
+      <Grid item xs={6} md={2}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Type</InputLabel>
+          <Select
+            value={field.type}
+            label="Type"
+            onChange={(e) => {
+              updateCustomField(field.id, 'type', e.target.value);
+              updateCustomField(field.id, 'value', e.target.value === 'upload' ? [] : '');
+            }}
+          >
+            <MenuItem value="text">Text</MenuItem>
+            <MenuItem value="number">Number</MenuItem>
+            <MenuItem value="date">Date</MenuItem>
+            <MenuItem value="email">Email</MenuItem>
+            <MenuItem value="phone">Phone</MenuItem>
+            <MenuItem value="upload">Upload</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      
+      {/* Delete Button */}
+      <Grid item xs={2} md={1}>
+        <IconButton 
+          color="error" 
+          onClick={() => removeCustomField(field.id)}
+          size="small"
+          sx={{ '&:hover': { bgcolor: '#fee2e2' } }}
+        >
+          <Delete fontSize="small" />
+        </IconButton>
+      </Grid>
+    </Grid>
+  </Paper>
+))}
+</Box>
+
+
 
               {masterData.customFields.map((field) => (
                 <Paper 
@@ -961,9 +1180,7 @@ const MasterTypeManager = () => {
                         label="Default Value"
                         size="small"
                         value={field.value}
-                        type={field.type}
                         onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-                        {...(field.type === 'date' && { InputLabelProps: { shrink: true } })}
                       />
                     </Grid>
                     <Grid item xs={12} md={2}>
@@ -979,20 +1196,9 @@ const MasterTypeManager = () => {
                           <MenuItem value="date">Date</MenuItem>
                           <MenuItem value="email">Email</MenuItem>
                           <MenuItem value="phone">Phone</MenuItem>
+                          <MenuItem value="upload"></MenuItem>
                         </Select>
                       </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={field.required}
-                            onChange={(e) => updateCustomField(field.id, 'required', e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label="Required"
-                      />
                     </Grid>
                     <Grid item xs={12} md={2}>
                       <IconButton 
@@ -1019,7 +1225,7 @@ const MasterTypeManager = () => {
             Cancel
           </Button>
           <Button 
-            onClick={handleCreateNewMasterType}
+            onClick={handleSubmit}
             variant="contained"
             disabled={!masterData.masterType || !masterData.defaultFields.companyName}
             sx={{
@@ -1081,7 +1287,7 @@ const MasterTypeManager = () => {
                   Billing Date
                 </Typography>
                 <Typography variant="body1" sx={{ mt: 0.5 }}>
-                  {formatDateForDisplay(selectedEntry.defaultFields.billingDate)}
+                  {formatDate(selectedEntry.defaultFields.billingDate)}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
@@ -1089,7 +1295,7 @@ const MasterTypeManager = () => {
                   Due Date
                 </Typography>
                 <Typography variant="body1" sx={{ mt: 0.5 }}>
-                  {formatDateForDisplay(selectedEntry.defaultFields.dueDate)}
+                  {formatDate(selectedEntry.defaultFields.dueDate)}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
@@ -1115,7 +1321,7 @@ const MasterTypeManager = () => {
                         {field.name}
                       </Typography>
                       <Typography variant="body1" sx={{ mt: 0.5 }}>
-                        {field.type === 'date' ? formatDateForDisplay(field.value) : (field.value || 'Not provided')}
+                        {field.value || 'Not provided'}
                       </Typography>
                     </Grid>
                   ))}
@@ -1131,6 +1337,25 @@ const MasterTypeManager = () => {
             sx={{ textTransform: 'none', color: '#64748b' }}
           >
             Close
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<Edit />}
+            onClick={() => {
+              setViewDialog(false);
+              handleEdit(selectedEntry);
+            }}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+              }
+            }}
+          >
+            Edit Entry
           </Button>
         </DialogActions>
       </Dialog>

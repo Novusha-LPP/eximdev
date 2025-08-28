@@ -346,6 +346,17 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
     }
   };
 
+  useEffect(() => {
+  // Check if assessable_amount has a value and assessment_date is set
+  if (formik.values.assessable_ammount && 
+      formik.values.assessable_ammount.trim() !== '' && 
+      formik.values.assessment_date && formik.values.payment_method === "Deferred") {
+    
+    // Set duty_paid_date to the same value as assessment_date
+    formik.setFieldValue('duty_paid_date', formik.values.assessment_date);
+  }
+}, [formik.values.assessable_ammount, formik.values.assessment_date]);
+
   function toISTLocalInput(date) {
     if (!date) return "";
     const d = new Date(date);

@@ -428,7 +428,8 @@ function useFetchJobDetails(
       bill_document_sent_to_accounts: "",
       do_completed: "",
       import_terms: "",
-      // container_rail_out_date: ""      assessable_ammount: "",
+      // container_rail_out_date: ""   
+      assessable_ammount: "",
       igst_ammount: "",
       sws_ammount: "",
       bcd_ammount: "",

@@ -339,7 +339,7 @@ function ESanchit() {
             >
               {/* Loop through CTH Documents and display document name with serial number */}
               {cth_documents
-                ?.filter((doc) => doc.url && doc.url.length > 0)
+                ?.filter((doc) => doc.url && doc.url.length > 0 && doc.is_sent_to_esanchit)
                 .map((doc) => (
                   <a
                     key={doc._id}

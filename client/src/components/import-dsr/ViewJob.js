@@ -57,6 +57,9 @@ import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.j
 import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function JobDetails() {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [documentToDelete, setDocumentToDelete] = useState(null);
+
   const { currentTab } = useContext(TabContext); // Access context
   const params = useParams();
   const location = useLocation();
@@ -3325,21 +3328,53 @@ function JobDetails() {
                   </span>
                 </>
               )}
-              {/* Remove from list button */}
-              <span
-                style={{ 
-                  cursor: "pointer", 
-                  color: "#6c757d",
-                  fontSize: "14px"
-                }}
-                onClick={() => {
-                  const updatedDocuments = cthDocuments.filter((_, i) => i !== index);
-                  setCthDocuments(updatedDocuments);
-                }}
-                title="Remove from list"
-              >
-                <i className="fas fa-times-circle"></i>
-              </span>
+{/* Action Buttons */}
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+  {user?.role === "Admin" && (
+    <>
+      <span
+        style={{
+          cursor: "pointer",
+          color: "#007bff",
+          fontSize: "14px"
+        }}
+        onClick={() => handleOpenDialog(doc, true)}
+        title="Edit Document"
+      >
+        <i className="fas fa-edit"></i>
+      </span>
+      <span
+        style={{ 
+          cursor: "pointer", 
+          color: "#dc3545",
+          fontSize: "14px"
+        }}
+        onClick={() => handleOpenDialog(doc, false)}
+        title="Delete Document"
+      >
+        <i className="fas fa-trash-alt"></i>
+      </span>
+    </>
+  )}
+  
+  {/* Remove Button - Icon Only */}
+  <DeleteIcon
+    style={{ 
+      cursor: "pointer", 
+      color: "#dc3545",
+      fontSize: "18px"
+    }}
+    onClick={() => {
+      if (window.confirm(`Remove "${doc.document_name}" from the list?`)) {
+        const updatedDocuments = cthDocuments.filter((_, i) => i !== index);
+        setCthDocuments(updatedDocuments);
+      }
+    }}
+    title="Remove document from list"
+  />
+</div>
+
+
             </div>
           </div>
 
@@ -3420,6 +3455,7 @@ function JobDetails() {
           {/* Image Preview Section */}
           <ImagePreview
             images={doc.url || []}
+            isDsr= {true}
             onDeleteImage={(deleteIndex) => {
               const updatedDocuments = [...cthDocuments];
               updatedDocuments[index].url = updatedDocuments[index].url.filter(
@@ -4524,6 +4560,45 @@ function JobDetails() {
         }}
         containers={formik.values.container_nos || []}
       />
+
+      {/* Delete Confirmation Dialog */}
+<Dialog
+  open={deleteDialogOpen}
+  onClose={() => setDeleteDialogOpen(false)}
+  aria-labelledby="delete-dialog-title"
+>
+  <DialogTitle id="delete-dialog-title">
+    Confirm Removal
+  </DialogTitle>
+  <DialogContent>
+    <DialogContentText>
+      Are you sure you want to remove "{documentToDelete !== null ? cthDocuments[documentToDelete]?.document_name : ''}" from the list? This action cannot be undone.
+    </DialogContentText>
+  </DialogContent>
+  <DialogActions>
+    <Button 
+      onClick={() => setDeleteDialogOpen(false)}
+      color="primary"
+    >
+      Cancel
+    </Button>
+    <Button 
+      onClick={() => {
+        if (documentToDelete !== null) {
+          const updatedDocuments = cthDocuments.filter((_, i) => i !== documentToDelete);
+          setCthDocuments(updatedDocuments);
+          setDeleteDialogOpen(false);
+          setDocumentToDelete(null);
+        }
+      }}
+      color="secondary"
+      variant="contained"
+    >
+      Remove
+    </Button>
+  </DialogActions>
+</Dialog>
+
     </>
   );
 }

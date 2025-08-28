@@ -53,8 +53,8 @@ let transporter = nodemailer.createTransport(sesTransport);
 router.get("/api/send-mail", async (req, res) => {
   try {
     let mailOptions = {
-      from: "admin@surajforwarders.com",
-      to: "admin@surajforwarders.com",
+      from: "connect@surajgroupofcompanies.com",
+      to: "connect@surajgroupofcompanies.com",
       subject: "Hello from Node.js using AWS SES",
       text: "Hello world?",
       html: "<b>Hello world?</b>",

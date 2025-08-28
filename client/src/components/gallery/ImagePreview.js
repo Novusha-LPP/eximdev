@@ -12,17 +12,25 @@ import { UserContext } from "../../contexts/UserContext";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ConfirmDialog from "./ConfirmDialog"; // Reusable Confirm Dialog Component
 
-const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false }) => {
+const ImagePreview = ({
+  images,
+  onDeleteImage,
+  onImageClick,
+  readOnly = false,
+  isDsr = false,
+}) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
   const { user } = useContext(UserContext);
 
   // Ensure `images` is always an array and handle both string URLs and object URLs
-  const imageArray = Array.isArray(images) 
-    ? images.map(img => typeof img === 'object' && img !== null ? img.url : img)
-    : images 
-      ? [typeof images === 'object' && images !== null ? images.url : images] 
-      : [];
+  const imageArray = Array.isArray(images)
+    ? images.map((img) =>
+        typeof img === "object" && img !== null ? img.url : img
+      )
+    : images
+    ? [typeof images === "object" && images !== null ? images.url : images]
+    : [];
 
   // Function to extract the file name from the URL, with error handling
   const extractFileName = (url) => {
@@ -36,8 +44,10 @@ const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false })
     }
   };
 
+  isDsr = false; // or true based on your condition
+
   const handleDeleteClick = (index) => {
-    if (user.role === "Admin") {
+    if (isDsr || user.role === "Admin") {
       setDeleteIndex(index);
       setOpenDeleteDialog(true);
     } else {
@@ -47,18 +57,21 @@ const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false })
 
   const confirmDelete = async () => {
     const imageUrl = imageArray[deleteIndex];
-  
+
     try {
       const key = new URL(imageUrl).pathname.slice(1); // correct key including folders
-  
-      const response = await fetch(`${process.env.REACT_APP_API_STRING}/delete-s3-file`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ key }),
-      });
-  
+
+      const response = await fetch(
+        `${process.env.REACT_APP_API_STRING}/delete-s3-file`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ key }),
+        }
+      );
+
       if (response.ok) {
         onDeleteImage(deleteIndex);
       } else {
@@ -68,10 +81,9 @@ const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false })
       console.error("Error deleting image:", error);
       alert("Error deleting image.");
     }
-  
+
     setOpenDeleteDialog(false);
   };
-  
 
   return (
     <Box mt={1} style={{ maxHeight: "150px", overflowY: "auto" }}>
@@ -85,7 +97,9 @@ const ImagePreview = ({ images, onDeleteImage, onImageClick, readOnly = false })
           </TableHead>
           <TableBody>
             {imageArray.map((link, index) => (
-              <TableRow key={index}>                <TableCell>
+              <TableRow key={index}>
+                {" "}
+                <TableCell>
                   {link ? (
                     <a
                       href={link}

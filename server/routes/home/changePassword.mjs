@@ -69,7 +69,7 @@ router.post("/api/admin/change-password", async (req, res) => {
     if (targetUser.email) {
       try {
         const mailOptions = {
-          from: "admin@surajforwarders.com",
+          from: "connect@surajgroupofcompanies.com",
           to: targetUser.email,
           subject: "Your Password Has Been Changed",
           html: `

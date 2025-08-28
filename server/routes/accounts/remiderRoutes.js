@@ -126,7 +126,7 @@ const sendReminderEmail = async (userEmail, userName, entries) => {
   `;
 
   const mailOptions = {
-    from: "admin@surajforwarders.com",
+    from: "connect@surajgroupofcompanies.com",
     to: userEmail,
     subject: subject,
     html: htmlContent
@@ -299,7 +299,7 @@ router.post('/trigger-reminders', async (req, res) => {
 router.get('/test-email-now', async (req, res) => {
   try {
     const testMailOptions = {
-      from: "admin@surajforwarders.com",
+      from: "connect@surajgroupofcompanies.com",
       to: "daymarafik123@gmail.com",
       subject: "🧪 TEST: Using Working Transporter",
       html: `

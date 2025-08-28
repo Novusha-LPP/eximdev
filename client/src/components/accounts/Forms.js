@@ -31,7 +31,7 @@ import {
   Divider,
   Stack
 } from '@mui/material';
-import { Add, Delete, Edit, Save, Cancel, Visibility, Business, Clear } from '@mui/icons-material';
+import { Add, Delete, Edit, Save, Cancel, Visibility, Business, Clear, Assignment, TrendingUp, Schedule, PersonAdd } from '@mui/icons-material';
 import FileUpload from '../gallery/FileUpload';
 import ImagePreview from '../gallery/ImagePreview';
 
@@ -102,6 +102,28 @@ const MasterTypeManager = () => {
     }
   };
 
+  // Get master type statistics
+  const getMasterTypeStats = (masterTypeName) => {
+    const entries = masterEntries.filter(entry => entry.masterTypeName === masterTypeName);
+    const total = entries.length;
+    const overdue = entries.filter(entry => {
+      if (!entry.defaultFields.dueDate) return false;
+      const today = new Date();
+      const due = new Date(entry.defaultFields.dueDate);
+      return due < today;
+    }).length;
+    const upcoming = entries.filter(entry => {
+      if (!entry.defaultFields.dueDate) return false;
+      const today = new Date();
+      const due = new Date(entry.defaultFields.dueDate);
+      const diffTime = due - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 7;
+    }).length;
+    
+    return { total, overdue, upcoming };
+  };
+
   const handleMasterTypeChange = (event) => {
     const value = event.target.value;
     setSelectedMasterType(value);
@@ -140,6 +162,35 @@ const MasterTypeManager = () => {
     } else {
       setShowInlineForm(false);
     }
+  };
+
+  // Handle master type card click
+  const handleMasterTypeCardClick = (masterTypeName) => {
+    setSelectedMasterType(masterTypeName);
+    const existingMaster = masterTypes.find(mt => mt.name === masterTypeName);
+    if (existingMaster) {
+      setMasterData(prev => ({
+        ...prev,
+        id: null,
+        masterType: masterTypeName,
+        defaultFields: {
+          companyName: '',
+          address: '',
+          billingDate: '',
+          dueDate: '',
+          reminder: 'monthly'
+        },
+        customFields: existingMaster.fields.map(field => ({
+          id: Date.now() + Math.random(),
+          name: field.name,
+          value: '',
+          type: field.type,
+          required: field.required
+        })) || []
+      }));
+    }
+    setShowInlineForm(true);
+    setEditMode(false);
   };
 
   const resetForm = () => {
@@ -508,174 +559,172 @@ const MasterTypeManager = () => {
                   </Box>
 
                   {/* Custom Fields */}
-<Box>
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
-      Additional Custom Fields
-    </Typography>
-    <Button 
-      startIcon={<Add />} 
-      onClick={addCustomField}
-      size="small"
-      variant="outlined"
-      sx={{ borderRadius: 2, textTransform: 'none' }}
-    >
-      Add Field
-    </Button>
-  </Box>
-{masterData.customFields.map((field) => (
-  <Paper 
-    key={field.id}
-    sx={{ 
-      p: 2, 
-      mb: 2,
-      bgcolor: '#f8fafc',
-      border: '1px solid #e2e8f0',
-      borderRadius: 2
-    }}
-  >
-    <Grid container spacing={2} alignItems="flex-start">
-      {/* Field Name */}
-      <Grid item xs={12} md={3}>
-        <TextField
-          fullWidth
-          label="Field Name"
-          size="small"
-          value={field.name}
-          onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
-        />
-      </Grid>
-      
-      {/* Value Field - Conditionally rendered based on type */}
-      <Grid item xs={12} md={field.type === 'upload' ? 6 : 3}>
-        {field.type === 'date' ? (
-          <TextField
-            fullWidth
-            label="Default Value"
-            size="small"
-            type="date"
-            value={field.value}
-            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
-        ) : field.type === 'upload' ? (
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <FileUpload
-                bucketPath={`custom-fields/${field.name || 'unnamed-field'}`}
-                onFilesUploaded={(newFiles) => {
-                  const existingFiles = Array.isArray(field.value) ? field.value : [];
-                  const updatedFiles = [...existingFiles, ...newFiles];
-                  updateCustomField(field.id, 'value', updatedFiles);
-                }}
-                multiple={true}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  backgroundColor: "#3b82f6",
-                  color: "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  textAlign: "center",
-                  textTransform: 'uppercase',
-                  transition: "background-color 0.3s",
-                  '&:hover': {
-                    backgroundColor: "#2563eb",
-                  }
-                }}
-                label="UPLOAD"
-              />
-              {field.value && Array.isArray(field.value) && field.value.length > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  {field.value.length} file(s) selected
-                </Typography>
-              )}
-            </Box>
-            
-            {/* Show uploaded files preview */}
-            {field.value && Array.isArray(field.value) && field.value.length > 0 && (
-              <Box sx={{ 
-                mt: 1, 
-                p: 1, 
-                bgcolor: 'white', 
-                borderRadius: 1,
-                border: '1px solid #e2e8f0'
-              }}>
-                <ImagePreview
-                  images={field.value}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...field.value];
-                    updatedFiles.splice(index, 1);
-                    updateCustomField(field.id, 'value', updatedFiles);
-                  }}
-                  showFileName={true}
-                />
-              </Box>
-            )}
-          </Box>
-        ) : (
-          <TextField
-            fullWidth
-            label="Default Value"
-            size="small"
-            type={field.type}
-            value={field.value}
-            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-            {...(field.type === 'email' && { 
-              inputProps: { 
-                pattern: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" 
-              } 
-            })}
-            {...(field.type === 'phone' && { 
-              inputProps: { 
-                pattern: "[0-9]{3}-[0-9]{3}-[0-9]{4}" 
-              } 
-            })}
-          />
-        )}
-      </Grid>
-      
-      {/* Type Selector */}
-      <Grid item xs={6} md={2}>
-        <FormControl fullWidth size="small">
-          <InputLabel>Type</InputLabel>
-          <Select
-            value={field.type}
-            label="Type"
-            onChange={(e) => {
-              updateCustomField(field.id, 'type', e.target.value);
-              updateCustomField(field.id, 'value', e.target.value === 'upload' ? [] : '');
-            }}
-          >
-            <MenuItem value="text">Text</MenuItem>
-            <MenuItem value="number">Number</MenuItem>
-            <MenuItem value="date">Date</MenuItem>
-            <MenuItem value="email">Email</MenuItem>
-            <MenuItem value="phone">Phone</MenuItem>
-            <MenuItem value="upload">Upload</MenuItem>
-          </Select>
-        </FormControl>
-      </Grid>
-      
-      {/* Delete Button */}
-      <Grid item xs={2} md={1}>
-        <IconButton 
-          color="error" 
-          onClick={() => removeCustomField(field.id)}
-          size="small"
-          sx={{ '&:hover': { bgcolor: '#fee2e2' } }}
-        >
-          <Delete fontSize="small" />
-        </IconButton>
-      </Grid>
-    </Grid>
-  </Paper>
-))}
-</Box>
-
-
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
+                        Additional Custom Fields
+                      </Typography>
+                      <Button 
+                        startIcon={<Add />} 
+                        onClick={addCustomField}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderRadius: 2, textTransform: 'none' }}
+                      >
+                        Add Field
+                      </Button>
+                    </Box>
+                    {masterData.customFields.map((field) => (
+                      <Paper 
+                        key={field.id}
+                        sx={{ 
+                          p: 2, 
+                          mb: 2,
+                          bgcolor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 2
+                        }}
+                      >
+                        <Grid container spacing={2} alignItems="flex-start">
+                          {/* Field Name */}
+                          <Grid item xs={12} md={3}>
+                            <TextField
+                              fullWidth
+                              label="Field Name"
+                              size="small"
+                              value={field.name}
+                              onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
+                            />
+                          </Grid>
+                          
+                          {/* Value Field - Conditionally rendered based on type */}
+                          <Grid item xs={12} md={field.type === 'upload' ? 6 : 3}>
+                            {field.type === 'date' ? (
+                              <TextField
+                                fullWidth
+                                label="Default Value"
+                                size="small"
+                                type="date"
+                                value={field.value}
+                                onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+                                InputLabelProps={{ shrink: true }}
+                              />
+                            ) : field.type === 'upload' ? (
+                              <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                  <FileUpload
+                                    bucketPath={`custom-fields/${field.name || 'unnamed-field'}`}
+                                    onFilesUploaded={(newFiles) => {
+                                      const existingFiles = Array.isArray(field.value) ? field.value : [];
+                                      const updatedFiles = [...existingFiles, ...newFiles];
+                                      updateCustomField(field.id, 'value', updatedFiles);
+                                    }}
+                                    multiple={true}
+                                    style={{
+                                      padding: "8px 16px",
+                                      borderRadius: "6px",
+                                      backgroundColor: "#3b82f6",
+                                      color: "#fff",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      fontSize: "0.875rem",
+                                      fontWeight: "600",
+                                      textAlign: "center",
+                                      textTransform: 'uppercase',
+                                      transition: "background-color 0.3s",
+                                      '&:hover': {
+                                        backgroundColor: "#2563eb",
+                                      }
+                                    }}
+                                    label="UPLOAD"
+                                  />
+                                  {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      {field.value.length} file(s) selected
+                                    </Typography>
+                                  )}
+                                </Box>
+                                
+                                {/* Show uploaded files preview */}
+                                {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                                  <Box sx={{ 
+                                    mt: 1, 
+                                    p: 1, 
+                                    bgcolor: 'white', 
+                                    borderRadius: 1,
+                                    border: '1px solid #e2e8f0'
+                                  }}>
+                                    <ImagePreview
+                                      images={field.value}
+                                      onDeleteImage={(index) => {
+                                        const updatedFiles = [...field.value];
+                                        updatedFiles.splice(index, 1);
+                                        updateCustomField(field.id, 'value', updatedFiles);
+                                      }}
+                                      showFileName={true}
+                                    />
+                                  </Box>
+                                )}
+                              </Box>
+                            ) : (
+                              <TextField
+                                fullWidth
+                                label="Default Value"
+                                size="small"
+                                type={field.type}
+                                value={field.value}
+                                onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+                                {...(field.type === 'email' && { 
+                                  inputProps: { 
+                                    pattern: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" 
+                                  } 
+                                })}
+                                {...(field.type === 'phone' && { 
+                                  inputProps: { 
+                                    pattern: "[0-9]{3}-[0-9]{3}-[0-9]{4}" 
+                                  } 
+                                })}
+                              />
+                            )}
+                          </Grid>
+                          
+                          {/* Type Selector */}
+                          <Grid item xs={6} md={2}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Type</InputLabel>
+                              <Select
+                                value={field.type}
+                                label="Type"
+                                onChange={(e) => {
+                                  updateCustomField(field.id, 'type', e.target.value);
+                                  updateCustomField(field.id, 'value', e.target.value === 'upload' ? [] : '');
+                                }}
+                              >
+                                <MenuItem value="text">Text</MenuItem>
+                                <MenuItem value="number">Number</MenuItem>
+                                <MenuItem value="date">Date</MenuItem>
+                                <MenuItem value="email">Email</MenuItem>
+                                <MenuItem value="phone">Phone</MenuItem>
+                                <MenuItem value="upload">Upload</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                          
+                          {/* Delete Button */}
+                          <Grid item xs={2} md={1}>
+                            <IconButton 
+                              color="error" 
+                              onClick={() => removeCustomField(field.id)}
+                              size="small"
+                              sx={{ '&:hover': { bgcolor: '#fee2e2' } }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Grid>
+                        </Grid>
+                      </Paper>
+                    ))}
+                  </Box>
 
                   {/* Action Buttons */}
                   <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
@@ -859,32 +908,208 @@ const MasterTypeManager = () => {
           </Grid>
         )}
 
-        {/* Welcome State */}
+        {/* Master Type Cards - Show when no master type is selected */}
         {!selectedMasterType && (
           <Grid item xs={12}>
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 8, 
-                textAlign: 'center',
-                borderRadius: 3,
-                border: '1px solid #e2e8f0',
-                background: 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)'
-              }}
-            >
-              <Business sx={{ fontSize: 64, color: '#3b82f6', mb: 3, opacity: 0.7 }} />
-              <Typography variant="h5" color="text.primary" gutterBottom sx={{ fontWeight: 600 }}>
-                Welcome to Master Management
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Assignment sx={{ color: '#3b82f6' }} />
+                Existing Master Types
               </Typography>
-              <Typography color="text.secondary" sx={{ fontSize: '1.1rem', maxWidth: 600, mx: 'auto' }}>
-                Select a master type from the dropdown above to view existing entries and add new ones, 
-                or create a new master type to get started.
-              </Typography>
-            </Paper>
+              
+              {masterTypes.length === 0 ? (
+                <Paper 
+                  elevation={1} 
+                  sx={{ 
+                    p: 6, 
+                    textAlign: 'center',
+                    borderRadius: 3,
+                    border: '1px solid #e2e8f0',
+                    background: 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)'
+                  }}
+                >
+                  <Business sx={{ fontSize: 48, color: '#94a3b8', mb: 2 }} />
+                  <Typography color="text.secondary" sx={{ mb: 3, fontSize: '1.1rem' }}>
+                    No master types created yet
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => {
+                      resetForm();
+                      setOpenDialog(true);
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                      }
+                    }}
+                  >
+                    Create Your First Master Type
+                  </Button>
+                </Paper>
+              ) : (
+                <Grid container spacing={3}>
+                  {masterTypes.map((masterType) => {
+                    const stats = getMasterTypeStats(masterType.name);
+                    return (
+                      <Grid item xs={12} sm={6} md={4} lg={3} key={masterType._id}>
+                        <Card 
+                          elevation={2}
+                          sx={{ 
+                            borderRadius: 3,
+                            border: '1px solid #e2e8f0',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 8px 25px rgba(59, 130, 246, 0.15)',
+                              borderColor: '#3b82f6'
+                            }
+                          }}
+                          onClick={() => handleMasterTypeCardClick(masterType.name)}
+                        >
+                          <CardContent sx={{ p: 3 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                              <Box 
+                                sx={{ 
+                                  p: 1.5, 
+                                  borderRadius: 2, 
+                                  bgcolor: '#eff6ff',
+                                  border: '1px solid #bfdbfe',
+                                  mr: 2
+                                }}
+                              >
+                                <Business sx={{ fontSize: 24, color: '#3b82f6' }} />
+                              </Box>
+                              <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>
+                                  {masterType.name}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                  {masterType.fields?.length || 0} custom fields
+                                </Typography>
+                              </Box>
+                            </Box>
+                            
+                            <Divider sx={{ my: 2 }} />
+                            
+                            <Grid container spacing={2}>
+                              <Grid item xs={4}>
+                                <Box sx={{ textAlign: 'center' }}>
+                                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#3b82f6', fontSize: '1.2rem' }}>
+                                    {stats.total}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.7rem' }}>
+                                    Total
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                              <Grid item xs={4}>
+                                <Box sx={{ textAlign: 'center' }}>
+                                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#f59e0b', fontSize: '1.2rem' }}>
+                                    {stats.upcoming}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.7rem' }}>
+                                    Due Soon
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                              <Grid item xs={4}>
+                                <Box sx={{ textAlign: 'center' }}>
+                                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '1.2rem' }}>
+                                    {stats.overdue}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.7rem' }}>
+                                    Overdue
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            </Grid>
+                            
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                              <Chip
+                                label="Click to manage"
+                                size="small"
+                                variant="outlined"
+                                sx={{ 
+                                  color: '#3b82f6', 
+                                  borderColor: '#3b82f6',
+                                  fontSize: '0.75rem'
+                                }}
+                              />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                  
+                  {/* Create New Master Type Card */}
+                  <Grid item xs={12} sm={6} md={4} lg={3}>
+                    <Card 
+                      elevation={1}
+                      sx={{ 
+                        borderRadius: 3,
+                        border: '2px dashed #d1d5db',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          borderColor: '#3b82f6',
+                          bgcolor: '#f8fafc'
+                        }
+                      }}
+                      onClick={() => {
+                        resetForm();
+                        setOpenDialog(true);
+                      }}
+                    >
+                      <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                        <Box 
+                          sx={{ 
+                            p: 1.5, 
+                            borderRadius: 2, 
+                            bgcolor: '#f0f9ff',
+                            border: '1px solid #bae6fd',
+                            mb: 2,
+                            mx: 'auto',
+                            width: 'fit-content'
+                          }}
+                        >
+                          <Add sx={{ fontSize: 32, color: '#3b82f6' }} />
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b', mb: 1 }}>
+                          Create New Master
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.875rem' }}>
+                          Set up a new master type with custom fields
+                        </Typography>
+                        <Box sx={{ mt: 2 }}>
+                          <Chip
+                            label="+ New Master Type"
+                            size="small"
+                            sx={{ 
+                              bgcolor: '#3b82f6', 
+                              color: 'white',
+                              fontSize: '0.75rem'
+                            }}
+                          />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
           </Grid>
         )}
       </Grid>
 
+      {/* Rest of the dialogs remain the same... */}
       {/* Create New Master Type Dialog */}
       <Dialog 
         open={openDialog} 
@@ -984,175 +1209,21 @@ const MasterTypeManager = () => {
             </Box>
 
             <Box>
-<Box>
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
-      Additional Custom Fields
-    </Typography>
-    <Button 
-      startIcon={<Add />} 
-      onClick={addCustomField}
-      size="small"
-      variant="outlined"
-      sx={{ borderRadius: 2, textTransform: 'none' }}
-    >
-      Add Field
-    </Button>
-  </Box>
-{masterData.customFields.map((field) => (
-  <Paper 
-    key={field.id}
-    sx={{ 
-      p: 2, 
-      mb: 2,
-      bgcolor: '#f8fafc',
-      border: '1px solid #e2e8f0',
-      borderRadius: 2
-    }}
-  >
-    <Grid container spacing={2} alignItems="flex-start">
-      {/* Field Name */}
-      <Grid item xs={12} md={3}>
-        <TextField
-          fullWidth
-          label="Field Name"
-          size="small"
-          value={field.name}
-          onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
-        />
-      </Grid>
-      
-      {/* Value Field - Conditionally rendered based on type */}
-      <Grid item xs={12} md={field.type === 'upload' ? 6 : 3}>
-        {field.type === 'date' ? (
-          <TextField
-            fullWidth
-            label="Default Value"
-            size="small"
-            type="date"
-            value={field.value}
-            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
-        ) : field.type === 'upload' ? (
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <FileUpload
-                bucketPath={`custom-fields/${field.name || 'unnamed-field'}`}
-                onFilesUploaded={(newFiles) => {
-                  const existingFiles = Array.isArray(field.value) ? field.value : [];
-                  const updatedFiles = [...existingFiles, ...newFiles];
-                  updateCustomField(field.id, 'value', updatedFiles);
-                }}
-                multiple={true}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  backgroundColor: "#3b82f6",
-                  color: "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  textAlign: "center",
-                  textTransform: 'uppercase',
-                  transition: "background-color 0.3s",
-                  '&:hover': {
-                    backgroundColor: "#2563eb",
-                  }
-                }}
-                label="UPLOAD"
-              />
-              {field.value && Array.isArray(field.value) && field.value.length > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  {field.value.length} file(s) selected
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#475569' }}>
+                  Additional Custom Fields
                 </Typography>
-              )}
-            </Box>
-            
-            {/* Show uploaded files preview */}
-            {field.value && Array.isArray(field.value) && field.value.length > 0 && (
-              <Box sx={{ 
-                mt: 1, 
-                p: 1, 
-                bgcolor: 'white', 
-                borderRadius: 1,
-                border: '1px solid #e2e8f0'
-              }}>
-                <ImagePreview
-                  images={field.value}
-                  onDeleteImage={(index) => {
-                    const updatedFiles = [...field.value];
-                    updatedFiles.splice(index, 1);
-                    updateCustomField(field.id, 'value', updatedFiles);
-                  }}
-                  showFileName={true}
-                />
+                <Button 
+                  startIcon={<Add />} 
+                  onClick={addCustomField}
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderRadius: 2, textTransform: 'none' }}
+                >
+                  Add Field
+                </Button>
               </Box>
-            )}
-          </Box>
-        ) : (
-          <TextField
-            fullWidth
-            label="Default Value"
-            size="small"
-            type={field.type}
-            value={field.value}
-            onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-            {...(field.type === 'email' && { 
-              inputProps: { 
-                pattern: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" 
-              } 
-            })}
-            {...(field.type === 'phone' && { 
-              inputProps: { 
-                pattern: "[0-9]{3}-[0-9]{3}-[0-9]{4}" 
-              } 
-            })}
-          />
-        )}
-      </Grid>
-      
-      {/* Type Selector */}
-      <Grid item xs={6} md={2}>
-        <FormControl fullWidth size="small">
-          <InputLabel>Type</InputLabel>
-          <Select
-            value={field.type}
-            label="Type"
-            onChange={(e) => {
-              updateCustomField(field.id, 'type', e.target.value);
-              updateCustomField(field.id, 'value', e.target.value === 'upload' ? [] : '');
-            }}
-          >
-            <MenuItem value="text">Text</MenuItem>
-            <MenuItem value="number">Number</MenuItem>
-            <MenuItem value="date">Date</MenuItem>
-            <MenuItem value="email">Email</MenuItem>
-            <MenuItem value="phone">Phone</MenuItem>
-            <MenuItem value="upload">Upload</MenuItem>
-          </Select>
-        </FormControl>
-      </Grid>
-      
-      {/* Delete Button */}
-      <Grid item xs={2} md={1}>
-        <IconButton 
-          color="error" 
-          onClick={() => removeCustomField(field.id)}
-          size="small"
-          sx={{ '&:hover': { bgcolor: '#fee2e2' } }}
-        >
-          <Delete fontSize="small" />
-        </IconButton>
-      </Grid>
-    </Grid>
-  </Paper>
-))}
-</Box>
-
-
-
+              
               {masterData.customFields.map((field) => (
                 <Paper 
                   key={field.id}
@@ -1164,7 +1235,8 @@ const MasterTypeManager = () => {
                     borderRadius: 2
                   }}
                 >
-                  <Grid container spacing={2} alignItems="center">
+                  <Grid container spacing={2} alignItems="flex-start">
+                    {/* Field Name */}
                     <Grid item xs={12} md={3}>
                       <TextField
                         fullWidth
@@ -1174,33 +1246,122 @@ const MasterTypeManager = () => {
                         onChange={(e) => updateCustomField(field.id, 'name', e.target.value)}
                       />
                     </Grid>
-                    <Grid item xs={12} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Default Value"
-                        size="small"
-                        value={field.value}
-                        onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-                      />
+                    
+                    {/* Value Field - Conditionally rendered based on type */}
+                    <Grid item xs={12} md={field.type === 'upload' ? 6 : 3}>
+                      {field.type === 'date' ? (
+                        <TextField
+                          fullWidth
+                          label="Default Value"
+                          size="small"
+                          type="date"
+                          value={field.value}
+                          onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      ) : field.type === 'upload' ? (
+                        <Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <FileUpload
+                              bucketPath={`custom-fields/${field.name || 'unnamed-field'}`}
+                              onFilesUploaded={(newFiles) => {
+                                const existingFiles = Array.isArray(field.value) ? field.value : [];
+                                const updatedFiles = [...existingFiles, ...newFiles];
+                                updateCustomField(field.id, 'value', updatedFiles);
+                              }}
+                              multiple={true}
+                              style={{
+                                padding: "8px 16px",
+                                borderRadius: "6px",
+                                backgroundColor: "#3b82f6",
+                                color: "#fff",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: "0.875rem",
+                                fontWeight: "600",
+                                textAlign: "center",
+                                textTransform: 'uppercase',
+                                transition: "background-color 0.3s",
+                                '&:hover': {
+                                  backgroundColor: "#2563eb",
+                                }
+                              }}
+                              label="UPLOAD"
+                            />
+                            {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                              <Typography variant="body2" color="text.secondary">
+                                {field.value.length} file(s) selected
+                              </Typography>
+                            )}
+                          </Box>
+                          
+                          {/* Show uploaded files preview */}
+                          {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                            <Box sx={{ 
+                              mt: 1, 
+                              p: 1, 
+                              bgcolor: 'white', 
+                              borderRadius: 1,
+                              border: '1px solid #e2e8f0'
+                            }}>
+                              <ImagePreview
+                                images={field.value}
+                                onDeleteImage={(index) => {
+                                  const updatedFiles = [...field.value];
+                                  updatedFiles.splice(index, 1);
+                                  updateCustomField(field.id, 'value', updatedFiles);
+                                }}
+                                showFileName={true}
+                              />
+                            </Box>
+                          )}
+                        </Box>
+                      ) : (
+                        <TextField
+                          fullWidth
+                          label="Default Value"
+                          size="small"
+                          type={field.type}
+                          value={field.value}
+                          onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+                          {...(field.type === 'email' && { 
+                            inputProps: { 
+                              pattern: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" 
+                            } 
+                          })}
+                          {...(field.type === 'phone' && { 
+                            inputProps: { 
+                              pattern: "[0-9]{3}-[0-9]{3}-[0-9]{4}" 
+                            } 
+                          })}
+                        />
+                      )}
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    
+                    {/* Type Selector */}
+                    <Grid item xs={6} md={2}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Type</InputLabel>
                         <Select
                           value={field.type}
                           label="Type"
-                          onChange={(e) => updateCustomField(field.id, 'type', e.target.value)}
+                          onChange={(e) => {
+                            updateCustomField(field.id, 'type', e.target.value);
+                            updateCustomField(field.id, 'value', e.target.value === 'upload' ? [] : '');
+                          }}
                         >
                           <MenuItem value="text">Text</MenuItem>
                           <MenuItem value="number">Number</MenuItem>
                           <MenuItem value="date">Date</MenuItem>
                           <MenuItem value="email">Email</MenuItem>
                           <MenuItem value="phone">Phone</MenuItem>
-                          <MenuItem value="upload"></MenuItem>
+                          <MenuItem value="upload">Upload</MenuItem>
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={2}>
+                    
+                    {/* Delete Button */}
+                    <Grid item xs={2} md={1}>
                       <IconButton 
                         color="error" 
                         onClick={() => removeCustomField(field.id)}

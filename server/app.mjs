@@ -51,6 +51,7 @@ import Charges from "./routes/ChargesSection/ChargesSection.js";
 
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
+import reminderRoutes from './routes/accounts/remiderRoutes.js';
 import addAdani from "./routes/accounts/addAdani.mjs";
 import addAMC from "./routes/accounts/addAMC.mjs";
 import addCC from "./routes/accounts/addCC.mjs";
@@ -381,6 +382,7 @@ if (cluster.isPrimary) {
       // Accounts
 
       app.use("/api",Accounts);
+      app.use('/api', reminderRoutes);
       app.use(addAdani);
       app.use(addAMC);
       app.use(addCC);

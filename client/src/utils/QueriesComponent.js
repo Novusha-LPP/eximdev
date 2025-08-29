@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import {
   TextField,
   Button,
   Chip,
   IconButton,
-  Tooltip,
+  Tooltip,  
   Collapse,
 } from "@mui/material";
 import {
@@ -17,26 +17,304 @@ import {
   QuestionAnswer,
 } from "@mui/icons-material";
 
-/**
- * Enhanced Compact Reusable Queries Component
- * @param {Object} props
- * @param {Array} props.queries - Array of query objects
- * @param {Function} props.onQueriesChange - Callback when queries change
- * @param {String} props.title - Title for the queries section
- * @param {Array} props.modules - Available modules for selection
- * @param {Boolean} props.readOnlyReply - Whether reply field should be read-only
- * @param {Boolean} props.showResolveButton - Whether to show resolve button
- * @param {Function} props.onResolveQuery - Callback when query is resolved
- * @param {String} props.currentModule - Current module name to track query source
- * @param {String} props.userName - Current Username name to track query source
- */
+// Move QueryItem OUTSIDE the main component - this is crucial!
+const QueryItem = React.memo(({ 
+  item, 
+  index, 
+  localValues, 
+  updateQuery, 
+  modules, 
+  userName, 
+  showResolveButton, 
+  resolveQuery, 
+  unresolveQuery, 
+  removeQuery 
+}) => {
+  const isResolved = item.resolved === true;
+  
+  // Get local values or fall back to props
+  const queryValue = localValues[`${index}_query`] ?? item.query ?? '';
+  const replyValue = localValues[`${index}_reply`] ?? item.reply ?? '';
+
+  return (
+    <div
+      style={{
+        padding: "16px",
+        marginBottom: "12px",
+        border: isResolved ? "1px solid #22c55e" : "1px solid #e2e8f0",
+        borderRadius: "8px",
+        backgroundColor: isResolved ? "#f0fdf4" : "#ffffff",
+        position: "relative",
+      }}
+    >
+      {/* Status indicators */}
+      {isResolved && (
+        <div
+          style={{
+            position: "absolute",
+            top: "8px",
+            right: "8px",
+            backgroundColor: "#22c55e",
+            borderRadius: "50%",
+            width: "20px",
+            height: "20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Check style={{ color: "white", fontSize: "12px" }} />
+        </div>
+      )}
+
+      {/* Module indicator */}
+      {item.current_module && (
+        <div
+          style={{
+            position: "absolute",
+            top: "8px",
+            left: "8px",
+            backgroundColor: "#3b82f6",
+            color: "white",
+            fontSize: "10px",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontWeight: "500",
+          }}
+        >
+          From: {item.current_module}
+        </div>
+      )}
+
+      {/* Main content - using flexbox instead of grid for better performance */}
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+          alignItems: "start",
+          marginTop: item.current_module ? "20px" : "0",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Query Field - Optimized */}
+        <div style={{ flex: "1 1 300px", minWidth: "200px" }}>
+          <TextField
+            multiline
+            rows={1}
+            size="small"
+            label="Query"
+            value={queryValue}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              updateQuery(index, "query", newValue);
+            }}
+            disabled={isResolved}
+            variant="outlined"
+            InputProps={{
+              style: { transition: "none" }, // Remove transitions
+            }}
+            sx={{
+              width: "100%",
+              "& .MuiOutlinedInput-root": {
+                fontSize: "14px",
+                borderRadius: "6px",
+              },
+              "& .MuiInputBase-input": {
+                transition: "none !important",
+              },
+            }}
+          />
+        </div>
+
+        {/* Reply Field - Optimized */}
+        <div style={{ flex: "1 1 300px", minWidth: "200px" }}>
+          <TextField
+            multiline
+            rows={1}
+            size="small"
+            label="Reply"
+            value={replyValue}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              updateQuery(index, null, { 
+                reply: newValue, 
+                replied_by: userName 
+              });
+            }}
+            variant="outlined"
+            InputProps={{
+              style: { transition: "none" },
+            }}
+            sx={{
+              width: "100%",
+              "& .MuiOutlinedInput-root": {
+                fontSize: "14px",
+                borderRadius: "6px",
+              },
+              "& .MuiInputBase-input": {
+                transition: "none !important",
+              },
+            }}
+          />
+        </div>
+
+        {/* Module Selection */}
+        <div style={{ flex: "0 0 120px" }}>
+          <TextField
+            select
+            size="small"
+            value={item.select_module || ""}
+            onChange={(e) =>
+              updateQuery(index, "select_module", e.target.value)
+            }
+            disabled={isResolved}
+            SelectProps={{ native: true }}
+            variant="outlined"
+            sx={{
+              width: "100%",
+              "& .MuiOutlinedInput-root": {
+                fontSize: "14px",
+                borderRadius: "6px",
+              },
+            }}
+          >
+            <option value="">Select</option>
+            {modules.map((module) => (
+              <option key={module} value={module}>
+                {module}
+              </option>
+            ))}
+          </TextField>
+        </div>
+
+        {/* Actions */}
+        <div style={{ flex: "0 0 80px", display: "flex", gap: "4px" }}>
+          {isResolved ? (
+            showResolveButton && (
+              <Tooltip title="Reopen">
+                <IconButton
+                  size="small"
+                  onClick={() => unresolveQuery(index)}
+                  style={{ color: "#f59e0b" }}
+                >
+                  <Undo fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )
+          ) : (
+            showResolveButton && (
+              <Tooltip title="Mark as Resolved">
+                <IconButton
+                  size="small"
+                  onClick={() => resolveQuery(index)}
+                  disabled={!queryValue.trim()}
+                  style={{ color: "#22c55e" }}
+                >
+                  <Check fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )
+          )}
+          <Tooltip title="Delete Query">
+            <IconButton
+              size="small"
+              onClick={() => removeQuery(index)}
+              style={{ color: "#ef4444" }}
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* User info badges */}
+      {item.send_by && (
+        <div
+          style={{
+            position: "absolute",
+            top: "8px",
+            left: item.current_module ? "120px" : "8px",
+            backgroundColor: "#0ea5e9",
+            color: "white",
+            fontSize: "10px",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontWeight: "500",
+          }}
+        >
+          Sent by: {item.send_by}
+        </div>
+      )}
+
+      {item.reply && item.replied_by && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "2px",
+            right: "3px",
+            backgroundColor: "#eab308",
+            color: "white",
+            fontSize: "10px",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontWeight: "500",
+          }}
+        >
+          Replied by: {item.replied_by}
+        </div>
+      )}
+
+      {item.resolved && item.resolved_by && (
+        <div
+          style={{
+            position: "absolute",
+            top: "8px",
+            right: "8px",
+            backgroundColor: "#16a34a",
+            color: "white",
+            fontSize: "10px",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontWeight: "500",
+          }}
+        >
+          By: {item.resolved_by}
+        </div>
+      )}
+
+      {/* Metadata */}
+      {item.created_at && (
+        <div
+          style={{
+            fontSize: "11px",
+            color: "#94a3b8",
+            marginTop: "8px",
+          }}
+        >
+          Created: {new Date(item.created_at).toLocaleString()}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Add debounce utility
+function debounce(func, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(null, args), delay);
+  };
+}
+
+// Main component
 const QueriesComponent = ({
   queries = [],
   onQueriesChange,
   title = "Queries",
   modules = [
     "DSR",
-    "DO",
+    "DO", 
     "Documentation",
     "E-Sanchit",
     "Submission",
@@ -46,56 +324,96 @@ const QueriesComponent = ({
   readOnlyReply = false,
   showResolveButton = true,
   onResolveQuery = null,
-  currentModule = "DSR", // New prop to track current module
+  currentModule = "DSR",
   userName = "",
 }) => {
   const [expanded, setExpanded] = useState(false);
-
-  // Debounced update function to reduce re-renders
-  const debouncedUpdate = useCallback(
-    (updatedQueries) => {
+  
+  // Local state for immediate UI updates
+  const [localValues, setLocalValues] = useState({});
+  
+  // Stable debounced function
+  const debouncedUpdate = useMemo(
+    () => debounce((updatedQueries) => {
       onQueriesChange(updatedQueries);
-    },
+    }, 300),
     [onQueriesChange]
   );
 
-  // Update a specific query with optimized performance
+  // Update function with immediate local state update
   const updateQuery = useCallback(
     (index, field, value) => {
+      // 1. Update local state immediately for UI responsiveness
+      if (field === 'query' || field === 'reply') {
+        setLocalValues(prev => ({
+          ...prev,
+          [`${index}_${field}`]: value
+        }));
+      }
+      
+      // 2. Update actual queries state
       const updated = [...queries];
-      updated[index] = {
-        ...updated[index],
-        [field]: value,
-      };
+      if (field === null && typeof value === 'object') {
+        // Batch update multiple fields
+        updated[index] = {
+          ...updated[index],
+          ...value,
+        };
+        
+        // Update local state for batch updates too
+        Object.keys(value).forEach(key => {
+          if (key === 'query' || key === 'reply') {
+            setLocalValues(prev => ({
+              ...prev,
+              [`${index}_${key}`]: value[key]
+            }));
+          }
+        });
+      } else {
+        // Single field update
+        updated[index] = {
+          ...updated[index],
+          [field]: value,
+        };
+      }
+      
+      // 3. Debounced update to parent
       debouncedUpdate(updated);
     },
     [queries, debouncedUpdate]
   );
 
-  // Add new query with source module tracking
+  // Other functions remain the same but memoized
   const addQuery = useCallback(() => {
     const newQuery = {
       query: "",
       reply: "",
       select_module: "",
-      current_module: currentModule, // Track where the query originated from
+      current_module: currentModule,
       resolved: false,
       created_at: new Date().toISOString(),
+      send_by: userName,
+      replied_by: "",
     };
-    debouncedUpdate([...queries, newQuery]);
-    setExpanded(true); // Auto expand when adding
-  }, [queries, currentModule, debouncedUpdate]);
+    onQueriesChange([...queries, newQuery]);
+    setExpanded(true);
+  }, [queries, currentModule, userName, onQueriesChange]);
 
-  // Remove query
   const removeQuery = useCallback(
     (index) => {
       const updated = queries.filter((_, i) => i !== index);
-      debouncedUpdate(updated);
+      // Clean up local state for removed item
+      setLocalValues(prev => {
+        const newState = { ...prev };
+        delete newState[`${index}_query`];
+        delete newState[`${index}_reply`];
+        return newState;
+      });
+      onQueriesChange(updated);
     },
-    [queries, debouncedUpdate]
+    [queries, onQueriesChange]
   );
 
-  // Resolve query - only when explicitly called
   const resolveQuery = useCallback(
     (index) => {
       const updated = [...queries];
@@ -103,17 +421,17 @@ const QueriesComponent = ({
         ...updated[index],
         resolved: true,
         resolved_at: new Date().toISOString(),
-        resolved_by: userName || "Unknown", // <-- track resolver
+        resolved_by: userName || "Unknown",
       };
-      debouncedUpdate(updated);
+      onQueriesChange(updated);
 
       if (onResolveQuery) {
         onResolveQuery(updated[index], index);
       }
     },
-    [queries, onResolveQuery, debouncedUpdate, userName]
+    [queries, onResolveQuery, userName, onQueriesChange]
   );
-  // Unresolve query
+
   const unresolveQuery = useCallback(
     (index) => {
       const updated = [...queries];
@@ -122,12 +440,12 @@ const QueriesComponent = ({
         resolved: false,
         resolved_at: null,
       };
-      debouncedUpdate(updated);
+      onQueriesChange(updated);
     },
-    [queries, debouncedUpdate]
+    [queries, onQueriesChange]
   );
 
-  // Memoized calculations for performance
+  // Memoized calculations
   const { resolvedCount, pendingCount } = useMemo(() => {
     const resolved = queries.filter((q) => q.resolved === true).length;
     const pending = queries.length - resolved;
@@ -145,7 +463,7 @@ const QueriesComponent = ({
         margin: "20px 0",
       }}
     >
-      {/* Compact Header - Fixed 60px height */}
+      {/* Header - same as before */}
       <div
         style={{
           display: "flex",
@@ -264,257 +582,25 @@ const QueriesComponent = ({
             padding: "16px",
           }}
         >
-          {queries.map((item, index) => {
-            const isResolved = item.resolved === true;
-
-            return (
-              <div
-                key={index}
-                style={{
-                  padding: "16px",
-                  marginBottom: "12px",
-                  border: isResolved
-                    ? "1px solid #22c55e"
-                    : "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  backgroundColor: isResolved ? "#f0fdf4" : "#ffffff",
-                  position: "relative",
-                }}
-              >
-                {isResolved && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "8px",
-                      right: "8px",
-                      backgroundColor: "#22c55e",
-                      borderRadius: "50%",
-                      width: "20px",
-                      height: "20px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Check style={{ color: "white", fontSize: "12px" }} />
-                  </div>
-                )}
-
-                {/* Source Module Indicator */}
-                {item.current_module && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "8px",
-                      left: "8px",
-                      backgroundColor: "#3b82f6",
-                      color: "white",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    From: {item.current_module}
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 120px auto",
-                    gap: "12px",
-                    alignItems: "start",
-                    marginTop: item.current_module ? "20px" : "0",
-                  }}
-                >
-                  {/* Query Field */}
-                  <TextField
-                    multiline
-                    rows={1}
-                    size="small"
-                    label="Query"
-                    value={item.query}
-                    onChange={(e) =>
-                      updateQuery(index, "query", e.target.value)
-                    }
-                    disabled={isResolved}
-                    variant="outlined"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        fontSize: "14px",
-                        borderRadius: "6px",
-                      },
-                    }}
-                  />
-
-                  {/* Reply Field - Optimized for better performance */}
-                  <TextField
-                    multiline
-                    rows={1}
-                    size="small"
-                    label="Reply"
-                    value={item.reply || ""}
-                    onChange={(e) => {
-                      // Direct update without auto-resolve
-                      updateQuery(index, "reply", e.target.value);
-                    }}
-                    InputProps={{
-                      readOnly: readOnlyReply,
-                      style: { transition: "none" }, // Remove transitions for faster typing
-                    }}
-                    variant="outlined"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        fontSize: "14px",
-                        borderRadius: "6px",
-                      },
-                      "& .MuiInputBase-input": {
-                        transition: "none !important", // Remove input transitions
-                      },
-                    }}
-                  />
-
-                  {/* Module Selection with Actions in horizontal layout */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <TextField
-                      select
-                      size="small"
-                      value={item.select_module || ""}
-                      onChange={(e) =>
-                        updateQuery(index, "select_module", e.target.value)
-                      }
-                      disabled={isResolved}
-                      SelectProps={{ native: true }}
-                      variant="outlined"
-                      style={{ minWidth: "80px", flex: 1 }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          fontSize: "14px",
-                          borderRadius: "6px",
-                        },
-                      }}
-                    >
-                      <option value="">Select</option>
-                      {modules.map((module) => (
-                        <option key={module} value={module}>
-                          {module}
-                        </option>
-                      ))}
-                    </TextField>
-                  </div>
-
-                  {/* Actions - Now horizontal */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    {isResolved
-                      ? showResolveButton && (
-                          <Tooltip title="Reopen">
-                            <IconButton
-                              size="small"
-                              onClick={() => unresolveQuery(index)}
-                              style={{ color: "#f59e0b" }}
-                            >
-                              <Undo fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )
-                      : showResolveButton && (
-                          <Tooltip title="Mark as Resolved">
-                            <IconButton
-                              size="small"
-                              onClick={() => resolveQuery(index)}
-                              disabled={!item.query.trim()}
-                              style={{ color: "#22c55e" }}
-                            >
-                              <Check fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                    <Tooltip title="Delete Query">
-                      <IconButton
-                        size="small"
-                        onClick={() => removeQuery(index)}
-                        style={{ color: "#ef4444" }}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </div>
-                </div>
-
-                {/* Query metadata for debugging/tracking */}
-                {item.created_at && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#94a3b8",
-                      marginTop: "8px",
-                      display: "flex",
-                      gap: "16px",
-                    }}
-                  >
-                    <span>
-                      Created: {new Date(item.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-
-                {/* Source Module Indicator (left corner) */}
-                {item.current_module && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "8px",
-                      left: "8px",
-                      backgroundColor: "#3b82f6",
-                      color: "white",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    From: {item.current_module}
-                  </div>
-                )}
-
-                {/* Resolved By Username (right corner) */}
-                {item.resolved && item.resolved_by && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "8px",
-                      right: "8px",
-                      backgroundColor: "#16a34a", // green background
-                      color: "white",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    By: {item.resolved_by}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {queries.map((item, index) => (
+            <QueryItem 
+              key={`query-${index}-${item.created_at || index}`} // Stable key
+              item={item}
+              index={index}
+              localValues={localValues}
+              updateQuery={updateQuery}
+              modules={modules}
+              userName={userName}
+              showResolveButton={showResolveButton}
+              resolveQuery={resolveQuery}
+              unresolveQuery={unresolveQuery}
+              removeQuery={removeQuery}
+            />
+          ))}
         </div>
       </Collapse>
 
-      {/* Empty State - Only shown when no queries and collapsed */}
+      {/* Empty State */}
       {queries.length === 0 && (
         <div
           style={{

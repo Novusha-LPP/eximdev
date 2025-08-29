@@ -56,8 +56,6 @@ const IgstModal = ({
     penalty_by_importer: false,
     zero_penalty_as_per_bill_of_entry: false,
   });
-
-  console.log("fine",igstValues.fine_amount);
   // Initialize IGST values when modal opens or rowData changes
   useEffect(() => {
     if (open && rowData) {

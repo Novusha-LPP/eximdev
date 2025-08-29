@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import CthModel from "./CthUtil.mjs";
-import JobModel from "../../../../model/jobModel.mjs";
+import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 

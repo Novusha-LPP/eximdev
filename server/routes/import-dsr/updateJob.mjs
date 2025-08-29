@@ -1,7 +1,5 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import PrModel from "../../model/srcc/prModel.mjs";
-import PrData from "../../model/srcc/pr.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();

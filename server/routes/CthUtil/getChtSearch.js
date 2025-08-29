@@ -4,7 +4,7 @@ import CthModel from './CthUtil.mjs';
 import FavoriteModel from './FavouriteCth.mjs';
 import RecentModel from './RecentCth.mjs';
 import NodeCache from 'node-cache'; 
-import JobModel from '../../../../model/jobModel.mjs';
+import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 

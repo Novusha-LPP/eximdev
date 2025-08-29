@@ -8,17 +8,9 @@ import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
-import ViewBugs from "../components/home/ViewBugs.js";
 import ChangePassword from "../components/home/ChangePassword.js";
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
-// Customer KYC
-import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
-import ViewCustomerKyc from "../components/customerKyc/ViewCustomerKyc.js";
-import ViewDraftDetails from "../components/customerKyc/ViewDraftDetails.js";
-import ReviseCustomerKyc from "../components/customerKyc/ReviseCustomerKyc.js";
-import ViewCompletedKycDetails from "../components/customerKyc/ViewCompletedKycDetails.js";
-import EditCompletedKyc from "../components/customerKyc/EditCompletedKyc.js";
 // Documentation
 import Documentation from "../components/documentation/Documentation.js";
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
@@ -31,7 +23,6 @@ import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
 // E-Sanchit
-import ESanchit from "../components/eSanchit/ESanchit.js";
 import ESanchitTab from "../components/eSanchit/ESanchitTab.js";
 
 import ViewESanchitJob from "../components/eSanchit/ViewESanchitJob.js";
@@ -76,19 +67,6 @@ import OutwardRegister from "../components/outward-register/OutwardRegister.js";
 import OutwardRegisterDetails from "../components/outward-register/OutwardRegisterDetails.js";
 import AppbarComponent from "../components/home/AppbarComponent.js";
 import DrawerComponent from "../components/home/DrawerComponent.js";
-// LR Operations
-import LrReport from "../components/lr-report/LrReport.js";
-// SRCC Directories
-import SrccDirectories from "../components/srcc-directories/SrccDirectories.js";
-import ElockOperation from "../components/Elock-Operation/ElockOperation.js";
-import ViewSrccOrganisationData from "../components/srcc-directories/view-data/ViewSrccOrganisationData.js";
-
-// Tyre Maintenance
-import TyreMaintenance from "../components/tyre-maintenance/TyreMaintenance.js";
-// RTO
-import RTO from "../components/rto/RTO.js";
-import SRCEL from "../components/srcel/SRCEL.js";
-import SRCELDashboard from "../components/srcel/SRCELDashboard.js";
 
 // Screens
 import Screen1 from "../components/Screens/Screen1.js";
@@ -146,34 +124,10 @@ function HomePage() {
             {/* Home */}
             <Route path="/" element={<Home />} />
             <Route path="/assign" element={<Assign />} />
-            <Route path="/view-bugs" element={<ViewBugs />} />
             <Route path="/change-password" element={<ChangePassword />} />
 
             {/* Accounts */}
             <Route path="/accounts" element={<Accounts />} />
-
-            {/* Customer KYC */}
-            <Route path="/customer-kyc" element={<CustomerKyc />} />
-            <Route
-              path="/view-customer-kyc/:_id"
-              element={<ViewCustomerKyc />}
-            />
-            <Route
-              path="/view-customer-kyc-drafts/:_id"
-              element={<ViewDraftDetails />}
-            />
-            <Route
-              path="/revise-customer-kyc/:_id"
-              element={<ReviseCustomerKyc />}
-            />
-            <Route
-              path="/view-completed-kyc/:_id"
-              element={<ViewCompletedKycDetails />}
-            />
-            <Route
-              path="/edit-completed-kyc/:_id"
-              element={<EditCompletedKyc />}
-            />
 
             {/* Documentation */}
             <Route path="documentation" element={<DocumentationTab />} />
@@ -269,7 +223,13 @@ function HomePage() {
             <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
             <Route path="/view-payment-request-job/:job_no/:year" element={<EditPaymentRequest />} />
 
-            
+                        {/* Screens */}
+            <Route path="/screen1" element={<Screen1 />} />
+            <Route path="/screen2" element={<Screen2 />} />
+            <Route path="/screen3" element={<Screen3 />} />
+            <Route path="/screen4" element={<Screen4 />} />
+            <Route path="/screen5" element={<Screen5 />} />
+            <Route path="/screen6" element={<Screen6 />} />
 
             {/* Inward Register */}
             <Route path="/inward-register" element={<InwardRegister />} />
@@ -281,31 +241,6 @@ function HomePage() {
               element={<OutwardRegisterDetails />}
             />
 
-            {/* LR Operations */}
-            <Route path="/lr-report" element={<LrReport />} />
-            {/* Screens */}
-            <Route path="/screen1" element={<Screen1 />} />
-            <Route path="/screen2" element={<Screen2 />} />
-            <Route path="/screen3" element={<Screen3 />} />
-            <Route path="/screen4" element={<Screen4 />} />
-            <Route path="/screen5" element={<Screen5 />} />
-            <Route path="/screen6" element={<Screen6 />} />
-
-            {/* SRCC Directories */}
-            <Route path="/srcc-directories" element={<SrccDirectories />} />
-            <Route path="/elock-operation" element={<ElockOperation />} />
-            <Route
-              path="/view-srcc-organisation-data/:_id"
-              element={<ViewSrccOrganisationData />}
-            />
-
-            {/* Tyre Maintenance */}
-            <Route path="/tyre-maintenance" element={<TyreMaintenance />} />
-            <Route path="/srcel" element={<SRCEL />} />
-            <Route path="/SRCEL-Dashboard" element={<SRCELDashboard />} />
-
-            {/* RTO */}
-            <Route path="/rto" element={<RTO />} />
           </Routes>
         </Box>
       </Box>

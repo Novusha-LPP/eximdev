@@ -52,33 +52,7 @@ import Charges from "./routes/ChargesSection/ChargesSection.js";
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
 import reminderRoutes from './routes/accounts/remiderRoutes.js';
-import addAdani from "./routes/accounts/addAdani.mjs";
-import addAMC from "./routes/accounts/addAMC.mjs";
-import addCC from "./routes/accounts/addCC.mjs";
-import addElectricity from "./routes/accounts/addElectricity.mjs";
-import addFD from "./routes/accounts/addFD.mjs";
-import addLIC from "./routes/accounts/addLIC.mjs";
-import addMobile from "./routes/accounts/addMobile.mjs";
-import addRent from "./routes/accounts/addRent.mjs";
-import getAdani from "./routes/accounts/getAdani.mjs";
-import getAMC from "./routes/accounts/addAMC.mjs";
-import getCC from "./routes/accounts/getCc.mjs";
-import getElectricity from "./routes/accounts/getElectricity.mjs";
-import getFD from "./routes/accounts/getFd.mjs";
-import getLIC from "./routes/accounts/getLic.mjs";
-import getMobile from "./routes/accounts/getMobile.mjs";
-import getRent from "./routes/accounts/getRent.mjs";
 
-// Customer KYC
-import addCustomerKyc from "./routes/customer-kyc/addCustomerKyc.mjs";
-import viewCompletedKyc from "./routes/customer-kyc/viewCompletedKyc.mjs";
-import viewCustomerKycDetails from "./routes/customer-kyc/viewCustomerKycDetails.mjs";
-import customerKycApproval from "./routes/customer-kyc/customerKycApproval.mjs";
-import customerKycDraft from "./routes/customer-kyc/customerKycDraft.mjs";
-import ViewCustomerKycDrafts from "./routes/customer-kyc/viewCustomerKycDrafts.mjs";
-import hodApprovalPending from "./routes/customer-kyc/hodApprovalPending.mjs";
-import approvedByHod from "./routes/customer-kyc/approvedByHod.mjs";
-import viewRevisionList from "./routes/customer-kyc/viewRevisionList.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -168,63 +142,6 @@ import updateOutwardRegister from "./routes/outward-register/updateOutwardRegist
 import addExitInterview from "./routes/exit-interview/addExitInterview.mjs";
 import ViewExitInterviews from "./routes/exit-interview/viewExitInterviews.mjs";
 
-// LR Operations
-import getPrData from "./routes/lr/getPrData.mjs";
-import getPrJobList from "./routes/lr/getPRjobList.mjs";
-import getLrJobList from "./routes/lr/getLRjobList.mjs";
-import updatePr from "./routes/lr/updatePr.mjs";
-import deletePr from "./routes/lr/deletePr.mjs";
-import getOrganisations from "./routes/lr/getOrganisations.mjs";
-import getLocations from "./routes/lr/getLocations.mjs";
-import getContainerTypes from "./routes/lr/getContainerTypes.mjs";
-import updateContainer from "./routes/lr/updateContainer.mjs";
-import getTypeOfVehicles from "./routes/lr/getTypeOfVehicle.mjs";
-import getVehicles from "./routes/lr/getVehicles.mjs";
-import deleteTr from "./routes/lr/deleteTr.mjs";
-import getTrs from "./routes/lr/getTrs.mjs";
-import getOrganisationData from "./routes/lr/getOrganisationData.mjs";
-import viewSrccDsr from "./routes/lr/viewSrccDsr.mjs";
-import updateSrccDsr from "./routes/lr/updateSrccDsr.mjs";
-import elockAssignOthers from "./routes/lr/elockAssignOthers.mjs";
-
-// SRCC Directories
-import unitMeasurementRoute from "./routes/srcc/Directory_Management/UnitMeasurementRoute.mjs";
-import LrTrackingStagesRoutes from "./routes/srcc/Directory_Management/LrTrackingStagesRoutes.mjs";
-import organisationRoutes from "./routes/srcc/Directory_Management/organisationRoutes.mjs";
-import shippingLineRoutes from "./routes/srcc/Directory_Management/shippingLineRoutes.mjs";
-import advanceToDriverRoutes from "./routes/srcc/Directory_Management/advanceToDriverRoutes.mjs";
-import tollDataRoutes from "./routes/srcc/Directory_Management/tollDataRoutes.mjs";
-import DriverRoute from "./routes/srcc/Directory_Management/DriverRoute.mjs";
-import VehicleRegistrationRoute from "./routes/srcc/Directory_Management/VehicleRegistrationRoute.mjs";
-import stateDistrictRoutes from "./routes/srcc/Directory_Management/stateDistrictRoutes.mjs";
-import VehicleTypeRoute from "./routes/srcc/Directory_Management/VehicleTypeRoute.mjs";
-import CommodityRoute from "./routes/srcc/Directory_Management/CommodityRoute.mjs";
-import PortsCfsYardRoute from "./routes/srcc/Directory_Management/PortsCfsYardRoute.mjs";
-import ContainerType from "./routes/srcc/Directory_Management/ContainerTypeRoute.mjs";
-import LocationRoute from "./routes/srcc/Directory_Management/LocationRoute.mjs";
-import addContainerType from "./routes/srcc-directories/addContainerType.mjs";
-import addDriverDetails from "./routes/srcc-directories/addDriverDetails.mjs";
-import addLocation from "./routes/srcc-directories/addLocation.mjs";
-import addOrganisation from "./routes/srcc-directories/addOrganisation.mjs";
-import addPlyRating from "./routes/srcc-directories/addPlyRating.mjs";
-import addRepairType from "./routes/srcc-directories/addRepairType.mjs";
-import addTypeOfVehicle from "./routes/srcc-directories/addTypeOfVehicle.mjs";
-import addTyreBrand from "./routes/srcc-directories/addTyreBrand.mjs";
-import addTyreModel from "./routes/srcc-directories/addTyreModel.mjs";
-import addTyreSize from "./routes/srcc-directories/addTyreSize.mjs";
-import addTyreType from "./routes/srcc-directories/addTyreType.mjs";
-import addVehicle from "./routes/srcc-directories/addVehicle.mjs";
-import addVendor from "./routes/srcc-directories/addVendor.mjs";
-import getTyreBrand from "./routes/srcc-directories/getTyreBrand.mjs";
-import getDriverDetails from "./routes/srcc-directories/getDriverDetails.mjs";
-import getLocationMaster from "./routes/srcc-directories/getLocationMaster.mjs";
-import getSrccOrganisations from "./routes/srcc-directories/getSrccOrganisations.mjs";
-import UnitConversion from "./routes/srcc/Directory_Management/unitConvirsionRoutes.mjs";
-import CountryCode from "./routes/srcc/Directory_Management/countryCodeRoutes.js";
-// sr_cel
-import srCel from "./routes/srcc/sr_cel/srCel.mjs";
-import elock from "./routes/srcc/Directory_Management/ElockRoute.mjs";
-
 // Submission
 import getSubmissionJobs from "./routes/submission/getSubmissionJobs.mjs";
 import updateSubmissionJob from "./routes/submission/updateSubmissionJob.mjs";
@@ -236,30 +153,9 @@ import getBillingPendingReport from "./routes/report/getBillingPendingReport.mjs
 // Audit Trail
 import auditTrail from "./routes/audit/auditTrail.mjs";
 
-// Tyre Maintenance
-import getPlyRatings from "./routes/tyre-maintenance/getPlyRatings.mjs";
-import getTyreBrands from "./routes/tyre-maintenance/getTyreBrands.mjs";
-import getTyreModels from "./routes/tyre-maintenance/getTyreModels.mjs";
-import getTyreSizes from "./routes/tyre-maintenance/getTyreSizes.mjs";
-import getTyreTypes from "./routes/tyre-maintenance/getTyreTypes.mjs";
-import getVendors from "./routes/tyre-maintenance/getVendors.mjs";
-import addNewTyre from "./routes/tyre-maintenance/addNewTyre.mjs";
-import getTyreNos from "./routes/tyre-maintenance/getTyreNos.mjs";
-import addTyreFitting from "./routes/tyre-maintenance/addTyreFitting.mjs";
-import addVehicleTyres from "./routes/tyre-maintenance/addVehicleTyres.mjs";
-import addTyreBlast from "./routes/tyre-maintenance/addTyreBlast.mjs";
-import getRepairTypes from "./routes/tyre-maintenance/getRepairTypes.mjs";
-import addTyreRepairs from "./routes/tyre-maintenance/addTyreRepair.mjs";
-import addTyreRetreading from "./routes/tyre-maintenance/addTyreRetreading.mjs";
-import getDrivers from "./routes/tyre-maintenance/getDrivers.mjs";
-import driverAssignment from "./routes/tyre-maintenance/driverAssignment.mjs";
-import getTyreDetails from "./routes/tyre-maintenance/getTyreDetails.mjs";
-import getTruckDetails from "./routes/tyre-maintenance/getTruckDetails.mjs";
-import JobModel from "./model/jobModel.mjs";
-
 //import utility tool
-import getCthSearch from "./routes/srcc/Directory_Management/CthUtil/getChtSearch.js";
-import dutyCalculator from "./routes/srcc/Directory_Management/CthUtil/dutycalculator.mjs";
+import getCthSearch from "./routes/CthUtil/getChtSearch.js";
+import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -366,7 +262,8 @@ if (cluster.isPrimary) {
       });
       // app.use(updateJobCount);
       app.use(getAllUsers);
-      app.use(getImporterList);      app.use(getJobById);
+      app.use(getImporterList);      
+      app.use(getJobById);
       app.use(updateDutyFromCth);
       app.use(getUser);
       app.use(getUserData);
@@ -383,33 +280,6 @@ if (cluster.isPrimary) {
 
       app.use("/api",Accounts);
       app.use('/api', reminderRoutes);
-      app.use(addAdani);
-      app.use(addAMC);
-      app.use(addCC);
-      app.use(addElectricity);
-      app.use(addFD);
-      app.use(addLIC);
-      app.use(addMobile);
-      app.use(addRent);
-      app.use(getAdani);
-      app.use(getAMC);
-      app.use(getCC);
-      app.use(getElectricity);
-      app.use(getFD);
-      app.use(getLIC);
-      app.use(getMobile);
-      app.use(getRent);
-
-      // Customer KYC
-      app.use(addCustomerKyc);
-      app.use(viewCompletedKyc);
-      app.use(viewCustomerKycDetails);
-      app.use(customerKycApproval);
-      app.use(customerKycDraft);
-      app.use(ViewCustomerKycDrafts);
-      app.use(hodApprovalPending);
-      app.use(approvedByHod);
-      app.use(viewRevisionList);
 
       // Documentation
       app.use(updateDocumentationJob);
@@ -503,64 +373,6 @@ if (cluster.isPrimary) {
       app.use(addExitInterview);
       app.use(ViewExitInterviews);
 
-      // LR Operations
-      app.use(getPrData);
-      app.use(getPrJobList);
-      app.use(getLrJobList);
-      app.use(updatePr);
-      app.use(deletePr);
-      app.use(getContainerTypes);
-      app.use(getLocations);
-      app.use(getOrganisations);
-      app.use(updateContainer);
-      app.use(getTypeOfVehicles);
-      app.use(getVehicles);
-      app.use(deleteTr);
-      app.use(getTrs);
-      app.use(getOrganisationData);
-      app.use(viewSrccDsr);
-      app.use(updateSrccDsr);
-      app.use(elockAssignOthers);
-
-      // SRCC Directories
-      app.use(unitMeasurementRoute);
-      app.use(LrTrackingStagesRoutes);
-      app.use(organisationRoutes);
-      app.use(shippingLineRoutes);
-      app.use(advanceToDriverRoutes);
-      app.use(tollDataRoutes);
-      app.use(DriverRoute);
-      app.use(VehicleRegistrationRoute);
-      app.use(stateDistrictRoutes);
-      app.use(VehicleTypeRoute);
-      app.use(CommodityRoute);
-      app.use(PortsCfsYardRoute);
-      app.use(ContainerType);
-      app.use(LocationRoute);
-      app.use(addContainerType);
-      app.use(addDriverDetails);
-      app.use(addLocation);
-      app.use(addOrganisation);
-      app.use(addPlyRating);
-      app.use(addRepairType);
-      app.use(addTypeOfVehicle);
-      app.use(addTyreBrand);
-      app.use(addTyreModel);
-      app.use(addTyreSize);
-      app.use(addTyreType);
-      app.use(addVendor);
-      app.use(addVehicle);
-      app.use(getTyreBrand);
-      app.use(getVendors);
-      app.use(getDriverDetails);
-      app.use(getLocationMaster);
-      app.use(getSrccOrganisations);
-      app.use(UnitConversion);
-      app.use(CountryCode);
-      // sr cel
-      app.use(srCel);
-      app.use(elock);
-
       // Submission
       app.use(updateSubmissionJob);
       app.use(getSubmissionJobs);      
@@ -573,26 +385,6 @@ if (cluster.isPrimary) {
 
       //auditrail
       app.use(auditTrail);
-
-      // Tyre Maintenance
-      app.use(getPlyRatings);
-      app.use(getTyreBrands);
-      app.use(getTyreModels);
-      app.use(getTyreSizes);
-      app.use(getTyreTypes);
-      app.use(getVendors);
-      app.use(addNewTyre);
-      app.use(getTyreNos);
-      app.use(addTyreFitting);
-      app.use(addVehicleTyres);
-      app.use(addTyreBlast);
-      app.use(getRepairTypes);
-      app.use(addTyreRepairs);
-      app.use(addTyreRetreading);
-      app.use(getDrivers);
-      app.use(driverAssignment);
-      app.use(getTyreDetails);
-      app.use(getTruckDetails);
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 

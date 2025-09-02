@@ -6,7 +6,6 @@ import { Route, Routes } from "react-router-dom";
 import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 import ProtectedRoute from "./ProtectedRoute.js";
-import { routePermissions } from "../utils/routePermissions.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
@@ -386,7 +385,7 @@ function HomePage() {
               <Route
                 path="/all-users"
                 element={
-                  <ProtectedRoute requiredModule="Admin">
+                  <ProtectedRoute requiredModule="Audit Trail">
                     <AllUsersPage />
                   </ProtectedRoute>
                 }

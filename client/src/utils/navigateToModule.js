@@ -32,18 +32,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/exit-feedback");
     case "e-Sanchit":
       return navigate("/e-sanchit");
-    case "LR Operations":
-      return navigate("/lr-report");
-    case "Tyre Maintenance":
-      return navigate("/tyre-maintenance");
     case "Directories":
-      return navigate("/srcc-directories");
-    case "Elock-Operation":
-      return navigate("/elock-operation");
-    case "RTO":
-      return navigate("/rto");
-    case "SR CEL":
-      return navigate("/srcel");
+      return navigate("/export-directories");
     case "Documentation":
       return navigate("/documentation");
     case "Submission":

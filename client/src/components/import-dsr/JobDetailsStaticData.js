@@ -2,7 +2,6 @@ import React, { useMemo, useCallback } from "react";
 import { Row, Col } from "react-bootstrap";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { handleCopyText } from "../../utils/handleCopyText";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
 
@@ -387,18 +386,6 @@ function JobDetailsStaticData(props) {
                   gap: "15px",
                 }}
               >
-                {/* Copy Button */}
-                {/* <IconButton
-                  size="medium"
-                  onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                  onClick={() =>
-                    handleCopyText(props.bl_no_ref, props.setSnackbar)
-                  }
-                  aria-label="copy-btn"
-                >
-                  <ContentCopyIcon fontSize="small" />
-                </IconButton> */}
-
                 {/* Shipping Line Tracking Link */}
                 {props.data.shipping_line_airline && (
                   <abbr

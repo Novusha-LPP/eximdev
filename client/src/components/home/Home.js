@@ -20,7 +20,6 @@ const importPriority = [
   "Import Utility Tool",
   "Report",
   "Audit Trail",
-
 ];
 
 function Home() {

@@ -80,6 +80,11 @@ import DutyCalculator from "../components/import-utility-tool/duty-calculator/Du
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 
+//Export
+
+import GeneralInformation from "../components/Export/Directories/GeneralInformation.js";
+import Directories from "../components/Export/Directories/Directories.js";
+
 
 const drawerWidth = 60;
 
@@ -510,6 +515,17 @@ function HomePage() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Export */}
+              <Route
+                path="/export-directories"
+                element={
+                  <ProtectedRoute requiredModule="Directories">
+                    <Directories />
+                  </ProtectedRoute>
+                }
+              />
+
             </Routes>
           </Box>
         </Box>

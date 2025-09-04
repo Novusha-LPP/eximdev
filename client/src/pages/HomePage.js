@@ -82,7 +82,7 @@ import AllUsersPage from "./AllUsersPage.js";
 
 //Export
 
-import GeneralInformation from "../components/Export/Directories/GeneralInformation.js";
+import genInfo from "../components/Export/Directories/GenInfo.js";
 import Directories from "../components/Export/Directories/Directories.js";
 
 

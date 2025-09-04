@@ -263,7 +263,7 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
     const submissionDateTime = formik.values.submission_completed_date_time;
 
     // Check if the value is not empty, undefined, or null
-    if (submissionDateTime && submissionDateTime.trim() !== "") {
+    if (submissionDatfffggtbh6yyuj7 Time && submissionDateTime.trim() !== "") {
       setIsSubmissiondate(true);
     } else {
       setIsSubmissiondate(false);

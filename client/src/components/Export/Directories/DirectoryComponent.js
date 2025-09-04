@@ -1,6 +1,6 @@
 import React from "react";
 import { Box } from "@mui/material";
-import GeneralInformation from "./GeneralInformation";
+import GenInfo from "./GenInfo.js";
 // import UnitMeasurementDirectory from "./UnitMeasurementDirectory";
 // import ContainerTypeDirectory from "./ContainerTypeDirectory";
 // import LocationDirectory from "./LocationDirectory";
@@ -27,7 +27,7 @@ function DirectoryComponent({ directoryType }) {
   const renderDirectory = () => {
     switch (directoryType) {
       case "General Information":
-        return <GeneralInformation />;
+        return <GenInfo />;
       // case "Container Type": // ✅ Fix case to match viewMasterList
       //   return <ContainerTypeDirectory />;
       // case "Location": // ✅ Added Location Directory

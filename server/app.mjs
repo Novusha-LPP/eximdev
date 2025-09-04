@@ -157,6 +157,9 @@ import auditTrail from "./routes/audit/auditTrail.mjs";
 import getCthSearch from "./routes/CthUtil/getChtSearch.js";
 import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
 
+// directrories
+import genInfo from "./routes/Directories/geninfo.mjs";
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -385,6 +388,9 @@ if (cluster.isPrimary) {
 
       //auditrail
       app.use(auditTrail);
+
+      //directories
+      app.use(genInfo);
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 

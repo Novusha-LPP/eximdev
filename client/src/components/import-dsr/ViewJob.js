@@ -263,7 +263,7 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
     const submissionDateTime = formik.values.submission_completed_date_time;
 
     // Check if the value is not empty, undefined, or null
-    if (submissionDatfffggtbh6yyuj7 Time && submissionDateTime.trim() !== "") {
+    if (submissionDateTime && submissionDateTime.trim() !== "") {
       setIsSubmissiondate(true);
     } else {
       setIsSubmissiondate(false);
@@ -1801,15 +1801,14 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
                     value={formik.values.priorityJob || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
-                    disabled={isSubmissionDate}
                   >
                     <FormControlLabel
                       value="normal"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio size="small" />
                       }
                       label="Normal"
-                      disabled={isSubmissionDate}
+          
                       sx={{
                         color: "green",
                         "& .MuiSvgIcon-root": { color: "green" },
@@ -1818,10 +1817,10 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
                     <FormControlLabel
                       value="Priority"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio size="small"  />
                       }
                       label="Priority"
-                      disabled={isSubmissionDate}
+                    
                       sx={{
                         color: "orange",
                         "& .MuiSvgIcon-root": { color: "orange" },
@@ -1830,10 +1829,10 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
                     <FormControlLabel
                       value="High Priority"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio size="small"/>
                       }
                       label="High Priority"
-                      disabled={isSubmissionDate}
+                  
                       sx={{
                         color: "red",
                         "& .MuiSvgIcon-root": { color: "red" },

@@ -15,7 +15,9 @@ export const formMasterList = [
 ];
 
 export const viewMasterList = [
-  "General Information"
+  "General Information",
+  "Contact Information",
+  "Account Information",
 ];
 
 export const directoryFields = {

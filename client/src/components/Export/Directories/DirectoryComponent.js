@@ -1,6 +1,8 @@
 import React from "react";
 import { Box } from "@mui/material";
 import GenInfo from "./GenInfo.js";
+import ContactInfo from "./ContactInfo.js";
+import AccountInfo from "./AccountInfo.js";
 // import UnitMeasurementDirectory from "./UnitMeasurementDirectory";
 // import ContainerTypeDirectory from "./ContainerTypeDirectory";
 // import LocationDirectory from "./LocationDirectory";
@@ -28,8 +30,10 @@ function DirectoryComponent({ directoryType }) {
     switch (directoryType) {
       case "General Information":
         return <GenInfo />;
-      // case "Container Type": // ✅ Fix case to match viewMasterList
-      //   return <ContainerTypeDirectory />;
+      case "Contact Information": // ✅ Fix case to match viewMasterList
+        return <ContactInfo />;
+      case "Account Information": // ✅ Fix case to match viewMasterList
+        return <AccountInfo />;
       // case "Location": // ✅ Added Location Directory
       //   return <LocationDirectory />;
       // case "State District": // ✅ Added State District Directory

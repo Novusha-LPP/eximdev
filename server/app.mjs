@@ -159,6 +159,8 @@ import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
 
 // directrories
 import genInfo from "./routes/Directories/geninfo.mjs";
+import contactInfo from "./routes/Directories/contactInfo.js";
+import accountInfo from "./routes/Directories/accountInfo.js";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -391,6 +393,8 @@ if (cluster.isPrimary) {
 
       //directories
       app.use(genInfo);
+      app.use(contactInfo);
+      app.use(accountInfo);
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 

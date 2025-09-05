@@ -3311,37 +3311,9 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
               {doc.document_name} ({doc.document_code})
             </h6>
             
-            {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "10px" }}>
-              {user?.role === "Admin" && (
-                <>
-                  <span
-                    style={{
-                      cursor: "pointer",
-                      color: "#007bff",
-                      fontSize: "14px"
-                    }}
-                    onClick={() => handleOpenDialog(doc, true)}
-                    title="Edit Document"
-                  >
-                    <i className="fas fa-edit"></i>
-                  </span>
-                  <span
-                    style={{ 
-                      cursor: "pointer", 
-                      color: "#dc3545",
-                      fontSize: "14px"
-                    }}
-                    onClick={() => handleOpenDialog(doc, false)}
-                    title="Delete Document"
-                  >
-                    <i className="fas fa-trash-alt"></i>
-                  </span>
-                </>
-              )}
 {/* Action Buttons */}
 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-  {user?.role === "Admin" && (
+
     <>
       <span
         style={{
@@ -3366,27 +3338,10 @@ const [documentToDelete, setDocumentToDelete] = useState(null);
         <i className="fas fa-trash-alt"></i>
       </span>
     </>
-  )}
-  
-  {/* Remove Button - Icon Only */}
-  <DeleteIcon
-    style={{ 
-      cursor: "pointer", 
-      color: "#dc3545",
-      fontSize: "18px"
-    }}
-    onClick={() => {
-      if (window.confirm(`Remove "${doc.document_name}" from the list?`)) {
-        const updatedDocuments = cthDocuments.filter((_, i) => i !== index);
-        setCthDocuments(updatedDocuments);
-      }
-    }}
-    title="Remove document from list"
-  />
 </div>
 
 
-            </div>
+      
           </div>
 
           {/* Document Details Row */}

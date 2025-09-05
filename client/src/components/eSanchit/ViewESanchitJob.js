@@ -173,50 +173,59 @@ function ViewESanchitJob() {
   }, [params.job_no, params.year]);
 
   // Formik setup
-  const formik = useFormik({
-    initialValues: {
-      cth_documents: data.cth_documents || [],
-      esanchitCharges: esanchitCharges || [],
-      queries: data.eSachitQueries || [{ query: "", reply: "" }],
-      dsr_queries: data.dsr_queries || [],
-      esanchit_completed_date_time: data.esanchit_completed_date_time || "",
-    },
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      try {
-        const formattedData = {
-          cth_documents: values.cth_documents,
-          esanchitCharges: values.esanchitCharges,
-          queries: values.queries, // Send queries as `eSachitQueries`
-          esanchit_completed_date_time:
-            values.esanchit_completed_date_time || "",
-          dsr_queries: values.dsr_queries || [],
-        };
+// Formik setup
+const formik = useFormik({
+  initialValues: {
+    cth_documents: data.cth_documents || [],
+    esanchitCharges: esanchitCharges || [],
+    queries: data.eSachitQueries || [{ query: "", reply: "" }],
+    dsr_queries: data.dsr_queries || [],
+    esanchit_completed_date_time: data.esanchit_completed_date_time || "",
+  },
+  enableReinitialize: true,
+  onSubmit: async (values) => {
+    try {
+      const formattedData = {
+        cth_documents: values.cth_documents,
+        esanchitCharges: values.esanchitCharges,
+        queries: values.queries,
+        esanchit_completed_date_time: values.esanchit_completed_date_time || "",
+        dsr_queries: values.dsr_queries || [],
+      };
 
-        // Get user info from localStorage for audit trail
-        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-        const headers = {
-          "Content-Type": "application/json",
-          "user-id": user.username || "unknown",
-          username: user.username || "unknown",
-          "user-role": user.role || "unknown",
-        };
-        await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
-          formattedData,
-          { headers }
-        );
-        setSnackbar(true);
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
+      
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
+        formattedData,
+        { headers }
+      );
+      
+      // Update local data state to reflect the saved value
+      setData(prev => ({
+        ...prev,
+        esanchit_completed_date_time: values.esanchit_completed_date_time
+      }));
+      
+      setSnackbar(true);
 
-        // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
-      } catch (error) {
-        console.error("Error updating job:", error);
-      }
-    },
-  });
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
+    } catch (error) {
+      console.error("Error updating job:", error);
+    }
+  },
+});
+
 
   const renderAllDocuments = (documents) => {
     if (!documents || documents.length === 0) {
@@ -271,7 +280,7 @@ function ViewESanchitJob() {
     }
   };
 
-  // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
+// Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
 const areAllApproved = () => {
   return (
     !isDisabled &&
@@ -285,19 +294,39 @@ const areAllApproved = () => {
       )
   );
 };
-  // Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
-  useEffect(() => {
-    if (areAllApproved()) {
-      const currentDateTime = new Date(
-        Date.now() - new Date().getTimezoneOffset() * 60000
-      )
+
+// Get the latest approved document date
+const getLatestApprovedDate = () => {
+  const approvedDocs = formik.values.cth_documents
+    .filter(doc => doc.is_sent_to_esanchit && doc.document_check_date)
+    .map(doc => new Date(doc.document_check_date))
+    .sort((a, b) => b - a); // Sort in descending order (latest first)
+  
+  return approvedDocs.length > 0 ? approvedDocs[0] : null;
+};
+
+// Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
+useEffect(() => {
+  // Only update if we don't already have a completion date from database
+  // and if this is a new approval (not just loading existing data)
+  const hasExistingCompletionDate = data.esanchit_completed_date_time && 
+    formik.values.esanchit_completed_date_time === data.esanchit_completed_date_time;
+  
+  if (areAllApproved() && !hasExistingCompletionDate) {
+    const latestApprovedDate = getLatestApprovedDate();
+    if (latestApprovedDate) {
+      // Use the latest approved document's date instead of current time
+      const latestApprovedDateTime = new Date(latestApprovedDate.getTime() - latestApprovedDate.getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16);
-      formik.setFieldValue("esanchit_completed_date_time", currentDateTime);
-    } else {
-      formik.setFieldValue("esanchit_completed_date_time", "");
+      formik.setFieldValue("esanchit_completed_date_time", latestApprovedDateTime);
     }
-  }, [formik.values.cth_documents]);
+  } else if (!areAllApproved() && !hasExistingCompletionDate) {
+    // Only clear if it's not a stored value from database
+    formik.setFieldValue("esanchit_completed_date_time", "");
+  }
+}, [formik.values.cth_documents, data.esanchit_completed_date_time]);
+
 
   // Sync esanchitCharges state with formik values
   useEffect(() => {

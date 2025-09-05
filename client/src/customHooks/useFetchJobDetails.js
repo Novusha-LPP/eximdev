@@ -263,16 +263,22 @@ function useFetchJobDetails(
     getDocuments();
   }, []);
 
-  // Fetch CTH documents based on CTH number and Update additional CTH documents based on CTH number
-  useEffect(() => {
-    async function getCthDocs() {
-      // Always process existing cth_documents, even if cth_no is empty
-      if (data?.cth_no) {
+useEffect(() => {
+  async function getCthDocs() {
+    if (data?.cth_no) {
+      try {
+        // Handle multiple CTH numbers separated by " / "
+        const cthNumbers = data.cth_no.split(' / ').map(cth => cth.trim());
+        
+        // Create query parameter string
+        const queryParams = new URLSearchParams();
+        cthNumbers.forEach(cth => queryParams.append('cth_nos', cth));
+        
         const cthRes = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-cth-docs/${data?.cth_no}`
+          `${process.env.REACT_APP_API_STRING}/get-cth-docs?${queryParams.toString()}`
         );
 
-        // Fetched CTH documents with URLs merged from data.cth_documents if they exist
+        // Rest of your existing logic...
         const fetchedCthDocuments =
           Array.isArray(cthRes.data) &&
           cthRes.data.map((cthDoc) => {
@@ -286,33 +292,27 @@ function useFetchJobDetails(
             };
           });
 
-        // Start with initial cthDocuments
+        // Continue with your existing merging logic...
         let documentsToMerge = [...cthDocuments];
 
-        // If data.cth_no is in commonCthCodes, merge with additionalDocs
-        if (commonCthCodes.includes(data.cth_no)) {
+        if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
           documentsToMerge = [...documentsToMerge, ...additionalDocs];
         }
 
-        // Merge fetched CTH documents
         documentsToMerge = fetchedCthDocuments
           ? [...documentsToMerge, ...fetchedCthDocuments]
           : [...documentsToMerge];
 
-        // Merge data.cth_documents into the array
         documentsToMerge = [...documentsToMerge, ...data.cth_documents];
 
-        // Eliminate duplicates, keeping only the document with a URL if it exists
         const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
           const existingDocIndex = acc.findIndex(
             (doc) => doc.document_name === current.document_name
           );
 
           if (existingDocIndex === -1) {
-            // Document does not exist, add it
             return acc.concat([current]);
           } else {
-            // Document exists, replace it only if the current one has a URL
             if (current.url) {
               acc[existingDocIndex] = current;
             }
@@ -321,18 +321,22 @@ function useFetchJobDetails(
         }, []);
 
         setCthDocuments(uniqueDocuments);
-      } else if (data?.cth_documents && data.cth_documents.length > 0) {
-        // If no CTH number but we have existing cth_documents, display them
-        setCthDocuments(data.cth_documents);
+      } catch (error) {
+        console.error("Error fetching CTH documents:", error);
       }
+    } else if (data?.cth_documents && data.cth_documents.length > 0) {
+      setCthDocuments(data.cth_documents);
     }
-    if (data) {
-      setSelectedDocuments(data.documents);
-      setSelectedChargesDocuments(data.DsrCharges || []);
-    }
+  }
 
-    getCthDocs();
-  }, [data]);
+  if (data) {
+    setSelectedDocuments(data.documents);
+    setSelectedChargesDocuments(data.DsrCharges || []);
+  }
+
+  getCthDocs();
+}, [data]);
+
 
   // Formik
   const formik = useFormik({

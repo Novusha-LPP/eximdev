@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import { useFormik } from "formik";
 import axios from "axios";
-import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -366,6 +365,8 @@ function EditDoPlanning() {
       [docIndex]: mode === "Wire Transfer",
     }));
   };
+const disableSubmit = !!(formik.values.do_copies[0] && formik.values.do_validity && formik.values.do_list);
+
 
   // Document check status handler
   const handleDocumentCheckChange = (docIndex, docType) => (e) => {
@@ -807,7 +808,6 @@ function EditDoPlanning() {
             label="Upload DO Copies"
             bucketPath="do_copies"
             onFilesUploaded={(newFiles) => {
-              console.log("Uploading new DO Copies:", newFiles);
               const existingFiles = formik.values.do_copies || [];
               const updatedFiles = [...existingFiles, ...newFiles];
               formik.setFieldValue("do_copies", updatedFiles);
@@ -1624,6 +1624,7 @@ function EditDoPlanning() {
                 type="submit"
                 style={{ float: "right", margin: "10px" }}
                 aria-label="submit-btn"
+                disabled={!disableSubmit}
               >
                 Submit
               </button>

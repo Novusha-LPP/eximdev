@@ -3,10 +3,9 @@ import JobModel from "../../model/jobModel.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 
-
 const router = express.Router();
 
-router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, next) => {
+router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, next) => {
   const {
     _id,
     shipping_line_bond_completed,
@@ -17,11 +16,17 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
     kyc_valid_upto,
     shipping_line_bond_valid_upto,
     shipping_line_bond_docs,
-    shipping_line_bond_charges
+    shipping_line_bond_charges,
+    // ADD THESE MISSING FIELDS
+    do_shipping_line_invoice,
+    insurance_copy,
+    other_do_documents,
+    security_deposit,
+    do_copies
   } = req.body;
 
   try {
-    const currentDate = new Date().toLocaleDateString("en-GB"); // Get current date in dd-mm-yyyy format
+    const currentDate = new Date().toLocaleDateString("en-GB");
 
     // Fetch the existing job document
     const existingJob = await JobModel.findOne({ _id });
@@ -30,32 +35,18 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    // Check if any of the boolean fields are already 'Yes' in the database
-    const shouldUpdateBondDate =
-      existingJob.shipping_line_bond_completed !== "Yes";
-    const shouldUpdateKYCDate =
-      existingJob.shipping_line_kyc_completed !== "Yes";
-    const shouldUpdateInvoiceDate =
-      existingJob.shipping_line_invoice_received !== "Yes";
+  
+    // Create an object to hold the fields to update - INCLUDE ALL FIELDS
+    const updateFields = {
+      // ADD THE MISSING DOCUMENT FIELDS
+      do_shipping_line_invoice,
+      insurance_copy,
+      other_do_documents,
+      security_deposit,
+    };
 
-    // Create an object to hold the fields to update
-    const updateFields = { shipping_line_insurance: shipping_line_insurance };
-
-    // Update date fields based on conditions
-    if (shouldUpdateBondDate && shipping_line_bond_completed === "Yes") {
-      updateFields.shipping_line_bond_completed_date = currentDate;
-    }
-    if (shouldUpdateKYCDate && shipping_line_kyc_completed === "Yes") {
-      updateFields.shipping_line_kyc_completed_date = currentDate;
-    }
-    if (shouldUpdateInvoiceDate && shipping_line_invoice_received === "Yes") {
-      updateFields.shipping_line_invoice_received_date = currentDate;
-    }
-
-    // Update Job document if there are fields to be updated
-    if (Object.keys(updateFields).length > 0) {
-      await JobModel.updateOne({ _id }, { $set: updateFields });
-    }
+    // Update Job document - THIS WILL NOW UPDATE ALL FIELDS
+    await JobModel.updateOne({ _id }, { $set: updateFields });
 
     // Find the existing KYC document
     const existingKycDoc = await kycDocumentsModel.findOne({
@@ -95,6 +86,7 @@ router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, ne
 
     return res.json({ success: true, message: "Details submitted" });
   } catch (error) {
+    console.error("Error updating DO list:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });

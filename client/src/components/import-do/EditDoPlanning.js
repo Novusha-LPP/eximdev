@@ -365,7 +365,7 @@ function EditDoPlanning() {
       [docIndex]: mode === "Wire Transfer",
     }));
   };
-const disableSubmit = !!(formik.values.do_copies[0] && formik.values.do_validity && formik.values.do_list);
+
 
 
   // Document check status handler
@@ -496,9 +496,11 @@ const disableSubmit = !!(formik.values.do_copies[0] && formik.values.do_validity
   };
   // Derived state to determine if DO Completed can be enabled
   const isDoCompletedEnabled =
-    formik.values.do_validity !== "" &&
-    formik.values.do_copies &&
-    formik.values.do_copies.length > 0;
+  formik.values.do_copies[0] &&
+  formik.values.do_validity &&
+  formik.values.do_list
+    
+    
 
   // Effect to clear do_completed if DO Validity or DO Copies are cleared
   useEffect(() => {
@@ -1624,7 +1626,6 @@ const disableSubmit = !!(formik.values.do_copies[0] && formik.values.do_validity
                 type="submit"
                 style={{ float: "right", margin: "10px" }}
                 aria-label="submit-btn"
-                disabled={!disableSubmit}
               >
                 Submit
               </button>

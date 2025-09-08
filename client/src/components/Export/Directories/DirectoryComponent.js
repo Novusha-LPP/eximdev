@@ -3,6 +3,8 @@ import { Box } from "@mui/material";
 import GenInfo from "./GenInfo.js";
 import ContactInfo from "./ContactInfo.js";
 import AccountInfo from "./AccountInfo.js";
+import ExportDirectory from "./ExportDirectory.js";
+import BankDetails from "./BankDetails.js";
 // import UnitMeasurementDirectory from "./UnitMeasurementDirectory";
 // import ContainerTypeDirectory from "./ContainerTypeDirectory";
 // import LocationDirectory from "./LocationDirectory";
@@ -34,6 +36,10 @@ function DirectoryComponent({ directoryType }) {
         return <ContactInfo />;
       case "Account Information": // ✅ Fix case to match viewMasterList
         return <AccountInfo />;
+      case "Bank Details": // ✅ Fix case to match viewMasterList
+        return <BankDetails />;
+      case "Organization": // ✅ Fix case to match viewMasterList
+        return < ExportDirectory/>;
       // case "Location": // ✅ Added Location Directory
       //   return <LocationDirectory />;
       // case "State District": // ✅ Added State District Directory

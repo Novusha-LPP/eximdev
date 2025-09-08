@@ -18,6 +18,8 @@ export const viewMasterList = [
   "General Information",
   "Contact Information",
   "Account Information",
+  "Bank Details",
+  "Organization",
 ];
 
 export const directoryFields = {

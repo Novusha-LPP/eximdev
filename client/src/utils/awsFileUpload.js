@@ -60,9 +60,16 @@ export const uploadFileToS3 = (file, folderName) => {
   });
 
   const s3 = new AWS.S3();
+
+  const timestamp = Date.now(); // Unix timestamp in milliseconds
+  const fileExtension = file.name.substring(file.name.lastIndexOf('.')); // Get the file extension
+  const baseFileName = file.name.substring(0, file.name.lastIndexOf('.')); // Get base name without extension
+
+  const uniqueFileName = `${baseFileName}-${timestamp}${fileExtension}`;
+
   const params = {
     Bucket: process.env.REACT_APP_S3_BUCKET,
-    Key: `${folderName}/${file.name}`,
+    Key: `${folderName}/${uniqueFileName}`,
     Body: file,
     ContentType: file.type,
   };

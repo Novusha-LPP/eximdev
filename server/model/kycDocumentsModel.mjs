@@ -17,6 +17,7 @@ const kycDocumentsSchema = new mongoose.Schema({
   },
   shipping_line_bond_valid_upto: { type: String },
   shipping_line_bond_docs: [{ type: String }],
+  shipping_line_bond_charges: { type: String },
 });
 
 const KycDocumentsModel = new mongoose.model(

@@ -195,6 +195,10 @@ const userSchema = new Schema({
   kyc_approval: {
     type: String,
   },
+  selected_icd_codes: [{
+    type: String,
+    trim: true,
+  }],
 });
 
 const UserModel = mongoose.model("User", userSchema);

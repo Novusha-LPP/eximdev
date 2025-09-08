@@ -36,6 +36,13 @@ router.get("/api/get-kyc-and-bond-status/:_id", async (req, res) => {
     awb_bl_no,
     shipping_line_kyc_completed,
     shipping_line_bond_completed,
+    shipping_line_invoice_received: job.shipping_line_invoice_received || "No",
+    kyc_documents: kycDocs?.kyc_documents || [],
+    kyc_valid_upto: kycDocs?.kyc_valid_upto || "",
+    shipping_line_bond_valid_upto: kycDocs?.shipping_line_bond_valid_upto || "",
+    shipping_line_bond_docs: kycDocs?.shipping_line_bond_docs || [],
+    shipping_line_bond_charges: kycDocs?.shipping_line_bond_charges || "",
+    shipping_line_insurance: job.shipping_line_insurance || [],
   });
 });
 

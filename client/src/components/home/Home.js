@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { navigateToModule } from "../../utils/navigateToModule.js";
 import { moduleCategories } from "../../utils/moduleCategories.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 
 const importPriority = [
   "Import - DSR",
@@ -17,12 +18,30 @@ const importPriority = [
   "Import - Add",
   "Import - Billing",
   "Import Utility Tool",
+  "Report",
+  "Audit Trail",
 ];
 
 function Home() {
   const { user } = useContext(UserContext);
   const [data, setData] = useState();
   const navigate = useNavigate();
+  
+  // Get search context functions to clear all search state
+  const {
+    setSearchQuery,
+    setDetailedStatus,
+    setSelectedICD,
+    setSelectedImporter
+  } = useSearchQuery();
+
+  // Clear all search queries when visiting the home page
+  useEffect(() => {
+    setSearchQuery("");
+    setDetailedStatus("all");
+    setSelectedICD("all");
+    setSelectedImporter("");
+  }, [setSearchQuery, setDetailedStatus, setSelectedICD, setSelectedImporter]);
 
   useEffect(() => {
     async function getUser() {
@@ -67,7 +86,7 @@ function Home() {
               </h6>
               <hr style={{ margin: "5px 0" }} />
               <Row>
-                {(category === "Import"
+                {(category === "DSR Module"
                   ? sortImports(categorizedModules[category])
                   : categorizedModules[category].sort()
                 ).map((module, id) => (

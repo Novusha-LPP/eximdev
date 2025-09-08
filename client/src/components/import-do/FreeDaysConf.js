@@ -21,9 +21,13 @@ import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
 
 const FreeDaysConf = () => {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  
+  
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
@@ -130,6 +134,7 @@ const FreeDaysConf = () => {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              username: user?.username || "", // ✅ Send username for ICD filtering
             },
           }
         );
@@ -153,24 +158,28 @@ const FreeDaysConf = () => {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        page,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter
+      );
+    }
   }, [
     page,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
 
@@ -223,9 +232,13 @@ const FreeDaysConf = () => {
   };
 
   const handleEditClick = (row) => {
+    if(row.consignment_type !== "LCL") {
     setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
     setFreeTimeValue(row.free_time); // Set the current value for editing
     setCurrentPageBeforeEdit(page); // Remember the current page before editing
+    } else {
+      alert("Free Time cannot be edited for LCL consignment type.");
+    }
   };
 
   const handleSave = async (id) => {
@@ -246,7 +259,6 @@ const FreeDaysConf = () => {
       // );
       // Fetch the latest jobs with the original page preserved
       await fetchJobs(currentPageBeforeEdit, debouncedSearchQuery);
-      console.log("Free time updated successfully.");
     } catch (error) {
       console.error("Error saving data:", error);
     } finally {

@@ -6,13 +6,17 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/employee-kyc");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Report":
+      return navigate("/report");
+    case "Audit Trail":
+      return navigate("/audit-trail");
     case "Import - Operations":
       return navigate("/import-operations");
     case "Import - Add":
       return navigate("/ImportersInfo");
     case "Import - Billing":
       return navigate("/import-billing");
-      case "Import Utility Tool":
+    case "Import Utility Tool":
       return navigate("/utilities");
     case "Import - DO":
       return navigate("/import-do");
@@ -23,23 +27,13 @@ export const navigateToModule = (module, navigate) => {
     case "Accounts":
       return navigate("/accounts");
     case "Customer KYC":
-      return navigate("/customer-kyc");
+      return window.location.href = "http://eximcustomerkyc.s3-website.ap-south-1.amazonaws.com/customer-kyc";
     case "Exit Feedback":
       return navigate("/exit-feedback");
     case "e-Sanchit":
       return navigate("/e-sanchit");
-    case "LR Operations":
-      return navigate("/lr-report");
-    case "Tyre Maintenance":
-      return navigate("/tyre-maintenance");
     case "Directories":
-      return navigate("/srcc-directories");
-    case "Elock-Operation":
-      return navigate("/elock-operation");
-    case "RTO":
-      return navigate("/rto");
-    case "SR CEL":
-      return navigate("/srcel");
+      return navigate("/export-directories");
     case "Documentation":
       return navigate("/documentation");
     case "Submission":

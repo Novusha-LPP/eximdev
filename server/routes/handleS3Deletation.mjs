@@ -3,12 +3,6 @@ import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const router = express.Router();
 
-// Debug: Log available environment variables
-console.log("Available env vars:");
-console.log("REACT_APP_ACCESS_KEY:", process.env.REACT_APP_ACCESS_KEY ? "SET" : "NOT SET");
-console.log("REACT_APP_SECRET_ACCESS_KEY:", process.env.REACT_APP_SECRET_ACCESS_KEY ? "SET" : "NOT SET");
-console.log("REACT_APP_AWS_REGION:", process.env.REACT_APP_AWS_REGION ? "SET" : "NOT SET");
-console.log("REACT_APP_S3_BUCKET:", process.env.REACT_APP_S3_BUCKET ? "SET" : "NOT SET");
 
 // Check for required environment variables first
 if (!process.env.REACT_APP_ACCESS_KEY || !process.env.REACT_APP_SECRET_ACCESS_KEY || !process.env.REACT_APP_AWS_REGION) {
@@ -37,7 +31,6 @@ router.post("/api/delete-s3-file", async (req, res) => {
   });
 
   try {
-    console.log("Deleting key:", key);
     await s3.send(command);
     res.status(200).json({ message: "File deleted successfully" });
   } catch (err) {

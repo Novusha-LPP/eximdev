@@ -9,6 +9,8 @@ import {
   Snackbar,
   Checkbox,
   FormControlLabel,
+  Button,
+  Box,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Row, Col } from "react-bootstrap";
@@ -16,8 +18,14 @@ import FileUpload from "../../components/gallery/FileUpload.js";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportDO";
+import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import { useSearchParams } from "react-router-dom";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import Charges from "../Charges/Charges.js";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function EditBillingSheet() {
+  const params = useParams();
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -25,14 +33,46 @@ function EditBillingSheet() {
     open: false,
     message: "",
   });
-  const { _id } = useParams();
-  const { user } = useContext(UserContext);
+
+  const { job_no, year } = params;
+  const { user } = useContext(UserContext); // Access user from context
   const navigate = useNavigate();
   const location = useLocation();
-
   const { setCurrentTab } = useContext(TabContext);
   // This might be the job you're editing...
-  const { selectedJobId } = location.state || {};
+  const [param] = useSearchParams();
+
+  const jobId = param.get("selectedJobId");
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = React.useState(null);
+
+  // Store search parameters from location state
+  React.useEffect(() => {
+    if (location.state) {
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        currentPage,
+      } = location.state;
+
+      const params = {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab: currentTab ?? 4, // Default to Billing Sheet tab
+        currentPage,
+      };
+
+      setStoredSearchParams(params);
+    }
+  }, [location.state]); // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 4;
+
+    navigate("/import-do", {});
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -41,13 +81,30 @@ function EditBillingSheet() {
       other_invoices_img: [],
       shipping_line_invoice_imgs: [],
       bill_document_sent_to_accounts: "",
+      dsr_queries: [],
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
+        // Get user info from context or localStorage fallback
+        const username =
+          user?.username || localStorage.getItem("username") || "unknown";
+        const userId =
+          user?.selectedJobId || localStorage.getItem("userId") || "unknown";
+        const userRole =
+          user?.role || localStorage.getItem("userRole") || "unknown";
+
         await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/update-do-billing/${data._id}`,
-          values
+          `${process.env.REACT_APP_API_STRING}/update-do-billing/${jobId}`,
+          { ...values, dsr_queries: values.dsr_queries || [] },
+
+          {
+            headers: {
+              username: username,
+              "user-id": userId,
+              "user-role": userRole,
+            },
+          }
         );
 
         // Update the local data state after successful update
@@ -55,25 +112,19 @@ function EditBillingSheet() {
           ...prev,
           ...values,
         }));
-
         setFileSnackbar({
           open: true,
           message: "Billing details updated successfully!",
-        });
-        // Navigate back to the BillingSheet tab after submission
+        }); // Navigate back to the BillingSheet tab after submission
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
+        const tabIndex = storedSearchParams?.currentTab ?? 4;
+        // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
 
-        navigate("/import-do", {
-          state: {
-            tabIndex: 3, // BillingSheet tab index
-            scrollPosition, // Preserve scroll position
-            selectedJobId,
-            searchQuery: location.state?.searchQuery || "", // Preserve search query
-          },
-        });
-
-        setCurrentTab(3); // Update the active tab in context
+        setCurrentTab(tabIndex); // Update the active tab in context
       } catch (error) {
         console.error("Error updating billing details:", error);
         setFileSnackbar({
@@ -84,6 +135,20 @@ function EditBillingSheet() {
     },
   });
 
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
+      ...prev,
+      dsr_queries: updatedQueries,
+    }));
+    formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+  };
+
+  const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log("Query resolved:", resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
+
   // Fetch data when the component is mounted
   React.useEffect(() => {
     async function getData() {
@@ -91,7 +156,7 @@ function EditBillingSheet() {
       setError(null);
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${_id}`
+          `${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`
         );
         const jobData = res.data.job || {};
         setData(jobData);
@@ -104,6 +169,7 @@ function EditBillingSheet() {
           shipping_line_invoice_imgs: jobData.shipping_line_invoice_imgs || [],
           bill_document_sent_to_accounts:
             jobData.bill_document_sent_to_accounts || "",
+          dsr_queries: jobData.dsr_queries || [],
         });
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -113,44 +179,49 @@ function EditBillingSheet() {
       }
     }
     getData();
-  }, [_id]);
+  }, [jobId]);
 
   if (loading) return <p>Loading data...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
-
   return (
     <div style={{ margin: "20px" }}>
-      {data && (
-        <div className="job-details-container">
-          <Row>
-            <Col>
-              <h4>
-                Job Number: {data.job_no} | Custom House: {data.custom_house}
-              </h4>
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12} lg={6}>
-              <strong>Importer:</strong> {data.importer}
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12} lg={6}>
-              <strong>Importer Address:</strong> {data.importer_address}
-              <IconButton
-                size="small"
-                onClick={() =>
-                  navigator.clipboard.writeText(data.importer_address)
-                }
-              >
-                <abbr title="Copy Importer Address">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </Col>
-          </Row>
+      {/* Back to Job List Button */}
+      <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+        <Button
+          variant="contained"
+          startIcon={<ArrowBackIcon />}
+          onClick={handleBackClick}
+          sx={{
+            // fontWeight: 'bold',
+            backgroundColor: "black",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
+      {data && <JobDetailsStaticData data={data} params={{ job_no, year }} />}
+
+      {data && data.dsr_queries && (
+        <div>
+          <QueriesComponent
+            queries={data.dsr_queries}
+            currentModule="Billing Sheet"
+            onQueriesChange={handleQueriesChange}
+            title="DO Queries"
+            showResolveButton={true}
+            readOnlyReply={false}
+            onResolveQuery={handleResolveQuery}
+            userName={user?.username}
+          />
         </div>
       )}
+
+      <Charges job_no={job_no} year={year} />
 
       <div className="job-details-container">
         <form onSubmit={formik.handleSubmit}>
@@ -249,7 +320,6 @@ function EditBillingSheet() {
               />
             </Col>
           </Row>
-
           <Row>
             <Col xs={12} md={6}>
               <div>
@@ -315,11 +385,11 @@ function EditBillingSheet() {
               </Col>
             )}
           </Row>
-
           <button
-            className="btn"
+            className="btn sticky-btn"
             type="submit"
-            style={{ float: "right", marginTop: "20px" }}
+            style={{ float: "right", margin: "10px" }}
+            aria-label="submit-btn"
           >
             Submit
           </button>

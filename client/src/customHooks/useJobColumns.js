@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DownloadIcon from "@mui/icons-material/Download";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
@@ -12,19 +11,23 @@ import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
 // Custom hook to manage job columns configuration
-function useJobColumns() {
+function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { 
-    searchQuery, 
-    detailedStatus, 
-    selectedICD, 
-    selectedImporter,
-    setSearchQuery,
-    setDetailedStatus,
-    setSelectedICD,
-    setSelectedImporter
-  } = useSearchQuery();
+  const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
+    useSearchQuery();
+
+  const formatDate = useCallback((dateStr) => {
+    if (dateStr) {
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}/${month}/${day}`;
+    } else {
+      return dateStr;
+    }
+  }, []);
 
   const handleCopy = (event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -104,20 +107,22 @@ function useJobColumns() {
       {
         accessorKey: "job_no",
         header: "Job No",
+        enableSorting: false,
         size: 150,
-        Cell: ({ cell }) => {          const {
+        Cell: ({ cell }) => {
+          const {
             job_no,
             year,
+            _id,
             type_of_b_e,
             consignment_type,
-            vessel_berthing,
-            container_nos, // Assume this field holds an array of container objects
-            detailed_status,
             custom_house,
-            // delivery_date,
+            detailed_status,
+            vessel_berthing,
+            container_nos,
           } = cell.row.original;
 
-          // Default background and text colors
+          // Color-coding logic based on job status and dates
           let bgColor = "";
           let textColor = "blue"; // Default text color
 
@@ -147,14 +152,17 @@ function useJobColumns() {
                 textColor = "black";
               }
             }
-          }          // Check if the detailed status is "Billing Pending"
+          }
+
+          // Check if the detailed status is "Billing Pending"
           if (detailed_status === "Billing Pending" && container_nos) {
             container_nos.forEach((container) => {
               // Choose the appropriate date based on consignment type
-              const targetDate = consignment_type === "LCL" 
-                ? container.delivery_date 
-                : container.emptyContainerOffLoadDate;
-              
+              const targetDate =
+                consignment_type === "LCL"
+                  ? container.delivery_date
+                  : container.emptyContainerOffLoadDate;
+
               if (targetDate) {
                 const daysDifference = calculateDaysDifference(targetDate);
 
@@ -208,28 +216,25 @@ function useJobColumns() {
               }
             });
           }
-
           return (
-            <div
-              onClick={() => navigate(`/job/${job_no}/${year}`, {
-                state: {
-                  searchQuery,
-                  detailedStatus,
-                  selectedICD,
-                  selectedImporter,
-                  fromJobList: true
-                }
-              })}
+            <a
+              href={`/import-dsr/job/${job_no}/${year}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 cursor: "pointer",
                 color: textColor,
-                backgroundColor: bgColor,
+                backgroundColor: bgColor || "transparent",
+                padding: "10px",
+                borderRadius: "5px",
+                textAlign: "center",
+                display: "inline-block", // to mimic div behavior
+                textDecoration: "none",
               }}
             >
               {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
-              <br />
-            </div>
+            </a>
           );
         },
       },
@@ -249,192 +254,192 @@ function useJobColumns() {
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
           const adCode = row?.original?.adCode || "";
-          
+
           return (
             <>
-              <span><strong>Importer: </strong>{importer}</span>
-          
+              <span>
+                <strong>Importer: </strong>
+                {importer}
+              </span>
+
               <Tooltip title="Supplier/Exporter" arrow>
-                <div style={{marginTop :"5px"}}><strong>Exporter: </strong>{supplier_exporter}</div>
+                <div style={{ marginTop: "5px" }}>
+                  <strong>Exporter: </strong>
+                  {supplier_exporter}
+                </div>
               </Tooltip>
-           
+
               <Tooltip title="FTA Benefit" arrow>
-                <span style={{marginTop :"5px"}}>{`FTA Benefit: ${ftaDisplay}`}</span>
+                <span
+                  style={{ marginTop: "5px" }}
+                >{`FTA Benefit: ${ftaDisplay}`}</span>
               </Tooltip>
               <Tooltip title="Hss" arrow>
-                <span style={{marginTop :"5px"}}>{`Hss: ${hssDisplay}`}</span>
+                <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>
               </Tooltip>
               <span style={{ marginTop: "5px" }}>
-  <strong>AD Code: </strong> {adCode ? adCode : "NA"}
-</span>
+                <strong>AD Code: </strong> {adCode ? adCode : "NA"}
+              </span>
             </>
           );
         },
-      },      
-
-      {
-        accessorKey: "awb_bl_no",
-        header: "BL Number",
-        size: 150,
-        Cell: ({ cell, row }) => {
-          // Safely retrieve the BL Number, defaulting to an empty string if undefined
-          const blNumber = cell?.getValue()?.toString() || "";
-
-          const portOfReporting = row?.original?.port_of_reporting || "";
-          const shippingLine = row?.original?.shipping_line_airline || "";
-          // const supplier_exporter = row?.original?.supplier_exporter || "";
-          const gross_weight = row?.original?.gross_weight || "";
-          const job_net_weight = row?.original?.job_net_weight || "";
-          const loading_port = row?.original.loading_port || "";
-          const port_of_reporting = row?.original.port_of_reporting || "";
-
-          // Remove the codes from the port names if they are in the format "(CODE) PortName"
-          const cleanLoadingPort = loading_port
-            ? loading_port.replace(/\(.*?\)\s*/, "")
-            : "N/A";
-          const cleanPortOfReporting = port_of_reporting
-            ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-            : "N/A";
-
-          const containerFirst =
-            row?.original?.container_nos?.[0]?.container_number || "";
-
-          // Memoize the location for sea IGM entry
-          const location = getPortLocation(portOfReporting);
-
-          // Define the shipping line URLs, incorporating the first container number (if available)
-          const shippingLineUrls = {
-            MSC: `https://www.msc.com/en/track-a-shipment`,
-            "M S C": `https://www.msc.com/en/track-a-shipment`,
-            "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
-            "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
-            "CMA CGM AGENCIES INDIA PVT. LTD":
-              "https://www.cma-cgm.com/ebusiness/tracking/search",
-            "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${blNumber}`,
-            "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
-            "ONE LINE":
-              "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-
-            HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-            HYUNDI:
-              "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-            "Cosco Container Lines":
-              "https://elines.coscoshipping.com/ebusiness/cargotracking",
-            COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
-            "Unifeeder Agencies India Pvt Ltd": blNumber
-              ? `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
-                  0,
-                  3
-                )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(
-                  6,
-                  8
-                )}%2F${blNumber.slice(8)}`
-              : "#",
-            UNIFEEDER: blNumber
-              ? `https://www.unifeeder.cargoes.com/tracking?ID=${blNumber.slice(
-                  0,
-                  3
-                )}%2F${blNumber.slice(3, 6)}%2F${blNumber.slice(
-                  6,
-                  8
-                )}%2F${blNumber.slice(8)}`
-              : "#",
-          };
-
-          // Determine the URL for the specific shipping line
-          const shippingLineUrl = shippingLineUrls[shippingLine] || "#";
-
-          return (
-            <React.Fragment>
-              {blNumber && (
-                <React.Fragment>
-                  {/* BL Number as a clickable link */}
-                  <a
-                    href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${blNumber}&HAWB_NO=`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {blNumber}
-                  </a>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                    }}
-                  >
-                    {/* Copy BL Number */}
-                    <IconButton
-                      size="small"
-                      onClick={(event) => handleCopy(event, blNumber)}
-                    >
-                      <abbr title="Copy BL Number">
-                        <ContentCopyIcon fontSize="inherit" />
-                      </abbr>
-                    </IconButton>
-
-                    {/* Shipping Line Tracking Link */}
-                    {shippingLine && shippingLineUrl !== "#" && (
-                      <abbr title={`Track Shipment at ${shippingLine}`}>
-                        <a
-                          href={shippingLineUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <FontAwesomeIcon
-                            icon={faShip}
-                            size="1x"
-                            color="blue"
-                          />
-                        </a>
-                      </abbr>
-                    )}
-
-                    {/* Sea IGM Entry Link */}
-                    <abbr title={`Sea IGM Entry`}>
-                      <a
-                        href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${blNumber}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <FontAwesomeIcon
-                          icon={faAnchor}
-                          size="1x"
-                          color="blue"
-                        />
-                      </a>
-                    </abbr>
-                  </div>
-
-                  <Tooltip title="shippingLine" arrow>
-                    <strong> {shippingLine} </strong>
-                  </Tooltip>
-                  {/* <Tooltip title="Supplier/Exporter" arrow>
-                    <span>{supplier_exporter}</span>
-                  </Tooltip> */}
-                  <Tooltip title="Gross Weight" arrow>
-                    <>
-                      <strong>Gross(KGS): {gross_weight || "N/A"} </strong>{" "}
-                    </>
-                  </Tooltip>
-                  <Tooltip title="Net Weight" arrow>
-                    <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
-                  </Tooltip>
-                  <div>
-                    <strong>LO :</strong> {cleanLoadingPort} <br />
-                    <strong>POD :</strong> {cleanPortOfReporting} <br />
-                  </div>
-                </React.Fragment>
-              )}
-            </React.Fragment>
-          );
-        },
       },
+
+{
+  accessorKey: "awb_bl_no",
+  header: "BL Number",
+  size: 150,
+  Cell: ({ cell, row }) => {
+    const blNumber = cell?.getValue()?.toString() || "";
+    const hblNumber = row?.original?.hawb_hbl_no?.toString() || "";
+
+    const portOfReporting = row?.original?.port_of_reporting || "";
+    const shippingLine = row?.original?.shipping_line_airline || "";
+    const gross_weight = row?.original?.gross_weight || "";
+    const job_net_weight = row?.original?.job_net_weight || "";
+    const loading_port = row?.original.loading_port || "";
+    const port_of_reporting = row?.original.port_of_reporting || "";
+
+    const cleanLoadingPort = loading_port
+      ? loading_port.replace(/\(.*?\)\s*/, "")
+      : "N/A";
+    const cleanPortOfReporting = port_of_reporting
+      ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+      : "N/A";
+
+    const containerFirst =
+      row?.original?.container_nos?.[0]?.container_number || "";
+
+    const location = getPortLocation(portOfReporting);
+
+    // Utility to build shipping line URLs for a given number
+    const buildShippingLineUrls = (num) => ({
+      MSC: `https://www.msc.com/en/track-a-shipment`,
+      "M S C": `https://www.msc.com/en/track-a-shipment`,
+      "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
+      "Maersk Line": `https://www.maersk.com/tracking/${num}`,
+      "CMA CGM AGENCIES INDIA PVT. LTD":
+        "https://www.cma-cgm.com/ebusiness/tracking/search",
+      "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${num}`,
+      "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${num}`,
+      "ONE LINE":
+        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+      HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+      HYUNDI:
+        "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+      "Cosco Container Lines":
+        "https://elines.coscoshipping.com/ebusiness/cargotracking",
+      COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
+      "Unifeeder Agencies India Pvt Ltd": num
+        ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(0, 3)}%2F${num.slice(
+            3,
+            6
+          )}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
+        : "#",
+      UNIFEEDER: num
+        ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(0, 3)}%2F${num.slice(
+            3,
+            6
+          )}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
+        : "#",
+    });
+
+    // Helper to render the number block (BL or HBL)
+    const renderNumberBlock = (num, label) => {
+      if (!num) return null;
+
+      const urls = buildShippingLineUrls(num);
+      const url = urls[shippingLine] || "#";
+
+      return (
+        <div style={{ marginBottom: "12px" }}>
+          {/* Number as clickable link */}
+          <a
+            href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${num}&HAWB_NO=`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {num}
+          </a>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              marginTop: "4px",
+            }}
+          >
+            {/* Copy Number */}
+            <IconButton size="small" onClick={(event) => handleCopy(event, num)}>
+              <abbr title={`Copy ${label}`}>
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+
+            {/* Shipping Line Tracking Link */}
+            {shippingLine && url !== "#" && (
+              <abbr title={`Track Shipment at ${shippingLine}`}>
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                  <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+                </a>
+              </abbr>
+            )}
+
+            {/* Sea IGM Entry Link */}
+            <abbr title={`Sea IGM Entry`}>
+              <a
+                href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${num}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
+              </a>
+            </abbr>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div>
+        {blNumber && renderNumberBlock(blNumber, "BL Number")}
+        {hblNumber && renderNumberBlock(hblNumber, "HBL Number")}
+
+        {/* Show common details only once */}
+        {(blNumber || hblNumber) && (
+          <>
+            <Tooltip title="shippingLine" arrow>
+              <strong> {shippingLine} </strong>
+            </Tooltip>
+            <Tooltip title="Gross Weight" arrow>
+              <div>
+                <strong>Gross(KGS): {gross_weight || "N/A"} </strong>
+              </div>
+            </Tooltip>
+            <Tooltip title="Net Weight" arrow>
+              <div>
+                <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
+              </div>
+            </Tooltip>
+            <div>
+              <strong>LO :</strong> {cleanLoadingPort} <br />
+              <strong>POD :</strong> {cleanPortOfReporting} <br />
+            </div>
+          </>
+        )}
+      </div>
+    );
+  },
+}
+
+,
       {
         accessorKey: "dates",
         header: "Dates",
         size: 470,
-        Cell: EditableDateCell,
+        Cell: ({ cell }) => (
+          <EditableDateCell cell={cell} onRowDataUpdate={handleRowDataUpdate} />
+        ),
       },
 
       {
@@ -442,14 +447,16 @@ function useJobColumns() {
         header: "BE Number and Date",
         size: 200,
         Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
-      },      {
+      },
+
+      {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
         size: 200,
         Cell: ({ cell }) => {
           const containerNos = cell.row.original.container_nos;
           const jobData = cell.row.original;
-          
+
           return (
             <React.Fragment>
               {containerNos?.map((container, id) => (
@@ -462,7 +469,13 @@ function useJobColumns() {
                     {container.container_number}
                   </a>
                   | "{container.size}"
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
                     <IconButton
                       size="small"
                       onClick={(event) =>
@@ -473,14 +486,15 @@ function useJobColumns() {
                         <ContentCopyIcon fontSize="inherit" />
                       </abbr>
                     </IconButton>
-                      {/* Delivery Challan Download Icon */}                    <DeliveryChallanPdf 
-                      year={jobData.year} 
+                    {/* Delivery Challan Download Icon */}{" "}
+                    <DeliveryChallanPdf
+                      year={jobData.year}
                       jobNo={jobData.job_no}
                       containerIndex={id}
                       renderAsIcon={true}
                     />
-                    <IgstCalculationPDF 
-                      year={jobData.year} 
+                    <IgstCalculationPDF
+                      year={jobData.year}
                       jobNo={jobData.job_no}
                       containerIndex={id}
                       renderAsIcon={true}
@@ -522,23 +536,94 @@ function useJobColumns() {
         header: "DO Completed & Validity",
         enableSorting: false,
         size: 200,
-        Cell: ({ row }) => {
-          const doValidity = row.original.do_validity;
-          const doCompleted = row.original.do_completed;
+        Cell: ({row}) => {
+ 
+          const do_validity = row.original.do_validity;
+          const do_completed = row.original.do_completed;
+          const isDoDocRecieved = row.original.is_do_doc_recieved;
+          const isOblRecieved = row.original.is_obl_recieved;
+          const doDocRecievedDate = row.original.do_doc_recieved_date;
+          const oblRecievedDate = row.original.obl_recieved_date;
+          const do_copies = row.original.do_copies;
+          const do_list = row.original.do_list ;
+          const doCopies = do_copies;
+          const doCompleted = formatDate(do_completed);
+          const doValidity = formatDate(do_validity);
+          const formattedOblRecievedDate = formatDate(oblRecievedDate);
+          const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
 
           return (
-            <div style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "left" }}>
+              {/* First: Show OBL received status if available */}
+              {isOblRecieved && (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "green", fontWeight: "bold" }}>
+                    OBL received by DO team
+                  </span>
+                  {formattedOblRecievedDate && (
+                    <div style={{ fontSize: "12px", color: "#666" }}>
+                      Date: {formattedOblRecievedDate}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Second: Show DO document sent status if available */}
+              {isDoDocRecieved && (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "blue", fontWeight: "bold" }}>
+                    DO document sent to shipping line
+                  </span>
+                  {formattedDoDocRecievedDate && (
+                    <div style={{ fontSize: "12px", color: "#666" }}>
+                      Date: {formattedDoDocRecievedDate}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Rest of the content in current order */}
               <div>
-                <strong>Completed:</strong>{" "}
-                {doCompleted
-                  ? new Date(doCompleted).toLocaleString("en-US", {
-                      timeZone: "Asia/Kolkata",
-                      hour12: true,
-                    })
-                  : "Not Completed"}
+                {doCompleted ? (
+                  <strong>DO Completed Date: {doCompleted}</strong>
+                ) : (
+                  <span style={{ color: "gray" }}>No DO Completed Date</span>
+                )}
               </div>
+
               <div>
-                <strong>Validity:</strong> {doValidity || "N/A"}
+                {doValidity ? (
+                  <strong>DO Validity: {doValidity}</strong>
+                ) : (
+                  <span style={{ color: "gray" }}>No DO Validity</span>
+                )}
+              </div>
+
+              {Array.isArray(doCopies) && doCopies.length > 0 ? (
+                <div style={{ marginTop: "4px" }}>
+                  {doCopies.map((url, index) => (
+                    <div key={index}>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#007bff",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        DO Copy {index + 1}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "gray" }}>No DO copies</span>
+                </div>
+              )}
+              <div>
+                <strong>EmptyOff LOC:</strong> {do_list}
               </div>
             </div>
           );
@@ -597,7 +682,16 @@ function useJobColumns() {
         },
       },
     ],
-    [getPortLocation, handleCopy, navigate, location, searchQuery, detailedStatus, selectedICD, selectedImporter]
+    [
+      getPortLocation,
+      handleCopy,
+      navigate,
+      location,
+      searchQuery,
+      detailedStatus,
+      selectedICD,
+      selectedImporter,
+    ]
   );
 
   return columns;

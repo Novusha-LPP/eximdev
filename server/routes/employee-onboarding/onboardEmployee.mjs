@@ -74,7 +74,7 @@ router.post("/api/onboard-employee", async (req, res) => {
 
     // Prepare and send email
     let mailOptions = {
-      from: "admin@surajforwarders.com",
+      from: "connect@surajgroupofcompanies.com",
       to: email,
       subject: `Welcome to the Team, ${first_name.toUpperCase()}!`,
       html: `

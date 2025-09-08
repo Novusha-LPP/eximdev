@@ -1,5 +1,6 @@
-import express from "express";
+    import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,9 +18,9 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-documentation-completed-jobs", async (req, res) => {
+router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer, year } = req.query;
+    const { page = 1, limit = 10, search = "", importer, year , unresolvedOnly} = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -62,12 +63,19 @@ router.get("/api/get-documentation-completed-jobs", async (req, res) => {
         },
         {
           $or: [
-            { documentation_completed_date_time: { $exists: true, $ne: "" } },
+            {documentation_completed_date_time: { $exists: true, $ne: "" } },
           ],
         },
         searchQuery,
       ],
     };
+
+        // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
 
     // ✅ Add Year Filter if provided
     // ✅ Ensure year is correctly formatted before applying the filter
@@ -81,6 +89,13 @@ router.get("/api/get-documentation-completed-jobs", async (req, res) => {
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
       });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } else if (req.currentUser) {
     }
 
     // Fetch jobs from the database
@@ -112,6 +127,18 @@ router.get("/api/get-documentation-completed-jobs", async (req, res) => {
       );
     });
 
+    // Get count of jobs with unresolved queries (for badge)
+        const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
+
     // Apply pagination after sorting
     const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
@@ -125,6 +152,7 @@ router.get("/api/get-documentation-completed-jobs", async (req, res) => {
         currentPage: pageNumber,
         jobs: [], // ✅ Return an empty array instead of 404
         message: "No data found for the selected filters",
+        unresolvedCount
       });
     }
 
@@ -133,6 +161,7 @@ router.get("/api/get-documentation-completed-jobs", async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
     });
   } catch (err) {
     console.error("Error fetching documentation jobs:", err.stack);

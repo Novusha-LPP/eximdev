@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useEffect,
   useContext,
+  useRef,
 } from "react";
 import "../../styles/import-dsr.scss";
 import {
@@ -11,6 +12,9 @@ import {
   MenuItem,
   TextField,
   Pagination,
+  Button,
+  Box,
+  Badge,
   Typography,
   Autocomplete,
 } from "@mui/material";
@@ -18,67 +22,206 @@ import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { TabContext } from "./ImportOperations.js";
 
 function CompletedOperations() {
-   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { currentTab } = useContext(TabContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
+        const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+        const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-
-  const [page, setPage] = useState(1); // Current page
-  const [totalPages, setTotalPages] = useState(1); // Total pages
-  const [totalJobs, setTotalJobs] = useState(0); // Total job count
-
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
-  const limit = 100; // Rows per page
-
+ 
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+    // Use context for searchQuery, selectedImporter, and currentPage for tab 2 (Completed Operations)
+  const { 
+    searchQuery, 
+    setSearchQuery, 
+    selectedImporter, 
+    setSelectedImporter, 
+    currentPageOpTab2: currentPage, 
+    setCurrentPageOpTab2: setCurrentPage 
+  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [page, setPage] = useState(currentPage);
   const location = useLocation();
   const [selectedJobId, setSelectedJobId] = useState(
-    // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
 
-  React.useEffect(() => {
+  // Use refs to track current request and prevent race conditions
+  const abortControllerRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
+  const isFromJobDetailsRef = useRef(false);
+
+  const limit = 100;
+  
+  // Initialize component and handle navigation state
+  useEffect(() => {
+    const fromJobDetails = location.state?.fromJobDetails;
+    isFromJobDetailsRef.current = fromJobDetails;
+    
+    // Changed to check for currentTab === 2 (Completed Operations tab)
+    if (currentTab === 2) {
+      if (fromJobDetails) {
+        // Restore state from job details navigation        
+        if (location.state?.searchQuery !== undefined) {
+          setSearchQuery(location.state.searchQuery);
+          setDebouncedSearchQuery(location.state.searchQuery);
+        }
+        if (location.state?.selectedImporter !== undefined) {
+          setSelectedImporter(location.state.selectedImporter);
+        }
+        if (location.state?.selectedJobId !== undefined) {
+          setSelectedJobId(location.state.selectedJobId);
+        }
+        if (location.state?.selectedICD !== undefined) {
+          setSelectedICD(location.state.selectedICD);
+        }
+      } else {
+        // Clear search state when coming from other tabs (not job details)
+        setSearchQuery("");
+        setSelectedImporter("");
+        setDebouncedSearchQuery("");
+        setSelectedICD("");
+        // Note: We don't reset currentPage here - pagination should persist
+      }
+    }
+
+    setIsInitialized(true);
+  }, [currentTab, location.state, setSearchQuery, setSelectedImporter]);
+  
+  // Cleanup function to cancel ongoing requests
+  const cancelPreviousRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  // Optimized fetch function with proper cancellation
+  const fetchRows = useCallback(async (
+    page,
+    searchQuery,
+    year,
+    selectedICD,
+    selectedImporter,
+        unresolvedOnly = false
+  ) => {
+    // Don't make API calls if component isn't initialized, user not available, or no username
+    if (!isInitialized || !year || !user?.username) {
+      return;
+    }
+    cancelPreviousRequest();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {      
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
+        {
+          params: {
+            page,
+            limit,
+            search: searchQuery,
+            year,
+            selectedICD,
+            importer: selectedImporter?.trim() || "",
+                        unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+
+          },
+          signal: controller.signal,
+        }
+      );
+
+      // Only update state if this is still the current request
+      if (abortControllerRef.current === controller) {
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+                  unresolvedCount, // ✅ Get unresolved count from response
+
+        } = res.data;
+        
+        setRows(Array.isArray(jobs) ? jobs : []);
+        setTotalPages(totalPages || 1);
+        setTotalJobs(totalJobs || 0);
+        abortControllerRef.current = null;
+              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+
+      }
+    } catch (error) {
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        return;
+      }
+      console.error("Error fetching rows:", error);
+      
+      // Only update state if this is still the current request
+      if (abortControllerRef.current === controller) {
+        setRows([]);
+        setTotalPages(1);
+        setTotalJobs(0);
+              setUnresolvedCount(0);
+        abortControllerRef.current = null;
+      }
+    }
+  }, [isInitialized, user?.username, limit, cancelPreviousRequest]);
+  
+  // Handle search debouncing
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      // Only reset to first page if there's an actual search query (not when clearing)
+      if (searchQuery && searchQuery.trim() !== "") {
+        setCurrentPage(1); // Reset to first page on new search
+        setPage(1);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, isInitialized, setCurrentPage]);
+
+  // Fetch importers when year changes
+  useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
-        );
-        setImporters(res.data);
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+          );
+          setImporters(res.data);
+        } catch (error) {
+          console.error("Error fetching importers:", error);
+        }
       }
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
-  const getUniqueImporterNames = (importerData) => {
-    if (!importerData || !Array.isArray(importerData)) return [];
-    const uniqueImporters = new Set();
-    return importerData
-      .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
-        return true;
-      })
-      .map((importer, index) => ({
-        label: importer.importer,
-        key: `${importer.importer}-${index}`,
-      }));
-  };
-
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
-
-  // Fetch available years for filtering
+  // Fetch available years
   useEffect(() => {
     async function getYears() {
       try {
@@ -112,74 +255,68 @@ function CompletedOperations() {
     }
     getYears();
   }, [selectedYearState, setSelectedYearState]);
-
-  // Fetch rows data
-  const fetchRows = async (
-    page,
-    searchQuery,
-    year,
-    selectedICD,
-    selectedImporter
-  ) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-completed-operations/${user.username}`,
-        {
-          params: {
-            page,
-            limit,
-            search: searchQuery,
-            year,
-            selectedICD, // Matches backend expectation
-            importer: selectedImporter?.trim() || "", // ✅ Ensure correct parameter name
-          },
-        }
-      );
-
-      setRows(res.data.jobs); // Set rows data
-      setTotalPages(res.data.totalPages); // Set total pages
-      setTotalJobs(res.data.totalJobs); // Set total job count
-    } catch (error) {
-      console.error("Error fetching rows:", error);
-      setRows([]); // Reset rows if an error occurs
-      setTotalPages(1); // Reset pagination
-    }
-  };
-
-  // Fetch rows when dependencies change
+  
+  // Main effect to fetch data - consolidated and optimized
   useEffect(() => {
-    fetchRows(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    // Special handling for restoration from job details
+    if (isFromJobDetailsRef.current && isInitialized) {
+      
+      // Use a small delay to ensure all state is properly restored
+      const timeoutId = setTimeout(() => {
+        const restoredPage = location.state?.currentPage || currentPage;
+        fetchRows(
+          restoredPage,
+          location.state?.searchQuery || "",
+          selectedYearState,
+          location.state?.selectedICD || "",
+          location.state?.selectedImporter || ""
+        );
+        isFromJobDetailsRef.current = false; // Reset flag
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Regular data fetching
+    if (isInitialized && !isFromJobDetailsRef.current) {
+      fetchRows(
+        page,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter,
+                showUnresolvedOnly
+      );
+    }
   }, [
+    fetchRows,
     page,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    isInitialized,
+    location.state,
+    currentPage,
+    user?.username,
+        showUnresolvedOnly,
   ]);
 
+  // Cleanup on unmount
   useEffect(() => {
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-    }
-  }, [location.state?.searchQuery]);
-  // Handle search input with debounce
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms debounce delay
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
+    return () => {
+      cancelPreviousRequest();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [cancelPreviousRequest]);
+  
   // Handle pagination change
-  const handlePageChange = (event, newPage) => {
+  const handlePageChange = useCallback((event, newPage) => {
     setPage(newPage);
-  };
+    setCurrentPage(newPage); // Update context as well
+  }, [page, setCurrentPage]);
 
   // Handle copy functionality
   const handleCopy = useCallback((event, text) => {
@@ -238,7 +375,27 @@ function CompletedOperations() {
     return `${year}/${month}/${day}`;
   }, []);
 
-  const columns = [
+  // Memoized importer names to prevent unnecessary recalculations
+  const getUniqueImporterNames = useCallback((importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  }, []);
+
+  const importerNames = useMemo(() => [
+    ...getUniqueImporterNames(importers),
+  ], [importers, getUniqueImporterNames]);
+
+  const columns = useMemo(() => [
     {
       accessorKey: "job_no",
       header: "Job No & ICD Code",
@@ -248,34 +405,30 @@ function CompletedOperations() {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
+        // Build query string for context passing
+      
 
         return (
-          <div
+          <Link
+            to={`/import-operations/view-job/${jobNo}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === jobNo ? "#ffffcc" : "transparent",
+              display: 'inline-block',
+              backgroundColor: selectedJobId === jobNo ? "#ffffcc" : "transparent",
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
+              padding: "10px",
+              borderRadius: "5px",
+              textDecoration: "none",
             }}
-            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(jobNo);
-
-              // 2) Navigate to the detail page, and pass selectedJobId
-              navigate(`/import-operations/view-job/${jobNo}/${year}`, {
-                state: {
-                  selectedJobId: jobNo,
-                  searchQuery,
-                },
-              });
-            }}
+            onClick={() => setSelectedJobId(jobNo)}
           >
             {jobNo}
             <br />
             <small>{icdCode}</small>
-          </div>
+          </Link>
         );
       },
     },
@@ -365,51 +518,51 @@ function CompletedOperations() {
         );
       },
     },
-    {
-      accessorKey: "container_nos", // Access the nested container_nos array
-      header: "Arrival Date",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) =>
-        cell.getValue()?.map((container, id) => (
-          <React.Fragment key={id}>
-            {container.arrival_date}
-            <br />
-          </React.Fragment>
-        )),
-    },
-    {
-      accessorKey: "examination_planning_date",
-      header: "Examination Planning Date",
-      enableSorting: false,
-      size: 240,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "pcv_date",
-      header: "PCV Date",
-      enableSorting: false,
-      size: 120,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-    {
-      accessorKey: "out_of_charge",
-      header: "Out Of Charge Date",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => (
-        <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
-      ),
-    },
-  ];
+{
+  accessorKey: "container_nos",
+  header: "Arrival Date",
+  enableSorting: false,
+  size: 150,
+  Cell: ({ cell }) =>
+    cell.getValue()?.map((container, id) => (
+      <React.Fragment key={id}>
+        {formatDate(container.arrival_date)}
+        <br />
+      </React.Fragment>
+    )),
+},
+{
+  accessorKey: "examination_planning_date",
+  header: "Examination Planning Date",
+  enableSorting: false,
+  size: 240,
+  Cell: ({ cell }) => (
+    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+  ),
+},
+{
+  accessorKey: "pcv_date",
+  header: "PCV Date",
+  enableSorting: false,
+  size: 120,
+  Cell: ({ cell }) => (
+    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+  ),
+},
+{
+  accessorKey: "out_of_charge",
+  header: "Out Of Charge Date",
+  enableSorting: false,
+  size: 150,
+  Cell: ({ cell }) => (
+    <div style={{ textAlign: "center" }}>{formatDate(cell.getValue())}</div>
+  ),
+},
+  ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, handleCopy, formatDate, getCustomHouseLocation, navigate, page]);
 
-  const tableConfig = {
+  const tableConfig = useMemo(() => ({
     columns,
-    data: rows, // Use rows directly as backend handles sorting
+    data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,
@@ -428,7 +581,7 @@ function CompletedOperations() {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
-      className: row.original.row_color || "", // Apply row color
+      className: row.original.row_color || "",
     }),
     muiTableHeadCellProps: {
       sx: {
@@ -446,7 +599,6 @@ function CompletedOperations() {
           width: "100%",
         }}
       >
-        {/* Job Count Display */}
         <Typography
           variant="body1"
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
@@ -458,15 +610,20 @@ function CompletedOperations() {
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          value={selectedImporter || ""}
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            const newPage = 1;
+            setPage(newPage);
+            setCurrentPage(newPage);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
               variant="outlined"
               size="small"
               fullWidth
-              label="Select Importer" // Placeholder text
+              label="Select Importer"
             />
           )}
         />
@@ -475,7 +632,12 @@ function CompletedOperations() {
           select
           size="small"
           value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
+          onChange={(e) => {
+            setSelectedYearState(e.target.value);
+            const newPage = 1;
+            setPage(newPage);
+            setCurrentPage(newPage);
+          }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
@@ -484,7 +646,7 @@ function CompletedOperations() {
             </MenuItem>
           ))}
         </TextField>
-        {/* ICD Code Filter */}
+
         <TextField
           select
           size="small"
@@ -492,8 +654,10 @@ function CompletedOperations() {
           label="ICD Code"
           value={selectedICD}
           onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setSelectedICD(e.target.value);
+            const newPage = 1;
+            setPage(newPage);
+            setCurrentPage(newPage);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -502,7 +666,7 @@ function CompletedOperations() {
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
-        {/* Search Bar */}
+
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -511,16 +675,66 @@ function CompletedOperations() {
           onChange={(e) => setSearchQuery(e.target.value)}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{ position: 'relative' }}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                                sx={{
+                                   borderRadius: 3,
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                fontSize: '0.875rem',
+                                padding: '8px 20px',
+                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                                  transform: 'translateY(-1px)',
+                                },
+                                '&:active': {
+                                  transform: 'translateY(0px)',
+                                },
+                                }}
+                              >
+                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                              </Button>
+                              <Badge 
+                                badgeContent={unresolvedCount} 
+                                color="error" 
+                                overlap="circular" 
+                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                sx={{ 
+                                  position: 'absolute',
+                                  top: 4,
+                                  right: 4,
+                                  '& .MuiBadge-badge': {
+                                    fontSize: '0.75rem',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                  }
+                                }}
+                              />
+                            </Box>
+                  </Box>
       </div>
     ),
-  };
+  }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery, setCurrentPage]);
+
+  if (!isInitialized) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div style={{ height: "80%" }}>
-      {/* Table */}
       <MaterialReactTable {...tableConfig} />
 
-      {/* Pagination */}
       <Pagination
         count={totalPages}
         page={page}

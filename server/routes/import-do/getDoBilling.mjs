@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-do-billing", async (req, res) => {
+router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const {
@@ -28,6 +29,7 @@ router.get("/api/get-do-billing", async (req, res) => {
       selectedICD,
       obl_telex_bl,
       year,
+      unresolvedOnly,
     } = req.query;
 
     const pageNumber = parseInt(page, 10);
@@ -67,6 +69,13 @@ router.get("/api/get-do-billing", async (req, res) => {
       ],
     };
 
+    
+     if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
@@ -95,12 +104,29 @@ router.get("/api/get-do-billing", async (req, res) => {
       });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } 
+
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs"
+        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos"
       )
       .lean();
+
+       const unresolvedQueryBase = { ...baseQuery };
+              unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+                !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+              );
+              unresolvedQueryBase.$and.push({
+                dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+              });
+              
+              const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+      
 
     // **Step 3: Apply Pagination**
     const totalJobs = allJobs.length;
@@ -112,6 +138,8 @@ router.get("/api/get-do-billing", async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
+
     });
   } catch (error) {
     console.error("Error in /api/get-do-billing:", error.stack || error);

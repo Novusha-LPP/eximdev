@@ -1,37 +1,45 @@
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
-import { Link, useNavigate } from "react-router-dom";
-import { TabContext } from "../eSanchit/ESanchitTab.js";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   TextField,
   InputAdornment,
   IconButton,
   Pagination,
+  Button,
   Box,
+  Badge,
   Typography,
   MenuItem,
   Autocomplete,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
+import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchitCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
+  
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
-  const [loading, setLoading] = useState(false); // Loading state
-  const [searchQuery, setSearchQuery] = useState(""); // User input for search
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
+      const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+      const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 1
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab1: currentPage, setCurrentPageTab1: setCurrentPage } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
-  const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState(""); 
+  const location = useLocation();
+  const [importers, setImporters] = useState("");
+  
   
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -100,12 +108,13 @@ function ESanchitCompleted() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
-  const fetchJobs = useCallback(
+ const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
       selectedImporter,
-      selectedYearState
+      selectedYearState,
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -118,6 +127,8 @@ function ESanchitCompleted() {
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "", // ✅ Ensure year is sent
+              username: user?.username || "", // ✅ Send username for ICD filtering
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -127,42 +138,45 @@ function ESanchitCompleted() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount, // ✅ Get unresolved count from response
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
         setRows([]);
         setTotalPages(1);
+        setUnresolvedCount(0);
       } finally {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState] // ✅ Add selectedYear as a dependency
+    [limit, user?.username] // ✅ Add username as a dependency
   );
 
-  // ✅ Fetch jobs when `selectedYear` changes
-useEffect(() => {
-  if (selectedYearState) {
-    // Ensure year is available before calling API
-    fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
-  }
-}, [
-  page,
-  debouncedSearchQuery,
-  selectedImporter,
-  selectedYearState,
-  fetchJobs,
-]);
+  useEffect(() => {
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+    }
+  }, [
+    currentPage,
+    debouncedSearchQuery,
+    selectedImporter,
+    selectedYearState,
+    user?.username,
+    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    fetchJobs,
+  ]);
 
   // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to first page on new search
+      // setPage(1); // Reset to first page on new search
     }, 500); // 500ms delay
 
     return () => clearTimeout(handler);
@@ -170,12 +184,12 @@ useEffect(() => {
 
   // Handle page change
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    setCurrentPage(newPage);
   };
-
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+    setCurrentPage(1);
   };
 
   // Handle copy functionality (can be abstracted if used multiple times)
@@ -189,7 +203,6 @@ useEffect(() => {
       navigator.clipboard
         .writeText(text)
         .then(() => {
-          console.log("Text copied to clipboard:", text);
         })
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
@@ -204,7 +217,6 @@ useEffect(() => {
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
       } catch (err) {
         alert("Failed to copy text to clipboard.");
         console.error("Fallback copy failed:", err);
@@ -230,14 +242,11 @@ useEffect(() => {
             custom_house,
             priorityColor, // Add priorityColor from API response
           } = cell.row.original;
-
           return (
-            <div
-              onClick={() =>
-                navigate(`/esanchit-job/${job_no}/${year}`, {
-                  state: { currentTab: 1 },
-                })
-              }
+            <a
+              href={`/esanchit-job/${job_no}/${year}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 cursor: "pointer",
                 color: "blue",
@@ -249,12 +258,12 @@ useEffect(() => {
                     : "transparent", // Dynamically set the background color
                 padding: "10px", // Add padding for better visibility
                 borderRadius: "5px", // Optional: Add some styling for aesthetics
+                textDecoration: "none"
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
               <br />
-            </div>
+            </a>
           );
         },
       },
@@ -443,19 +452,6 @@ useEffect(() => {
           )}
         />
 
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
 
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
@@ -466,10 +462,9 @@ useEffect(() => {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
-                  onClick={() => {
+                <IconButton                  onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -479,6 +474,56 @@ useEffect(() => {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Box sx={{ position: 'relative' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                      sx={{
+                         borderRadius: 3,
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      fontSize: '0.875rem',
+                      padding: '8px 20px',
+                      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                        transform: 'translateY(-1px)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0px)',
+                      },
+                      }}
+                    >
+                      {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                    </Button>
+                    <Badge 
+                      badgeContent={unresolvedCount} 
+                      color="error" 
+                      overlap="circular" 
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      sx={{ 
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        '& .MuiBadge-badge': {
+                          fontSize: '0.75rem',
+                          minWidth: '18px',
+                          height: '18px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+                
       </div>
     ),
   };
@@ -486,11 +531,10 @@ useEffect(() => {
   return (
     <div style={{ height: "80%" }}>
       <>
-        <MaterialReactTable {...tableConfig} />
-        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <MaterialReactTable {...tableConfig} />        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
           <Pagination
             count={totalPages}
-            page={page}
+            page={currentPage}
             onChange={handlePageChange}
             color="primary"
             showFirstButton
@@ -503,4 +547,6 @@ useEffect(() => {
 }
 
 export default React.memo(ESanchitCompleted);
+
+
 

@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import LastJobsDate from "../../model/jobsLastUpdatedOnModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -37,7 +38,6 @@ const formatDateToIST = () => {
 
 // Example usage:
 const currentTimeIST = formatDateToIST();
-console.log(currentTimeIST); // e.g., "2024-04-23 11:57:43 am"
 
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
@@ -54,7 +54,9 @@ router.post("/api/jobs/add-job-all-In-bond", async (req, res) => {
 });
 
 // Route to add a new job
-router.post("/api/jobs/add-job-imp-man", async (req, res) => {
+router.post("/api/jobs/add-job-imp-man", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   try {
     const { container_nos, importer, awb_bl_no, custom_house, year, job_date } = req.body;
 
@@ -144,7 +146,9 @@ const newJob = new JobModel({
   }
 });
 
-router.post("/api/jobs/add-job", async (req, res) => {
+router.post("/api/jobs/add-job", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const jsonData = req.body;
 
   try {
@@ -168,6 +172,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
         cif_amount,
         unit_price,
         vessel_berthing, // New value from Excel
+        gateway_igm_date,
         line_no,
         ie_code_no,
         container_nos, // Assume container data is part of the incoming job data
@@ -187,32 +192,36 @@ router.post("/api/jobs/add-job", async (req, res) => {
       const filter = { year, job_no };
 
       // Check if the job already exists in the database
-      const existingJob = await JobModel.findOne(filter);
-      let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
-      let lineNoUpdate = existingJob?.line_no || "";
-      let iceCodeUpdate = existingJob?.ie_code_no || "";
+        const existingJob = await JobModel.findOne(filter);
+        let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+        let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
+        let lineNoUpdate = existingJob?.line_no || "";
+        let iceCodeUpdate = existingJob?.ie_code_no || "";
 
-      // Only update vessel_berthing if it's empty in the database
-      if (
-        vessel_berthing && // Excel has a valid vessel_berthing date
-        (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
-      ) {
-        vesselBerthingToUpdate = vessel_berthing;
-      }
-      // Only update lineNoUpdate if it's empty in the database
-      if (
-        line_no && // Excel has a valid lineNoUpdate
-        (!lineNoUpdate || lineNoUpdate.trim() === "")
-      ) {
-        lineNoUpdate = line_no;
-      }
-      // Only update iceCodeUpdate if it's empty in the database
-      if (
-        ie_code_no && // Excel has a valid iceCodeUpdate
-        (!iceCodeUpdate || iceCodeUpdate.trim() === "")
-      ) {
-        iceCodeUpdate = ie_code_no;
-      }
+        // Only update vessel_berthing if it's empty in the database
+        if (
+          vessel_berthing && // Excel has a valid vessel_berthing date
+          (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
+        ) {
+          vesselBerthingToUpdate = vessel_berthing;
+        }
+        if (
+          gateway_igm_date && // Excel has a valid vessel_berthing date
+          (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
+        ) {
+          gateway_igm_dateUpdate = gateway_igm_date;
+        }
+        // Only update lineNoUpdate if it's empty in the database
+        if (
+          line_no && // Excel has a valid lineNoUpdate
+          (!lineNoUpdate || lineNoUpdate.trim() === "")
+        ) {
+          lineNoUpdate = line_no;
+        }
+        // Only update iceCodeUpdate if it's empty in the database
+     if (ie_code_no) {
+  iceCodeUpdate = ie_code_no;
+}
 
       if (existingJob) {
         // Logic to merge or update container sizes
@@ -234,6 +243,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
             ...data,
 
             vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
+            gateway_igm_date: gateway_igm_dateUpdate, // Ensure correct update logic
             line_no: lineNoUpdate, // Ensure correct update logic
             ie_code_no: iceCodeUpdate, // Ensure correct update logic
             container_nos: updatedContainers,
@@ -273,6 +283,7 @@ router.post("/api/jobs/add-job", async (req, res) => {
           $set: {
             ...data,
             vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
+            gateway_igm_date: gateway_igm_dateUpdate, // Ensure new jobs respect the logic
             status: computeStatus(sanitizedBillDate),
           },
         };
@@ -368,7 +379,7 @@ function determineDetailedStatus(job) {
     out_of_charge,
     pcv_date,
     discharge_date,
-    rail_out_date,
+    // rail_out_date,
     gateway_igm_date,
     vessel_berthing,
     type_of_b_e,
@@ -386,6 +397,9 @@ function determineDetailedStatus(job) {
   const anyContainerArrivalDate = container_nos?.some((container) =>
     isValidDate(container.arrival_date)
   );
+  const anyContainer_rail_out_date = container_nos?.some((container) =>
+    isValidDate(container.container_rail_out_date)
+  );
 
   const emptyContainerOffLoadDate = container_nos?.
     every((container) =>
@@ -399,7 +413,6 @@ function determineDetailedStatus(job) {
   const validOutOfChargeDate = isValidDate(out_of_charge);
   const validPcvDate = isValidDate(pcv_date);
   const validDischargeDate = isValidDate(discharge_date);
-  const validRailOutDate = isValidDate(rail_out_date);
   const validGatewayIgmDate = isValidDate(gateway_igm_date);
   const validVesselBerthing = isValidDate(vessel_berthing);
 
@@ -423,7 +436,7 @@ function determineDetailedStatus(job) {
     return "Arrived, BE Note Pending";
   } else if (be_no) {
     return "BE Noted, Arrival Pending";
-  } else if (validRailOutDate) {
+  } else if (anyContainer_rail_out_date) {
     return "Rail Out";
   } else if (validDischargeDate) {
     return "Discharged";

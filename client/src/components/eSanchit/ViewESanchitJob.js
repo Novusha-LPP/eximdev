@@ -11,6 +11,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Button,
 } from "@mui/material";
 import { Row, Col } from "react-bootstrap";
 import FileUpload from "../../components/gallery/FileUpload.js";
@@ -20,6 +21,8 @@ import { useFormik } from "formik";
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { useLocation } from "react-router-dom";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 const cth_Dropdown = [
   { document_name: "Certificate of Origin", document_code: "861000" },
@@ -36,29 +39,118 @@ const cth_Dropdown = [
   },
   { document_name: "Certificate of Analysis", document_code: "001000" },
 ];
+
 function ViewESanchitJob() {
-  const routeLocation = useLocation()
+  const routeLocation = useLocation();
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
-  const [data, setData] = useState({ cth_documents: [] });
+  const [data, setData] = useState({ cth_documents: [], esanchitCharges: [] });
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState(false); // true for edit, false for delete
   const [editDocument, setEditDocument] = useState(null);
+
+  // Charges section state
+  const [esanchitCharges, setEsanchitCharges] = useState([
+    {
+      document_name: "NFIMS/SIMS",
+      url: [],
+      document_check_date: "",
+      document_charge_refrence_no: "",
+      document_charge_recipt_copy: "",
+    },
+    {
+      document_name: "PIMS",
+      url: [],
+      document_check_date: "",
+      document_charge_refrence_no: "",
+      document_charge_recipt_copy: "",
+    },
+  ]);
+
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const { setCurrentTab } = useContext(TabContext);
   const isTrue = routeLocation.state?.currentTab || false;
 
- const isAdmin = user.role === "Admin"; // Check if user is an Admin
- const isDisabled = (!isAdmin && isTrue === 1);
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  const {
+    setSearchQuery,
+    setSelectedImporter,
+    setCurrentPageTab0,
+    setCurrentPageTab1,
+  } = useSearchQuery();
 
-  
+  const isAdmin = user.role === "Admin"; // Check if user is an Admin
+  const isDisabled = !isAdmin && isTrue === 1;
 
-  console.log(isDisabled);
-  console.log(isTrue === 1);
+  // Store search parameters from location state
+  useEffect(() => {
+    if (routeLocation.state) {
+      const {
+        searchQuery,
+        selectedImporter,
+        currentTab,
+        selectedJobId,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        currentPage,
+        tab_number,
+      } = routeLocation.state;
+
+      const params = {
+        searchQuery,
+        selectedImporter,
+        currentTab: currentTab || tab_number, // Handle both property names
+        selectedJobId,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        currentPage,
+      };
+
+      setStoredSearchParams(params);
+    }
+  }, [routeLocation.state]); // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0;
+    // Set the current tab in context
+    setCurrentTab(tabIndex);
+
+    navigate("/e-sanchit", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex,
+        selectedJobId: params.job_no,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedYearState: storedSearchParams.selectedYearState,
+          detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+          currentPage: storedSearchParams.currentPage,
+        }),
+      },
+    });
+  };
+
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
+      ...prev,
+      dsr_queries: updatedQueries,
+    }));
+  };
+
+  const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log("Query resolved:", resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
   // Fetch data
   useEffect(() => {
     async function getData() {
@@ -66,7 +158,13 @@ function ViewESanchitJob() {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-esanchit-job/${params.job_no}/${params.year}`
         );
-        setData(res.data || { cth_documents: [] });
+        const jobData = res.data || { cth_documents: [], esanchitCharges: [] };
+        setData(jobData);
+
+        // Initialize esanchitCharges with data from database
+        if (jobData.esanchitCharges && jobData.esanchitCharges.length > 0) {
+          setEsanchitCharges(jobData.esanchitCharges);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -78,25 +176,42 @@ function ViewESanchitJob() {
   const formik = useFormik({
     initialValues: {
       cth_documents: data.cth_documents || [],
-      queries: data.eSachitQueries || [{ query: "", reply: "" }], // Initialize from `eSachitQueries` in data
-      esanchit_completed_date_time: data.esanchit_completed_date_time || "", // Default to an empty string if not present
+      esanchitCharges: esanchitCharges || [],
+      queries: data.eSachitQueries || [{ query: "", reply: "" }],
+      dsr_queries: data.dsr_queries || [],
+      esanchit_completed_date_time: data.esanchit_completed_date_time || "",
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
         const formattedData = {
           cth_documents: values.cth_documents,
-          eSachitQueries: values.queries, // Send queries as `eSachitQueries`
+          esanchitCharges: values.esanchitCharges,
+          queries: values.queries, // Send queries as `eSachitQueries`
           esanchit_completed_date_time:
-            values.esanchit_completed_date_time || "", // Send `null` if cleared
+            values.esanchit_completed_date_time || "",
+          dsr_queries: values.dsr_queries || [],
         };
 
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
+        };
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.job_no}/${params.year}`,
-          formattedData
+          formattedData,
+          { headers }
         );
         setSnackbar(true);
-        navigate("/e-sanchit");
+
+        // Close the tab after successful submit
+        setTimeout(() => {
+          window.close();
+        }, 500);
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -130,19 +245,6 @@ function ViewESanchitJob() {
               minWidth: "250px", // Minimum width for smaller devices
             }}
           >
-            {/* <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: "bold",
-                textAlign: "center",
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "5px",
-                borderRadius: "5px 5px 0 0",
-              }}
-            >
-              Document {index + 1}
-            </Typography> */}
             <Box mt={1} textAlign="center">
               <a
                 href={url}
@@ -158,6 +260,7 @@ function ViewESanchitJob() {
       </Box>
     );
   };
+
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -167,20 +270,21 @@ function ViewESanchitJob() {
       return url; // Fallback to original URL
     }
   };
-  // Check if all Approved checkboxes are true
-  // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
-  const areAllApproved = () => {
-    return (
-      !isDisabled &&
-      formik.values.cth_documents.every(
-        (doc) =>
-          !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
-          !!doc.irn && // IRN is a non-empty string
-          doc.irn.trim() !== "" // IRN is not just whitespace
-      )
-    );
-  };
 
+  // Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
+const areAllApproved = () => {
+  return (
+    !isDisabled &&
+    formik.values.cth_documents
+      .filter(doc => doc.is_sent_to_esanchit) // Only consider sent documents
+      .every(
+        doc =>
+          !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
+          !!doc.irn &&                 // IRN is non-empty
+          doc.irn.trim() !== ""        // IRN is not just whitespace
+      )
+  );
+};
   // Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
   useEffect(() => {
     if (areAllApproved()) {
@@ -194,6 +298,11 @@ function ViewESanchitJob() {
       formik.setFieldValue("esanchit_completed_date_time", "");
     }
   }, [formik.values.cth_documents]);
+
+  // Sync esanchitCharges state with formik values
+  useEffect(() => {
+    formik.setFieldValue("esanchitCharges", esanchitCharges);
+  }, [esanchitCharges]);
 
   const handleOpenDialog = (document, isEdit) => {
     setDialogMode(isEdit);
@@ -257,6 +366,23 @@ function ViewESanchitJob() {
 
   return (
     <form onSubmit={formik.handleSubmit}>
+      {/* Back Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       <div style={{ margin: "20px 0" }}>
         {data && (
           <>
@@ -265,9 +391,24 @@ function ViewESanchitJob() {
               params={params}
               setSnackbar={setSnackbar}
             />
+
+            <div>
+              <QueriesComponent
+                queries={data.dsr_queries}
+                currentModule="E-Sanchit"
+                onQueriesChange={handleQueriesChange}
+                title="E-sanchit Queries"
+                showResolveButton={true}
+                readOnlyReply={false}
+                onResolveQuery={handleResolveQuery}
+                userName={user?.username}
+              />
+            </div>
+
+            {/* Charges section */}
             <div className="job-details-container">
-              <h4>Documents</h4>
-              {formik.values.cth_documents?.map((document, index) => (
+              <h4>Charges</h4>
+              {formik.values.esanchitCharges?.map((charge, index) => (
                 <div
                   key={index}
                   style={{
@@ -279,27 +420,21 @@ function ViewESanchitJob() {
                 >
                   <Row className="align-items-center">
                     {/* File Upload & Image Preview */}
-
-                    <Col
-                      xs={12}
-                      lg={4}
-                      key={`cth-${index}`}
-                      style={{ marginBottom: "20px", position: "relative" }}
-                    >
+                    <Col xs={12} lg={4} style={{ marginBottom: "20px" }}>
                       <FileUpload
-                        label={`${document.document_name} (${document.document_code})`}
-                        bucketPath={`cth-documents/${document.document_name}`}
+                        label={charge.document_name}
+                        bucketPath={`esanchit-charges/${charge.document_name}`}
                         onFilesUploaded={(urls) => {
-                          const updatedDocuments = [
-                            ...formik.values.cth_documents,
+                          const updatedCharges = [
+                            ...formik.values.esanchitCharges,
                           ];
-                          updatedDocuments[index].url = [
-                            ...(updatedDocuments[index].url || []),
+                          updatedCharges[index].url = [
+                            ...(updatedCharges[index].url || []),
                             ...urls,
                           ];
                           formik.setFieldValue(
-                            "cth_documents",
-                            updatedDocuments
+                            "esanchitCharges",
+                            updatedCharges
                           );
                           setFileSnackbar(true);
                         }}
@@ -307,256 +442,315 @@ function ViewESanchitJob() {
                         readOnly={isDisabled}
                       />
                       <ImagePreview
-                        images={document.url || []}
+                        images={charge.url || []}
                         onDeleteImage={(deleteIndex) => {
-                          const updatedDocuments = [
-                            ...formik.values.cth_documents,
+                          const updatedCharges = [
+                            ...formik.values.esanchitCharges,
                           ];
-                          updatedDocuments[index].url.splice(deleteIndex, 1);
+                          updatedCharges[index].url.splice(deleteIndex, 1);
                           formik.setFieldValue(
-                            "cth_documents",
-                            updatedDocuments
+                            "esanchitCharges",
+                            updatedCharges
                           );
                         }}
                         readOnly={isDisabled}
                       />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "10px",
-                          right: "10px",
-                        }}
-                      >
-                        {!isDisabled && (
-                          <>
-                            <span
-                              style={{
-                                cursor: "pointer",
-                                marginRight: "10px",
-                                color: "#007bff",
-                              }}
-                              onClick={() => handleOpenDialog(document, true)}
-                            >
-                              <i className="fas fa-edit" title="Edit"></i>
-                            </span>
-                            <span
-                              style={{ cursor: "pointer", color: "#dc3545" }}
-                              onClick={() => handleOpenDialog(document, false)}
-                            >
-                              <i
-                                className="fas fa-trash-alt"
-                                title="Delete"
-                              ></i>
-                            </span>
-                          </>
-                        )}
-                      </div>
                     </Col>
 
-                    {/* IRN Input */}
+                    {/* Document Charge Reference No */}
                     <Col xs={12} lg={4}>
                       <TextField
                         size="small"
-                        label="IRN"
-                        name={`cth_documents[${index}].irn`}
-                        value={formik.values.cth_documents[index]?.irn || ""}
+                        label="Document Charge Reference No"
+                        name={`esanchitCharges[${index}].document_charge_refrence_no`}
+                        value={
+                          formik.values.esanchitCharges[index]
+                            ?.document_charge_refrence_no || ""
+                        }
                         onChange={formik.handleChange}
                         fullWidth
+                        type="number"
                         disabled={isDisabled}
                       />
                     </Col>
 
+                    {/* Document Charge Receipt Copy */}
                     <Col xs={12} lg={4}>
-                      <div>
-                        <Checkbox
-                          checked={
-                            !!formik.values.cth_documents[index]
-                              ?.document_check_date
-                          }
-                          onChange={() => {
-                            const updatedDocuments = [
-                              ...formik.values.cth_documents,
-                            ];
-                            if (updatedDocuments[index].document_check_date) {
-                              // Clear the date-time when checkbox is unchecked
-                              updatedDocuments[index].document_check_date = "";
-                            } else {
-                              // Set current date-time when checkbox is checked
-                              updatedDocuments[index].document_check_date =
-                                new Date(
-                                  Date.now() -
-                                    new Date().getTimezoneOffset() * 60000
-                                )
-                                  .toISOString()
-                                  .slice(0, 16);
-                            }
-                            formik.setFieldValue(
-                              "cth_documents",
-                              updatedDocuments
-                            );
-                          }}
-                          disabled={isDisabled}
-                        />
-                        <strong>Approved Date</strong>
-                        {formik.values.cth_documents[index]
-                          ?.document_check_date && (
-                          <span
-                            style={{ marginLeft: "10px", fontWeight: "bold" }}
-                          >
-                            {new Date(
-                              formik.values.cth_documents[
-                                index
-                              ]?.document_check_date
-                            ).toLocaleString("en-US", {
-                              timeZone: "Asia/Kolkata",
-                              hour12: true,
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      {user.role === "Admin" && (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="datetime-local"
-                          name={`cth_documents[${index}].document_check_date`}
-                          value={
-                            formik.values.cth_documents[index]
-                              ?.document_check_date || ""
-                          }
-                          onChange={(e) => {
-                            const updatedDocuments = [
-                              ...formik.values.cth_documents,
-                            ];
-                            updatedDocuments[index].document_check_date =
-                              e.target.value;
-                            formik.setFieldValue(
-                              "cth_documents",
-                              updatedDocuments
-                            );
-                          }}
-                          InputLabelProps={{
-                            shrink: true,
-                          }}
-                          disabled={isDisabled}
-                        />
-                      )}
+                      <TextField
+                        size="small"
+                        label="Document Charge Receipt Copy"
+                        name={`esanchitCharges[${index}].document_charge_recipt_copy`}
+                        value={
+                          formik.values.esanchitCharges[index]
+                            ?.document_charge_recipt_copy || ""
+                        }
+                        onChange={formik.handleChange}
+                        fullWidth
+                        type="number"
+                        disabled={isDisabled}
+                      />
                     </Col>
                   </Row>
                 </div>
               ))}
-
-              <div>
-                <Row style={{ marginBottom: "20px", alignItems: "center" }}>
-                  <Col xs={12} lg={3}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel shrink={true}>Select Document</InputLabel>
-                      <Select
-                        disabled={isDisabled}
-                        value={selectedDocument}
-                        onChange={(e) => {
-                          setSelectedDocument(e.target.value);
-                        }}
-                        displayEmpty
-                        label="Select Document"
-                      >
-                        {cth_Dropdown.map((doc) => (
-                          <MenuItem
-                            key={doc.document_code}
-                            value={doc.document_code}
-                          >
-                            {doc.document_name}
-                          </MenuItem>
-                        ))}
-                        <MenuItem value="other">Other</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Col>
-                  {selectedDocument === "other" && (
-                    <>
-                      <Col xs={12} lg={3}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="New Document Name"
-                          value={newDocumentName}
-                          onChange={(e) => setNewDocumentName(e.target.value)}
-                        />
-                      </Col>
-                      <Col xs={12} lg={3}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="New Document Code"
-                          value={newDocumentCode}
-                          onChange={(e) => setNewDocumentCode(e.target.value)}
-                        />
-                      </Col>
-                    </>
-                  )}
-                  <Col
-                    xs={12}
-                    lg={2}
-                    style={{ display: "flex", justifyContent: "flex-end" }}
-                  >
-                    <button type="button" className="btn" onClick={addDocument}>
-                      Add Document
-                    </button>
-                  </Col>
-                </Row>
-              </div>
             </div>
+
+<div className="job-details-container">
+  <h4>Documents</h4>
+  {formik.values.cth_documents
+    ?.filter(document => document.is_sent_to_esanchit === true)
+    ?.map((document, index) => (
+    <div
+      key={index}
+      style={{
+        marginBottom: "20px",
+        padding: "10px",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+      }}
+    >
+      <Row className="align-items-center">
+        {/* File Upload & Image Preview */}
+        <Col
+          xs={12}
+          lg={4}
+          key={`cth-${index}`}
+          style={{ marginBottom: "20px", position: "relative" }}
+        >
+          <FileUpload
+            label={`${document.document_name} (${document.document_code})`}
+            bucketPath={`cth-documents/${document.document_name}`}
+            onFilesUploaded={(urls) => {
+              const updatedDocuments = [
+                ...formik.values.cth_documents,
+              ];
+              // Find the original index in the unfiltered array
+              const originalIndex = formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              );
+              updatedDocuments[originalIndex].url = [
+                ...(updatedDocuments[originalIndex].url || []),
+                ...urls,
+              ];
+              formik.setFieldValue(
+                "cth_documents",
+                updatedDocuments
+              );
+              setFileSnackbar(true);
+            }}
+            multiple={true}
+            readOnly={isDisabled}
+          />
+          <ImagePreview
+            images={document.url || []}
+            onDeleteImage={(deleteIndex) => {
+              const updatedDocuments = [
+                ...formik.values.cth_documents,
+              ];
+              // Find the original index in the unfiltered array
+              const originalIndex = formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              );
+              updatedDocuments[originalIndex].url.splice(deleteIndex, 1);
+              formik.setFieldValue(
+                "cth_documents",
+                updatedDocuments
+              );
+            }}
+            readOnly={isDisabled}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+            }}
+          >
+            {!isDisabled && (
+              <>
+                <span
+                  style={{
+                    cursor: "pointer",
+                    marginRight: "10px",
+                    color: "#007bff",
+                  }}
+                  onClick={() => handleOpenDialog(document, true)}
+                >
+                  <i className="fas fa-edit" title="Edit"></i>
+                </span>
+                <span
+                  style={{ cursor: "pointer", color: "#dc3545" }}
+                  onClick={() => handleOpenDialog(document, false)}
+                >
+                  <i
+                    className="fas fa-trash-alt"
+                    title="Delete"
+                  ></i>
+                </span>
+              </>
+            )}
+          </div>
+        </Col>
+
+        {/* IRN Input */}
+        <Col xs={12} lg={4}>
+          <TextField
+            size="small"
+            label="IRN"
+            name={`cth_documents[${formik.values.cth_documents.findIndex(
+              doc => doc.document_code === document.document_code && 
+                     doc.document_name === document.document_name
+            )}].irn`}
+            value={document.irn || ""}
+            onChange={(e) => {
+              const updatedDocuments = [...formik.values.cth_documents];
+              const originalIndex = formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              );
+              updatedDocuments[originalIndex].irn = e.target.value;
+              formik.setFieldValue("cth_documents", updatedDocuments);
+            }}
+            fullWidth
+            disabled={isDisabled}
+          />
+        </Col>
+
+        <Col xs={12} lg={4}>
+          <div>
+            <Checkbox
+              checked={!!document.document_check_date}
+              onChange={() => {
+                const updatedDocuments = [...formik.values.cth_documents];
+                const originalIndex = formik.values.cth_documents.findIndex(
+                  doc => doc.document_code === document.document_code && 
+                         doc.document_name === document.document_name
+                );
+                if (updatedDocuments[originalIndex].document_check_date) {
+                  // Clear the date-time when checkbox is unchecked
+                  updatedDocuments[originalIndex].document_check_date = "";
+                } else {
+                  // Set current date-time when checkbox is checked
+                  updatedDocuments[originalIndex].document_check_date =
+                    new Date(
+                      Date.now() -
+                        new Date().getTimezoneOffset() * 60000
+                    )
+                      .toISOString()
+                      .slice(0, 16);
+                }
+                formik.setFieldValue("cth_documents", updatedDocuments);
+              }}
+              disabled={isDisabled}
+            />
+            <strong>Approved Date</strong>
+            {document.document_check_date && (
+              <span
+                style={{ marginLeft: "10px", fontWeight: "bold" }}
+              >
+                {new Date(document.document_check_date).toLocaleString("en-US", {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })}
+              </span>
+            )}
+          </div>
+          {user.role === "Admin" && (
+            <TextField
+              fullWidth
+              size="small"
+              type="datetime-local"
+              name={`cth_documents[${formik.values.cth_documents.findIndex(
+                doc => doc.document_code === document.document_code && 
+                       doc.document_name === document.document_name
+              )}].document_check_date`}
+              value={document.document_check_date || ""}
+              onChange={(e) => {
+                const updatedDocuments = [...formik.values.cth_documents];
+                const originalIndex = formik.values.cth_documents.findIndex(
+                  doc => doc.document_code === document.document_code && 
+                         doc.document_name === document.document_name
+                );
+                updatedDocuments[originalIndex].document_check_date = e.target.value;
+                formik.setFieldValue("cth_documents", updatedDocuments);
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              disabled={isDisabled}
+            />
+          )}
+        </Col>
+      </Row>
+    </div>
+  ))}
+
+  <div>
+    <Row style={{ marginBottom: "20px", alignItems: "center" }}>
+      <Col xs={12} lg={3}>
+        <FormControl fullWidth size="small">
+          <InputLabel shrink={true}>Select Document</InputLabel>
+          <Select
+            disabled={isDisabled}
+            value={selectedDocument}
+            onChange={(e) => {
+              setSelectedDocument(e.target.value);
+            }}
+            displayEmpty
+            label="Select Document"
+          >
+            {cth_Dropdown.map((doc) => (
+              <MenuItem
+                key={doc.document_code}
+                value={doc.document_code}
+              >
+                {doc.document_name}
+              </MenuItem>
+            ))}
+            <MenuItem value="other">Other</MenuItem>
+          </Select>
+        </FormControl>
+      </Col>
+      {selectedDocument === "other" && (
+        <>
+          <Col xs={12} lg={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="New Document Name"
+              value={newDocumentName}
+              onChange={(e) => setNewDocumentName(e.target.value)}
+            />
+          </Col>
+          <Col xs={12} lg={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="New Document Code"
+              value={newDocumentCode}
+              onChange={(e) => setNewDocumentCode(e.target.value)}
+            />
+          </Col>
+        </>
+      )}
+      <Col
+        xs={12}
+        lg={2}
+        style={{ display: "flex", justifyContent: "flex-end" }}
+      >
+        <button type="button" className="btn" onClick={addDocument}>
+          Add Document
+        </button>
+      </Col>
+    </Row>
+  </div>
+</div>
 
             <div className="job-details-container">
               <h4>All Documents</h4>
               {renderAllDocuments(data.all_documents)}
-            </div>
-
-            <div className="job-details-container">
-              <h4>Queries</h4>
-              {formik.values.queries.map((item, id) => (
-                <Row key={id}>
-                  <Col xs={12} lg={5}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      size="small"
-                      label="Query"
-                      name={`queries[${id}].query`}
-                      value={item.query}
-                      onChange={formik.handleChange}
-                    />
-                  </Col>
-                  <Col xs={12} lg={5}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      size="small"
-                      label="Reply"
-                      name={`queries[${id}].reply`}
-                      value={item.reply}
-                      onChange={formik.handleChange}
-                      InputProps={{
-                        readOnly: true, // Make the field read-only
-                      }}
-                    />
-                  </Col>
-                </Row>
-              ))}
-              <button
-                type="button"
-                onClick={() =>
-                  formik.setFieldValue("queries", [
-                    ...formik.values.queries,
-                    { query: "", reply: "" },
-                  ])
-                }
-                className="btn"
-              >
-                Add Query
-              </button>
             </div>
 
             <div className="job-details-container">
@@ -625,26 +819,23 @@ function ViewESanchitJob() {
               </Row>
             </div>
 
-            {!isDisabled && (
-              <button
-                className="btn sticky-btn"
-                style={{ float: "right", margin: "20px" }}
-                type="submit"
-              >
-                Submit
-              </button>
-            )}
+            {/* Removed checklist approval warning */}
 
-            {/* <ConfirmDialog
-              open={dialogOpen}
-              handleClose={() => setDialogOpen(false)}
-              handleConfirm={
-                dialogMode ? handleEditDocument : handleDeleteDocument
-              }
-              isEdit={dialogMode}
-              editValues={editDocument || {}}
-              onEditChange={setEditDocument}
-            /> */}
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              {!isDisabled && (
+                <button
+                  className="btn sticky-btn"
+                  style={{
+                    float: "right",
+                    margin: "20px",
+                  }}
+                  type="submit"
+                >
+                  Submit
+                </button>
+              )}
+            </div>
+
             <ConfirmDialog
               open={dialogOpen}
               handleClose={() => setDialogOpen(false)}
@@ -661,19 +852,22 @@ function ViewESanchitJob() {
               }
             />
 
-            {/* <Snackbar
+            <Snackbar
               open={snackbar || fileSnackbar}
               message={
                 snackbar
                   ? "Submitted successfully!"
-                  : "File uploaded successfully!"
+                  : fileSnackbar
+                  ? "File uploaded successfully!"
+                  : ""
               }
               sx={{ left: "auto !important", right: "24px !important" }}
+              autoHideDuration={6000}
               onClose={() => {
                 setSnackbar(false);
                 setFileSnackbar(false);
               }}
-            /> */}
+            />
           </>
         )}
       </div>

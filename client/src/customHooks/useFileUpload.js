@@ -5,13 +5,59 @@ import { useState } from "react";
 function useFileUpload(inputRef, alt, setAlt) {
   const [snackbar, setSnackbar] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleFileUpload = (event) => {
+    setLoading(true);
+    setError(null);
     const file = event.target.files[0];
 
     const reader = new FileReader();
-    reader.onload = handleFileRead;
+    reader.onload = (e) => validateAndProcessFile(e, file);
     reader.readAsBinaryString(file);
+  };
+
+  const validateAndProcessFile = async (event, file) => {
+    try {
+      const content = event.target.result;
+      const workbook = xlsx.read(content, { type: "binary" });
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      // Get all data including headers for validation
+      const allData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // Check if second row exists
+      if (allData.length < 2) {
+        setError("Invalid Excel format: File must contain at least 2 rows");
+        setLoading(false);
+        if (inputRef.current) inputRef.current.value = null;
+        return;
+      }
+
+      // Check for AHMEDABAD in the second row
+      const secondRow = allData[1];
+      const containsAhmedabad = secondRow.some(cell => 
+        String(cell || '').toUpperCase().includes("AHMEDABAD")
+      );
+
+      if (!containsAhmedabad) {
+        setError("Error: The provided data is not valid for this import DSR.");
+        setLoading(false);
+        if (inputRef.current) inputRef.current.value = null;
+        return;
+      }
+
+      // If validation passes, continue with existing processing
+      handleFileRead(event);
+      
+    } catch (err) {
+      console.error("Error validating file:", err);
+      setError("Error processing file. Please check the format.");
+      setLoading(false);
+      if (inputRef.current) inputRef.current.value = null;
+    }
   };
 
   const handleFileRead = async (event) => {
@@ -134,11 +180,14 @@ function useFileUpload(inputRef, alt, setAlt) {
             modifiedItem.assbl_value = item[key];
           } else if (modifiedKey === "ex_rate") {
             modifiedItem.exrate = item[key];
-          }
-          //  else if (modifiedKey === "bill_no") {
-          //   modifiedItem.bill_no = item[key].split(",")[0];
-          // } 
-          else if (modifiedKey === "consignment_type") {
+          } else if (modifiedKey === "ie_code_no") {
+            // Format ie_code_no to ensure it's 10 characters long
+            let ieCodeValue = String(item[key] || "").trim();
+            if (ieCodeValue.length < 10 && ieCodeValue.length > 0) {
+              ieCodeValue = ieCodeValue.padStart(10, "0");
+            }
+            modifiedItem.ie_code_no = ieCodeValue;
+          } else if (modifiedKey === "consignment_type") {
             modifiedItem.consignment_type = item[key].split(",")[0];
           } else if (modifiedKey === "hss_name") {
             modifiedItem.hss_name = item[key];
@@ -202,51 +251,6 @@ function useFileUpload(inputRef, alt, setAlt) {
       inputRef.current.value = null;
     }
 
-    async function uploadExcelData() {
-      setLoading(true);
-
-      try {
-        // Fetch the existing LastJobsDate data to check the current vessel_berthing value
-        const lastJobsDateRes = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-last-jobs-date`
-        );
-
-        const existingVesselBerthing =
-          lastJobsDateRes.data?.vessel_berthing || "";
-
-        // Modify the data before sending it to the backend
-        const finalData = modifiedData.map((item) => {
-          if (
-            item.vessel_berthing && // If Excel sheet has a vessel_berthing date
-            (!existingVesselBerthing || existingVesselBerthing.trim() === "") // And the existing value is empty or null
-          ) {
-            return item; // Use the Excel sheet's vessel_berthing date
-          } else {
-            // Remove vessel_berthing to prevent overriding with Excel data
-            const { vessel_berthing, ...rest } = item;
-            return rest;
-          }
-        });
-
-        // Now upload the final data to the backend
-        const res = await axios.post(
-          `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-          finalData
-        );
-
-        console.log(`finalData: ${JSON.stringify(finalData)}`);
-        if (res.status === 200) {
-          setSnackbar(true);
-        } else {
-          alert("Something went wrong");
-        }
-      } catch (error) {
-        console.error("Error uploading data:", error);
-        alert("An error occurred while uploading the data.");
-      } finally {
-        setLoading(false);
-      }
-    }
     // Upload the Excel data and check the status
     await uploadAndCheckStatus(modifiedData);
   };
@@ -254,37 +258,63 @@ function useFileUpload(inputRef, alt, setAlt) {
   async function uploadAndCheckStatus(modifiedData) {
     setLoading(true);
     try {
+      // Fetch the existing LastJobsDate data to check the current vessel_berthing value
+      const lastJobsDateRes = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-last-jobs-date`
+      );
+
+      const existingVesselBerthing =
+        lastJobsDateRes.data?.vessel_berthing || "";
+        
+      const existingGatewayIGM =
+        lastJobsDateRes.data?.gateway_igm_date || "";
+
+      // Modify the data before sending it to the backend
+      const finalData = modifiedData.map((item) => {
+        if (
+          item.vessel_berthing && item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
+          ((!existingVesselBerthing || existingVesselBerthing.trim() === "") && (!existingGatewayIGM || existingGatewayIGM.trim() === "")) // And the existing value is empty or null
+        ) {
+          return item; // Use the Excel sheet's vessel_berthing date
+        } else {
+          // Remove vessel_berthing to prevent overriding with Excel data
+          const { vessel_berthing, gateway_igm_date, ...rest } = item;
+          return rest;
+        }
+      });
+
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.username || 'unknown',
+        'username': user.username || 'unknown',
+        'user-role': user.role || 'unknown'
+      };
+
       // First, upload the data
       const uploadResponse = await axios.post(
         `${process.env.REACT_APP_API_STRING}/jobs/add-job`,
-        modifiedData
+        finalData,
+        { headers }
       );
 
       if (uploadResponse.status === 200) {
         setSnackbar(true);
 
         const firstJobNo = modifiedData[0].job_no;
-        console.log("Checking status for job_no:", firstJobNo); // Add log
 
-        // const checkStatusResponse = await axios.get(
-        //   `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
-        // );
         const checkStatusResponse = await axios.get(
           `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
         );
-        console.log(
-          `${process.env.REACT_APP_API_STRING}/jobs/update-pending-status`
-        );
-        console.log("Status check response:", checkStatusResponse); // Log response
-
         if (checkStatusResponse.status !== 200) {
           console.error("Status update failed");
         }
       } else {
-        alert("Something went wrong during data upload");
+        setError("Something went wrong during data upload");
       }
     } catch (error) {
-      alert("Error occurred during the upload or status check");
+      setError("Error occurred during the upload or status check");
       console.error("Error:", error); // Log error
     } finally {
       setLoading(false);
@@ -297,7 +327,7 @@ function useFileUpload(inputRef, alt, setAlt) {
     setSnackbar(false);
   }, 2000);
 
-  return { handleFileUpload, snackbar, loading };
+  return { handleFileUpload, snackbar, loading, error };
 }
 
 export default useFileUpload;

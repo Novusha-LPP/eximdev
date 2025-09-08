@@ -54,7 +54,8 @@ const ImportUtilityTool = () => {
     severity: "success",
   });
   const [dutyCalculatorOpen, setDutyCalculatorOpen] = useState(false);
-  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);  const [dutyCalculatorForm, setDutyCalculatorForm] = useState({
+  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);  
+  const [dutyCalculatorForm, setDutyCalculatorForm] = useState({
     importTerms: 'CIF',
     cifValue: '',
     freight: '',
@@ -82,48 +83,38 @@ const ImportUtilityTool = () => {
   const handleOpenDutyCalculator = useCallback((item) => {
     setSelectedItemForDuty(item);
     
-    // Debug: Log the item data to see what's available
-    console.log('Item data:', item);
-    console.log('basic_duty_sch:', item.basic_duty_sch);
-    console.log('basic_duty_ntfn:', item.basic_duty_ntfn);
-    console.log('igst:', item.igst);
     
     // Logic to select the appropriate duty rate
     let selectedDuty = '';
-    
-    // Helper function to check if a value is valid (not null, not empty, not "nan")
+      // Helper function to check if a value is valid (not null, not empty, not "nan", and is a number including "0")
     const isValidDuty = (value) => {
-      return value != null && value !== '' && value !== 'nan' && value !== 'NaN' && !isNaN(parseFloat(value));
+      return value != null && 
+             value !== '' && 
+             value !== 'nan' && 
+             value !== 'NaN' && 
+             !isNaN(parseFloat(value));
     };
     
     const hasBasicDuty = isValidDuty(item.basic_duty_sch);
     const hasNotificationDuty = isValidDuty(item.basic_duty_ntfn);
-    
-    // Check if both basic_duty_sch and basic_duty_ntfn are available
-    if (hasBasicDuty && hasNotificationDuty) {
-      // Both available - choose whichever is smaller
-      const basicDuty = parseFloat(item.basic_duty_sch);
-      const notificationDuty = parseFloat(item.basic_duty_ntfn);
-      selectedDuty = Math.min(basicDuty, notificationDuty).toString();
-      console.log('Both available - selected smaller:', selectedDuty);
+      // Check if both basic_duty_sch and basic_duty_ntfn are available
+    if (hasNotificationDuty && hasBasicDuty) {
+      // ALWAYS prioritize notification duty (basic_duty_ntfn) when both are available
+      selectedDuty = item.basic_duty_ntfn;
     }
     // If only notification duty is available
     else if (hasNotificationDuty) {
       selectedDuty = item.basic_duty_ntfn;
-      console.log('Only notification duty available:', selectedDuty);
     }
     // If only basic duty is available
     else if (hasBasicDuty) {
       selectedDuty = item.basic_duty_sch;
-      console.log('Only basic duty available:', selectedDuty);
     }
     // If neither is available, selectedDuty remains empty string
     else {
       console.log('No duty values available');
     }
-    
-    console.log('Final selectedDuty:', selectedDuty);
-    
+        
     setDutyCalculatorForm({
       importTerms: 'CIF',
       cifValue: '',

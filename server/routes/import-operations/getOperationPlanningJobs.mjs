@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
+router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, async (req, res) => {
   const { username } = req.params;
   const {
     page = 1,
@@ -27,6 +28,7 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
     importer = "", // NEW: Capture importer from query params
     detailedStatusExPlan = "all",
     year,
+    unresolvedOnly
   } = req.query;
 
 
@@ -41,42 +43,24 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
   if (isNaN(limitNumber) || limitNumber < 1) {
     return res.status(400).json({ message: "Invalid limit value" });
   }
+
+  // ✅ Validate user
+  const user = await User.findOne({ username });
+  if (!user) {
+    return res.status(404).send({ message: "User not found" });
+  }
+
   try {
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(404).send({ message: "User not found" });
+    // ✅ Use middleware-based ICD filtering instead of allowing frontend override
+    let icdCondition = {};
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions from middleware - RESPECT THESE
+      icdCondition = req.userIcdFilter;
+    } else if (selectedICD && selectedICD !== "All" && selectedICD !== "Select ICD") {
+      // Only apply frontend selection if user has full access (no middleware restrictions)
+      icdCondition = { custom_house: selectedICD };
     }
-
-    // **Define the custom house condition based on username**
-    let customHouseCondition = {};
-    switch (username) {
-      case "majhar_khan":
-        customHouseCondition = {
-          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
-        };
-        break;
-      case "parasmal_marvadi":
-        customHouseCondition = { custom_house: "AIR CARGO" };
-        break;
-      case "mahesh_patil":
-      case "prakash_darji":
-        customHouseCondition = { custom_house: "ICD KHODIYAR" };
-        break;
-      case "gaurav_singh":
-        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
-        break;
-      case "akshay_rajput":
-        customHouseCondition = { custom_house: "ICD VARNAMA" };
-        break;
-      default:
-        customHouseCondition = {}; // No filter for other users
-        break;
-    }
-
-    // **Override with selected ICD if provided**
-    if (selectedICD && selectedICD !== "All") {
-      customHouseCondition = { custom_house: selectedICD };
-    }
+    // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
     
     const skip = (page - 1) * limit;
@@ -149,21 +133,27 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       };
     } else if (detailedStatusExPlan === "FC") {
       statusExtraCondition = {
-        fristCheck: { $exists: true, $nin: ["", null] },
+        firstCheck: { $exists: true, $nin: ["", null] },
       };
     }
 
     // **Final Query: Merge All Conditions**
     const baseQuery = {
       $and: [
-        customHouseCondition,
+        icdCondition,
         baseConditions,
         statusExtraCondition,
         searchQuery,
         importerCondition, // NEW: Ensure importer filtering is applied
-      ],
+      ].filter(condition => Object.keys(condition).length > 0), // Remove empty conditions
     };
 
+             if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
        // ✅ Apply Year Filter if Provided
        if (selectedYear) {
         baseQuery.$and.push({ year: selectedYear });
@@ -211,6 +201,18 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       ...otherJobs,
     ];
 
+
+     const unresolvedQueryBase = { ...baseQuery };
+            unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+              !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+            );
+            unresolvedQueryBase.$and.push({
+              dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+            });
+            
+            const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
+
     // **Paginate grouped jobs**
     const paginatedJobs = groupedJobs.slice(skip, skip + Number(limit));
 
@@ -219,9 +221,11 @@ router.get("/api/get-operations-planning-jobs/:username", async (req, res) => {
       totalPages: Math.ceil(totalJobs / limit),
       currentPage: parseInt(page),
       jobs: paginatedJobs,
+            unresolvedCount
+
     });
   } catch (error) {
-    console.error("Error fetching jobs:", error);
+    console.error("❌ Error fetching operations planning jobs:", error);
     res.status(500).send({ message: "Error fetching jobs" });
   }
 });

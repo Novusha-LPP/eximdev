@@ -1,17 +1,20 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   IconButton,
   TextField,
   InputAdornment,
   Pagination,
   Typography,
+  Button,
+  Box,
+  Badge,
   MenuItem,
   Autocomplete,
   colors,
@@ -19,21 +22,23 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import BLNumberCell from "../../utils/BLNumberCell";
-import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { UserContext } from "../../contexts/UserContext";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function DoCompleted() {
-   const [selectedICD, setSelectedICD] = useState("");
+  const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
+  // Use context for searchQuery, selectedImporter, and currentPage for DO Completed tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab2: currentPage, setCurrentPageDoTab2: setCurrentPage } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
   const [totalJobs, setTotalJobs] = React.useState(0);
@@ -41,8 +46,30 @@ function DoCompleted() {
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
-  );
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+
+
+  // Restore pagination/search state when returning from job details
+  React.useEffect(() => {
+    if (location.state?.fromJobDetails) {
+      if (location.state?.searchQuery !== undefined) {
+        setSearchQuery(location.state.searchQuery);
+      }
+      if (location.state?.selectedImporter !== undefined) {
+        setSelectedImporter(location.state.selectedImporter);
+      }
+      if (location.state?.selectedJobId !== undefined) {
+        setSelectedJobId(location.state.selectedJobId);
+      }
+      if (location.state?.currentPage !== undefined) {
+        setCurrentPage(location.state.currentPage);
+      }
+    } else {
+      // Clear state on fresh tab navigation (handled by parent tab component)
+      setSelectedJobId(null);
+    }
+  }, [setSearchQuery, setSelectedImporter, setCurrentPage, location.state]);
 
   const formatDate = useCallback((dateStr) => {
     if (dateStr) {
@@ -152,14 +179,15 @@ function DoCompleted() {
  };
 
   // Fetch jobs with pagination and search
-  // Fetch jobs with pagination
   const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
       currentYear,
       currentICD,
-      selectedImporter
+      selectedImporter,
+          unresolvedOnly = false
+
     ) => {
       setLoading(true);
       try {
@@ -172,7 +200,9 @@ function DoCompleted() {
               search: currentSearchQuery,
               year: currentYear,
               selectedICD: currentICD,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              importer: selectedImporter?.trim() || "",
+              username: user?.username || "", // ✅ Send username for ICD filtering
+                          unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -182,94 +212,112 @@ function DoCompleted() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount
         } = res.data;
-
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
+              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
+        setRows([]);
         setTotalPages(1);
       } finally {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
+    [limit, user?.username] // Dependencies - add username
   );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      selectedICD,
-      selectedImporter
-    );
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState,
+        selectedICD,
+        selectedImporter,
+                showUnresolvedOnly
+
+      );
+    }
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
+            showUnresolvedOnly,
+
     fetchJobs,
   ]);
 
-  useEffect(() => {
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-    }
-  }, [location.state?.searchQuery]);
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
+  };
 
   // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms debounce delay
-    return () => clearTimeout(handler); // Cleanup on unmount
+    }, 500);
+    return () => clearTimeout(handler);
   }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage); // Update current page
+    setCurrentPage(newPage);
   };
 
   const columns = [
     {
       accessorKey: "job_no",
       header: "Job No",
-      size: 120,
+      enableSorting: false,
+      size: 150,
       Cell: ({ cell }) => {
-        const { job_no, custom_house, _id, type_of_b_e, consignment_type } =
-          cell.row.original;
-
+        const {
+          job_no,
+          year,
+          type_of_b_e,
+          consignment_type,
+          _id,
+          custom_house,
+          priorityColor,
+        } = cell.row.original;
+        const textColor = "blue";
+        const bgColor = cell.row.original.priorityJob === "High Priority"
+          ? "orange"
+          : cell.row.original.priorityJob === "Priority"
+          ? "yellow"
+          : "transparent";
+        const isSelected = selectedJobId === _id;
+        // Get selectedImporter, currentPage, searchQuery from context
+        // ...existing code...
         return (
-          <div
+          <Link
+            to={`/edit-do-completed/${job_no}/${year}?jobId=${_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setSelectedJobId(_id)}
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === _id ? "#ffffcc" : "transparent",
+              backgroundColor: isSelected ? "#ffffcc" : bgColor,
               textAlign: "center",
               cursor: "pointer",
-              color: "blue",
-            }}
-            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(_id);
-
-              // 2) Navigate to the detail page, and pass selectedJobId
-              navigate(`/edit-do-completed/${_id}`, {
-                state: {
-                  selectedJobId: _id,
-                  searchQuery,
-                },
-              });
+              color: textColor,
+              display: "inline-block",
+              width: "100%",
+              padding: "5px",
+              textDecoration: "none",
             }}
           >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
-          </div>
+          </Link>
         );
       },
     },
@@ -278,22 +326,68 @@ function DoCompleted() {
       header: "Importer",
       enableSorting: false,
       size: 250,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const importerName = cell?.getValue()?.toString();
+        const _id = row.original._id;
+        const isDoDocPrepared = row.original.is_do_doc_prepared || false;
+        const [checked, setChecked] = React.useState(isDoDocPrepared);
+
+        // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
+        const doShippingLineInvoice = row.original.do_shipping_line_invoice;
+        let paymentReciptDate = '';
+        let paymentRequestDate = '';
+        if (Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0) {
+          paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
+          paymentRequestDate = doShippingLineInvoice[0].payment_request_date;
+        }
         return (
           <React.Fragment>
-            {cell?.getValue()?.toString()}
-
+            {importerName}
             <IconButton
               size="small"
               onPointerOver={(e) => (e.target.style.cursor = "pointer")}
               onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
+                handleCopy(event, importerName);
               }}
             >
               <abbr title="Copy Party Name">
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
+            {/* Show payment request info if available */}
+            {paymentRequestDate && (
+              <>
+                <div style={{ color: '#d32f2f', fontWeight: 500, fontSize: '12px', marginTop: 4 }}>
+                  Payment request sent to billing team
+                </div>
+                <div style={{ color: '#0288d1', fontWeight: 500, fontSize: '12px', marginBottom: 2 }}>
+                 Payment Request Date: {new Date(paymentRequestDate).toLocaleString('en-IN', { hour12: true })}
+                </div>
+              </>
+            )}
+            {/* Show payment receipt links if available */}
+            {Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0 && doShippingLineInvoice.map((invoice, idx) =>
+              invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
+                <div key={idx} style={{ fontSize: '11px', color: '#388e3c', marginTop: '2px' }}>
+                  {invoice.payment_recipt.map((url, i) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#388e3c', textDecoration: 'underline', marginRight: 8 }}
+                    >
+                      View Payment Receipt {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ''}
+                    </a>
+                  ))}
+                </div>
+              ) : null
+            )}
+            {paymentReciptDate && (
+              <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
+                Payment Receipt Uploaded: {new Date(paymentReciptDate).toLocaleString('en-IN', { hour12: true })}
+              </div>
+            )}
             <br />
           </React.Fragment>
         );
@@ -343,52 +437,83 @@ function DoCompleted() {
 
     return (
       <div>
-        <strong>BE No:</strong> {be_no || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, be_no)}>
-          <abbr title="Copy BE No">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>BE No:</strong> {be_no || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, be_no)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy BE No">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, be_date)}>
-          <abbr title="Copy BE Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, be_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy BE Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm)}>
-          <abbr title="Copy GIGM">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, gateway_igm)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy GIGM">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, gateway_igm_date)}>
-          <abbr title="Copy GIGM Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, gateway_igm_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy GIGM Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, igm_no)}>
-          <abbr title="Copy IGM No">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
-        <br />
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, igm_no)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy IGM No">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
 
-        <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-        <IconButton size="small" onClick={(event) => handleCopy(event, igm_date)}>
-          <abbr title="Copy IGM Date">
-            <ContentCopyIcon fontSize="inherit" />
-          </abbr>
-        </IconButton>
+        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
+          <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+          <IconButton 
+            size="small" 
+            onClick={(event) => handleCopy(event, igm_date)}
+            sx={{ padding: "2px", marginLeft: "4px" }}
+          >
+            <abbr title="Copy IGM Date">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
       </div>
     );
   },
@@ -498,6 +623,7 @@ function DoCompleted() {
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
         const  typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
 
+              const do_list = row.original.do_list; // "do_list" from backend
         return (
           <div
             style={{
@@ -510,6 +636,8 @@ function DoCompleted() {
             
             {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
             <div>Type Of Do: {typeOfDo}</div>
+
+            <strong> EmptyOff LOC:</strong> {do_list}
           </div>
         );
       },
@@ -606,6 +734,7 @@ function DoCompleted() {
           do_completed,
           do_validity,
           do_copies,
+          cth_documents
         } = cell.row.original;
 
         const doCopies = do_copies
@@ -616,8 +745,45 @@ function DoCompleted() {
         return (
           <div style={{ textAlign: "left" }}>
             {/* Render the "Checklist" link or fallback text */}
+            {cth_documents &&
+            cth_documents.some(
+              (doc) =>
+                doc.url &&
+                doc.url.length > 0 &&
+                (
+                  doc.document_name === "Bill of Lading")
+            ) ? (
+              cth_documents
+                .filter(
+                  (doc) =>
+                    doc.url &&
+                    doc.url.length > 0 &&
+                    (
+                      doc.document_name === "Bill of Lading")
+                )
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))
+            ) : (
+              <span style={{ color: "gray" }}>
+                No Bill of Lading{" "}
+              </span>
+            )}  
 
-<div>
+          <div>
   {doCompleted ? (
     <strong>DO Completed Date: {doCompleted}</strong>
   ) : (
@@ -722,14 +888,15 @@ function DoCompleted() {
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
         >
           Job Count: {totalJobs}
-        </Typography>
-
-        <Autocomplete
+        </Typography>        <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
           value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setCurrentPage(1); // Reset to first page when importer changes
+          }} // Handles input change
           renderInput={(params) => (
             <TextField
               {...params}
@@ -764,7 +931,7 @@ function DoCompleted() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -772,17 +939,21 @@ function DoCompleted() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>
-        <TextField
+        </TextField>        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchInputChange}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs(1)}>
+                <IconButton
+                  onClick={() => {
+                    setDebouncedSearchQuery(searchQuery);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SearchIcon />
                 </IconButton>
               </InputAdornment>
@@ -790,6 +961,55 @@ function DoCompleted() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{ position: 'relative' }}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                                sx={{
+                                   borderRadius: 3,
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                fontSize: '0.875rem',
+                                padding: '8px 20px',
+                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                                  transform: 'translateY(-1px)',
+                                },
+                                '&:active': {
+                                  transform: 'translateY(0px)',
+                                },
+                                }}
+                              >
+                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                              </Button>
+                              <Badge 
+                                badgeContent={unresolvedCount} 
+                                color="error" 
+                                overlap="circular" 
+                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                sx={{ 
+                                  position: 'absolute',
+                                  top: 4,
+                                  right: 4,
+                                  '& .MuiBadge-badge': {
+                                    fontSize: '0.75rem',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                  }
+                                }}
+                              />
+                            </Box>
+                          </Box>
       </div>
     ),
   });
@@ -813,7 +1033,7 @@ function DoCompleted() {
       {/* Pagination */}
       <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

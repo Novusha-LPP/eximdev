@@ -16,9 +16,10 @@ const buildSearchQuery = (search) => ({
 
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
-router.get("/api/get-free-days", async (req, res) => {
+router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
     const page = parseInt(req.query.page, 10) || 1;
@@ -86,6 +87,11 @@ router.get("/api/get-free-days", async (req, res) => {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } 
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(

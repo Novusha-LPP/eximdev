@@ -210,12 +210,12 @@ const DeliveryChallanPdf = ({ year, jobNo, containerIndex = 0, renderAsIcon = fa
         ...(jobData.consignment_type !== 'LCL' ? [
           { label: 'CONTAINER NO.', value: `${container.container_number || ''} – ${container.size || ''}` },
           { space: true },
-          { label: 'SEAL NO.', value: container.seal_no || '' },
+          { label: 'SEAL NO.', value: container.seal_number || '' },
           { space: true }
         ] : []),
         { label: 'COMMODITY', value: `${jobData.description || ''}`.toUpperCase() },
         { space: true },
-        { label: 'WT. AS PER DOCS', value: `${container.net_weight_as_per_PL_document|| ''} KGS GROSS WT` },
+        { label: 'WT. AS PER DOCS', value: `${container.container_gross_weight|| ''} KGS GROSS WT` },
         { space: true },
         { label: 'TRANSPORTER', value: container.transporter || '' },
         { space: true },

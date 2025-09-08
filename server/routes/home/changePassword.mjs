@@ -69,7 +69,7 @@ router.post("/api/admin/change-password", async (req, res) => {
     if (targetUser.email) {
       try {
         const mailOptions = {
-          from: "admin@surajforwarders.com",
+          from: "connect@surajgroupofcompanies.com",
           to: targetUser.email,
           subject: "Your Password Has Been Changed",
           html: `
@@ -90,7 +90,6 @@ router.post("/api/admin/change-password", async (req, res) => {
         };
 
         await transporter.sendMail(mailOptions);
-        console.log("Password change email sent to", targetUser.email);
       } catch (emailErr) {
         console.error("Failed to send password change email:", emailErr.message);
         // Do not throw, since password has already been changed

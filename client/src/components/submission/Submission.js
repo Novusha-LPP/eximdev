@@ -4,39 +4,79 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   TextField,
-  Box,
   Pagination,
   Typography,
   InputAdornment,
+  Button,
+  Box,
+  Badge,
   IconButton,
   MenuItem,
   Autocomplete,
 } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { UserContext } from "../../contexts/UserContext";
 
 function Submission() {
- const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
+      const { user } = useContext(UserContext);
   const [importers, setImporters] = useState("");
-
+const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+    const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
-  const [page, setPage] = React.useState(1);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("");
+  
+// Use context for search functionality and pagination like E-Sanchit
+const { 
+  searchQuery, setSearchQuery, 
+  selectedImporter, setSelectedImporter, 
+  currentPageSubmission: page, 
+  setCurrentPageSubmission: setPage 
+} = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] =
+    React.useState(searchQuery);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [selectedJobId, setSelectedJobId] = useState(
+    location.state?.selectedJobId || ""
+  );
 
   const limit = 10; // Number of items per page
 
+React.useEffect(() => {
+  if (location.state?.fromJobDetails) {
+    if (location.state?.searchQuery !== undefined) {
+      setSearchQuery(location.state.searchQuery);
+    }
+    if (location.state?.selectedImporter !== undefined) {
+      setSelectedImporter(location.state.selectedImporter);
+    }
+    if (location.state?.selectedJobId !== undefined) {
+      setSelectedJobId(location.state.selectedJobId);
+    }
+    if (location.state?.currentPage !== undefined) {
+      setPage(location.state.currentPage);
+    }
+  } else {
+    setSearchQuery("");
+    setSelectedImporter("");
+    setSelectedJobId("");
+    setPage(1);
+  }
+}, [setSearchQuery, setSelectedImporter, setPage, location.state]);
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -66,15 +106,39 @@ function Submission() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   // useEffect(() => {
   //   if (!selectedImporter) {
   //     setSelectedImporter("Select Importer");
   //   }
   // }, [importerNames]);
+
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return; // Prevent copying empty values
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   useEffect(() => {
     async function getYears() {
@@ -110,13 +174,29 @@ function Submission() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
+  // Handle search input change
+const handleSearchInputChange = (event) => {
+  setSearchQuery(event.target.value);
+  setPage(1); // Reset to first page when user types
+};
+
+  // Debounce search query to reduce excessive API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPage(1); // Reset to first page on new search
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler); // Cleanup on unmount
+  }, [searchQuery]);
+
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
       selectedImporter,
-      selectedYearState
+      selectedYearState,
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -129,6 +209,8 @@ function Submission() {
               year: selectedYearState || "", // ✅ Ensure year is sent
               search: currentSearchQuery,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+               username: user?.username || "", // ✅ Send username for ICD filtering
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -138,13 +220,16 @@ function Submission() {
           totalPages,
           currentPage: returnedPage,
           jobs,
+          unresolvedCount
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
         setPage(returnedPage);
         setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
+        setUnresolvedCount(0);
         console.error("Error fetching data:", error);
         setRows([]); // Reset rows if an error occurs
         setTotalPages(1);
@@ -156,15 +241,19 @@ function Submission() {
   );
 
   // Fetch jobs when page or debounced search query changes
-   useEffect(() => {
-     fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState);
-   }, [
-     page,
-     debouncedSearchQuery,
-     selectedImporter,
-     selectedYearState,
-     fetchJobs,
-   ]); 
+  useEffect(() => {
+    if (selectedYearState && user?.username) {
+      // Ensure year and username are available before calling API
+      fetchJobs( page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+    }
+  }, [
+    page,
+    debouncedSearchQuery,
+    selectedImporter,
+    selectedYearState,
+    showUnresolvedOnly, // ✅ Include showUnresolvedOnly in dependencies
+    fetchJobs,
+  ]);
   // Debounce search input
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -174,14 +263,9 @@ function Submission() {
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
-
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleSearchInputChange = (event) => {
-    setSearchQuery(event.target.value);
-  };
+const handlePageChange = (event, newPage) => {
+  setPage(newPage);
+};
 
   const columns = [
     {
@@ -198,27 +282,31 @@ function Submission() {
           custom_house,
           priorityColor, // Add priorityColor from API response
         } = cell.row.original;
-
+        const textColor = "blue";
+        const bgColor = cell.row.original.priorityJob === "High Priority"
+          ? "orange"
+          : cell.row.original.priorityJob === "Priority"
+          ? "yellow"
+          : "transparent";
         return (
-          <div
-            onClick={() => navigate(`/submission-job/${job_no}/${year}`)}
+          <a
+            href={`/submission-job/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               cursor: "pointer",
-              color: "blue",
-              backgroundColor:
-                cell.row.original.priorityJob === "High Priority"
-                  ? "orange"
-                  : cell.row.original.priorityJob === "Priority"
-                  ? "yellow"
-                  : "transparent", // Dynamically set the background color
-              padding: "10px", // Add padding for better visibility
-              borderRadius: "5px", // Optional: Add some styling for aesthetics
+              color: textColor,
+              backgroundColor: bgColor,
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              display: "inline-block",
+              textDecoration: "none",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
             {custom_house}
-            <br />
-          </div>
+          </a>
         );
       },
     },
@@ -258,31 +346,103 @@ function Submission() {
       },
     },
     {
-      accessorKey: "gateway_igm_date",
-      header: "Gateway IGM NO. & Date",
+      accessorKey: "igm_details",
+      header: "IGM Details",
       enableSorting: false,
-      size: 130,
-      Cell: ({ row }) => {
-        const { gateway_igm_date = "N/A", gateway_igm = "N/A" } = row.original;
+      size: 250,
+      Cell: ({ cell }) => {
+        const {
+          gateway_igm_date,
+          gateway_igm,
+          igm_date,
+          igm_no,
+          job_net_weight,
+          gross_weight,
+          line_no,
+          no_of_pkgs,
+        } = cell.row.original;
+
         return (
           <div>
-            <div>{`${gateway_igm}`}</div>
-            <div>{`${gateway_igm_date}`}</div>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "igm_no",
-      header: "IGM NO. & Date",
-      enableSorting: false,
-      size: 130,
-      Cell: ({ row }) => {
-        const { igm_date = "N/A", igm_no = "N/A" } = row.original;
-        return (
-          <div>
-            <div>{`${igm_no}`}</div>
-            <div>{`${igm_date}`}</div>
+            <strong>Gateway IGM:</strong> {gateway_igm || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gateway_igm)}
+            >
+              <abbr title="Copy Gateway IGM">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Gateway Date:</strong> {gateway_igm_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gateway_igm_date)}
+            >
+              <abbr title="Copy Gateway Date">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, igm_no)}
+            >
+              <abbr title="Copy IGM No">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, igm_date)}
+            >
+              <abbr title="Copy IGM Date">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Net Weight:</strong> {job_net_weight || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, job_net_weight)}
+            >
+              <abbr title="Copy Net Weight">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Gross Weight:</strong> {gross_weight || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, gross_weight)}
+            >
+              <abbr title="Copy Gross Weight">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>Line No:</strong> {line_no || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, line_no)}
+            >
+              <abbr title="Copy Line No">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
+            <br />
+            <strong>No of Pkgs:</strong> {no_of_pkgs || "N/A"}{" "}
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, no_of_pkgs)}
+            >
+              <abbr title="Copy No of Pkgs">
+                <ContentCopyIcon fontSize="inherit" />
+              </abbr>
+            </IconButton>
           </div>
         );
       },
@@ -302,6 +462,112 @@ function Submission() {
         );
       },
     },
+      {
+      accessorKey: "be_filing_info",
+      header: "BE Filling Type",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        const {
+          be_filing_type,
+          be_date,
+          is_checklist_aprroved,
+          is_checklist_aprroved_date,
+        } = row.original;
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {/* Checklist Approval Status */}
+            <div
+              style={{
+                marginBottom: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              {is_checklist_aprroved ? (
+                <>
+                  <CheckCircleIcon
+                    style={{ color: "#4caf50", fontSize: "16px" }}
+                  />
+                  <span
+                    style={{
+                      color: "#4caf50",
+                      fontWeight: "bold",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Checklist Approved
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CancelIcon style={{ color: "#f44336", fontSize: "16px" }} />
+                  <span
+                    style={{
+                      color: "#f44336",
+                      fontWeight: "bold",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Not Approved
+                  </span>
+                </>
+              )}
+            </div>            {/* Checklist Approval Date */}
+            {is_checklist_aprroved_date && (
+              <div
+                style={{ fontSize: "11px", color: "#666", marginBottom: "5px" }}
+              >
+                Approved:{" "}
+                {new Date(is_checklist_aprroved_date).toLocaleString("en-US", {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                })}
+              </div>
+            )}
+
+            {/* Filing Type */}
+            {be_filing_type && (
+              <div
+                style={{
+                  marginBottom: "5px",
+                  fontWeight: "bold",
+                  fontSize: "12px",
+                }}
+              >
+                Type: {be_filing_type}
+              </div>
+            )}
+
+            {/* BE Date */}
+            {be_date && (
+              <div style={{ fontSize: "11px", color: "#555" }}>
+                BE Date: {new Date(be_date).toLocaleDateString()}
+              </div>
+            )}
+
+            {/* Fallback message */}
+            {!be_filing_type &&
+              !be_date &&
+              !is_checklist_aprroved &&
+              !is_checklist_aprroved_date && (
+                <div
+                  style={{
+                    color: "#999",
+                    fontStyle: "italic",
+                    fontSize: "12px",
+                  }}
+                >
+                  No Filing Info
+                </div>
+              )}
+          </div>
+        );
+      },
+    },
+
     {
       accessorKey: "cth_documents",
       header: "E-sanchit Doc",
@@ -351,6 +617,7 @@ function Submission() {
         );
       },
     },
+  
   ];
 
   const tableConfig = {
@@ -378,11 +645,40 @@ function Submission() {
       sx: {
         textAlign: "left", // Ensures all cells in the table body align to the left
       },
+    },    muiTableBodyRowProps: ({ row }) => {
+      const { be_filing_type, container_nos } = row.original;
+      
+      let backgroundColor = '';
+      let hoverColor = '';
+      
+      if (be_filing_type === 'Discharge') {
+        backgroundColor = '#ffebee'; // Light red background
+        hoverColor = '#ffcdd2'; // Darker red on hover
+      } else if (be_filing_type === 'Railout') {
+        // Check if any container has container_rail_out_date
+        const hasRailOutDate = container_nos?.some(container => 
+          container.container_rail_out_date && container.container_rail_out_date.trim() !== ''
+        );
+        
+        if (hasRailOutDate) {
+          backgroundColor = '#ffebee'; // Light red background (same as discharge)
+          hoverColor = '#ffcdd2'; // Darker red on hover
+        } else {
+          backgroundColor = '#fff8e1'; // Light yellow background
+          hoverColor = '#fff3c4'; // Darker yellow on hover
+        }
+      }
+      
+      return {
+        className: getTableRowsClassname(row),
+        sx: {
+          backgroundColor: backgroundColor,
+          '&:hover': {
+            backgroundColor: hoverColor || undefined
+          }
+        }
+      };
     },
-
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -460,6 +756,56 @@ function Submission() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+        
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Box sx={{ position: 'relative' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                      sx={{
+                         borderRadius: 3,
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      fontSize: '0.875rem',
+                      padding: '8px 20px',
+                      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                        transform: 'translateY(-1px)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0px)',
+                      },
+                      }}
+                    >
+                      {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                    </Button>
+                    <Badge 
+                      badgeContent={unresolvedCount} 
+                      color="error" 
+                      overlap="circular" 
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      sx={{ 
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        '& .MuiBadge-badge': {
+                          fontSize: '0.75rem',
+                          minWidth: '18px',
+                          height: '18px',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+                
       </div>
     ),
   };
@@ -468,14 +814,14 @@ function Submission() {
     <div style={{ height: "80%" }}>
       <MaterialReactTable {...tableConfig} />
       <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
-        <Pagination
-          count={totalPages}
-          page={page}
-          onChange={handlePageChange}
-          color="primary"
-          showFirstButton
-          showLastButton
-        />
+       <Pagination
+  count={totalPages}
+  page={page}
+  onChange={handlePageChange}
+  color="primary"
+  showFirstButton
+  showLastButton
+/>
       </Box>
     </div>
   );

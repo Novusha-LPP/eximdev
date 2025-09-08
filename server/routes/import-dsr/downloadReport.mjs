@@ -26,15 +26,13 @@ router.get(
     try {
       let { years, importerURL, status } = req.params;
 
-      console.log(years, importerURL, status);
-
       // Convert years into an array (e.g., "24-25,25-26" => ["24-25", "25-26"])
       let yearArray = years.split(",");
 
-      // MongoDB query to match any year in the list
+      // MongoDB query to match any year in the list with case-insensitive importerURL
       const query = {
         year: { $in: yearArray },
-        importerURL,
+        importerURL: { $regex: new RegExp(`^${importerURL}$`, 'i') }, // Case-insensitive match
         status,
       };
 
@@ -43,7 +41,7 @@ router.get(
       // Filter out jobs with `detailed_status` as "Billing Pending"
       jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
 
-      // Sort by Year first, then by Status Rank, and finally by Date
+      // Rest of your sorting logic...
       jobs.sort((a, b) => {
         // Sort by year (24-25 first, then 25-26)
         if (a.year !== b.year) {

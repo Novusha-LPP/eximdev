@@ -1,11 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
-import PrModel from "../../model/srcc/prModel.mjs";
-import PrData from "../../model/srcc/pr.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
-router.put("/api/update-job/:year/:jobNo", async (req, res) => {
+router.put("/api/update-job/:year/:jobNo", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { jobNo, year } = req.params;
 
   const {
@@ -155,7 +156,9 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
       do_revalidation:
         typeof do_revalidation === "string"
           ? do_revalidation === "true"
-          : !!do_revalidation,
+          : do_revalidation !== undefined && do_revalidation !== null && do_revalidation !== ""
+          ? !!do_revalidation
+          : undefined,
       containers_arrived_on_same_date: checked,
     };
 
@@ -175,10 +178,6 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
           }
           // Check if any do_revalidation_upto values differ
           for (let i = 0; i < dbContainer.do_revalidation.length; i++) {
-            console.log(
-              dbContainer.do_revalidation[i].do_revalidation_upto,
-              incomingContainer.do_revalidation[i].do_revalidation_upto
-            );
             if (
               dbContainer.do_revalidation[i].do_revalidation_upto !==
               incomingContainer.do_revalidation[i].do_revalidation_upto
@@ -275,7 +274,9 @@ router.put("/api/update-job/:year/:jobNo", async (req, res) => {
   }
 });
 // PATCH route for updating only vessel_berthing and container arrival_date
-router.patch("/api/update-job/fields/:year/:jobNo", async (req, res) => {
+router.patch("/api/update-job/fields/:year/:jobNo", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { year, jobNo } = req.params;
   const { vessel_berthing, arrival_date, container_index } = req.body;
 

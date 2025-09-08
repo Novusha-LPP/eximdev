@@ -1,7 +1,53 @@
 import mongoose from "mongoose";
+import { type } from "os";
 
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
+});
+
+
+
+const fieldSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  type: { 
+    type: String, 
+    required: true, 
+    enum: ['text', 'number', 'date', 'select', 'boolean'] 
+  },
+  required: { type: Boolean, default: false },
+  options: [{ type: String }], // For select fields
+  order: { type: Number, default: 0 }
+});
+
+const masterTypeSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  fields: [fieldSchema],
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const customFieldSchema = new mongoose.Schema({
+  fieldId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  value: { type: mongoose.Schema.Types.Mixed, required: true }
+});
+
+const accountEntrySchema = new mongoose.Schema({
+  masterTypeId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'MasterType', 
+    required: true 
+  },
+  companyName: { type: String, required: true },
+  address: { type: String, required: true },
+  dueDate: { type: Date, required: true },
+  reminderFrequency: { 
+    type: String, 
+    required: true, 
+    enum: ['monthly', 'quarterly', 'half-yearly', 'yearly'] 
+  },
+  customFields: [customFieldSchema],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 const cthDocumentSchema = new mongoose.Schema({
@@ -11,7 +57,25 @@ const cthDocumentSchema = new mongoose.Schema({
   url: [{ type: String, trim: true }],
   irn: { type: String, trim: true },
   document_check_date: { type: String, trim: true },
+  is_sent_to_esanchit: { type: Boolean, default: false },
 });
+
+const DsrchargesSchema = new mongoose.Schema({
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_amount_details: { type: String, trim: true },
+});
+
+const esanchitChargesSchema = new mongoose.Schema({
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_charge_refrence_no: { type: String, trim: true },
+  document_charge_recipt_copy: { type: String, trim: true },
+});
+
+
 
 const documentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
@@ -49,15 +113,18 @@ const jobSchema = new mongoose.Schema({
   awb_bl_no: { type: String, trim: true },
   awb_bl_date: { type: String, trim: true },
   description: { type: String, trim: true },
+  hawb_hbl_no: { type: String, trim: true },
+  hawb_hbl_date: { type: String, trim: true },
   be_no: { type: String, trim: true },
   in_bond_be_no: { type: String, trim: true },
   be_date: { type: String, trim: true },
+  be_filing_type: { type: String, trim: true },
   in_bond_be_date: { type: String, trim: true },
   type_of_b_e: { type: String, trim: true },
   no_of_pkgs: { type: String, trim: true },
   unit: { type: String, trim: true },
   gross_weight: { type: String, trim: true },
-  fristCheck: { type: String, trim: true },
+  firstCheck: { type: String, trim: true },
   job_net_weight: { type: String, trim: true },
   priorityJob: { type: String, trim: true, default: "Normal" },
   unit_1: { type: String, trim: true },
@@ -130,6 +197,9 @@ const jobSchema = new mongoose.Schema({
       ],
     },
   ],
+  is_checklist_aprroved: { type: Boolean, default: false },
+  is_checklist_aprroved_date: { type: String, trim: true },
+  is_checklist_clicked: { type: Boolean, trim: true },
   container_count: { type: String, trim: true },
   no_of_container: { type: String, trim: true },
   toi: { type: String, trim: true },
@@ -172,7 +242,7 @@ const jobSchema = new mongoose.Schema({
   do_revalidation_upto_job_level: { type: String, trim: true },
   do_revalidation: { type: Boolean },
   do_revalidation_date: { type: String },
-  rail_out_date: { type: String },
+  // rail_out_date: { type: String },
   examinationPlanning: { type: Boolean },
   examination_planning_date: { type: String, trim: true },
   processed_be_attachment: [{ type: String }],
@@ -234,6 +304,11 @@ const jobSchema = new mongoose.Schema({
   igst_ammount: { type: String, trim: true },
   sws_ammount: { type: String, trim: true },
   intrest_ammount: { type: String, trim: true },
+  fine_amount: { type: String, trim: true },
+  penalty_amount: { type: String, trim: true },
+  penalty_by_us: { type: Boolean, default: false },
+  penalty_by_importer: { type: Boolean, default: false },
+  zero_penalty_as_per_bill_of_entry: { type: Boolean, default: false },
 
 
   ////////////////////////////////////////////////// E-sanchit
@@ -241,6 +316,10 @@ const jobSchema = new mongoose.Schema({
 
   ////////////////////////////////////////////////// DO
   shipping_line_bond_completed: { type: String, trim: true },
+  shipping_line_bond_charges: {
+    type: String,
+    trim: true,
+  },
   shipping_line_bond_completed_date: { type: String, trim: true },
   shipping_line_kyc_completed: { type: String, trim: true },
   shipping_line_kyc_completed_date: { type: String, trim: true },
@@ -275,18 +354,29 @@ const jobSchema = new mongoose.Schema({
   shipping_line_invoice: { type: String, trim: true },
   shipping_line_invoice_date: { type: String },
   shipping_line_invoice_imgs: [{ type: String, trim: true }],
-  do_queries: [{ query: { type: String }, reply: { type: String } }],
+  do_queries: [{ query: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
+  dsr_queries: [{ query: { type: String }, current_module: { type: String }, select_module: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false }, resolved_by: {type: String}, send_by: {type: String}, replied_by: {type: String} }],
   do_completed: { type: String, trim: true },
   // *******
   icd_cfs_invoice: { type: String, trim: true },
 
   icd_cfs_invoice_date: { type: String, trim: true },
 
-
+  import_terms: { type: String, trim: true },
+  cifValue: { type: String, trim: true },
+  freight: { type: String, trim: true },
+  insurance: { type: String, trim: true },
 
   do_received: { type: String, trim: true },
   do_received_date: { type: String, trim: true },
+  is_obl_recieved: { type: Boolean, default: false },
+  obl_recieved_date: { type: String, trim: true },
 
+
+  is_do_doc_recieved: { type: Boolean, default: false },
+  do_doc_recieved_date: { type: String, trim: true },
+  is_do_doc_prepared: { type: Boolean, default: false },
+  do_doc_prepared_date: { type: String, trim: true },
   ////////////////////////////////////////////////// documentation
   documentation_completed_date_time: { type: String, trim: true },
 
@@ -315,9 +405,15 @@ const jobSchema = new mongoose.Schema({
   goods_pickup: { type: String },
   goods_delivery: { type: String },
 
+  
+  ////////////////////////////////////////////form data
+  account_fields: [masterTypeSchema],
+
+  account_types: [accountEntrySchema],
+
   ////////////////////////////////////////////////// CTH Documents
   cth_documents: [cthDocumentSchema],
-  eSachitQueries: [{ query: { type: String }, reply: { type: String } }],
+  eSachitQueries: [{ query: { type: String }, reply: { type: String } , resolved: { type: Boolean, default: false } }],
 
   ////////////////////////////////////////////////////// Documents
   documents: [documentSchema],
@@ -329,8 +425,62 @@ const jobSchema = new mongoose.Schema({
     {
       query: { type: String },
       reply: { type: String },
+      resolved: { type: Boolean, default: false },
     },
   ],
+
+  /////////////////////////////////// Charges Details
+  DsrCharges: [DsrchargesSchema],
+
+
+  /////////////////////////////////// esanchit Charges Details
+  esanchitCharges: [esanchitChargesSchema],
+
+  /////////////////////////////////// Do Charges Details
+
+// 1. Updated Schema (Backend) - Add this to your schema
+do_shipping_line_invoice: [{
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  is_draft: { type: Boolean },
+  is_final: { type: Boolean },
+  document_check_date: { type: String, trim: true }, // This will store ISO string when checked
+  document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
+  payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
+  wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
+  document_amount_details: { type: String, trim: true },
+  payment_request_date: { type: String, trim: true },
+  payment_made_date: { type: String, trim: true },
+  is_tds: { type: Boolean, default: false },
+  is_payment_made: { type: Boolean, default: false },
+  is_payment_requested: { type: Boolean, default: false },
+  is_non_tds: { type: Boolean, default: false },
+  payment_recipt: [{ type: String, trim: true }],
+  payment_recipt_date: { type: String, trim: true },
+}],
+
+insurance_copy: [{
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_amount_details: { type: String, trim: true },
+}],
+
+other_do_documents:[ {
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_amount_details: { type: String, trim: true },
+}],
+
+security_deposit: [{
+  document_name: { type: String, trim: true },
+  url: [{ type: String, trim: true }],
+  document_check_date: { type: String, trim: true },
+  document_amount_details: { type: String, trim: true },
+  utr: { type: Number, trim: true },
+  Validity_upto: { type: String, trim: true },
+}],
 
   ////////////////////////////////////////////////////// Submission
   checklist_verified_on: { type: String },
@@ -339,6 +489,7 @@ const jobSchema = new mongoose.Schema({
     {
       query: { type: String },
       reply: { type: String },
+      resolved: { type: Boolean, default: false },
     },
   ],
   verified_checklist_upload: [{ type: String, trim: true }],
@@ -354,8 +505,8 @@ const jobSchema = new mongoose.Schema({
   icd_cfs_invoice_img: [{ type: String, trim: true }],
   upload_agency_bill_img: {type: String},
   upload_reimbursement_bill_img: { type: String },  
-  bill_amount: {type: String}
-  
+  bill_amount: {type: String},
+  do_list: { type: String, trim: true },
 });
 
 

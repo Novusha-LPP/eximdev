@@ -17,15 +17,61 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileUpload from "../gallery/FileUpload";
 import ImagePreview from "../gallery/ImagePreview";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import QueriesComponent from "../../utils/QueriesComponent";
 
 const DocumentationJob = () => {
-  const routeLocation = useLocation()
+  const routeLocation = useLocation();
   const { job_no, year } = useParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
-  
+
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null);
+  const {
+    setSearchQuery,
+    setSelectedImporter,
+    setCurrentPageDocTab0,
+    setCurrentPageDocTab1,
+  } = useSearchQuery();
+
+  const isTrue = routeLocation.state?.currentTab || false;
+  const isAdmin = user.role === "Admin"; // Check if user is an Admin
+  const isDisabled = !isAdmin && isTrue === 1;
+  // Store search parameters from location state
+  useEffect(() => {
+    if (routeLocation.state) {
+      const { searchQuery, selectedImporter, currentTab, currentPage } =
+        routeLocation.state;
+
+      const params = {
+        searchQuery,
+        selectedImporter,
+        currentTab,
+        currentPage,
+      };
+
+      setStoredSearchParams(params);
+    }
+  }, [routeLocation.state]); // Handle back click function
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 0;
+
+    navigate("/documentation", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex, // Use tabIndex instead of currentTab
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          currentPage: storedSearchParams.currentPage,
+        }),
+      },
+    });
+  };
+
   const extractFileName = (url) => {
     try {
       const parts = url.split("/");
@@ -35,14 +81,10 @@ const DocumentationJob = () => {
       return url; // Fallback to original URL
     }
   };
-  
-  const isTrue = routeLocation.state?.currentTab || false;
-  const isAdmin = user.role === "Admin"; // Check if user is an Admin
-  const isDisabled = (!isAdmin && isTrue === 1);
-  
+
   // Check if checklist exists and has items
   const hasChecklist = data?.checklist && data.checklist.length > 0;
-  
+
   // Combined disabled state - disable if isDisabled OR no checklist
   const isFieldDisabled = isDisabled || !hasChecklist;
 
@@ -59,6 +101,18 @@ const DocumentationJob = () => {
     } catch (error) {
       console.error("Error fetching job details:", error);
     }
+  };
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
+      ...prev,
+      dsr_queries: updatedQueries,
+    }));
+  };
+
+  const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log("Query resolved:", resolvedQuery);
+    // You can add API calls, notifications, etc.
   };
 
   const handleCheckboxChange = (e) => {
@@ -90,18 +144,33 @@ const DocumentationJob = () => {
       documentation_completed_date_time: newValue,
     }));
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     try {
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
+
       await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data._id}`,
+        `${process.env.REACT_APP_API_STRING}/update-documentation-job/${data.job_no}/${data.year}`,
         {
-          documentation_completed_date_time: data.documentation_completed_date_time,
-        }
+          documentation_completed_date_time:
+            data.documentation_completed_date_time,
+          dsr_queries: data.dsr_queries || [],
+        },
+        { headers }
       );
-      navigate("/documentation");
+      // Navigate back with preserved search parameters
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
+
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation data:", error);
@@ -111,10 +180,21 @@ const DocumentationJob = () => {
 
   const updateChecklist = async (newChecklist) => {
     try {
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
+      // Get user info from localStorage for audit trail
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
+
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
         {
           checklist: newChecklist,
-        }
+        },
+        { headers }
       );
     } catch (error) {
       console.error("Error updating checklist:", error);
@@ -186,7 +266,7 @@ const DocumentationJob = () => {
       </Box>
     );
   };
-  
+
   const renderAllDocuments = (documents) => {
     if (!documents || documents.length === 0) {
       return <p>No documents uploaded yet.</p>;
@@ -211,7 +291,6 @@ const DocumentationJob = () => {
               borderRadius: "5px",
               flex: "1 1 30%", // Flex-basis for 3 columns
               maxWidth: "30%", // Ensure proper width
-              minWidth: "250px", // Minimum width for smaller devices
             }}
           >
             <Box mt={1} textAlign="center">
@@ -229,9 +308,25 @@ const DocumentationJob = () => {
       </Box>
     );
   };
-  
   return (
     <div>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null ? (
         <>
           <JobDetailsStaticData
@@ -240,6 +335,210 @@ const DocumentationJob = () => {
             params={{ job_no, year }}
           />
 
+          <div>
+            <QueriesComponent
+              queries={data.dsr_queries}
+              currentModule="Documentation"
+              onQueriesChange={handleQueriesChange}
+              title="Documentation Queries"
+              showResolveButton={true}
+              readOnlyReply={false}
+              onResolveQuery={handleResolveQuery}
+              userName={user?.username}
+            />
+          </div>
+
+          <div className="job-details-container">
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 3,
+              }}
+            >
+              {/* Terms of Invoice Heading */}
+              <JobDetailsRowHeading
+                heading="Terms of Invoice (FOB)"
+                variant="subtitle2"
+                sx={{
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  color: "#2c3e50",
+                  marginBottom: "8px",
+                }}
+              />
+
+              {/* Financial Details Display - Government Style */}
+              <Box
+                sx={{
+                  maxWidth: 320,
+                  minWidth: 280,
+                }}
+              >
+                <Box
+                  sx={{
+                    backgroundColor: "#fafafa",
+                    border: "1px solid #cccccc",
+                    borderRadius: "2px",
+                    overflow: "hidden",
+                  }}
+                >
+                  {data.cifValue || data.freight || data.insurance ? (
+                    <Box>
+                      {/* Header */}
+                      <Box
+                        sx={{
+                          backgroundColor: "#e8f4f8",
+                          padding: "8px 12px",
+                          borderBottom: "1px solid #cccccc",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: "#2c3e50",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          Financial Details
+                        </Typography>
+                      </Box>
+
+                      {/* Data Rows */}
+                      <Box>
+                        {/* CIF/Primary Value */}
+                        {data.cifValue && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              borderBottom: "1px solid #e5e5e5",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {data.import_terms || "CIF"} Value:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.cifValue).toLocaleString(
+                                "en-IN"
+                              )}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Freight */}
+                        {data.freight && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              borderBottom: data.insurance
+                                ? "1px solid #e5e5e5"
+                                : "none",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              Freight:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.freight).toLocaleString("en-IN")}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Insurance */}
+                        {data.insurance && (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              padding: "10px 12px",
+                              backgroundColor: "#ffffff",
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#555555",
+                                flex: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              Insurance:
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#2c3e50",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              ₹{" "}
+                              {parseFloat(data.insurance).toLocaleString(
+                                "en-IN"
+                              )}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        padding: "20px 12px",
+                        textAlign: "center",
+                        backgroundColor: "#ffffff",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: "13px",
+                          color: "#888888",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No financial details available
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          </div>
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />
             {renderDocuments(data.cth_documents, "CTH Documents")}
@@ -347,7 +646,6 @@ const DocumentationJob = () => {
                 className="btn sticky-btn"
                 style={{ float: "right", margin: "20px" }}
                 type="submit"
-                disabled={!hasChecklist}
               >
                 Submit
               </button>

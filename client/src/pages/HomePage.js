@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -8,25 +5,17 @@ import Toolbar from "@mui/material/Toolbar";
 import { Route, Routes } from "react-router-dom";
 import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
+import ProtectedRoute from "./ProtectedRoute.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
-import ViewBugs from "../components/home/ViewBugs.js";
 import ChangePassword from "../components/home/ChangePassword.js";
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
-// Customer KYC
-import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
-import ViewCustomerKyc from "../components/customerKyc/ViewCustomerKyc.js";
-import ViewDraftDetails from "../components/customerKyc/ViewDraftDetails.js";
-import ReviseCustomerKyc from "../components/customerKyc/ReviseCustomerKyc.js";
-import ViewCompletedKycDetails from "../components/customerKyc/ViewCompletedKycDetails.js";
-import EditCompletedKyc from "../components/customerKyc/EditCompletedKyc.js";
 // Documentation
-import Documentation from "../components/documentation/Documentation.js";
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
 // Submission
-import Submission from "../components/submission/Submission.js";
+import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
 // Employee KYC
 import EmployeeKYC from "../components/employeeKyc/EmployeeKYC.js";
@@ -34,7 +23,6 @@ import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
 // E-Sanchit
-import ESanchit from "../components/eSanchit/ESanchit.js";
 import ESanchitTab from "../components/eSanchit/ESanchitTab.js";
 
 import ViewESanchitJob from "../components/eSanchit/ViewESanchitJob.js";
@@ -60,9 +48,18 @@ import ImportersInfo from "../components/home/ImportersInfo/ImportersInfo.js";
 
 // Import Utility Tool
 import ImportUtilityTool from "../components/import-utility-tool/ImportUtilityTool.js";
+
+//import Report 
+import ReportTabs from "../components/Report/ReportTabs.js";
+import MonthlyContainers from "../components/Report/monthlyContainers.js";
+import DetailedReport from "../components/Report/DetailedReport.js";
+
+// import auditrail
+import AuditTrailViewer from "../components/audit/AuditTrailViewer.js";
 // import billing 
-import ImportBilling from "../components/Import-billing/ImportBilling.js";
 import ViewBillingJob from "../components/Import-billing/ViewBillingJob.js";
+
+import EditPaymentRequest from "../components/Import-billing/EditPaymentRequest.js";
 // Inward Register
 import InwardRegister from "../components/inward-register/InwardRegister.js";
 // Outward Register
@@ -70,19 +67,6 @@ import OutwardRegister from "../components/outward-register/OutwardRegister.js";
 import OutwardRegisterDetails from "../components/outward-register/OutwardRegisterDetails.js";
 import AppbarComponent from "../components/home/AppbarComponent.js";
 import DrawerComponent from "../components/home/DrawerComponent.js";
-// LR Operations
-import LrReport from "../components/lr-report/LrReport.js";
-// SRCC Directories
-import SrccDirectories from "../components/srcc-directories/SrccDirectories.js";
-import ElockOperation from "../components/Elock-Operation/ElockOperation.js";
-import ViewSrccOrganisationData from "../components/srcc-directories/view-data/ViewSrccOrganisationData.js";
-
-// Tyre Maintenance
-import TyreMaintenance from "../components/tyre-maintenance/TyreMaintenance.js";
-// RTO
-import RTO from "../components/rto/RTO.js";
-import SRCEL from "../components/srcel/SRCEL.js";
-import SRCELDashboard from "../components/srcel/SRCELDashboard.js";
 
 // Screens
 import Screen1 from "../components/Screens/Screen1.js";
@@ -93,9 +77,17 @@ import Screen5 from "../components/Screens/Screen5.js";
 import Screen6 from "../components/Screens/Screen6.js";
 import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
+import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
+import AllUsersPage from "./AllUsersPage.js";
+
+//Export
+
+import genInfo from "../components/Export/Directories/GenInfo.js";
+import Directories from "../components/Export/Directories/Directories.js";
 
 
 const drawerWidth = 60;
+
 
 function HomePage() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -106,179 +98,437 @@ function HomePage() {
   return (
     <TabValueContext.Provider value={{ tabValue, setTabValue }}>
       <SearchQueryProvider>
-      <Box sx={{ display: "flex" }}>
-        <CssBaseline />
-        <AppbarComponent
-          mobileOpen={mobileOpen}
-          setMobileOpen={setMobileOpen}
-        />
+        <Box sx={{ display: "flex" }}>
+          <CssBaseline />
+          <AppbarComponent
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
 
-        <DrawerComponent
-          mobileOpen={mobileOpen}
-          setMobileOpen={setMobileOpen}
-        />
+          <DrawerComponent
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
 
-        {/* Content */}
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            width: {
-              lg: `calc(100% - ${drawerWidth}px)`,
-              backgroundColor: "#F9FAFB",
-              height: "100vh",
-              overflow: "scroll",
-              padding: "20px",
-              paddingTop: 0,
-            },
-          }}
-        >
-          <Toolbar />
-          <Routes>
-            {/* Home */}
-            <Route path="/" element={<Home />} />
-            <Route path="/assign" element={<Assign />} />
-            <Route path="/view-bugs" element={<ViewBugs />} />
-            <Route path="/change-password" element={<ChangePassword />} />
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              width: {
+                lg: `calc(100% - ${drawerWidth}px)`,
+                backgroundColor: "#F9FAFB",
+                height: "100vh",
+                overflow: "scroll",
+                padding: "20px",
+                paddingTop: 0,
+              },
+            }}
+          >
+            <Toolbar />
+            <Routes>
+              {/* Public Routes - No protection needed */}
+              <Route path="/" element={<Home />} />
+              <Route path="/change-password" element={<ChangePassword />} />
 
-            {/* Accounts */}
-            <Route path="/accounts" element={<Accounts />} />
+              {/* Protected Routes */}
+              <Route 
+                path="/assign" 
+                element={
+                  
+                    <Assign />
+                } 
+              />
 
-            {/* Customer KYC */}
-            <Route path="/customer-kyc" element={<CustomerKyc />} />
-            <Route
-              path="/view-customer-kyc/:_id"
-              element={<ViewCustomerKyc />}
-            />
-            <Route
-              path="/view-customer-kyc-drafts/:_id"
-              element={<ViewDraftDetails />}
-            />
-            <Route
-              path="/revise-customer-kyc/:_id"
-              element={<ReviseCustomerKyc />}
-            />
-            <Route
-              path="/view-completed-kyc/:_id"
-              element={<ViewCompletedKycDetails />}
-            />
-            <Route
-              path="/edit-completed-kyc/:_id"
-              element={<EditCompletedKyc />}
-            />
+              {/* Accounts */}
+              <Route 
+                path="/accounts" 
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <Accounts />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* Documentation */}
-            <Route path="documentation" element={<DocumentationTab />} />
-            <Route
-              path="/documentationJob/view-job/:job_no/:year"
-              element={<DocumentationJob />}
-            />
+              {/* Documentation */}
+              <Route 
+                path="/documentation" 
+                element={
+                  <ProtectedRoute requiredModule="Documentation">
+                    <DocumentationTab />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/documentationJob/view-job/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Documentation">
+                    <DocumentationJob />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Submission */}
-            <Route path="/submission" element={<Submission />} />
-            <Route
-              path="/submission-job/:job_no/:year"
-              element={<SubmissionJob />}
-            />
+              {/* Submission */}
+              <Route 
+                path="/submission" 
+                element={
+                  <ProtectedRoute requiredModule="Submission">
+                    <SubmissionTabs />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/submission-job/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Submission">
+                    <SubmissionJob />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Employee KYC */}
-            <Route path="/employee-kyc" element={<EmployeeKYC />} />
-            <Route path="/view-kyc/:username" element={<ViewIndividualKyc />} />
+              {/* Employee KYC */}
+              <Route 
+                path="/employee-kyc" 
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <EmployeeKYC />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/view-kyc/:username" 
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <ViewIndividualKyc />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* Employee Onboarding */}
-            <Route
-              path="/employee-onboarding"
-              element={<EmployeeOnboarding />}
-            />
+              {/* Employee Onboarding */}
+              <Route
+                path="/employee-onboarding"
+                element={
+                  <ProtectedRoute requiredModule="Employee Onboarding">
+                    <EmployeeOnboarding />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* ESanchit */}
-            <Route path="/e-sanchit" element={<ESanchitTab />} />
-            <Route
-              path="/esanchit-job/:job_no/:year"
-              element={<ViewESanchitJob />}
-            />
+              {/* ESanchit */}
+              <Route 
+                path="/e-sanchit" 
+                element={
+                  <ProtectedRoute requiredModule="e-Sanchit">
+                    <ESanchitTab />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/esanchit-job/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="e-Sanchit">
+                    <ViewESanchitJob />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Exit Feedback */}
-            <Route path="/exit-feedback" element={<ExitInterview />} />
+              {/* Exit Feedback */}
+              <Route 
+                path="/exit-feedback" 
+                element={
+                  <ProtectedRoute requiredModule="Exit Feedback">
+                    <ExitInterview />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* Export */}
+              {/* Import DO */}
+              <Route 
+                path="/import-do" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <ImportDO />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/edit-do-list/:job_no/:year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditDoList />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/edit-do-planning/:job_no/:year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditDoPlanning />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/edit-do-completed/:job_no/:year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditDoCompleted />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/edit-billing-sheet/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditBillingSheet />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Import DO */}
-            <Route path="/import-do" element={<ImportDO />} />
-            <Route path="/edit-do-list/:_id" element={<EditDoList />} />
-            <Route path="/edit-do-planning/:_id" element={<EditDoPlanning />} />
-            <Route path="edit-do-completed/:_id" element={<EditDoCompleted />} />
-            <Route
-              path="/edit-billing-sheet/:_id"
-              element={<EditBillingSheet />}
-            />
+              {/* Import DSR */}
+              <Route 
+                path="/import-dsr" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <ImportDSR />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/import-dsr/job/:job_no/:selected_year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <ViewJob />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/job/:job_no/:selected_year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <ViewJob />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* Import DSR */}
-            <Route path="/import-dsr" element={<ImportDSR />} />
-            <Route path="/job/:job_no/:selected_year" element={<ViewJob />} />
+              {/* Import Operations */}
+              <Route 
+                path="/import-operations" 
+                element={
+                  <ProtectedRoute requiredModule="Import - Operations">
+                    <ImportOperations />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/import-operations/view-job/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Operations">
+                    <ViewOperationsJob />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/import-operations/list-operation-job/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Operations">
+                    <OperationListJob />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Import Operations */}
-            <Route path="/import-operations" element={<ImportOperations />} />
-            <Route
-              path="/import-operations/view-job/:job_no/:year"
-              element={<ViewOperationsJob />}
-            />
-            <Route
-              path="/import-operations/list-operation-job/:job_no/:year"
-              element={<OperationListJob />}
-            />
-            {/* ImportersInfo */}
+              {/* ImportersInfo */}
+              <Route 
+                path="/ImportersInfo" 
+                element={
+                  <ProtectedRoute requiredModule="Import - Add">
+                    <ImportersInfo />
+                  </ProtectedRoute>
+                } 
+              />
 
-            <Route path="/ImportersInfo" element={<ImportersInfo />} />
-<Route
-              path="/import-utility-tool"
-              element={<ImportUtilityTool />}
-            />
-            <Route path="/duty-calculator" element={<DutyCalculator />} />
-            <Route path="/utilities" element={<UtilityParent />} />
-            {/* import billing */}
-            <Route path="/import-billing" element={<ImportBilling />} />
-            <Route path="/view-billing-job/:job_no/:year" element={<ViewBillingJob />} />
-            
+              <Route
+                path="/import-utility-tool"
+                element={
+                  <ProtectedRoute requiredModule="Import Utility Tool">
+                    <ImportUtilityTool />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Inward Register */}
-            <Route path="/inward-register" element={<InwardRegister />} />
+              <Route
+                path="/report"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <ReportTabs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/report/monthly-containers"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <MonthlyContainers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/report/detailed"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <DetailedReport />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Outward Register */}
-            <Route path="/outward-register" element={<OutwardRegister />} />
-            <Route
-              path="/outward-register-details/:_id"
-              element={<OutwardRegisterDetails />}
-            />
+              <Route
+                path="/audit-trail"
+                element={
+                  <ProtectedRoute requiredModule="Audit Trail">
+                    <AuditTrailViewer />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/all-users"
+                element={
+                  <ProtectedRoute requiredModule="Audit Trail">
+                    <AllUsersPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route 
+                path="/duty-calculator" 
+                element={
+                  <ProtectedRoute requiredModule="Import Utility Tool">
+                    <DutyCalculator />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/utilities" 
+                element={
+                  <ProtectedRoute requiredModule="Import Utility Tool">
+                    <UtilityParent />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* LR Operations */}
-            <Route path="/lr-report" element={<LrReport />} />
-            {/* Screens */}
-            <Route path="/screen1" element={<Screen1 />} />
-            <Route path="/screen2" element={<Screen2 />} />
-            <Route path="/screen3" element={<Screen3 />} />
-            <Route path="/screen4" element={<Screen4 />} />
-            <Route path="/screen5" element={<Screen5 />} />
-            <Route path="/screen6" element={<Screen6 />} />
+              {/* import billing */}
+              <Route 
+                path="/import-billing" 
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <ImportBillingTab />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/view-billing-job/:job_no/:year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <ViewBillingJob />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/view-payment-request-job/:job_no/:year" 
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <EditPaymentRequest />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* SRCC Directories */}
-            <Route path="/srcc-directories" element={<SrccDirectories />} />
-            <Route path="/elock-operation" element={<ElockOperation />} />
-            <Route
-              path="/view-srcc-organisation-data/:_id"
-              element={<ViewSrccOrganisationData />}
-            />
+              {/* Screens */}
+              <Route 
+                path="/screen1" 
+                element={
+                  <ProtectedRoute requiredModule="Screen1">
+                    <Screen1 />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/screen2" 
+                element={
+                  <ProtectedRoute requiredModule="Screen2">
+                    <Screen2 />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/screen3" 
+                element={
+                  <ProtectedRoute requiredModule="Screen3">
+                    <Screen3 />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/screen4" 
+                element={
+                  <ProtectedRoute requiredModule="Screen4">
+                    <Screen4 />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/screen5" 
+                element={
+                  <ProtectedRoute requiredModule="Screen5">
+                    <Screen5 />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/screen6" 
+                element={
+                  <ProtectedRoute requiredModule="Screen6">
+                    <Screen6 />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* Tyre Maintenance */}
-            <Route path="/tyre-maintenance" element={<TyreMaintenance />} />
-            <Route path="/srcel" element={<SRCEL />} />
-            <Route path="/SRCEL-Dashboard" element={<SRCELDashboard />} />
+              {/* Inward Register */}
+              <Route 
+                path="/inward-register" 
+                element={
+                  <ProtectedRoute requiredModule="Inward Register">
+                    <InwardRegister />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {/* RTO */}
-            <Route path="/rto" element={<RTO />} />
-          </Routes>
+              {/* Outward Register */}
+              <Route 
+                path="/outward-register" 
+                element={
+                  <ProtectedRoute requiredModule="Outward Register">
+                    <OutwardRegister />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/outward-register-details/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Outward Register">
+                    <OutwardRegisterDetails />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Export */}
+              <Route
+                path="/export-directories"
+                element={
+                  <ProtectedRoute requiredModule="Directories">
+                    <Directories />
+                  </ProtectedRoute>
+                }
+              />
+
+            </Routes>
+          </Box>
         </Box>
-      </Box>
       </SearchQueryProvider>
     </TabValueContext.Provider>
   );

@@ -1,5 +1,6 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
 
@@ -17,14 +18,14 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-do-module-jobs", async (req, res) => {
+router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
-    const selectedYear = year ? year.trim() : ""; // ✅ Keep year as a string
+    const selectedYear = year ? year.trim() : "";
 
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
@@ -79,6 +80,13 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
       ],
     };
 
+     if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
+
     if(selectedYear){
       baseQuery.$and.push({ year: selectedYear });
     }
@@ -98,10 +106,17 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      baseQuery.$and.push(req.userIcdFilter);
+    } 
+
+    // Note: Status filter will be applied after fetching to ensure accuracy with complex nested arrays 
+
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
+        "job_no year do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
       )
       .lean();
 
@@ -122,8 +137,143 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     // Combine results and remove duplicates
     const uniqueJobs = [...new Set([...allJobs, ...filteredJobs])];
 
-    // **Step 4: Calculate additional fields (displayDate & dayDifference)**
-    const jobsWithCalculatedFields = uniqueJobs.map((job) => {
+    // **Step 3.5: Apply status filter to the final combined jobs**
+    let finalFilteredJobs = uniqueJobs;
+    
+    if (statusFilter) {
+      const decodedStatusFilter = decodeURIComponent(statusFilter).trim();
+      console.log(`Applying status filter: ${decodedStatusFilter} to ${uniqueJobs.length} jobs`);
+      
+      finalFilteredJobs = uniqueJobs.filter((job) => {
+        switch (decodedStatusFilter) {
+          case "do_doc_prepared":
+            return job.is_do_doc_prepared === true;
+          
+          case "do_doc_not_prepared":
+            return job.is_do_doc_prepared !== true;
+          
+          case "payment_request_sent":
+            return job.do_shipping_line_invoice && 
+                   Array.isArray(job.do_shipping_line_invoice) && 
+                   job.do_shipping_line_invoice.length > 0 && 
+                   job.do_shipping_line_invoice.some(invoice => 
+                     invoice.payment_request_date && 
+                     invoice.payment_request_date !== "" && 
+                     invoice.payment_request_date !== null
+                   );
+          
+          case "payment_request_not_sent":
+            return !job.do_shipping_line_invoice || 
+                   !Array.isArray(job.do_shipping_line_invoice) || 
+                   job.do_shipping_line_invoice.length === 0 || 
+                   !job.do_shipping_line_invoice.some(invoice => 
+                     invoice.payment_request_date && 
+                     invoice.payment_request_date !== "" && 
+                     invoice.payment_request_date !== null
+                   );
+          
+          case "payment_made":
+            return job.do_shipping_line_invoice && 
+                   Array.isArray(job.do_shipping_line_invoice) && 
+                   job.do_shipping_line_invoice.length > 0 && 
+                   job.do_shipping_line_invoice.some(invoice => 
+                     invoice.is_payment_made === true || 
+                     (invoice.payment_made_date && 
+                      invoice.payment_made_date !== "" && 
+                      invoice.payment_made_date !== null)
+                   );
+          
+          case "payment_not_made":
+            return !job.do_shipping_line_invoice || 
+                   !Array.isArray(job.do_shipping_line_invoice) || 
+                   job.do_shipping_line_invoice.length === 0 || 
+                   !job.do_shipping_line_invoice.some(invoice => 
+                     invoice.is_payment_made === true || 
+                     (invoice.payment_made_date && 
+                      invoice.payment_made_date !== "" && 
+                      invoice.payment_made_date !== null)
+                   );
+          
+          case "obl_received":
+            return job.is_obl_recieved === true;
+          
+          case "obl_not_received":
+            return job.is_obl_recieved !== true;
+          
+          case "doc_sent_to_shipping_line":
+            return job.is_do_doc_recieved === true;
+          
+          case "doc_not_sent_to_shipping_line":
+            return job.is_do_doc_recieved !== true;
+          
+          default:
+            return true; // No filter for "All Status" or unknown values
+        }
+      });
+      
+      console.log(`After status filter: ${finalFilteredJobs.length} jobs remaining`);
+    }
+
+    // **Step 4: Calculate DO Doc Prepared counts**
+    const totalJobsCount = finalFilteredJobs.length;
+    const doDocPreparedTrueCount = finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length;
+    const doDocPreparedFalseCount = finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length;
+
+    // **Step 4.5: Calculate status filter counts**
+    const statusFilterCounts = {
+      all: finalFilteredJobs.length,
+      do_doc_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared === true).length,
+      do_doc_not_prepared: finalFilteredJobs.filter(job => job.is_do_doc_prepared !== true).length,
+      payment_request_sent: finalFilteredJobs.filter(job => 
+        job.do_shipping_line_invoice && 
+        Array.isArray(job.do_shipping_line_invoice) && 
+        job.do_shipping_line_invoice.length > 0 && 
+        job.do_shipping_line_invoice.some(invoice => 
+          invoice.payment_request_date && 
+          invoice.payment_request_date !== "" && 
+          invoice.payment_request_date !== null
+        )
+      ).length,
+      payment_request_not_sent: finalFilteredJobs.filter(job => 
+        !job.do_shipping_line_invoice || 
+        !Array.isArray(job.do_shipping_line_invoice) || 
+        job.do_shipping_line_invoice.length === 0 || 
+        !job.do_shipping_line_invoice.some(invoice => 
+          invoice.payment_request_date && 
+          invoice.payment_request_date !== "" && 
+          invoice.payment_request_date !== null
+        )
+      ).length,
+      payment_made: finalFilteredJobs.filter(job => 
+        job.do_shipping_line_invoice && 
+        Array.isArray(job.do_shipping_line_invoice) && 
+        job.do_shipping_line_invoice.length > 0 && 
+        job.do_shipping_line_invoice.some(invoice => 
+          invoice.is_payment_made === true || 
+          (invoice.payment_made_date && 
+           invoice.payment_made_date !== "" && 
+           invoice.payment_made_date !== null)
+        )
+      ).length,
+      payment_not_made: finalFilteredJobs.filter(job => 
+        !job.do_shipping_line_invoice || 
+        !Array.isArray(job.do_shipping_line_invoice) || 
+        job.do_shipping_line_invoice.length === 0 || 
+        !job.do_shipping_line_invoice.some(invoice => 
+          invoice.is_payment_made === true || 
+          (invoice.payment_made_date && 
+           invoice.payment_made_date !== "" && 
+           invoice.payment_made_date !== null)
+        )
+      ).length,
+      obl_received: finalFilteredJobs.filter(job => job.is_obl_recieved === true).length,
+      obl_not_received: finalFilteredJobs.filter(job => job.is_obl_recieved !== true).length,
+      doc_sent_to_shipping_line: finalFilteredJobs.filter(job => job.is_do_doc_recieved === true).length,
+      doc_not_sent_to_shipping_line: finalFilteredJobs.filter(job => job.is_do_doc_recieved !== true).length
+    };
+
+    // **Step 5: Calculate additional fields (displayDate & dayDifference)**
+    const jobsWithCalculatedFields = finalFilteredJobs.map((job) => {
       const jobLevelDate = job.do_validity_upto_job_level
         ? new Date(job.do_validity_upto_job_level)
         : null;
@@ -153,26 +303,45 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
       };
     });
 
-    // **Step 5: Sorting logic**
+    // **Step 6: Sorting logic**
     jobsWithCalculatedFields.sort((a, b) => {
       if (a.dayDifference > 0 && b.dayDifference <= 0) return -1;
       if (a.dayDifference <= 0 && b.dayDifference > 0) return 1;
       if (a.dayDifference > 0 && b.dayDifference > 0) {
-        return b.dayDifference - a.dayDifference; // Descending by dayDifference
+        return b.dayDifference - a.dayDifference;
       }
-      return new Date(a.displayDate) - new Date(b.displayDate); // Ascending by displayDate
+      return new Date(a.displayDate) - new Date(b.displayDate);
     });
 
-    // **Step 6: Apply pagination**
+    const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
+    // **Step 7: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
 
-    // ✅ Return paginated response
+    // ✅ Return paginated response with counts
     res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      // Add the new counts
+      doDocCounts: {
+        totalJobs: totalJobsCount,
+        prepared: doDocPreparedTrueCount,
+        notPrepared: doDocPreparedFalseCount
+      },
+      // Add status filter counts
+      statusFilterCounts,
+      unresolvedCount
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);
@@ -182,10 +351,10 @@ router.get("/api/get-do-module-jobs", async (req, res) => {
     });
   }
 });
-router.get("/api/get-do-complete-module-jobs", async (req, res) => {
+router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year } = req.query;
+    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -228,7 +397,12 @@ router.get("/api/get-do-complete-module-jobs", async (req, res) => {
       ],
     };
     
-      
+        // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }  
     
     if(selectedYear){
       baseQuery.$and.push({ year: selectedYear });
@@ -249,10 +423,16 @@ router.get("/api/get-do-complete-module-jobs", async (req, res) => {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } 
+
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no do_completed do_validity do_copies"
+        "job_no year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no do_completed do_validity do_copies do_list"
       )
       .lean();
 
@@ -314,6 +494,16 @@ router.get("/api/get-do-complete-module-jobs", async (req, res) => {
       return new Date(a.displayDate) - new Date(b.displayDate); // Ascending by displayDate
     });
 
+     const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
     // **Step 6: Apply pagination**
     const totalJobs = jobsWithCalculatedFields.length;
     const paginatedJobs = jobsWithCalculatedFields.slice(skip, skip + limitNumber);
@@ -324,6 +514,7 @@ router.get("/api/get-do-complete-module-jobs", async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount
     });
   } catch (error) {
     console.error("Error in /api/get-do-module-jobs:", error.stack || error);

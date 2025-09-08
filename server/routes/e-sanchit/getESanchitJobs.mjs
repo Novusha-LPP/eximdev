@@ -1,5 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -18,9 +20,9 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-esanchit-jobs", async (req, res) => {
+router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
-  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
 
   // Decode `importer` (in case it's URL encoded as `%20` for spaces)
   const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -28,7 +30,7 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
-  const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
+  const selectedYear = year ? year.toString() : null; // ✅ Ensure it's a string
 
   if (isNaN(pageNumber) || pageNumber < 1) {
     return res.status(400).json({ message: "Invalid page number" });
@@ -45,27 +47,36 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
     const searchQuery = search ? buildSearchQuery(search) : {};
 
     // Construct base query
-    const baseQuery = {
-      $and: [
-        { status: { $regex: /^pending$/i } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-        { job_no: { $ne: null } },
-        { out_of_charge: { $eq: "" } },
+  // Construct base query
+const baseQuery = {
+  $and: [
+    { status: { $regex: /^pending$/i } },
+    { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+    { job_no: { $ne: null } },
+    { out_of_charge: { $eq: "" } },
         {
-          $or: [
-            { esanchit_completed_date_time: { $exists: false } },
-            { esanchit_completed_date_time: "" },
-            { esanchit_completed_date_time: null },
-            { "cth_documents.document_check_date": "" },
-          ],
-        },
-        searchQuery,
+      cth_documents: { $elemMatch: { is_sent_to_esanchit: true } }
+    },
+    {
+      $or: [
+        { esanchit_completed_date_time: { $exists: false } },
+        { esanchit_completed_date_time: "" },
+        { esanchit_completed_date_time: null },
       ],
+    },
+    // 🔹 This enforces at least one document with is_sent_to_esanchit === true
 
-      
-    };
+    searchQuery,
+  ],
+};
+
+    // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
     
-
     // ✅ Apply Year Filter if Provided
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
@@ -78,14 +89,20 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       });
     }
 
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    }
+
     // Fetch and sort jobs
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries"
       )
       .sort({ gateway_igm_date: 1 });
-
-    // Custom sorting
+    
+    // Custom sorting with remark priority
     const rankedJobs = allJobs.sort((a, b) => {
       const rank = (job) => {
         if (job.priorityJob === "High Priority") return 1;
@@ -96,6 +113,17 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
       };
       return rank(a) - rank(b);
     });
+
+    // Get count of jobs with unresolved queries (for badge)
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+      !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+    
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
 
     // Pagination
     const totalJobs = rankedJobs.length;
@@ -108,14 +136,17 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
         totalPages: 1,
         currentPage: pageNumber,
         jobs: [], // Return an empty array instead of 404
+        unresolvedCount, // ✅ Include unresolved count
       });
     }
+    
     // Send response
     return res.status(200).json({
       totalJobs,
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount, // ✅ Include unresolved count
     });
   } catch (err) {
     console.error("Error fetching data:", err);
@@ -124,9 +155,11 @@ router.get("/api/get-esanchit-jobs", async (req, res) => {
 });
 
 // PATCH endpoint for updating E-Sanchit jobs
-router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
+router.patch("/api/update-esanchit-job/:job_no/:year", 
+  auditMiddleware('Job'),
+  async (req, res) => {
   const { job_no, year } = req.params;
-  const { cth_documents, queries, esanchit_completed_date_time } = req.body;
+  const { cth_documents, esanchitCharges, queries, esanchit_completed_date_time, dsr_queries } = req.body;
 
   try {
     // Find the job by job_no and year
@@ -141,8 +174,17 @@ router.patch("/api/update-esanchit-job/:job_no/:year", async (req, res) => {
       job.cth_documents = cth_documents;
     }
 
+    if (esanchitCharges) {
+      job.esanchitCharges = esanchitCharges;
+    }
+
     if (queries) {
       job.eSachitQueries = queries;
+    }
+
+    // Update dsr_queries if provided
+    if (dsr_queries) {
+      job.dsr_queries = dsr_queries;
     }
 
     // Update esanchit_completed_date_time only if it exists in the request

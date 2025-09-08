@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useEffect,
   useContext,
+  useRef,
 } from "react";
 import "../../styles/import-dsr.scss";
 import {
@@ -11,6 +12,9 @@ import {
   MenuItem,
   TextField,
   Pagination,
+  Button,
+  Box,
+  Badge,
   Typography,
   Autocomplete
 } from "@mui/material";
@@ -19,68 +23,202 @@ import { MaterialReactTable } from "material-react-table";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import Tooltip from "@mui/material/Tooltip";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { YearContext } from "../../contexts/yearContext.js";
 import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
+import { TabContext } from "./ImportOperations.js";
+import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
+import { Link } from "react-router-dom";
 
 function ImportOperations() {
+  const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const [years, setYears] = useState([]);
-  const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState("");
+        const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+        const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [importers, setImporters] = useState([]);
   const [rows, setRows] = useState([]);
   const [selectedICD, setSelectedICD] = useState("");
   const [detailedStatusExPlan, setDetailedStatusExPlan] = useState("");
   const { user } = useContext(UserContext);
+
   const navigate = useNavigate();
-
-  const [page, setPage] = useState(1); // Current page
-  const [totalPages, setTotalPages] = useState(1); // Total pages
-  const [totalJobs, setTotalJobs] = useState(0); // Total job count
-
-  const [searchQuery, setSearchQuery] = useState(""); // Search query
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced search query
-  const limit = 100; // Rows per page
+  // Remove local page state and use persistent pagination from context
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab1: currentPage, setCurrentPageOpTab1: setCurrentPage } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [isInitialized, setIsInitialized] = useState(false);
+  
   const location = useLocation();
   const [selectedJobId, setSelectedJobId] = useState(
-    // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
 
-  React.useEffect(() => {
+  // Use refs to track current request and prevent race conditions
+  const abortControllerRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
+  const isFromJobDetailsRef = useRef(false);
+
+  const limit = 100;
+
+  // Initialize component and handle navigation state
+  useEffect(() => {
+    const fromJobDetails = location.state?.fromJobDetails;
+    isFromJobDetailsRef.current = fromJobDetails;    if (currentTab === 1) {
+      if (fromJobDetails) {
+        // Restore state from job details navigatio        
+        if (location.state?.searchQuery !== undefined) {
+          setSearchQuery(location.state.searchQuery);
+          setDebouncedSearchQuery(location.state.searchQuery);
+        }
+        if (location.state?.selectedImporter !== undefined) {
+          setSelectedImporter(location.state.selectedImporter);
+        }
+        if (location.state?.selectedJobId !== undefined) {
+          setSelectedJobId(location.state.selectedJobId);
+        }
+        if (location.state?.selectedICD !== undefined) {
+          setSelectedICD(location.state.selectedICD);
+        }
+        if (location.state?.detailedStatusExPlan !== undefined) {
+          setDetailedStatusExPlan(location.state.detailedStatusExPlan);
+        }      } else {
+        // Clear search state when coming from other tabs (not job details)
+        setSearchQuery("");
+        setSelectedImporter("");
+        setDebouncedSearchQuery("");
+        setSelectedICD("");
+        setDetailedStatusExPlan("");
+        // Note: We don't reset currentPage here - pagination should persist
+      }
+    }
+
+    setIsInitialized(true);
+  }, [currentTab, location.state, setSearchQuery, setSelectedImporter]);
+
+  // Cleanup function to cancel ongoing requests
+  const cancelPreviousRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  // Optimized fetch function with proper cancellation
+  const fetchJobs = useCallback(async (
+    currentPage,
+    currentSearchQuery,
+    yearState,
+    currentStatus,
+    currentICD,
+    currentImporter,
+        unresolvedOnly = false
+  ) => {
+    // Don't make API calls if component isn't initialized, user not available, or no username
+    if (!isInitialized || !yearState || !user?.username) {
+      return;
+    }
+    cancelPreviousRequest();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
+        {
+          params: {
+            page: currentPage,
+            limit,
+            search: currentSearchQuery,
+            year: yearState,
+            detailedStatusExPlan: currentStatus,
+            selectedICD: currentICD,
+            importer: currentImporter?.trim() || "",
+                        unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+
+          },
+          signal: controller.signal,
+        }
+      );
+
+      // Only update state if this is still the current request
+      if (abortControllerRef.current === controller) {
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+                  unresolvedCount, // ✅ Get unresolved count from response
+
+        } = res.data;        setRows(Array.isArray(jobs) ? jobs : []);
+        setTotalPages(totalPages || 1);
+        setTotalJobs(totalJobs || 0);
+              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+        abortControllerRef.current = null;
+      }
+    } catch (error) {
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        return;
+      }
+      console.error("Error fetching data:", error);
+      
+      // Only update state if this is still the current request
+      if (abortControllerRef.current === controller) {
+        setRows([]);
+        setTotalPages(1);
+        setTotalJobs(0);
+              setUnresolvedCount(0);
+
+        abortControllerRef.current = null;
+      }
+    }
+  }, [isInitialized, user.username, limit, cancelPreviousRequest]);
+  // Handle search debouncing
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }    debounceTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      // Only reset to first page if there's an actual search query (not when clearing)
+      if (searchQuery && searchQuery.trim() !== "") {
+        setCurrentPage(1); // Reset to first page on new search
+      }
+    }, 500);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, isInitialized]);
+
+
+  // Fetch importer list when year changes
+  useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
-        );
-        setImporters(res.data);
-        // setSelectedImporter("Select Importer");
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
+          );
+          setImporters(Array.isArray(res.data) ? res.data : []);
+        } catch (error) {
+          console.error("Error fetching importer list:", error);
+          setImporters([]);
+        }
       }
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
-
-  const getUniqueImporterNames = (importerData) => {
-    if (!importerData || !Array.isArray(importerData)) return [];
-    const uniqueImporters = new Set();
-    return importerData
-      .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
-        return true;
-      })
-      .map((importer, index) => ({
-        label: importer.importer,
-        key: `${importer.importer}-${index}`,
-      }));
-  };
-
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
 
   // Fetch available years for filtering
   useEffect(() => {
@@ -92,19 +230,20 @@ function ImportOperations() {
         const filteredYears = res.data.filter((year) => year !== null);
         setYears(filteredYears);
 
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-        const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
-        const currentTwoDigits = String(currentYear).slice(-2);
-        const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
-
-        let defaultYearPair =
-          currentMonth >= 4
-            ? `${currentTwoDigits}-${nextTwoDigits}`
-            : `${prevTwoDigits}-${currentTwoDigits}`;
-
+        // Only set default year if selectedYearState is not already set
         if (!selectedYearState && filteredYears.length > 0) {
-          selectedYearState(
+          const currentYear = new Date().getFullYear();
+          const currentMonth = new Date().getMonth() + 1;
+          const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
+          const currentTwoDigits = String(currentYear).slice(-2);
+          const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+
+          let defaultYearPair =
+            currentMonth >= 4
+              ? `${currentTwoDigits}-${nextTwoDigits}`
+              : `${prevTwoDigits}-${currentTwoDigits}`;
+
+          setSelectedYearState(
             filteredYears.includes(defaultYearPair)
               ? defaultYearPair
               : filteredYears[0]
@@ -117,87 +256,66 @@ function ImportOperations() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  const fetchJobs = useCallback(
-    async (
-      currentPage,
-      currentSearchQuery,
-      selectedYearState,
-      currentStatus,
-      currentICD,
-      selectedImporter
-    ) => {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-operations-planning-jobs/${user.username}`,
-          {
-            params: {
-              page: currentPage,
-              limit,
-              search: currentSearchQuery,
-              year: selectedYearState,
-              detailedStatusExPlan: currentStatus, // Ensure parameter name matches backend
-              selectedICD: currentICD,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
-            },
-          }
+ useEffect(() => {
+    // Special handling for restoration from job details
+    if (isFromJobDetailsRef.current && isInitialized) {
+        // Use a small delay to ensure all state is properly restored
+      const timeoutId = setTimeout(() => {
+        fetchJobs(
+          location.state?.currentPage || currentPage, // Use the restored page or current page
+          location.state?.searchQuery || "",
+          selectedYearState,
+          location.state?.detailedStatusExPlan || "",
+          location.state?.selectedICD || "",
+          location.state?.selectedImporter || ""
         );
+        isFromJobDetailsRef.current = false; // Reset flag
+      }, 100);
 
-        const {
-          totalJobs,
-          totalPages,
-          currentPage: returnedPage,
-          jobs,
-        } = res.data;
-
-        setRows(jobs);
-        setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
-        setTotalJobs(totalJobs);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
-        setTotalPages(1);
-      }
-    },
-    [limit] // Dependencies (limit is included if it changes)
-  );
-
-  // Fetch jobs when dependencies change
-  useEffect(() => {
-    fetchJobs(
-      page,
-      debouncedSearchQuery,
-      selectedYearState,
-      detailedStatusExPlan,
-      selectedICD,
-      selectedImporter
-    );
+      return () => clearTimeout(timeoutId);
+    }    // Regular data fetching
+    if (isInitialized && !isFromJobDetailsRef.current) {
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedYearState,
+        detailedStatusExPlan,
+        selectedICD,
+        selectedImporter,
+        showUnresolvedOnly
+      );
+    }
   }, [
-    page,
+    fetchJobs,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     detailedStatusExPlan,
     selectedICD,
     selectedImporter,
-    fetchJobs,
+    isInitialized,
+    location.state,
+        showUnresolvedOnly,
   ]);
 
-  // Handle search input with debounce
+  // Cleanup on unmount
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms debounce delay
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-  useEffect(() => {
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-    }
-  }, [location.state?.searchQuery]);
-
+    return () => {
+      cancelPreviousRequest();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [cancelPreviousRequest]);
   // Handle pagination change
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+  const handlePageChange = useCallback((event, newPage) => {
+    setCurrentPage(newPage);
+  }, [currentPage, setCurrentPage]);
+
+  // Handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   // Handle copy functionality
@@ -235,6 +353,26 @@ function ImportOperations() {
     }
   }, []);
 
+  // Memoized functions to prevent unnecessary recalculations
+  const getUniqueImporterNames = useCallback((importerData) => {
+    if (!importerData || !Array.isArray(importerData)) return [];
+    const uniqueImporters = new Set();
+    return importerData
+      .filter((importer) => {
+        if (uniqueImporters.has(importer.importer)) return false;
+        uniqueImporters.add(importer.importer);
+        return true;
+      })
+      .map((importer, index) => ({
+        label: importer.importer,
+        key: `${importer.importer}-${index}`,
+      }));
+  }, []);
+
+  const importerNames = useMemo(() => [
+    ...getUniqueImporterNames(importers),
+  ], [importers, getUniqueImporterNames]);
+
   // Function to get Custom House Location
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
@@ -250,14 +388,16 @@ function ImportOperations() {
 
   // Function to format dates
   const formatDate = useCallback((dateStr) => {
+    if (!dateStr) return "N/A";
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "N/A";
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}/${month}/${day}`;
   }, []);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       accessorKey: "job_no",
       header: "Job No & ICD Code",
@@ -267,35 +407,28 @@ function ImportOperations() {
         const jobNo = cell.getValue();
         const icdCode = row.original.custom_house;
         const year = row.original.year;
+        // Build query string for context passing
 
         return (
-          <div
+          <Link
+            to={`/import-operations/view-job/${jobNo}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              // If the row matches the selected ID, give it a highlight
-              backgroundColor:
-                selectedJobId === jobNo ? "#ffffcc" : "transparent",
+              display: 'inline-block',
+              backgroundColor: selectedJobId === jobNo ? "#ffffcc" : "transparent",
               textAlign: "center",
               cursor: "pointer",
               color: "blue",
-            }}
-            onClick={() => {
-              // 1) Set the selected job in state so we can highlight it
-              setSelectedJobId(jobNo);
-
-              // 2) Navigate to the detail page, and pass selectedJobId
-              navigate(`/import-operations/view-job/${jobNo}/${year}`, {
-                state: {
-                  selectedJobId: jobNo,
-                  tab_number: 1,
-                  searchQuery,
-                },
-              });
+              padding: "10px",
+              borderRadius: "5px",
+              textDecoration: "none",
             }}
           >
             {jobNo}
             <br />
             <small>{icdCode}</small>
-          </div>
+          </Link>
         );
       },
     },
@@ -355,11 +488,13 @@ function ImportOperations() {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => {
-        const containerNos = cell.row.original.container_nos;
+      Cell: ({ row }) => {
+        const containerNos = row.original.container_nos;
+        if (!Array.isArray(containerNos)) return null;
+        
         return (
           <React.Fragment>
-            {containerNos?.map((container, id) => (
+            {containerNos.map((container, id) => (
               <div key={id} style={{ marginBottom: "4px" }}>
                 <a
                   href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
@@ -389,70 +524,9 @@ function ImportOperations() {
       accessorKey: "all_dates",
       header: "Dates",
       enableSorting: false,
-      size: 150,
-      Cell: ({ row }) => {
-        // Helper function to handle empty or missing values
-        const formatDate = (date) => {
-          return date && date.split("T")[0].trim() !== ""
-            ? date.split("T")[0]
-            : "N/A";
-        };
-
-        const containerNos = row.original?.container_nos ?? [];
-        const pcvDate = formatDate(row.original?.pcv_date);
-        const outOfCharge = formatDate(row.original?.out_of_charge);
-        const examinationPlanningDate = formatDate(
-          row.original?.examination_planning_date
-        );
-        const fristCheck = formatDate(row.original?.fristCheck);
-
-        return (
-          <div style={{ lineHeight: "1.5" }}>
-            {/* Arrival dates */}
-            <Tooltip title="Arrival Date" arrow>
-              <strong>Arrival: </strong>
-            </Tooltip>
-            {containerNos.length > 0
-              ? containerNos.map((container, id) => (
-                  <React.Fragment key={id}>
-                    {container.arrival_date?.split("T")[0] ?? "N/A"}
-                    <br />
-                  </React.Fragment>
-                ))
-              : "N/A"}
-
-            {/* First Check Date */}
-            <Tooltip title="First Check Date" arrow>
-              <strong>FC: </strong>
-            </Tooltip>
-            {fristCheck}
-            <br />
-
-            {/* Examination Planning Date */}
-            <Tooltip title="Examination Planning Date" arrow>
-              <strong>Ex.Plan: </strong>
-            </Tooltip>
-            {examinationPlanningDate}
-            <br />
-
-            {/* PCV Date */}
-            <Tooltip title="PCV Date" arrow>
-              <strong>PCV: </strong>
-            </Tooltip>
-            {pcvDate}
-            <br />
-
-            {/* OOC Date */}
-            <Tooltip title="Out of Charge Date" arrow>
-              <strong>OOC: </strong>
-            </Tooltip>
-            {outOfCharge}
-            <br />
-          </div>
-        );
-      },
+      size: 250,
+      Cell: EditableDateSummaryCell,
     },
-
     {
       accessorKey: "concor_invoice_copy",
       header: "Concor Invoice Copy",
@@ -460,7 +534,6 @@ function ImportOperations() {
       size: 150,
       Cell: ConcorInvoiceCell,
     },
-  
     {
       accessorKey: "do_validity",
       header: "DO Completed & Validity",
@@ -470,7 +543,7 @@ function ImportOperations() {
         const doValidity = row.original.do_validity;
         const doCompleted = row.original.do_completed;
         const doCopies = row.original.do_copies;
-    
+        const do_list = row.original.do_list;
         return (
           <div style={{ textAlign: "center" }}>
             <div>
@@ -485,7 +558,7 @@ function ImportOperations() {
             <div>
               <strong>Validity:</strong> {doValidity || "N/A"}
             </div>
-    
+
             {Array.isArray(doCopies) && doCopies.length > 0 ? (
               <div style={{ marginTop: "4px" }}>
                 {doCopies.map((url, index) => (
@@ -502,121 +575,114 @@ function ImportOperations() {
                 ))}
               </div>
             ) : null}
-          </div>
-        );
-      },
-    },     
-    {
-      accessorKey: "Doc",
-      header: "Docs",
-      enableSorting: false,
-      size: 150,
-      Cell: ({ cell }) => {
-        const {
-          cth_documents,
-          all_documents,
-          job_sticker_upload,
-          verified_checklist_upload,
-          checklist,
-        } = cell.row.original;
-
-        // Helper function to safely get the first link if it's an array or a string
-        const getFirstLink = (input) => {
-          if (Array.isArray(input)) {
-            return input.length > 0 ? input[0] : null;
-          }
-          return input || null;
-        };
-
-        const stickerLink = getFirstLink(job_sticker_upload);
-        const checklistLink = getFirstLink(checklist);
-
-        return (
-          <div style={{ textAlign: "left" }}>
-            {/* Render the "Checklist" link or fallback text */}
-            {checklistLink ? (
-              <div style={{ marginBottom: "5px" }}>
-                <a
-                  href={checklistLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "blue",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Checklist
-                </a>
+    <div>
+                <strong>EmptyOff LOC:</strong> {do_list}
               </div>
-            ) : (
-              <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>No Checklist </span>
-              </div>
-            )}
-
-            {/* Render CTH Documents (showing actual URL) */}
-            {cth_documents
-              ?.filter((doc) => doc.url && doc.url.length > 0)
-              .map((doc) => (
-                <div key={doc._id} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={doc.url[0]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {doc.document_name}
-                  </a>
-                </div>
-              ))}
-
-            {/* Render All Documents (showing actual URL) */}
-            {all_documents?.map((docUrl, index) => (
-              <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
-                <a
-                  href={docUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "green",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Doc{index + 1}
-                </a>
-              </div>
-            ))}
+        
           </div>
         );
       },
     },
+    // {
+    //   accessorKey: "Doc",
+    //   header: "Docs",
+    //   enableSorting: false,
+    //   size: 150,
+    //   Cell: ({ row }) => {
+    //     const {
+    //       cth_documents,
+    //       all_documents,
+    //       checklist,
+    //     } = row.original;
 
+    //     const getFirstLink = (input) => {
+    //       if (Array.isArray(input)) {
+    //         return input.length > 0 ? input[0] : null;
+    //       }
+    //       return input || null;
+    //     };
+
+    //     const checklistLink = getFirstLink(checklist);
+
+    //     return (
+    //       <div style={{ textAlign: "left" }}>
+    //         {checklistLink ? (
+    //           <div style={{ marginBottom: "5px" }}>
+    //             <a
+    //               href={checklistLink}
+    //               target="_blank"
+    //               rel="noopener noreferrer"
+    //               style={{
+    //                 color: "blue",
+    //                 textDecoration: "underline",
+    //                 cursor: "pointer",
+    //               }}
+    //             >
+    //               Checklist
+    //             </a>
+    //           </div>
+    //         ) : (
+    //           <div style={{ marginBottom: "5px" }}>
+    //             <span style={{ color: "gray" }}>No Checklist</span>
+    //           </div>
+    //         )}
+
+    //         {Array.isArray(cth_documents) &&
+    //           cth_documents
+    //             .filter((doc) => doc.url && doc.url.length > 0)
+    //             .map((doc) => (
+    //               <div key={doc._id} style={{ marginBottom: "5px" }}>
+    //                 <a
+    //                   href={doc.url[0]}
+    //                   target="_blank"
+    //                   rel="noopener noreferrer"
+    //                   style={{
+    //                     color: "blue",
+    //                     textDecoration: "underline",
+    //                     cursor: "pointer",
+    //                   }}
+    //                 >
+    //                   {doc.document_name}
+    //                 </a>
+    //               </div>
+    //             ))}
+
+    //         {Array.isArray(all_documents) &&
+    //           all_documents.map((docUrl, index) => (
+    //             <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
+    //               <a
+    //                 href={docUrl}
+    //                 target="_blank"
+    //                 rel="noopener noreferrer"
+    //                 style={{
+    //                   color: "green",
+    //                   textDecoration: "underline",
+    //                   cursor: "pointer",
+    //                 }}
+    //               >
+    //                 Doc{index + 1}
+    //               </a>
+    //             </div>
+    //           ))}
+    //       </div>
+    //     );
+    //   },
+    // },
     {
       id: "jS",
       header: "Job Sticker",
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
-        // 1) Create a ref for the JobStickerPDF child
         const pdfRef = React.useRef(null);
 
-        // 2) Handler calls the child method
         const handleGenerate = () => {
           pdfRef.current?.generatePdf();
         };
 
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {/* 3) The invisible child that has .generatePdf() */}
             <JobStickerPDF ref={pdfRef} data={row.original} />
-
-            {/* 4) A button that triggers PDF generation */}
             <button
               onClick={handleGenerate}
               style={{
@@ -633,11 +699,11 @@ function ImportOperations() {
         );
       },
     },
-  ];
+  ], [selectedJobId, searchQuery, selectedImporter, selectedICD, selectedYearState, detailedStatusExPlan, navigate, handleCopy, formatDate, getCustomHouseLocation]);
 
-  const tableConfig = {
+  const tableConfig = useMemo(() => ({
     columns,
-    data: rows, // Use rows directly as backend handles sorting
+    data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,
@@ -656,7 +722,7 @@ function ImportOperations() {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
-      className: row.original.row_color || "", // Apply row color
+      className: row.original.row_color || "",
     }),
     muiTableHeadCellProps: {
       sx: {
@@ -674,7 +740,6 @@ function ImportOperations() {
           width: "100%",
         }}
       >
-        {/* Job Count Display */}
         <Typography
           variant="body1"
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
@@ -686,15 +751,17 @@ function ImportOperations() {
           sx={{ width: "200px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          value={selectedImporter || ""}          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setCurrentPage(1);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
               variant="outlined"
               size="small"
               fullWidth
-              label="Select Importer" // Placeholder text
+              label="Select Importer"
             />
           )}
         />
@@ -702,8 +769,10 @@ function ImportOperations() {
         <TextField
           select
           size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
+          value={selectedYearState || ""}          onChange={(e) => {
+            setSelectedYearState(e.target.value);
+            setCurrentPage(1);
+          }}
           sx={{ width: "100px", marginRight: "20px" }}
         >
           {years.map((year, index) => (
@@ -712,16 +781,15 @@ function ImportOperations() {
             </MenuItem>
           ))}
         </TextField>
-        {/* ICD Code Filter */}
+
         <TextField
           select
           size="small"
           variant="outlined"
           label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+          value={selectedICD}          onChange={(e) => {
+            setSelectedICD(e.target.value);
+            setCurrentPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -736,42 +804,88 @@ function ImportOperations() {
           size="small"
           variant="outlined"
           label="Select Status Ex-Planning"
-          value={detailedStatusExPlan}
-          onChange={(e) => {
-            setDetailedStatusExPlan(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+          value={detailedStatusExPlan}          onChange={(e) => {
+            setDetailedStatusExPlan(e.target.value);
+            setCurrentPage(1);
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
-          <MenuItem value="All"> Select Status Ex-Planning</MenuItem>
+          <MenuItem value="">Select Status Ex-Planning</MenuItem>
           <MenuItem value="Arrival">Arrival</MenuItem>
-          <MenuItem value="FC">FC </MenuItem>
+          <MenuItem value="FC">FC</MenuItem>
           <MenuItem value="Ex. Planning">Ex. Planning</MenuItem>
           <MenuItem value="OOC">OOC</MenuItem>
           <MenuItem value="Do Completed">Do Completed</MenuItem>
-        </TextField>
-        {/* Search Bar */}
-        <TextField
+        </TextField>        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchInputChange}
           sx={{ width: "250px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{ position: 'relative' }}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                                sx={{
+                                   borderRadius: 3,
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                fontSize: '0.875rem',
+                                padding: '8px 20px',
+                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                                  transform: 'translateY(-1px)',
+                                },
+                                '&:active': {
+                                  transform: 'translateY(0px)',
+                                },
+                                }}
+                              >
+                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+                              </Button>
+                              <Badge 
+                                badgeContent={unresolvedCount} 
+                                color="error" 
+                                overlap="circular" 
+                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                sx={{ 
+                                  position: 'absolute',
+                                  top: 4,
+                                  right: 4,
+                                  '& .MuiBadge-badge': {
+                                    fontSize: '0.75rem',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                  }
+                                }}
+                              />
+                            </Box>
+                  </Box>
       </div>
     ),
-  };
+  }), [columns, rows, totalJobs, importerNames, selectedImporter, selectedYearState, years, selectedICD, detailedStatusExPlan, searchQuery, setSelectedImporter, setSelectedYearState, setSearchQuery]);
+
+  if (!isInitialized) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div style={{ height: "80%" }}>
-      {/* Table */}
-      <MaterialReactTable {...tableConfig} />
-
-      {/* Pagination */}
-      <Pagination
+      <MaterialReactTable {...tableConfig} />      <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

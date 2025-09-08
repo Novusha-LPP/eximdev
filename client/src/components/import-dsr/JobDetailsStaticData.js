@@ -2,9 +2,10 @@ import React, { useMemo, useCallback } from "react";
 import { Row, Col } from "react-bootstrap";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { handleCopyText } from "../../utils/handleCopyText";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+
+
 
 function JobDetailsStaticData(props) {
   if (props.data) {
@@ -19,39 +20,41 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
-  // const handleCopy = (event, text) => {
-  //   event.stopPropagation();
 
-  //   if (
-  //     navigator.clipboard &&
-  //     typeof navigator.clipboard.writeText === "function"
-  //   ) {
-  //     navigator.clipboard
-  //       .writeText(text)
-  //       .then(() => {
-  //         console.log("Text copied to clipboard:", text);
-  //       })
-  //       .catch((err) => {
-  //         alert("Failed to copy text to clipboard.");
-  //         console.error("Failed to copy:", err);
-  //       });
-  //   } else {
-  //     // Fallback approach for older browsers
-  //     const textArea = document.createElement("textarea");
-  //     textArea.value = text;
-  //     document.body.appendChild(textArea);
-  //     textArea.focus();
-  //     textArea.select();
-  //     try {
-  //       document.execCommand("copy");
-  //       console.log("Text copied to clipboard using fallback method:", text);
-  //     } catch (err) {
-  //       alert("Failed to copy text to clipboard.");
-  //       console.error("Fallback copy failed:", err);
-  //     }
-  //     document.body.removeChild(textArea);
-  //   }
-  // };
+    const handleCopy = useCallback((event, text) => {
+    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+    event.stopPropagation();
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          console.log("Text copied to clipboard:", text);
+        })
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      // Fallback approach for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
+  
   const getShippingLineUrl = (shippingLine, blNumber, containerFirst) => {
     const shippingLineUrls = {
       MSC: `https://www.msc.com/en/track-a-shipment`,
@@ -355,7 +358,8 @@ function JobDetailsStaticData(props) {
           <span className="non-editable-text">{props.data.no_of_pkgs}</span>
         </Col>
       </Row>
-      <Row>
+
+      <Row className="job-detail-row">
         <Col xs={12} lg={5}>
           {/* Outer Flex Container */}
           <div style={{ display: "flex", flexDirection: "row" }}>
@@ -382,18 +386,6 @@ function JobDetailsStaticData(props) {
                   gap: "15px",
                 }}
               >
-                {/* Copy Button */}
-                {/* <IconButton
-                  size="medium"
-                  onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                  onClick={() =>
-                    handleCopyText(props.bl_no_ref, props.setSnackbar)
-                  }
-                  aria-label="copy-btn"
-                >
-                  <ContentCopyIcon fontSize="small" />
-                </IconButton> */}
-
                 {/* Shipping Line Tracking Link */}
                 {props.data.shipping_line_airline && (
                   <abbr
@@ -449,6 +441,17 @@ function JobDetailsStaticData(props) {
         </Col> */}
       </Row>
 
+
+      <Row className="job-detail-row">
+          <Col xs={12} lg={5}>
+          <strong> HWBL No: &nbsp;</strong>
+          <span className="non-editable-text">{props.data.hawb_hbl_no}</span>
+        </Col>
+          <Col xs={12} lg={4}>
+          <strong> HWBL Date: &nbsp;</strong>
+          <span className="non-editable-text">{props.data.hawb_hbl_date}</span>
+        </Col>
+      </Row>
       {/*************************** Row 6 ****************************/}
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
@@ -459,7 +462,38 @@ function JobDetailsStaticData(props) {
           <strong>Net Weight (KGS):&nbsp;</strong>
           <span className="non-editable-text">{props.data.job_net_weight}</span>
         </Col>
+        <Col xs={12} lg={3}>
+          <strong>BE Filling Type:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.be_filing_type}</span>
+        </Col>
       </Row>
+
+           <Row className="job-detail-row">
+      <Col xs={12} lg={5}>
+          <strong>G-IGM No:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.gateway_igm}</span>
+        </Col>
+      <Col xs={12} lg={3}>
+          <strong>G-IGM Date:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.gateway_igm_date}</span>
+        </Col>
+     <Col xs={12} lg={3}>
+          <strong>Line No:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.line_no}</span>
+        </Col>
+      </Row>
+      <Row className="job-detail-row">
+     
+              <Col xs={12} lg={5}>
+          <strong>IGM No:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.igm_no}</span>
+        </Col>
+              <Col xs={12} lg={3}>
+          <strong>IGM Date:&nbsp;</strong>
+          <span className="non-editable-text">{props.data.igm_date}</span>
+        </Col>
+      </Row>
+      
       <Row className="job-detail-row">
         <Col xs={12} lg={5}>
           <strong>HSS:&nbsp;</strong>
@@ -472,16 +506,35 @@ function JobDetailsStaticData(props) {
           )}
         </Col>
       </Row>
-      <Row>
+      <Row className="job-detail-row">
       <Col xs={12} lg={5}>
           <strong>Ad Code:&nbsp;</strong>
           <span className="non-editable-text">{props.data.adCode}</span>
         </Col>
-      <Col xs={12} lg={5}>
+      <Col xs={12} lg={3}>
           <strong>Bank Name:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.bankName}</span>
+          <span className="non-editable-text">{props.data.bank_name}</span>
         </Col>
       </Row>
+                    <Row className="job-detail-row">
+                      <Col xs={12} lg={5}>
+                        <strong>Importer Address:&nbsp;</strong>
+                        <span className="non-editable-text">
+                          {props.data.importer_address}
+                        </span>
+                        <IconButton
+                          size="small"
+                          onClick={(event) =>
+                            handleCopy(event, props.data.importer_address)
+                          }
+                        >
+                          <abbr title="Copy Importer Address">
+                            <ContentCopyIcon fontSize="inherit" />
+                          </abbr>
+                        </IconButton>
+                      </Col>
+                    </Row>
+ 
     </div>
   );
 }

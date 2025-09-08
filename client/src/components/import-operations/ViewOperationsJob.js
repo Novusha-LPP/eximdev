@@ -3,7 +3,7 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
 import { Row, Col } from "react-bootstrap";
-import { IconButton, TextField, Box, Typography } from "@mui/material";
+import { IconButton, TextField, Box, Typography, Button } from "@mui/material";
 import useFetchOperationTeamJob from "../../customHooks/useFetchOperationTeamJob";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import FileUpload from "../../components/gallery/FileUpload.js"; // Reusable FileUpload component
@@ -26,6 +26,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportOperations.js";
 // import { handlePhysicalWeightChange } from "../../utils/handlePhysicalWeightChange";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
+import QueriesComponent from "../../utils/QueriesComponent.js";
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
@@ -41,9 +42,56 @@ function ViewOperationsJob() {
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { selectedJobId, searchQuery, page } = location.state || {};
 
-  const { data, formik } = useFetchOperationTeamJob(params);
+  // Add stored search parameters state
+  const [storedSearchParams, setStoredSearchParams] = useState(null); // Store search parameters from location state
+  useEffect(() => {
+    if (location.state) {
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        currentPage,
+      } = location.state;
+      setStoredSearchParams({
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
+        currentPage,
+      });
+    }
+  }, [location.state]); // Handle back click function - following e-sanchit pattern exactly
+  const handleBackClick = () => {
+    const tabIndex = storedSearchParams?.currentTab ?? 2; // Default to Completed Operations tab
+
+    navigate("/import-operations", {
+      state: {
+        fromJobDetails: true,
+        tabIndex: tabIndex,
+        selectedJobId: params.job_no,
+        ...(storedSearchParams && {
+          searchQuery: storedSearchParams.searchQuery,
+          selectedImporter: storedSearchParams.selectedImporter,
+          selectedICD: storedSearchParams.selectedICD,
+          selectedYearState: storedSearchParams.selectedYearState,
+          detailedStatusExPlan: storedSearchParams.detailedStatusExPlan,
+          currentPage: storedSearchParams.currentPage,
+        }),
+      },
+    });
+  };
+
+  const { data, formik, setData } = useFetchOperationTeamJob(params);
 
   const extractFileName = (url) => {
     try {
@@ -55,6 +103,19 @@ function ViewOperationsJob() {
     }
   };
 
+  const handleQueriesChange = (updatedQueries) => {
+    setData((prev) => ({
+      ...prev,
+      dsr_queries: updatedQueries,
+    }));
+    formik.setFieldValue("dsr_queries", updatedQueries); // keep formik in sync
+  };
+
+  const handleResolveQuery = (resolvedQuery, index) => {
+    // Custom logic when a query is resolved
+    console.log("Query resolved:", resolvedQuery);
+    // You can add API calls, notifications, etc.
+  };
   const handleContainerFileUpload = async (e, container_number, fileType) => {
     if (e.target.files.length === 0) {
       alert("No file selected");
@@ -269,9 +330,25 @@ function ViewOperationsJob() {
       </Box>
     );
   };
-
   return (
     <>
+      {/* Back to Job List Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={handleBackClick}
+          sx={{
+            backgroundColor: "#1976d2",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "#333",
+            },
+          }}
+        >
+          Back to Job List
+        </Button>
+      </Box>
+
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
           <JobDetailsStaticData
@@ -280,6 +357,21 @@ function ViewOperationsJob() {
             bl_no_ref={bl_no_ref}
             setSnackbar={setSnackbar}
           />
+
+          {data && data.dsr_queries && (
+            <div>
+              <QueriesComponent
+                queries={data.dsr_queries}
+                currentModule="Operations"
+                onQueriesChange={handleQueriesChange}
+                title="Operations Queries"
+                showResolveButton={true}
+                readOnlyReply={false}
+                onResolveQuery={handleResolveQuery}
+                userName={user?.username}
+              />
+            </div>
+          )}
           {/* ********************** CTH Documents ********************** */}
           <div className="job-details-container">
             <JobDetailsRowHeading heading="CTH Documents" />

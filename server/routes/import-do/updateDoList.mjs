@@ -1,9 +1,12 @@
 import express from "express";
-const router = express.Router();
 import JobModel from "../../model/jobModel.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
-router.post("/api/update-do-list", async (req, res) => {
+
+const router = express.Router();
+
+router.patch("/api/update-do-list",  auditMiddleware('Job'), async (req, res, next) => {
   const {
     _id,
     shipping_line_bond_completed,
@@ -14,6 +17,7 @@ router.post("/api/update-do-list", async (req, res) => {
     kyc_valid_upto,
     shipping_line_bond_valid_upto,
     shipping_line_bond_docs,
+    shipping_line_bond_charges
   } = req.body;
 
   try {
@@ -71,6 +75,7 @@ router.post("/api/update-do-list", async (req, res) => {
             kyc_valid_upto,
             shipping_line_bond_valid_upto,
             shipping_line_bond_docs,
+            shipping_line_bond_charges,
           },
         }
       );
@@ -83,6 +88,7 @@ router.post("/api/update-do-list", async (req, res) => {
         kyc_valid_upto,
         shipping_line_bond_valid_upto,
         shipping_line_bond_docs,
+        shipping_line_bond_charges,
       });
       await newKycDoc.save();
     }

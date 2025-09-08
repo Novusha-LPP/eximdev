@@ -1,9 +1,10 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import User from "../../model/userModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
 const router = express.Router();
-router.get("/api/get-operations-planning-list/:username", async (req, res) => {
+router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, async (req, res) => {
   try {
     const { username } = req.params;
     const {
@@ -22,38 +23,18 @@ router.get("/api/get-operations-planning-list/:username", async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    // ✅ Define customHouseCondition based on username
+    // ✅ Use middleware-based ICD filtering instead of hardcoded conditions
     let customHouseCondition = {};
-    switch (username) {
-      case "majhar_khan":
-        customHouseCondition = {
-          custom_house: { $in: ["ICD SANAND", "ICD SACHANA"] },
-        };
-        break;
-      case "parasmal_marvadi":
-        customHouseCondition = { custom_house: "AIR CARGO" };
-        break;
-      case "mahesh_patil":
-      case "prakash_darji":
-        customHouseCondition = { custom_house: "ICD KHODIYAR" };
-        break;
-      case "gaurav_singh":
-        customHouseCondition = { custom_house: { $in: ["HAZIRA", "BARODA"] } };
-        break;
-      case "akshay_rajput":
-        customHouseCondition = { custom_house: "ICD VARNAMA" };
-        break;
-      default:
-        customHouseCondition = {};
-        break;
-    }
-
-    // ✅ Apply Selected ICD Filter
-    if (selectedICD && selectedICD !== "Select ICD") {
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions from middleware
+      customHouseCondition = req.userIcdFilter;
+    } else if (selectedICD && selectedICD !== "Select ICD") {
+      // Fallback to URL parameter filtering (for backward compatibility)
       customHouseCondition = {
         custom_house: new RegExp(`^${selectedICD}$`, "i"),
       };
     }
+    // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
     // ✅ Apply Importer Filter if provided
     let importerCondition = {};

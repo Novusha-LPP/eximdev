@@ -46,6 +46,8 @@ const useImportJobForm = () => {
   const [supplier_exporter, setSupplierExporter] = useState("");
   const [awb_bl_no, setAwbBlNo] = useState("");
   const [awb_bl_date, setAwbBlDate] = useState("");
+  const [hawb_hbl_date, setHawb_hbl_date] = useState("");
+  const [hawb_hbl_no, setHawb_hbl_no] = useState("");
   const [vessel_berthing, setVesselberthing] = useState("");
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
@@ -147,6 +149,8 @@ const useImportJobForm = () => {
     setAdCode("");
     setSupplierExporter("");
     setAwbBlNo("");
+    setHawb_hbl_no("");
+    setHawb_hbl_date("");
     setAwbBlDate("");
     setVesselberthing("");
     setTypeOfBE("");
@@ -218,6 +222,8 @@ const useImportJobForm = () => {
           adCode,
           supplier_exporter,
           awb_bl_no,
+          hawb_hbl_no,
+          hawb_hbl_date,
           awb_bl_date,
           vessel_berthing,
           type_of_b_e,
@@ -249,10 +255,20 @@ const useImportJobForm = () => {
           bank_name: bankName
         };
 
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          'Content-Type': 'application/json',
+          'user-id': user.username || 'unknown',
+          'username': user.username || 'unknown',
+          'user-role': user.role || 'unknown'
+        };
+
         // Make the API call and store response
         const response = await axios.post(
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-imp-man`,
-          payload
+          payload,
+          { headers }
         );
       
         // Show success alert
@@ -409,6 +425,10 @@ const useImportJobForm = () => {
     supplier_exporter,
     setSupplierExporter,
     awb_bl_no,
+    hawb_hbl_no,
+    setHawb_hbl_no,
+    hawb_hbl_date,
+    setHawb_hbl_date,
     setAwbBlNo,
     awb_bl_date,
     vessel_berthing,

@@ -1,5 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
+import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
@@ -17,9 +19,9 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-router.get("/api/get-documentation-jobs", async (req, res) => {
+router.get("/api/get-documentation-jobs", applyUserIcdFilter, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", importer, year } = req.query;
+    const { page = 1, limit = 10, search = "", importer, year, unresolvedOnly } = req.query;
 
     // Parse and validate query parameters
     const pageNumber = parseInt(page, 10);
@@ -43,30 +45,73 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       "Gateway IGM Filed",
       "Estimated Time of Arrival",
       "ETA Date Pending",
+      "Arrived, BE Note Pending",
+      "Rail Out"
     ];
 
     // Build the base query
     // Build the base query
-    const baseQuery = {
-      $and: [
-        { status: { $regex: /^pending$/i } },
-        { be_no: { $in: [null, ""] } }, // Exclude "cancelled"
-        { job_no: { $ne: null } }, // Ensure job_no is not null
-        { out_of_charge: { $eq: "" } }, // Exclude jobs with any value in `out_of_charge`
-        {
-          detailed_status: {
-            $in: statusOrder,
-          },
-        },
-        {
-          $or: [
-            { documentation_completed_date_time: { $exists: false } },
-            { documentation_completed_date_time: "" },
-          ],
-        },
-        searchQuery,
+const baseQuery = {
+  $and: [
+    { status: { $regex: /^pending$/i } },
+    { be_no: { $in: [null, ""] } },
+    { awb_bl_no: { $ne: null, $ne: "" } },
+    { job_no: { $ne: null } },
+    { out_of_charge: { $eq: "" } },
+    {
+      detailed_status: {
+        $in: statusOrder,
+      },
+    },
+    {
+      $or: [
+        { documentation_completed_date_time: { $exists: false } },
+        { documentation_completed_date_time: "" },
       ],
-    };
+    },
+    // All three required documents with valid URLs
+    {
+      $and: [
+        {
+          "cth_documents.document_name": { $all: ["Bill of Lading", "Packing List", "Commercial Invoice"] }
+        },
+        {
+          "cth_documents": {
+            $elemMatch: {
+              document_name: "Bill of Lading",
+              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+            }
+          }
+        },
+        {
+          "cth_documents": {
+            $elemMatch: {
+              document_name: "Packing List",
+              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+            }
+          }
+        },
+        {
+          "cth_documents": {
+            $elemMatch: {
+              document_name: "Commercial Invoice",
+              url: { $exists: true, $ne: null, $ne: [], $not: { $size: 0 } }
+            }
+          }
+        }
+      ]
+    },
+    searchQuery,
+  ],
+};
+
+    // ✅ Apply unresolved queries filter if requested
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+    
 
     // ✅ Add Year Filter if provided
     // ✅ Ensure year is correctly formatted before applying the filter
@@ -80,6 +125,13 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
       });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      // User has specific ICD restrictions
+      baseQuery.$and.push(req.userIcdFilter);
+    } else if (req.currentUser) {
     }
 
     // Fetch jobs from the database
@@ -96,9 +148,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       if (job.detailed_status === "Discharged") return 3;
       if (job.detailed_status === "Gateway IGM Filed") return 4;
       return 5; // Default rank for jobs without a priority
-    };
-
-    // Sort jobs by priority first, then by custom status order
+    };    // Sort jobs by remark priority first, then by job priority, then by status
     const sortedJobs = allJobs.sort((a, b) => {
       const priorityDifference = priorityRank(a) - priorityRank(b);
       if (priorityDifference !== 0) {
@@ -111,6 +161,16 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       );
     });
 
+    const unresolvedQueryBase = { ...baseQuery };
+        unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+          !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
+        );
+        unresolvedQueryBase.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        });
+        
+        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
     // Apply pagination after sorting
     const totalJobs = sortedJobs.length;
     const paginatedJobs = sortedJobs.slice(skip, skip + limitNumber);
@@ -124,6 +184,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
         currentPage: pageNumber,
         jobs: [], // ✅ Return an empty array instead of 404
         message: "No data found for the selected filters",
+        unresolvedCount
       });
     }
 
@@ -132,6 +193,7 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
+      unresolvedCount, // ✅ Include unresolved count
     });
   } catch (err) {
     console.error("Error fetching documentation jobs:", err.stack);
@@ -141,53 +203,29 @@ router.get("/api/get-documentation-jobs", async (req, res) => {
     });
   }
 });
+router.patch("/api/update-documentation-job/:job_no/:year", async (req, res) => {
+  const { job_no, year } = req.params;
+  const { documentation_completed_date_time, dsr_queries } = req.body;
 
-router.patch("/api/update-documentation-job/:id", async (req, res) => {
-  try {
-    const { id } = req.params; // Get the job ID from the URL
-    const { documentation_completed_date_time } = req.body; // Take the custom date from the request body
-
-    // Validate the provided date (if any)
-    if (
-      documentation_completed_date_time &&
-      isNaN(Date.parse(documentation_completed_date_time))
-    ) {
-      return res.status(400).json({
-        message: "Invalid date format. Please provide a valid ISO date string.",
-      });
-    }
-
-    // Find the job by ID and update the documentation_completed_date_time field
-    const updatedJob = await JobModel.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          documentation_completed_date_time:
-            documentation_completed_date_time || "", // Use provided date or current date-time
-        },
-      },
-      { new: true, lean: true } // Return the updated document
-    );
-
-    if (!updatedJob) {
-      return res
-        .status(404)
-        .json({ message: "Job not found with the specified ID" });
-    }
-
-    res.status(200).json({
-      message: "Job updated successfully",
-      updatedJob,
-    });
-  } catch (err) {
-    console.error("Error updating job:", err);
-
-    // Return a detailed error message
-    res.status(500).json({
-      message: "Internal Server Error. Unable to update the job.",
-      error: err.message,
-    });
+  let update = {};
+  if (documentation_completed_date_time !== undefined) {
+    update.documentation_completed_date_time = documentation_completed_date_time || "";
   }
+  if (dsr_queries !== undefined) {
+    update.dsr_queries = dsr_queries;
+  }
+
+  const updatedJob = await JobModel.findOneAndUpdate(
+    { job_no, year },
+    { $set: update },
+    { new: true, lean: true }
+  );
+
+  if (!updatedJob) {
+    return res.status(404).json({ message: "Job not found" });
+  }
+
+  res.status(200).json({ message: "Job updated successfully", updatedJob });
 });
 
 export default router;

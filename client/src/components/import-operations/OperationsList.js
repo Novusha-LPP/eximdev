@@ -22,24 +22,33 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
-
+import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import EditableArrivalDate from "./EditableArrivalDate";
+import EditableDateCell from "../gallery/EditableDateCell";
+import { TabContext } from "./ImportOperations.js";
+import { Link } from "react-router-dom";
 function OperationsList() {
+ const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = React.useState([]);
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const [importers, setImporters] = useState("");
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
 
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-    const location = useLocation();
+  const location = useLocation();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const limit = 100;
+
+  // Use context for searchQuery, selectedImporter, and currentPage for Operations List tab
+  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab0: currentPage, setCurrentPageOpTab0: setCurrentPage } = useSearchQuery();
+
+  const [selectedJobId, setSelectedJobId] = useState(
+    // If you previously stored a job ID in location.state, retrieve it
+    location.state?.selectedJobId || null
+  );
 
   const navigate = useNavigate();
 
@@ -112,7 +121,7 @@ function OperationsList() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination
-  const fetchJobs = useCallback(
+const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
@@ -120,6 +129,12 @@ function OperationsList() {
       currentICD,
       selectedImporter
     ) => {
+      // Don't make API calls if user not available or no username
+      if (!user?.username) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const res = await axios.get(
@@ -141,11 +156,8 @@ function OperationsList() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;
-
-        setRows(jobs);
+        } = res.data;        setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -155,14 +167,12 @@ function OperationsList() {
         setLoading(false);
       }
     },
-    [limit] // Dependencies (limit is included if it changes)
-  );
-
-  // Fetch jobs when dependencies change
+    [limit, user?.username] // Dependencies - add username
+  );  // Fetch jobs when dependencies change
   useEffect(() => {
-    if (selectedYearState) {
+    if (selectedYearState && user?.username) {
       fetchJobs(
-        page,
+        currentPage,
         debouncedSearchQuery,
         selectedYearState,
         selectedICD,
@@ -170,31 +180,26 @@ function OperationsList() {
       );
     }
   }, [
-    page,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
     selectedImporter,
+    user?.username,
     fetchJobs,
   ]);
+  // Remove the automatic clearing - we'll handle this from the tab component instead
 
-   // Handle search input with debounce
-    useEffect(() => {
-      const handler = setTimeout(() => {
-        setDebouncedSearchQuery(searchQuery);
-      }, 500); // 500ms debounce delay
-      return () => clearTimeout(handler);
-    }, [searchQuery]);
-    useEffect(() => {
-      if (location.state?.searchQuery) {
-        setSearchQuery(location.state.searchQuery);
-      }
-    }, [location.state?.searchQuery]);
-
+  // Handle search input with debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
   const handlePageChange = (event, newPage) => {
-    setPage(newPage);
+    setCurrentPage(newPage);
   };
-
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
       const houseMap = {
@@ -252,6 +257,8 @@ function OperationsList() {
   }, []);
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+        setCurrentPage(1); // Reset to first page when user types
+
   };
 
   const columns = [
@@ -261,24 +268,27 @@ function OperationsList() {
       enableSorting: false,
       size: 150,
       Cell: ({ row }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
-          row.original;
+        const { job_no, year, type_of_b_e, consignment_type, custom_house } = row.original;
 
         return (
-          <div
-            onClick={() =>
-              navigate(
-                `/import-operations/list-operation-job/${job_no}/${year}`
-              )
-            }
+          <Link
+            to={`/import-operations/list-operation-job/${job_no}/${year}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
+              display: 'inline-block',
+              backgroundColor: selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              textDecoration: "none",
             }}
           >
             {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
             {custom_house}
-          </div>
+          </Link>
         );
       },
     },
@@ -479,6 +489,14 @@ function OperationsList() {
             ))}
           </div>
         );
+      },    },
+    {
+      accessorKey: "dates",
+      header: "Dates",
+      enableSorting: false,
+      size: 300,      Cell: ({ cell }) => {
+        // Use the custom EditableArrivalDate component to allow date editing
+        return <EditableArrivalDate cell={cell} />;
       },
     },
     {
@@ -605,7 +623,7 @@ function OperationsList() {
           value={selectedICD}
           onChange={(e) => {
             setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
+            setCurrentPage(1); // Reset to the first page when the filter changes
           }}
           sx={{ width: "200px", marginRight: "20px" }}
         >
@@ -627,7 +645,7 @@ function OperationsList() {
                 <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
+                    setCurrentPage(1);
                   }}
                 >
                   <SearchIcon />
@@ -646,7 +664,7 @@ function OperationsList() {
       <MaterialReactTable {...tableConfig} />
       <Pagination
         count={totalPages}
-        page={page}
+        page={currentPage}
         onChange={handlePageChange}
         color="primary"
         sx={{ marginTop: "20px", display: "flex", justifyContent: "center" }}

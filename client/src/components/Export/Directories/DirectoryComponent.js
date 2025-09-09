@@ -5,6 +5,8 @@ import ContactInfo from "./ContactInfo.js";
 import AccountInfo from "./AccountInfo.js";
 import ExportDirectory from "./ExportDirectory.js";
 import BankDetails from "./BankDetails.js";
+import StateDirectory from "./StateDirectory.js";
+import AirlineCodeDirectory from "./AirlineCodeDirectory.js";
 // import UnitMeasurementDirectory from "./UnitMeasurementDirectory";
 // import ContainerTypeDirectory from "./ContainerTypeDirectory";
 // import LocationDirectory from "./LocationDirectory";
@@ -40,6 +42,11 @@ function DirectoryComponent({ directoryType }) {
         return <BankDetails />;
       case "Organization": // ✅ Fix case to match viewMasterList
         return < ExportDirectory/>;
+      case "State Code": // ✅ Added State Directory
+        return <StateDirectory />;
+      case "Airline Code": // ✅ Added Airline Code Directory
+        return <AirlineCodeDirectory />;
+      // case "Unit Measurement": // ✅ Added Unit Measurement Directory
       // case "Location": // ✅ Added Location Directory
       //   return <LocationDirectory />;
       // case "State District": // ✅ Added State District Directory

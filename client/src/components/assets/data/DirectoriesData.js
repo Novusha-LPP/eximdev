@@ -20,6 +20,8 @@ export const viewMasterList = [
   "Account Information",
   "Bank Details",
   "Organization",
+  "State Code",
+  "Airline Code",
 ];
 
 export const directoryFields = {

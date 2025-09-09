@@ -163,6 +163,8 @@ import contactInfo from "./routes/Directories/contactInfo.js";
 import accountInfo from "./routes/Directories/accountInfo.js";
 import directory from "./routes/Directories/directory.js";
 import bankDetails from "./routes/Directories/bankDetails.js";
+import state from "./routes/Directories/state.mjs";
+import airline from "./routes/Directories/airlines.js";
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -399,6 +401,8 @@ if (cluster.isPrimary) {
       app.use(accountInfo);
       app.use(directory);
       app.use(bankDetails);
+      app.use("/api/states", state);
+      app.use("/api/airlines", airline);
 
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 

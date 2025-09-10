@@ -22,6 +22,9 @@ export const viewMasterList = [
   "Organization",
   "State Code",
   "Airline Code",
+  "Country Code",
+  "ITCHS and Standard UQC",
+  "Shipping Line Code"
 ];
 
 export const directoryFields = {

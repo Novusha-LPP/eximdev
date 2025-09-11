@@ -517,5 +517,6 @@ jobSchema.pre("save", function (next) {
 jobSchema.index({ exporterURL: 1, year: 1, status: 1 });
 jobSchema.index({ year: 1, job_no: 1 }, { unique: true });
 
-const ExJobModel = new mongoose.model("Job", jobSchema);
+const ExJobModel = mongoose.models.Job || mongoose.model("Job", jobSchema);
 export default ExJobModel;
+

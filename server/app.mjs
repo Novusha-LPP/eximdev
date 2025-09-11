@@ -179,6 +179,12 @@ import Packages from "./routes/Directories/packages.js";
 import SupportingDocuments from "./routes/Directories/supportingdocumentcodes.js";
 
 
+
+//============== EXPORT DSR =========================
+import getExJobsOverview from "./routes/export-dsr/getExJobsOverview.mjs";
+import getExporterList from "./routes/export-dsr/getExporterList.mjs";
+import getExporterJobs from "./routes/export-dsr/getExporterJobs.mjs";
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -429,6 +435,13 @@ if (cluster.isPrimary) {
       app.use("/api/packages", Packages);
       app.use("/api/supportingDocumentCodes", SupportingDocuments);
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
+
+
+
+      //============== EXPORT DSR =========================
+      app.use(getExJobsOverview);
+      app.use(getExporterList);
+      app.use(getExporterJobs);
 
       // Initialize WebSocket logic
       const server = http.createServer(app);

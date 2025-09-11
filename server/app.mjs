@@ -165,6 +165,19 @@ import directory from "./routes/Directories/directory.js";
 import bankDetails from "./routes/Directories/bankDetails.js";
 import state from "./routes/Directories/state.mjs";
 import airline from "./routes/Directories/airlines.js";
+import Country from "./routes/Directories/Country.js"
+import TarrifHead from "./routes/Directories/tarrifhead.js";
+import ShippingLine from "./routes/Directories/shippinglines.js";
+import scheme from "./routes/Directories/scheme.js";
+import edilocations from "./routes/Directories/edilocations.js";
+import nonedilocations from "./routes/Directories/nonedilocation.js";
+import ports from "./routes/Directories/ports.js";
+import airports from "./routes/Directories/airports.js";
+import uqcs from "./routes/Directories/uqcs.js";
+import Currency from "./routes/Directories/currencies.js";
+import Packages from "./routes/Directories/packages.js";
+import SupportingDocuments from "./routes/Directories/supportingdocumentcodes.js";
+
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -403,7 +416,18 @@ if (cluster.isPrimary) {
       app.use(bankDetails);
       app.use("/api/states", state);
       app.use("/api/airlines", airline);
-
+      app.use("/api/countries", Country);
+      app.use("/api/tariffHeads", TarrifHead);
+      app.use("/api/shippingLines", ShippingLine);
+      app.use("/api/schemes", scheme);
+      app.use("/api/ediLocations", edilocations);
+      app.use("/api/nonEdiLocations", nonedilocations);
+      app.use("/api/ports", ports);
+      app.use("/api/airPorts", airports);
+      app.use("/api/uqcs", uqcs);
+      app.use("/api/currencies", Currency);
+      app.use("/api/packages", Packages);
+      app.use("/api/supportingDocumentCodes", SupportingDocuments);
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
       // Initialize WebSocket logic

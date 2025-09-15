@@ -35,6 +35,8 @@ const allModules = [
   "Screen2",
   "Screen3",
   "Screen4",
+  "Export - Dsr",
+  "Directories",
 ];
 
 function not(a, b) {

@@ -183,7 +183,8 @@ import SupportingDocuments from "./routes/Directories/supportingdocumentcodes.js
 //============== EXPORT DSR =========================
 import getExJobsOverview from "./routes/export-dsr/getExJobsOverview.mjs";
 import getExporterList from "./routes/export-dsr/getExporterList.mjs";
-import getExporterJobs from "./routes/export-dsr/getExporterJobs.mjs";
+import getExporterJobs from "./routes/export-dsr/getExporterJobs.mjs";      
+import addJobs from "./routes/export-dsr/add-exp-jobs.mjs";      
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -442,6 +443,7 @@ if (cluster.isPrimary) {
       app.use(getExJobsOverview);
       app.use(getExporterList);
       app.use(getExporterJobs);
+      app.use( addJobs)
 
       // Initialize WebSocket logic
       const server = http.createServer(app);

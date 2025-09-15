@@ -19,6 +19,7 @@ export const moduleCategories = {
   "Exit Feedback": "HR & Management",
   // Export: "Export",
   "Directories": "Export",
+  "Export - Dsr": "Export",
   Screen1: "Screens",
   Screen2: "Screens",
   Screen3: "Screens",

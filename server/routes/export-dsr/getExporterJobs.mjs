@@ -1,63 +1,95 @@
-import express from "express";
-import ExJobModel from "../../model/export/ExJobModel.mjs";
+import express from 'express';
+import ExportJobModel from '../../model/export/ExJobModel.mjs';
 
 const router = express.Router();
 
-// ✅ Utility function to format exporter name
-function formatExporter(exporter) {
-  return exporter
-    .toLowerCase()
-    .replace(/\s+/g, "_") // Replace spaces with underscores
-    .replace(/[\.\-\/,\(\)\[\]]/g, "") // Remove unwanted symbols
-    .replace(/_+/g, "_"); // Remove multiple underscores
-}
-
-// ✅ API Endpoint to get job counts for an exporter
-router.get("/api/get-exporter-jobs/:exporterURL/:year", async (req, res) => {
+// GET /api/exports - List all exports with pagination & filtering
+router.get('/api/exports', async (req, res) => {
   try {
-    const { year, exporterURL } = req.params;
-    const formattedExporter = formatExporter(exporterURL);
+    const { page = 1, limit = 10, search = '', exporter = '', country = '', movement_type = '' } = req.query;
 
-    // 🚀 Aggregation to count jobs efficiently
-    const jobCounts = await ExJobModel.aggregate([
-      {
-        $match: {
-          year: year,
-          exporterURL: new RegExp(`^${formattedExporter}$`, "i"), // Case-insensitive matching
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          pendingCount: {
-            $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] },
-          },
-          completedCount: {
-            $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] },
-          },
-          cancelledCount: {
-            $sum: { $cond: [{ $eq: ["$status", "Cancelled"] }, 1, 0] },
-          },
-          totalCount: { $sum: 1 },
-        },
-      },
-    ]).allowDiskUse(true); // ✅ Enable disk use for large data
+    const filter = {};
+    if (search) {
+      filter.$or = [
+        { job_no: { $regex: search, $options: 'i' } },
+        { exporter_name: { $regex: search, $options: 'i' } },
+        { consignee_name: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (exporter) filter.exporter_name = { $regex: exporter, $options: 'i' };
+    if (country) filter.country_of_final_destination = { $regex: country, $options: 'i' };
+    if (movement_type) filter.movement_type = movement_type;
 
-    // ✅ Prepare response array
-    const responseArray =
-      jobCounts.length > 0
-        ? [
-            jobCounts[0].totalCount,
-            jobCounts[0].pendingCount,
-            jobCounts[0].completedCount,
-            jobCounts[0].cancelledCount,
-          ]
-        : [0, 0, 0, 0];
+    const skip = (page - 1) * limit;
+    const [jobs, totalCount] = await Promise.all([
+      ExportJobModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+      ExportJobModel.countDocuments(filter)
+    ]);
 
-    res.json(responseArray);
+    res.json({
+      success: true,
+      data: {
+        jobs,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalCount / limit),
+          totalCount
+        }
+      }
+    });
   } catch (error) {
-    console.error("Error fetching job counts by exporter:", error);
-    res.status(500).json({ error: "Error fetching job counts by exporter" });
+    res.status(500).json({ success: false, message: 'Error fetching jobs', error: error.message });
+  }
+});
+
+// POST /api/exports - Create new export job
+router.post('/exports', async (req, res) => {
+  try {
+    const newJob = new ExportJobModel(req.body);
+    const savedJob = await newJob.save();
+    res.status(201).json({ success: true, data: savedJob });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error creating job', error: error.message });
+  }
+});
+
+router.post('/api/test/seed-data', async (req, res) => {
+  try {
+    const sampleJobs = [
+      {
+      "exporter_name": "SAMPLE EXPORTER LTD",
+    "consignee_name": "SAMPLE CONSIGNEE LTD",
+    "ie_code": "1234567890",
+    "job_no": "AMD/EXP/SEA/00015/25-26",
+    "movement_type": "FCL",
+    "country_of_final_destination": "USA",
+    "commodity_description": "Industrial Equipment",
+    "commercial_invoice_value": "25000.00",
+    "invoice_currency": "USD",
+    "port_of_loading": "JNPT",
+    "port_of_discharge": "NEW YORK",
+    "total_packages": "10",
+    "gross_weight_kg": "5000",
+    "net_weight_kg": "4500",
+    "status": "pending"
+      },
+      // Add more sample jobs...
+    ];
+
+    const insertedJobs = await ExportJobModel.insertMany(sampleJobs);
+    
+    res.status(201).json({
+      success: true,
+      message: `Successfully inserted ${insertedJobs.length} sample export jobs`,
+      data: { count: insertedJobs.length, jobs: insertedJobs }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error inserting sample data',
+      error: error.message
+    });
   }
 });
 

@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
-import { type } from "os";
 
+// Image Schema for document attachments
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
 
-
-
+// Field Schema for dynamic custom fields
 const fieldSchema = new mongoose.Schema({
   name: { type: String, required: true },
   type: { 
@@ -19,18 +18,15 @@ const fieldSchema = new mongoose.Schema({
   order: { type: Number, default: 0 }
 });
 
-const masterTypeSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  fields: [fieldSchema],
-  isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
-});
 
+
+// Custom Field Schema for dynamic data
 const customFieldSchema = new mongoose.Schema({
   fieldId: { type: mongoose.Schema.Types.ObjectId, required: true },
   value: { type: mongoose.Schema.Types.Mixed, required: true }
 });
 
+// Account Entry Schema
 const accountEntrySchema = new mongoose.Schema({
   masterTypeId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -50,473 +46,589 @@ const accountEntrySchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-const cthDocumentSchema = new mongoose.Schema({
-  cth: { type: Number, trim: true },
+// Export Document Schema
+const exportDocumentSchema = new mongoose.Schema({
   document_name: { type: String, trim: true },
   document_code: { type: String, trim: true },
   url: [{ type: String, trim: true }],
-  irn: { type: String, trim: true },
+  document_number: { type: String, trim: true },
+  issue_date: { type: String, trim: true },
+  expiry_date: { type: String, trim: true },
   document_check_date: { type: String, trim: true },
-  is_sent_to_esanchit: { type: Boolean, default: false },
+  is_verified: { type: Boolean, default: false },
+  verification_date: { type: String, trim: true },
 });
 
-const DsrchargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
+// Shipping Bill Document Schema
+const shippingBillDocumentSchema = new mongoose.Schema({
+  sb_number: { type: String, trim: true },
+  sb_date: { type: String, trim: true },
+  sb_type: { 
+    type: String, 
+    trim: true,
+    enum: ['duty_free', 'dutiable', 'drawback', 'coastal', 'ex_bond']
+  },
+  sb_color_code: { type: String, trim: true }, // white, yellow, green, pink
+  customs_house_code: { type: String, trim: true },
+  port_of_loading: { type: String, trim: true },
+  country_of_destination: { type: String, trim: true },
   url: [{ type: String, trim: true }],
   document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
+  let_export_order_date: { type: String, trim: true },
+  is_sb_filed: { type: Boolean, default: false },
+  sb_filing_date: { type: String, trim: true },
 });
 
-const esanchitChargesSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_charge_refrence_no: { type: String, trim: true },
-  document_charge_recipt_copy: { type: String, trim: true },
+// Container/Package Schema for Export
+const exportContainerSchema = new mongoose.Schema({
+  container_number: { type: String, trim: true },
+  container_type: { type: String, trim: true }, // FCL, LCL
+  container_size: { type: String, trim: true }, // 20ft, 40ft, 40HC
+  seal_number: { type: String, trim: true },
+  stuffing_date: { type: String, trim: true },
+  stuffing_location: { type: String, trim: true },
+  gross_weight: { type: String, trim: true },
+  net_weight: { type: String, trim: true },
+  tare_weight: { type: String, trim: true },
+  volume: { type: String, trim: true },
+  packages_count: { type: String, trim: true },
+  package_type: { type: String, trim: true }, // Cartons, Pallets, Bags, etc.
+  marks_and_numbers: { type: String, trim: true },
+  container_images: [{ type: String, trim: true }],
+  stuffing_images: [{ type: String, trim: true }],
+  seal_images: [{ type: String, trim: true }],
+  weighment_slip: [{ type: String, trim: true }],
+  vgm_certificate: [{ type: String, trim: true }], // Verified Gross Mass
+  vgm_date: { type: String, trim: true },
+  gate_in_date: { type: String, trim: true },
+  gate_out_date: { type: String, trim: true },
+  loading_date: { type: String, trim: true },
+  departure_date: { type: String, trim: true },
 });
 
-
-
-const documentSchema = new mongoose.Schema({
-  document_name: { type: String, trim: true },
-  document_code: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  irn: { type: String, trim: true },
-  document_check_date: { type: String, trim: true },
+// Charges Schema for Export
+const exportChargesSchema = new mongoose.Schema({
+  charge_type: { type: String, trim: true }, // freight, insurance, handling, etc.
+  charge_description: { type: String, trim: true },
+  amount: { type: String, trim: true },
+  currency: { type: String, trim: true },
+  payment_terms: { type: String, trim: true },
+  invoice_number: { type: String, trim: true },
+  invoice_date: { type: String, trim: true },
+  payment_status: { type: String, trim: true },
+  payment_date: { type: String, trim: true },
+  document_urls: [{ type: String, trim: true }],
 });
 
-const jobSchema = new mongoose.Schema({
+// Certificate Schema
+const certificateSchema = new mongoose.Schema({
+  certificate_type: { type: String, trim: true },
+  certificate_number: { type: String, trim: true },
+  issue_date: { type: String, trim: true },
+  expiry_date: { type: String, trim: true },
+  issuing_authority: { type: String, trim: true },
+  certificate_urls: [{ type: String, trim: true }],
+  is_required: { type: Boolean, default: false },
+  is_obtained: { type: Boolean, default: false },
+});
+
+// Main Export Job Schema
+const exportJobSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
-    default: Date.now, // Automatically sets the current date and time
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
     default: Date.now,
   },
 
+  ////////////////////////////////////////////////// Basic Job Information
+  year: { type: String, trim: true },
+  job_no: { type: String, trim: true },
   job_date: {
     type: String,
     trim: true,
-    default: () => new Date().toISOString(), // Optional for specific fields like `job_date`
+    default: () => new Date().toISOString(),
   },
-
-  ////////////////////////////////////////////////// Excel sheet
-  year: { type: String, trim: true },
-  job_no: { type: String, trim: true },
-  custom_house: { type: String, trim: true },
-  job_date: { type: String, trim: true },
-  exporter: { type: String, trim: true },
-  supplier_exporter: { type: String, trim: true },
-  invoice_number: { type: String, trim: true },
-  invoice_date: { type: String, trim: true },
-  awb_bl_no: { type: String, trim: true },
-  awb_bl_date: { type: String, trim: true },
-  description: { type: String, trim: true },
-  hawb_hbl_no: { type: String, trim: true },
-  hawb_hbl_date: { type: String, trim: true },
-  sb_no: { type: String, trim: true },
-  in_bond_sb_no: { type: String, trim: true },
-  sb_date: { type: String, trim: true },
-  sb_filing_type: { type: String, trim: true },
-  in_bond_sb_date: { type: String, trim: true },
-  type_of_b_e: { type: String, trim: true },
-  no_of_pkgs: { type: String, trim: true },
-  unit: { type: String, trim: true },
-  gross_weight: { type: String, trim: true },
-  firstCheck: { type: String, trim: true },
-  job_net_weight: { type: String, trim: true },
-  priorityJob: { type: String, trim: true, default: "Normal" },
-  unit_1: { type: String, trim: true },
-  gateway_igm: { type: String, trim: true },
-  gateway_igm_date: { type: String, trim: true },
-  hss: { type: String, trim: true, default: "No" },
-  saller_name: { type: String, trim: true },
-  igm_no: { type: String, trim: true },
-  igm_date: { type: String, trim: true },
-  loading_port: { type: String, trim: true },
-  origin_country: { type: String, trim: true },
-  port_of_reporting: { type: String, trim: true },
-  shipping_line_airline: { type: String, trim: true },
-  branchSrNo: { type: String, trim: true },
-  adCode: { type: String, trim: true },
-  bank_name: {type: String, trim: true},
-  isDraftDoc: { type: Boolean },
-  fta_Benefit_date_time: { type: String, trim: true },
-  exBondValue: { type: String, trim: true },
-  scheme: { type: String, trim: true },
-  clearanceValue: { type: String, trim: true },
-  ie_code_no: { type: String, trim: true },
-
-  container_nos: [
-    {
-      container_number: { type: String, trim: true },
-      arrival_date: { type: String, trim: true },
-      detention_from: { type: String, trim: true },
-      size: { type: String, trim: true },
-      physical_weight: { type: String, trim: true },
-      tare_weight: { type: String, trim: true },
-      net_weight: { type: String, trim: true },
-      container_gross_weight: { type: String, trim: true },
-      actual_weight: { type: String, trim: true },
-      transporter: { type: String, trim: true },
-      vehicle_no: { type: String, trim: true },
-      driver_name: { type: String, trim: true },
-      driver_phone: { type: String, trim: true },
-      seal_no: { type: String, trim: true },
-      pre_weighment: { type: String, trim: true },
-      post_weighment: { type: String, trim: true },
-      weight_shortage: { type: String, trim: true },
-      weight_excess: { type: String, trim: true },
-      weighment_slip_images: [{ type: String, trim: true }],
-      container_pre_damage_images: [{ type: String, trim: true }],
-      container_images: [{ type: String, trim: true }],
-      loose_material: [{ type: String, trim: true }],
-      examination_videos: [{ type: String, trim: true }],
-      do_revalidation_date: { type: String, trim: true },
-      do_validity_upto_container_level: { type: String, trim: true },
-      required_do_validity_upto: { type: String, trim: true },
-      seal_number: { type: String, trim: true },
-      container_rail_out_date: {type: String, trim: true},
-      by_road_movement_date: { type: String, trim: true },
-      emptyContainerOffLoadDate: { type: String, trim: true },
-       net_weight_as_per_PL_document: { type: String, trim: true },
-       delivery_chalan_file: { type: String, trim: true },
-      delivery_date: {
-        type: String,
-        trim: true,
-      },
-        
-      do_revalidation: [
-        {
-          do_revalidation_upto: { type: String },
-          remarks: { type: String },
-          do_Revalidation_Completed: { type: Boolean, default: false },
-        },
-      ],
-    },
-  ],
-  is_checklist_aprroved: { type: Boolean, default: false },
-  is_checklist_aprroved_date: { type: String, trim: true },
-  is_checklist_clicked: { type: Boolean, trim: true },
-  container_count: { type: String, trim: true },
-  no_of_container: { type: String, trim: true },
-  toi: { type: String, trim: true },
-  unit_price: { type: String, trim: true },
-  cif_amount: { type: String, trim: true },
-  assbl_value: { type: String, trim: true },
-  total_duty: { type: String, trim: true },
-  out_of_charge: { type: String, trim: true },
-  consignment_type: { type: String, trim: true },
-  shipping_bill_no: { type: String, trim: true },
-  shipping_bill_date: { type: String, trim: true },
-  cth_no: { type: String, trim: true },
-  exrate: { type: String, trim: true },
-  inv_currency: { type: String, trim: true },
-  vessel_berthing: {
-    type: String,
+  job_type: { 
+    type: String, 
+    trim: true, 
+    enum: ['air_export', 'sea_export', 'land_export', 'courier_export'],
+    default: 'sea_export'
+  },
+  movement_type: { 
+    type: String, 
     trim: true,
+    enum: ['FCL', 'LCL', 'Air_Cargo', 'Break_Bulk', 'Courier']
   },
-  exporter_address: { type: String },
-  vessel_flight: { type: String },
-  voyage_no: { type: String },
-  job_owner: { type: String },
-  total_inv_value: { type: String },
-
-  ////////////////////////////////////////////////// DSR
-  exporterURL: { type: String, trim: true },
-  checklist: [{ type: String }],
-  checkedDocs: [{ type: String }],
-  // *******
+  incoterms: { 
+    type: String, 
+    trim: true,
+    enum: ['FOB', 'CIF', 'CFR', 'EXW', 'DDP', 'DDU', 'FCA', 'CPT', 'CIP']
+  },
+  priority_level: { 
+    type: String, 
+    trim: true, 
+    default: "Normal",
+    enum: ['High', 'Normal', 'Low', 'Urgent']
+  },
   status: { type: String, trim: true },
   detailed_status: { type: String, trim: true },
-  // *******
-  obl_telex_bl: { type: String },
-  document_received_date: { type: String, trim: true },
-  doPlanning: { type: Boolean },
-  do_planning_date: { type: String, trim: true },
-  type_of_Do: { type: String },
-  do_validity_upto_job_level: { type: String, trim: true },
-  do_revalidation_upto_job_level: { type: String, trim: true },
-  do_revalidation: { type: Boolean },
-  do_revalidation_date: { type: String },
-  // rail_out_date: { type: String },
-  examinationPlanning: { type: Boolean },
-  examination_planning_date: { type: String, trim: true },
-  processed_be_attachment: [{ type: String }],
-  ooc_copies: [{ type: String }],
-  in_bond_ooc_copies: [{ type: String }],
-  gate_pass_copies: [{ type: String }],
-  // *******
-  sims_reg_no: {
-    type: String,
-    trim: true,
-  },
-  pims_reg_no: {
-    type: String,
-    trim: true,
-  },
-  nfmims_reg_no: {
-    type: String,
-    trim: true,
-  },
-  sims_date: {
-    type: String,
-    trim: true,
-  },
-  pims_date: {
-    type: String,
-    trim: true,
-  },
-  nfmims_date: {
-    type: String,
-    trim: true,
-  },
-  // *******
-  discharge_date: {
-    type: String,
-    trim: true,
-  },
-  assessment_date: {
-    type: String,
-    trim: true,
-  },
-  duty_paid_date: {
-    type: String,
-    trim: true,
-  },
-  do_validity: { type: String, trim: true },
-  // delivery_date: {
-  //   type: String,
-  //   trim: true,
-  // },
-  containers_arrived_on_same_date: Boolean,
-  // *******
-  remarks: { type: String, trim: true },
-  // *******
-  free_time: { type: Number, trim: true },
-  is_free_time_updated: { type: Boolean, default: false },
-  factory_weighment_slip: { type: String, trim: true },
-  assessable_ammount: { type: String, trim: true },
-  bcd_ammount: { type: String, trim: true },
-  igst_ammount: { type: String, trim: true },
-  sws_ammount: { type: String, trim: true },
-  intrest_ammount: { type: String, trim: true },
-  fine_amount: { type: String, trim: true },
-  penalty_amount: { type: String, trim: true },
-  penalty_by_us: { type: Boolean, default: false },
-  penalty_by_exporter: { type: Boolean, default: false },
-  zero_penalty_as_per_shipping_bill_of_entry: { type: Boolean, default: false },
+
+  // Additional tracking fields for your export schema
+container_placement_date_factory: { type: String, trim: true },
+original_docs_received_date: { type: String, trim: true },
+gate_in_thar_khodiyar_date: { type: String, trim: true },
+gate_in_thar_khodiyar_time: { type: String, trim: true },
+hand_over_date: { type: String, trim: true },
+file_hand_over_date: { type: String, trim: true },
+rail_out_date_plan: { type: String, trim: true },
+rail_out_date_actual: { type: String, trim: true },
+port_gate_in_date: { type: String, trim: true },
+cargo_arrived_icd_date: { type: String, trim: true },
+customs_clearance_done: { type: Boolean, default: false },
+cntr_size: { type: String, trim: true, enum: ['20', '40', '20HC', '40HC', 'AIR'] },
+port_of_origin: { type: String, trim: true },
+docs_received_date: { type: String, trim: true },
+tracking_remarks: { type: String, trim: true },
+operation_remarks: { type: String, trim: true },
 
 
-  ////////////////////////////////////////////////// E-sanchit
-  esanchit_completed_date_time: { type: String, trim: true },
-
-  ////////////////////////////////////////////////// DO
-  shipping_line_bond_completed: { type: String, trim: true },
-  shipping_line_bond_charges: {
-    type: String,
-    trim: true,
-  },
-  shipping_line_bond_completed_date: { type: String, trim: true },
-  shipping_line_kyc_completed: { type: String, trim: true },
-  shipping_line_kyc_completed_date: { type: String, trim: true },
-  shipping_line_invoice_received: { type: String, trim: true },
-  shipping_line_invoice_received_date: { type: String, trim: true },
-  shipping_line_insurance: [{ type: String, trim: true }],
-  // *******
-  security_deposit: { type: String },
-  security_amount: { type: String },
-  utr: [
-    {
-      type: String,
-      trim: true,
-    },
-  ],
-  shipping_line_attachment: [
-    {
-      type: String,
-      trim: true,
-    },
-  ],
-  other_invoices: { type: String, trim: true },
-  other_invoices_img: [{ type: String, trim: true }],
-  other_invoices_date: { type: String, trim: true },
-  payment_made: { type: String, trim: true },
-  payment_made_date: { type: String, trim: true },
-  payment_method: { type: String, trim: true, default: "Transaction" },
-  do_processed: { type: String, trim: true },
-  do_documents: [{ type: String, trim: true }],
-  do_processed_date: { type: String, trim: true },
-  do_copies: [{ type: String }],
-  shipping_line_invoice: { type: String, trim: true },
-  shipping_line_invoice_date: { type: String },
-  shipping_line_invoice_imgs: [{ type: String, trim: true }],
-  do_queries: [{ query: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false } }],
-  dsr_queries: [{ query: { type: String }, current_module: { type: String }, select_module: { type: String }, reply: { type: String }, resolved: { type: Boolean, default: false }, resolved_by: {type: String}, send_by: {type: String}, replied_by: {type: String} }],
-  do_completed: { type: String, trim: true },
-  // *******
-  icd_cfs_invoice: { type: String, trim: true },
-
-  icd_cfs_invoice_date: { type: String, trim: true },
-
-  import_terms: { type: String, trim: true },
-  cifValue: { type: String, trim: true },
-  freight: { type: String, trim: true },
-  insurance: { type: String, trim: true },
-
-  do_received: { type: String, trim: true },
-  do_received_date: { type: String, trim: true },
-  is_obl_recieved: { type: Boolean, default: false },
-  obl_recieved_date: { type: String, trim: true },
-
-
-  is_do_doc_recieved: { type: Boolean, default: false },
-  do_doc_recieved_date: { type: String, trim: true },
-  is_do_doc_prepared: { type: Boolean, default: false },
-  do_doc_prepared_date: { type: String, trim: true },
-  ////////////////////////////////////////////////// documentation
-  documentation_completed_date_time: { type: String, trim: true },
-
-  ////////////////////////////////////////////////// Operations
-  pcv_date: { type: String },
-  examination_date: {
-    type: String,
-    trim: true,
-  },
-  concor_gate_pass_date: { type: String, trim: true },
-  concor_gate_pass_validate_up_to: { type: String, trim: true },
-  completed_operation_date: { type: String, trim: true },
-  custodian_gate_pass: [{ type: String, trim: true }],
-  concor_invoice_and_receipt_copy: [{ type: String, trim: true }],
-
-  ////////////////////////////////////////////////// LR
-  pr_no: { type: String, trim: true },
-  pr_date: { type: String, trim: true },
-  consignor: { type: String },
-  consignee: { type: String },
-  type_of_vehicle: { type: String },
-  description_srcc: { type: String },
-  container_loading: { type: String },
-  container_offloading: { type: String },
-  instructions: { type: String },
-  goods_pickup: { type: String },
-  goods_delivery: { type: String },
-
+  ////////////////////////////////////////////////// Exporter Information
+  exporter_name: { type: String, trim: true, required: true },
+  exporter_address: { type: String, trim: true },
+  exporter_city: { type: String, trim: true },
+  exporter_state: { type: String, trim: true },
+  exporter_country: { type: String, trim: true, default: 'India' },
+  exporter_pincode: { type: String, trim: true },
+  exporter_phone: { type: String, trim: true },
+  exporter_email: { type: String, trim: true },
+  exporter_fax: { type: String, trim: true },
+  exporter_website: { type: String, trim: true },
   
-  ////////////////////////////////////////////form data
-  account_fields: [masterTypeSchema],
+  // Regulatory Information
+  ie_code: { type: String, trim: true, required: true }, // Import Export Code
+  exporter_pan: { type: String, trim: true },
+  exporter_gstin: { type: String, trim: true },
+  exporter_tan: { type: String, trim: true },
+  ad_code: { type: String, trim: true }, // Authorized Dealer Code
+  rcmc_number: { type: String, trim: true }, // Registration Cum Membership Certificate
+  rcmc_validity: { type: String, trim: true },
+  
+  // Banking Information
+  bank_name: { type: String, trim: true },
+  bank_branch: { type: String, trim: true },
+  bank_account_number: { type: String, trim: true },
+  bank_ifsc_code: { type: String, trim: true },
+  bank_swift_code: { type: String, trim: true },
 
-  account_types: [accountEntrySchema],
+  ////////////////////////////////////////////////// Consignee/Importer Information
+  consignee_name: { type: String, trim: true, required: true },
+  consignee_address: { type: String, trim: true },
+  consignee_city: { type: String, trim: true },
+  consignee_state: { type: String, trim: true },
+  consignee_country: { type: String, trim: true },
+  consignee_postal_code: { type: String, trim: true },
+  consignee_phone: { type: String, trim: true },
+  consignee_email: { type: String, trim: true },
+  consignee_fax: { type: String, trim: true },
+  consignee_tax_id: { type: String, trim: true },
 
-  ////////////////////////////////////////////////// CTH Documents
-  cth_documents: [cthDocumentSchema],
-  eSachitQueries: [{ query: { type: String }, reply: { type: String } , resolved: { type: Boolean, default: false } }],
+  // Notify Party Information
+  notify_party_name: { type: String, trim: true },
+  notify_party_address: { type: String, trim: true },
+  notify_party_phone: { type: String, trim: true },
+  notify_party_email: { type: String, trim: true },
 
-  ////////////////////////////////////////////////////// Documents
-  documents: [documentSchema],
+  ////////////////////////////////////////////////// Shipment Details
+  port_of_loading: { type: String, trim: true },
+  port_of_discharge: { type: String, trim: true },
+  final_destination: { type: String, trim: true },
+  place_of_receipt: { type: String, trim: true },
+  place_of_delivery: { type: String, trim: true },
+  country_of_origin: { type: String, trim: true, default: 'India' },
+  country_of_final_destination: { type: String, trim: true },
+  
+  // Vessel/Flight Information
+  vessel_flight_name: { type: String, trim: true },
+  voyage_flight_number: { type: String, trim: true },
+  etd_port_of_loading: { type: String, trim: true }, // Estimated Time of Departure
+  eta_port_of_discharge: { type: String, trim: true }, // Estimated Time of Arrival
+  actual_departure_date: { type: String, trim: true },
+  actual_arrival_date: { type: String, trim: true },
+  
+  // Carrier Information
+  shipping_line_airline: { type: String, trim: true },
+  master_bl_awb_number: { type: String, trim: true },
+  master_bl_awb_date: { type: String, trim: true },
+  house_bl_awb_number: { type: String, trim: true },
+  house_bl_awb_date: { type: String, trim: true },
+  booking_number: { type: String, trim: true },
+  booking_date: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Cargo Information
+  commodity_description: { type: String, trim: true },
+  hs_code: { type: String, trim: true },
+  total_packages: { type: String, trim: true },
+  package_type: { type: String, trim: true },
+  gross_weight_kg: { type: String, trim: true },
+  net_weight_kg: { type: String, trim: true },
+  volume_cbm: { type: String, trim: true },
+  dimensions_length: { type: String, trim: true },
+  dimensions_width: { type: String, trim: true },
+  dimensions_height: { type: String, trim: true },
+  marks_and_numbers: { type: String, trim: true },
+  special_instructions: { type: String, trim: true },
+  
+  // Dangerous Goods Information
+  is_dangerous_goods: { type: Boolean, default: false },
+  un_number: { type: String, trim: true },
+  proper_shipping_name: { type: String, trim: true },
+  hazard_class: { type: String, trim: true },
+  packing_group: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Commercial Information
+  // Invoice Details
+  proforma_invoice_number: { type: String, trim: true },
+  proforma_invoice_date: { type: String, trim: true },
+  proforma_invoice_value: { type: String, trim: true },
+  commercial_invoice_number: { type: String, trim: true },
+  commercial_invoice_date: { type: String, trim: true },
+  commercial_invoice_value: { type: String, trim: true },
+  invoice_currency: { type: String, trim: true, default: 'USD' },
+  exchange_rate: { type: String, trim: true },
+  fob_value: { type: String, trim: true },
+  freight_charges: { type: String, trim: true },
+  insurance_charges: { type: String, trim: true },
+  cif_value: { type: String, trim: true },
+  
+  // Payment Terms
+  payment_terms: { type: String, trim: true },
+  payment_method: { 
+    type: String, 
+    trim: true,
+    enum: ['LC', 'TT', 'DA', 'DP', 'Advance', 'CAD', 'Open_Account']
+  },
+  
+  // Letter of Credit Information
+  lc_number: { type: String, trim: true },
+  lc_date: { type: String, trim: true },
+  lc_amount: { type: String, trim: true },
+  lc_expiry_date: { type: String, trim: true },
+  lc_issuing_bank: { type: String, trim: true },
+  lc_advising_bank: { type: String, trim: true },
+  lc_confirming_bank: { type: String, trim: true },
+  
+  // Bill of Exchange
+  bill_of_exchange_number: { type: String, trim: true },
+  bill_of_exchange_date: { type: String, trim: true },
+  bill_of_exchange_amount: { type: String, trim: true },
+  bill_of_exchange_tenor: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Shipping Bill Information
+  shipping_bill_number: { type: String, trim: true },
+  shipping_bill_date: { type: String, trim: true },
+  shipping_bill_type: { 
+    type: String, 
+    trim: true,
+    enum: ['duty_free', 'dutiable', 'drawback', 'coastal', 'ex_bond']
+  },
+  customs_house: { type: String, trim: true },
+  customs_officer_name: { type: String, trim: true },
+  
+  // LEO (Let Export Order)
+  leo_number: { type: String, trim: true },
+  leo_date: { type: String, trim: true },
+  leo_validity_date: { type: String, trim: true },
+  
+  // Gate Pass Information
+  gate_pass_number: { type: String, trim: true },
+  gate_pass_date: { type: String, trim: true },
+  gate_pass_validity: { type: String, trim: true },
+  cartage_date: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Export Incentives & Schemes
+  export_promotion_scheme: { type: String, trim: true }, // MEIS, SEIS, etc.
+  scheme_code: { type: String, trim: true },
+  scrip_value: { type: String, trim: true },
+  duty_drawback_rate: { type: String, trim: true },
+  duty_drawback_amount: { type: String, trim: true },
+  duty_drawback_claimed: { type: Boolean, default: false },
+  duty_drawback_received_date: { type: String, trim: true },
+  
+  // Export Finance
+  export_finance_required: { type: Boolean, default: false },
+  packing_credit_limit: { type: String, trim: true },
+  packing_credit_utilized: { type: String, trim: true },
+  export_bill_negotiated_date: { type: String, trim: true },
+  export_proceeds_realization_date: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Containers Information
+  containers: [exportContainerSchema],
+  container_count: { type: String, trim: true },
+  stuffing_location: { type: String, trim: true },
+  stuffing_date: { type: String, trim: true },
+  stuffing_time: { type: String, trim: true },
+  
+  // CFS/Terminal Information
+  cfs_terminal_name: { type: String, trim: true },
+  cfs_gate_in_date: { type: String, trim: true },
+  cfs_gate_out_date: { type: String, trim: true },
+  terminal_handling_charges: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Documentation Module
+  export_documents: [exportDocumentSchema],
+  shipping_bill_documents: [shippingBillDocumentSchema],
+  certificates: [certificateSchema],
   all_documents: [{ type: String, trim: true }],
-
-  ////////////////////////////////////////////////////// Documentation
-  document_entry_completed: { type: Boolean },
-  documentationQueries: [
-    {
-      query: { type: String },
-      reply: { type: String },
-      resolved: { type: Boolean, default: false },
-    },
-  ],
-
-  /////////////////////////////////// Charges Details
-  DsrCharges: [DsrchargesSchema],
-
-
-  /////////////////////////////////// esanchit Charges Details
-  esanchitCharges: [esanchitChargesSchema],
-
-  /////////////////////////////////// Do Charges Details
-
-// 1. Updated Schema (Backend) - Add this to your schema
-do_shipping_line_invoice: [{
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  is_draft: { type: Boolean },
-  is_final: { type: Boolean },
-  document_check_date: { type: String, trim: true }, // This will store ISO string when checked
-  document_check_status: { type: Boolean, default: false }, // New field to track if document is checked
-  payment_mode: { type: String, trim: true }, // Odex or Wire Transfer
-  wire_transfer_method: { type: String, trim: true }, // RTGS, NEFT, IMPS (new field)
-  document_amount_details: { type: String, trim: true },
-  payment_request_date: { type: String, trim: true },
-  payment_made_date: { type: String, trim: true },
-  is_tds: { type: Boolean, default: false },
-  is_payment_made: { type: Boolean, default: false },
-  is_payment_requested: { type: Boolean, default: false },
-  is_non_tds: { type: Boolean, default: false },
-  payment_recipt: [{ type: String, trim: true }],
-  payment_recipt_date: { type: String, trim: true },
-}],
-
-insurance_copy: [{
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-}],
-
-other_do_documents:[ {
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-}],
-
-security_deposit: [{
-  document_name: { type: String, trim: true },
-  url: [{ type: String, trim: true }],
-  document_check_date: { type: String, trim: true },
-  document_amount_details: { type: String, trim: true },
-  utr: { type: Number, trim: true },
-  Validity_upto: { type: String, trim: true },
-}],
-
-  ////////////////////////////////////////////////////// Submission
-  checklist_verified_on: { type: String },
-  submission_date: { type: String },
-  submissionQueries: [
-    {
-      query: { type: String },
-      reply: { type: String },
-      resolved: { type: Boolean, default: false },
-    },
-  ],
-  verified_checklist_upload: [{ type: String, trim: true }],
-  verified_checklist_upload_date_and_time: { type: String },
-  submission_completed_date_time: { type: String },
-  job_sticker_upload: [{ type: String, trim: true }],
-  job_sticker_upload_date_and_time: { type: String },
-
-  ////////////////////////////////////////////////// accounts
   
-  shipping_billing_completed_date: { type: String },
-  shipping_bill_document_sent_to_accounts: { type: String, trim: true },
-  icd_cfs_invoice_img: [{ type: String, trim: true }],
-  upload_agency_shipping_bill_img: {type: String},
-  upload_reimbursement_shipping_bill_img: { type: String },  
-  shipping_bill_amount: {type: String},
-  do_list: { type: String, trim: true },
+  // Certificate Requirements
+  certificate_of_origin_required: { type: Boolean, default: false },
+  certificate_of_origin_number: { type: String, trim: true },
+  certificate_of_origin_date: { type: String, trim: true },
+  certificate_of_origin_issuing_authority: { type: String, trim: true },
+  
+  phytosanitary_certificate_required: { type: Boolean, default: false },
+  phytosanitary_certificate_number: { type: String, trim: true },
+  phytosanitary_certificate_date: { type: String, trim: true },
+  
+  quality_inspection_certificate: { type: String, trim: true },
+  quality_inspection_date: { type: String, trim: true },
+  quality_inspection_agency: { type: String, trim: true },
+  
+  fumigation_certificate_number: { type: String, trim: true },
+  fumigation_certificate_date: { type: String, trim: true },
+  fumigation_validity_date: { type: String, trim: true },
+  
+  insurance_policy_number: { type: String, trim: true },
+  insurance_policy_date: { type: String, trim: true },
+  insurance_company: { type: String, trim: true },
+  insurance_amount: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Regulatory Compliance
+  // Export License Information
+  export_license_required: { type: Boolean, default: false },
+  export_license_number: { type: String, trim: true },
+  export_license_date: { type: String, trim: true },
+  export_license_validity: { type: String, trim: true },
+  export_license_authority: { type: String, trim: true },
+  
+  // FSSAI (for food products)
+  fssai_license_number: { type: String, trim: true },
+  fssai_license_validity: { type: String, trim: true },
+  
+  // Drug License (for pharmaceutical products)
+  drug_license_number: { type: String, trim: true },
+  drug_license_validity: { type: String, trim: true },
+  
+  // Textile Committee Registration
+  textile_committee_registration: { type: String, trim: true },
+  
+  // BIS Certification
+  bis_license_number: { type: String, trim: true },
+  bis_license_validity: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Milestone Tracking
+  booking_confirmation_date: { type: String, trim: true },
+  documentation_start_date: { type: String, trim: true },
+  documentation_completion_date: { type: String, trim: true },
+  pre_shipment_inspection_date: { type: String, trim: true },
+  customs_clearance_date: { type: String, trim: true },
+  cargo_pickup_date: { type: String, trim: true },
+  port_terminal_arrival_date: { type: String, trim: true },
+  loading_completion_date: { type: String, trim: true },
+  vessel_departure_date: { type: String, trim: true },
+  in_transit_milestone_dates: [{ 
+    location: { type: String },
+    date: { type: String },
+    remarks: { type: String }
+  }],
+  destination_arrival_date: { type: String, trim: true },
+  destination_customs_clearance_date: { type: String, trim: true },
+  final_delivery_date: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Charges and Financial
+  export_charges: [exportChargesSchema],
+  
+  // Freight Charges
+  ocean_freight: { type: String, trim: true },
+  air_freight: { type: String, trim: true },
+  inland_transportation: { type: String, trim: true },
+  
+  // Handling Charges
+  origin_handling_charges: { type: String, trim: true },
+  destination_handling_charges: { type: String, trim: true },
+  documentation_charges: { type: String, trim: true },
+  customs_clearance_charges: { type: String, trim: true },
+  
+  // Other Charges
+  warehouse_charges: { type: String, trim: true },
+  stuffing_charges: { type: String, trim: true },
+  weighment_charges: { type: String, trim: true },
+  survey_charges: { type: String, trim: true },
+  fumigation_charges: { type: String, trim: true },
+  
+  // Total Calculations
+  total_freight_charges: { type: String, trim: true },
+  total_other_charges: { type: String, trim: true },
+  total_charges: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Agent Information
+  freight_forwarder_name: { type: String, trim: true },
+  freight_forwarder_code: { type: String, trim: true },
+  freight_forwarder_contact_person: { type: String, trim: true },
+  freight_forwarder_phone: { type: String, trim: true },
+  freight_forwarder_email: { type: String, trim: true },
+  
+  customs_broker_name: { type: String, trim: true },
+  customs_broker_license: { type: String, trim: true },
+  customs_broker_contact_person: { type: String, trim: true },
+  customs_broker_phone: { type: String, trim: true },
+  customs_broker_email: { type: String, trim: true },
+  
+  origin_agent_name: { type: String, trim: true },
+  origin_agent_contact_person: { type: String, trim: true },
+  origin_agent_phone: { type: String, trim: true },
+  origin_agent_email: { type: String, trim: true },
+  
+  destination_agent_name: { type: String, trim: true },
+  destination_agent_contact_person: { type: String, trim: true },
+  destination_agent_phone: { type: String, trim: true },
+  destination_agent_email: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Quality Control
+  pre_shipment_inspection_required: { type: Boolean, default: false },
+  inspection_agency: { type: String, trim: true },
+  inspection_date: { type: String, trim: true },
+  inspection_certificate_number: { type: String, trim: true },
+  inspection_report: [{ type: String, trim: true }],
+  
+  quality_control_passed: { type: Boolean, default: false },
+  quality_control_date: { type: String, trim: true },
+  quality_control_remarks: { type: String, trim: true },
+  
+  quantity_verification_done: { type: Boolean, default: false },
+  quantity_verification_date: { type: String, trim: true },
+  weight_verification_done: { type: Boolean, default: false },
+  weight_verification_date: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Communication & Queries
+  export_queries: [{
+    query: { type: String },
+    module: { type: String },
+    raised_by: { type: String },
+    assigned_to: { type: String },
+    reply: { type: String },
+    replied_by: { type: String },
+    priority: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Medium' },
+    status: { type: String, enum: ['Open', 'In Progress', 'Resolved', 'Closed'], default: 'Open' },
+    created_date: { type: String },
+    resolved_date: { type: String },
+    resolved: { type: Boolean, default: false }
+  }],
+  
+  documentation_queries: [{
+    query: { type: String },
+    reply: { type: String },
+    resolved: { type: Boolean, default: false },
+    raised_by: { type: String },
+    resolved_by: { type: String },
+    created_date: { type: String },
+    resolved_date: { type: String }
+  }],
+  
+  customs_queries: [{
+    query: { type: String },
+    customs_officer: { type: String },
+    reply: { type: String },
+    resolved: { type: Boolean, default: false },
+    query_date: { type: String },
+    resolved_date: { type: String }
+  }],
+
+  ////////////////////////////////////////////////// Special Requirements
+  // Temperature Controlled
+  temperature_controlled: { type: Boolean, default: false },
+  temperature_range_min: { type: String, trim: true },
+  temperature_range_max: { type: String, trim: true },
+  temperature_unit: { type: String, trim: true, enum: ['Celsius', 'Fahrenheit'] },
+  
+  // Hazardous Materials
+  hazardous_material: { type: Boolean, default: false },
+  hazmat_class: { type: String, trim: true },
+  hazmat_packing_group: { type: String, trim: true },
+  hazmat_flash_point: { type: String, trim: true },
+  
+  // High Value Cargo
+  high_value_cargo: { type: Boolean, default: false },
+  declared_value_for_carriage: { type: String, trim: true },
+  declared_value_for_customs: { type: String, trim: true },
+  
+  // Oversized Cargo
+  oversized_cargo: { type: Boolean, default: false },
+  special_equipment_required: { type: String, trim: true },
+  special_handling_instructions: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Compliance Checklist
+  export_compliance_checklist: [{
+    item: { type: String },
+    required: { type: Boolean, default: true },
+    completed: { type: Boolean, default: false },
+    completion_date: { type: String },
+    completed_by: { type: String },
+    remarks: { type: String }
+  }],
+  
+  document_checklist_verified: { type: Boolean, default: false },
+  document_checklist_verified_date: { type: String, trim: true },
+  document_checklist_verified_by: { type: String, trim: true },
+  
+  ready_for_shipment: { type: Boolean, default: false },
+  ready_for_shipment_date: { type: String, trim: true },
+  ready_for_shipment_approved_by: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Additional Information
+  remarks: { type: String, trim: true },
+  internal_notes: { type: String, trim: true },
+  customer_instructions: { type: String, trim: true },
+  special_requirements: { type: String, trim: true },
+  
+  // Job Assignment
+  job_owner: { type: String, trim: true },
+  assigned_documentation_executive: { type: String, trim: true },
+  assigned_operations_executive: { type: String, trim: true },
+  assigned_accounts_executive: { type: String, trim: true },
+  
+  // Completion Status
+  documentation_completed: { type: Boolean, default: false },
+  documentation_completed_date: { type: String, trim: true },
+  operations_completed: { type: Boolean, default: false },
+  operations_completed_date: { type: String, trim: true },
+  accounts_completed: { type: Boolean, default: false },
+  accounts_completed_date: { type: String, trim: true },
+  job_completed: { type: Boolean, default: false },
+  job_completed_date: { type: String, trim: true },
+
+
 });
 
-
-// Automatically update `updatedAt` before saving
-jobSchema.pre("save", function (next) {
+// Automatically update updatedAt before saving
+exportJobSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-jobSchema.index({ exporterURL: 1, year: 1, status: 1 });
-jobSchema.index({ year: 1, job_no: 1 }, { unique: true });
+// Indexes for performance optimization
+exportJobSchema.index({ year: 1, job_no: 1 }, { unique: true });
+exportJobSchema.index({ ie_code: 1, year: 1 });
+exportJobSchema.index({ exporter_name: 1, year: 1 });
+exportJobSchema.index({ status: 1, job_date: 1 });
+exportJobSchema.index({ shipping_bill_number: 1 });
+exportJobSchema.index({ consignee_country: 1, year: 1 });
+exportJobSchema.index({ createdAt: 1 });
+exportJobSchema.index({ updatedAt: 1 });
 
-const ExJobModel = mongoose.models.Job || mongoose.model("Job", jobSchema);
+// Create and export the model
+const ExJobModel = mongoose.model("ExportJob", exportJobSchema);
 export default ExJobModel;
-

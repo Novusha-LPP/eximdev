@@ -84,6 +84,8 @@ import AllUsersPage from "./AllUsersPage.js";
 
 import genInfo from "../components/Export/Directories/GenInfo.js";
 import Directories from "../components/Export/Directories/Directories.js";
+import ExportJobsTable from "../components/Export/Export-Dsr/ExportJobsTable.js";
+import DsrTabs from "../components/Export/Export-Dsr/DsrTabs.js";
 
 
 const drawerWidth = 60;
@@ -522,6 +524,14 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="Directories">
                     <Directories />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/export-dsr"
+                element={
+                  <ProtectedRoute requiredModule="Export - Dsr">
+                    <DsrTabs />
                   </ProtectedRoute>
                 }
               />

@@ -70,7 +70,7 @@ function DsrTabs() {
             ,]
           </Tabs>
         </Box>
-        <div className="flex-div">
+        {/* <div className="flex-div">
           <div style={{ flex: 1 }}></div>
           {user.role === "Admin" && tabValue === 0 && (
             <>
@@ -109,16 +109,16 @@ function DsrTabs() {
               </Tooltip>
             </>
           )}
-        </div>
-        {error && (
-          <Alert 
-            severity="error"
-            sx={{ marginTop: "10px", marginBottom: "10px" }}
-            onClose={() => setError(null)}
-          >
-            {error}
-          </Alert>
-        )}
+        </div> */}
+          {/* {error && (
+            <Alert 
+              severity="error"
+              sx={{ marginTop: "10px", marginBottom: "10px" }}
+              onClose={() => setError(null)}
+            >
+              {error}
+            </Alert>
+          )} */}
 
         <CustomTabPanel value={tabValue} index={0}>
           {/* <Dashboard /> */}

@@ -4,25 +4,97 @@ import ExportJobModel from '../../model/export/ExJobModel.mjs';
 const router = express.Router();
 
 // GET /api/exports - List all exports with pagination & filtering
-router.get('/api/exports', async (req, res) => {
+// Updated exports API with status filtering
+router.get('/api/exports/:status?', async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', exporter = '', country = '', movement_type = '' } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      search = '', 
+      exporter = '', 
+      country = '', 
+      movement_type = '',
+      status = 'all' 
+    } = { ...req.params, ...req.query };
 
     const filter = {};
-    if (search) {
-      filter.$or = [
-        { job_no: { $regex: search, $options: 'i' } },
-        { exporter_name: { $regex: search, $options: 'i' } },
-        { consignee_name: { $regex: search, $options: 'i' } }
-      ];
+    
+    // Initialize $and array for complex queries
+    if (!filter.$and) filter.$and = [];
+
+    // Status filtering logic (similar to your import jobs API)
+    if (status && status.toLowerCase() !== 'all') {
+      const statusLower = status.toLowerCase();
+      
+      if (statusLower === 'pending') {
+        filter.$and.push({
+          $or: [
+            { status: { $regex: '^pending$', $options: 'i' } },
+            { status: { $exists: false } },
+            { status: null },
+            { status: '' }
+          ]
+        });
+      } else if (statusLower === 'completed') {
+        filter.$and.push({
+          status: { $regex: '^completed$', $options: 'i' }
+        });
+      } else if (statusLower === 'cancelled') {
+        filter.$and.push({
+          status: { $regex: '^cancelled$', $options: 'i' }
+        });
+      } else {
+        filter.$and.push({
+          status: { $regex: `^${status}$`, $options: 'i' }
+        });
+      }
     }
-    if (exporter) filter.exporter_name = { $regex: exporter, $options: 'i' };
-    if (country) filter.country_of_final_destination = { $regex: country, $options: 'i' };
-    if (movement_type) filter.movement_type = movement_type;
+
+    // Search filter
+    if (search) {
+      filter.$and.push({
+        $or: [
+          { job_no: { $regex: search, $options: 'i' } },
+          { exporter_name: { $regex: search, $options: 'i' } },
+          { consignee_name: { $regex: search, $options: 'i' } },
+          { ie_code: { $regex: search, $options: 'i' } }
+        ]
+      });
+    }
+
+    // Additional filters
+    if (exporter) {
+      filter.$and.push({
+        exporter_name: { $regex: exporter, $options: 'i' }
+      });
+    }
+    
+    if (country) {
+      filter.$and.push({
+        country_of_final_destination: { $regex: country, $options: 'i' }
+      });
+    }
+    
+    if (movement_type) {
+      filter.$and.push({
+        movement_type: movement_type
+      });
+    }
+
+    // Remove empty $and array if no conditions were added
+    if (filter.$and && filter.$and.length === 0) {
+      delete filter.$and;
+    }
 
     const skip = (page - 1) * limit;
+    
+    // Execute queries in parallel
     const [jobs, totalCount] = await Promise.all([
-      ExportJobModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+      ExportJobModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
       ExportJobModel.countDocuments(filter)
     ]);
 
@@ -32,13 +104,107 @@ router.get('/api/exports', async (req, res) => {
         jobs,
         pagination: {
           currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / limit),
-          totalCount
+          totalPages: Math.ceil(totalCount / parseInt(limit)),
+          totalCount,
+          hasNextPage: page < Math.ceil(totalCount / parseInt(limit)),
+          hasPrevPage: page > 1
         }
       }
     });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error fetching jobs', error: error.message });
+    console.error('Error fetching export jobs:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching export jobs', 
+      error: error.message 
+    });
+  }
+});
+
+// Add status count endpoint for badges
+router.get('/api/exports/count/:status?', async (req, res) => {
+  try {
+    const { status = 'all' } = req.params;
+    
+    let filter = {};
+    
+    if (status && status.toLowerCase() !== 'all') {
+      const statusLower = status.toLowerCase();
+      
+      if (statusLower === 'pending') {
+        filter = {
+          $or: [
+            { status: { $regex: '^pending$', $options: 'i' } },
+            { status: { $exists: false } },
+            { status: null },
+            { status: '' }
+          ]
+        };
+      } else if (statusLower === 'completed') {
+        filter = { status: { $regex: '^completed$', $options: 'i' } };
+      } else if (statusLower === 'cancelled') {
+        filter = { status: { $regex: '^cancelled$', $options: 'i' } };
+      } else {
+        filter = { status: { $regex: `^${status}$`, $options: 'i' } };
+      }
+    }
+
+    const count = await ExportJobModel.countDocuments(filter);
+    
+    res.json({
+      success: true,
+      count,
+      status
+    });
+
+  } catch (error) {
+    console.error('Error fetching export jobs count:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching count', 
+      error: error.message 
+    });
+  }
+});
+
+// Alternative: Get all status counts in one request
+router.get('/api/exports/counts/all', async (req, res) => {
+  try {
+    const [pendingCount, completedCount, cancelledCount] = await Promise.all([
+      ExportJobModel.countDocuments({
+        $or: [
+          { status: { $regex: '^pending$', $options: 'i' } },
+          { status: { $exists: false } },
+          { status: null },
+          { status: '' }
+        ]
+      }),
+      ExportJobModel.countDocuments({
+        status: { $regex: '^completed$', $options: 'i' }
+      }),
+      ExportJobModel.countDocuments({
+        status: { $regex: '^cancelled$', $options: 'i' }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      counts: {
+        pending: pendingCount,
+        completed: completedCount,
+        cancelled: cancelledCount,
+        total: pendingCount + completedCount + cancelledCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching all export jobs counts:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching counts', 
+      error: error.message 
+    });
   }
 });
 

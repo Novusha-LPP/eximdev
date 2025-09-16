@@ -2,34 +2,64 @@ import React, { useState, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TablePagination, TextField, Box, Typography, Chip, IconButton, Tooltip,
-  FormControl, InputLabel, Select, MenuItem, Grid, Card, CardContent, Button
+  FormControl, InputLabel, Select, MenuItem, Grid, Card, CardContent, Button,
+  Tabs, Tab, Badge
 } from '@mui/material';
-import { Edit, Delete, Visibility, Refresh, Download } from '@mui/icons-material';
+import { Edit, Delete, Visibility, Refresh, Download, BuildCircle as ToolboxIcon } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import axios from 'axios';
+import PropTypes from 'prop-types';
 
-const ExportJobsTable = () => {
+// Custom Tab Panel Component
+function CustomTabPanel(props) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`export-tabpanel-${index}`}
+      aria-labelledby={`export-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 0 }}>{children}</Box>}
+    </div>
+  );
+}
+
+// Export Jobs Table Component for each tab
+const ExportJobsTableContent = ({ status }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
-    search: '', exporter: '', country: '', movement_type: ''
+    search: '',
+    exporter: '',
+    country: '',
+    movement_type: ''
   });
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}/exports`, {
-        params: { page: page + 1, limit: rowsPerPage, ...filters }
+        params: {
+          page: page + 1,
+          limit: rowsPerPage,
+          status: status.toLowerCase(), // Add status filter
+          ...filters
+        }
       });
+      
       if (response.data.success) {
-        setJobs(response.data.data.jobs);
-        setTotalCount(response.data.data.pagination.totalCount);
+        setJobs(response.data.data.jobs || []);
+        setTotalCount(response.data.data.pagination?.totalCount || 0);
       }
     } catch (err) {
-      console.error('Error fetching jobs:', err);
+      console.error('Error fetching export jobs:', err);
+      setJobs([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -37,16 +67,7 @@ const ExportJobsTable = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [page, rowsPerPage, filters]);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      return format(parseISO(dateString), 'dd-MM-yyyy');
-    } catch {
-      return dateString;
-    }
-  };
+  }, [page, rowsPerPage, filters, status]);
 
   const columns = [
     { id: 'job_no', label: 'Job Number', minWidth: 120 },
@@ -76,36 +97,54 @@ const ExportJobsTable = () => {
   ];
 
   return (
-    <Box sx={{ width: '100%', p: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4">Export Jobs Management</Typography>
-        <Button variant="contained" startIcon={<Refresh />} onClick={fetchJobs}>
-          Refresh
-        </Button>
-      </Box>
-
+    <Box sx={{ width: '100%' }}>
+      {/* Filters Card */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>Filters</Typography>
+          <Typography variant="h6" gutterBottom>
+            Filters - {status} Jobs ({totalCount})
+          </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <TextField
-                fullWidth label="Search" 
+                fullWidth
+                label="Search (Job No, Exporter, Consignee)"
                 value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                size="small"
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
+              <TextField
+                fullWidth
+                label="Exporter"
+                value={filters.exporter}
+                onChange={(e) => setFilters({ ...filters, exporter: e.target.value })}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                label="Country"
+                value={filters.country}
+                onChange={(e) => setFilters({ ...filters, country: e.target.value })}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Movement Type</InputLabel>
                 <Select
                   value={filters.movement_type}
-                  onChange={(e) => setFilters({...filters, movement_type: e.target.value})}
+                  label="Movement Type"
+                  onChange={(e) => setFilters({ ...filters, movement_type: e.target.value })}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="FCL">FCL</MenuItem>
                   <MenuItem value="LCL">LCL</MenuItem>
-                  <MenuItem value="AIR">AIR</MenuItem>
+                  <MenuItem value="Break Bulk">Break Bulk</MenuItem>
+                  <MenuItem value="Air Freight">Air Freight</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -113,47 +152,112 @@ const ExportJobsTable = () => {
         </CardContent>
       </Card>
 
+      {/* Jobs Table */}
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>
         <TableContainer sx={{ maxHeight: 600 }}>
-          <Table stickyHeader>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 {columns.map((column) => (
-                  <TableCell key={column.id} style={{ minWidth: column.minWidth, fontWeight: 'bold' }}>
+                  <TableCell
+                    key={column.id}
+                    style={{
+                      minWidth: column.minWidth,
+                      fontWeight: 'bold',
+                      backgroundColor: '#f5f5f5'
+                    }}
+                  >
                     {column.label}
                   </TableCell>
                 ))}
-                <TableCell style={{ minWidth: 120, fontWeight: 'bold' }}>Actions</TableCell>
+                <TableCell
+                  style={{
+                    minWidth: 120,
+                    fontWeight: 'bold',
+                    backgroundColor: '#f5f5f5'
+                  }}
+                >
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {jobs.map((job) => (
-                <TableRow hover key={job._id}>
-                  {columns.map((column) => {
-                    let value = job[column.id];
-                    if (column.id.includes('date') && value) {
-                      value = formatDate(value);
-                    } else if (column.id === 'movement_type') {
-                      value = <Chip label={value || 'N/A'} size="small" color="primary" />;
-                    } else if (!value) {
-                      value = '-';
-                    }
-                    return <TableCell key={column.id}>{value}</TableCell>;
-                  })}
-                  <TableCell>
-                    <Tooltip title="View">
-                      <IconButton size="small" color="info">
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" color="primary">
-                        <Edit fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length + 1} align="center">
+                    <Typography>Loading...</Typography>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : jobs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length + 1} align="center">
+                    <Typography>No {status.toLowerCase()} jobs found</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                jobs.map((job, index) => (
+                  <TableRow hover key={job._id || index}>
+                    {columns.map((column) => {
+                      let value = job[column.id];
+                      
+                      if (column.id.includes('date') && value) {
+                        value = format(parseISO(value), 'dd-MM-yyyy');
+                      } else if (column.id === 'movement_type') {
+                        value = (
+                          <Chip
+                            label={value || 'N/A'}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        );
+                      } else if (column.id === 'status') {
+                        const colors = {
+                          pending: 'warning',
+                          completed: 'success',
+                          cancelled: 'error'
+                        };
+                        value = (
+                          <Chip 
+                            label={value?.charAt(0).toUpperCase() + value?.slice(1) || 'N/A'} 
+                            size="small" 
+                            color={colors[value?.toLowerCase()] || 'default'} 
+                          />
+                        );
+                      } else if (!value) {
+                        value = '-';
+                      }
+                      
+                      return (
+                        <TableCell key={column.id}>
+                          {value}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Tooltip title="View Details">
+                          <IconButton size="small" color="info">
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit Job">
+                          <IconButton size="small" color="primary">
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {status === 'Pending' && (
+                          <Tooltip title="Cancel Job">
+                            <IconButton size="small" color="error">
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -162,10 +266,137 @@ const ExportJobsTable = () => {
           count={totalCount}
           rowsPerPage={rowsPerPage}
           page={page}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {setRowsPerPage(parseInt(e.target.value)); setPage(0);}}
+          onPageChange={(event, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </Paper>
+    </Box>
+  );
+};
+
+// Main Export Jobs Table Component with Tabs
+const ExportJobsTable = () => {
+  const [value, setValue] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({
+    pending: 0,
+    completed: 0,
+    cancelled: 0
+  });
+
+  const handleChange = (event, newValue) => {
+    setValue(newValue);
+  };
+
+  // Fetch status counts for badges
+  useEffect(() => {
+    const fetchStatusCounts = async () => {
+      try {
+        const statuses = ['pending', 'completed', 'cancelled'];
+        const promises = statuses.map(status =>
+          axios.get(`${process.env.REACT_APP_API_STRING}/exports/count`, {
+            params: { status }
+          }).catch(() => ({ data: { count: 0 } }))
+        );
+
+        const results = await Promise.all(promises);
+        const counts = {
+          pending: results[0].data.count || 0,
+          completed: results[1].data.count || 0,
+          cancelled: results[2].data.count || 0
+        };
+
+        setStatusCounts(counts);
+      } catch (error) {
+        console.error('Error fetching status counts:', error);
+      }
+    };
+
+    fetchStatusCounts();
+  }, []);
+
+  return (
+    <Box sx={{ width: '100%', p: 2 }}>
+      {/* Header */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4" sx={{ fontWeight: 600, color: '#1976d2' }}>
+          Export Jobs Management
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<ToolboxIcon />}
+          sx={{
+            borderRadius: 3,
+            textTransform: 'none',
+            fontWeight: 500,
+            background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+              boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+              transform: 'translateY(-1px)',
+            },
+          }}
+        >
+          Export Utility Tool
+        </Button>
+      </Box>
+
+      {/* Tabs */}
+      <Box sx={{ width: '100%' }}>
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2
+          }}
+        >
+          <Tabs
+            value={value}
+            onChange={handleChange}
+            aria-label="export jobs tabs"
+          >
+            <Tab
+              label={
+                <Badge badgeContent={statusCounts.pending} color="warning">
+                  Pending
+                </Badge>
+              }
+            />
+            <Tab
+              label={
+                <Badge badgeContent={statusCounts.completed} color="success">
+                  Completed
+                </Badge>
+              }
+            />
+            <Tab
+              label={
+                <Badge badgeContent={statusCounts.cancelled} color="error">
+                  Cancelled
+                </Badge>
+              }
+            />
+          </Tabs>
+        </Box>
+
+        {/* Tab Panels */}
+        <CustomTabPanel value={value} index={0}>
+          <ExportJobsTableContent status="Pending" />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={1}>
+          <ExportJobsTableContent status="Completed" />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={2}>
+          <ExportJobsTableContent status="Cancelled" />
+        </CustomTabPanel>
+      </Box>
     </Box>
   );
 };

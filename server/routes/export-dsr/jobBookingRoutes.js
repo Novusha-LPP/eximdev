@@ -5,12 +5,12 @@ import Job from '../../model/export/ExJobModel.mjs';
 const router = express.Router();
 
 // Add a vessel entry to a job
-router.post('/:jobId/vessels', async (req, res) => {
+router.post('/api/job-booking/:jobNo/vessels', async (req, res) => {
   try {
-    const { jobId } = req.params;
+    const { jobNo } = req.params;
     const vesselData = req.body;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     job.vessel.push(vesselData);
@@ -23,10 +23,10 @@ router.post('/:jobId/vessels', async (req, res) => {
 });
 
 // List vessels for a given job
-router.get('/:jobId/vessels', async (req, res) => {
+router.get('/api/job-booking/:jobNo/vessels', async (req, res) => {
   try {
-    const { jobId } = req.params;
-    const job = await Job.findById(jobId);
+    const { jobNo } = req.params;
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     res.json(job.vessel);
@@ -36,14 +36,17 @@ router.get('/:jobId/vessels', async (req, res) => {
 });
 
 // Add a booking entry to a job
-router.post('/:jobId/bookings', async (req, res) => {
+router.post('/api/job-booking/:jobNo/bookings', async (req, res) => {
   try {
-    const { jobId } = req.params;
+    const { jobNo } = req.params;
     const bookingData = req.body;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
+    // Accept vessel subdocument directly, no lookup needed
+    // bookingData.vessel should be object with vessel fields
+    
     job.booking.push(bookingData);
     await job.save();
 
@@ -53,29 +56,30 @@ router.post('/:jobId/bookings', async (req, res) => {
   }
 });
 
+
+
 // List bookings for a job
-router.get('/:jobId/bookings', async (req, res) => {
+router.get("/api/job-booking/:jobNo", async (req, res) => {
   try {
-    const { jobId } = req.params;
-    const job = await Job.findById(jobId);
+    const { jobNo } = req.params;
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
-    res.json(job.booking);
+    res.json(job);   // Not res.json(job.booking)
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 // Add a booking confirmation to a specific booking in a job
-router.post('/:jobId/bookings/:bookingIndex/confirmation', async (req, res) => {
+router.post('/api/job-booking/:jobNo/bookings/:bookingIndex/confirmation', async (req, res) => {
   try {
-    const { jobId, bookingIndex } = req.params;
+    const { jobNo, bookingIndex } = req.params;
     const confirmationData = req.body;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
-    if (!job.booking[bookingIndex]) 
+    if (!job.booking[bookingIndex])
       return res.status(404).json({ error: 'Booking not found at specified index' });
 
     job.booking[bookingIndex].status = 'Confirmed';
@@ -94,10 +98,10 @@ router.post('/:jobId/bookings/:bookingIndex/confirmation', async (req, res) => {
 });
 
 // List booking confirmations for a job
-router.get('/:jobId/confirmations', async (req, res) => {
+router.get('/api/job-booking/:jobNo/confirmations', async (req, res) => {
   try {
-    const { jobId } = req.params;
-    const job = await Job.findById(jobId);
+    const { jobNo } = req.params;
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     res.json(job.bookingConfirmation);
@@ -106,13 +110,13 @@ router.get('/:jobId/confirmations', async (req, res) => {
   }
 });
 
-
-router.put('/:jobId/vessels/:vesselIndex', async (req, res) => {
+// Update a vessel in a job by index
+router.put('/api/job-booking/:jobNo/vessels/:vesselIndex', async (req, res) => {
   try {
-    const { jobId, vesselIndex } = req.params;
+    const { jobNo, vesselIndex } = req.params;
     const updatedData = req.body;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
     if (!job.vessel[vesselIndex]) return res.status(404).json({ error: 'Vessel not found' });
 
@@ -126,11 +130,11 @@ router.put('/:jobId/vessels/:vesselIndex', async (req, res) => {
 });
 
 // Delete a vessel from a job by index
-router.delete('/:jobId/vessels/:vesselIndex', async (req, res) => {
+router.delete('/api/job-booking/:jobNo/vessels/:vesselIndex', async (req, res) => {
   try {
-    const { jobId, vesselIndex } = req.params;
+    const { jobNo, vesselIndex } = req.params;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
     if (!job.vessel[vesselIndex]) return res.status(404).json({ error: 'Vessel not found' });
 
@@ -144,15 +148,16 @@ router.delete('/:jobId/vessels/:vesselIndex', async (req, res) => {
 });
 
 // Update a booking in a job by index
-router.put('/:jobId/bookings/:bookingIndex', async (req, res) => {
+router.put('/api/job-booking/:jobNo/bookings/:bookingIndex', async (req, res) => {
   try {
-    const { jobId, bookingIndex } = req.params;
+    const { jobNo, bookingIndex } = req.params;
     const updatedData = req.body;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
     if (!job.booking[bookingIndex]) return res.status(404).json({ error: 'Booking not found' });
 
+    // Update booking subdocument including embedded vessel
     job.booking[bookingIndex] = { ...job.booking[bookingIndex].toObject(), ...updatedData };
     await job.save();
 
@@ -162,12 +167,13 @@ router.put('/:jobId/bookings/:bookingIndex', async (req, res) => {
   }
 });
 
-// Delete a booking from a job by index
-router.delete('/:jobId/bookings/:bookingIndex', async (req, res) => {
-  try {
-    const { jobId, bookingIndex } = req.params;
 
-    const job = await Job.findById(jobId);
+// Delete a booking from a job by index
+router.delete('/api/job-booking/:jobNo/bookings/:bookingIndex', async (req, res) => {
+  try {
+    const { jobNo, bookingIndex } = req.params;
+
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
     if (!job.booking[bookingIndex]) return res.status(404).json({ error: 'Booking not found' });
 
@@ -181,13 +187,13 @@ router.delete('/:jobId/bookings/:bookingIndex', async (req, res) => {
 });
 
 // Delete a booking confirmation by index
-router.delete('/:jobId/confirmations/:confirmationIndex', async (req, res) => {
+router.delete('/api/job-booking/:jobNo/confirmations/:confirmationIndex', async (req, res) => {
   try {
-    const { jobId, confirmationIndex } = req.params;
+    const { jobNo, confirmationIndex } = req.params;
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findOne({ job_no: jobNo });
     if (!job) return res.status(404).json({ error: 'Job not found' });
-    if (!job.bookingConfirmation[confirmationIndex]) 
+    if (!job.bookingConfirmation[confirmationIndex])
       return res.status(404).json({ error: 'Confirmation not found' });
 
     job.bookingConfirmation.splice(confirmationIndex, 1);

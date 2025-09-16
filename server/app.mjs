@@ -22,6 +22,8 @@ import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
+import handoverRoutes from './routes/export-dsr/handoverRoutes.js';
+import jobBookingRoutes from './routes/export-dsr/jobBookingRoutes.js'; 
 
 dotenv.config();
 
@@ -444,6 +446,8 @@ if (cluster.isPrimary) {
       app.use(getExporterList);
       app.use(getExporterJobs);
       app.use( addJobs)
+      app.use('/api/handover', handoverRoutes);
+      app.use('/api/job-booking', jobBookingRoutes);
 
       // Initialize WebSocket logic
       const server = http.createServer(app);

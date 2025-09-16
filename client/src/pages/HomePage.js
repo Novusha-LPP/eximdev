@@ -86,6 +86,9 @@ import genInfo from "../components/Export/Directories/GenInfo.js";
 import Directories from "../components/Export/Directories/Directories.js";
 import ExportJobsTable from "../components/Export/Export-Dsr/ExportJobsTable.js";
 import DsrTabs from "../components/Export/Export-Dsr/DsrTabs.js";
+import Handover from "../components/Export/Handover.js";
+import BookingManagement from "../components/Export/BookingManagement/BookingManagement.js";
+import JobsListPage from "../components/Export/BookingManagement/JobListPage.js";
 
 
 const drawerWidth = 60;
@@ -534,6 +537,22 @@ function HomePage() {
                     <DsrTabs />
                   </ProtectedRoute>
                 }
+              />
+              <Route path="/handover"
+                element={
+                  <ProtectedRoute requiredModule="Handover">
+                    <Handover />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route 
+                path="/booking-job-list"
+                element={
+                  <ProtectedRoute requiredModule="Booking Management">
+                    <JobsListPage />
+                  </ProtectedRoute>
+                } 
               />
 
             </Routes>

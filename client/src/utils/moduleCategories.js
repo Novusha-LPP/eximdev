@@ -1,3 +1,5 @@
+
+
 export const moduleCategories = {
   Accounts: "Accounts",
   "Import - Billing": "Accounts",
@@ -20,10 +22,12 @@ export const moduleCategories = {
   // Export: "Export",
   "Directories": "Export",
   "Export - Dsr": "Export",
-  Screen1: "Screens",
-  Screen2: "Screens",
-  Screen3: "Screens",
-  Screen4: "Screens",
-  Screen5: "Screens",
-  Screen6: "Screens",
+  "Booking Management": "Export",
+  "Handover": "Export",
+  "Screen1": "Screens",
+  "Screen2": "Screens",
+  "Screen3": "Screens",
+  "Screen4": "Screens",
+  "Screen5": "Screens",
+  "Screen6": "Screens",
 };

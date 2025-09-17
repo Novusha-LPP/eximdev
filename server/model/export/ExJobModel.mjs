@@ -14,8 +14,10 @@ const vesselSchema = new mongoose.Schema({
   carrier: String,
 });
 
+// Instead of ObjectId ref 'Vessel', embed vesselSchema or equivalent inline:
+
 const bookingSchema = new mongoose.Schema({
-  vessel: { type: mongoose.Schema.Types.ObjectId, ref: 'Vessel', required: true },
+  vessel: vesselSchema,  // embedded full vessel details in booking
   containerType: String,
   containerQuantity: Number,
   shippingDate: Date,
@@ -28,6 +30,7 @@ const bookingSchema = new mongoose.Schema({
     required: false,
   },
 }, { timestamps: true });
+
 
 const bookingConfirmationSchema = new mongoose.Schema({
   booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', required: true },

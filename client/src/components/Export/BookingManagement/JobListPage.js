@@ -15,6 +15,8 @@ const JobsListPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedJobNo, setSelectedJobNo] = useState(null);
 
+  console.log("Selected Job No in JobListPage:", selectedJobNo); // Debugging line
+
   const fetchJobs = async () => {
     try {
       setLoading(true);
@@ -42,7 +44,7 @@ const JobsListPage = () => {
 
   if (selectedJobNo) {
     // Render BookingManagement passing the selected jobNo
-    return <BookingManagement jobNumber={selectedJobNo} onBack={() => setSelectedJobNo(null)} />;
+return <BookingManagement jobNumber={selectedJobNo} onBack={() => setSelectedJobNo(null)} />;
   }
 
   return (

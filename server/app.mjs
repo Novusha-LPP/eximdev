@@ -450,7 +450,6 @@ if (cluster.isPrimary) {
       app.use('/api/handover', handoverRoutes);
       app.use('/api/job-booking', jobBookingRoutes);
       app.use("/api/export-jobs",updateExportJobs);
-
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

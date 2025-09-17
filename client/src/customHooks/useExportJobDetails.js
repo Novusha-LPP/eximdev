@@ -40,8 +40,34 @@ function useExportJobDetails(params, setFileSnackbar) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Export-specific documents
-  const [exportDocuments, setExportDocuments] = useState([]);
+  // Default export documents that should always be shown
+  const [exportDocuments, setExportDocuments] = useState([
+    {
+      document_name: "Commercial Invoice",
+      document_code: "380000",
+      url: [],
+      document_number: "",
+      issue_date: "",
+      is_verified: false,
+    },
+    {
+      document_name: "Packing List",
+      document_code: "271000",
+      url: [],
+      document_number: "",
+      issue_date: "",
+      is_verified: false,
+    },
+    {
+      document_name: "Bill of Lading",
+      document_code: "704000",
+      url: [],
+      document_number: "",
+      issue_date: "",
+      is_verified: false,
+    },
+  ]);
+
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
@@ -55,19 +81,41 @@ function useExportJobDetails(params, setFileSnackbar) {
     { charge_type: "Terminal Handling" },
   ]);
 
-  // Export document dropdown
+  // Export document dropdown (excluding the default ones)
   const exportDocDropdown = [
-    { document_name: "Commercial Invoice", document_code: "CINV" },
-    { document_name: "Packing List", document_code: "PLIST" },
     { document_name: "Certificate of Origin", document_code: "COO" },
     { document_name: "Export License", document_code: "EXLIC" },
     { document_name: "Shipping Bill", document_code: "SB" },
-    { document_name: "Bill of Lading", document_code: "BL" },
     { document_name: "Letter of Credit", document_code: "LC" },
     { document_name: "Quality Certificate", document_code: "QC" },
     { document_name: "Phytosanitary Certificate", document_code: "PHYTO" },
     { document_name: "Insurance Certificate", document_code: "INS" },
   ];
+
+  // Default documents that should always be present
+  const defaultDocuments = [
+    {
+      document_name: "Commercial Invoice",
+      document_code: "380000",
+    },
+    {
+      document_name: "Packing List",
+      document_code: "271000",
+    },
+    {
+      document_name: "Bill of Lading",
+      document_code: "704000",
+    },
+  ];
+
+  // Function to check if a document can be edited or deleted
+  const canEditOrDelete = (doc) => {
+    return !defaultDocuments.some(
+      (defaultDoc) =>
+        defaultDoc.document_name === doc.document_name &&
+        defaultDoc.document_code === doc.document_code
+    );
+  };
 
   // Fetch export job data
   useEffect(() => {
@@ -75,38 +123,74 @@ function useExportJobDetails(params, setFileSnackbar) {
       try {
         setLoading(true);
 
-        console.log("Fetching export job details for:", params); // Debug log
+        console.log("Fetching export job details for:", params);
 
         const response = await axios.get(
           `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`
         );
 
-        console.log("Full API Response:", response); // Debug log
-        console.log("Response data:", response.data); // Debug log
+        console.log("Full API Response:", response);
+        console.log("Response data:", response.data);
 
-        // Handle different response structures
         let jobData = null;
 
         if (response.data) {
           if (response.data.success && response.data.data) {
-            // Structure: { success: true, data: {...} }
             jobData = response.data.data;
           } else if (response.data.success === undefined && response.data._id) {
-            // Direct job data without wrapper
             jobData = response.data;
           } else if (response.data.job_no || response.data._id) {
-            // Direct job data
             jobData = response.data;
           }
         }
 
-        console.log("Processed jobData:", jobData); // Debug log
+        console.log("Processed jobData:", jobData);
 
         if (jobData) {
           setData(jobData);
-          setExportDocuments(jobData.export_documents || []);
 
-          // Update export charges to include custom charges from database
+          // Merge default documents with database documents
+          const dbDocuments = jobData.export_documents || [];
+          
+          // Start with default documents
+          const mergedDocuments = [...defaultDocuments];
+          
+          // Merge data from database for default documents
+          mergedDocuments.forEach((defaultDoc, index) => {
+            const dbDoc = dbDocuments.find(
+              (doc) => doc.document_code === defaultDoc.document_code
+            );
+            if (dbDoc) {
+              mergedDocuments[index] = {
+                ...defaultDoc,
+                url: dbDoc.url || [],
+                document_number: dbDoc.document_number || "",
+                issue_date: dbDoc.issue_date || "",
+                is_verified: dbDoc.is_verified || false,
+                verification_date: dbDoc.verification_date || "",
+              };
+            } else {
+              mergedDocuments[index] = {
+                ...defaultDoc,
+                url: [],
+                document_number: "",
+                issue_date: "",
+                is_verified: false,
+                verification_date: "",
+              };
+            }
+          });
+
+          // Add any additional documents from database that aren't in defaults
+          dbDocuments.forEach((dbDoc) => {
+            if (!defaultDocuments.some((defaultDoc) => defaultDoc.document_code === dbDoc.document_code)) {
+              mergedDocuments.push(dbDoc);
+            }
+          });
+
+          setExportDocuments(mergedDocuments);
+
+          // Update export charges
           if (jobData.export_charges && jobData.export_charges.length > 0) {
             const predefinedCharges = [
               { charge_type: "Ocean Freight" },
@@ -116,7 +200,6 @@ function useExportJobDetails(params, setFileSnackbar) {
               { charge_type: "Terminal Handling" },
             ];
 
-            // Merge database charges with predefined charges
             const mergedCharges = predefinedCharges.map((predefined) => {
               const dbCharge = jobData.export_charges.find(
                 (charge) => charge.charge_type === predefined.charge_type
@@ -124,7 +207,6 @@ function useExportJobDetails(params, setFileSnackbar) {
               return dbCharge || predefined;
             });
 
-            // Add any custom charges that aren't in predefined list
             const customCharges = jobData.export_charges.filter(
               (charge) =>
                 !predefinedCharges.some(
@@ -137,15 +219,30 @@ function useExportJobDetails(params, setFileSnackbar) {
         } else {
           console.error("No valid job data found in response");
           setData(null);
+          // Keep default documents even if no data
+          const defaultDocsWithEmptyFields = defaultDocuments.map(doc => ({
+            ...doc,
+            url: [],
+            document_number: "",
+            issue_date: "",
+            is_verified: false,
+            verification_date: "",
+          }));
+          setExportDocuments(defaultDocsWithEmptyFields);
         }
       } catch (error) {
         console.error("Error fetching export job details:", error);
-        console.error("Error details:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-        });
         setData(null);
+        // Keep default documents even on error
+        const defaultDocsWithEmptyFields = defaultDocuments.map(doc => ({
+          ...doc,
+          url: [],
+          document_number: "",
+          issue_date: "",
+          is_verified: false,
+          verification_date: "",
+        }));
+        setExportDocuments(defaultDocsWithEmptyFields);
       } finally {
         setLoading(false);
       }
@@ -159,16 +256,10 @@ function useExportJobDetails(params, setFileSnackbar) {
     }
   }, [params.job_no, params.year]);
 
-  // Debug log when data changes
-  useEffect(() => {
-    console.log("Data state changed:", data);
-  }, [data]);
-
-  // Utility function to handle undefined/null checks
+  // Rest of your existing code remains the same...
   const safeValue = (value, defaultVal = "") =>
     value === undefined || value === null ? defaultVal : value;
 
-  // Formik for export job
   const formik = useFormik({
     initialValues: {
       // Basic job info
@@ -213,25 +304,18 @@ function useExportJobDetails(params, setFileSnackbar) {
       vessel_departure_date: "",
 
       // Containers
-     containers: [{
-      container_number: "",
-      container_size: "20",
-      seal_number: "",
-      stuffing_date: "",
-      gross_weight: "",
-      net_weight: "",
-      gate_in_date: "",
-      loading_date: "",
-      container_images: [],
-      stuffing_images: []
-    }],
-
-      // Documents and charges (managed separately)
-      export_documents: [],
-      export_charges: [],
-
-      // Queries
-      export_queries: [],
+      containers: [{
+        container_number: "",
+        container_size: "20",
+        seal_number: "",
+        stuffing_date: "",
+        gross_weight: "",
+        net_weight: "",
+        gate_in_date: "",
+        loading_date: "",
+        container_images: [],
+        stuffing_images: []
+      }],
 
       // Other fields
       remarks: "",
@@ -239,7 +323,6 @@ function useExportJobDetails(params, setFileSnackbar) {
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
-        // Get user info for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
           "Content-Type": "application/json",
@@ -248,7 +331,6 @@ function useExportJobDetails(params, setFileSnackbar) {
           "user-role": user.role || "unknown",
         };
 
-        // Prepare the update payload
         const updatePayload = {
           ...values,
           export_documents: exportDocuments,
@@ -257,7 +339,7 @@ function useExportJobDetails(params, setFileSnackbar) {
           updatedAt: new Date(),
         };
 
-        console.log("Submitting update payload:", updatePayload); // Debug log
+        console.log("Submitting update payload:", updatePayload);
 
         const response = await axios.put(
           `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`,
@@ -265,14 +347,13 @@ function useExportJobDetails(params, setFileSnackbar) {
           { headers }
         );
 
-        console.log("Update response:", response.data); // Debug log
+        console.log("Update response:", response.data);
 
         if (setFileSnackbar) {
           setFileSnackbar(true);
           setTimeout(() => setFileSnackbar(false), 3000);
         }
 
-        // Close tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
@@ -286,38 +367,20 @@ function useExportJobDetails(params, setFileSnackbar) {
   // Update formik initial values when data is fetched
   useEffect(() => {
     if (data) {
-      console.log("Setting formik values with data:", data); // Debug log
+      console.log("Setting formik values with data:", data);
 
-      // Use containers to match your schema
-      const containers = safeValue(data.containers).map((container) => ({
+      const containers = safeValue(data.containers, []).map((container) => ({
         container_number: safeValue(container.container_number),
-        size: safeValue(container.size, "20"), // Use 'size' to match schema
+        container_size: safeValue(container.container_size || container.size, "20"),
         seal_number: safeValue(container.seal_number),
-        arrival_date: safeValue(container.arrival_date),
-        physical_weight: safeValue(container.physical_weight),
-        tare_weight: safeValue(container.tare_weight),
+        stuffing_date: safeValue(container.stuffing_date),
+        gross_weight: safeValue(container.gross_weight),
         net_weight: safeValue(container.net_weight),
-        container_gross_weight: safeValue(container.container_gross_weight),
-        actual_weight: safeValue(container.actual_weight),
-        transporter: safeValue(container.transporter),
-        vehicle_no: safeValue(container.vehicle_no),
-        driver_name: safeValue(container.driver_name),
-        driver_phone: safeValue(container.driver_phone),
-        seal_no: safeValue(container.seal_no),
-        weighment_slip_images: safeValue(container.weighment_slip_images, []),
+        gate_in_date: safeValue(container.gate_in_date),
+        loading_date: safeValue(container.loading_date),
         container_images: safeValue(container.container_images, []),
-        container_pre_damage_images: safeValue(
-          container.container_pre_damage_images,
-          []
-        ),
-        loose_material: safeValue(container.loose_material, []),
-        examination_videos: safeValue(container.examination_videos, []),
-        delivery_date: safeValue(container.delivery_date),
-        container_rail_out_date: safeValue(container.container_rail_out_date),
-        by_road_movement_date: safeValue(container.by_road_movement_date),
-        emptyContainerOffLoadDate: safeValue(
-          container.emptyContainerOffLoadDate
-        ),
+        stuffing_images: safeValue(container.stuffing_images, []),
+        // Add other container fields as needed
       }));
 
       formik.setValues({
@@ -354,9 +417,7 @@ function useExportJobDetails(params, setFileSnackbar) {
 
         // Milestone dates
         booking_confirmation_date: safeValue(data.booking_confirmation_date),
-        documentation_completion_date: safeValue(
-          data.documentation_completion_date
-        ),
+        documentation_completion_date: safeValue(data.documentation_completion_date),
         customs_clearance_date: safeValue(data.customs_clearance_date),
         stuffing_date: safeValue(data.stuffing_date),
         gate_pass_date: safeValue(data.gate_pass_date),
@@ -364,15 +425,19 @@ function useExportJobDetails(params, setFileSnackbar) {
         loading_completion_date: safeValue(data.loading_completion_date),
         vessel_departure_date: safeValue(data.vessel_departure_date),
 
-        // Use containers to match schema
-        containers,
-
-        // Documents and charges
-        export_documents: safeValue(data.export_documents, []),
-        export_charges: safeValue(data.export_charges, []),
-
-        // Queries
-        export_queries: safeValue(data.export_queries, []),
+        // Containers
+        containers: containers.length > 0 ? containers : [{
+          container_number: "",
+          container_size: "20",
+          seal_number: "",
+          stuffing_date: "",
+          gross_weight: "",
+          net_weight: "",
+          gate_in_date: "",
+          loading_date: "",
+          container_images: [],
+          stuffing_images: []
+        }],
 
         // Other fields
         remarks: safeValue(data.remarks),
@@ -425,6 +490,7 @@ function useExportJobDetails(params, setFileSnackbar) {
     newDocumentCode,
     setNewDocumentCode,
     handleFileChange,
+    canEditOrDelete, // Export this function for use in components
     setData,
   };
 }

@@ -23,7 +23,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Snackbar
+  Snackbar,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -55,7 +55,7 @@ function TabPanel(props) {
 function a11yProps(index) {
   return {
     id: `export-tab-${index}`,
-    'aria-controls': `export-tabpanel-${index}`,
+    "aria-controls": `export-tabpanel-${index}`,
   };
 }
 
@@ -78,9 +78,11 @@ const ExportJobStaticData = ({ data, params }) => {
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Job No: </strong>
-              <span 
-                style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                onClick={() => handleCopyText(`${data.year}/${data.job_no}`, setSnackbar)}
+              <span
+                style={{ cursor: "pointer", textDecoration: "underline" }}
+                onClick={() =>
+                  handleCopyText(`${data.year}/${data.job_no}`, setSnackbar)
+                }
               >
                 {data.year}/{data.job_no}
               </span>
@@ -89,25 +91,27 @@ const ExportJobStaticData = ({ data, params }) => {
               </IconButton>
             </div>
           </Col>
-          
+
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Job Date: </strong>
-              {data.job_date ? new Date(data.job_date).toLocaleDateString() : 'N/A'}
+              {data.job_date
+                ? new Date(data.job_date).toLocaleDateString()
+                : "N/A"}
             </div>
           </Col>
 
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Exporter: </strong>
-              {data.exporter_name || 'N/A'}
+              {data.exporter_name || "N/A"}
             </div>
           </Col>
 
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>IE Code: </strong>
-              {data.ie_code || 'N/A'}
+              {data.ie_code || "N/A"}
             </div>
           </Col>
         </Row>
@@ -116,33 +120,35 @@ const ExportJobStaticData = ({ data, params }) => {
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Consignee: </strong>
-              {data.consignee_name || 'N/A'}
+              {data.consignee_name || "N/A"}
             </div>
           </Col>
 
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Country: </strong>
-              {data.consignee_country || data.country_of_final_destination || 'N/A'}
+              {data.consignee_country ||
+                data.country_of_final_destination ||
+                "N/A"}
             </div>
           </Col>
 
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Port of Loading: </strong>
-              {data.port_of_loading || 'N/A'}
+              {data.port_of_loading || "N/A"}
             </div>
           </Col>
 
           <Col xs={12} lg={3}>
             <div className="job-detail-input-container">
               <strong>Port of Discharge: </strong>
-              {data.port_of_discharge || 'N/A'}
+              {data.port_of_discharge || "N/A"}
             </div>
           </Col>
         </Row>
       </div>
-      
+
       <Snackbar
         open={snackbar}
         message="Copied to clipboard"
@@ -174,7 +180,9 @@ const StatusSection = ({ formik, user }) => (
           <strong>Documentation Completed: </strong>
           {formik.values.documentation_completion_date ? (
             <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-              {new Date(formik.values.documentation_completion_date).toLocaleString("en-US", {
+              {new Date(
+                formik.values.documentation_completion_date
+              ).toLocaleString("en-US", {
                 timeZone: "Asia/Kolkata",
                 hour12: true,
               })}
@@ -195,8 +203,11 @@ const StatusSection = ({ formik, user }) => (
             variant="outlined"
             label="Set Documentation Date (Admin Only)"
             value={formik.values.documentation_completion_date || ""}
-            onChange={(e) => 
-              formik.setFieldValue("documentation_completion_date", e.target.value)
+            onChange={(e) =>
+              formik.setFieldValue(
+                "documentation_completion_date",
+                e.target.value
+              )
             }
             InputLabelProps={{ shrink: true }}
           />
@@ -208,10 +219,13 @@ const StatusSection = ({ formik, user }) => (
           <strong>Customs Clearance Completed: </strong>
           {formik.values.customs_clearance_date ? (
             <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-              {new Date(formik.values.customs_clearance_date).toLocaleString("en-US", {
-                timeZone: "Asia/Kolkata",
-                hour12: true,
-              })}
+              {new Date(formik.values.customs_clearance_date).toLocaleString(
+                "en-US",
+                {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                }
+              )}
             </span>
           ) : (
             <span style={{ marginLeft: "10px" }}>Pending</span>
@@ -229,7 +243,7 @@ const StatusSection = ({ formik, user }) => (
             variant="outlined"
             label="Set Customs Date (Admin Only)"
             value={formik.values.customs_clearance_date || ""}
-            onChange={(e) => 
+            onChange={(e) =>
               formik.setFieldValue("customs_clearance_date", e.target.value)
             }
             InputLabelProps={{ shrink: true }}
@@ -244,10 +258,13 @@ const StatusSection = ({ formik, user }) => (
           <strong>Loading Completed: </strong>
           {formik.values.loading_completion_date ? (
             <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-              {new Date(formik.values.loading_completion_date).toLocaleString("en-US", {
-                timeZone: "Asia/Kolkata",
-                hour12: true,
-              })}
+              {new Date(formik.values.loading_completion_date).toLocaleString(
+                "en-US",
+                {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                }
+              )}
             </span>
           ) : (
             <span style={{ marginLeft: "10px" }}>Pending</span>
@@ -265,7 +282,7 @@ const StatusSection = ({ formik, user }) => (
             variant="outlined"
             label="Set Loading Date (Admin Only)"
             value={formik.values.loading_completion_date || ""}
-            onChange={(e) => 
+            onChange={(e) =>
               formik.setFieldValue("loading_completion_date", e.target.value)
             }
             InputLabelProps={{ shrink: true }}
@@ -278,10 +295,13 @@ const StatusSection = ({ formik, user }) => (
           <strong>Vessel Departure: </strong>
           {formik.values.vessel_departure_date ? (
             <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-              {new Date(formik.values.vessel_departure_date).toLocaleString("en-US", {
-                timeZone: "Asia/Kolkata",
-                hour12: true,
-              })}
+              {new Date(formik.values.vessel_departure_date).toLocaleString(
+                "en-US",
+                {
+                  timeZone: "Asia/Kolkata",
+                  hour12: true,
+                }
+              )}
             </span>
           ) : (
             <span style={{ marginLeft: "10px" }}>Pending</span>
@@ -299,7 +319,7 @@ const StatusSection = ({ formik, user }) => (
             variant="outlined"
             label="Set Departure Date (Admin Only)"
             value={formik.values.vessel_departure_date || ""}
-            onChange={(e) => 
+            onChange={(e) =>
               formik.setFieldValue("vessel_departure_date", e.target.value)
             }
             InputLabelProps={{ shrink: true }}
@@ -341,12 +361,18 @@ const StatusSection = ({ formik, user }) => (
             margin="normal"
             variant="outlined"
             value={formik.values.detailed_status || ""}
-            onChange={(e) => formik.setFieldValue("detailed_status", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("detailed_status", e.target.value)
+            }
           >
             <MenuItem value="Planning Stage">Planning Stage</MenuItem>
             <MenuItem value="Booking Confirmed">Booking Confirmed</MenuItem>
-            <MenuItem value="Documentation in Progress">Documentation in Progress</MenuItem>
-            <MenuItem value="Documentation Completed">Documentation Completed</MenuItem>
+            <MenuItem value="Documentation in Progress">
+              Documentation in Progress
+            </MenuItem>
+            <MenuItem value="Documentation Completed">
+              Documentation Completed
+            </MenuItem>
             <MenuItem value="Customs Processing">Customs Processing</MenuItem>
             <MenuItem value="Customs Cleared">Customs Cleared</MenuItem>
             <MenuItem value="Cargo at Port">Cargo at Port</MenuItem>
@@ -354,7 +380,9 @@ const StatusSection = ({ formik, user }) => (
             <MenuItem value="Loading Completed">Loading Completed</MenuItem>
             <MenuItem value="Shipped">Shipped</MenuItem>
             <MenuItem value="In Transit">In Transit</MenuItem>
-            <MenuItem value="Arrived at Destination">Arrived at Destination</MenuItem>
+            <MenuItem value="Arrived at Destination">
+              Arrived at Destination
+            </MenuItem>
             <MenuItem value="Delivered">Delivered</MenuItem>
           </TextField>
         </div>
@@ -377,7 +405,9 @@ const TrackingSection = ({ formik }) => (
             variant="outlined"
             type="datetime-local"
             value={formik.values.booking_confirmation_date || ""}
-            onChange={(e) => formik.setFieldValue("booking_confirmation_date", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("booking_confirmation_date", e.target.value)
+            }
           />
         </div>
       </Col>
@@ -390,7 +420,9 @@ const TrackingSection = ({ formik }) => (
             size="small"
             variant="outlined"
             value={formik.values.booking_number || ""}
-            onChange={(e) => formik.setFieldValue("booking_number", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("booking_number", e.target.value)
+            }
             style={{ marginTop: "10px" }}
           />
         </div>
@@ -404,7 +436,9 @@ const TrackingSection = ({ formik }) => (
             size="small"
             variant="outlined"
             value={formik.values.vessel_flight_name || ""}
-            onChange={(e) => formik.setFieldValue("vessel_flight_name", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("vessel_flight_name", e.target.value)
+            }
             style={{ marginTop: "10px" }}
           />
         </div>
@@ -420,7 +454,9 @@ const TrackingSection = ({ formik }) => (
             size="small"
             variant="outlined"
             value={formik.values.shipping_bill_number || ""}
-            onChange={(e) => formik.setFieldValue("shipping_bill_number", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("shipping_bill_number", e.target.value)
+            }
             style={{ marginTop: "10px" }}
           />
         </div>
@@ -436,7 +472,9 @@ const TrackingSection = ({ formik }) => (
             variant="outlined"
             type="date"
             value={formik.values.shipping_bill_date || ""}
-            onChange={(e) => formik.setFieldValue("shipping_bill_date", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("shipping_bill_date", e.target.value)
+            }
             InputLabelProps={{ shrink: true }}
           />
         </div>
@@ -468,7 +506,9 @@ const TrackingSection = ({ formik }) => (
             variant="outlined"
             type="datetime-local"
             value={formik.values.gate_pass_date || ""}
-            onChange={(e) => formik.setFieldValue("gate_pass_date", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("gate_pass_date", e.target.value)
+            }
           />
         </div>
       </Col>
@@ -483,7 +523,9 @@ const TrackingSection = ({ formik }) => (
             variant="outlined"
             type="datetime-local"
             value={formik.values.stuffing_date || ""}
-            onChange={(e) => formik.setFieldValue("stuffing_date", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("stuffing_date", e.target.value)
+            }
           />
         </div>
       </Col>
@@ -498,7 +540,9 @@ const TrackingSection = ({ formik }) => (
             variant="outlined"
             type="datetime-local"
             value={formik.values.port_terminal_arrival_date || ""}
-            onChange={(e) => formik.setFieldValue("port_terminal_arrival_date", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("port_terminal_arrival_date", e.target.value)
+            }
           />
         </div>
       </Col>
@@ -550,7 +594,10 @@ const ExportTermsSection = ({ formik }) => (
               value="High"
               control={<Radio size="small" />}
               label="High"
-              sx={{ color: "orange", "& .MuiSvgIcon-root": { color: "orange" } }}
+              sx={{
+                color: "orange",
+                "& .MuiSvgIcon-root": { color: "orange" },
+              }}
             />
             <FormControlLabel
               value="Urgent"
@@ -582,7 +629,9 @@ const ExportTermsSection = ({ formik }) => (
             <MenuItem value="DDU">DDU - Delivered Duty Unpaid</MenuItem>
             <MenuItem value="FCA">FCA - Free Carrier</MenuItem>
             <MenuItem value="CPT">CPT - Carriage Paid To</MenuItem>
-            <MenuItem value="CIP">CIP - Carriage and Insurance Paid To</MenuItem>
+            <MenuItem value="CIP">
+              CIP - Carriage and Insurance Paid To
+            </MenuItem>
           </TextField>
         </div>
       </Col>
@@ -597,7 +646,9 @@ const ExportTermsSection = ({ formik }) => (
             size="small"
             variant="outlined"
             value={formik.values.commercial_invoice_number || ""}
-            onChange={(e) => formik.setFieldValue("commercial_invoice_number", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("commercial_invoice_number", e.target.value)
+            }
             style={{ marginTop: "10px" }}
           />
         </div>
@@ -613,7 +664,9 @@ const ExportTermsSection = ({ formik }) => (
             variant="outlined"
             type="date"
             value={formik.values.commercial_invoice_date || ""}
-            onChange={(e) => formik.setFieldValue("commercial_invoice_date", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("commercial_invoice_date", e.target.value)
+            }
             InputLabelProps={{ shrink: true }}
           />
         </div>
@@ -628,7 +681,9 @@ const ExportTermsSection = ({ formik }) => (
             variant="outlined"
             type="number"
             value={formik.values.commercial_invoice_value || ""}
-            onChange={(e) => formik.setFieldValue("commercial_invoice_value", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("commercial_invoice_value", e.target.value)
+            }
             style={{ marginTop: "10px" }}
           />
         </div>
@@ -655,16 +710,17 @@ const ExportTermsSection = ({ formik }) => (
 );
 
 // Documents Section Component
-const DocumentsSection = ({ 
-  exportDocuments, 
-  setExportDocuments, 
+const DocumentsSection = ({
+  exportDocuments,
+  setExportDocuments,
   exportDocDropdown,
   selectedDocument,
   setSelectedDocument,
   newDocumentName,
   setNewDocumentName,
   newDocumentCode,
-  setNewDocumentCode
+  setNewDocumentCode,
+  canEditOrDelete,
 }) => (
   <div>
     {/* Export Documents Section */}
@@ -674,45 +730,73 @@ const DocumentsSection = ({
           xs={12}
           md={6}
           lg={4}
-          key={`export-doc-${index}`}
+          key={`export-doc-${doc.document_code}-${index}`}
           style={{ marginBottom: "30px", position: "relative" }}
         >
-          <div className="document-card" style={{ 
-            border: "1px solid #e0e0e0", 
-            borderRadius: "8px", 
-            padding: "15px",
-            backgroundColor: "#fafafa"
-          }}>
-            <div style={{ 
-              display: "flex", 
-              justifyContent: "space-between", 
-              alignItems: "center",
-              marginBottom: "15px",
-              borderBottom: "1px solid #e0e0e0",
-              paddingBottom: "10px"
-            }}>
-              <h6 style={{ 
-                margin: 0, 
-                fontWeight: "600",
-                color: "#333"
-              }}>
+          <div
+            className="document-card"
+            style={{
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              padding: "15px",
+              backgroundColor: canEditOrDelete(doc) ? "#fafafa" : "#f0f8ff", // Different color for default docs
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "15px",
+                borderBottom: "1px solid #e0e0e0",
+                paddingBottom: "10px",
+              }}
+            >
+              <h6
+                style={{
+                  margin: 0,
+                  fontWeight: "600",
+                  color: "#333",
+                }}
+              >
                 {doc.document_name} ({doc.document_code})
+                {!canEditOrDelete(doc) && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "#666",
+                      marginLeft: "5px",
+                      fontWeight: "normal",
+                    }}
+                  >
+                    (Required)
+                  </span>
+                )}
               </h6>
-              
-              <DeleteIcon
-                style={{ 
-                  cursor: "pointer", 
-                  color: "#dc3545",
-                  fontSize: "18px"
-                }}
-                onClick={() => {
-                  if (window.confirm(`Remove "${doc.document_name}" from the list?`)) {
-                    const updatedDocuments = exportDocuments.filter((_, i) => i !== index);
-                    setExportDocuments(updatedDocuments);
-                  }
-                }}
-                title="Remove document from list"
-              />
+
+              {/* Only show delete button for non-default documents */}
+              {canEditOrDelete(doc) && (
+                <DeleteIcon
+                  style={{
+                    cursor: "pointer",
+                    color: "#dc3545",
+                    fontSize: "18px",
+                  }}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Remove "${doc.document_name}" from the list?`
+                      )
+                    ) {
+                      const updatedDocuments = exportDocuments.filter(
+                        (_, i) => i !== index
+                      );
+                      setExportDocuments(updatedDocuments);
+                    }
+                  }}
+                  title="Remove document from list"
+                />
+              )}
             </div>
 
             <Row style={{ marginBottom: "15px" }}>
@@ -729,7 +813,7 @@ const DocumentsSection = ({
                   }}
                 />
               </Col>
-              
+
               <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
                 <TextField
                   fullWidth
@@ -757,7 +841,9 @@ const DocumentsSection = ({
                         const updatedDocs = [...exportDocuments];
                         updatedDocs[index].is_verified = e.target.checked;
                         if (e.target.checked) {
-                          updatedDocs[index].verification_date = new Date().toISOString().slice(0, 16);
+                          updatedDocs[index].verification_date = new Date()
+                            .toISOString()
+                            .slice(0, 16);
                         }
                         setExportDocuments(updatedDocs);
                       }}
@@ -765,7 +851,11 @@ const DocumentsSection = ({
                       size="small"
                     />
                   }
-                  label={<span style={{ fontSize: "14px", color: "#555" }}>Verified</span>}
+                  label={
+                    <span style={{ fontSize: "14px", color: "#555" }}>
+                      Verified
+                    </span>
+                  }
                 />
               </Col>
             </Row>
@@ -802,25 +892,34 @@ const DocumentsSection = ({
       ))}
     </Row>
 
-    {/* Add Document Section */}
-    <div style={{ 
-      backgroundColor: "#f8f9fa", 
-      border: "2px dashed #dee2e6", 
-      borderRadius: "8px", 
-      padding: "20px", 
-      marginTop: "20px" 
-    }}>
-      <h6 style={{ 
-        marginBottom: "15px", 
-        color: "#6c757d",
-        fontWeight: "500"
-      }}>
-        Add New Export Document
+    {/* Add Document Section - only shows non-default documents */}
+    <div
+      style={{
+        backgroundColor: "#f8f9fa",
+        border: "2px dashed #dee2e6",
+        borderRadius: "8px",
+        padding: "20px",
+        marginTop: "20px",
+      }}
+    >
+      <h6
+        style={{
+          marginBottom: "15px",
+          color: "#6c757d",
+          fontWeight: "500",
+        }}
+      >
+        Add Additional Export Document
       </h6>
-      
+
       <Row>
         <Col xs={12} lg={4}>
-          <FormControl fullWidth size="small" margin="normal" variant="outlined">
+          <FormControl
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+          >
             <InputLabel>Select Document</InputLabel>
             <Select
               value={selectedDocument}
@@ -835,17 +934,18 @@ const DocumentsSection = ({
               label="Select Document"
             >
               {exportDocDropdown
-                .filter(doc => 
-                  !exportDocuments.some(
-                    existingDoc => existingDoc.document_code === doc.document_code
-                  )
+                .filter(
+                  (doc) =>
+                    !exportDocuments.some(
+                      (existingDoc) =>
+                        existingDoc.document_code === doc.document_code
+                    )
                 )
                 .map((doc) => (
                   <MenuItem key={doc.document_code} value={doc.document_code}>
                     {doc.document_name}
                   </MenuItem>
-                ))
-              }
+                ))}
               <MenuItem value="other">
                 <em>Other (Custom Document)</em>
               </MenuItem>
@@ -923,10 +1023,9 @@ const DocumentsSection = ({
               setSelectedDocument("");
             }}
             disabled={
-              !selectedDocument || 
-              (selectedDocument === "other" && 
-                (!newDocumentName.trim() || !newDocumentCode.trim())
-              )
+              !selectedDocument ||
+              (selectedDocument === "other" &&
+                (!newDocumentName.trim() || !newDocumentCode.trim()))
             }
             sx={{ mt: 1 }}
           >
@@ -946,34 +1045,45 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
     <div>
       <Row>
         {exportCharges?.map((charge, index) => (
-          <Col xs={12} lg={4} key={`charge-${index}`} style={{ marginBottom: "20px" }}>
-            <div style={{ 
-              border: "1px solid #e0e0e0", 
-              borderRadius: "8px", 
-              padding: "15px",
-              backgroundColor: "#fafafa",
-              position: "relative"
-            }}>
+          <Col
+            xs={12}
+            lg={4}
+            key={`charge-${index}`}
+            style={{ marginBottom: "20px" }}
+          >
+            <div
+              style={{
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                padding: "15px",
+                backgroundColor: "#fafafa",
+                position: "relative",
+              }}
+            >
               {/* Delete button for custom charges */}
               {![
                 "Ocean Freight",
-                "Documentation", 
+                "Documentation",
                 "Customs Clearance",
                 "Origin Handling",
-                "Terminal Handling"
+                "Terminal Handling",
               ].includes(charge.charge_type) && (
                 <DeleteIcon
-                  style={{ 
+                  style={{
                     position: "absolute",
                     top: "10px",
                     right: "10px",
-                    cursor: "pointer", 
+                    cursor: "pointer",
                     color: "#dc3545",
-                    fontSize: "18px"
+                    fontSize: "18px",
                   }}
                   onClick={() => {
-                    if (window.confirm(`Remove "${charge.charge_type}" charge?`)) {
-                      const updatedCharges = exportCharges.filter((_, i) => i !== index);
+                    if (
+                      window.confirm(`Remove "${charge.charge_type}" charge?`)
+                    ) {
+                      const updatedCharges = exportCharges.filter(
+                        (_, i) => i !== index
+                      );
                       setExportCharges(updatedCharges);
                     }
                   }}
@@ -984,7 +1094,7 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
               <h6 style={{ marginBottom: "15px", fontWeight: "600" }}>
                 {charge.charge_type}
               </h6>
-              
+
               <TextField
                 fullWidth
                 size="small"
@@ -998,7 +1108,7 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
                 }}
                 style={{ marginBottom: "10px" }}
               />
-              
+
               <TextField
                 fullWidth
                 size="small"
@@ -1011,7 +1121,7 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
                 }}
                 style={{ marginBottom: "10px" }}
               />
-              
+
               <FileUpload
                 label="Upload Invoice"
                 bucketPath={`export-charges/${charge.charge_type}`}
@@ -1025,13 +1135,14 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
                 }}
                 multiple={true}
               />
-              
+
               <ImagePreview
                 images={charge.document_urls || []}
                 onDeleteImage={(deleteIndex) => {
                   const updatedCharges = [...exportCharges];
-                  updatedCharges[index].document_urls = 
-                    updatedCharges[index].document_urls.filter((_, i) => i !== deleteIndex);
+                  updatedCharges[index].document_urls = updatedCharges[
+                    index
+                  ].document_urls.filter((_, i) => i !== deleteIndex);
                   setExportCharges(updatedCharges);
                 }}
                 readOnly={false}
@@ -1062,7 +1173,8 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
               if (
                 newChargesDocumentName.trim() &&
                 !exportCharges.some(
-                  (charge) => charge.charge_type === newChargesDocumentName.trim()
+                  (charge) =>
+                    charge.charge_type === newChargesDocumentName.trim()
                 )
               ) {
                 setExportCharges([
@@ -1071,7 +1183,7 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
                     charge_type: newChargesDocumentName.trim(),
                     amount: "",
                     currency: "USD",
-                    document_urls: []
+                    document_urls: [],
                   },
                 ]);
                 setNewChargesDocumentName("");
@@ -1093,24 +1205,32 @@ const ChargesSection = ({ exportCharges, setExportCharges }) => {
   );
 };
 
-
 // Containers Section Component
-const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, setOpenDialog, setContainerToDelete }) => {
+const ContainersSection = ({
+  formik,
+  handleAddContainer,
+  handleDeleteContainer,
+  setOpenDialog,
+  setContainerToDelete,
+}) => {
   // Ensure there's always at least one container to display
-  const containers = formik.values.containers && formik.values.containers.length > 0 
-    ? formik.values.containers 
-    : [{
-        container_number: "",
-        container_size: "20",
-        seal_number: "",
-        stuffing_date: "",
-        gross_weight: "",
-        net_weight: "",
-        gate_in_date: "",
-        loading_date: "",
-        container_images: [],
-        stuffing_images: []
-      }];
+  const containers =
+    formik.values.containers && formik.values.containers.length > 0
+      ? formik.values.containers
+      : [
+          {
+            container_number: "",
+            container_size: "20",
+            seal_number: "",
+            stuffing_date: "",
+            gross_weight: "",
+            net_weight: "",
+            gate_in_date: "",
+            loading_date: "",
+            container_images: [],
+            stuffing_images: [],
+          },
+        ];
 
   return (
     <div>
@@ -1121,7 +1241,7 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
               <Col xs={12} md={4} lg={3} className="mb-2">
                 <h6 style={{ marginBottom: 0 }}>
                   <strong>
-                    {index + 1}. Container Number: 
+                    {index + 1}. Container Number:
                     <TextField
                       fullWidth
                       size="small"
@@ -1129,10 +1249,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                       variant="outlined"
                       onChange={(e) => {
                         // Ensure containers array exists in formik
-                        if (!formik.values.containers || formik.values.containers.length === 0) {
+                        if (
+                          !formik.values.containers ||
+                          formik.values.containers.length === 0
+                        ) {
                           formik.setFieldValue("containers", [containers[0]]);
                         }
-                        formik.setFieldValue(`containers[${index}].container_number`, e.target.value);
+                        formik.setFieldValue(
+                          `containers[${index}].container_number`,
+                          e.target.value
+                        );
                       }}
                     />
                   </strong>
@@ -1148,10 +1274,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                   variant="outlined"
                   value={container.container_size || "20"}
                   onChange={(e) => {
-                    if (!formik.values.containers || formik.values.containers.length === 0) {
+                    if (
+                      !formik.values.containers ||
+                      formik.values.containers.length === 0
+                    ) {
                       formik.setFieldValue("containers", [containers[0]]);
                     }
-                    formik.setFieldValue(`containers[${index}].container_size`, e.target.value);
+                    formik.setFieldValue(
+                      `containers[${index}].container_size`,
+                      e.target.value
+                    );
                   }}
                 >
                   <MenuItem value="20">20ft</MenuItem>
@@ -1169,10 +1301,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                     variant="outlined"
                     value={container.seal_number || ""}
                     onChange={(e) => {
-                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                      if (
+                        !formik.values.containers ||
+                        formik.values.containers.length === 0
+                      ) {
                         formik.setFieldValue("containers", [containers[0]]);
                       }
-                      formik.setFieldValue(`containers[${index}].seal_number`, e.target.value);
+                      formik.setFieldValue(
+                        `containers[${index}].seal_number`,
+                        e.target.value
+                      );
                     }}
                   />
                 </div>
@@ -1189,10 +1327,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                     type="datetime-local"
                     value={container.stuffing_date || ""}
                     onChange={(e) => {
-                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                      if (
+                        !formik.values.containers ||
+                        formik.values.containers.length === 0
+                      ) {
                         formik.setFieldValue("containers", [containers[0]]);
                       }
-                      formik.setFieldValue(`containers[${index}].stuffing_date`, e.target.value);
+                      formik.setFieldValue(
+                        `containers[${index}].stuffing_date`,
+                        e.target.value
+                      );
                     }}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1212,15 +1356,21 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                     type="number"
                     value={container.gross_weight || ""}
                     onChange={(e) => {
-                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                      if (
+                        !formik.values.containers ||
+                        formik.values.containers.length === 0
+                      ) {
                         formik.setFieldValue("containers", [containers[0]]);
                       }
-                      formik.setFieldValue(`containers[${index}].gross_weight`, e.target.value);
+                      formik.setFieldValue(
+                        `containers[${index}].gross_weight`,
+                        e.target.value
+                      );
                     }}
                   />
                 </div>
               </Col>
-              
+
               <Col xs={12} lg={3}>
                 <div className="job-detail-input-container">
                   <strong>Net Weight (KG): </strong>
@@ -1232,10 +1382,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                     type="number"
                     value={container.net_weight || ""}
                     onChange={(e) => {
-                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                      if (
+                        !formik.values.containers ||
+                        formik.values.containers.length === 0
+                      ) {
                         formik.setFieldValue("containers", [containers[0]]);
                       }
-                      formik.setFieldValue(`containers[${index}].net_weight`, e.target.value);
+                      formik.setFieldValue(
+                        `containers[${index}].net_weight`,
+                        e.target.value
+                      );
                     }}
                   />
                 </div>
@@ -1252,10 +1408,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                     type="datetime-local"
                     value={container.gate_in_date || ""}
                     onChange={(e) => {
-                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                      if (
+                        !formik.values.containers ||
+                        formik.values.containers.length === 0
+                      ) {
                         formik.setFieldValue("containers", [containers[0]]);
                       }
-                      formik.setFieldValue(`containers[${index}].gate_in_date`, e.target.value);
+                      formik.setFieldValue(
+                        `containers[${index}].gate_in_date`,
+                        e.target.value
+                      );
                     }}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1273,10 +1435,16 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                     type="datetime-local"
                     value={container.loading_date || ""}
                     onChange={(e) => {
-                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                      if (
+                        !formik.values.containers ||
+                        formik.values.containers.length === 0
+                      ) {
                         formik.setFieldValue("containers", [containers[0]]);
                       }
-                      formik.setFieldValue(`containers[${index}].loading_date`, e.target.value);
+                      formik.setFieldValue(
+                        `containers[${index}].loading_date`,
+                        e.target.value
+                      );
                     }}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -1301,18 +1469,21 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
                   <ImagePreview
                     images={container?.stuffing_images || []}
                     readOnly
-                />
+                  />
                 </div>
               </Col>
             </Row>
           </div>
-          
+
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={() => {
                 // Ensure containers array is initialized before adding
-                if (!formik.values.containers || formik.values.containers.length === 0) {
+                if (
+                  !formik.values.containers ||
+                  formik.values.containers.length === 0
+                ) {
                   formik.setFieldValue("containers", [containers[0]]);
                 }
                 handleAddContainer();
@@ -1320,7 +1491,7 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
             >
               Add Container
             </Button>
-            
+
             {containers.length > 1 && (
               <Button
                 variant="outlined"
@@ -1341,7 +1512,6 @@ const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, 
   );
 };
 
-
 // Main Export View Job Component
 function ExportViewJob() {
   const params = useParams();
@@ -1349,7 +1519,7 @@ function ExportViewJob() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const [fileSnackbar, setFileSnackbar] = useState(false);
-  
+
   // Use the custom hook
   const {
     data,
@@ -1366,14 +1536,14 @@ function ExportViewJob() {
     setNewDocumentName,
     newDocumentCode,
     setNewDocumentCode,
-    setData
+    setData,
+    canEditOrDelete,
   } = useExportJobDetails(params, setFileSnackbar);
 
-  console.log(    data,
-)
+  console.log(data);
   // Tab management
   const [activeTab, setActiveTab] = useState(0);
-  
+
   // Dialog states
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
@@ -1393,60 +1563,59 @@ function ExportViewJob() {
   };
 
   // Container management
-// In your main ExportViewJob component or hook
-const handleAddContainer = () => {
-  const newContainer = {
-    container_number: "",
-    container_size: "20",
-    seal_number: "",
-    stuffing_date: "",
-    gross_weight: "",
-    net_weight: "",
-    gate_in_date: "",
-    loading_date: "",
-    container_images: [],
-    stuffing_images: []
+  // In your main ExportViewJob component or hook
+  const handleAddContainer = () => {
+    const newContainer = {
+      container_number: "",
+      container_size: "20",
+      seal_number: "",
+      stuffing_date: "",
+      gross_weight: "",
+      net_weight: "",
+      gate_in_date: "",
+      loading_date: "",
+      container_images: [],
+      stuffing_images: [],
+    };
+
+    // If containers array is empty or doesn't exist, initialize it
+    const currentContainers = formik.values.containers || [];
+
+    formik.setFieldValue("containers", [...currentContainers, newContainer]);
   };
 
-  // If containers array is empty or doesn't exist, initialize it
-  const currentContainers = formik.values.containers || [];
-  
-  formik.setFieldValue("containers", [
-    ...currentContainers,
-    newContainer
-  ]);
-};
+  const handleDeleteContainer = () => {
+    if (deleteConfirmText === "Delete") {
+      const updatedContainers = (formik.values.containers || []).filter(
+        (_, i) => i !== containerToDelete
+      );
 
+      // Always keep at least one container (empty if needed)
+      if (updatedContainers.length === 0) {
+        formik.setFieldValue("containers", [
+          {
+            container_number: "",
+            container_size: "20",
+            seal_number: "",
+            stuffing_date: "",
+            gross_weight: "",
+            net_weight: "",
+            gate_in_date: "",
+            loading_date: "",
+            container_images: [],
+            stuffing_images: [],
+          },
+        ]);
+      } else {
+        formik.setFieldValue("containers", updatedContainers);
+      }
 
-const handleDeleteContainer = () => {
-  if (deleteConfirmText === "Delete") {
-    const updatedContainers = (formik.values.containers || []).filter((_, i) => i !== containerToDelete);
-    
-    // Always keep at least one container (empty if needed)
-    if (updatedContainers.length === 0) {
-      formik.setFieldValue("containers", [{
-        container_number: "",
-        container_size: "20",
-        seal_number: "",
-        stuffing_date: "",
-        gross_weight: "",
-        net_weight: "",
-        gate_in_date: "",
-        loading_date: "",
-        container_images: [],
-        stuffing_images: []
-      }]);
+      setOpenDialog(false);
+      setDeleteConfirmText("");
     } else {
-      formik.setFieldValue("containers", updatedContainers);
+      alert("Please type 'Delete' to confirm.");
     }
-    
-    setOpenDialog(false);
-    setDeleteConfirmText("");
-  } else {
-    alert("Please type 'Delete' to confirm.");
-  }
-};
-
+  };
 
   // Query handlers
   const handleQueriesChange = (updatedQueries) => {
@@ -1458,7 +1627,7 @@ const handleDeleteContainer = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
         <Typography>Loading export job details...</Typography>
       </Box>
     );
@@ -1466,7 +1635,14 @@ const handleDeleteContainer = () => {
 
   if (!data) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          mt: 4,
+        }}
+      >
         <Typography variant="h6" color="error">
           Export job not found
         </Typography>
@@ -1509,21 +1685,21 @@ const handleDeleteContainer = () => {
         </div>
 
         {/* Tabs Interface */}
-        <Paper sx={{ margin: '20px' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Paper sx={{ margin: "20px" }}>
+          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
             <Tabs
               value={activeTab}
               onChange={handleTabChange}
               variant="scrollable"
               scrollButtons="auto"
               sx={{
-                '& .MuiTab-root': {
+                "& .MuiTab-root": {
                   minWidth: 120,
-                  fontSize: '0.875rem',
+                  fontSize: "0.875rem",
                   fontWeight: 500,
                 },
-                '& .MuiTabs-indicator': {
-                  backgroundColor: '#1976d2',
+                "& .MuiTabs-indicator": {
+                  backgroundColor: "#1976d2",
                 },
               }}
             >
@@ -1538,9 +1714,9 @@ const handleDeleteContainer = () => {
           </Box>
 
           <TabPanel value={activeTab} index={0}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Queries</h3>
-              <QueriesSection 
+              <QueriesSection
                 data={data}
                 handleQueriesChange={handleQueriesChange}
                 user={user}
@@ -1549,30 +1725,30 @@ const handleDeleteContainer = () => {
           </TabPanel>
 
           <TabPanel value={activeTab} index={1}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Status</h3>
               <StatusSection formik={formik} user={user} />
             </div>
           </TabPanel>
 
           <TabPanel value={activeTab} index={2}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Tracking</h3>
               <TrackingSection formik={formik} />
             </div>
           </TabPanel>
 
           <TabPanel value={activeTab} index={3}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Export Terms</h3>
               <ExportTermsSection formik={formik} />
             </div>
           </TabPanel>
 
           <TabPanel value={activeTab} index={4}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Documents</h3>
-              <DocumentsSection 
+              <DocumentsSection
                 exportDocuments={exportDocuments}
                 setExportDocuments={setExportDocuments}
                 exportDocDropdown={exportDocDropdown}
@@ -1582,14 +1758,15 @@ const handleDeleteContainer = () => {
                 setNewDocumentName={setNewDocumentName}
                 newDocumentCode={newDocumentCode}
                 setNewDocumentCode={setNewDocumentCode}
+                canEditOrDelete={canEditOrDelete}
               />
             </div>
           </TabPanel>
 
           <TabPanel value={activeTab} index={5}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Charges</h3>
-              <ChargesSection 
+              <ChargesSection
                 exportCharges={exportCharges}
                 setExportCharges={setExportCharges}
               />
@@ -1597,9 +1774,9 @@ const handleDeleteContainer = () => {
           </TabPanel>
 
           <TabPanel value={activeTab} index={6}>
-            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+            <div style={{ padding: "20px", backgroundColor: "#f0f0f0" }}>
               <h3>Containers</h3>
-              <ContainersSection 
+              <ContainersSection
                 formik={formik}
                 handleAddContainer={handleAddContainer}
                 handleDeleteContainer={handleDeleteContainer}
@@ -1611,15 +1788,15 @@ const handleDeleteContainer = () => {
         </Paper>
 
         {/* Submit Button */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", p: 2 }}>
           <Button
             type="submit"
             variant="contained"
             size="large"
             sx={{
-              backgroundColor: '#1976d2',
-              '&:hover': {
-                backgroundColor: '#1565c0',
+              backgroundColor: "#1976d2",
+              "&:hover": {
+                backgroundColor: "#1565c0",
               },
             }}
           >

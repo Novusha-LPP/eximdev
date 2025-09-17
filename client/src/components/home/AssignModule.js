@@ -35,7 +35,7 @@ const allModules = [
   "Screen2",
   "Screen3",
   "Screen4",
-  "Export - Dsr",
+  "Export - DSR",
   "Directories",
   "Handover",
   "Booking Management",
@@ -147,7 +147,7 @@ function AssignModule(props) {
               numberOfChecked(items) === items?.length && items?.length !== 0
             }
             indeterminate={
-              numberOfChecked(items) !== items?.length &&
+              numberOfChecked(items) !== items?.length && 
               numberOfChecked(items) !== 0
             }
             disabled={items?.length === 0}

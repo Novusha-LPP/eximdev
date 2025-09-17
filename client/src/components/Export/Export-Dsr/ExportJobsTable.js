@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Visibility, Refresh, Download, BuildCircle as ToolboxIcon } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import axios from 'axios';
 import PropTypes from 'prop-types';
 
@@ -28,6 +29,7 @@ function CustomTabPanel(props) {
 
 // Export Jobs Table Component for each tab
 const ExportJobsTableContent = ({ status }) => {
+  const navigate = useNavigate(); // Add navigate hook
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -68,6 +70,46 @@ const ExportJobsTableContent = ({ status }) => {
   useEffect(() => {
     fetchJobs();
   }, [page, rowsPerPage, filters, status]);
+
+  // Handle row click navigation
+  const handleRowClick = (job, event) => {
+    // Prevent navigation if clicking on action buttons
+    if (event.target.closest('.MuiIconButton-root')) {
+      return;
+    }
+    
+    const jobNo = job.job_no;
+    const year = job.year;
+    
+    if (jobNo && year) {
+      navigate(`/export-dsr/job/${year}/${jobNo}`, {
+        state: {
+          fromJobList: true,
+          searchQuery: filters.search,
+          selectedExporter: filters.exporter,
+          selectedCountry: filters.country,
+          currentTab: status === 'Pending' ? 0 : status === 'Completed' ? 1 : 2
+        }
+      });
+    }
+  };
+
+  // Handle action button clicks
+  const handleViewClick = (job, event) => {
+    event.stopPropagation();
+    handleRowClick(job, event);
+  };
+
+  const handleEditClick = (job, event) => {
+    event.stopPropagation();
+    handleRowClick(job, event);
+  };
+
+  const handleDeleteClick = (job, event) => {
+    event.stopPropagation();
+    // Add delete functionality here
+    console.log('Delete job:', job);
+  };
 
   const columns = [
     { id: 'job_no', label: 'Job Number', minWidth: 120 },
@@ -196,7 +238,17 @@ const ExportJobsTableContent = ({ status }) => {
                 </TableRow>
               ) : (
                 jobs.map((job, index) => (
-                  <TableRow hover key={job._id || index}>
+                  <TableRow 
+                    hover 
+                    key={job._id || index}
+                    onClick={(event) => handleRowClick(job, event)}
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: '#f5f5f5'
+                      }
+                    }}
+                  >
                     {columns.map((column) => {
                       let value = job[column.id];
                       
@@ -237,18 +289,30 @@ const ExportJobsTableContent = ({ status }) => {
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Tooltip title="View Details">
-                          <IconButton size="small" color="info">
+                          <IconButton 
+                            size="small" 
+                            color="info"
+                            onClick={(event) => handleViewClick(job, event)}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Edit Job">
-                          <IconButton size="small" color="primary">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={(event) => handleEditClick(job, event)}
+                          >
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         {status === 'Pending' && (
                           <Tooltip title="Cancel Job">
-                            <IconButton size="small" color="error">
+                            <IconButton 
+                              size="small" 
+                              color="error"
+                              onClick={(event) => handleDeleteClick(job, event)}
+                            >
                               <Delete fontSize="small" />
                             </IconButton>
                           </Tooltip>

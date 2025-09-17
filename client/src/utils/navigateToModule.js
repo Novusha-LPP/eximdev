@@ -36,6 +36,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/export-directories");
     case "Export - DSR":
       return navigate("/export-dsr");
+    case "Export - Documentation":
+      return navigate("/documentation-jobs");
     case "Handover":
       return navigate("/handover");
     case "Booking Management":

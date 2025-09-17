@@ -39,6 +39,7 @@ const allModules = [
   "Directories",
   "Handover",
   "Booking Management",
+  "Export - Documentation"
 ];
 
 function not(a, b) {

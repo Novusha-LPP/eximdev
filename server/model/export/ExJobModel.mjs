@@ -504,6 +504,9 @@ const exportJobSchema = new mongoose.Schema({
   leo_number: { type: String, trim: true },
   leo_date: { type: String, trim: true },
   leo_validity_date: { type: String, trim: true },
+  leo_copy: [{ type: String, trim: true }],
+  assessed_copy: [{ type: String, trim: true }],
+  gate_pass_copy: [{ type: String, trim: true }],
   
   // Gate Pass Information
   gate_pass_number: { type: String, trim: true },

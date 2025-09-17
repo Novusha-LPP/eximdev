@@ -25,6 +25,7 @@ import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 import handoverRoutes from './routes/export-dsr/handoverRoutes.js';
 import jobBookingRoutes from './routes/export-dsr/jobBookingRoutes.js'; 
 import updateExportJobs from './routes/export-dsr/updateExportJobs.js'; 
+import exportDocumentaion from './routes/export-dsr/exportDocumentation.mjs';
 
 dotenv.config();
 
@@ -450,6 +451,9 @@ if (cluster.isPrimary) {
       app.use('/api/handover', handoverRoutes);
       app.use('/api/job-booking', jobBookingRoutes);
       app.use("/api/export-jobs",updateExportJobs);
+      app.use( jobBookingRoutes);
+      app.use(exportDocumentaion);
+
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

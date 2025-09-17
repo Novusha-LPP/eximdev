@@ -87,6 +87,9 @@ import DsrTabs from "../components/Export/Export-Dsr/DsrTabs.js";
 import Handover from "../components/Export/Handover.js";
 import JobsListPage from "../components/Export/BookingManagement/JobListPage.js";
 import ExportViewJob from "../components/Export/Export-Dsr/ExportViewJob.js";
+import ExportDocumentJobs from "../components/Export/ExportDocumentJobs.js";
+import DocumentViewJob from "../components/Export/DocumentVIewJob.js";
+
 
 
 const drawerWidth = 60;
@@ -562,6 +565,18 @@ function HomePage() {
                 } 
               />
 
+              <Route 
+                path="/documentation-jobs"
+                element ={
+                  <ProtectedRoute requiredModule="Export - Documentation">
+                    <ExportDocumentJobs/>
+                    
+                  </ProtectedRoute>
+                }
+              />
+
+               <Route path="/documentation/:job_no" element={<DocumentViewJob />} />
+                  
             </Routes>
           </Box>
         </Box>

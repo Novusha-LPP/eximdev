@@ -1,12 +1,9 @@
-import React, { useState, useRef, useContext, useEffect } from "react";
+import React, { useState, useContext } from "react";
 import { Row, Col } from "react-bootstrap";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import {
   IconButton,
   TextField,
-  Tooltip,
-  InputLabel,
-  Select,
   Typography,
   MenuItem,
   Button,
@@ -16,9 +13,11 @@ import {
   RadioGroup,
   FormControlLabel,
   FormControl,
-  FormLabel,
-  FormGroup,
-  Switch,
+  InputLabel,
+  Select,
+  Paper,
+  Tabs,
+  Tab,
   Dialog,
   DialogActions,
   DialogContent,
@@ -29,121 +28,36 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AddIcon from "@mui/icons-material/Add";
-import { format } from "date-fns";
-import { useFormik } from "formik";
-import axios from "axios";
-import "../../../styles/job-details.scss";
-import ImagePreview from "../../../components/gallery/ImagePreview.js";
-import FileUpload from "../../../components/gallery/FileUpload.js";
 import { UserContext } from "../../../contexts/UserContext";
 import QueriesComponent from "../../../utils/QueriesComponent.js";
+import ImagePreview from "../../../components/gallery/ImagePreview.js";
+import FileUpload from "../../../components/gallery/FileUpload.js";
+import useExportJobDetails from "../../../customHooks/useExportJobDetails.js"; // Import the custom hook
 
-// Custom hook for export job data
-const useExportJobDetails = (params) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [exportDocuments, setExportDocuments] = useState([]);
-  const [exportCharges, setExportCharges] = useState([
-    { charge_type: "Ocean Freight" },
-    { charge_type: "Documentation" },
-    { charge_type: "Customs Clearance" },
-    { charge_type: "Origin Handling" },
-    { charge_type: "Terminal Handling" }
-  ]);
+// Tab Panel Component
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
 
-  useEffect(() => {
-    fetchExportJobDetails();
-  }, [params.job_no, params.year]);
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`export-tabpanel-${index}`}
+      aria-labelledby={`export-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 0 }}>{children}</Box>}
+    </div>
+  );
+}
 
-  const fetchExportJobDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`
-      );
-      
-      if (response.data.success) {
-        const jobData = response.data.data;
-        setData(jobData);
-        setExportDocuments(jobData.export_documents || []);
-        
-        // Update export charges to include custom charges from database
-        if (jobData.export_charges && jobData.export_charges.length > 0) {
-          const predefinedCharges = [
-            { charge_type: "Ocean Freight" },
-            { charge_type: "Documentation" },
-            { charge_type: "Customs Clearance" },
-            { charge_type: "Origin Handling" },
-            { charge_type: "Terminal Handling" }
-          ];
-          
-          // Get unique custom charges from database
-          const customChargesFromDB = jobData.export_charges
-            .filter(charge => !predefinedCharges.some(predefined => 
-              predefined.charge_type === charge.charge_type))
-            .map(charge => ({ charge_type: charge.charge_type }));
-          
-          // Remove duplicates
-          const uniqueCustomCharges = customChargesFromDB.filter((charge, index, self) => 
-            index === self.findIndex(c => c.charge_type === charge.charge_type)
-          );
-          
-          // Combine predefined and unique custom charges
-          const allCharges = [...predefinedCharges, ...uniqueCustomCharges];
-          setExportCharges(allCharges);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching export job details:", error);
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateExportJob = async (updateData) => {
-    try {
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`,
-        updateData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      if (response.data.success) {
-        setData(response.data.data);
-        return response.data.data;
-      } else {
-        throw new Error(response.data.message || "Failed to update export job");
-      }
-    } catch (error) {
-      console.error("Error updating export job:", error);
-      throw error;
-    }
-  };
-
+// Tab accessibility props
+function a11yProps(index) {
   return {
-    data,
-    loading,
-    exportDocuments,
-    setExportDocuments,
-    exportCharges,
-    setExportCharges,
-    updateExportJob,
-    setData
+    id: `export-tab-${index}`,
+    'aria-controls': `export-tabpanel-${index}`,
   };
-};
-
-// Job Details Row Heading Component
-const JobDetailsRowHeading = ({ heading }) => (
-  <div className="job-details-row-heading">
-    <h4>{heading}</h4>
-  </div>
-);
+}
 
 // Static Data Component for Export
 const ExportJobStaticData = ({ data, params }) => {
@@ -238,219 +152,1236 @@ const ExportJobStaticData = ({ data, params }) => {
   );
 };
 
+// Queries Section Component
+const QueriesSection = ({ data, handleQueriesChange, user }) => (
+  <QueriesComponent
+    queries={data?.export_queries || []}
+    currentModule="Export DSR"
+    onQueriesChange={handleQueriesChange}
+    title="Export Queries"
+    showResolveButton={true}
+    readOnlyReply={false}
+    userName={user?.username}
+  />
+);
+
+// Status Section Component
+const StatusSection = ({ formik, user }) => (
+  <div>
+    <Row style={{ marginTop: "10px" }}>
+      <Col xs={12} lg={3}>
+        <div className="job-detail-input-container">
+          <strong>Documentation Completed: </strong>
+          {formik.values.documentation_completion_date ? (
+            <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+              {new Date(formik.values.documentation_completion_date).toLocaleString("en-US", {
+                timeZone: "Asia/Kolkata",
+                hour12: true,
+              })}
+            </span>
+          ) : (
+            <span style={{ marginLeft: "10px" }}>Pending</span>
+          )}
+        </div>
+      </Col>
+
+      {user?.role === "Admin" && (
+        <Col xs={12} md={3}>
+          <TextField
+            type="datetime-local"
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            label="Set Documentation Date (Admin Only)"
+            value={formik.values.documentation_completion_date || ""}
+            onChange={(e) => 
+              formik.setFieldValue("documentation_completion_date", e.target.value)
+            }
+            InputLabelProps={{ shrink: true }}
+          />
+        </Col>
+      )}
+
+      <Col xs={12} lg={3}>
+        <div className="job-detail-input-container">
+          <strong>Customs Clearance Completed: </strong>
+          {formik.values.customs_clearance_date ? (
+            <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+              {new Date(formik.values.customs_clearance_date).toLocaleString("en-US", {
+                timeZone: "Asia/Kolkata",
+                hour12: true,
+              })}
+            </span>
+          ) : (
+            <span style={{ marginLeft: "10px" }}>Pending</span>
+          )}
+        </div>
+      </Col>
+
+      {user?.role === "Admin" && (
+        <Col xs={12} md={3}>
+          <TextField
+            type="datetime-local"
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            label="Set Customs Date (Admin Only)"
+            value={formik.values.customs_clearance_date || ""}
+            onChange={(e) => 
+              formik.setFieldValue("customs_clearance_date", e.target.value)
+            }
+            InputLabelProps={{ shrink: true }}
+          />
+        </Col>
+      )}
+    </Row>
+
+    <Row style={{ marginTop: "10px" }}>
+      <Col xs={12} lg={3}>
+        <div className="job-detail-input-container">
+          <strong>Loading Completed: </strong>
+          {formik.values.loading_completion_date ? (
+            <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+              {new Date(formik.values.loading_completion_date).toLocaleString("en-US", {
+                timeZone: "Asia/Kolkata",
+                hour12: true,
+              })}
+            </span>
+          ) : (
+            <span style={{ marginLeft: "10px" }}>Pending</span>
+          )}
+        </div>
+      </Col>
+
+      {user?.role === "Admin" && (
+        <Col xs={12} md={3}>
+          <TextField
+            type="datetime-local"
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            label="Set Loading Date (Admin Only)"
+            value={formik.values.loading_completion_date || ""}
+            onChange={(e) => 
+              formik.setFieldValue("loading_completion_date", e.target.value)
+            }
+            InputLabelProps={{ shrink: true }}
+          />
+        </Col>
+      )}
+
+      <Col xs={12} lg={3}>
+        <div className="job-detail-input-container">
+          <strong>Vessel Departure: </strong>
+          {formik.values.vessel_departure_date ? (
+            <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
+              {new Date(formik.values.vessel_departure_date).toLocaleString("en-US", {
+                timeZone: "Asia/Kolkata",
+                hour12: true,
+              })}
+            </span>
+          ) : (
+            <span style={{ marginLeft: "10px" }}>Pending</span>
+          )}
+        </div>
+      </Col>
+
+      {user?.role === "Admin" && (
+        <Col xs={12} md={3}>
+          <TextField
+            type="datetime-local"
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            label="Set Departure Date (Admin Only)"
+            value={formik.values.vessel_departure_date || ""}
+            onChange={(e) => 
+              formik.setFieldValue("vessel_departure_date", e.target.value)
+            }
+            InputLabelProps={{ shrink: true }}
+          />
+        </Col>
+      )}
+    </Row>
+
+    <Row style={{ marginTop: "10px" }}>
+      <Col xs={12} lg={2}>
+        <div className="job-detail-input-container">
+          <strong>Status: </strong>
+          <TextField
+            fullWidth
+            select
+            size="small"
+            margin="normal"
+            variant="outlined"
+            value={formik.values.status || ""}
+            onChange={(e) => formik.setFieldValue("status", e.target.value)}
+          >
+            <MenuItem value="Planning">Planning</MenuItem>
+            <MenuItem value="Documentation">Documentation</MenuItem>
+            <MenuItem value="Ready to Ship">Ready to Ship</MenuItem>
+            <MenuItem value="Shipped">Shipped</MenuItem>
+            <MenuItem value="Delivered">Delivered</MenuItem>
+            <MenuItem value="Completed">Completed</MenuItem>
+          </TextField>
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Detailed Status: </strong>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            value={formik.values.detailed_status || ""}
+            onChange={(e) => formik.setFieldValue("detailed_status", e.target.value)}
+          >
+            <MenuItem value="Planning Stage">Planning Stage</MenuItem>
+            <MenuItem value="Booking Confirmed">Booking Confirmed</MenuItem>
+            <MenuItem value="Documentation in Progress">Documentation in Progress</MenuItem>
+            <MenuItem value="Documentation Completed">Documentation Completed</MenuItem>
+            <MenuItem value="Customs Processing">Customs Processing</MenuItem>
+            <MenuItem value="Customs Cleared">Customs Cleared</MenuItem>
+            <MenuItem value="Cargo at Port">Cargo at Port</MenuItem>
+            <MenuItem value="Loading in Progress">Loading in Progress</MenuItem>
+            <MenuItem value="Loading Completed">Loading Completed</MenuItem>
+            <MenuItem value="Shipped">Shipped</MenuItem>
+            <MenuItem value="In Transit">In Transit</MenuItem>
+            <MenuItem value="Arrived at Destination">Arrived at Destination</MenuItem>
+            <MenuItem value="Delivered">Delivered</MenuItem>
+          </TextField>
+        </div>
+      </Col>
+    </Row>
+  </div>
+);
+
+// Tracking Section Component
+const TrackingSection = ({ formik }) => (
+  <div>
+    <Row style={{ marginTop: "20px" }}>
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Booking Confirmation Date: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="datetime-local"
+            value={formik.values.booking_confirmation_date || ""}
+            onChange={(e) => formik.setFieldValue("booking_confirmation_date", e.target.value)}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Booking Number: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            variant="outlined"
+            value={formik.values.booking_number || ""}
+            onChange={(e) => formik.setFieldValue("booking_number", e.target.value)}
+            style={{ marginTop: "10px" }}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Vessel/Flight Name: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            variant="outlined"
+            value={formik.values.vessel_flight_name || ""}
+            onChange={(e) => formik.setFieldValue("vessel_flight_name", e.target.value)}
+            style={{ marginTop: "10px" }}
+          />
+        </div>
+      </Col>
+    </Row>
+
+    <Row style={{ marginTop: "20px" }}>
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Shipping Bill Number: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            variant="outlined"
+            value={formik.values.shipping_bill_number || ""}
+            onChange={(e) => formik.setFieldValue("shipping_bill_number", e.target.value)}
+            style={{ marginTop: "10px" }}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Shipping Bill Date: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="date"
+            value={formik.values.shipping_bill_date || ""}
+            onChange={(e) => formik.setFieldValue("shipping_bill_date", e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>LEO Number: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            variant="outlined"
+            value={formik.values.leo_number || ""}
+            onChange={(e) => formik.setFieldValue("leo_number", e.target.value)}
+            style={{ marginTop: "10px" }}
+          />
+        </div>
+      </Col>
+    </Row>
+
+    <Row style={{ marginTop: "20px" }}>
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Gate Pass Date: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="datetime-local"
+            value={formik.values.gate_pass_date || ""}
+            onChange={(e) => formik.setFieldValue("gate_pass_date", e.target.value)}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Stuffing Date: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="datetime-local"
+            value={formik.values.stuffing_date || ""}
+            onChange={(e) => formik.setFieldValue("stuffing_date", e.target.value)}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Port Gate In Date: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="datetime-local"
+            value={formik.values.port_terminal_arrival_date || ""}
+            onChange={(e) => formik.setFieldValue("port_terminal_arrival_date", e.target.value)}
+          />
+        </div>
+      </Col>
+    </Row>
+  </div>
+);
+
+// Export Terms Section Component
+const ExportTermsSection = ({ formik }) => (
+  <div>
+    <Row style={{ marginTop: "20px" }}>
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Job Type: </strong>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            value={formik.values.job_type || "sea_export"}
+            onChange={(e) => formik.setFieldValue("job_type", e.target.value)}
+          >
+            <MenuItem value="sea_export">Sea Export</MenuItem>
+            <MenuItem value="air_export">Air Export</MenuItem>
+            <MenuItem value="land_export">Land Export</MenuItem>
+            <MenuItem value="courier_export">Courier Export</MenuItem>
+          </TextField>
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Priority: </strong>
+          <RadioGroup
+            row
+            name="priority_level"
+            value={formik.values.priority_level || "Normal"}
+            onChange={formik.handleChange}
+            sx={{ alignItems: "center" }}
+          >
+            <FormControlLabel
+              value="Normal"
+              control={<Radio size="small" />}
+              label="Normal"
+              sx={{ color: "green", "& .MuiSvgIcon-root": { color: "green" } }}
+            />
+            <FormControlLabel
+              value="High"
+              control={<Radio size="small" />}
+              label="High"
+              sx={{ color: "orange", "& .MuiSvgIcon-root": { color: "orange" } }}
+            />
+            <FormControlLabel
+              value="Urgent"
+              control={<Radio size="small" />}
+              label="Urgent"
+              sx={{ color: "red", "& .MuiSvgIcon-root": { color: "red" } }}
+            />
+          </RadioGroup>
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Incoterms: </strong>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            value={formik.values.incoterms || ""}
+            onChange={(e) => formik.setFieldValue("incoterms", e.target.value)}
+          >
+            <MenuItem value="FOB">FOB - Free on Board</MenuItem>
+            <MenuItem value="CIF">CIF - Cost, Insurance and Freight</MenuItem>
+            <MenuItem value="CFR">CFR - Cost and Freight</MenuItem>
+            <MenuItem value="EXW">EXW - Ex Works</MenuItem>
+            <MenuItem value="DDP">DDP - Delivered Duty Paid</MenuItem>
+            <MenuItem value="DDU">DDU - Delivered Duty Unpaid</MenuItem>
+            <MenuItem value="FCA">FCA - Free Carrier</MenuItem>
+            <MenuItem value="CPT">CPT - Carriage Paid To</MenuItem>
+            <MenuItem value="CIP">CIP - Carriage and Insurance Paid To</MenuItem>
+          </TextField>
+        </div>
+      </Col>
+    </Row>
+
+    <Row style={{ marginTop: "20px" }}>
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Invoice Number: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            variant="outlined"
+            value={formik.values.commercial_invoice_number || ""}
+            onChange={(e) => formik.setFieldValue("commercial_invoice_number", e.target.value)}
+            style={{ marginTop: "10px" }}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Invoice Date: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            type="date"
+            value={formik.values.commercial_invoice_date || ""}
+            onChange={(e) => formik.setFieldValue("commercial_invoice_date", e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </div>
+      </Col>
+
+      <Col xs={12} lg={4}>
+        <div className="job-detail-input-container">
+          <strong>Invoice Value: </strong>
+          <TextField
+            fullWidth
+            size="small"
+            variant="outlined"
+            type="number"
+            value={formik.values.commercial_invoice_value || ""}
+            onChange={(e) => formik.setFieldValue("commercial_invoice_value", e.target.value)}
+            style={{ marginTop: "10px" }}
+          />
+        </div>
+      </Col>
+    </Row>
+
+    <Row style={{ marginTop: "20px" }}>
+      <Col xs={12}>
+        <div className="job-detail-input-container">
+          <strong>Remarks: </strong>
+          <TextField
+            multiline
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            value={formik.values.remarks || ""}
+            onChange={(e) => formik.setFieldValue("remarks", e.target.value)}
+          />
+        </div>
+      </Col>
+    </Row>
+  </div>
+);
+
+// Documents Section Component
+const DocumentsSection = ({ 
+  exportDocuments, 
+  setExportDocuments, 
+  exportDocDropdown,
+  selectedDocument,
+  setSelectedDocument,
+  newDocumentName,
+  setNewDocumentName,
+  newDocumentCode,
+  setNewDocumentCode
+}) => (
+  <div>
+    {/* Export Documents Section */}
+    <Row>
+      {exportDocuments?.map((doc, index) => (
+        <Col
+          xs={12}
+          md={6}
+          lg={4}
+          key={`export-doc-${index}`}
+          style={{ marginBottom: "30px", position: "relative" }}
+        >
+          <div className="document-card" style={{ 
+            border: "1px solid #e0e0e0", 
+            borderRadius: "8px", 
+            padding: "15px",
+            backgroundColor: "#fafafa"
+          }}>
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "space-between", 
+              alignItems: "center",
+              marginBottom: "15px",
+              borderBottom: "1px solid #e0e0e0",
+              paddingBottom: "10px"
+            }}>
+              <h6 style={{ 
+                margin: 0, 
+                fontWeight: "600",
+                color: "#333"
+              }}>
+                {doc.document_name} ({doc.document_code})
+              </h6>
+              
+              <DeleteIcon
+                style={{ 
+                  cursor: "pointer", 
+                  color: "#dc3545",
+                  fontSize: "18px"
+                }}
+                onClick={() => {
+                  if (window.confirm(`Remove "${doc.document_name}" from the list?`)) {
+                    const updatedDocuments = exportDocuments.filter((_, i) => i !== index);
+                    setExportDocuments(updatedDocuments);
+                  }
+                }}
+                title="Remove document from list"
+              />
+            </div>
+
+            <Row style={{ marginBottom: "15px" }}>
+              <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Document Number"
+                  value={doc.document_number || ""}
+                  onChange={(e) => {
+                    const updatedDocs = [...exportDocuments];
+                    updatedDocs[index].document_number = e.target.value;
+                    setExportDocuments(updatedDocs);
+                  }}
+                />
+              </Col>
+              
+              <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Issue Date"
+                  value={doc.issue_date || ""}
+                  onChange={(e) => {
+                    const updatedDocs = [...exportDocuments];
+                    updatedDocs[index].issue_date = e.target.value;
+                    setExportDocuments(updatedDocs);
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Col>
+            </Row>
+
+            <Row style={{ marginBottom: "15px" }}>
+              <Col xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={doc.is_verified || false}
+                      onChange={(e) => {
+                        const updatedDocs = [...exportDocuments];
+                        updatedDocs[index].is_verified = e.target.checked;
+                        if (e.target.checked) {
+                          updatedDocs[index].verification_date = new Date().toISOString().slice(0, 16);
+                        }
+                        setExportDocuments(updatedDocs);
+                      }}
+                      color="primary"
+                      size="small"
+                    />
+                  }
+                  label={<span style={{ fontSize: "14px", color: "#555" }}>Verified</span>}
+                />
+              </Col>
+            </Row>
+
+            <div style={{ marginBottom: "15px" }}>
+              <FileUpload
+                label="Upload Documents"
+                bucketPath={`export-documents/${doc.document_name}`}
+                onFilesUploaded={(urls) => {
+                  const updatedDocs = [...exportDocuments];
+                  updatedDocs[index].url = [
+                    ...(updatedDocs[index].url || []),
+                    ...urls,
+                  ];
+                  setExportDocuments(updatedDocs);
+                }}
+                multiple={true}
+              />
+            </div>
+
+            <ImagePreview
+              images={doc.url || []}
+              onDeleteImage={(deleteIndex) => {
+                const updatedDocs = [...exportDocuments];
+                updatedDocs[index].url = updatedDocs[index].url.filter(
+                  (_, i) => i !== deleteIndex
+                );
+                setExportDocuments(updatedDocs);
+              }}
+              readOnly={false}
+            />
+          </div>
+        </Col>
+      ))}
+    </Row>
+
+    {/* Add Document Section */}
+    <div style={{ 
+      backgroundColor: "#f8f9fa", 
+      border: "2px dashed #dee2e6", 
+      borderRadius: "8px", 
+      padding: "20px", 
+      marginTop: "20px" 
+    }}>
+      <h6 style={{ 
+        marginBottom: "15px", 
+        color: "#6c757d",
+        fontWeight: "500"
+      }}>
+        Add New Export Document
+      </h6>
+      
+      <Row>
+        <Col xs={12} lg={4}>
+          <FormControl fullWidth size="small" margin="normal" variant="outlined">
+            <InputLabel>Select Document</InputLabel>
+            <Select
+              value={selectedDocument}
+              onChange={(e) => {
+                const selectedValue = e.target.value;
+                if (selectedValue === "other") {
+                  setNewDocumentName("");
+                  setNewDocumentCode("");
+                }
+                setSelectedDocument(selectedValue);
+              }}
+              label="Select Document"
+            >
+              {exportDocDropdown
+                .filter(doc => 
+                  !exportDocuments.some(
+                    existingDoc => existingDoc.document_code === doc.document_code
+                  )
+                )
+                .map((doc) => (
+                  <MenuItem key={doc.document_code} value={doc.document_code}>
+                    {doc.document_name}
+                  </MenuItem>
+                ))
+              }
+              <MenuItem value="other">
+                <em>Other (Custom Document)</em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </Col>
+
+        {selectedDocument === "other" && (
+          <>
+            <Col xs={12} lg={3}>
+              <TextField
+                fullWidth
+                size="small"
+                margin="normal"
+                variant="outlined"
+                label="Document Name"
+                value={newDocumentName}
+                onChange={(e) => setNewDocumentName(e.target.value)}
+                required
+              />
+            </Col>
+            <Col xs={12} lg={3}>
+              <TextField
+                fullWidth
+                size="small"
+                margin="normal"
+                variant="outlined"
+                label="Document Code"
+                value={newDocumentCode}
+                onChange={(e) => setNewDocumentCode(e.target.value)}
+                required
+              />
+            </Col>
+          </>
+        )}
+
+        <Col xs={12} lg={2} style={{ display: "flex", alignItems: "center" }}>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (selectedDocument !== "other" && selectedDocument) {
+                const selectedDoc = exportDocDropdown.find(
+                  (doc) => doc.document_code === selectedDocument
+                );
+                setExportDocuments([
+                  ...exportDocuments,
+                  {
+                    document_name: selectedDoc.document_name,
+                    document_code: selectedDoc.document_code,
+                    url: [],
+                    document_number: "",
+                    issue_date: "",
+                    is_verified: false,
+                  },
+                ]);
+              } else if (
+                selectedDocument === "other" &&
+                newDocumentName.trim() &&
+                newDocumentCode.trim()
+              ) {
+                setExportDocuments([
+                  ...exportDocuments,
+                  {
+                    document_name: newDocumentName.trim(),
+                    document_code: newDocumentCode.trim(),
+                    url: [],
+                    document_number: "",
+                    issue_date: "",
+                    is_verified: false,
+                  },
+                ]);
+                setNewDocumentName("");
+                setNewDocumentCode("");
+              }
+              setSelectedDocument("");
+            }}
+            disabled={
+              !selectedDocument || 
+              (selectedDocument === "other" && 
+                (!newDocumentName.trim() || !newDocumentCode.trim())
+              )
+            }
+            sx={{ mt: 1 }}
+          >
+            Add Document
+          </Button>
+        </Col>
+      </Row>
+    </div>
+  </div>
+);
+
+// Charges Section Component
+const ChargesSection = ({ exportCharges, setExportCharges }) => {
+  const [newChargesDocumentName, setNewChargesDocumentName] = useState("");
+
+  return (
+    <div>
+      <Row>
+        {exportCharges?.map((charge, index) => (
+          <Col xs={12} lg={4} key={`charge-${index}`} style={{ marginBottom: "20px" }}>
+            <div style={{ 
+              border: "1px solid #e0e0e0", 
+              borderRadius: "8px", 
+              padding: "15px",
+              backgroundColor: "#fafafa",
+              position: "relative"
+            }}>
+              {/* Delete button for custom charges */}
+              {![
+                "Ocean Freight",
+                "Documentation", 
+                "Customs Clearance",
+                "Origin Handling",
+                "Terminal Handling"
+              ].includes(charge.charge_type) && (
+                <DeleteIcon
+                  style={{ 
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    cursor: "pointer", 
+                    color: "#dc3545",
+                    fontSize: "18px"
+                  }}
+                  onClick={() => {
+                    if (window.confirm(`Remove "${charge.charge_type}" charge?`)) {
+                      const updatedCharges = exportCharges.filter((_, i) => i !== index);
+                      setExportCharges(updatedCharges);
+                    }
+                  }}
+                  title="Remove charge"
+                />
+              )}
+
+              <h6 style={{ marginBottom: "15px", fontWeight: "600" }}>
+                {charge.charge_type}
+              </h6>
+              
+              <TextField
+                fullWidth
+                size="small"
+                label="Amount"
+                type="number"
+                value={charge.amount || ""}
+                onChange={(e) => {
+                  const updatedCharges = [...exportCharges];
+                  updatedCharges[index].amount = e.target.value;
+                  setExportCharges(updatedCharges);
+                }}
+                style={{ marginBottom: "10px" }}
+              />
+              
+              <TextField
+                fullWidth
+                size="small"
+                label="Currency"
+                value={charge.currency || "USD"}
+                onChange={(e) => {
+                  const updatedCharges = [...exportCharges];
+                  updatedCharges[index].currency = e.target.value;
+                  setExportCharges(updatedCharges);
+                }}
+                style={{ marginBottom: "10px" }}
+              />
+              
+              <FileUpload
+                label="Upload Invoice"
+                bucketPath={`export-charges/${charge.charge_type}`}
+                onFilesUploaded={(urls) => {
+                  const updatedCharges = [...exportCharges];
+                  updatedCharges[index].document_urls = [
+                    ...(updatedCharges[index].document_urls || []),
+                    ...urls,
+                  ];
+                  setExportCharges(updatedCharges);
+                }}
+                multiple={true}
+              />
+              
+              <ImagePreview
+                images={charge.document_urls || []}
+                onDeleteImage={(deleteIndex) => {
+                  const updatedCharges = [...exportCharges];
+                  updatedCharges[index].document_urls = 
+                    updatedCharges[index].document_urls.filter((_, i) => i !== deleteIndex);
+                  setExportCharges(updatedCharges);
+                }}
+                readOnly={false}
+              />
+            </div>
+          </Col>
+        ))}
+      </Row>
+
+      {/* Add Custom Charge Section */}
+      <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
+        <Col xs={12} lg={4}>
+          <TextField
+            fullWidth
+            size="small"
+            margin="normal"
+            variant="outlined"
+            label="Custom Charge Type Name"
+            value={newChargesDocumentName}
+            onChange={(e) => setNewChargesDocumentName(e.target.value)}
+          />
+        </Col>
+
+        <Col xs={12} lg={2} style={{ display: "flex", alignItems: "center" }}>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (
+                newChargesDocumentName.trim() &&
+                !exportCharges.some(
+                  (charge) => charge.charge_type === newChargesDocumentName.trim()
+                )
+              ) {
+                setExportCharges([
+                  ...exportCharges,
+                  {
+                    charge_type: newChargesDocumentName.trim(),
+                    amount: "",
+                    currency: "USD",
+                    document_urls: []
+                  },
+                ]);
+                setNewChargesDocumentName("");
+              }
+            }}
+            disabled={
+              !newChargesDocumentName.trim() ||
+              exportCharges.some(
+                (charge) => charge.charge_type === newChargesDocumentName.trim()
+              )
+            }
+            sx={{ mt: 1 }}
+          >
+            Add Custom Charge
+          </Button>
+        </Col>
+      </Row>
+    </div>
+  );
+};
+
+
+// Containers Section Component
+const ContainersSection = ({ formik, handleAddContainer, handleDeleteContainer, setOpenDialog, setContainerToDelete }) => {
+  // Ensure there's always at least one container to display
+  const containers = formik.values.containers && formik.values.containers.length > 0 
+    ? formik.values.containers 
+    : [{
+        container_number: "",
+        container_size: "20",
+        seal_number: "",
+        stuffing_date: "",
+        gross_weight: "",
+        net_weight: "",
+        gate_in_date: "",
+        loading_date: "",
+        container_images: [],
+        stuffing_images: []
+      }];
+
+  return (
+    <div>
+      {containers.map((container, index) => (
+        <div key={`container-${index}`}>
+          <div style={{ padding: "30px" }}>
+            <Row>
+              <Col xs={12} md={4} lg={3} className="mb-2">
+                <h6 style={{ marginBottom: 0 }}>
+                  <strong>
+                    {index + 1}. Container Number: 
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={container.container_number || ""}
+                      variant="outlined"
+                      onChange={(e) => {
+                        // Ensure containers array exists in formik
+                        if (!formik.values.containers || formik.values.containers.length === 0) {
+                          formik.setFieldValue("containers", [containers[0]]);
+                        }
+                        formik.setFieldValue(`containers[${index}].container_number`, e.target.value);
+                      }}
+                    />
+                  </strong>
+                </h6>
+              </Col>
+
+              <Col xs={12} md={4} lg={3} className="mb-2">
+                <strong>Size: </strong>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  value={container.container_size || "20"}
+                  onChange={(e) => {
+                    if (!formik.values.containers || formik.values.containers.length === 0) {
+                      formik.setFieldValue("containers", [containers[0]]);
+                    }
+                    formik.setFieldValue(`containers[${index}].container_size`, e.target.value);
+                  }}
+                >
+                  <MenuItem value="20">20ft</MenuItem>
+                  <MenuItem value="40">40ft</MenuItem>
+                  <MenuItem value="40HC">40ft HC</MenuItem>
+                </TextField>
+              </Col>
+
+              <Col xs={12} md={4} lg={3} className="mb-2">
+                <div className="job-detail-input-container">
+                  <strong>Seal Number: </strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    value={container.seal_number || ""}
+                    onChange={(e) => {
+                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                        formik.setFieldValue("containers", [containers[0]]);
+                      }
+                      formik.setFieldValue(`containers[${index}].seal_number`, e.target.value);
+                    }}
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} md={4} lg={3} className="mb-2">
+                <div className="job-detail-input-container">
+                  <strong>Stuffing Date: </strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    value={container.stuffing_date || ""}
+                    onChange={(e) => {
+                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                        formik.setFieldValue("containers", [containers[0]]);
+                      }
+                      formik.setFieldValue(`containers[${index}].stuffing_date`, e.target.value);
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>Gross Weight (KG): </strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="number"
+                    value={container.gross_weight || ""}
+                    onChange={(e) => {
+                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                        formik.setFieldValue("containers", [containers[0]]);
+                      }
+                      formik.setFieldValue(`containers[${index}].gross_weight`, e.target.value);
+                    }}
+                  />
+                </div>
+              </Col>
+              
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>Net Weight (KG): </strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="number"
+                    value={container.net_weight || ""}
+                    onChange={(e) => {
+                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                        formik.setFieldValue("containers", [containers[0]]);
+                      }
+                      formik.setFieldValue(`containers[${index}].net_weight`, e.target.value);
+                    }}
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>Gate In Date: </strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    value={container.gate_in_date || ""}
+                    onChange={(e) => {
+                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                        formik.setFieldValue("containers", [containers[0]]);
+                      }
+                      formik.setFieldValue(`containers[${index}].gate_in_date`, e.target.value);
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} lg={3}>
+                <div className="job-detail-input-container">
+                  <strong>Loading Date: </strong>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    margin="normal"
+                    variant="outlined"
+                    type="datetime-local"
+                    value={container.loading_date || ""}
+                    onChange={(e) => {
+                      if (!formik.values.containers || formik.values.containers.length === 0) {
+                        formik.setFieldValue("containers", [containers[0]]);
+                      }
+                      formik.setFieldValue(`containers[${index}].loading_date`, e.target.value);
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col xs={12} md={6}>
+                <div className="mb-3">
+                  <strong>Container Images: </strong>
+                  <ImagePreview
+                    images={container?.container_images || []}
+                    readOnly
+                  />
+                </div>
+              </Col>
+
+              <Col xs={12} md={6}>
+                <div className="mb-3">
+                  <strong>Stuffing Images: </strong>
+                  <ImagePreview
+                    images={container?.stuffing_images || []}
+                    readOnly
+                />
+                </div>
+              </Col>
+            </Row>
+          </div>
+          
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => {
+                // Ensure containers array is initialized before adding
+                if (!formik.values.containers || formik.values.containers.length === 0) {
+                  formik.setFieldValue("containers", [containers[0]]);
+                }
+                handleAddContainer();
+              }}
+            >
+              Add Container
+            </Button>
+            
+            {containers.length > 1 && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => {
+                  setOpenDialog(true);
+                  setContainerToDelete(index);
+                }}
+              >
+                Delete Container
+              </Button>
+            )}
+          </div>
+          <hr />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+// Main Export View Job Component
 function ExportViewJob() {
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const [fileSnackbar, setFileSnackbar] = useState(false);
+  
+  // Use the custom hook
   const {
     data,
     loading,
+    formik,
     exportDocuments,
     setExportDocuments,
     exportCharges,
     setExportCharges,
-    updateExportJob,
+    exportDocDropdown,
+    selectedDocument,
+    setSelectedDocument,
+    newDocumentName,
+    setNewDocumentName,
+    newDocumentCode,
+    setNewDocumentCode,
     setData
-  } = useExportJobDetails(params);
+  } = useExportJobDetails(params, setFileSnackbar);
 
-  // Utility function to handle undefined/null checks
-  const safeValue = (value, defaultVal = "") =>
-    value === undefined || value === null ? defaultVal : value;
-
-  // Form management
-  const formik = useFormik({
-    initialValues: {
-      // Basic job info
-      job_type: "sea_export",
-      status: "Planning",
-      detailed_status: "Planning Stage",
-      priority_level: "Normal",
-      
-      // Exporter info
-      exporter_name: "",
-      ie_code: "",
-      
-      // Consignee info
-      consignee_name: "",
-      consignee_country: "",
-      country_of_final_destination: "",
-      
-      // Shipment details
-      port_of_loading: "",
-      port_of_discharge: "",
-      vessel_flight_name: "",
-      booking_number: "",
-      
-      // Commercial details
-      commercial_invoice_number: "",
-      commercial_invoice_date: "",
-      commercial_invoice_value: "",
-      incoterms: "",
-      
-      // Shipping bill details
-      shipping_bill_number: "",
-      shipping_bill_date: "",
-      leo_number: "",
-      
-      // Milestone dates
-      booking_confirmation_date: "",
-      documentation_completion_date: "",
-      customs_clearance_date: "",
-      stuffing_date: "",
-      gate_pass_date: "",
-      port_terminal_arrival_date: "",
-      loading_completion_date: "",
-      vessel_departure_date: "",
-      
-      // Containers
-      containers: [],
-      
-      // Queries
-      export_queries: [],
-      
-      // Other fields
-      remarks: "",
-    },
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      try {
-        // Get user info for audit trail
-        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-        
-        // Prepare the update payload
-        const updatePayload = {
-          ...values,
-          export_documents: exportDocuments,
-          export_charges: exportCharges.map(charge => {
-            // Find matching charge data from state
-            const existingCharge = exportCharges.find(ec => ec.charge_type === charge.charge_type);
-            return {
-              charge_type: charge.charge_type,
-              amount: existingCharge?.amount || "",
-              currency: existingCharge?.currency || "USD",
-              document_urls: existingCharge?.document_urls || []
-            };
-          }),
-          containers: values.containers || [],
-          updatedAt: new Date(),
-          updated_by: user.username || 'system'
-        };
-
-        await updateExportJob(updatePayload);
-        setFileSnackbar(true);
-        setTimeout(() => setFileSnackbar(false), 3000);
-
-        // Close tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
-
-      } catch (error) {
-        console.error("Error submitting form:", error);
-        alert("Error updating export job. Please try again.");
-      }
-    }
-  });
-
-  // Update formik initial values when data is fetched
-  useEffect(() => {
-    if (data) {
-      const containers = safeValue(data.containers, []).map((container) => ({
-        container_number: safeValue(container.container_number),
-        container_size: safeValue(container.container_size, "20"),
-        seal_number: safeValue(container.seal_number),
-        stuffing_date: safeValue(container.stuffing_date),
-        gross_weight: safeValue(container.gross_weight),
-        net_weight: safeValue(container.net_weight),
-        gate_in_date: safeValue(container.gate_in_date),
-        loading_date: safeValue(container.loading_date),
-        departure_date: safeValue(container.departure_date),
-        container_images: safeValue(container.container_images, []),
-        stuffing_images: safeValue(container.stuffing_images, []),
-        weighment_slip: safeValue(container.weighment_slip, []),
-        vgm_certificate: safeValue(container.vgm_certificate, []),
-      }));
-
-      formik.setValues({
-        // Basic job info
-        job_type: safeValue(data.job_type, "sea_export"),
-        status: safeValue(data.status, "Planning"),
-        detailed_status: safeValue(data.detailed_status, "Planning Stage"),
-        priority_level: safeValue(data.priority_level, "Normal"),
-        
-        // Exporter info
-        exporter_name: safeValue(data.exporter_name),
-        ie_code: safeValue(data.ie_code),
-        
-        // Consignee info
-        consignee_name: safeValue(data.consignee_name),
-        consignee_country: safeValue(data.consignee_country),
-        country_of_final_destination: safeValue(data.country_of_final_destination),
-        
-        // Shipment details
-        port_of_loading: safeValue(data.port_of_loading),
-        port_of_discharge: safeValue(data.port_of_discharge),
-        vessel_flight_name: safeValue(data.vessel_flight_name),
-        booking_number: safeValue(data.booking_number),
-        
-        // Commercial details
-        commercial_invoice_number: safeValue(data.commercial_invoice_number),
-        commercial_invoice_date: safeValue(data.commercial_invoice_date),
-        commercial_invoice_value: safeValue(data.commercial_invoice_value),
-        incoterms: safeValue(data.incoterms),
-        
-        // Shipping bill details
-        shipping_bill_number: safeValue(data.shipping_bill_number),
-        shipping_bill_date: safeValue(data.shipping_bill_date),
-        leo_number: safeValue(data.leo_number),
-        
-        // Milestone dates
-        booking_confirmation_date: safeValue(data.booking_confirmation_date),
-        documentation_completion_date: safeValue(data.documentation_completion_date),
-        customs_clearance_date: safeValue(data.customs_clearance_date),
-        stuffing_date: safeValue(data.stuffing_date),
-        gate_pass_date: safeValue(data.gate_pass_date),
-        port_terminal_arrival_date: safeValue(data.port_terminal_arrival_date),
-        loading_completion_date: safeValue(data.loading_completion_date),
-        vessel_departure_date: safeValue(data.vessel_departure_date),
-        
-        // Containers
-        containers,
-        
-        // Queries
-        export_queries: safeValue(data.export_queries, []),
-        
-        // Other fields
-        remarks: safeValue(data.remarks),
-      });
-    }
-  }, [data]);
-
-  // State management
-  const [snackbar, setSnackbar] = useState(false);
-  const [fileSnackbar, setFileSnackbar] = useState(false);
+  console.log(    data,
+)
+  // Tab management
+  const [activeTab, setActiveTab] = useState(0);
+  
+  // Dialog states
   const [openDialog, setOpenDialog] = useState(false);
   const [containerToDelete, setContainerToDelete] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [selectedDocument, setSelectedDocument] = useState("");
-  const [newDocumentName, setNewDocumentName] = useState("");
-  const [newDocumentCode, setNewDocumentCode] = useState("");
-  const [newChargesDocumentName, setNewChargesDocumentName] = useState("");
 
-  // Document dropdown options for export
-  const exportDocDropdown = [
-    { document_name: "Commercial Invoice", document_code: "CINV" },
-    { document_name: "Packing List", document_code: "PLIST" },
-    { document_name: "Certificate of Origin", document_code: "COO" },
-    { document_name: "Export License", document_code: "EXLIC" },
-    { document_name: "Shipping Bill", document_code: "SB" },
-    { document_name: "Bill of Lading", document_code: "BL" },
-    { document_name: "Letter of Credit", document_code: "LC" },
-    { document_name: "Quality Certificate", document_code: "QC" },
-    { document_name: "Phytosanitary Certificate", document_code: "PHYTO" },
-    { document_name: "Insurance Certificate", document_code: "INS" }
-  ];
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // Navigation handlers
   const handleBackClick = () => {
@@ -462,74 +1393,60 @@ function ExportViewJob() {
   };
 
   // Container management
-  const handleAddContainer = () => {
-    formik.setFieldValue("containers", [
-      ...(formik.values.containers || []),
-      {
+// In your main ExportViewJob component or hook
+const handleAddContainer = () => {
+  const newContainer = {
+    container_number: "",
+    container_size: "20",
+    seal_number: "",
+    stuffing_date: "",
+    gross_weight: "",
+    net_weight: "",
+    gate_in_date: "",
+    loading_date: "",
+    container_images: [],
+    stuffing_images: []
+  };
+
+  // If containers array is empty or doesn't exist, initialize it
+  const currentContainers = formik.values.containers || [];
+  
+  formik.setFieldValue("containers", [
+    ...currentContainers,
+    newContainer
+  ]);
+};
+
+
+const handleDeleteContainer = () => {
+  if (deleteConfirmText === "Delete") {
+    const updatedContainers = (formik.values.containers || []).filter((_, i) => i !== containerToDelete);
+    
+    // Always keep at least one container (empty if needed)
+    if (updatedContainers.length === 0) {
+      formik.setFieldValue("containers", [{
         container_number: "",
         container_size: "20",
+        seal_number: "",
         stuffing_date: "",
         gross_weight: "",
         net_weight: "",
-        seal_number: "",
         gate_in_date: "",
         loading_date: "",
-        departure_date: "",
         container_images: [],
-        stuffing_images: [],
-        weighment_slip: [],
-        vgm_certificate: []
-      },
-    ]);
-  };
-
-  const handleDeleteContainer = () => {
-    if (deleteConfirmText === "Delete") {
-      formik.setFieldValue(
-        "containers",
-        (formik.values.containers || []).filter((_, i) => i !== containerToDelete)
-      );
-      setOpenDialog(false);
-      setDeleteConfirmText("");
+        stuffing_images: []
+      }]);
     } else {
-      alert("Please type 'Delete' to confirm.");
+      formik.setFieldValue("containers", updatedContainers);
     }
-  };
+    
+    setOpenDialog(false);
+    setDeleteConfirmText("");
+  } else {
+    alert("Please type 'Delete' to confirm.");
+  }
+};
 
-  // Update detailed status based on milestones
-  const updateDetailedStatus = () => {
-    const {
-      booking_confirmation_date,
-      documentation_completion_date,
-      customs_clearance_date,
-      loading_completion_date,
-      vessel_departure_date,
-    } = formik.values;
-
-    if (vessel_departure_date) {
-      formik.setFieldValue("detailed_status", "Shipped");
-    } else if (loading_completion_date) {
-      formik.setFieldValue("detailed_status", "Loading Completed");
-    } else if (customs_clearance_date) {
-      formik.setFieldValue("detailed_status", "Customs Cleared");
-    } else if (documentation_completion_date) {
-      formik.setFieldValue("detailed_status", "Documentation Completed");
-    } else if (booking_confirmation_date) {
-      formik.setFieldValue("detailed_status", "Booking Confirmed");
-    } else {
-      formik.setFieldValue("detailed_status", "Planning Stage");
-    }
-  };
-
-  useEffect(() => {
-    updateDetailedStatus();
-  }, [
-    formik.values.booking_confirmation_date,
-    formik.values.documentation_completion_date,
-    formik.values.customs_clearance_date,
-    formik.values.loading_completion_date,
-    formik.values.vessel_departure_date
-  ]);
 
   // Query handlers
   const handleQueriesChange = (updatedQueries) => {
@@ -567,1174 +1484,157 @@ function ExportViewJob() {
 
   return (
     <>
-      {data && (
-        <form onSubmit={formik.handleSubmit}>
-          {/* Back button */}
-          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
-            <Button
-              variant="contained"
-              startIcon={<ArrowBackIcon />}
-              onClick={handleBackClick}
+      <form onSubmit={formik.handleSubmit}>
+        {/* Back button */}
+        <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={handleBackClick}
+            sx={{
+              backgroundColor: "black",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#333",
+              },
+            }}
+          >
+            Back to Export List
+          </Button>
+        </Box>
+
+        {/* Static job information */}
+        <div style={{ marginTop: "70px" }}>
+          <ExportJobStaticData data={data} params={params} />
+        </div>
+
+        {/* Tabs Interface */}
+        <Paper sx={{ margin: '20px' }}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              variant="scrollable"
+              scrollButtons="auto"
               sx={{
-                backgroundColor: "black",
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "#333",
+                '& .MuiTab-root': {
+                  minWidth: 120,
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#1976d2',
                 },
               }}
             >
-              Back to Export List
-            </Button>
+              <Tab label="Queries" {...a11yProps(0)} />
+              <Tab label="Status" {...a11yProps(1)} />
+              <Tab label="Tracking" {...a11yProps(2)} />
+              <Tab label="Export Terms" {...a11yProps(3)} />
+              <Tab label="Documents" {...a11yProps(4)} />
+              <Tab label="Charges" {...a11yProps(5)} />
+              <Tab label="Containers" {...a11yProps(6)} />
+            </Tabs>
           </Box>
 
-          {/* Static job information */}
-          <div style={{ marginTop: "70px" }}>
-            <ExportJobStaticData data={data} params={params} />
-          </div>
-
-          {/* Queries Component */}
-          <div>
-            <QueriesComponent
-              queries={data.export_queries || []}
-              currentModule="Export DSR"
-              onQueriesChange={handleQueriesChange}
-              title="Export Queries"
-              showResolveButton={true}
-              readOnlyReply={false}
-              userName={user?.username}
-            />
-          </div>
-
-          {/* Completion Status */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Completion Status" />
-            
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>Documentation Completed: </strong>
-                  {formik.values.documentation_completion_date ? (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(formik.values.documentation_completion_date).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  ) : (
-                    <span style={{ marginLeft: "10px" }}>Pending</span>
-                  )}
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    label="Set Documentation Date (Admin Only)"
-                    value={formik.values.documentation_completion_date || ""}
-                    onChange={(e) => 
-                      formik.setFieldValue("documentation_completion_date", e.target.value)
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Col>
-              )}
-
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>Customs Clearance Completed: </strong>
-                  {formik.values.customs_clearance_date ? (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(formik.values.customs_clearance_date).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  ) : (
-                    <span style={{ marginLeft: "10px" }}>Pending</span>
-                  )}
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    label="Set Customs Date (Admin Only)"
-                    value={formik.values.customs_clearance_date || ""}
-                    onChange={(e) => 
-                      formik.setFieldValue("customs_clearance_date", e.target.value)
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Col>
-              )}
-            </Row>
-
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>Loading Completed: </strong>
-                  {formik.values.loading_completion_date ? (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(formik.values.loading_completion_date).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  ) : (
-                    <span style={{ marginLeft: "10px" }}>Pending</span>
-                  )}
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    label="Set Loading Date (Admin Only)"
-                    value={formik.values.loading_completion_date || ""}
-                    onChange={(e) => 
-                      formik.setFieldValue("loading_completion_date", e.target.value)
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Col>
-              )}
-
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>Vessel Departure: </strong>
-                  {formik.values.vessel_departure_date ? (
-                    <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                      {new Date(formik.values.vessel_departure_date).toLocaleString("en-US", {
-                        timeZone: "Asia/Kolkata",
-                        hour12: true,
-                      })}
-                    </span>
-                  ) : (
-                    <span style={{ marginLeft: "10px" }}>Pending</span>
-                  )}
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    label="Set Departure Date (Admin Only)"
-                    value={formik.values.vessel_departure_date || ""}
-                    onChange={(e) => 
-                      formik.setFieldValue("vessel_departure_date", e.target.value)
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Col>
-              )}
-            </Row>
-
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={2}>
-                <div className="job-detail-input-container">
-                  <strong>Status: </strong>
-                  <TextField
-                    fullWidth
-                    select
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    value={formik.values.status || ""}
-                    onChange={(e) => formik.setFieldValue("status", e.target.value)}
-                  >
-                    <MenuItem value="Planning">Planning</MenuItem>
-                    <MenuItem value="Documentation">Documentation</MenuItem>
-                    <MenuItem value="Ready to Ship">Ready to Ship</MenuItem>
-                    <MenuItem value="Shipped">Shipped</MenuItem>
-                    <MenuItem value="Delivered">Delivered</MenuItem>
-                    <MenuItem value="Completed">Completed</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Detailed Status: </strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    value={formik.values.detailed_status || ""}
-                    onChange={(e) => formik.setFieldValue("detailed_status", e.target.value)}
-                  >
-                    <MenuItem value="Planning Stage">Planning Stage</MenuItem>
-                    <MenuItem value="Booking Confirmed">Booking Confirmed</MenuItem>
-                    <MenuItem value="Documentation in Progress">Documentation in Progress</MenuItem>
-                    <MenuItem value="Documentation Completed">Documentation Completed</MenuItem>
-                    <MenuItem value="Customs Processing">Customs Processing</MenuItem>
-                    <MenuItem value="Customs Cleared">Customs Cleared</MenuItem>
-                    <MenuItem value="Cargo at Port">Cargo at Port</MenuItem>
-                    <MenuItem value="Loading in Progress">Loading in Progress</MenuItem>
-                    <MenuItem value="Loading Completed">Loading Completed</MenuItem>
-                    <MenuItem value="Shipped">Shipped</MenuItem>
-                    <MenuItem value="In Transit">In Transit</MenuItem>
-                    <MenuItem value="Arrived at Destination">Arrived at Destination</MenuItem>
-                    <MenuItem value="Delivered">Delivered</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-            </Row>
-          </div>
-
-          {/* Export Tracking Status */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Export Tracking Status" />
-            
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Booking Confirmation Date: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    value={formik.values.booking_confirmation_date || ""}
-                    onChange={(e) => formik.setFieldValue("booking_confirmation_date", e.target.value)}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Booking Number: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={formik.values.booking_number || ""}
-                    onChange={(e) => formik.setFieldValue("booking_number", e.target.value)}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Vessel/Flight Name: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={formik.values.vessel_flight_name || ""}
-                    onChange={(e) => formik.setFieldValue("vessel_flight_name", e.target.value)}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Shipping Bill Number: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={formik.values.shipping_bill_number || ""}
-                    onChange={(e) => formik.setFieldValue("shipping_bill_number", e.target.value)}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Shipping Bill Date: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    value={formik.values.shipping_bill_date || ""}
-                    onChange={(e) => formik.setFieldValue("shipping_bill_date", e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>LEO Number: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={formik.values.leo_number || ""}
-                    onChange={(e) => formik.setFieldValue("leo_number", e.target.value)}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Gate Pass Date: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    value={formik.values.gate_pass_date || ""}
-                    onChange={(e) => formik.setFieldValue("gate_pass_date", e.target.value)}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Stuffing Date: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    value={formik.values.stuffing_date || ""}
-                    onChange={(e) => formik.setFieldValue("stuffing_date", e.target.value)}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Port Gate In Date: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="datetime-local"
-                    value={formik.values.port_terminal_arrival_date || ""}
-                    onChange={(e) => formik.setFieldValue("port_terminal_arrival_date", e.target.value)}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Job Type: </strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    value={formik.values.job_type || "sea_export"}
-                    onChange={(e) => formik.setFieldValue("job_type", e.target.value)}
-                  >
-                    <MenuItem value="sea_export">Sea Export</MenuItem>
-                    <MenuItem value="air_export">Air Export</MenuItem>
-                    <MenuItem value="land_export">Land Export</MenuItem>
-                    <MenuItem value="courier_export">Courier Export</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Priority: </strong>
-                  <RadioGroup
-                    row
-                    name="priority_level"
-                    value={formik.values.priority_level || "Normal"}
-                    onChange={formik.handleChange}
-                    sx={{ alignItems: "center" }}
-                  >
-                    <FormControlLabel
-                      value="Normal"
-                      control={<Radio size="small" />}
-                      label="Normal"
-                      sx={{ color: "green", "& .MuiSvgIcon-root": { color: "green" } }}
-                    />
-                    <FormControlLabel
-                      value="High"
-                      control={<Radio size="small" />}
-                      label="High"
-                      sx={{ color: "orange", "& .MuiSvgIcon-root": { color: "orange" } }}
-                    />
-                    <FormControlLabel
-                      value="Urgent"
-                      control={<Radio size="small" />}
-                      label="Urgent"
-                      sx={{ color: "red", "& .MuiSvgIcon-root": { color: "red" } }}
-                    />
-                  </RadioGroup>
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Incoterms: </strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    value={formik.values.incoterms || ""}
-                    onChange={(e) => formik.setFieldValue("incoterms", e.target.value)}
-                  >
-                    <MenuItem value="FOB">FOB - Free on Board</MenuItem>
-                    <MenuItem value="CIF">CIF - Cost, Insurance and Freight</MenuItem>
-                    <MenuItem value="CFR">CFR - Cost and Freight</MenuItem>
-                    <MenuItem value="EXW">EXW - Ex Works</MenuItem>
-                    <MenuItem value="DDP">DDP - Delivered Duty Paid</MenuItem>
-                    <MenuItem value="DDU">DDU - Delivered Duty Unpaid</MenuItem>
-                    <MenuItem value="FCA">FCA - Free Carrier</MenuItem>
-                    <MenuItem value="CPT">CPT - Carriage Paid To</MenuItem>
-                    <MenuItem value="CIP">CIP - Carriage and Insurance Paid To</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Invoice Number: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={formik.values.commercial_invoice_number || ""}
-                    onChange={(e) => formik.setFieldValue("commercial_invoice_number", e.target.value)}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Invoice Date: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    type="date"
-                    value={formik.values.commercial_invoice_date || ""}
-                    onChange={(e) => formik.setFieldValue("commercial_invoice_date", e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Invoice Value: </strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    type="number"
-                    value={formik.values.commercial_invoice_value || ""}
-                    onChange={(e) => formik.setFieldValue("commercial_invoice_value", e.target.value)}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row style={{ marginTop: "20px" }}>
-              <Col xs={12}>
-                <div className="job-detail-input-container">
-                  <strong>Remarks: </strong>
-                  <TextField
-                    multiline
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    value={formik.values.remarks || ""}
-                    onChange={(e) => formik.setFieldValue("remarks", e.target.value)}
-                  />
-                </div>
-              </Col>
-            </Row>
-          </div>
-
-          {/* Documents Section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Export Documents" />
-            <br />
-
-            {/* Export Documents Section */}
-            <Row>
-              {exportDocuments?.map((doc, index) => (
-                <Col
-                  xs={12}
-                  md={6}
-                  lg={4}
-                  key={`export-doc-${index}`}
-                  style={{ marginBottom: "30px", position: "relative" }}
-                >
-                  <div className="document-card" style={{ 
-                    border: "1px solid #e0e0e0", 
-                    borderRadius: "8px", 
-                    padding: "15px",
-                    backgroundColor: "#fafafa"
-                  }}>
-                    <div style={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
-                      alignItems: "center",
-                      marginBottom: "15px",
-                      borderBottom: "1px solid #e0e0e0",
-                      paddingBottom: "10px"
-                    }}>
-                      <h6 style={{ 
-                        margin: 0, 
-                        fontWeight: "600",
-                        color: "#333"
-                      }}>
-                        {doc.document_name} ({doc.document_code})
-                      </h6>
-                      
-                      <DeleteIcon
-                        style={{ 
-                          cursor: "pointer", 
-                          color: "#dc3545",
-                          fontSize: "18px"
-                        }}
-                        onClick={() => {
-                          if (window.confirm(`Remove "${doc.document_name}" from the list?`)) {
-                            const updatedDocuments = exportDocuments.filter((_, i) => i !== index);
-                            setExportDocuments(updatedDocuments);
-                          }
-                        }}
-                        title="Remove document from list"
-                      />
-                    </div>
-
-                    <Row style={{ marginBottom: "15px" }}>
-                      <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Document Number"
-                          value={doc.document_number || ""}
-                          onChange={(e) => {
-                            const updatedDocs = [...exportDocuments];
-                            updatedDocs[index].document_number = e.target.value;
-                            setExportDocuments(updatedDocs);
-                          }}
-                        />
-                      </Col>
-                      
-                      <Col xs={12} md={6} style={{ marginBottom: "10px" }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="date"
-                          label="Issue Date"
-                          value={doc.issue_date || ""}
-                          onChange={(e) => {
-                            const updatedDocs = [...exportDocuments];
-                            updatedDocs[index].issue_date = e.target.value;
-                            setExportDocuments(updatedDocs);
-                          }}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Col>
-                    </Row>
-
-                    <Row style={{ marginBottom: "15px" }}>
-                      <Col xs={12} md={6}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={doc.is_verified || false}
-                              onChange={(e) => {
-                                const updatedDocs = [...exportDocuments];
-                                updatedDocs[index].is_verified = e.target.checked;
-                                if (e.target.checked) {
-                                  updatedDocs[index].verification_date = new Date().toISOString().slice(0, 16);
-                                }
-                                setExportDocuments(updatedDocs);
-                              }}
-                              color="primary"
-                              size="small"
-                            />
-                          }
-                          label={<span style={{ fontSize: "14px", color: "#555" }}>Verified</span>}
-                        />
-                      </Col>
-                    </Row>
-
-                    <div style={{ marginBottom: "15px" }}>
-                      <FileUpload
-                        label="Upload Documents"
-                        bucketPath={`export-documents/${doc.document_name}`}
-                        onFilesUploaded={(urls) => {
-                          const updatedDocs = [...exportDocuments];
-                          updatedDocs[index].url = [
-                            ...(updatedDocs[index].url || []),
-                            ...urls,
-                          ];
-                          setExportDocuments(updatedDocs);
-                        }}
-                        multiple={true}
-                      />
-                    </div>
-
-                    <ImagePreview
-                      images={doc.url || []}
-                      onDeleteImage={(deleteIndex) => {
-                        const updatedDocs = [...exportDocuments];
-                        updatedDocs[index].url = updatedDocs[index].url.filter(
-                          (_, i) => i !== deleteIndex
-                        );
-                        setExportDocuments(updatedDocs);
-                      }}
-                      readOnly={false}
-                    />
-                  </div>
-                </Col>
-              ))}
-            </Row>
-
-            {/* Add Document Section */}
-            <div style={{ 
-              backgroundColor: "#f8f9fa", 
-              border: "2px dashed #dee2e6", 
-              borderRadius: "8px", 
-              padding: "20px", 
-              marginTop: "20px" 
-            }}>
-              <h6 style={{ 
-                marginBottom: "15px", 
-                color: "#6c757d",
-                fontWeight: "500"
-              }}>
-                Add New Export Document
-              </h6>
-              
-              <Row>
-                <Col xs={12} lg={4}>
-                  <FormControl fullWidth size="small" margin="normal" variant="outlined">
-                    <InputLabel>Select Document</InputLabel>
-                    <Select
-                      value={selectedDocument}
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        if (selectedValue === "other") {
-                          setNewDocumentName("");
-                          setNewDocumentCode("");
-                        }
-                        setSelectedDocument(selectedValue);
-                      }}
-                      label="Select Document"
-                    >
-                      {exportDocDropdown
-                        .filter(doc => 
-                          !exportDocuments.some(
-                            existingDoc => existingDoc.document_code === doc.document_code
-                          )
-                        )
-                        .map((doc) => (
-                          <MenuItem key={doc.document_code} value={doc.document_code}>
-                            {doc.document_name}
-                          </MenuItem>
-                        ))
-                      }
-                      <MenuItem value="other">
-                        <em>Other (Custom Document)</em>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-                </Col>
-
-                {selectedDocument === "other" && (
-                  <>
-                    <Col xs={12} lg={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        label="Document Name"
-                        value={newDocumentName}
-                        onChange={(e) => setNewDocumentName(e.target.value)}
-                        required
-                      />
-                    </Col>
-                    <Col xs={12} lg={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        margin="normal"
-                        variant="outlined"
-                        label="Document Code"
-                        value={newDocumentCode}
-                        onChange={(e) => setNewDocumentCode(e.target.value)}
-                        required
-                      />
-                    </Col>
-                  </>
-                )}
-
-                <Col xs={12} lg={2} style={{ display: "flex", alignItems: "center" }}>
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    style={{ 
-                      marginTop: "8px", 
-                      height: "fit-content",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px"
-                    }}
-                    onClick={() => {
-                      if (selectedDocument !== "other" && selectedDocument) {
-                        const selectedDoc = exportDocDropdown.find(
-                          (doc) => doc.document_code === selectedDocument
-                        );
-                        setExportDocuments([
-                          ...exportDocuments,
-                          {
-                            document_name: selectedDoc.document_name,
-                            document_code: selectedDoc.document_code,
-                            url: [],
-                            document_number: "",
-                            issue_date: "",
-                            is_verified: false,
-                          },
-                        ]);
-                      } else if (
-                        selectedDocument === "other" &&
-                        newDocumentName.trim() &&
-                        newDocumentCode.trim()
-                      ) {
-                        setExportDocuments([
-                          ...exportDocuments,
-                          {
-                            document_name: newDocumentName.trim(),
-                            document_code: newDocumentCode.trim(),
-                            url: [],
-                            document_number: "",
-                            issue_date: "",
-                            is_verified: false,
-                          },
-                        ]);
-                        setNewDocumentName("");
-                        setNewDocumentCode("");
-                      }
-                      setSelectedDocument("");
-                    }}
-                    disabled={
-                      !selectedDocument || 
-                      (selectedDocument === "other" && 
-                        (!newDocumentName.trim() || !newDocumentCode.trim())
-                      )
-                    }
-                  >
-                    <i className="fas fa-plus"></i>
-                    Add Document
-                  </button>
-                </Col>
-              </Row>
+          <TabPanel value={activeTab} index={0}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Queries</h3>
+              <QueriesSection 
+                data={data}
+                handleQueriesChange={handleQueriesChange}
+                user={user}
+              />
             </div>
-          </div>
+          </TabPanel>
 
-          {/* Charges Section */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Export Charges" />
-            <br />
+          <TabPanel value={activeTab} index={1}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Status</h3>
+              <StatusSection formik={formik} user={user} />
+            </div>
+          </TabPanel>
 
-            <Row>
-              {exportCharges?.map((charge, index) => (
-                <Col xs={12} lg={4} key={`charge-${index}`} style={{ marginBottom: "20px" }}>
-                  <div style={{ 
-                    border: "1px solid #e0e0e0", 
-                    borderRadius: "8px", 
-                    padding: "15px",
-                    backgroundColor: "#fafafa",
-                    position: "relative"
-                  }}>
-                    {/* Delete button for custom charges */}
-                    {![
-                      "Ocean Freight",
-                      "Documentation", 
-                      "Customs Clearance",
-                      "Origin Handling",
-                      "Terminal Handling"
-                    ].includes(charge.charge_type) && (
-                      <DeleteIcon
-                        style={{ 
-                          position: "absolute",
-                          top: "10px",
-                          right: "10px",
-                          cursor: "pointer", 
-                          color: "#dc3545",
-                          fontSize: "18px"
-                        }}
-                        onClick={() => {
-                          if (window.confirm(`Remove "${charge.charge_type}" charge?`)) {
-                            const updatedCharges = exportCharges.filter((_, i) => i !== index);
-                            setExportCharges(updatedCharges);
-                          }
-                        }}
-                        title="Remove charge"
-                      />
-                    )}
+          <TabPanel value={activeTab} index={2}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Tracking</h3>
+              <TrackingSection formik={formik} />
+            </div>
+          </TabPanel>
 
-                    <h6 style={{ marginBottom: "15px", fontWeight: "600" }}>
-                      {charge.charge_type}
-                    </h6>
-                    
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Amount"
-                      type="number"
-                      value={charge.amount || ""}
-                      onChange={(e) => {
-                        const updatedCharges = [...exportCharges];
-                        updatedCharges[index].amount = e.target.value;
-                        setExportCharges(updatedCharges);
-                      }}
-                      style={{ marginBottom: "10px" }}
-                    />
-                    
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Currency"
-                      value={charge.currency || "USD"}
-                      onChange={(e) => {
-                        const updatedCharges = [...exportCharges];
-                        updatedCharges[index].currency = e.target.value;
-                        setExportCharges(updatedCharges);
-                      }}
-                      style={{ marginBottom: "10px" }}
-                    />
-                    
-                    <FileUpload
-                      label="Upload Invoice"
-                      bucketPath={`export-charges/${charge.charge_type}`}
-                      onFilesUploaded={(urls) => {
-                        const updatedCharges = [...exportCharges];
-                        updatedCharges[index].document_urls = [
-                          ...(updatedCharges[index].document_urls || []),
-                          ...urls,
-                        ];
-                        setExportCharges(updatedCharges);
-                      }}
-                      multiple={true}
-                    />
-                    
-                    <ImagePreview
-                      images={charge.document_urls || []}
-                      onDeleteImage={(deleteIndex) => {
-                        const updatedCharges = [...exportCharges];
-                        updatedCharges[index].document_urls = 
-                          updatedCharges[index].document_urls.filter((_, i) => i !== deleteIndex);
-                        setExportCharges(updatedCharges);
-                      }}
-                      readOnly={false}
-                    />
-                  </div>
-                </Col>
-              ))}
-            </Row>
+          <TabPanel value={activeTab} index={3}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Export Terms</h3>
+              <ExportTermsSection formik={formik} />
+            </div>
+          </TabPanel>
 
-            {/* Add Custom Charge Section */}
-            <Row style={{ marginTop: "20px", marginBottom: "20px" }}>
-              <Col xs={12} lg={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  margin="normal"
-                  variant="outlined"
-                  label="Custom Charge Type Name"
-                  value={newChargesDocumentName}
-                  onChange={(e) => setNewChargesDocumentName(e.target.value)}
-                />
-              </Col>
+          <TabPanel value={activeTab} index={4}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Documents</h3>
+              <DocumentsSection 
+                exportDocuments={exportDocuments}
+                setExportDocuments={setExportDocuments}
+                exportDocDropdown={exportDocDropdown}
+                selectedDocument={selectedDocument}
+                setSelectedDocument={setSelectedDocument}
+                newDocumentName={newDocumentName}
+                setNewDocumentName={setNewDocumentName}
+                newDocumentCode={newDocumentCode}
+                setNewDocumentCode={setNewDocumentCode}
+              />
+            </div>
+          </TabPanel>
 
-              <Col xs={12} lg={2} style={{ display: "flex", alignItems: "center" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ marginTop: "8px", height: "fit-content" }}
-                  onClick={() => {
-                    if (
-                      newChargesDocumentName.trim() &&
-                      !exportCharges.some(
-                        (charge) => charge.charge_type === newChargesDocumentName.trim()
-                      )
-                    ) {
-                      setExportCharges([
-                        ...exportCharges,
-                        {
-                          charge_type: newChargesDocumentName.trim(),
-                          amount: "",
-                          currency: "USD",
-                          document_urls: []
-                        },
-                      ]);
-                      setNewChargesDocumentName("");
-                    }
-                  }}
-                  disabled={
-                    !newChargesDocumentName.trim() ||
-                    exportCharges.some(
-                      (charge) => charge.charge_type === newChargesDocumentName.trim()
-                    )
-                  }
-                >
-                  Add Custom Charge
-                </button>
-              </Col>
-            </Row>
-          </div>
+          <TabPanel value={activeTab} index={5}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Charges</h3>
+              <ChargesSection 
+                exportCharges={exportCharges}
+                setExportCharges={setExportCharges}
+              />
+            </div>
+          </TabPanel>
 
-          {/* Container Details */}
-          <div className="job-details-container">
-            <JobDetailsRowHeading heading="Container/Package Details" />
-            
-            {(formik.values.containers || [{}]).map((container, index) => (
-              <div key={index}>
-                <div style={{ padding: "30px" }}>
-                  <Row>
-                    <Col xs={12} md={4} lg={3} className="mb-2">
-                      <h6 style={{ marginBottom: 0 }}>
-                        <strong>
-                          {index + 1}. Container Number: 
-                          <TextField
-                            fullWidth
-                            size="small"
-                            value={container.container_number || ""}
-                            variant="outlined"
-                            name={`containers[${index}].container_number`}
-                            onChange={formik.handleChange}
-                          />
-                        </strong>
-                      </h6>
-                    </Col>
+          <TabPanel value={activeTab} index={6}>
+            <div style={{ padding: '20px', backgroundColor: '#f0f0f0' }}>
+              <h3>Containers</h3>
+              <ContainersSection 
+                formik={formik}
+                handleAddContainer={handleAddContainer}
+                handleDeleteContainer={handleDeleteContainer}
+                setOpenDialog={setOpenDialog}
+                setContainerToDelete={setContainerToDelete}
+              />
+            </div>
+          </TabPanel>
+        </Paper>
 
-                    <Col xs={12} md={4} lg={3} className="mb-2">
-                      <strong>Size: </strong>
-                      <TextField
-                        select
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        name={`containers[${index}].container_size`}
-                        value={container.container_size || "20"}
-                        onChange={formik.handleChange}
-                      >
-                        <MenuItem value="20">20ft</MenuItem>
-                        <MenuItem value="40">40ft</MenuItem>
-                        <MenuItem value="40HC">40ft HC</MenuItem>
-                      </TextField>
-                    </Col>
-
-                    <Col xs={12} md={4} lg={3} className="mb-2">
-                      <div className="job-detail-input-container">
-                        <strong>Seal Number: </strong>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          variant="outlined"
-                          name={`containers[${index}].seal_number`}
-                          value={container.seal_number || ""}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </Col>
-
-                    <Col xs={12} md={4} lg={3} className="mb-2">
-                      <div className="job-detail-input-container">
-                        <strong>Stuffing Date: </strong>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="normal"
-                          variant="outlined"
-                          type="datetime-local"
-                          name={`containers[${index}].stuffing_date`}
-                          value={container.stuffing_date || ""}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-
-                  <Row>
-                    <Col xs={12} lg={3}>
-                      <div className="job-detail-input-container">
-                        <strong>Gross Weight (KG): </strong>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="normal"
-                          variant="outlined"
-                          type="number"
-                          name={`containers[${index}].gross_weight`}
-                          value={container.gross_weight || ""}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </Col>
-                    
-                    <Col xs={12} lg={3}>
-                      <div className="job-detail-input-container">
-                        <strong>Net Weight (KG): </strong>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="normal"
-                          variant="outlined"
-                          type="number"
-                          name={`containers[${index}].net_weight`}
-                          value={container.net_weight || ""}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </Col>
-
-                    <Col xs={12} lg={3}>
-                      <div className="job-detail-input-container">
-                        <strong>Gate In Date: </strong>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="normal"
-                          variant="outlined"
-                          type="datetime-local"
-                          name={`containers[${index}].gate_in_date`}
-                          value={container.gate_in_date || ""}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </Col>
-
-                    <Col xs={12} lg={3}>
-                      <div className="job-detail-input-container">
-                        <strong>Loading Date: </strong>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="normal"
-                          variant="outlined"
-                          type="datetime-local"
-                          name={`containers[${index}].loading_date`}
-                          value={container.loading_date || ""}
-                          onChange={formik.handleChange}
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-
-                  <Row>
-                    <Col xs={12} md={6}>
-                      <div className="mb-3">
-                        <strong>Container Images: </strong>
-                        <ImagePreview
-                          images={container?.container_images || []}
-                          readOnly
-                        />
-                      </div>
-                    </Col>
-
-                    <Col xs={12} md={6}>
-                      <div className="mb-3">
-                        <strong>Stuffing Images: </strong>
-                        <ImagePreview
-                          images={container?.stuffing_images || []}
-                          readOnly
-                        />
-                      </div>
-                    </Col>
-                  </Row>
-                </div>
-                
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={handleAddContainer}
-                  >
-                    Add Container
-                  </button>
-                  
-                  {(formik.values.containers || []).length > 1 && (
-                    <button
-                      className="btn-danger"
-                      type="button"
-                      onClick={() => {
-                        setOpenDialog(true);
-                        setContainerToDelete(index);
-                      }}
-                    >
-                      Delete Container
-                    </button>
-                  )}
-                </div>
-                <hr />
-              </div>
-            ))}
-          </div>
-
-          {/* Submit Button */}
-          <Row>
-            <Col>
-              <button
-                className="btn sticky-btn"
-                type="submit"
-                style={{ float: "right", margin: "10px" }}
-              >
-                Update Export Job
-              </button>
-            </Col>
-          </Row>
-        </form>
-      )}
+        {/* Submit Button */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2 }}>
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            sx={{
+              backgroundColor: '#1976d2',
+              '&:hover': {
+                backgroundColor: '#1565c0',
+              },
+            }}
+          >
+            Update Export Job
+          </Button>
+        </Box>
+      </form>
 
       {/* Snackbar */}
       <Snackbar
-        open={snackbar || fileSnackbar}
-        message={
-          snackbar ? "Copied to clipboard" : "Export job updated successfully!"
-        }
+        open={fileSnackbar}
+        message="Export job updated successfully!"
         sx={{ left: "auto !important", right: "24px !important" }}
+        autoHideDuration={3000}
+        onClose={() => setFileSnackbar(false)}
       />
 
       {/* Delete Container Dialog */}

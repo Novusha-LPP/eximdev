@@ -1,5 +1,6 @@
 import express from 'express';
 import ExportJobModel from '../../model/export/ExJobModel.mjs';
+import ExJobModel from '../../model/export/ExJobModel.mjs';
 
 const router = express.Router();
 
@@ -256,6 +257,26 @@ router.post('/api/test/seed-data', async (req, res) => {
       message: 'Error inserting sample data',
       error: error.message
     });
+  }
+});
+
+router.get("/api/export-jobs/:year/:jobNo", async (req, res) => {
+  try {
+    const { jobNo, year } = req.params;
+
+    const job = await ExportJobModel.findOne({
+      year,
+      job_no: jobNo,
+    });
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    res.json(job);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
 });
 

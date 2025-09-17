@@ -27,6 +27,7 @@ import jobBookingRoutes from './routes/export-dsr/jobBookingRoutes.js';
 import updateExportJobs from './routes/export-dsr/updateExportJobs.js'; 
 import exportDocumentaion from './routes/export-dsr/exportDocumentation.mjs';
 
+import esanchit from "./routes/export-dsr/e-sanchitRoutes.mjs";
 dotenv.config();
 
 Sentry.init({
@@ -453,6 +454,7 @@ if (cluster.isPrimary) {
       app.use("/api/export-jobs",updateExportJobs);
       app.use( jobBookingRoutes);
       app.use(exportDocumentaion);
+      app.use(esanchit);  
 
       // Initialize WebSocket logic
       const server = http.createServer(app);

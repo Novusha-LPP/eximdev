@@ -89,7 +89,8 @@ import JobsListPage from "../components/Export/BookingManagement/JobListPage.js"
 import ExportViewJob from "../components/Export/Export-Dsr/ExportViewJob.js";
 import ExportDocumentJobs from "../components/Export/ExportDocumentJobs.js";
 import DocumentViewJob from "../components/Export/DocumentVIewJob.js";
-
+import EsanchitJobList from "../components/Export/EsanchitJobList.js";
+import EsanchitViewJob from "../components/Export/EsanchitViewJob.js";
 
 
 const drawerWidth = 60;
@@ -576,6 +577,16 @@ function HomePage() {
               />
 
                <Route path="/documentation/:job_no" element={<DocumentViewJob />} />
+
+               <Route path = "/esanchit-job-list"
+                element={
+                  <ProtectedRoute requiredModule="Export - ESanchit">
+                    <EsanchitJobList />
+                  </ProtectedRoute>
+                }
+              />
+               <Route path="/esanchit-job-list/:job_no" element={<EsanchitViewJob />} />
+
                   
             </Routes>
           </Box>

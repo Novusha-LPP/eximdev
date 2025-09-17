@@ -38,6 +38,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/export-dsr");
     case "Export - Documentation":
       return navigate("/documentation-jobs");
+    case "Export - Esanchit":
+      return navigate("/esanchit-job-list");
     case "Handover":
       return navigate("/handover");
     case "Booking Management":

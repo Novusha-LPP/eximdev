@@ -39,7 +39,8 @@ const allModules = [
   "Directories",
   "Handover",
   "Booking Management",
-  "Export - Documentation"
+  "Export - Documentation",
+  "Export - ESanchit"
 ];
 
 function not(a, b) {

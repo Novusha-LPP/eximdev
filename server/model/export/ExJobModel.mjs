@@ -1,9 +1,521 @@
 import mongoose from "mongoose";
 
+const { Schema, model } = mongoose;
+
 // Image Schema for document attachments
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
+
+// Sub-schemas for complex nested data
+
+// Product/Item Details Schema (for multiple products per invoice)
+const productDetailsSchema = new Schema({
+  serialNumber: { type: Number, required: true },
+  description: { type: String, required: true, maxlength: 500 },
+  ritc: { 
+    type: String, 
+    ref: 'TariffHead',
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^\d{4,8}(\.\d{2})?$/.test(v);
+      },
+      message: 'Invalid RITC/Tariff Head format'
+    }
+  },
+  quantity: { type: Number, required: true, min: 0 },
+  socQuantity: { type: Number, default: 0, min: 0 }, // SOC Qty
+  unitPrice: { type: Number, required: true, min: 0 },
+  per: { 
+    type: String,
+    ref: 'UQC',
+    required: true 
+  },
+  amount: { type: Number, required: true, min: 0 },
+  
+  // Additional product fields from screenshots
+  assessableValue: { type: Number, default: 0 },
+  netWeight: { type: Number, default: 0 },
+  grossWeight: { type: Number, default: 0 },
+  
+  // Re-export specific fields
+  reExport: {
+    isReExport: { type: Boolean, default: false },
+    beNumber: String,
+    invoiceSerialNo: String,
+    itemSerialNo: String,
+    quantityExported: Number,
+    importPortCode: { type: String, ref: 'Port' },
+    technicalDetails: String,
+    inputCreditAvailed: { type: Boolean, default: false },
+    manualBE: { type: Boolean, default: false },
+    personalUseItem: { type: Boolean, default: false },
+    beItemDescription: String,
+    otherIdentifyingParameters: String,
+    againstExportObligation: String,
+    quantityImported: Number,
+    totalDutyPaid: Number,
+    obligationNo: String,
+    drawbackAmtClaimed: Number,
+    itemUnUsed: { type: Boolean, default: false },
+    commissionerPermission: String,
+    boardNumber: String,
+    modvatAvailed: { type: Boolean, default: false },
+    modvatReversed: { type: Boolean, default: false }
+  }
+}, { _id: true });
+
+// Drawback Details Schema
+const drawbackDetailsSchema = new Schema({
+  serialNumber: { type: String, required: true },
+  fobValue: { type: Number, required: true, min: 0 },
+  quantity: { type: Number, required: true, min: 0 },
+  dbkUnder: { 
+    type: String, 
+    enum: ['Actual', 'Provisional'],
+    default: 'Actual'
+  },
+  dbkDescription: { type: String, maxlength: 500 },
+  dbkRate: { type: Number, default: 1.5, min: 0 },
+  dbkCap: { type: Number, default: 0, min: 0 },
+  dbkAmount: { type: Number, default: 0, min: 0 },
+  percentageOfFobValue: String
+}, { _id: true });
+
+// Invoice Schema (multiple invoices per job)
+const invoiceSchema = new Schema({
+  invoiceNumber: { type: String, required: true },
+  invoiceDate: { type: Date, required: true },
+  termsOfInvoice: { 
+    type: String,
+    enum: ['CIF', 'FOB', 'CFR', 'EXW', 'FCA', 'CPT', 'CIP', 'DAP', 'DDP'],
+    default: 'FOB'
+  },
+  currency: { 
+    type: String, 
+    ref: 'Currency',
+    required: true,
+    default: 'USD'
+  },
+  invoiceValue: { type: Number, required: true, min: 0 },
+  productValue: { type: Number, required: true, min: 0 },
+  taxableValueForIGST: { type: Number, default: 0, min: 0 },
+  priceIncludes: { 
+    type: String,
+    enum: ['Both', 'Freight Only', 'Insurance Only', 'Neither'],
+    default: 'Both'
+  },
+  packingFOB: { type: Number, default: 0, min: 0 },
+  
+  // Product details for this invoice
+  products: [productDetailsSchema],
+  
+  // Drawback details for this invoice
+  drawbackDetails: [drawbackDetailsSchema],
+  
+  // CESS/Export Duty Details
+  cessDutyDetails: {
+    cessDutyApplicable: { type: Boolean, default: false },
+    cessDutyRates: {
+      exportDuty: { type: Number, default: 0 },
+      cess: { type: Number, default: 0 },
+      otherDutyCess: { type: Number, default: 0 },
+      thirdCess: { type: Number, default: 0 }
+    },
+    tariffValue: { type: Number, default: 0 },
+    qtyForCessDuty: { type: Number, default: 0 },
+    cessDescription: String
+  },
+  
+  // CENVAT Details
+  cenvatDetails: {
+    certificateNumber: String,
+    date: Date,
+    validUpto: Date,
+    cexOfficeCode: String,
+    assesseeCode: String
+  }
+}, { _id: true });
+
+// Shipping Details Schema
+const shippingDetailsSchema = new Schema({
+  dischargePort: { 
+    type: String, 
+    ref: 'Port',
+    required: true 
+  },
+  dischargeCountry: { 
+    type: String, 
+    ref: 'Country',
+    required: true 
+  },
+  destinationPort: { 
+    type: String, 
+    ref: 'Port',
+    required: true 
+  },
+  destinationCountry: { 
+    type: String, 
+    ref: 'Country',
+    required: true 
+  },
+  natureOfCargo: { 
+    type: String,
+    enum: ['Containerised', 'Break Bulk', 'Liquid Bulk', 'Dry Bulk'],
+    default: 'Containerised'
+  },
+  totalNoOfPackages: { type: Number, required: true, min: 1 },
+  loosePackages: { type: Number, default: 0 },
+  noOfContainers: { type: Number, default: 0 },
+  
+  shippingLine: { 
+    type: String, 
+    ref: 'ShippingLine'
+  },
+  vesselName: String,
+  sailingDate: Date,
+  voyageNo: String,
+  
+  // Bill of Lading Details
+  egmNo: String,
+  egmDate: Date,
+  mblNo: String,
+  mblDate: Date,
+  hblNo: String,
+  hblDate: Date,
+  
+  // Weight and Measurements
+  grossWeight: { type: Number, required: true, min: 0 },
+  netWeight: { type: Number, required: true, min: 0 },
+  volume: { type: Number, default: 0 },
+  chargeableWeight: { type: Number, default: 0 },
+  
+  // Additional shipping fields
+  marksAndNos: String,
+  preCarriageBy: String,
+  placeOfReceipt: String,
+  transhipperCode: String,
+  gatewayPort: { type: String, ref: 'Port' },
+  stateOfOrigin: { type: String, ref: 'State' },
+  
+  // Stuffing Details
+  stuffingDetails: {
+    goodsStuffedAt: { 
+      type: String,
+      enum: ['Factory', 'Warehouse', 'CFS', 'ICD', 'Port'],
+      default: 'Factory'
+    },
+    sampleAccompanied: { type: Boolean, default: false },
+    factoryAddress: String,
+    warehouseCode: String,
+    sealType: String,
+    sealNo: String,
+    agencyName: String
+  }
+}, { _id: false });
+
+// Container Details Schema
+const containerDetailsSchema = new Schema({
+  serialNumber: { type: Number, required: true },
+  containerNo: { type: String, required: true },
+  sealNo: String,
+  sealDate: Date,
+  type: { 
+    type: String,
+    enum: ['20 Standard Dry', '40 Standard Dry', '40 High Cube', '20 Reefer', '40 Reefer'],
+    required: true
+  },
+  packagesStuffed: { type: Number, default: 0 },
+  grossWeight: { type: Number, default: 0 },
+  sealType: { 
+    type: String,
+    enum: ['BTSL - Bottle', 'WIRE', 'PLASTIC', 'METAL'],
+    default: 'BTSL - Bottle'
+  },
+  moveDocType: String,
+  moveDocNo: String,
+  location: String,
+  grWtPlusTrWt: { type: Number, default: 0 }
+}, { _id: true });
+
+// Buyer/Third Party Information Schema
+const buyerThirdPartySchema = new Schema({
+  // Buyer Information
+  buyer: {
+    name: { type: String, required: true },
+    addressLine1: String,
+    city: String,
+    pin: String,
+    country: { type: String, ref: 'Country' },
+    state: String
+  },
+  
+  // Third Party Information (if applicable)
+  thirdParty: {
+    isThirdPartyExport: { type: Boolean, default: false },
+    name: String,
+    city: String,
+    pin: String,
+    country: { type: String, ref: 'Country' },
+    state: String,
+    address: String
+  },
+  
+  // Manufacturer/Producer/Grower Details
+  manufacturer: {
+    name: String,
+    ieCode: String,
+    branchSerialNo: String,
+    registrationNo: String,
+    address: String,
+    country: { type: String, ref: 'Country', default: 'IN' },
+    stateProvince: String,
+    postalCode: String,
+    sourceState: { type: String, ref: 'State' },
+    transitCountry: { type: String, ref: 'Country' }
+  }
+}, { _id: false });
+
+// ARE Details Schema
+const areDetailsSchema = new Schema({
+  serialNumber: Number,
+  areNumber: String,
+  areDate: Date,
+  commissionerate: String,
+  division: String,
+  range: String,
+  remark: String
+}, { _id: true });
+
+// Document Management Schema
+const documentSchema = new Schema({
+  documentName: { 
+    type: String,
+    enum: [
+      'Shipping Bill', 'Annexures', 'Invoice', 'Packing List',
+      'Certificate Of Origin', 'GSP/SFTA', 'Checklist for Export', 'N-Form'
+    ],
+    required: true
+  },
+  action: { 
+    type: String,
+    enum: ['View', 'Generate', 'E-mail', 'Get Approval'],
+    default: 'View'
+  },
+  published: { type: Boolean, default: false },
+  generationDate: Date,
+  filePath: String,
+  fileSize: Number,
+  status: { 
+    type: String,
+    enum: ['Pending', 'Generated', 'Approved', 'Rejected'],
+    default: 'Pending'
+  }
+}, { _id: true });
+
+// eSanchit Document Schema
+const eSanchitDocumentSchema = new Schema({
+  documentLevel: { 
+    type: String,
+    enum: ['Invoice', 'Item', 'Job'],
+    required: true
+  },
+  scope: { 
+    type: String,
+    enum: ['This job only', 'All jobs'],
+    default: 'This job only'
+  },
+  invSerialNo: String,
+  itemSerialNo: String,
+  irn: String, // Image Reference Number
+  documentType: { 
+    type: String,
+    ref: 'SupportingDocumentCode'
+  },
+  otherIcegateId: String,
+  icegateFilename: String,
+  fileType: { 
+    type: String,
+    enum: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+    default: 'pdf'
+  },
+  dateTimeOfUpload: { type: Date, default: Date.now },
+  documentReferenceNo: String,
+  dateOfIssue: Date,
+  placeOfIssue: String,
+  expiryDate: Date,
+  
+  // Issuing Party Details
+  issuingParty: {
+    name: String,
+    code: String,
+    addressLine1: String,
+    addressLine2: String,
+    city: String,
+    pinCode: String
+  },
+  
+  // Beneficiary Party Details
+  beneficiaryParty: {
+    name: String,
+    addressLine1: String,
+    city: String,
+    pinCode: String
+  }
+}, { _id: true });
+
+// Charges Schema (for billing and payments)
+const chargeSchema = new Schema({
+  chargeName: { type: String, required: true },
+  category: { 
+    type: String,
+    enum: ['Reimbursement', 'Margin', 'Service', 'Handling'],
+    required: true
+  },
+  costCenter: String,
+  
+  // Revenue and Cost breakdown
+  revenue: {
+    basis: { 
+      type: String,
+      enum: ['Per S/B', 'Per Container', 'Percentage', 'Fixed'],
+      default: 'Per S/B'
+    },
+    qtyUnit: { type: Number, default: 1 },
+    rate: { type: Number, required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, ref: 'Currency', default: 'INR' },
+    amountINR: Number
+  },
+  
+  cost: {
+    basis: { 
+      type: String,
+      enum: ['Per S/B', 'Per Container', 'Percentage', 'Fixed'],
+      default: 'Per S/B'
+    },
+    qtyUnit: { type: Number, default: 1 },
+    rate: { type: Number, default: 0 },
+    amount: { type: Number, default: 0 },
+    currency: { type: String, ref: 'Currency', default: 'INR' },
+    amountINR: Number
+  },
+  
+  // Receivable Information
+  receivableType: { 
+    type: String,
+    enum: ['Customer', 'Third Party', 'Shipping Line'],
+    default: 'Customer'
+  },
+  receivableFrom: { type: String, ref: 'Directory' },
+  
+  // Payable Information
+  payableType: { 
+    type: String,
+    enum: ['Vendor', 'Employee', 'Government', 'Bank'],
+    default: 'Vendor'
+  },
+  payableTo: String,
+  employee: String,
+  
+  // Additional charge details
+  overrideAutoRate: { type: Boolean, default: false },
+  copyToRevenue: { type: Boolean, default: false }
+}, { _id: true });
+
+// Exchange Rates Schema
+const exchangeRateSchema = new Schema({
+  currencyCode: { type: String, ref: 'Currency', required: true },
+  customExchangeRate: { type: Number, required: true },
+  nonStdCurrency: { type: Boolean, default: false },
+  
+  // Different exchange rates for different purposes
+  revenue: {
+    exchangeRate: Number,
+    cfx: Number
+  },
+  cost: {
+    exchangeRate: Number,
+    cfx: Number
+  },
+  agentExchangeRate: Number,
+  
+  // Bank details for exchange rate
+  bankDetails: { type: Boolean, default: false },
+  rateDate: Date
+}, { _id: false });
+
+// Payment Request Schema
+const paymentRequestSchema = new Schema({
+  requestType: { 
+    type: String,
+    enum: ['Job Expenses', 'Non Job Expenses'],
+    default: 'Job Expenses'
+  },
+  payTo: { 
+    type: String,
+    enum: ['Vendor', 'Employee'],
+    default: 'Vendor'
+  },
+  against: { 
+    type: String,
+    enum: ['Expense', 'Advance'],
+    default: 'Expense'
+  },
+  referenceNo: String,
+  date: { type: Date, default: Date.now },
+  modeOfPayment: { 
+    type: String,
+    enum: ['Cheque No.', 'Bank Transfer', 'Cash', 'Online'],
+    default: 'Cheque No.'
+  },
+  markAsUrgent: { type: Boolean, default: false },
+  amount: { type: Number, required: true, min: 0 },
+  narration: String,
+  
+  // Charge details for payment
+  chargeDetails: [{
+    chargeName: String,
+    amountTC: Number,
+    currency: { type: String, ref: 'Currency' },
+    amountHC: Number,
+    payableTo: String
+  }],
+  
+  // Vendor bill details
+  vendorBillDetails: [{
+    purchaseBillNo: String,
+    date: Date,
+    vendorInvNo: String,
+    currency: { type: String, ref: 'Currency' },
+    billAmount: Number,
+    outstandingAmount: Number,
+    amountTC: Number,
+    amountHC: Number
+  }]
+}, { _id: true });
+
+// Milestone Tracking Schema
+const milestoneSchema = new Schema({
+  milestoneName: { 
+    type: String,
+    enum: [
+      'SB Filed', 'SB Receipt', 'L.E.O', 'Container HO to Concor',
+      'Rail Out', 'Ready for Billing', 'Billing Done'
+    ],
+    required: true
+  },
+  planDate: Date,
+  actualDate: Date,
+  status: { 
+    type: String,
+    enum: ['Pending', 'In Progress', 'Completed', 'Delayed'],
+    default: 'Pending'
+  },
+  remarks: String,
+  handledBy: String
+}, { _id: true });
 
 const vesselSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -213,7 +725,7 @@ const exportJobSchema = new mongoose.Schema({
 
   ////////////////////////////////////////////////// Excel sheet
   year: { type: String, trim: true },
-  job_no: { type: String, trim: true },
+  // job_no: { type: String, trim: true },
   custom_house: { type: String, trim: true },
   job_date: { type: String, trim: true },
   exporter: { type: String, trim: true },
@@ -780,23 +1292,391 @@ const exportJobSchema = new mongoose.Schema({
   job_completed_date: { type: String, trim: true },
 
 
+ job_no: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    uppercase: true
+  },
+  jobReceivedOn: { type: Date, default: Date.now },
+  sbNo: String, // Shipping Bill Number
+  
+  // Filing Information
+  filingMode: { 
+    type: String,
+    ref: 'Directory', // Reference to exporter company
+    required: true
+  },
+  transportMode: { 
+    type: String,
+    enum: ['Sea', 'Air', 'Land', 'Post', 'Rail'],
+    default: 'Sea'
+  },
+  customHouse: { 
+    type: String,
+    ref: 'EDILocation',
+    required: true
+  },
+  loadingPort: { 
+    type: String,
+    ref: 'Port',
+    required: true
+  },
+  sbType: { 
+    type: String,
+    enum: ['Green - Drawback', 'Yellow', 'Red', 'Blue'],
+    default: 'Green - Drawback'
+  },
+  consignmentType: { 
+    type: String,
+    enum: ['FCL', 'LCL', 'Break Bulk'],
+    default: 'FCL'
+  },
+  jobOwner: String, // User who created the job
+  
+  // Job Status and Tracking
+// Add proper validations
+jobStatus: { 
+  type: String,
+  enum: {
+    values: ['Draft', 'In Progress', 'Filed', 'Completed', 'Cancelled'],
+    message: '{VALUE} is not a valid job status'
+  },
+  default: 'Draft',
+  required: true,
+  index: true
+},
+
+// Add string length limits
+remarks: { 
+  type: String, 
+  trim: true,
+  maxlength: [1000, 'Remarks cannot exceed 1000 characters']
+},
+  jobTrackingCompleted: { type: Boolean, default: false },
+  jobCompletedDate: Date,
+  customerRemark: String,
+  
+  // Workflow Information
+  workflow: {
+    location: { 
+      type: String,
+      enum: ['All Locations', 'Mumbai', 'Delhi', 'Chennai', 'Kolkata'],
+      default: 'All Locations'
+    },
+    shipmentType: { 
+      type: String,
+      enum: ['Domestic', 'International'],
+      default: 'International'
+    }
+  },
+  
+  // Multiple Invoices
+  invoices: [invoiceSchema],
+  
+  // Shipping Details
+  shippingDetails: shippingDetailsSchema,
+  
+  // Container Details
+  containers: [containerDetailsSchema],
+  
+  // Buyer and Third Party Information
+  buyerThirdPartyInfo: buyerThirdPartySchema,
+  
+  // Export Bond Details
+  exportBondDetails: {
+    qCertNoDate: String,
+    typeOfShipment: { 
+      type: String,
+      enum: ['Outright Sale', 'Consignment', 'Free Sample', 'Replacement'],
+      default: 'Outright Sale'
+    },
+    specifyIfOther: String,
+    permissionNoDate: String,
+    exportUnder: { 
+      type: String,
+      enum: ['EPCG', 'Advance License', 'DFRC', 'Other'],
+      default: 'Other'
+    },
+    sbHeading: String,
+    textToBePrintedOnSB: String,
+    exportTradeControl: String
+  },
+  
+  // ARE Details
+  areDetails: [areDetailsSchema],
+  
+  // Other Information
+  otherInfo: {
+    exportContractNoDate: String,
+    natureOfPayment: { 
+      type: String,
+      enum: ['Letter Of Credit', 'Advance Payment', 'Open Account', 'Consignment'],
+      default: 'Letter Of Credit'
+    },
+    paymentPeriod: { type: Number, default: 0 }, // in days
+    
+    // AEO Details (use from directory if available)
+    aeoCode: String,
+    aeoCountry: { type: String, ref: 'Country', default: 'IN' },
+    aeoRole: String
+  },
+  
+  // DOC Info (Deemed Export/Special Economic Zone)
+  docInfo: {
+    eximCode: { 
+      type: String,
+      enum: ['19 : Drawback (DBK)', 'Other'],
+      default: '19 : Drawback (DBK)'
+    },
+    nfeiCategory: String,
+    rewardItem: { type: Boolean, default: false },
+    strCode: String,
+    endUse: String,
+    ptaFtaInfo: String,
+    originDistrict: String,
+    originState: { type: String, ref: 'State' },
+    alternateQty: Number,
+    materialCode: String,
+    medicinalPlant: String,
+    formulation: String,
+    surfaceMaterialInContact: String,
+    labGrownDiamond: String
+  },
+  
+  // PMV Info (Price Market Value)
+  pmvInfo: {
+    currency: { type: String, ref: 'Currency', default: 'INR' },
+    calculationMethod: { 
+      type: String,
+      enum: ['%age', 'Fixed Amount'],
+      default: '%age'
+    },
+    pmvPerUnit: { type: Number, default: 211141.22 },
+    totalPMV: { type: Number, default: 523841.37 }
+  },
+  
+  // IGST & Compensation Cess Info
+  igstCompensationInfo: {
+    igstPaymentStatus: { 
+      type: String,
+      enum: ['Export Against Payment', 'LUT', 'Bond'],
+      default: 'Export Against Payment'
+    },
+    taxableValueINR: { type: Number, default: 476500.85 },
+    igstRate: { type: Number, default: 18.00 },
+    igstAmountINR: { type: Number, default: 85770.96 },
+    compensationCessRate: { type: Number, default: 0.00 },
+    compensationCessAmountINR: { type: Number, default: 0.00 }
+  },
+  
+  // RODTEP Info (Remission of Duties and Taxes on Exported Products)
+  rodtepInfo: {
+    rodtepClaim: { 
+      type: String,
+      enum: ['Not Applicable', 'Applicable'],
+      default: 'Not Applicable'
+    },
+    quantity: { type: Number, default: 0.000000 },
+    rateInPercentage: { type: Number, default: 0.000 },
+    capValue: { type: Number, default: 0.00 },
+    capValuePerUnits: { type: Number, default: 1 },
+    rodtepAmountINR: { type: Number, default: 0.00 }
+  },
+  
+  // Annex C1 Details (for EOU/SEZ units)
+  annexC1Details: {
+    ieCodeOfEOU: String,
+    branchSerialNo: { type: Number, default: 0 },
+    examinationDate: Date,
+    examiningOfficer: String,
+    supervisingOfficer: String,
+    commissionerate: String,
+    verifiedByExaminingOfficer: { type: Boolean, default: false },
+    sealNumber: String,
+    
+    // Documents for Annex C1
+    documents: [{
+      serialNo: Number,
+      documentName: String
+    }],
+    
+    // Additional C1 fields
+    designation: String,
+    division: String,
+    range: String,
+    sampleForwarded: { type: Boolean, default: false }
+  },
+  
+  // Freight, Insurance & Other Charges
+  freightInsuranceCharges: {
+    freight: {
+      currency: { type: String, ref: 'Currency', default: 'USD' },
+      exchangeRate: { type: Number, default: 87.300000 },
+      rate: { type: Number, default: 0.00 },
+      baseValue: { type: Number, default: 63883.17 },
+      amount: { type: Number, default: 30.00 }
+    },
+    insurance: {
+      currency: { type: String, ref: 'Currency', default: 'USD' },
+      exchangeRate: { type: Number, default: 87.300000 },
+      rate: { type: Number, default: 0.0000 },
+      baseValue: { type: Number, default: 63883.17 },
+      amount: { type: Number, default: 7.73 }
+    },
+    discount: {
+      currency: { type: String, ref: 'Currency', default: 'USD' },
+      exchangeRate: { type: Number, default: 87.300000 },
+      rate: { type: Number, default: 0.00 },
+      amount: { type: Number, default: 0.00 }
+    },
+    otherDeduction: {
+      currency: { type: String, ref: 'Currency', default: 'USD' },
+      exchangeRate: { type: Number, default: 87.300000 },
+      rate: { type: Number, default: 0.00 },
+      amount: { type: Number, default: 0.00 }
+    },
+    commission: {
+      currency: { type: String, ref: 'Currency', default: 'USD' },
+      exchangeRate: { type: Number, default: 87.300000 },
+      rate: { type: Number, default: 0.00 },
+      amount: { type: Number, default: 0.00 }
+    },
+    fobValue: {
+      currency: { type: String, ref: 'Currency', default: 'USD' },
+      amount: { type: Number, default: 63845.44 }
+    }
+  },
+  
+  // Exchange Rates
+  exchangeRates: [exchangeRateSchema],
+  
+  // Charges and Billing
+  charges: [chargeSchema],
+  
+  // Payment Requests
+  paymentRequests: [paymentRequestSchema],
+  
+  // AR/AP Invoices
+  arInvoices: [{
+    date: Date,
+    billNo: String,
+    type: String,
+    organization: { type: String, ref: 'Directory' },
+    currency: { type: String, ref: 'Currency' },
+    amount: Number,
+    balance: Number,
+    vendorBillNo: String
+  }],
+  
+  apInvoices: [{
+    date: Date,
+    billNo: String,
+    type: String,
+    organization: { type: String, ref: 'Directory' },
+    currency: { type: String, ref: 'Currency' },
+    amount: Number,
+    balance: Number
+  }],
+  
+  // Document Management
+  documents: [documentSchema],
+  
+  // eSanchit Documents
+  eSanchitDocuments: [eSanchitDocumentSchema],
+  
+  // Milestone Tracking
+  milestones: [milestoneSchema],
+  
+  // System Fields
+  createdBy: { type: String, required: true },
+  updatedBy: String,
+  
+  // History/Audit Trail
+  history: [{
+    action: String,
+    user: String,
+    timestamp: { type: Date, default: Date.now },
+    changes: Schema.Types.Mixed,
+    remarks: String
+  }]
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+// Remove redundant indexes and add compound indexes
+exportJobSchema.index({ jobNumber: 1 }, { unique: true });
+exportJobSchema.index({ filingMode: 1, jobStatus: 1 }); // Compound index
+exportJobSchema.index({ jobDate: -1, customHouse: 1 }); // Common query pattern
+exportJobSchema.index({ createdAt: -1 }); // For recent jobs
+exportJobSchema.index({ 'invoices.invoiceNumber': 1 }, { sparse: true });
+
+
+// Virtual fields
+exportJobSchema.virtual('totalInvoiceValue').get(function() {
+  return this.invoices.reduce((total, invoice) => total + invoice.invoiceValue, 0);
 });
 
-// Automatically update updatedAt before saving
-exportJobSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
+exportJobSchema.virtual('totalCharges').get(function() {
+  return this.charges.reduce((total, charge) => total + charge.revenue.amount, 0);
+});
+
+exportJobSchema.virtual('isCompleted').get(function() {
+  return this.jobStatus === 'Completed';
+});
+
+// Pre-save middleware
+exportJobSchema.pre('save', function(next) {
+  if (this.isNew) {
+    this.jobReceivedOn = this.jobReceivedOn || new Date();
+  }
+  this.updatedBy = this.modifiedPaths().length > 0 ? 'system' : this.updatedBy;
   next();
 });
 
-// Indexes for performance optimization
-exportJobSchema.index({ year: 1, job_no: 1 }, { unique: true });
-exportJobSchema.index({ ie_code: 1, year: 1 });
-exportJobSchema.index({ exporter_name: 1, year: 1 });
-exportJobSchema.index({ status: 1, job_date: 1 });
-exportJobSchema.index({ shipping_bill_number: 1 });
-exportJobSchema.index({ consignee_country: 1, year: 1 });
-exportJobSchema.index({ createdAt: 1 });
-exportJobSchema.index({ updatedAt: 1 });
+// Methods
+exportJobSchema.methods.addMilestone = function(milestoneName, planDate, actualDate = null) {
+  this.milestones.push({
+    milestoneName,
+    planDate,
+    actualDate,
+    status: actualDate ? 'Completed' : 'Pending'
+  });
+  return this.save();
+};
+
+exportJobSchema.methods.updateMilestone = function(milestoneName, actualDate) {
+  const milestone = this.milestones.find(m => m.milestoneName === milestoneName);
+  if (milestone) {
+    milestone.actualDate = actualDate;
+    milestone.status = 'Completed';
+  }
+  return this.save();
+};
+
+exportJobSchema.methods.addCharge = function(chargeDetails) {
+  this.charges.push(chargeDetails);
+  return this.save();
+};
+
+// Static methods
+exportJobSchema.statics.findByJobNumber = function(jobNumber) {
+  return this.findOne({ jobNumber: jobNumber.toUpperCase() });
+};
+
+exportJobSchema.statics.findByDateRange = function(startDate, endDate) {
+  return this.find({
+    jobDate: {
+      $gte: startDate,
+      $lte: endDate
+    }
+  });
+};
+
+exportJobSchema.statics.findByStatus = function(status) {
+  return this.find({ jobStatus: status });
+};
 
 // Create and export the model
 const ExJobModel = mongoose.model("ExportJob", exportJobSchema);

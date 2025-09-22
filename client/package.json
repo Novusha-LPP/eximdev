@@ -26,6 +26,7 @@
     "date-fns": "^2.30.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "force": "^0.0.3",
     "formik": "^2.4.6",
     "framer-motion": "^12.23.6",
     "jspdf": "^2.5.2",

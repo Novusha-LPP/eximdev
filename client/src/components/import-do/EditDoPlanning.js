@@ -65,6 +65,7 @@ const doListOptions = [
     label: "SATURN GLOBAL TERMINAL PVT LTD",
   },
   { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
+  { value: "ICD SACHANA", label: "ICD SACHANA" },
 ];
 
 function EditDoPlanning() {

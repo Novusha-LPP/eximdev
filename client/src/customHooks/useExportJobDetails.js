@@ -305,6 +305,66 @@ function useExportJobDetails(params, setFileSnackbar) {
       internal_notes: "",
       customer_instructions: "",
       special_requirements: "",
+              // Shipment Main Tab Fields - Add to useExportJobDetails.js initialValues
+egm_no: "",
+egm_date: "",
+mbl_no: "",
+mbl_date: "",
+hbl_no: "",
+hbl_date: "",
+pre_carriage_by: "",
+transhipper_code: "",
+gateway_port: "",
+state_of_origin: "",
+annexure_c_details: false,
+package_unit: "BDL",
+gross_weight_unit: "KGS",
+net_weight_unit: "KGS",
+volume_unit: "CBM",
+
+// Add these Stuffing Details fields to your hook initialValues:
+goods_stuffed_at: "",
+sample_accompanied: false,
+factory_address: "",
+warehouse_code: "",
+stuffing_seal_type: "",
+stuffing_seal_no: "",
+stuffing_agency_name: "",
+stuffing_date: "",
+stuffing_time: "",
+stuffing_supervisor: "",
+stuffing_remarks: "",
+// Add these Shipping Bill Printing fields to your hook initialValues:
+oi_cert_details: "",
+type_of_shipment: "",
+specify_if_other: "",
+permission_no: "",
+permission_date: "",
+export_under: "",
+sb_heading: "",
+export_trade_control: "",
+sb_bottom_text: "",
+sb_reference_type: "",
+sb_reference_number: "",
+sb_additional_notes: "",
+
+// Add these Annex C1 Details fields to your hook initialValues:
+ie_code_of_eou: "",
+branch_sr_no: "",
+examination_date: "",
+examining_officer: "",
+supervising_officer: "",
+commissionerate: "",
+verified_by_examining_officer: false,
+annex_seal_number: "",
+annex_designation: "",
+annex_designation_2: "",
+annex_division: "",
+annex_range: "",
+sample_forwarded: false,
+annex_additional_notes: "",
+annex_c1_documents: [],
+
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -531,59 +591,63 @@ function useExportJobDetails(params, setFileSnackbar) {
         internal_notes: safeValue(data.internal_notes),
         customer_instructions: safeValue(data.customer_instructions),
         special_requirements: safeValue(data.special_requirements),
+        // Add these to your formik.setValues mapping:
+goods_stuffed_at: safeValue(data.goods_stuffed_at),
+sample_accompanied: safeValue(data.sample_accompanied, false),
+factory_address: safeValue(data.factory_address),
+warehouse_code: safeValue(data.warehouse_code),
+stuffing_seal_type: safeValue(data.stuffing_seal_type),
+stuffing_seal_no: safeValue(data.stuffing_seal_no),
+stuffing_agency_name: safeValue(data.stuffing_agency_name),
+stuffing_date: safeValue(data.stuffing_date),
+stuffing_time: safeValue(data.stuffing_time),
+stuffing_supervisor: safeValue(data.stuffing_supervisor),
+stuffing_remarks: safeValue(data.stuffing_remarks),
+
+// Add these to your formik.setValues mapping:
+oi_cert_details: safeValue(data.oi_cert_details),
+type_of_shipment: safeValue(data.type_of_shipment),
+specify_if_other: safeValue(data.specify_if_other),
+permission_no: safeValue(data.permission_no),
+permission_date: safeValue(data.permission_date),
+export_under: safeValue(data.export_under),
+sb_heading: safeValue(data.sb_heading),
+export_trade_control: safeValue(data.export_trade_control),
+sb_bottom_text: safeValue(data.sb_bottom_text),
+sb_reference_type: safeValue(data.sb_reference_type),
+sb_reference_number: safeValue(data.sb_reference_number),
+sb_additional_notes: safeValue(data.sb_additional_notes),
+
+// Add these to your formik.setValues mapping:
+ie_code_of_eou: safeValue(data.ie_code_of_eou),
+branch_sr_no: safeValue(data.branch_sr_no),
+examination_date: safeValue(data.examination_date),
+examining_officer: safeValue(data.examining_officer),
+supervising_officer: safeValue(data.supervising_officer),
+commissionerate: safeValue(data.commissionerate),
+verified_by_examining_officer: safeValue(data.verified_by_examining_officer, false),
+annex_seal_number: safeValue(data.annex_seal_number),
+annex_designation: safeValue(data.annex_designation),
+annex_designation_2: safeValue(data.annex_designation_2),
+annex_division: safeValue(data.annex_division),
+annex_range: safeValue(data.annex_range),
+sample_forwarded: safeValue(data.sample_forwarded, false),
+annex_additional_notes: safeValue(data.annex_additional_notes),
+annex_c1_documents: safeValue(data.annex_c1_documents, []),
+
+
+
       });
     }
   }, [data]);
 
-  // Update function for individual field updates
-  const updateSingleField = async (fieldName, value) => {
-    try {
-      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
-      };
-
-      const updatePayload = {
-        [fieldName]: value,
-        updatedAt: new Date(),
-      };
-
-      console.log(`Updating field ${fieldName}:`, updatePayload);
-
-      const response = await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`,
-        updatePayload,
-        { headers }
-      );
-
-      console.log("Field update response:", response.data);
-      
-      // Update local data state
-      if (data) {
-        setData({
-          ...data,
-          [fieldName]: value,
-          updatedAt: new Date()
-        });
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating field ${fieldName}:`, error);
-      throw error;
-    }
-  };
 
   return {
     data,
     loading,
     formik,
     setData,
-    updateSingleField, // Export the individual field update function
-  };
+    };
 }
 
 export default useExportJobDetails;

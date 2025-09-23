@@ -1639,6 +1639,86 @@ remarks: {
     }
   },
   
+  // Shipment Main Tab Fields - Missing from schema
+egm_no: { type: String, trim: true },
+egm_date: { type: Date },
+mbl_no: { type: String, trim: true },
+mbl_date: { type: Date },
+hbl_no: { type: String, trim: true },
+hbl_date: { type: Date },
+pre_carriage_by: { type: String, trim: true },
+transhipper_code: { type: String, trim: true },
+gateway_port: { type: String, trim: true },
+state_of_origin: { type: String, trim: true },
+annexure_c_details: { type: Boolean, default: false },
+package_unit: { type: String, trim: true, default: "BDL" },
+gross_weight_unit: { type: String, trim: true, default: "KGS" },
+net_weight_unit: { type: String, trim: true, default: "KGS" },
+volume_unit: { type: String, trim: true, default: "CBM" },
+
+// Add these Stuffing Details fields to your schema:
+goods_stuffed_at: { 
+  type: String, 
+  trim: true,
+  enum: ['Factory', 'Warehouse', 'CFS', 'ICD', 'Terminal']
+},
+sample_accompanied: { type: Boolean, default: false },
+factory_address: { type: String, trim: true },
+warehouse_code: { type: String, trim: true },
+stuffing_seal_type: { 
+  type: String, 
+  trim: true,
+  enum: ['BTSL - Bottle', 'WIRE', 'PLASTIC', 'METAL', 'CUSTOMS']
+},
+stuffing_seal_no: { type: String, trim: true },
+stuffing_agency_name: { type: String, trim: true },
+stuffing_date: { type: Date },
+stuffing_time: { type: String, trim: true },
+stuffing_supervisor: { type: String, trim: true },
+stuffing_remarks: { type: String, trim: true },
+
+// Add these Shipping Bill Printing fields to your schema:
+oi_cert_details: { type: String, trim: true },
+type_of_shipment: { 
+  type: String, 
+  trim: true,
+  enum: ['Outright Sale', 'Consignment', 'Branch Transfer', 'Others']
+},
+specify_if_other: { type: String, trim: true },
+permission_no: { type: String, trim: true },
+permission_date: { type: Date },
+export_under: { 
+  type: String, 
+  trim: true,
+  enum: ['Other', 'Advance License', 'EPCG', 'SEZ']
+},
+sb_heading: { type: String, trim: true },
+export_trade_control: { type: String, trim: true },
+sb_bottom_text: { type: String, trim: true },
+sb_reference_type: { type: String, trim: true },
+sb_reference_number: { type: String, trim: true },
+sb_additional_notes: { type: String, trim: true },
+
+// Add these Annex C1 Details fields to your schema:
+ie_code_of_eou: { type: String, trim: true },
+branch_sr_no: { type: String, trim: true },
+examination_date: { type: Date },
+examining_officer: { type: String, trim: true },
+supervising_officer: { type: String, trim: true },
+commissionerate: { type: String, trim: true },
+verified_by_examining_officer: { type: Boolean, default: false },
+annex_seal_number: { type: String, trim: true },
+annex_designation: { type: String, trim: true },
+annex_designation_2: { type: String, trim: true },
+annex_division: { type: String, trim: true },
+annex_range: { type: String, trim: true },
+sample_forwarded: { type: Boolean, default: false },
+annex_additional_notes: { type: String, trim: true },
+annex_c1_documents: [{
+  sr_no: { type: Number, required: true },
+  document_name: { type: String, trim: true }
+}],
+
   // Exchange Rates
   exchangeRates: [exchangeRateSchema],
   

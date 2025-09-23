@@ -30,6 +30,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import { UserContext } from "../../../contexts/UserContext";
 import useExportJobDetails from "../../../customHooks/useExportJobDetails.js";
+import ShipmentTab from './ShipmentTab';
 import axios from "axios";
 
 // Enhanced Editable Header Component
@@ -584,36 +585,6 @@ function LogisysExportViewJob() {
     setActiveTab(newValue);
   };
 
-  const handleHeaderUpdate = async (updatedData) => {
-    try {
-      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
-      };
-
-      const response = await fetch(
-        `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`,
-        {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(updatedData),
-        }
-      );
-
-      if (response.ok) {
-        setFileSnackbar(true);
-        setTimeout(() => setFileSnackbar(false), 3000);
-        
-        const updatedJob = await response.json();
-        setData(updatedJob.data || updatedJob);
-      }
-    } catch (error) {
-      console.error("Error updating job header:", error);
-    }
-  };
 
   if (loading) {
     return (
@@ -640,7 +611,6 @@ function LogisysExportViewJob() {
       <Box sx={{ mt: 2, mb: 2 }}>
         <LogisysEditableHeader 
           formik={formik}  // ← Use formik from hook
-          onUpdate={handleHeaderUpdate}
           directories={directories}
         />
       </Box>
@@ -679,13 +649,16 @@ function LogisysExportViewJob() {
     formik={formik} 
     directories={directories} 
     params={params}
-    onUpdate={handleHeaderUpdate}
   />
 </TabPanel>
         
-        <TabPanel value={activeTab} index={1}>
-          <EntityTab formik={formik} directories={directories} />  {/* ← Pass hook's formik */}
-        </TabPanel>
+<TabPanel value={activeTab} index={3}>
+  <ShipmentTab 
+    formik={formik} 
+    directories={directories} 
+    params={params}
+  />
+</TabPanel>
         
         <TabPanel value={activeTab} index={2}>
           <Typography variant="h6">Invoice Tab - Coming Soon</Typography>

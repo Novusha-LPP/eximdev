@@ -40,89 +40,11 @@ function useExportJobDetails(params, setFileSnackbar) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Default export documents that should always be shown
-  const [exportDocuments, setExportDocuments] = useState([
-    {
-      document_name: "Commercial Invoice",
-      document_code: "380000",
-      url: [],
-      document_number: "",
-      issue_date: "",
-      is_verified: false,
-    },
-    {
-      document_name: "Packing List",
-      document_code: "271000",
-      url: [],
-      document_number: "",
-      issue_date: "",
-      is_verified: false,
-    },
-    {
-      document_name: "Bill of Lading",
-      document_code: "704000",
-      url: [],
-      document_number: "",
-      issue_date: "",
-      is_verified: false,
-    },
-  ]);
-
-  const [selectedDocument, setSelectedDocument] = useState("");
-  const [newDocumentName, setNewDocumentName] = useState("");
-  const [newDocumentCode, setNewDocumentCode] = useState("");
-
-  // Export charges
-  const [exportCharges, setExportCharges] = useState([
-    { charge_type: "Ocean Freight" },
-    { charge_type: "Documentation" },
-    { charge_type: "Customs Clearance" },
-    { charge_type: "Origin Handling" },
-    { charge_type: "Terminal Handling" },
-  ]);
-
-  // Export document dropdown (excluding the default ones)
-  const exportDocDropdown = [
-    { document_name: "Certificate of Origin", document_code: "COO" },
-    { document_name: "Export License", document_code: "EXLIC" },
-    { document_name: "Shipping Bill", document_code: "SB" },
-    { document_name: "Letter of Credit", document_code: "LC" },
-    { document_name: "Quality Certificate", document_code: "QC" },
-    { document_name: "Phytosanitary Certificate", document_code: "PHYTO" },
-    { document_name: "Insurance Certificate", document_code: "INS" },
-  ];
-
-  // Default documents that should always be present
-  const defaultDocuments = [
-    {
-      document_name: "Commercial Invoice",
-      document_code: "380000",
-    },
-    {
-      document_name: "Packing List",
-      document_code: "271000",
-    },
-    {
-      document_name: "Bill of Lading",
-      document_code: "704000",
-    },
-  ];
-
-  // Function to check if a document can be edited or deleted
-  const canEditOrDelete = (doc) => {
-    return !defaultDocuments.some(
-      (defaultDoc) =>
-        defaultDoc.document_name === doc.document_name &&
-        defaultDoc.document_code === doc.document_code
-    );
-  };
-
   // Fetch export job data
   useEffect(() => {
     async function getExportJobDetails() {
       try {
         setLoading(true);
-
         console.log("Fetching export job details for:", params);
 
         const response = await axios.get(
@@ -148,101 +70,13 @@ function useExportJobDetails(params, setFileSnackbar) {
 
         if (jobData) {
           setData(jobData);
-
-          // Merge default documents with database documents
-          const dbDocuments = jobData.export_documents || [];
-          
-          // Start with default documents
-          const mergedDocuments = [...defaultDocuments];
-          
-          // Merge data from database for default documents
-          mergedDocuments.forEach((defaultDoc, index) => {
-            const dbDoc = dbDocuments.find(
-              (doc) => doc.document_code === defaultDoc.document_code
-            );
-            if (dbDoc) {
-              mergedDocuments[index] = {
-                ...defaultDoc,
-                url: dbDoc.url || [],
-                document_number: dbDoc.document_number || "",
-                issue_date: dbDoc.issue_date || "",
-                is_verified: dbDoc.is_verified || false,
-                verification_date: dbDoc.verification_date || "",
-              };
-            } else {
-              mergedDocuments[index] = {
-                ...defaultDoc,
-                url: [],
-                document_number: "",
-                issue_date: "",
-                is_verified: false,
-                verification_date: "",
-              };
-            }
-          });
-
-          // Add any additional documents from database that aren't in defaults
-          dbDocuments.forEach((dbDoc) => {
-            if (!defaultDocuments.some((defaultDoc) => defaultDoc.document_code === dbDoc.document_code)) {
-              mergedDocuments.push(dbDoc);
-            }
-          });
-
-          setExportDocuments(mergedDocuments);
-
-          // Update export charges
-          if (jobData.export_charges && jobData.export_charges.length > 0) {
-            const predefinedCharges = [
-              { charge_type: "Ocean Freight" },
-              { charge_type: "Documentation" },
-              { charge_type: "Customs Clearance" },
-              { charge_type: "Origin Handling" },
-              { charge_type: "Terminal Handling" },
-            ];
-
-            const mergedCharges = predefinedCharges.map((predefined) => {
-              const dbCharge = jobData.export_charges.find(
-                (charge) => charge.charge_type === predefined.charge_type
-              );
-              return dbCharge || predefined;
-            });
-
-            const customCharges = jobData.export_charges.filter(
-              (charge) =>
-                !predefinedCharges.some(
-                  (predefined) => predefined.charge_type === charge.charge_type
-                )
-            );
-
-            setExportCharges([...mergedCharges, ...customCharges]);
-          }
         } else {
           console.error("No valid job data found in response");
           setData(null);
-          // Keep default documents even if no data
-          const defaultDocsWithEmptyFields = defaultDocuments.map(doc => ({
-            ...doc,
-            url: [],
-            document_number: "",
-            issue_date: "",
-            is_verified: false,
-            verification_date: "",
-          }));
-          setExportDocuments(defaultDocsWithEmptyFields);
         }
       } catch (error) {
         console.error("Error fetching export job details:", error);
         setData(null);
-        // Keep default documents even on error
-        const defaultDocsWithEmptyFields = defaultDocuments.map(doc => ({
-          ...doc,
-          url: [],
-          document_number: "",
-          issue_date: "",
-          is_verified: false,
-          verification_date: "",
-        }));
-        setExportDocuments(defaultDocsWithEmptyFields);
       } finally {
         setLoading(false);
       }
@@ -256,69 +90,221 @@ function useExportJobDetails(params, setFileSnackbar) {
     }
   }, [params.job_no, params.year]);
 
-  // Rest of your existing code remains the same...
   const safeValue = (value, defaultVal = "") =>
     value === undefined || value === null ? defaultVal : value;
 
   const formik = useFormik({
     initialValues: {
-      // Basic job info
-      job_type: "sea_export",
-      status: "Planning",
-      detailed_status: "Planning Stage",
-      priority_level: "Normal",
-
-      // Exporter info
+      // Basic job info - EMPTY DEFAULTS
+      job_no: "",
+      year: "",
+      filing_mode: "",
+      shipper: "",
+      loading_port: "",
+      job_date: "",
+      jobReceivedOn: "",
+      transport_mode: "",
+      sb_type: "",
+      custom_house: "",
+      consignment_type: "",
+      job_owner: "",
+      sb_no: "",
+      
+      // Exporter details - EMPTY DEFAULTS
       exporter_name: "",
-      ie_code: "",
-
-      // Consignee info
+      exporter: "", // Schema field
+      exporter_address: "",
+      exporter_city: "",
+      exporter_state: "",
+      exporter_country: "",
+      branch_code: "",
+      branch_sno: "",
+      branchSrNo: "", // Schema field
+      state: "",
+      ie_code_no: "",
+      ie_code: "", // Schema field
+      regn_no: "",
+      exporter_gstin: "", // Schema field
+      gstin: "",
+      exporter_pan: "",
+      
+      // Consignee details - EMPTY DEFAULTS
       consignee_name: "",
+      consignee_address: "",
+      consignee_city: "",
+      consignee_state: "",
       consignee_country: "",
+      buyer_other_than_consignee: false,
+      
+      // Invoice details - EMPTY DEFAULTS
+      invoice_number: "",
+      commercial_invoice_number: "", // Schema field
+      invoice_date: "",
+      commercial_invoice_date: "", // Schema field
+      product_value_usd: "",
+      commercial_invoice_value: "", // Schema field
+      terms_of_invoice: "",
+      // incoterms: "", // Schema field
+      currency: "",
+      invoice_currency: "", // Schema field
+      exchange_rate: "",
+      
+      // Shipping details - EMPTY DEFAULTS
+      discharge_port: "",
+      port_of_discharge: "", // Schema field
+      discharge_country: "",
+      destination_port: "",
+      destination_country: "",
+      shipping_line: "",
+      shipping_line_airline: "", // Schema field
+      vessel_sailing_date: "",
+      vessel_departure_date: "", // Schema field
+      voyage_no: "",
+      nature_of_cargo: "",
+      total_no_of_pkgs: "",
+      total_packages: "", // Schema field
+      loose_pkgs: "",
+      no_of_containers: "",
+      gross_weight: "",
+      gross_weight_kg: "", // Schema field
+      net_weight: "",
+      net_weight_kg: "", // Schema field
+      volume: "",
+      volume_cbm: "", // Schema field
+      chargeable_weight: "",
+      marks_nos: "",
+      marks_and_numbers: "", // Schema field
 
-      // Shipment details
+      // Additional General Tab fields - EMPTY DEFAULTS
+      dbk_bank: "",
+      dbk_ac: "",
+      dbk_edi_ac: "",
+      ref_type: "",
+      exporter_ref_no: "",
+      exporter_type: "",
+      sb_number_date: "",
+      shipping_bill_number: "", // Schema field
+      shipping_bill_date: "", // Schema field
+      rbi_app_no: "",
+      gr_waived: false,
+      gr_no: "",
+      rbi_waiver_no: "",
+      bank_dealer: "",
+      bank_name: "", // Schema field
+      ac_number: "",
+      bank_account_number: "", // Schema field
+      ad_code: "",
+      adCode: "", // Schema field
+      epz_code: "",
+      notify: "",
+      notify_party_name: "", // Schema field
+      sales_person: "",
+      business_dimensions: "",
+      quotation: "",
+      
+      // Banking fields
+      bank_branch: "",
+      bank_ifsc_code: "",
+      bank_swift_code: "",
+      
+      // Additional schema fields
+      job_type: "sea_export",
+      movement_type: "",
+      submission_status: "draft",
+      priority_level: "Normal",
+      status: "",
+      detailed_status: "",
+      
+      // Port fields
       port_of_loading: "",
-      port_of_discharge: "",
+      loading_port: "", // Keep both for compatibility
+      port_of_origin: "",
+      final_destination: "",
+      place_of_receipt: "",
+      place_of_delivery: "",
+      country_of_origin: "India",
+      country_of_final_destination: "",
+      
+      // Vessel/Flight information
       vessel_flight_name: "",
+      voyage_flight_number: "",
+      etd_port_of_loading: "",
+      eta_port_of_discharge: "",
+      actual_departure_date: "",
+      actual_arrival_date: "",
+      
+      // Carrier Information
+      master_bl_awb_number: "",
+      master_bl_awb_date: "",
+      house_bl_awb_number: "",
+      house_bl_awb_date: "",
       booking_number: "",
-
-      // Commercial details
-      commercial_invoice_number: "",
-      commercial_invoice_date: "",
-      commercial_invoice_value: "",
-      incoterms: "",
-
-      // Shipping bill details
-      shipping_bill_number: "",
-      shipping_bill_date: "",
-      leo_number: "",
-
-      // Milestone dates
-      booking_confirmation_date: "",
-      documentation_completion_date: "",
-      customs_clearance_date: "",
-      stuffing_date: "",
-      gate_pass_date: "",
-      port_terminal_arrival_date: "",
-      loading_completion_date: "",
-      vessel_departure_date: "",
-
-      // Containers
-      containers: [{
-        container_number: "",
-        container_size: "20",
-        seal_number: "",
-        stuffing_date: "",
-        gross_weight: "",
-        net_weight: "",
-        gate_in_date: "",
-        loading_date: "",
-        container_images: [],
-        stuffing_images: []
-      }],
-
+      booking_date: "",
+      
+      // Cargo Information
+      commodity_description: "",
+      description: "", // Schema field for compatibility
+      hs_code: "",
+      cth_no: "", // Schema field for compatibility
+      package_type: "",
+      unit: "", // Schema field for compatibility
+      dimensions_length: "",
+      dimensions_width: "",
+      dimensions_height: "",
+      special_instructions: "",
+      
+      // Dangerous Goods
+      is_dangerous_goods: false,
+      un_number: "",
+      proper_shipping_name: "",
+      hazard_class: "",
+      packing_group: "",
+      
+      // Commercial Information
+      proforma_invoice_number: "",
+      proforma_invoice_date: "",
+      proforma_invoice_value: "",
+      fob_value: "",
+      freight_charges: "",
+      insurance_charges: "",
+      cif_value: "",
+      cif_amount: "", // Schema field for compatibility
+      
+      // Payment Terms
+      payment_terms: "",
+      payment_method: "",
+      
+      // Letter of Credit
+      lc_number: "",
+      lc_date: "",
+      lc_amount: "",
+      lc_expiry_date: "",
+      lc_issuing_bank: "",
+      lc_advising_bank: "",
+      
+      // Regulatory fields
+      export_license_required: false,
+      export_license_number: "",
+      export_license_date: "",
+      export_license_validity: "",
+      
+      // Container details - EMPTY ARRAYS
+      containers: [],
+      
+      // Product details - EMPTY ARRAYS
+      products: [],
+      
+      // Charges information - EMPTY ARRAYS
+      charges: [],
+      
+      // Documents - EMPTY OBJECT
+      documents: {},
+      
       // Other fields
       remarks: "",
+      internal_notes: "",
+      customer_instructions: "",
+      special_requirements: "",
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -333,9 +319,6 @@ function useExportJobDetails(params, setFileSnackbar) {
 
         const updatePayload = {
           ...values,
-          export_documents: exportDocuments,
-          export_charges: exportCharges,
-          containers: values.containers,
           updatedAt: new Date(),
         };
 
@@ -364,113 +347,233 @@ function useExportJobDetails(params, setFileSnackbar) {
     },
   });
 
-  // Update formik initial values when data is fetched
+  // Update formik initial values when data is fetched - COMPREHENSIVE MAPPING
   useEffect(() => {
     if (data) {
       console.log("Setting formik values with data:", data);
 
-      const containers = safeValue(data.containers, []).map((container) => ({
-        container_number: safeValue(container.container_number),
-        container_size: safeValue(container.container_size || container.size, "20"),
-        seal_number: safeValue(container.seal_number),
-        stuffing_date: safeValue(container.stuffing_date),
-        gross_weight: safeValue(container.gross_weight),
-        net_weight: safeValue(container.net_weight),
-        gate_in_date: safeValue(container.gate_in_date),
-        loading_date: safeValue(container.loading_date),
-        container_images: safeValue(container.container_images, []),
-        stuffing_images: safeValue(container.stuffing_images, []),
-        // Add other container fields as needed
-      }));
-
       formik.setValues({
-        // Basic job info
-        job_type: safeValue(data.job_type, "sea_export"),
-        status: safeValue(data.status, "Planning"),
-        detailed_status: safeValue(data.detailed_status, "Planning Stage"),
-        priority_level: safeValue(data.priority_level, "Normal"),
-
-        // Exporter info
-        exporter_name: safeValue(data.exporter_name),
-        ie_code: safeValue(data.ie_code),
-
-        // Consignee info
-        consignee_name: safeValue(data.consignee_name),
-        consignee_country: safeValue(data.consignee_country),
-
-        // Shipment details
-        port_of_loading: safeValue(data.port_of_loading),
-        port_of_discharge: safeValue(data.port_of_discharge),
-        vessel_flight_name: safeValue(data.vessel_flight_name),
-        booking_number: safeValue(data.booking_number),
-
-        // Commercial details
-        commercial_invoice_number: safeValue(data.commercial_invoice_number),
-        commercial_invoice_date: safeValue(data.commercial_invoice_date),
-        commercial_invoice_value: safeValue(data.commercial_invoice_value),
-        incoterms: safeValue(data.incoterms),
-
-        // Shipping bill details
-        shipping_bill_number: safeValue(data.shipping_bill_number),
+        // Basic job info - Map from API response
+        job_no: safeValue(data.job_no),
+        year: safeValue(data.year),
+        filing_mode: safeValue(data.filing_mode),
+        shipper: safeValue(data.shipper || data.exporter_name || data.exporter),
+        loading_port: safeValue(data.loading_port || data.port_of_loading),
+        job_date: safeValue(data.job_date),
+        jobReceivedOn: safeValue(data.jobReceivedOn),
+        sb_no: safeValue(data.sb_no || data.shipping_bill_number),
+        sb_type: safeValue(data.sb_type),
+        transport_mode: safeValue(data.transport_mode),
+        custom_house: safeValue(data.custom_house || data.customs_house),
+        consignment_type: safeValue(data.consignment_type),
+        job_owner: safeValue(data.job_owner),
+        
+        // Exporter details - Comprehensive mapping
+        exporter_name: safeValue(data.exporter_name || data.exporter),
+        exporter: safeValue(data.exporter || data.exporter_name),
+        exporter_address: safeValue(data.exporter_address),
+        exporter_city: safeValue(data.exporter_city),
+        exporter_state: safeValue(data.exporter_state || data.state),
+        exporter_country: safeValue(data.exporter_country || 'India'),
+        branch_code: safeValue(data.branch_code),
+        branch_sno: safeValue(data.branch_sno),
+        branchSrNo: safeValue(data.branchSrNo || data.branch_sno),
+        state: safeValue(data.state || data.exporter_state),
+        ie_code_no: safeValue(data.ie_code_no || data.ie_code),
+        ie_code: safeValue(data.ie_code || data.ie_code_no),
+        regn_no: safeValue(data.regn_no || data.exporter_gstin),
+        exporter_gstin: safeValue(data.exporter_gstin || data.regn_no),
+        gstin: safeValue(data.gstin),
+        exporter_pan: safeValue(data.exporter_pan),
+        
+        // Banking details - Map multiple possible fields
+        bank_dealer: safeValue(data.bank_dealer || data.bank_name),
+        bank_name: safeValue(data.bank_name || data.bank_dealer),
+        ac_number: safeValue(data.ac_number || data.bank_account_number),
+        bank_account_number: safeValue(data.bank_account_number || data.ac_number),
+        ad_code: safeValue(data.ad_code || data.adCode),
+        adCode: safeValue(data.adCode || data.ad_code),
+        bank_branch: safeValue(data.bank_branch),
+        bank_ifsc_code: safeValue(data.bank_ifsc_code),
+        bank_swift_code: safeValue(data.bank_swift_code),
+        
+        // General tab specific fields
+        dbk_bank: safeValue(data.dbk_bank),
+        dbk_ac: safeValue(data.dbk_ac),
+        dbk_edi_ac: safeValue(data.dbk_edi_ac),
+        ref_type: safeValue(data.ref_type),
+        exporter_ref_no: safeValue(data.exporter_ref_no),
+        exporter_type: safeValue(data.exporter_type),
+        sb_number_date: safeValue(data.sb_number_date || `${data.shipping_bill_number} | ${data.shipping_bill_date}`),
+        shipping_bill_number: safeValue(data.shipping_bill_number || data.sb_no),
         shipping_bill_date: safeValue(data.shipping_bill_date),
-        leo_number: safeValue(data.leo_number),
-
-        // Milestone dates
-        booking_confirmation_date: safeValue(data.booking_confirmation_date),
-        documentation_completion_date: safeValue(data.documentation_completion_date),
-        customs_clearance_date: safeValue(data.customs_clearance_date),
-        stuffing_date: safeValue(data.stuffing_date),
-        gate_pass_date: safeValue(data.gate_pass_date),
-        port_terminal_arrival_date: safeValue(data.port_terminal_arrival_date),
-        loading_completion_date: safeValue(data.loading_completion_date),
-        vessel_departure_date: safeValue(data.vessel_departure_date),
-
-        // Containers
-        containers: containers.length > 0 ? containers : [{
-          container_number: "",
-          container_size: "20",
-          seal_number: "",
-          stuffing_date: "",
-          gross_weight: "",
-          net_weight: "",
-          gate_in_date: "",
-          loading_date: "",
-          container_images: [],
-          stuffing_images: []
-        }],
-
+        rbi_app_no: safeValue(data.rbi_app_no),
+        gr_waived: safeValue(data.gr_waived, false),
+        gr_no: safeValue(data.gr_no),
+        rbi_waiver_no: safeValue(data.rbi_waiver_no),
+        epz_code: safeValue(data.epz_code),
+        notify: safeValue(data.notify),
+        notify_party_name: safeValue(data.notify_party_name || data.notify),
+        sales_person: safeValue(data.sales_person),
+        business_dimensions: safeValue(data.business_dimensions),
+        quotation: safeValue(data.quotation),
+        
+        // Consignee details - Map all variants
+        consignee_name: safeValue(data.consignee_name),
+        consignee_address: safeValue(data.consignee_address),
+        consignee_city: safeValue(data.consignee_city),
+        consignee_state: safeValue(data.consignee_state),
+        consignee_country: safeValue(data.consignee_country),
+        buyer_other_than_consignee: safeValue(data.buyer_other_than_consignee, false),
+        
+        // Invoice details - Multiple mappings
+        invoice_number: safeValue(data.invoice_number || data.commercial_invoice_number),
+        commercial_invoice_number: safeValue(data.commercial_invoice_number || data.invoice_number),
+        invoice_date: safeValue(data.invoice_date || data.commercial_invoice_date),
+        commercial_invoice_date: safeValue(data.commercial_invoice_date || data.invoice_date),
+        product_value_usd: safeValue(data.product_value_usd || data.commercial_invoice_value),
+        commercial_invoice_value: safeValue(data.commercial_invoice_value || data.product_value_usd),
+        terms_of_invoice: safeValue(data.terms_of_invoice || data.incoterms),
+        // incoterms: safeValue(data.incoterms || data.terms_of_invoice),
+        currency: safeValue(data.currency || data.invoice_currency),
+        invoice_currency: safeValue(data.invoice_currency || data.currency),
+        exchange_rate: safeValue(data.exchange_rate),
+        
+        // Shipping details - Comprehensive mapping
+        discharge_port: safeValue(data.discharge_port || data.port_of_discharge),
+        port_of_discharge: safeValue(data.port_of_discharge || data.discharge_port),
+        discharge_country: safeValue(data.discharge_country || data.consignee_country),
+        destination_port: safeValue(data.destination_port),
+        destination_country: safeValue(data.destination_country),
+        shipping_line: safeValue(data.shipping_line || data.shipping_line_airline),
+        shipping_line_airline: safeValue(data.shipping_line_airline || data.shipping_line),
+        vessel_sailing_date: safeValue(data.vessel_sailing_date || data.vessel_departure_date),
+        vessel_departure_date: safeValue(data.vessel_departure_date || data.vessel_sailing_date),
+        voyage_no: safeValue(data.voyage_no),
+        nature_of_cargo: safeValue(data.nature_of_cargo),
+        total_no_of_pkgs: safeValue(data.total_no_of_pkgs || data.total_packages),
+        total_packages: safeValue(data.total_packages || data.total_no_of_pkgs),
+        loose_pkgs: safeValue(data.loose_pkgs),
+        no_of_containers: safeValue(data.no_of_containers),
+        gross_weight: safeValue(data.gross_weight || data.gross_weight_kg),
+        gross_weight_kg: safeValue(data.gross_weight_kg || data.gross_weight),
+        net_weight: safeValue(data.net_weight || data.net_weight_kg),
+        net_weight_kg: safeValue(data.net_weight_kg || data.net_weight),
+        volume: safeValue(data.volume || data.volume_cbm),
+        volume_cbm: safeValue(data.volume_cbm || data.volume),
+        chargeable_weight: safeValue(data.chargeable_weight),
+        marks_nos: safeValue(data.marks_nos || data.marks_and_numbers),
+        marks_and_numbers: safeValue(data.marks_and_numbers || data.marks_nos),
+        
+        // Additional schema fields
+        job_type: safeValue(data.job_type, "sea_export"),
+        movement_type: safeValue(data.movement_type),
+        submission_status: safeValue(data.submission_status, "draft"),
+        priority_level: safeValue(data.priority_level || data.priorityJob, "Normal"),
+        status: safeValue(data.status),
+        detailed_status: safeValue(data.detailed_status),
+        
+        // Port fields
+        port_of_loading: safeValue(data.port_of_loading || data.loading_port),
+        port_of_origin: safeValue(data.port_of_origin),
+        final_destination: safeValue(data.final_destination),
+        place_of_receipt: safeValue(data.place_of_receipt),
+        place_of_delivery: safeValue(data.place_of_delivery),
+        country_of_origin: safeValue(data.country_of_origin || data.origin_country, "India"),
+        country_of_final_destination: safeValue(data.country_of_final_destination),
+        
+        // Vessel/Flight information
+        vessel_flight_name: safeValue(data.vessel_flight_name),
+        voyage_flight_number: safeValue(data.voyage_flight_number),
+        etd_port_of_loading: safeValue(data.etd_port_of_loading),
+        eta_port_of_discharge: safeValue(data.eta_port_of_discharge),
+        actual_departure_date: safeValue(data.actual_departure_date),
+        actual_arrival_date: safeValue(data.actual_arrival_date),
+        
+        // Carrier Information
+        master_bl_awb_number: safeValue(data.master_bl_awb_number || data.awb_bl_no),
+        master_bl_awb_date: safeValue(data.master_bl_awb_date || data.awb_bl_date),
+        house_bl_awb_number: safeValue(data.house_bl_awb_number || data.hawb_hbl_no),
+        house_bl_awb_date: safeValue(data.house_bl_awb_date || data.hawb_hbl_date),
+        booking_number: safeValue(data.booking_number),
+        booking_date: safeValue(data.booking_date),
+        
+        // Cargo Information
+        commodity_description: safeValue(data.commodity_description || data.description),
+        description: safeValue(data.description || data.commodity_description),
+        hs_code: safeValue(data.hs_code || data.cth_no),
+        cth_no: safeValue(data.cth_no || data.hs_code),
+        package_type: safeValue(data.package_type || data.unit),
+        unit: safeValue(data.unit || data.package_type),
+        dimensions_length: safeValue(data.dimensions_length),
+        dimensions_width: safeValue(data.dimensions_width),
+        dimensions_height: safeValue(data.dimensions_height),
+        special_instructions: safeValue(data.special_instructions),
+        
+        // Commercial Information
+        proforma_invoice_number: safeValue(data.proforma_invoice_number),
+        proforma_invoice_date: safeValue(data.proforma_invoice_date),
+        proforma_invoice_value: safeValue(data.proforma_invoice_value),
+        fob_value: safeValue(data.fob_value),
+        freight_charges: safeValue(data.freight_charges),
+        insurance_charges: safeValue(data.insurance_charges),
+        cif_value: safeValue(data.cif_value || data.cif_amount),
+        cif_amount: safeValue(data.cif_amount || data.cif_value),
+        
+        // Arrays and objects
+        containers: safeValue(data.containers, []),
+        products: safeValue(data.products, []),
+        charges: safeValue(data.charges, []),
+        documents: safeValue(data.documents, {}),
+        
         // Other fields
         remarks: safeValue(data.remarks),
+        internal_notes: safeValue(data.internal_notes),
+        customer_instructions: safeValue(data.customer_instructions),
+        special_requirements: safeValue(data.special_requirements),
       });
     }
   }, [data]);
 
-  // File upload handler
-  const handleFileChange = async (event, documentName, index, isExport) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  // Update function for individual field updates
+  const updateSingleField = async (fieldName, value) => {
+    try {
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const headers = {
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
+      };
 
-    const formattedDocumentName = documentName
-      .toLowerCase()
-      .replace(/\[.*?\]|\(.*?\)/g, "")
-      .replace(/[^\w\s]/g, "_")
-      .replace(/\s+/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "");
+      const updatePayload = {
+        [fieldName]: value,
+        updatedAt: new Date(),
+      };
 
-    const photoUrl = await handleSingleFileUpload(
-      file,
-      formattedDocumentName,
-      setFileSnackbar
-    );
+      console.log(`Updating field ${fieldName}:`, updatePayload);
 
-    if (isExport && photoUrl) {
-      const updatedDocs = [...exportDocuments];
-      if (!updatedDocs[index].url) {
-        updatedDocs[index].url = [];
+      const response = await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/export-jobs/${params.year}/${params.job_no}`,
+        updatePayload,
+        { headers }
+      );
+
+      console.log("Field update response:", response.data);
+      
+      // Update local data state
+      if (data) {
+        setData({
+          ...data,
+          [fieldName]: value,
+          updatedAt: new Date()
+        });
       }
-      updatedDocs[index].url.push(photoUrl);
-      setExportDocuments(updatedDocs);
+
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating field ${fieldName}:`, error);
+      throw error;
     }
   };
 
@@ -478,20 +581,8 @@ function useExportJobDetails(params, setFileSnackbar) {
     data,
     loading,
     formik,
-    exportDocuments,
-    setExportDocuments,
-    exportCharges,
-    setExportCharges,
-    exportDocDropdown,
-    selectedDocument,
-    setSelectedDocument,
-    newDocumentName,
-    setNewDocumentName,
-    newDocumentCode,
-    setNewDocumentCode,
-    handleFileChange,
-    canEditOrDelete, // Export this function for use in components
     setData,
+    updateSingleField, // Export the individual field update function
   };
 }
 

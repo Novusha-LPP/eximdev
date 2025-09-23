@@ -697,10 +697,7 @@ const exportJobSchema = new mongoose.Schema({
     enum: ['air_export', 'sea_export', 'land_export', 'courier_export'],
     default: 'sea_export'
   },
-  movement_type: { 
-    type: String, 
-    trim: true // Added missing trim: true and removed incomplete line
-  },
+
 
   submission_status: {
     type: String, 
@@ -843,8 +840,102 @@ const exportJobSchema = new mongoose.Schema({
   incoterms: { 
     type: String, 
     trim: true,
+    default: 'FOB',
     enum: ['FOB', 'CIF', 'CFR', 'EXW', 'DDP', 'DDU', 'FCA', 'CPT', 'CIP']
   },
+  ref_type: { type: String, trim: true },
+  exporter_ref_no: { type: String, trim: true },
+  filing_mode: { type: String, trim: true },
+shipper: { type: String, trim: true },
+job_received_on: { type: Date },
+sb_type: { type: String, trim: true },
+transport_mode: { type: String, trim: true },
+exporter_type: { type: String, trim: true },
+
+// Exporter Additional Fields (Missing)
+branch_code: { type: String, trim: true },
+branch_sno: { type: String, trim: true },
+regn_no: { type: String, trim: true },
+gstin: { type: String, trim: true },
+state: { type: String, trim: true },
+
+// DBK Fields (Missing)
+dbk_bank: { type: String, trim: true },
+dbk_ac: { type: String, trim: true },
+dbk_edi_ac: { type: String, trim: true },
+
+// Reference & Regulatory Fields (Missing)
+ref_type: { type: String, trim: true },
+sb_number_date: { type: String, trim: true },
+rbi_app_no: { type: String, trim: true },
+gr_waived: { type: Boolean, default: false },
+gr_no: { type: String, trim: true },
+rbi_waiver_no: { type: String, trim: true },
+epz_code: { type: String, trim: true },
+notify: { type: String, trim: true },
+
+// Business Fields (Missing)
+sales_person: { type: String, trim: true },
+business_dimensions: { type: String, trim: true },
+quotation: { type: String, trim: true },
+
+// Additional Banking Fields (Missing)
+bank_branch: { type: String, trim: true },
+bank_ifsc_code: { type: String, trim: true },
+bank_swift_code: { type: String, trim: true },
+
+// Commercial Fields (Missing)
+currency: { type: String, trim: true, default: 'USD' },
+terms_of_invoice: { type: String, trim: true },
+product_value_usd: { type: String, trim: true },
+
+// Enhanced Shipping Fields (Missing)
+discharge_port: { type: String, trim: true },
+discharge_country: { type: String, trim: true },
+destination_port: { type: String, trim: true },
+destination_country: { type: String, trim: true },
+vessel_sailing_date: { type: String, trim: true },
+vessel_departure_date: { type: String, trim: true },
+voyage_no: { type: String, trim: true },
+nature_of_cargo: { type: String, trim: true },
+total_no_of_pkgs: { type: String, trim: true },
+loose_pkgs: { type: String, trim: true },
+no_of_containers: { type: String, trim: true },
+chargeable_weight: { type: String, trim: true },
+marks_nos: { type: String, trim: true },
+
+// Job Management Fields (Missing)
+movement_type: { type: String, trim: true },
+// Port & Delivery Fields (Missing)
+place_of_delivery: { type: String, trim: true },
+country_of_final_destination: { type: String, trim: true },
+
+// Vessel/Flight Timing Fields (Missing)
+etd_port_of_loading: { type: String, trim: true },
+eta_port_of_discharge: { type: String, trim: true },
+
+// Cargo Dimension Fields (Missing)
+dimensions_length: { type: String, trim: true },
+dimensions_width: { type: String, trim: true },
+dimensions_height: { type: String, trim: true },
+
+// Proforma Invoice Fields (Missing)
+proforma_invoice_number: { type: String, trim: true },
+proforma_invoice_date: { type: String, trim: true },
+proforma_invoice_value: { type: String, trim: true },
+
+// Boolean Control Fields (Missing)
+buyer_other_than_consignee: { type: Boolean, default: false },
+
+// Assignment Fields (Missing)
+assigned_documentation_executive: { type: String, trim: true },
+assigned_operations_executive: { type: String, trim: true },
+assigned_accounts_executive: { type: String, trim: true },
+
+// Ensure these arrays exist (some might be missing)
+products: { type: Array, default: [] },
+charges: { type: Array, default: [] },
+documents: { type: Object, default: {} },
   priority_level: { 
     type: String, 
     trim: true, 

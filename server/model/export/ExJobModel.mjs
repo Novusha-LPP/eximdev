@@ -106,7 +106,11 @@ const invoiceSchema = new Schema({
     enum: ['Both', 'Freight Only', 'Insurance Only', 'Neither'],
     default: 'Both'
   },
-  packingFOB: { type: Number, default: 0, min: 0 },
+  // packingFOB: { type: Number, default: 0, min: 0 },
+  invoice_value: { type: Number, default: 0 },
+  product_value_fob: { type: Number, default: 0 },
+  packing_fob: { type: Number, default: 0 },
+
   
   // Product details for this invoice
   products: [productDetailsSchema],
@@ -226,7 +230,7 @@ const containerDetailsSchema = new Schema({
     enum: ['20 Standard Dry', '40 Standard Dry', '40 High Cube', '20 Reefer', '40 Reefer'],
     required: true
   },
-  packagesStuffed: { type: Number, default: 0 },
+  pkgsStuffed: { type: Number, default: 0 }, // 'Pkgs Stuffed'
   grossWeight: { type: Number, default: 0 },
   sealType: { 
     type: String,
@@ -236,7 +240,9 @@ const containerDetailsSchema = new Schema({
   moveDocType: String,
   moveDocNo: String,
   location: String,
-  grWtPlusTrWt: { type: Number, default: 0 }
+  grWtPlusTrWt: { type: Number, default: 0 },
+  sealDeviceId: String,
+  rfid: String // If needed for RFID field
 }, { _id: true });
 
 // Buyer/Third Party Information Schema

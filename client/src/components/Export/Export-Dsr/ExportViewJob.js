@@ -23,7 +23,7 @@ import {
   Chip,
   Autocomplete,
 } from "@mui/material";
-import GeneralTab from './GeneralTab'; // Adjust path as needed
+
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
@@ -32,6 +32,13 @@ import { UserContext } from "../../../contexts/UserContext";
 import useExportJobDetails from "../../../customHooks/useExportJobDetails.js";
 import ShipmentTab from './ShipmentTab';
 import axios from "axios";
+
+
+//IMport of tabs 
+import GeneralTab from './GeneralTab'; // Adjust path as needed
+import  ContainerTab from './ContainerTab';
+import  InvoiceTab from './InvoiceTab';
+
 
 // Enhanced Editable Header Component
 const LogisysEditableHeader = ({ formik, onUpdate, directories }) => {
@@ -94,9 +101,9 @@ const LogisysEditableHeader = ({ formik, onUpdate, directories }) => {
             Task - Update
           </Typography>
           <Box display="flex" alignItems="center" gap={2}>
-            <Typography variant="body2" color="text.secondary">
+            {/* <Typography variant="body2" color="text.secondary">
               59 mins left ⚡ Active
-            </Typography>
+            </Typography> */}
             <Button
               size="small"
               variant={isEditing ? "contained" : "outlined"}
@@ -640,6 +647,7 @@ function LogisysExportViewJob() {
             <Tab label="Container" />
             <Tab label="Charges" />
             <Tab label="Financial" />
+
           </Tabs>
         </Box>
 
@@ -661,7 +669,19 @@ function LogisysExportViewJob() {
 </TabPanel>
         
         <TabPanel value={activeTab} index={2}>
-          <Typography variant="h6">Invoice Tab - Coming Soon</Typography>
+        <InvoiceTab 
+          formik={formik} 
+          directories={directories} 
+          params={params}
+      
+        />
+      </TabPanel>
+
+        <TabPanel value={activeTab} index={4}>
+          <ContainerTab 
+            formik={formik} 
+            onUpdate={handleHeaderUpdate}
+          />
         </TabPanel>
 
         {/* Action Buttons */}

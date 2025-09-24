@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Box, Tabs, Tab, Typography, Divider } from "@mui/material";
 import ARInvoicesTab from "./ARInvoicesTab";
+import APInvoicesTab from "./APInvoicesTab";
+import PaymentRequestTab from "./PaymentRequestTab";
 // TODO: Import other subtabs when needed
 // import APInvoicesTab from "./APInvoicesTab";
 // import PaymentRequestTab from "./PaymentRequestTab";
@@ -57,13 +59,15 @@ const FinancialTab = ({ formik, directories, params, onUpdate }) => {
       </Box>
 
       <FinancialTabPanel value={activeSubTab} index={0}>
-        <ARInvoicesTab formik={formik} directories={directories} params={params} onUpdate={onUpdate} />
+        <ARInvoicesTab formik={formik} directories={directories} params={params} />
       </FinancialTabPanel>
+
       <FinancialTabPanel value={activeSubTab} index={1}>
-        <Typography variant="h6">AP Invoices - Coming Soon</Typography>
+        <APInvoicesTab formik={formik} directories={directories} params={params} />
       </FinancialTabPanel>
+    
       <FinancialTabPanel value={activeSubTab} index={2}>
-        <Typography variant="h6">Payment Request - Coming Soon</Typography>
+        <PaymentRequestTab formik={formik} directories={directories} params={params} />
       </FinancialTabPanel>
     </Box>
   );

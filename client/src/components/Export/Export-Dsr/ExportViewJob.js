@@ -48,6 +48,8 @@ import GeneralTab from "./GeneralTab"; // Adjust path as needed
 import ContainerTab from "./ContainerTab";
 import InvoiceTab from "./InvoiceTab";
 import ProductTab from "./ProductTab.js";
+import EsanchitTab from "./EsanchitTab.js";
+import ESanchitTab from "./EsanchitTab.js";
 
 // Enhanced Editable Header Component
 const LogisysEditableHeader = ({ formik, onUpdate, directories }) => {
@@ -834,9 +836,10 @@ function LogisysExportViewJob() {
             <Tab label="Shipment" />
             <Tab label="Container" />
             <Tab label="Exch. Rate" />
-            <Tab label="Products" /> 
+            <Tab label="Products" />
             <Tab label="Charges" />
             <Tab label="Financial" />
+            <Tab label="E-Sanchit" />
           </Tabs>
         </Box>
 
@@ -871,12 +874,17 @@ function LogisysExportViewJob() {
         <TabPanel value={activeTab} index={4}>
           <ExchangeRateTab formik={formik} />
         </TabPanel>
+
+        <TabPanel value={activeTab} index={5}>
+          <ProductTab formik={formik} />
+        </TabPanel>
+
         <TabPanel value={activeTab} index={7}>
           <FinancialTab formik={formik} />
         </TabPanel>
-        
-        <TabPanel value={activeTab} index={5}>
-          <ProductTab formik={formik} />
+
+        <TabPanel value={activeTab} index={8}>
+          <ESanchitTab formik={formik} />
         </TabPanel>
 
         {/* Action Buttons */}

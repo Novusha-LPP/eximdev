@@ -45,60 +45,60 @@ const productDetailsSchema = new Schema(
     grossWeight: { type: String, default: "0" },
 
     // Re-export specific fields
-   reExport: {
-    isReExport: { type: Boolean, default: false },
-    beNumber: { type: String, trim: true },
-    beDate: { type: String, trim: true }, // Or Date, as preferred
-    invoiceSerialNo: { type: String, trim: true },
-    itemSerialNo: { type: String, trim: true },
-    importPortCode: { type: String, trim: true },
-    manualBE: { type: Boolean, default: false },
-    beItemDescription: { type: String, trim: true },
-    quantityExported: { type: Number, default: 0 },
-    technicalDetails: { type: String, trim: true },
-    inputCreditAvailed: { type: Boolean, default: false },
-    personalUseItem: { type: Boolean, default: false },
-    otherIdentifyingParameters: { type: String, trim: true },
-    againstExportObligation: { type: String, trim: true },
-    obligationNo: { type: String, trim: true },
-    quantityImported: { type: Number, default: 0 },
-    assessableValue: { type: Number, default: 0 },
-    totalDutyPaid: { type: Number, default: 0 },
-    dutyPaidDate: { type: String, trim: true }, // Or Date
-    drawbackAmtClaimed: { type: Number, default: 0 },
-    itemUnUsed: { type: Boolean, default: false },
-    commissionerPermission: { type: String, trim: true },
-    commPermissionDate: { type: String, trim: true }, // Or Date
-    boardNumber: { type: String, trim: true },
-    modvatAvailed: { type: Boolean, default: false },
-    modvatReversed: { type: Boolean, default: false }
-  },
-  otherDetails: {
-  accessories: { type: String, trim: true, default: "" },
-  accessoriesRemarks: { type: String, trim: true, default: "" },
+    reExport: {
+      isReExport: { type: Boolean, default: false },
+      beNumber: { type: String, trim: true },
+      beDate: { type: String, trim: true }, // Or Date, as preferred
+      invoiceSerialNo: { type: String, trim: true },
+      itemSerialNo: { type: String, trim: true },
+      importPortCode: { type: String, trim: true },
+      manualBE: { type: Boolean, default: false },
+      beItemDescription: { type: String, trim: true },
+      quantityExported: { type: Number, default: 0 },
+      technicalDetails: { type: String, trim: true },
+      inputCreditAvailed: { type: Boolean, default: false },
+      personalUseItem: { type: Boolean, default: false },
+      otherIdentifyingParameters: { type: String, trim: true },
+      againstExportObligation: { type: String, trim: true },
+      obligationNo: { type: String, trim: true },
+      quantityImported: { type: Number, default: 0 },
+      assessableValue: { type: Number, default: 0 },
+      totalDutyPaid: { type: Number, default: 0 },
+      dutyPaidDate: { type: String, trim: true }, // Or Date
+      drawbackAmtClaimed: { type: Number, default: 0 },
+      itemUnUsed: { type: Boolean, default: false },
+      commissionerPermission: { type: String, trim: true },
+      commPermissionDate: { type: String, trim: true }, // Or Date
+      boardNumber: { type: String, trim: true },
+      modvatAvailed: { type: Boolean, default: false },
+      modvatReversed: { type: Boolean, default: false },
+    },
+    otherDetails: {
+      accessories: { type: String, trim: true, default: "" },
+      accessoriesRemarks: { type: String, trim: true, default: "" },
 
-  // Third Party Export block
-  isThirdPartyExport: { type: Boolean, default: false },
-  thirdParty: {
-    name: { type: String, trim: true },
-    ieCode: { type: String, trim: true },
-    branchSrNo: { type: String, trim: true },
-    regnNo: { type: String, trim: true },
-    address: { type: String, trim: true }
-  },
+      // Third Party Export block
+      isThirdPartyExport: { type: Boolean, default: false },
+      thirdParty: {
+        name: { type: String, trim: true },
+        ieCode: { type: String, trim: true },
+        branchSrNo: { type: String, trim: true },
+        regnNo: { type: String, trim: true },
+        address: { type: String, trim: true },
+      },
 
-  // Manufacturer/Producer/Grower block
-  manufacturer: {
-    name: { type: String, trim: true },
-    code: { type: String, trim: true },
-    address: { type: String, trim: true },
-    country: { type: String, trim: true },
-    stateProvince: { type: String, trim: true },
-    postalCode: { type: String, trim: true },
-    sourceState: { type: String, trim: true },
-    transitCountry: { type: String, trim: true }
-  }
-},
+      // Manufacturer/Producer/Grower block
+      manufacturer: {
+        name: { type: String, trim: true },
+        code: { type: String, trim: true },
+        address: { type: String, trim: true },
+        country: { type: String, trim: true },
+        stateProvince: { type: String, trim: true },
+        postalCode: { type: String, trim: true },
+        sourceState: { type: String, trim: true },
+        transitCountry: { type: String, trim: true },
+      },
+    },
 
     eximCode: { type: String, trim: true },
     nfeiCategory: { type: String, trim: true },
@@ -447,58 +447,36 @@ const documentSchema = new Schema(
 );
 
 // eSanchit Document Schema
-const eSanchitDocumentSchema = new Schema(
-  {
-    documentLevel: {
-      type: String,
-      enum: ["Invoice", "Item", "Job"],
-      required: true,
-    },
-    scope: {
-      type: String,
-      enum: ["This job only", "All jobs"],
-      default: "This job only",
-    },
-    invSerialNo: String,
-    itemSerialNo: String,
-    irn: String, // Image Reference Number
-    documentType: {
-      type: String,
-      ref: "SupportingDocumentCode",
-    },
-    otherIcegateId: String,
-    icegateFilename: String,
-    fileType: {
-      type: String,
-      enum: ["pdf", "jpg", "jpeg", "png", "doc", "docx"],
-      default: "pdf",
-    },
-    dateTimeOfUpload: { type: Date, default: Date.now },
-    documentReferenceNo: String,
-    dateOfIssue: Date,
-    placeOfIssue: String,
-    expiryDate: Date,
-
-    // Issuing Party Details
-    issuingParty: {
-      name: String,
-      code: String,
-      addressLine1: String,
-      addressLine2: String,
-      city: String,
-      pinCode: String,
-    },
-
-    // Beneficiary Party Details
-    beneficiaryParty: {
-      name: String,
-      addressLine1: String,
-      city: String,
-      pinCode: String,
-    },
+const eSanchitDocumentSchema = new Schema({
+  documentLevel: { type: String, enum: ["Invoice", "Item", "Job"] },
+  scope: { type: String, enum: ["This job only", "All jobs"], default: "This job only" },
+  invSerialNo: String,
+  itemSerialNo: String,
+  irn: String,
+  documentType: String,
+  documentReferenceNo: String,
+  otherIcegateId: String,
+  icegateFilename: String,
+  dateOfIssue: Date,
+  placeOfIssue: String,
+  expiryDate: Date,
+  dateTimeOfUpload: { type: Date, default: Date.now },
+  issuingParty: {
+    name: String,
+    code: String,
+    addressLine1: String,
+    addressLine2: String,
+    city: String,
+    pinCode: String,
   },
-  { _id: true }
-);
+  beneficiaryParty: {
+    name: String,
+    addressLine1: String,
+    city: String,
+    pinCode: String,
+  }
+});
+
 
 // Charges Schema (for billing and payments)
 const chargeSchema = new Schema(

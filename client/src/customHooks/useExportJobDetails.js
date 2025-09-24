@@ -644,6 +644,39 @@ function useExportJobDetails(params, setFileSnackbar) {
       rate_source: "",
       rate_remarks: "",
     },
+
+    // Add to initialValues:
+eSanchitDocuments: [
+  {
+    documentLevel: "",
+    invSerialNo: "",
+    itemSerialNo: "",
+    irn: "",
+    documentType: "",
+    documentReferenceNo: "",
+    otherIcegateId: "",
+    icegateFilename: "",
+    dateOfIssue: "",
+    placeOfIssue: "",
+    expiryDate: "",
+    dateTimeOfUpload: "",
+    issuingParty: {
+      name: "",
+      code: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      pinCode: "",
+    },
+    beneficiaryParty: {
+      name: "",
+      addressLine1: "",
+      city: "",
+      pinCode: ""
+    }
+  }
+],
+
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
@@ -1048,6 +1081,10 @@ function useExportJobDetails(params, setFileSnackbar) {
         auto_update_interval: safeValue(data.auto_update_interval, "24"),
         rate_source: safeValue(data.rate_source),
         rate_remarks: safeValue(data.rate_remarks),
+
+
+        eSanchitDocuments: safeValue(data.eSanchitDocuments, []),
+
 
         // Add these Financial AR Invoices fields to your hook initialValues:
         ar_invoices: [

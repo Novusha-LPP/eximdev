@@ -249,7 +249,7 @@ const containerDetailsSchema = new Schema({
 const buyerThirdPartySchema = new Schema({
   // Buyer Information
   buyer: {
-    name: { type: String, required: true },
+    name: { type: String },
     addressLine1: String,
     city: String,
     pin: String,
@@ -430,27 +430,7 @@ const chargeSchema = new Schema({
   copyToRevenue: { type: Boolean, default: false }
 }, { _id: true });
 
-// Exchange Rates Schema
-const exchangeRateSchema = new Schema({
-  currencyCode: { type: String, ref: 'Currency', required: true },
-  customExchangeRate: { type: Number, required: true },
-  nonStdCurrency: { type: Boolean, default: false },
-  
-  // Different exchange rates for different purposes
-  revenue: {
-    exchangeRate: Number,
-    cfx: Number
-  },
-  cost: {
-    exchangeRate: Number,
-    cfx: Number
-  },
-  agentExchangeRate: Number,
-  
-  // Bank details for exchange rate
-  bankDetails: { type: Boolean, default: false },
-  rateDate: Date
-}, { _id: false });
+
 
 // Payment Request Schema
 const paymentRequestSchema = new Schema({
@@ -1662,6 +1642,23 @@ gross_weight_unit: { type: String, trim: true, default: "KGS" },
 net_weight_unit: { type: String, trim: true, default: "KGS" },
 volume_unit: { type: String, trim: true, default: "CBM" },
 
+// Add these Financial AR Invoices fields to your schema:
+ar_invoices: [{
+  date: { type: String, trim: true },
+  bill_no: { type: String, trim: true },
+  type: { type: String, trim: true },
+  organization: { type: String, trim: true },
+  currency: { type: String, trim: true, default: "INR" },
+  amount: { type: Number, default: 0 },
+  balance: { type: Number, default: 0 }
+}],
+total_ar_amount: { type: Number, default: 0 },
+outstanding_balance: { type: Number, default: 0 },
+ar_default_currency: { type: String, trim: true, default: "INR" },
+ar_payment_terms_days: { type: Number, default: 30 },
+ar_last_updated: { type: Date },
+ar_notes: { type: String, trim: true },
+
 // Add these Stuffing Details fields to your schema:
 goods_stuffed_at: { 
   type: String, 
@@ -1725,8 +1722,26 @@ annex_c1_documents: [{
   document_name: { type: String, trim: true }
 }],
 
-  // Exchange Rates
-  exchangeRates: [exchangeRateSchema],
+// Add these Exchange Rate fields to your schema:
+exchange_rates: [{
+  code: { type: String, trim: true, required: true },
+  custom_exch_rate: { type: String, trim: true },
+  non_std_cur: { type: String, trim: true },
+  ex_rate: { type: String, trim: true },
+  ex_rate_revenue: { type: String, trim: true },
+  agent_ex_rate: { type: String, trim: true },
+  cfx: { type: String, trim: true },
+  ex_rate_cost: { type: String, trim: true },
+  ex_rate_cost_revenue: { type: String, trim: true }
+}],
+last_rate_update_date: { type: Date },
+default_currency: { type: String, trim: true, default: "USD" },
+auto_update_interval: { type: String, trim: true, default: "24" },
+rate_source: { type: String, trim: true },
+rate_remarks: { type: String, trim: true },
+
+
+
   
   // Charges and Billing
   charges: [chargeSchema],

@@ -427,6 +427,38 @@ sample_forwarded: false,
 annex_additional_notes: "",
 annex_c1_documents: [],
 
+// Add these Exchange Rate fields to your hook initialValues:
+exchange_rates: [
+  {
+    code: "INR",
+    custom_exch_rate: "1.000000",
+    non_std_cur: "",
+    ex_rate: "1.000000",
+    ex_rate_revenue: "1.000000",
+    agent_ex_rate: "0.000000",
+    cfx: "0.000000",
+    ex_rate_cost: "0.000000",
+    ex_rate_cost_revenue: "1.000000"
+  },
+  {
+    code: "USD",
+    custom_exch_rate: "87.300000",
+    non_std_cur: "",
+    ex_rate: "90.000000",
+    ex_rate_revenue: "90.000000",
+    agent_ex_rate: "0.000000",
+    cfx: "0.000000",
+    ex_rate_cost: "0.000000",
+    ex_rate_cost_revenue: "90.000000"
+  }
+],
+last_rate_update_date: "",
+default_currency: "USD",
+auto_update_interval: "24",
+rate_source: "",
+rate_remarks: "",
+
+
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -796,6 +828,65 @@ annex_range: safeValue(data.annex_range),
 sample_forwarded: safeValue(data.sample_forwarded, false),
 annex_additional_notes: safeValue(data.annex_additional_notes),
 annex_c1_documents: safeValue(data.annex_c1_documents, []),
+
+// Add these to your formik.setValues mapping:
+exchange_rates: safeValue(data.exchange_rates, [
+  {
+    code: "INR",
+    custom_exch_rate: "1.000000",
+    non_std_cur: "",
+    ex_rate: "1.000000",
+    ex_rate_revenue: "1.000000",
+    agent_ex_rate: "0.000000",
+    cfx: "0.000000",
+    ex_rate_cost: "0.000000",
+    ex_rate_cost_revenue: "1.000000"
+  },
+  {
+    code: "USD",
+    custom_exch_rate: "87.300000",
+    non_std_cur: "",
+    ex_rate: "90.000000",
+    ex_rate_revenue: "90.000000",
+    agent_ex_rate: "0.000000",
+    cfx: "0.000000",
+    ex_rate_cost: "0.000000",
+    ex_rate_cost_revenue: "90.000000"
+  }
+]),
+last_rate_update_date: safeValue(data.last_rate_update_date),
+default_currency: safeValue(data.default_currency, "USD"),
+auto_update_interval: safeValue(data.auto_update_interval, "24"),
+rate_source: safeValue(data.rate_source),
+rate_remarks: safeValue(data.rate_remarks),
+
+// Add these Financial AR Invoices fields to your hook initialValues:
+ar_invoices: [
+  {
+    date: "16-Sep-2025",
+    bill_no: "GEA/123/25-26",
+    type: "INV",
+    organization: "LAXCON STEELS LTD - EX..",
+    currency: "INR",
+    amount: 2065.00,
+    balance: ""
+  },
+  {
+    date: "16-Sep-2025",
+    bill_no: "GE6/123/25-26",
+    type: "INV",
+    organization: "LAXCON STEELS LTD - EX..",
+    currency: "INR",
+    amount: 1.00,
+    balance: ""
+  }
+],
+total_ar_amount: "",
+outstanding_balance: "",
+ar_default_currency: "INR",
+ar_payment_terms_days: "30",
+ar_last_updated: "",
+ar_notes: "",
 
 
 

@@ -30,6 +30,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import { UserContext } from "../../../contexts/UserContext";
 import useExportJobDetails from "../../../customHooks/useExportJobDetails.js";
+import ExchangeRateTab from "./ExchangeRateTab.js";
 import ShipmentTab from './ShipmentTab';
 import axios from "axios";
 
@@ -38,6 +39,7 @@ import axios from "axios";
 import GeneralTab from './GeneralTab'; // Adjust path as needed
 import  ContainerTab from './ContainerTab';
 import  InvoiceTab from './InvoiceTab';
+import FinancialTab from "./FinancialTab.js";
 
 
 // Enhanced Editable Header Component
@@ -645,6 +647,7 @@ function LogisysExportViewJob() {
             <Tab label="Invoice" />
             <Tab label="Shipment" />
             <Tab label="Container" />
+            <Tab label="Exch. Rate" />
             <Tab label="Charges" />
             <Tab label="Financial" />
 
@@ -680,7 +683,16 @@ function LogisysExportViewJob() {
         <TabPanel value={activeTab} index={4}>
           <ContainerTab 
             formik={formik} 
-            onUpdate={handleHeaderUpdate}
+          />
+        </TabPanel>
+        <TabPanel value={activeTab} index={5}>
+          <ExchangeRateTab 
+            formik={formik} 
+          />
+        </TabPanel>
+        <TabPanel value={activeTab} index={7}>
+          <FinancialTab 
+            formik={formik} 
           />
         </TabPanel>
 

@@ -830,12 +830,11 @@ function LogisysExportViewJob() {
             }}
           >
             <Tab label="General" />
-            <Tab label="Entity" />
             <Tab label="Invoice" />
             <Tab label="Shipment" />
             <Tab label="Container" />
             <Tab label="Exch. Rate" />
-            <Tab label="Products" /> // New ab
+            <Tab label="Products" /> 
             <Tab label="Charges" />
             <Tab label="Financial" />
           </Tabs>
@@ -850,7 +849,7 @@ function LogisysExportViewJob() {
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={2}>
           <ShipmentTab
             formik={formik}
             directories={directories}
@@ -858,7 +857,7 @@ function LogisysExportViewJob() {
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={2}>
+        <TabPanel value={activeTab} index={1}>
           <InvoiceTab
             formik={formik}
             directories={directories}
@@ -866,40 +865,16 @@ function LogisysExportViewJob() {
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={3}>
           <ContainerTab formik={formik} />
         </TabPanel>
-        <TabPanel value={activeTab} index={5}>
+        <TabPanel value={activeTab} index={4}>
           <ExchangeRateTab formik={formik} />
         </TabPanel>
         <TabPanel value={activeTab} index={7}>
           <FinancialTab formik={formik} />
         </TabPanel>
-        <TabPanel value={activeTab} index={0}>
-          <GeneralTab
-            formik={formik}
-            directories={directories}
-            params={params}
-          />
-        </TabPanel>
-
-        <TabPanel value={activeTab} index={1}>
-          <EntityTab formik={formik} directories={directories} />{" "}
-          {/* ← Pass hook's formik */}
-        </TabPanel>
-
-        <TabPanel value={activeTab} index={2}>
-          <InvoiceTab
-            formik={formik}
-            directories={directories}
-            params={params}
-          />
-        </TabPanel>
-
-        <TabPanel value={activeTab} index={4}>
-          <ContainerTab formik={formik} />
-        </TabPanel>
-
+        
         <TabPanel value={activeTab} index={5}>
           <ProductTab formik={formik} />
         </TabPanel>

@@ -3,6 +3,10 @@ import { Box, Tabs, Tab, Typography, Divider } from "@mui/material";
 import ProductMainTab from "./ProductMainTab";
 import ProductGeneralTab from "./ProductGeneralTab";
 import DrawbackTab from "./DrawbackTab";
+import ProductCessDutyTab from "./ProductCessDutyTab";
+import ProductAREDetailsTab from "./ProductAREDetailsTab";
+import ProductReExportTab from "./ProductReExportTab";
+import ProductOtherDetailsTab from "./ProductOtherDetailsTab";
 // TODO: import additional subtabs if needed later
 
 function ProductTabPanel(props) {
@@ -40,6 +44,10 @@ const ProductTab = ({ formik, directories, params }) => {
         <Tab label="Main" />
         <Tab label="General" />
         <Tab label="Drawback" />
+        <Tab label="Cess/Export Duty" />
+        <Tab label="AreDetails" />
+        <Tab label="Re-Export" />
+        <Tab label="Other Details" />
         {/* Add subtabs here if product module expands later */}
       </Tabs>
       <ProductTabPanel value={activeSubTab} index={0}>
@@ -54,6 +62,18 @@ const ProductTab = ({ formik, directories, params }) => {
       </ProductTabPanel>
       <ProductTabPanel value={activeSubTab} index={2}>
         <DrawbackTab formik={formik} />
+      </ProductTabPanel>
+      <ProductTabPanel value={activeSubTab} index={3}>
+        <ProductCessDutyTab formik={formik} />
+      </ProductTabPanel>
+      <ProductTabPanel value={activeSubTab} index={4}>
+        <ProductAREDetailsTab formik={formik} />
+      </ProductTabPanel>
+      <ProductTabPanel value={activeSubTab} index={5}>
+        <ProductReExportTab formik={formik} />
+      </ProductTabPanel>
+      <ProductTabPanel value={activeSubTab} index={6}>
+        <ProductOtherDetailsTab formik={formik} />
       </ProductTabPanel>
     </Box>
   );

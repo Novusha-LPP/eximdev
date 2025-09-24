@@ -22,7 +22,7 @@ const productDetailsSchema = new Schema(
     unitPrice: { type: String },
     per: {
       type: String,
-      ref: "UQC",
+      ref: "UQC", 
     },
     amount: { type: String },
 

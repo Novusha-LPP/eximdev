@@ -8,6 +8,18 @@ const ImageSchema = new mongoose.Schema({
 });
 
 // Sub-schemas for complex nested data
+const areDetailsSchema = new Schema(
+  {
+    serialNumber: { type: Number },
+    areNumber: { type: String, trim: true },
+    areDate: { type: Date }, // use String if you prefer
+    commissionerate: { type: String, trim: true },
+    division: { type: String, trim: true },
+    range: { type: String, trim: true },
+    remark: { type: String, trim: true },
+  },
+  { _id: true }
+);
 
 // Product/Item Details Schema (for multiple products per invoice)
 const productDetailsSchema = new Schema(
@@ -16,16 +28,17 @@ const productDetailsSchema = new Schema(
     description: { type: String, maxlength: 500 },
     ritc: {
       type: String,
-      ref: "TariffHead",    },
+      ref: "TariffHead",
+    },
     quantity: { type: String },
     socQuantity: { type: String, default: "0" }, // SOC Qty
     unitPrice: { type: String },
     per: {
       type: String,
-      ref: "UQC", 
+      ref: "UQC",
     },
     amount: { type: String },
-
+    areDetails: [areDetailsSchema],
     // Additional product fields from screenshots
     assessableValue: { type: String, default: "0" },
     netWeight: { type: String, default: "0" },
@@ -33,28 +46,58 @@ const productDetailsSchema = new Schema(
 
     // Re-export specific fields
     reExport: {
-      isReExport: { type: String, default: "false" },
-      beNumber: String,
-      invoiceSerialNo: String,
-      itemSerialNo: String,
-      quantityExported: String,
-      importPortCode: { type: String, ref: "Port" },
-      technicalDetails: String,
-      inputCreditAvailed: { type: String, default: "false" },
-      manualBE: { type: String, default: "false" },
-      personalUseItem: { type: String, default: "false" },
-      beItemDescription: String,
-      otherIdentifyingParameters: String,
-      againstExportObligation: String,
-      quantityImported: String,
-      totalDutyPaid: String,
-      obligationNo: String,
-      drawbackAmtClaimed: String,
-      itemUnUsed: { type: String, default: "false" },
-      commissionerPermission: String,
-      boardNumber: String,
-      modvatAvailed: { type: String, default: "false" },
-      modvatReversed: { type: String, default: "false" },
+      isReExport: { type: Boolean, default: false },
+      beNumber: { type: String, trim: true },
+      beDate: { type: String, trim: true }, // Or Date, as preferred
+      invoiceSerialNo: { type: String, trim: true },
+      itemSerialNo: { type: String, trim: true },
+      importPortCode: { type: String, trim: true },
+      manualBE: { type: Boolean, default: false },
+      beItemDescription: { type: String, trim: true },
+      quantityExported: { type: Number, default: 0 },
+      technicalDetails: { type: String, trim: true },
+      inputCreditAvailed: { type: Boolean, default: false },
+      personalUseItem: { type: Boolean, default: false },
+      otherIdentifyingParameters: { type: String, trim: true },
+      againstExportObligation: { type: String, trim: true },
+      obligationNo: { type: String, trim: true },
+      quantityImported: { type: Number, default: 0 },
+      assessableValue: { type: Number, default: 0 },
+      totalDutyPaid: { type: Number, default: 0 },
+      dutyPaidDate: { type: String, trim: true }, // Or Date
+      drawbackAmtClaimed: { type: Number, default: 0 },
+      itemUnUsed: { type: Boolean, default: false },
+      commissionerPermission: { type: String, trim: true },
+      commPermissionDate: { type: String, trim: true }, // Or Date
+      boardNumber: { type: String, trim: true },
+      modvatAvailed: { type: Boolean, default: false },
+      modvatReversed: { type: Boolean, default: false },
+    },
+    otherDetails: {
+      accessories: { type: String, trim: true, default: "" },
+      accessoriesRemarks: { type: String, trim: true, default: "" },
+
+      // Third Party Export block
+      isThirdPartyExport: { type: Boolean, default: false },
+      thirdParty: {
+        name: { type: String, trim: true },
+        ieCode: { type: String, trim: true },
+        branchSrNo: { type: String, trim: true },
+        regnNo: { type: String, trim: true },
+        address: { type: String, trim: true },
+      },
+
+      // Manufacturer/Producer/Grower block
+      manufacturer: {
+        name: { type: String, trim: true },
+        code: { type: String, trim: true },
+        address: { type: String, trim: true },
+        country: { type: String, trim: true },
+        stateProvince: { type: String, trim: true },
+        postalCode: { type: String, trim: true },
+        sourceState: { type: String, trim: true },
+        transitCountry: { type: String, trim: true },
+      },
     },
 
     eximCode: { type: String, trim: true },
@@ -116,6 +159,43 @@ const productDetailsSchema = new Schema(
       ratePercent: { type: String, default: "0" },
       amountINR: { type: String, default: "0" },
     },
+
+    cessExpDuty: {
+      cessDutyApplicable: { type: Boolean, default: false }, // "CESS/Exp. Duty is leviable on this item"
+      exportDuty: { type: Number, default: 0 },
+      exportDutyRate: { type: Number, default: 0 },
+      exportDutyTariffValue: { type: Number, default: 0 },
+      exportDutyQty: { type: Number, default: 0 },
+      exportDutyDesc: { type: String, trim: true },
+
+      cess: { type: Number, default: 0 },
+      cessRate: { type: Number, default: 0 },
+      cessTariffValue: { type: Number, default: 0 },
+      cessQty: { type: Number, default: 0 },
+      cessUnit: { type: String, trim: true },
+      cessDesc: { type: String, trim: true },
+
+      otherDutyCess: { type: Number, default: 0 },
+      otherDutyCessRate: { type: Number, default: 0 },
+      otherDutyCessTariffValue: { type: Number, default: 0 },
+      otherDutyCessQty: { type: Number, default: 0 },
+      otherDutyCessDesc: { type: String, trim: true },
+
+      thirdCess: { type: Number, default: 0 },
+      thirdCessRate: { type: Number, default: 0 },
+      thirdCessTariffValue: { type: Number, default: 0 },
+      thirdCessQty: { type: Number, default: 0 },
+      thirdCessDesc: { type: String, trim: true },
+
+      // CENVAT details
+      cenvat: {
+        certificateNumber: { type: String, trim: true },
+        date: { type: String, trim: true }, // Use Date if time is required
+        validUpto: { type: String, trim: true },
+        cexOfficeCode: { type: String, trim: true },
+        assesseeCode: { type: String, trim: true },
+      },
+    },
   },
   { _id: true }
 );
@@ -123,9 +203,9 @@ const productDetailsSchema = new Schema(
 // Drawback Details Schema
 const drawbackDetailsSchema = new Schema(
   {
-    dbkitem:{type:Boolean, default:false},
+    dbkitem: { type: Boolean, default: false },
     dbkSrNo: { type: String },
-    fobValue: { type: String,  min: 0 },
+    fobValue: { type: String, min: 0 },
     quantity: { type: Number, min: 0 },
     dbkUnder: {
       type: String,
@@ -136,7 +216,7 @@ const drawbackDetailsSchema = new Schema(
     dbkRate: { type: Number, default: 1.5, min: 0 },
     dbkCap: { type: Number, default: 0, min: 0 },
     dbkAmount: { type: Number, default: 0, min: 0 },
-    percentageOfFobValue: {type: String, default: "1.5% of FOB Value"},
+    percentageOfFobValue: { type: String, default: "1.5% of FOB Value" },
   },
   { _id: true }
 );
@@ -169,34 +249,6 @@ const invoiceSchema = new Schema(
     invoice_value: { type: Number, default: 0 },
     product_value_fob: { type: Number, default: 0 },
     packing_fob: { type: Number, default: 0 },
-
-    // Product details for this invoice
-
-    // Drawback details for this invoice
-
-
-    // CESS/Export Duty Details
-    cessDutyDetails: {
-      cessDutyApplicable: { type: Boolean, default: false },
-      cessDutyRates: {
-        exportDuty: { type: Number, default: 0 },
-        cess: { type: Number, default: 0 },
-        otherDutyCess: { type: Number, default: 0 },
-        thirdCess: { type: Number, default: 0 },
-      },
-      tariffValue: { type: Number, default: 0 },
-      qtyForCessDuty: { type: Number, default: 0 },
-      cessDescription: String,
-    },
-
-    // CENVAT Details
-    cenvatDetails: {
-      certificateNumber: String,
-      date: Date,
-      validUpto: Date,
-      cexOfficeCode: String,
-      assesseeCode: String,
-    },
   },
   { _id: true }
 );
@@ -427,18 +479,6 @@ const arInvoiceSchema = new Schema({
 }, { _id: true });
 
 // ARE Details Schema
-const areDetailsSchema = new Schema(
-  {
-    serialNumber: Number,
-    areNumber: String,
-    areDate: Date,
-    commissionerate: String,
-    division: String,
-    range: String,
-    remark: String,
-  },
-  { _id: true }
-);
 
 // Document Management Schema
 const documentSchema = new Schema(
@@ -476,58 +516,36 @@ const documentSchema = new Schema(
 );
 
 // eSanchit Document Schema
-const eSanchitDocumentSchema = new Schema(
-  {
-    documentLevel: {
-      type: String,
-      enum: ["Invoice", "Item", "Job"],
-      required: true,
-    },
-    scope: {
-      type: String,
-      enum: ["This job only", "All jobs"],
-      default: "This job only",
-    },
-    invSerialNo: String,
-    itemSerialNo: String,
-    irn: String, // Image Reference Number
-    documentType: {
-      type: String,
-      ref: "SupportingDocumentCode",
-    },
-    otherIcegateId: String,
-    icegateFilename: String,
-    fileType: {
-      type: String,
-      enum: ["pdf", "jpg", "jpeg", "png", "doc", "docx"],
-      default: "pdf",
-    },
-    dateTimeOfUpload: { type: Date, default: Date.now },
-    documentReferenceNo: String,
-    dateOfIssue: Date,
-    placeOfIssue: String,
-    expiryDate: Date,
-
-    // Issuing Party Details
-    issuingParty: {
-      name: String,
-      code: String,
-      addressLine1: String,
-      addressLine2: String,
-      city: String,
-      pinCode: String,
-    },
-
-    // Beneficiary Party Details
-    beneficiaryParty: {
-      name: String,
-      addressLine1: String,
-      city: String,
-      pinCode: String,
-    },
+const eSanchitDocumentSchema = new Schema({
+  documentLevel: { type: String, enum: ["Invoice", "Item", "Job"] },
+  scope: { type: String, enum: ["This job only", "All jobs"], default: "This job only" },
+  invSerialNo: String,
+  itemSerialNo: String,
+  irn: String,
+  documentType: String,
+  documentReferenceNo: String,
+  otherIcegateId: String,
+  icegateFilename: String,
+  dateOfIssue: Date,
+  placeOfIssue: String,
+  expiryDate: Date,
+  dateTimeOfUpload: { type: Date, default: Date.now },
+  issuingParty: {
+    name: String,
+    code: String,
+    addressLine1: String,
+    addressLine2: String,
+    city: String,
+    pinCode: String,
   },
-  { _id: true }
-);
+  beneficiaryParty: {
+    name: String,
+    addressLine1: String,
+    city: String,
+    pinCode: String,
+  }
+});
+
 
 // Charge Schema
 const chargeSchema = new Schema({
@@ -1620,7 +1638,6 @@ const exportJobSchema = new mongoose.Schema(
     },
 
     // ARE Details
-    areDetails: [areDetailsSchema],
 
     // Other Information
     otherInfo: {

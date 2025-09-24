@@ -37,11 +37,10 @@ import AddIcon from "@mui/icons-material/Add";
 import { UserContext } from "../../../contexts/UserContext";
 import useExportJobDetails from "../../../customHooks/useExportJobDetails.js";
 import ExchangeRateTab from "./ExchangeRateTab.js";
-import ShipmentTab from './ShipmentTab';
+import ShipmentTab from "./ShipmentTab";
 import axios from "axios";
 
-
-//IMport of tabs 
+//IMport of tabs
 import FinancialTab from "./FinancialTab.js";
 
 //IMport of tabs
@@ -769,7 +768,6 @@ function LogisysExportViewJob() {
     setActiveTab(newValue);
   };
 
-
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
@@ -807,8 +805,8 @@ function LogisysExportViewJob() {
     <>
       {/* Editable Job Header using the hook's formik */}
       <Box sx={{ mt: 2, mb: 2 }}>
-        <LogisysEditableHeader 
-          formik={formik}  // ← Use formik from hook
+        <LogisysEditableHeader
+          formik={formik} // ← Use formik from hook
           directories={directories}
         />
       </Box>
@@ -844,52 +842,44 @@ function LogisysExportViewJob() {
         </Box>
 
         {/* Tab Content using the hook's formik */}
-<TabPanel value={activeTab} index={0}>
-  <GeneralTab 
-    formik={formik} 
-    directories={directories} 
-    params={params}
-  />
-</TabPanel>
-        
-<TabPanel value={activeTab} index={3}>
-  <ShipmentTab 
-    formik={formik} 
-    directories={directories} 
-    params={params}
-  />
-</TabPanel>
-        
+        <TabPanel value={activeTab} index={0}>
+          <GeneralTab
+            formik={formik}
+            directories={directories}
+            params={params}
+          />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={3}>
+          <ShipmentTab
+            formik={formik}
+            directories={directories}
+            params={params}
+          />
+        </TabPanel>
+
         <TabPanel value={activeTab} index={2}>
-        <InvoiceTab 
-          formik={formik} 
-          directories={directories} 
-          params={params}
-      
-        />
-      </TabPanel>
+          <InvoiceTab
+            formik={formik}
+            directories={directories}
+            params={params}
+          />
+        </TabPanel>
 
         <TabPanel value={activeTab} index={4}>
-          <ContainerTab 
-            formik={formik} 
-          />
+          <ContainerTab formik={formik} />
         </TabPanel>
         <TabPanel value={activeTab} index={5}>
-          <ExchangeRateTab 
-            formik={formik} 
-          />
+          <ExchangeRateTab formik={formik} />
         </TabPanel>
         <TabPanel value={activeTab} index={7}>
-          <FinancialTab 
-            formik={formik} 
-          />
+          <FinancialTab formik={formik} />
         </TabPanel>
         <TabPanel value={activeTab} index={0}>
           <GeneralTab
             formik={formik}
             directories={directories}
             params={params}
-            onUpdate={handleHeaderUpdate}
           />
         </TabPanel>
 
@@ -907,11 +897,11 @@ function LogisysExportViewJob() {
         </TabPanel>
 
         <TabPanel value={activeTab} index={4}>
-          <ContainerTab formik={formik} onUpdate={handleHeaderUpdate} />
+          <ContainerTab formik={formik} />
         </TabPanel>
 
         <TabPanel value={activeTab} index={5}>
-          <ProductTab formik={formik} onUpdate={handleHeaderUpdate} />
+          <ProductTab formik={formik} />
         </TabPanel>
 
         {/* Action Buttons */}

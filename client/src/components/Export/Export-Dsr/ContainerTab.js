@@ -12,15 +12,8 @@ const sealTypes = [
   "BTSL - Bottle", "WIRE", "PLASTIC", "METAL"
 ];
 
-const ContainerTab = ({ formik, onUpdate }) => {
+const ContainerTab = ({ formik }) => {
   const saveTimeoutRef = useRef(null);
-
-  // Auto-save for container edits
-  const autoSave = useCallback(
-    (containers) => {
-      if (onUpdate) onUpdate({ containers });
-    }, [onUpdate]
-  );
 
   // Handle inline field change
   const handleFieldChange = (index, field, value) => {
@@ -29,8 +22,6 @@ const ContainerTab = ({ formik, onUpdate }) => {
 
     formik.setFieldValue('containers', containers);
 
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => autoSave(containers), 1200);
   };
 
   // Add/Remove functions
@@ -60,7 +51,6 @@ const ContainerTab = ({ formik, onUpdate }) => {
   const handleDelete = (idx) => {
     const containers = formik.values.containers.filter((_, i) => i !== idx);
     formik.setFieldValue('containers', containers);
-    autoSave(containers);
   };
 
   return (

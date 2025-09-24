@@ -354,7 +354,97 @@ function useExportJobDetails(params, setFileSnackbar) {
       export_charges: [],
 
       // Product details - EMPTY ARRAYS
-      products: [],
+      products: [
+        {
+          serialNumber: 1,
+          description: "",
+          ritc: "",
+          quantity: 0,
+          socQuantity: 0,
+          unitPrice: 0,
+          per: "",
+          amount: 0,
+          eximCode: "",
+          nfeiCategory: "",
+          endUse: "",
+          ptaFtaInfo: "",
+          rewardItem: "",
+          strCode: "",
+          originDistrict: "",
+          originState: "",
+          alternateQty: 0,
+          materialCode: "",
+          medicinalPlant: "",
+          formulation: "",
+          surfaceMaterialInContact: "",
+          labGrownDiamond: "",
+          currency: "INR",
+          calculationMethod: "",
+          percentage: "",
+          pmvPerUnit: "",
+          totalPMV: "",
+          igstPaymentStatus: "",
+          taxableValueINR: "",
+          igstRate: "",
+          igstAmountINR: "",
+          compensationCessAmountINR: "",
+          rodtepClaim: "",
+          rodtepQuantity: "",
+          rodtepCapValue: "",
+          rodtepCapValuePerUnits: "",
+          rodtepUnit: "",
+          rodtepRatePercent: "",
+          rodtepAmountINR: "",
+          sbTypeDetails: "",
+          dbkType: "",
+          cessExciseDuty: 0,
+          compensationCess: 0,
+
+          // PMV Info structured
+          pmvInfo: {
+            currency: "INR",
+            calculationMethod: "",
+            pmvPerUnit: 0,
+            totalPMV: 0,
+          },
+
+          // IGST & Compensation Cess structured
+          igstCompensationCess: {
+            igstPaymentStatus: "",
+            taxableValueINR: 0,
+            igstRate: 0,
+            igstAmountINR: 0,
+            compensationCessAmountINR: 0,
+          },
+
+          // RODTEP structured
+          rodtepInfo: {
+            claim: "",
+            quantity: 0,
+            capValue: 0,
+            capValuePerUnits: 0,
+            unit: "",
+            ratePercent: 0,
+            amountINR: 0,
+          },
+        },
+      ],
+
+      drawbackDetails: [
+        {
+          serialNumber: "1",
+          fobValue: 0,
+          quantity: 0,
+          dbkUnder: "Actual",
+          dbkDescription: "",
+          dbkRate: 1.5,
+          dbkCap: 0,
+          dbkAmount: 0,
+          percentageOfFobValue: "1.5% of FOB Value",
+          isDbkItem: true,
+          dbkSrNo: "",
+        },
+      ],
 
       // Charges information - EMPTY ARRAYS
       charges: [],
@@ -779,6 +869,7 @@ rate_remarks: "",
         products: safeValue(data.products, []),
         charges: safeValue(data.charges, []),
         documents: safeValue(data.documents, {}),
+        drawbackDetails: safeValue(data.drawbackDetails, []),
 
         // Other fields
         remarks: safeValue(data.remarks),

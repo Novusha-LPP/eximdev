@@ -21,25 +21,10 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 
-const GeneralTab = ({ formik, directories, params, onUpdate }) => {
+const GeneralTab = ({ formik, directories, params }) => {
   const [snackbar, setSnackbar] = useState(false);
   const saveTimeoutRef = useRef(null);
 
-  // Auto-save function with better error handling
-  const autoSave = useCallback(
-    async (values) => {
-      try {
-        if (onUpdate && typeof onUpdate === 'function') {
-          console.log('Auto-saving values:', values);
-          await onUpdate(values);
-          console.log('Auto-save successful');
-        }
-      } catch (error) {
-        console.error("Auto-save failed:", error);
-      }
-    },
-    [onUpdate]
-  );
 
   // Handle field changes with auto-save and proper formik integration
   const handleFieldChange = (field, value) => {
@@ -56,7 +41,6 @@ const GeneralTab = ({ formik, directories, params, onUpdate }) => {
         ...formik.values,
         [field]: value
       };
-      autoSave(updatedValues);
     }, 2000);
   };
 
@@ -135,7 +119,6 @@ const GeneralTab = ({ formik, directories, params, onUpdate }) => {
           ...formik.values,
           ...updates
         };
-        autoSave(updatedValues);
       }, 1000);
     }
   };

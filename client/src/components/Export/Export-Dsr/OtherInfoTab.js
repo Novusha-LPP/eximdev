@@ -8,18 +8,14 @@ const natureOfPaymentOptions = [
   "Consignment"
 ];
 
-const OtherInfoTab = ({ formik, onUpdate }) => {
+const OtherInfoTab = ({ formik }) => {
   const saveTimeoutRef = useRef(null);
 
-  const autoSave = useCallback(
-    (values) => { if (onUpdate) onUpdate(values); },
-    [onUpdate]
-  );
+
 
   const handleFieldChange = (field, value) => {
     formik.setFieldValue(`otherInfo.${field}`, value);
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => autoSave(formik.values), 1200);
   };
 
   const otherInfo = formik.values.otherInfo || {};

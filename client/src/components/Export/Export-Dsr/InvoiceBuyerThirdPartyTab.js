@@ -1,20 +1,15 @@
 import React, { useRef, useCallback } from "react";
 import { Box, Card, Typography, TextField, Grid } from "@mui/material";
 
-const InvoiceBuyerThirdPartyTab = ({ formik, onUpdate }) => {
+const InvoiceBuyerThirdPartyTab = ({ formik }) => {
   const saveTimeoutRef = useRef(null);
 
-  const autoSave = useCallback(
-    (values) => { if (onUpdate) onUpdate(values); },
-    [onUpdate]
-  );
 
   const handleThirdPartyFieldChange = (field, value) => {
     const current = { ...(formik.values.buyerThirdPartyInfo?.thirdParty || {}) };
     current[field] = value;
     formik.setFieldValue("buyerThirdPartyInfo.thirdParty", current);
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => autoSave(formik.values), 1200);
   };
 
   const handleBuyerFieldChange = (field, value) => {
@@ -22,7 +17,6 @@ const InvoiceBuyerThirdPartyTab = ({ formik, onUpdate }) => {
     current[field] = value;
     formik.setFieldValue("buyerThirdPartyInfo.buyer", current);
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => autoSave(formik.values), 1200);
   };
 
   const tp = formik.values.buyerThirdPartyInfo?.thirdParty || {};

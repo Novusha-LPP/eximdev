@@ -12,15 +12,8 @@ const chargeTypes = [
 
 const currencyOptions = ["USD", "INR", "EUR", "GBP"];
 
-const InvoiceFreightTab = ({ formik, onUpdate }) => {
+const InvoiceFreightTab = ({ formik }) => {
   const saveTimeoutRef = useRef(null);
-
-  const autoSave = useCallback(
-    (charges) => {
-      if (onUpdate) onUpdate({ export_charges: charges });
-    },
-    [onUpdate]
-  );
 
   // Initialize export charges if empty
   if (!formik.values.export_charges || formik.values.export_charges.length === 0) {
@@ -48,7 +41,6 @@ const InvoiceFreightTab = ({ formik, onUpdate }) => {
     formik.setFieldValue("export_charges", charges);
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => autoSave(charges), 1200);
   };
 
   return (

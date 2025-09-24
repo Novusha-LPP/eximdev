@@ -5,18 +5,12 @@ import { Box, Grid, Card, Typography, TextField, Autocomplete, Button } from "@m
 const currencyOptions = ["USD", "INR", "EUR", "GBP"];
 const toiOptions = ["FOB", "CIF"];
 
-const InvoiceMainTab = ({ formik, onUpdate }) => {
+const InvoiceMainTab = ({ formik }) => {
   const saveTimeoutRef = useRef(null);
-
-  const autoSave = useCallback(
-    (values) => { if (onUpdate) onUpdate(values); },
-    [onUpdate]
-  );
 
   const handleFieldChange = (field, value) => {
     formik.setFieldValue(field, value);
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => autoSave(formik.values), 1200);
   };
 
   return (

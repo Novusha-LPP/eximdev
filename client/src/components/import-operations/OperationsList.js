@@ -27,6 +27,7 @@ import EditableArrivalDate from "./EditableArrivalDate";
 import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
 import { Link } from "react-router-dom";
+import BENumberCell from "../gallery/BENumberCell.js";
 function OperationsList() {
  const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
@@ -292,37 +293,12 @@ const fetchJobs = useCallback(
         );
       },
     },
-    {
-      accessorKey: "be_no",
-      header: "BE Number and Date",
-      size: 150, // Adjusted size to fit both BE Number and Date
-      Cell: ({ cell }) => {
-        const beNumber = cell?.getValue()?.toString();
-        const rawBeDate = cell.row.original.be_date;
-        const customHouse = cell.row.original.custom_house;
-
-        const beDate = formatDate(rawBeDate);
-        const location = getCustomHouseLocation(customHouse);
-
-        return (
-          <React.Fragment>
-            {beNumber && (
-              <React.Fragment>
-                <a
-                  href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {beNumber}
-                </a>
-
-                {beDate}
-              </React.Fragment>
-            )}
-          </React.Fragment>
-        );
+      {
+        accessorKey: "be_no",
+        header: "BE Number and Date",
+        size: 200,
+        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
       },
-    },
     {
       accessorKey: "be_date",
       header: "BE Date",

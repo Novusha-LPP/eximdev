@@ -5,7 +5,7 @@ import axios from "axios";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
-const BENumberCell = ({ cell, onDocumentsUpdated, copyFn }) => {
+const BENumberCell = ({ cell, onDocumentsUpdated, copyFn, module }) => {
   const [activeUpload, setActiveUpload] = useState(null);
   const [processedBeFiles, setProcessedBeFiles] = useState(
     cell.row.original.processed_be_attachment || []
@@ -78,15 +78,19 @@ const BENumberCell = ({ cell, onDocumentsUpdated, copyFn }) => {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
-        [fieldName]: updatedFiles,
-      }, { headers });
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${rowId}`,
+        {
+          [fieldName]: updatedFiles,
+        },
+        { headers }
+      );
 
       // Call parent component's update function if available
       if (onDocumentsUpdated) {
@@ -254,20 +258,28 @@ const BENumberCell = ({ cell, onDocumentsUpdated, copyFn }) => {
       </div>
 
       {/* OOC Copies */}
-      <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
-        <div style={{ flex: 1 }}>
-          {renderDocumentLinks(oocFiles, "OOC Copy")}
-        </div>
-        {renderUploadButton("ooc_copies", "OOC Copy")}
-      </div>
+      {module == "list" && (
+        <>
+          <div
+            style={{ marginTop: "10px", display: "flex", alignItems: "center" }}
+          >
+            <div style={{ flex: 1 }}>
+              {renderDocumentLinks(oocFiles, "OOC Copy")}
+            </div>
+            {renderUploadButton("ooc_copies", "OOC Copy")}
+          </div>
 
-      {/* Gate Pass Copies */}
-      <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
-        <div style={{ flex: 1 }}>
-          {renderDocumentLinks(gatePassFiles, "Gate Pass")}
-        </div>
-        {renderUploadButton("gate_pass_copies", "Gate Pass")}
-      </div>
+          {/* Gate Pass Copies */}
+          <div
+            style={{ marginTop: "10px", display: "flex", alignItems: "center" }}
+          >
+            <div style={{ flex: 1 }}>
+              {renderDocumentLinks(gatePassFiles, "Gate Pass")}
+            </div>
+            {renderUploadButton("gate_pass_copies", "Gate Pass")}
+          </div>
+        </>
+      )}
     </div>
   );
 };

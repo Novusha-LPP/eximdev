@@ -31,6 +31,7 @@ import ConcorInvoiceCell from "../gallery/ConcorInvoiceCell.js";
 import { TabContext } from "./ImportOperations.js";
 import EditableDateSummaryCell from "../gallery/EditableDateSummaryCell.js";
 import { Link } from "react-router-dom";
+import BENumberCell from "../gallery/BENumberCell.js";
 
 function ImportOperations() {
   const { currentTab } = useContext(TabContext);
@@ -441,49 +442,12 @@ function ImportOperations() {
         <div style={{ textAlign: "center" }}>{cell.getValue()}</div>
       ),
     },
-    {
-      accessorKey: "be_no",
-      header: "BE Number & BE Date",
-      size: 150,
-      Cell: ({ cell }) => {
-        const beNumber = cell?.getValue()?.toString();
-        const rawBeDate = cell.row.original.be_date;
-        const customHouse = cell.row.original.custom_house;
-
-        const beDate = formatDate(rawBeDate);
-        const location = getCustomHouseLocation(customHouse);
-
-        return (
-          <>
-            {beNumber && (
-              <>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
-                >
-                  <a
-                    href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {beNumber}
-                  </a>
-
-                  <IconButton
-                    size="small"
-                    onClick={(event) => handleCopy(event, beNumber)}
-                  >
-                    <abbr title="Copy BE Number">
-                      <ContentCopyIcon fontSize="inherit" />
-                    </abbr>
-                  </IconButton>
-                </div>
-                <small>{beDate}</small>
-              </>
-            )}
-          </>
-        );
+      {
+        accessorKey: "be_no",
+        header: "BE Number and Date",
+        size: 200,
+        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} module="list" />,
       },
-    },
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",

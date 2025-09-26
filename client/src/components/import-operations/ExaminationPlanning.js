@@ -446,7 +446,7 @@ function ImportOperations() {
         accessorKey: "be_no",
         header: "BE Number and Date",
         size: 200,
-        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} module="list" />,
+        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy}  />,
       },
     {
       accessorKey: "container_numbers",

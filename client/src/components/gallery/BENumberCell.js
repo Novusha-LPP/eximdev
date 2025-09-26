@@ -258,7 +258,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, copyFn, module }) => {
       </div>
 
       {/* OOC Copies */}
-      {module == "list" && (
+      {module !== "list" && (
         <>
           <div
             style={{ marginTop: "10px", display: "flex", alignItems: "center" }}

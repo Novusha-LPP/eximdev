@@ -297,7 +297,7 @@ const fetchJobs = useCallback(
         accessorKey: "be_no",
         header: "BE Number and Date",
         size: 200,
-        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
+        Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} module="list" />,
       },
     {
       accessorKey: "be_date",

@@ -100,7 +100,6 @@ function useExportJobDetails(params, setFileSnackbar) {
       year: "",
       filing_mode: "",
       shipper: "",
-      loading_port: "",
       job_date: "",
       jobReceivedOn: "",
       transport_mode: "",
@@ -199,7 +198,6 @@ function useExportJobDetails(params, setFileSnackbar) {
       destination_port: "",
       destination_country: "",
       shipping_line: "",
-      shipping_line_airline: "", // Schema field
       vessel_sailing_date: "",
       vessel_departure_date: "", // Schema field
       voyage_no: "",
@@ -251,7 +249,6 @@ function useExportJobDetails(params, setFileSnackbar) {
       bank_swift_code: "",
 
       // Additional schema fields
-      job_type: "sea_export",
       movement_type: "",
       submission_status: "draft",
       priority_level: "Normal",
@@ -260,7 +257,6 @@ function useExportJobDetails(params, setFileSnackbar) {
 
       // Port fields
       port_of_loading: "",
-      loading_port: "", // Keep both for compatibility
       port_of_origin: "",
       final_destination: "",
       place_of_receipt: "",
@@ -881,7 +877,6 @@ charges: [
         year: safeValue(data.year),
         filing_mode: safeValue(data.filing_mode),
         shipper: safeValue(data.shipper || data.exporter_name || data.exporter),
-        loading_port: safeValue(data.loading_port || data.port_of_loading),
         job_date: safeValue(data.job_date),
         jobReceivedOn: safeValue(data.jobReceivedOn),
         sb_no: safeValue(data.sb_no || data.shipping_bill_number),
@@ -1071,7 +1066,6 @@ charges: [
         marks_and_numbers: safeValue(data.marks_and_numbers || data.marks_nos),
 
         // Additional schema fields
-        job_type: safeValue(data.job_type, "sea_export"),
         movement_type: safeValue(data.movement_type),
         submission_status: safeValue(data.submission_status, "draft"),
         priority_level: safeValue(
@@ -1082,15 +1076,10 @@ charges: [
         detailed_status: safeValue(data.detailed_status),
 
         // Port fields
-        port_of_loading: safeValue(data.port_of_loading || data.loading_port),
         port_of_origin: safeValue(data.port_of_origin),
         final_destination: safeValue(data.final_destination),
         place_of_receipt: safeValue(data.place_of_receipt),
         place_of_delivery: safeValue(data.place_of_delivery),
-        country_of_origin: safeValue(
-          data.country_of_origin || data.origin_country,
-          "India"
-        ),
         country_of_final_destination: safeValue(
           data.country_of_final_destination
         ),

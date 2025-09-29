@@ -51,6 +51,7 @@ import ProductTab from "./ProductTab.js";
 import TrackingCompletedTab from "./TrackingCompletedTab.js";
 import ChargesTab from "./ChargesTab.js";
 import ESanchitTab from "./EsanchitTab.js";
+import ExportChecklistGenerator from "./ExportChecklistGenerator.js";
 
 // Enhanced Editable Header Component
 const LogisysEditableHeader = ({ formik, onUpdate, directories }) => {
@@ -920,6 +921,7 @@ function LogisysExportViewJob() {
         autoHideDuration={3000}
         onClose={() => setFileSnackbar(false)}
       />
+       <ExportChecklistGenerator/> 
     </>
   );
 }

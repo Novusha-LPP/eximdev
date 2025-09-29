@@ -182,6 +182,7 @@ import uqcs from "./routes/Directories/uqcs.js";
 import Currency from "./routes/Directories/currencies.js";
 import Packages from "./routes/Directories/packages.js";
 import SupportingDocuments from "./routes/Directories/supportingdocumentcodes.js";
+import genrateExportChecklist from "./routes/export-dsr/generateExportChecklist.mjs"
 
 
 
@@ -440,6 +441,7 @@ if (cluster.isPrimary) {
       app.use("/api/currencies", Currency);
       app.use("/api/packages", Packages);
       app.use("/api/supportingDocumentCodes", SupportingDocuments);
+      app.use(genrateExportChecklist)
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
 

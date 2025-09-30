@@ -79,6 +79,7 @@ router.post("/api/jobs/add-job-exp-man",
     );
 
     res.status(201).json({
+      success: true,
       message: "Export job successfully created.",
       job: {
         job_no: newExportJob.job_no,

@@ -449,346 +449,182 @@ const renderItemDetailsPage = (pdf, helpers, data) => {
   pdf.text('ITEM DETAILS', leftX, yPos);
   yPos += 10;
   drawLine(leftX, yPos, rightX);
-  yPos += 15;
+  yPos += 12;
 
-  // Process each item
+  // Define column positions
+  const col1 = leftX + 10;    // SI No, Qty, Unit
+  const col2 = leftX + 60;   // RITC, Exim Scheme, NFEI Catg, Reward Item
+  const col3 = leftX + 160;   // Description
+  const col4 = leftX + 240;  // Unit Price/Unit, FOB Val(FC)
+  const col5 = leftX + 320;  // FOB Val(INR)
+  const col6 = leftX + 410;  // Total Value(FC), IGST Pymt Statu
+  const col7 = leftX + 500;  // PMV/Unit, IGST Taxable Value
+
+
+  // ITEM DETAILS Table Headers - PROPERLY ALIGNED
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(FONT_SIZES.tableHeader);
+  
+  // Column 1: SI No, Qty, Unit
+  pdf.text('SI No', col1, yPos);
+  pdf.text('Qty', col1, yPos + 10);
+  pdf.text('Unit', col1, yPos + 20);
+
+  // Column 2: RITC, Exim Scheme Code & description, NFEI Catg, Reward Item
+  pdf.text('RITC', col2, yPos);
+  pdf.text('Exim Scheme Code & description', col2, yPos + 10);
+  pdf.text('NFEI Catg', col2, yPos + 20);
+  pdf.text('Reward Item', col2, yPos + 30);
+
+  // Column 3: Description (single row)
+  pdf.text('Description', col3, yPos);
+
+  // Column 4: Unit Price/Unit, FOB Val(FC)
+  pdf.text('Unit Price / Unit', col3, yPos+20);
+
+  pdf.text('FOB Val(FC)', col3, yPos + 30);
+
+  // Column 5: FOB Val(INR) - single row
+  pdf.text('FOB Val(INR)', col4, yPos + 30);
+
+  // Column 6: Total Value(FC), IGST Pymt St
+  pdf.text('Total Value(FC)', col5, yPos + 20);
+  pdf.text('IGST Pymt Status', col5, yPos + 30);
+
+  // Column 7: PMV/Unit, IGST Taxable Value
+  pdf.text('PMV/Unit', col6, yPos + 20);
+  pdf.text('IGST Taxable Valu', col6, yPos + 30);
+
+  // Column 8: Total PMV(INR), IGST Amount
+  pdf.text('Total PMV(INR)', col7, yPos + 20);
+  pdf.text('IGST Amount', col7, yPos + 30);
+
+  yPos += 40; // Increased for multi-row headers
+  drawLine(leftX, yPos, rightX);
+  yPos += 12;
+
+  // Item Data - COLUMN WISE DATA WITH PROPER ALIGNMENT
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(FONT_SIZES.tableContent);
+
   if (data.products && data.products.length > 0) {
     data.products.forEach((product, index) => {
-      // Item Header
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      const itemHeader = `Item #${index + 1} - Sl No: ${product.slNo || (index + 1)} | RITC Code: ${product.ritc || '80198-5789'}`;
-      pdf.text(itemHeader, leftX, yPos);
-      yPos += 10;
-
-      // Define grid layout
-      const col1X = leftX + 5;
-      const col2X = col1X + 80;
-      const col3X = col2X + 100;
-      const col4X = col3X + 80;
-      const lineHeight = 7;
+      const itemY = yPos;
       
-      pdf.setFontSize(9);
-      
-      // Row 1: Qty and Unit
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Qty', col1X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.quantity || '27'), col2X, yPos);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Unit', col3X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.per || '419'), col4X, yPos);
-      yPos += lineHeight;
+      // Column 1: SI No, Qty, Unit
+      pdf.text((index + 1).toString(), col1, itemY); // SI No
+      pdf.text(product.quantity || '209088.000', col1, itemY + 10); // Qty
+      pdf.text(product.per || 'PCS', col1, itemY + 20); // Unit
 
-      // Row 2: Exim Scheme Code
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Exim Scheme Code', col1X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      const eximText = product.eximCode || 'NFEI Catg Edward Item';
-      pdf.text(eximText, col2X, yPos);
-      yPos += lineHeight;
+      // Column 2: RITC, Exim Scheme Code & description, NFEI Catg, Reward Item
+      pdf.text(product.ritc || '39233090', col2, itemY); // RITC
+    
+      pdf.text(product.eximCode || '19 (Drawback (DBK))', col2, itemY+ 10); // Exim Scheme
+      const nfei = product.nfeiCategory;
+      const nfeilines = pdf.splitTextToSize(nfei, 90); // 110 width for description column
+      pdf.text(nfeilines || '', col2, itemY + 20); // NFEI Catg
+      pdf.text(product.rewardItem ? 'Yes' : 'No', col2, itemY + 30); // Reward Item
 
-      // Row 3: Unit Price and FOB Value
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Unit Price (FOB Val(FC))', col1X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.unitPrice || '365'), col2X, yPos);
+      // Column 3: Description
+      const description = product.description || 'EMPTY HDPE BOTTLES - HDPE BOTTLES 60 ML AS PER INVOICE';
+      // Split long description into multiple lines if needed
+      const descriptionLines = pdf.splitTextToSize(description, 90); // 110 width for description column
+      pdf.text(descriptionLines, col3, itemY);
+      pdf.text(product.unitPrice || '0.032000/PCS', col3, itemY + 0); // Unit Price
+      pdf.text(product.fobValueFC || '6690.82', col3, itemY + 70); // FOB Val(FC)
+
+      // Column 5: FOB Val(INR)
+      pdf.text(product.fobValueINR || '583104.96', col4, itemY + 20); // FOB Val(INR)
+
+      // Column 6: Total Value(FC), IGST Pymt Statu
+      pdf.text(product.amount || '6690.82', col5, itemY); // Total Value(FC)
+      pdf.text((product.igstPaymentStatus || 'P') + ' (18%)', col5, itemY + 20); // IGST Pymt Statu
+
+      // Column 7: PMV/Unit, IGST Taxable Value
+      pdf.text(product.pmvPerUnit || '3.07', col6, itemY); // PMV/Unit
+      pdf.text(product.taxableValueINR || '583104.61', col6, itemY + 20); // IGST Taxable Value
+
+      // Column 8: Total PMV(INR), IGST Amount
+      pdf.text(product.totalPMV || '641900.16', col7, itemY); // Total PMV(INR)
+      pdf.text(product.igstAmountINR || '104958.83', col7, itemY + 20); // IGST Amount
+
+      // Calculate height needed for this item (based on description lines)
+      const itemHeight = Math.max(35, 10 + (descriptionLines.length * 10));
       
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('FOB Value (INR)', col3X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.fobValueINR || '583104.96'), col4X, yPos);
-      yPos += lineHeight;
+      yPos += itemHeight;
 
-      // Row 4: IGST Payment Status and IGST Taxable Value
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('IGST Pymt Status', col1X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text((product.igstPaymentStatus || 'P') + ' (18%)', col2X, yPos);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('IGST Taxable Value', col3X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.taxableValueINR || '529'), col4X, yPos);
-      yPos += lineHeight;
-
-      // Row 5: Total Value and Total PMV
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Total Value (FQM/Unit)', col1X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.amount || '575'), col2X, yPos);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Total PMV (INR)', col3X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.totalPMV || '108'), col4X, yPos);
-      yPos += lineHeight;
-
-      // Row 6: IGST Amount and Total
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('IGST Amount', col1X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.igstAmountINR || '415'), col2X, yPos);
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Total', col3X, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(String(product.total || '338'), col4X, yPos);
-      yPos += lineHeight + 3;
-
-      // Description
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      const description = product.description || 'Pellentesque quidem totam. Aperiam quod excepturi eligendi quia molestiae delectus reprehenderit tempora laudantium cupiditate aut est. Sapiente totam illum cumque quas eligendi ipsum. Etus at officiis eveniet ratione totam accusamus doloremque etus ipsa. Culpa architecto ex ipsum beatae doloremque cumque tempora fuga consequatur eaque. Tenetur laboriosam optio veritatis porro. Voluptatum omnis quidem similique nulla recusandae corrupti. Laudantium sequi atque expedita distinctio. Volutpat quia neque dolor nostrum placeat quo.';
-      const descriptionLines = pdf.splitTextToSize(description, rightX - col1X - 10);
-      
-      descriptionLines.forEach(line => {
-        pdf.text(line, col1X, yPos);
-        yPos += 5;
-      });
-
-      yPos += 10;
-      drawLine(leftX, yPos, rightX);
-      yPos += 15;
+      // Add separator line between items
+      if (index < data.products.length - 1) {
+        drawLine(leftX, yPos, rightX);
+        yPos += 8;
+      }
     });
   } else {
-    // Default item 1
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
-    pdf.text('Item #1 - Sl No: 17 | RITC Code: 80198-5789', leftX, yPos);
-    yPos += 10;
-
-    const col1X = leftX + 5;
-    const col2X = col1X + 80;
-    const col3X = col2X + 100;
-    const col4X = col3X + 80;
-    const lineHeight = 7;
+    // Default item data with column structure
+    const itemY = yPos;
     
-    pdf.setFontSize(9);
-    
-    // Row 1
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Qty', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('27', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Unit', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('419', col4X, yPos);
-    yPos += lineHeight;
+    // Column 1: SI No, Qty, Unit
+    pdf.text('1', col1, itemY);
+    pdf.text('209088.000', col1, itemY + 10);
+    pdf.text('PCS', col1, itemY + 20);
 
-    // Row 2
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Exim Scheme Code', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('NFEI Catg Edward Item', col2X, yPos);
-    yPos += lineHeight;
+    // Column 2: RITC, Exim Scheme Code & description, NFEI Catg, Reward Item
+    pdf.text('39233090', col2, itemY);
+    pdf.text('19 (Drawback (DBK))', col2, itemY + 10);
+    pdf.text('', col2, itemY + 20);
+    pdf.text('Yes', col2, itemY + 30);
 
-    // Row 3
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Unit Price (FOB Val(FC))', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('365', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('FOB Value (INR)', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('583104.96', col4X, yPos);
-    yPos += lineHeight;
+    // Column 3: Description
+    const description = 'EMPTY HDPE BOTTLES - HDPE BOTTLES 60 ML AS PER INVOICE';
+    const descriptionLines = pdf.splitTextToSize(description, 90);
+    pdf.text(descriptionLines, col3, itemY);
+    pdf.text('0.032000/PCS', col3, itemY + 50);
+    pdf.text('6690.82', col3, itemY + 70);
 
-    // Row 4
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('IGST Pymt Status', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('P (18%)', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('IGST Taxable Value', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('529', col4X, yPos);
-    yPos += lineHeight;
+    // Column 5: FOB Val(INR)
+    pdf.text('583104.96', col4, itemY + 20);
 
-    // Row 5
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Total Value (FQM/Unit)', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('575', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Total PMV (INR)', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('108', col4X, yPos);
-    yPos += lineHeight;
+    // Column 6: Total Value(FC), IGST Pymt Statu
+    pdf.text('6690.82', col5, itemY);
+    pdf.text('P (18%)', col5, itemY + 20);
 
-    // Row 6
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('IGST Amount', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('415', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Total', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('338', col4X, yPos);
-    yPos += lineHeight + 3;
+    // Column 7: PMV/Unit, IGST Taxable Value
+    pdf.text('3.07', col6, itemY);
+    pdf.text('583104.61', col6, itemY + 20);
 
-    // Description
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8);
-    const description = 'Pellentesque quidem totam. Aperiam quod excepturi eligendi quia molestiae delectus reprehenderit tempora laudantium cupiditate aut est. Sapiente totam illum cumque quas eligendi ipsum. Etus at officiis eveniet ratione totam accusamus doloremque etus ipsa. Culpa architecto ex ipsum beatae doloremque cumque tempora fuga consequatur eaque. Tenetur laboriosam optio veritatis porro. Voluptatum omnis quidem similique nulla recusandae corrupti. Laudantium sequi atque expedita distinctio. Volutpat quia neque dolor nostrum placeat quo.';
-    const descriptionLines = pdf.splitTextToSize(description, rightX - col1X - 10);
-    
-    descriptionLines.forEach(line => {
-      pdf.text(line, col1X, yPos);
-      yPos += 5;
-    });
+    // Column 8: Total PMV(INR), IGST Amount
+    pdf.text('641900.16', col7, itemY);
+    pdf.text('104958.83', col7, itemY + 20);
 
-    yPos += 10;
-    drawLine(leftX, yPos, rightX);
-    yPos += 15;
-
-    // Default item 2
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
-    pdf.text('Item #2 - Sl No: 341 | RITC Code: 93889-46887', leftX, yPos);
-    yPos += 10;
-
-    pdf.setFontSize(9);
-    
-    // Row 1
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Qty', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('341', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Unit', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Suscipit', col4X, yPos);
-    yPos += lineHeight;
-
-    // Row 2
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Exim Scheme Code', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Maxime sufficient sapiente hit maxime MOT item', col2X, yPos);
-    yPos += lineHeight;
-
-    // Row 3
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Unit Price (FOB Val(FC))', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('388', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('FOB Value (INR)', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('583104.96', col4X, yPos);
-    yPos += lineHeight;
-
-    // Row 4
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('IGST Pymt Status', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('P (18%)', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('IGST Taxable Value', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('263', col4X, yPos);
-    yPos += lineHeight;
-
-    // Row 5
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Total Value (FQM/Unit)', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('62', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Total PMV (INR)', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('95', col4X, yPos);
-    yPos += lineHeight;
-
-    // Row 6
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('IGST Amount', col1X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('95', col2X, yPos);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Total', col3X, yPos);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('570', col4X, yPos);
-    yPos += lineHeight + 3;
-
-    // Description
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8);
-    const description2 = 'Omnis unde odit facilis temporibus numquam. Similique tempore cum reprehenderit vix aspernatur aliquam. Similique unde iste. Molestiae beatae ullam labore et culpa iusto ratione. Aliquam quibusdam sed vel dolore excepturi incidunt alias. Alias esse minima vel facere unde. Perferendis ducimus tempore illo eum iste ipsum inventore assumenda. Quisquam similique nostrum ea quod quasi. Beatae quae voluptates fugiat dignissimos at. Occaecati nisi rerum architecto ipsam excepturi reprehenderit aspernatur accusamus soluta cum volutpas non voluptatius.';
-    const descriptionLines2 = pdf.splitTextToSize(description2, rightX - col1X - 10);
-    
-    descriptionLines2.forEach(line => {
-      pdf.text(line, col1X, yPos);
-      yPos += 5;
-    });
-
-    yPos += 10;
-    drawLine(leftX, yPos, rightX);
-    yPos += 15;
+    yPos += 35;
   }
 
-  // Summary Totals Section
+  // Totals section
   yPos += 5;
+
+  yPos += 12;
+
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(FONT_SIZES.sectionHeader);
-  pdf.text('SUMMARY TOTALS', leftX, yPos);
+  drawLine(leftX, yPos+20, rightX);
+  pdf.setFontSize(FONT_SIZES.tableContent);
+
+  yPos += 30
+  
+  // Align totals to the right
+  pdf.text('Total PMV', rightX - 150, yPos );
+  pdf.text(data.totalPmv || '641900.16', rightX - 50, yPos);
   yPos += 10;
-  drawLine(leftX, yPos, rightX);
-  yPos += 15;
-
-  // Summary table with clean grid layout
-  const summaryCol1X = leftX + 80;
-  const summaryCol2X = summaryCol1X + 120;
-  const summaryLineHeight = 10;
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(10);
   
-  // Headers with black background
-  pdf.setFillColor(0, 0, 0);
-  pdf.rect(summaryCol1X - 2, yPos - 7, 122, 10, 'F');
-  pdf.rect(summaryCol2X - 2, yPos - 7, 102, 10, 'F');
+  pdf.text('Total IGST', rightX - 150, yPos);
+  pdf.text(data.totalIgst || '104958.83', rightX - 50, yPos);
+  yPos += 10;
   
-  pdf.setTextColor(255, 255, 255);
-  pdf.text('Description', summaryCol1X + 2, yPos);
-  pdf.text('Amount (INR)', summaryCol2X + 2, yPos);
-  yPos += summaryLineHeight + 2;
-
-  // Reset text color
-  pdf.setTextColor(0, 0, 0);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9);
-
-  // Total PMV row
-  pdf.text('Total PMV', summaryCol1X + 2, yPos);
-  pdf.text(data.totalPmv || '641900.16', summaryCol2X + 95, yPos, { align: 'right' });
-  yPos += summaryLineHeight;
-
-  // Total IGST row
-  pdf.text('Total IGST', summaryCol1X + 2, yPos);
-  pdf.text(data.totalIgst || '104958.83', summaryCol2X + 95, yPos, { align: 'right' });
-  yPos += summaryLineHeight;
-
-  // Total PMV (Gross) row
-  pdf.text('Total PMV (Gross)', summaryCol1X + 2, yPos);
-  pdf.text(data.totalPmvGross || '641900.16', summaryCol2X + 95, yPos, { align: 'right' });
-  yPos += summaryLineHeight;
-
-  // Total IGST (Gross) row with black background
-  pdf.setFillColor(0, 0, 0);
-  pdf.rect(summaryCol1X - 2, yPos - 7, 122, 10, 'F');
-  pdf.rect(summaryCol2X - 2, yPos - 7, 102, 10, 'F');
+  pdf.text('Total PMV (Gross)', rightX - 150, yPos);
+  pdf.text(data.totalPmvGross || '641900.16', rightX - 50, yPos);
+  yPos += 10;
   
-  pdf.setTextColor(255, 255, 255);
-  pdf.text('Total IGST (Gross)', summaryCol1X + 2, yPos);
-  pdf.text(data.totalIgstGross || '104958.83', summaryCol2X + 95, yPos, { align: 'right' });
-
-  // Reset text color for future content
-  pdf.setTextColor(0, 0, 0);
+  pdf.text('Total IGST (Gross)', rightX - 150, yPos);
+  pdf.text(data.totalIgstGross || '104958.83', rightX - 50, yPos);
 
   return yPos + 20;
 };

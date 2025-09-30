@@ -26,6 +26,7 @@ export const moduleCategories = {
   "Handover": "Export",
   "Export - Documentation": "Export",
   "Export - Esanchit": "Export",
+    "Export - Submission": "Export",
   "Screen1": "Screens",
   "Screen2": "Screens",
   "Screen3": "Screens",

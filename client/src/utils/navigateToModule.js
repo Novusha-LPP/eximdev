@@ -27,7 +27,8 @@ export const navigateToModule = (module, navigate) => {
     case "Accounts":
       return navigate("/accounts");
     case "Customer KYC":
-      return window.location.href = "http://eximcustomerkyc.s3-website.ap-south-1.amazonaws.com/customer-kyc";
+      return (window.location.href =
+        "http://eximcustomerkyc.s3-website.ap-south-1.amazonaws.com/customer-kyc");
     case "Exit Feedback":
       return navigate("/exit-feedback");
     case "e-Sanchit":
@@ -36,6 +37,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/export-directories");
     case "Export - DSR":
       return navigate("/export-dsr");
+    case "Export - Submission":
+      return navigate("/export-submission");
     case "Export - Documentation":
       return navigate("/documentation-jobs");
     case "Export - Esanchit":

@@ -632,7 +632,7 @@ const AddExJobs = () => {
                   disabled={submitLoading}
                   sx={{ minWidth: 150 }}
                 >
-                  {submitLoading ? 'Creating...' : 'Create Job'}
+                  {submitLoading ? 'Creating...' : 'Save Job'}
                 </Button>
               </Box>
             </Grid>

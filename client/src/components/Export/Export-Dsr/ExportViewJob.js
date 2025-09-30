@@ -921,7 +921,7 @@ function LogisysExportViewJob() {
         autoHideDuration={3000}
         onClose={() => setFileSnackbar(false)}
       />
-       <ExportChecklistGenerator/> 
+       <ExportChecklistGenerator jobNo={formik.values.job_no}/> 
     </>
   );
 }

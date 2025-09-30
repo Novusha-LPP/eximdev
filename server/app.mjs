@@ -182,7 +182,7 @@ import uqcs from "./routes/Directories/uqcs.js";
 import Currency from "./routes/Directories/currencies.js";
 import Packages from "./routes/Directories/packages.js";
 import SupportingDocuments from "./routes/Directories/supportingdocumentcodes.js";
-import genrateExportChecklist from "./routes/export-dsr/generateExportChecklist.mjs"
+import genrateExportChecklist from "./routes/export-dsr/generateExportChecklist.mjs";
 
 
 
@@ -191,6 +191,8 @@ import getExJobsOverview from "./routes/export-dsr/getExJobsOverview.mjs";
 import getExporterList from "./routes/export-dsr/getExporterList.mjs";
 import getExporterJobs from "./routes/export-dsr/getExporterJobs.mjs";      
 import addJobs from "./routes/export-dsr/add-exp-jobs.mjs";      
+import getExpJob from "./routes/export-dsr/getExpJob.mjs"
+
 
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
@@ -442,6 +444,7 @@ if (cluster.isPrimary) {
       app.use("/api/packages", Packages);
       app.use("/api/supportingDocumentCodes", SupportingDocuments);
       app.use(genrateExportChecklist)
+      app.use(getExpJob)
       // app.set("trust proxy", 1); // Trust first proxy (NGINX, AWS ELB, etc.)
 
 

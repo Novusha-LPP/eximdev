@@ -224,8 +224,8 @@ const drawbackDetailsSchema = new Schema(
 // Invoice Schema (multiple invoices per job)
 const invoiceSchema = new Schema(
   {
-    invoiceNumber: { type: String, required: true },
-    invoiceDate: { type: Date, required: true },
+    invoiceNumber: { type: String },
+    invoiceDate: { type: Date},
     termsOfInvoice: {
       type: String,
       enum: ["CIF", "FOB", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DDP"],
@@ -234,11 +234,10 @@ const invoiceSchema = new Schema(
     currency: {
       type: String,
       ref: "Currency",
-      required: true,
       default: "USD",
     },
-    invoiceValue: { type: Number, required: true, min: 0 },
-    productValue: { type: Number, required: true, min: 0 },
+    invoiceValue: { type: Number, min: 0 },
+    productValue: { type: Number, min: 0 },
     taxableValueForIGST: { type: Number, default: 0, min: 0 },
     priceIncludes: {
       type: String,
@@ -300,8 +299,8 @@ const paymentRequestSchema = new Schema({
 // Container Details Schema
 const containerDetailsSchema = new Schema(
   {
-    serialNumber: { type: Number, required: true },
-    containerNo: { type: String, required: true },
+    serialNumber: { type: Number },
+    containerNo: { type: String },
     sealNo: String,
     sealDate: Date,
     type: {
@@ -313,7 +312,6 @@ const containerDetailsSchema = new Schema(
         "20 Reefer",
         "40 Reefer",
       ],
-      required: true,
     },
     pkgsStuffed: { type: Number, default: 0 }, // 'Pkgs Stuffed'
     grossWeight: { type: Number, default: 0 },
@@ -426,7 +424,7 @@ const eSanchitDocumentSchema = new Schema({
 
 // Charge Schema
 const chargeSchema = new Schema({
-  chargeHead: { type: String, trim: true, required: true },
+  chargeHead: { type: String, trim: true, },
   category: { type: String, trim: true, default: "Margin" },
   costCenter: { type: String, trim: true, default: "CCL EXP" },
   remark: { type: String, trim: true },
@@ -469,8 +467,8 @@ const chargeSchema = new Schema({
 // Exchange Rates Schema
 const exchangeRateSchema = new Schema(
   {
-    currencyCode: { type: String, ref: "Currency", required: true },
-    customExchangeRate: { type: Number, required: true },
+    currencyCode: { type: String, ref: "Currency" },
+    customExchangeRate: { type: Number },
     nonStdCurrency: { type: Boolean, default: false },
 
     // Different exchange rates for different purposes
@@ -493,7 +491,7 @@ const exchangeRateSchema = new Schema(
 
 // Milestone Tracking Schema
 const milestoneSchema = new Schema({
-  milestoneName: { type: String, trim: true, required: true },
+  milestoneName: { type: String, trim: true },
   planDate: { type: String, trim: true }, // Format: dd-MMM-yyyy HH:mm
   actualDate: { type: String, trim: true }, // Format: dd-MMM-yyyy HH:mm
   isCompleted: { type: Boolean, default: false },
@@ -503,9 +501,9 @@ const milestoneSchema = new Schema({
 }, { _id: true });
 
 const vesselSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  voyageNumber: { type: String, required: true },
-  scheduleDate: { type: Date, required: true },
+  name: { type: String },
+  voyageNumber: { type: String },
+  scheduleDate: { type: Date },
   portOfLoading: String,
   portOfDischarge: String,
   carrier: String,
@@ -528,7 +526,6 @@ const bookingSchema = new mongoose.Schema(
     bookingConfirmation: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "BookingConfirmation",
-      required: false,
     },
   },
   { timestamps: true }
@@ -538,9 +535,8 @@ const bookingConfirmationSchema = new mongoose.Schema({
   booking: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Booking",
-    required: true,
   },
-  confirmationNumber: { type: String, required: true },
+  confirmationNumber: { type: String },
   confirmedAt: { type: Date, default: Date.now },
   documents: [String], // array of file URLs or paths
 });
@@ -815,7 +811,7 @@ const exportJobSchema = new mongoose.Schema(
     operation_remarks: { type: String, trim: true },
 
     ////////////////////////////////////////////////// Exporter Information
-    exporter_name: { type: String, trim: true, required: true },
+    exporter_name: { type: String, trim: true },
     exporter_address: { type: String, trim: true },
     exporter_city: { type: String, trim: true },
     exporter_state: { type: String, trim: true },
@@ -827,7 +823,7 @@ const exportJobSchema = new mongoose.Schema(
     exporter_website: { type: String, trim: true },
 
     // Regulatory Information
-    ie_code: { type: String, trim: true, required: true }, // Import Export Code
+    ie_code: { type: String, trim: true }, // Import Export Code
     exporter_pan: { type: String, trim: true },
     exporter_gstin: { type: String, trim: true },
     exporter_tan: { type: String, trim: true },
@@ -842,7 +838,7 @@ const exportJobSchema = new mongoose.Schema(
     bank_swift_code: { type: String, trim: true },
 
     ////////////////////////////////////////////////// Consignee/Importer Information
-    consignee_name: { type: String, trim: true, required: true },
+    consignee_name: { type: String, trim: true },
     consignee_address: { type: String, trim: true },
     consignee_city: { type: String, trim: true },
     consignee_state: { type: String, trim: true },
@@ -1256,7 +1252,6 @@ const exportJobSchema = new mongoose.Schema(
 
     job_no: {
       type: String,
-      required: true,
       unique: true,
       uppercase: true,
     },
@@ -1267,7 +1262,6 @@ const exportJobSchema = new mongoose.Schema(
     filingMode: {
       type: String,
       ref: "Directory", // Reference to exporter company
-      required: true,
     },
     transportMode: {
       type: String,
@@ -1277,12 +1271,10 @@ const exportJobSchema = new mongoose.Schema(
     customHouse: {
       type: String,
       ref: "EDILocation",
-      required: true,
     },
     loadingPort: {
       type: String,
       ref: "Port",
-      required: true,
     },
     sbType: {
       type: String,
@@ -1305,7 +1297,6 @@ const exportJobSchema = new mongoose.Schema(
         message: "{VALUE} is not a valid job status",
       },
       default: "Draft",
-      required: true,
       index: true,
     },
 
@@ -1565,7 +1556,7 @@ milestone_view_upload_documents: { type: String, trim: true },
 milestone_handled_by: { type: String, trim: true },
 
     // System Fields
-    createdBy: { type: String, required: true },
+    createdBy: { type: String },
     updatedBy: String,
 
     // History/Audit Trail

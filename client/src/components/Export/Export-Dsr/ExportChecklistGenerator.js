@@ -716,18 +716,20 @@ const renderPage2 = (pdf, helpers, data) => {
     'Container No', 'Size', 'Type', 'Seal No', 'Seal Type', 'Seal Date', 'Seal Device ID'
   ];
 
-  const containerRows = Array.isArray(data.containerData) ? data.containerData : [data.containerData];
+  const containerRows = Array.isArray(data.containers) ? data.containers : [data.containers];
+  console.log(data);
+console.log(data.containers);
 
   pdf.autoTable({
     head: [containerHeaders],
-    body: containerRows.map(container => [
-      container.containerNo || 'FTAU1600308',
-      container.size || '20',
-      container.type || 'GP',
-      container.sealNo || '',
-      container.sealType || 'BTSL - Bottle Seal',
-      container.sealDate || '',
-      container.sealDeviceID || ''
+    body: containerRows.map(containers => [
+      containers.containerNo || 'FTAU1600308',
+      containers.size || '20',
+      containers.type || 'GP',
+      containers.sealNo || '',
+      containers.sealType || 'BTSL - Bottle Seal',
+      containers.sealDate || '',
+      containers.sealDeviceID || ''
     ]),
     startY: yPos,
     styles: { 
@@ -936,6 +938,7 @@ const renderPage3 = (pdf, helpers, data) => {
 };
 
 // Update renderPage4 for SUPPORTING DOCUMENTS
+// Update renderPage4 for SUPPORTING DOCUMENTS
 const renderPage4 = (pdf, helpers, data) => {
   const { drawLine, leftX, rightX } = helpers;
   let yPos = 80;
@@ -948,63 +951,179 @@ const renderPage4 = (pdf, helpers, data) => {
   drawLine(leftX, yPos, rightX);
   yPos += 17;
 
-  // AutoTable for Supporting Documents
-  const supportHeaders = [
-    'Inv/Item/StNo.', 'Image Ref.No.(IRN)', 'ICEGATE ID', 'Issuing Party Name', 
-    'Beneficiary Party Name', 'Doc Issue Date', 'Doc Ref.No.', 'File Type',
-    'Issuing Party Add1', 'Beneficiary Party Add1', 'Doc Expiry Date',
-    'Doc Uploaded On', 'Place of Issue', 'Issuing Party Add2', 'Beneficiary Party Add2',
-    'Doc Type Code', 'Doc Name', 'Issuing Party Code', 'Issuing Party City', 
-    'Beneficiary Party City', 'Beneficiary Party Code', 'Issuing Party Pin Code',
-    'Beneficiary Party Pin Code'
-  ];
+  // Define column positions
+  const col1 = leftX + 5;    // First column
+  const col2 = leftX + 80;   // Second column  
+  const col3 = leftX + 180;  // Third column
+  const col4 = leftX + 280;  // Fourth column
+  const col5 = leftX + 430;  // Fifth column
 
-  const supportBody = Array.isArray(data.supportingDocs) ? data.supportingDocs : [data.supportingDocs];
+  const rowHeight = 12;
+  const headerSectionHeight = 60; // Height for header section
 
-  pdf.autoTable({
-    startY: yPos,
-    head: [supportHeaders],
-    body: supportBody.map(doc => [
-      doc.invItemSrNo || '1/0/1',
-      doc.imageRefNo || '2025092200042373',
-      doc.icegateId || 'RAJANSPPL',
-      doc.issuingPartyName || 'ANEETA PACKAGING PRIVATE LIMITED',
-      doc.beneficiaryPartyName || 'TO ORDER',
-      doc.docIssueDate || '20-Sep-2025',
-      doc.docRefNo || 'APG/EXP/25-26/03',
-      doc.fileType || 'pdf',
-      doc.issuingPartyAdd1 || '1103 - 1104, Parshwanath Business Park, Near Auda, Garden, Ahmedabad 380015',
-      doc.beneficiaryPartyAdd1 || 'UK, United Kingdom',
-      doc.docExpiryDate || '',
-      doc.docUploadedOn || '',
-      doc.placeOfIssue || '',
-      doc.issuingPartyAdd2 || '',
-      doc.beneficiaryPartyAdd2 || '',
-      doc.docTypeCode || '',
-      doc.docName || '',
-      doc.issuingPartyCode || '',
-      doc.issuingPartyCity || '',
-      doc.beneficiaryPartyCity || '',
-      doc.beneficiaryPartyCode || '',
-      doc.issuingPartyPinCode || '',
-      doc.beneficiaryPartyPinCode || ''
-    ]),
-    styles: { 
-      fontSize: FONT_SIZES.tableContent - 1, 
-      cellPadding: 1,
-      overflow: 'linebreak'
-    },
-    headStyles: { 
-      fillColor: [220, 220, 220], 
-      textColor: 0, 
-      fontStyle: 'bold',
-      fontSize: FONT_SIZES.tableHeader - 1
-    },
-    margin: { left: leftX },
-    tableWidth: rightX - leftX
-  });
+  // HEADERS SECTION - All headers in one section
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(FONT_SIZES.tableHeader);
+  let headerY = yPos;
+  
+  // Column 1 Headers
+  pdf.text('Inv/Item/SrNo.', col1, headerY);
+  headerY += rowHeight;
+  pdf.text('Doc Issue Date', col1, headerY);
+  headerY += rowHeight;
+  pdf.text('Doc Expiry Date', col1, headerY);
+  headerY += rowHeight;
+  pdf.text('Doc Type Code', col1, headerY);
 
-  yPos = pdf.lastAutoTable.finalY + 25;
+  // Column 2 Headers
+  headerY = yPos;
+  pdf.text('Image Ref.No.(IRN)', col2, headerY);
+  headerY += rowHeight;
+  pdf.text('Doc Ref.No.', col2, headerY);
+  headerY += rowHeight;
+  pdf.text('Doc Uploaded On', col2, headerY);
+  headerY += rowHeight;
+  pdf.text('Doc Name', col2, headerY);
+
+  // Column 3 Headers
+  headerY = yPos;
+  pdf.text('ICEGATE ID', col3, headerY);
+  headerY += rowHeight;
+  pdf.text('File Type', col3, headerY);
+  headerY += rowHeight;
+  pdf.text('Place of Issue', col3, headerY);
+  headerY += rowHeight;
+  pdf.text('Issuing Party Code', col3, headerY);
+  headerY += rowHeight;
+  pdf.text('Beneficiary Party Code', col3, headerY);
+
+  // Column 4 Headers
+  headerY = yPos;
+  pdf.text('Issuing Party Name', col4, headerY);
+  headerY += rowHeight;
+  pdf.text('Issuing Party Add1', col4, headerY);
+  headerY += rowHeight;
+  pdf.text('Issuing Party Add2', col4, headerY);
+  headerY += rowHeight;
+  pdf.text('Issuing Party City', col4, headerY);
+  headerY += rowHeight;
+  pdf.text('Issuing Party Pin Code', col4, headerY);
+
+  // Column 5 Headers
+  headerY = yPos;
+  pdf.text('Beneficiary Party Name', col5, headerY);
+  headerY += rowHeight;
+  pdf.text('Beneficiary Party Add1', col5, headerY);
+  headerY += rowHeight;
+  pdf.text('Beneficiary Party Add2', col5, headerY);
+  headerY += rowHeight;
+  pdf.text('Beneficiary Party City', col5, headerY);
+  headerY += rowHeight;
+  pdf.text('Beneficiary Party Pin Code', col5, headerY);
+
+  // Draw line at the end of header section
+  yPos += headerSectionHeight;
+  drawLine(leftX, yPos, rightX);
+  yPos += 8;
+
+  // VALUES SECTION - All values below the header line
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(FONT_SIZES.tableContent);
+  let valueY = yPos;
+
+  // Column 1 Values
+  pdf.text(data.supportingDocs?.invItemSrNo || '1/0/1', col1, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.docIssueDate || '20-Sep-2025', col1, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.docExpiryDate || '', col1, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.docTypeCode || '', col1, valueY);
+
+  // Column 2 Values
+  valueY = yPos;
+  pdf.text(data.supportingDocs?.imageRefNo || '2025092200042373', col2, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.docRefNo || 'APG/EXP/25-26/03', col2, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.docUploadedOn || '', col2, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.docName || '', col2, valueY);
+
+  // Column 3 Values
+  valueY = yPos;
+  pdf.text(data.supportingDocs?.icegateId || 'RAJANSPPL', col3, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.fileType || 'pdf', col3, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.placeOfIssue || '', col3, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.issuingPartyCode || '', col3, valueY);
+  valueY += rowHeight;
+  pdf.text(data.supportingDocs?.beneficiaryPartyCode || '', col3, valueY);
+
+  // Column 4 Values (Issuing Party) - with text wrapping
+  valueY = yPos;
+  
+  // Issuing Party Name
+  const issuingPartyName = data.supportingDocs?.issuingPartyName || 'AMETA PACKAGING PRIVATE LIMITED';
+  const issuingNameLines = pdf.splitTextToSize(issuingPartyName, 140);
+  pdf.text(issuingNameLines, col4, valueY);
+  valueY += (issuingNameLines.length * 10);
+  
+  // Issuing Party Add1
+  const issuingAdd1 = data.supportingDocs?.issuingPartyAdd1 || '1103 - 1104, Parshwanath Business Park, Near Auda, Garden,';
+  const add1Lines = pdf.splitTextToSize(issuingAdd1, 140);
+  pdf.text(add1Lines, col4, valueY);
+  valueY += (add1Lines.length * 10);
+  
+  // Issuing Party Add2
+  const issuingAdd2 = data.supportingDocs?.issuingPartyAdd2 || 'Ahmedabad';
+  const add2Lines = pdf.splitTextToSize(issuingAdd2, 140);
+  pdf.text(add2Lines, col4, valueY);
+  valueY += (add2Lines.length * 10);
+  
+  // Issuing Party City
+  pdf.text(data.supportingDocs?.issuingPartyCity || 'Ahmedabad', col4, valueY);
+  valueY += rowHeight;
+  
+  // Issuing Party Pin Code
+  pdf.text(data.supportingDocs?.issuingPartyPinCode || '380015', col4, valueY);
+
+  // Column 5 Values (Beneficiary Party) - with text wrapping
+  valueY = yPos;
+  
+  // Beneficiary Party Name
+  const beneficiaryName = data.supportingDocs?.beneficiaryPartyName || 'TO ORDER';
+  pdf.text(beneficiaryName, col5, valueY);
+  valueY += rowHeight;
+  
+  // Beneficiary Party Add1
+  const beneficiaryAdd1 = data.supportingDocs?.beneficiaryPartyAdd1 || 'UK, United Kingdom';
+  const beneficiaryAdd1Lines = pdf.splitTextToSize(beneficiaryAdd1, 140);
+  pdf.text(beneficiaryAdd1Lines, col5, valueY);
+  valueY += (beneficiaryAdd1Lines.length * 10);
+  
+  // Beneficiary Party Add2
+  pdf.text(data.supportingDocs?.beneficiaryPartyAdd2 || '', col5, valueY);
+  valueY += rowHeight;
+  
+  // Beneficiary Party City
+  pdf.text(data.supportingDocs?.beneficiaryPartyCity || '', col5, valueY);
+  valueY += rowHeight;
+  
+  // Beneficiary Party Pin Code
+  pdf.text(data.supportingDocs?.beneficiaryPartyPinCode || '', col5, valueY);
+
+  // Calculate final Y position after the values section
+  const maxValueHeight = Math.max(
+    yPos + (4 * rowHeight), // Column 1 & 2 height
+    yPos + (5 * rowHeight), // Column 3 height
+    yPos + (issuingNameLines.length * 10) + (add1Lines.length * 10) + (add2Lines.length * 10) + (2 * rowHeight), // Column 4 height
+    yPos + rowHeight + (beneficiaryAdd1Lines.length * 10) + (3 * rowHeight) // Column 5 height
+  );
+  
+  yPos = maxValueHeight + 15;
 
   // FINAL DECLARATION
   pdf.setFont('helvetica', 'bold');
@@ -1030,7 +1149,6 @@ const renderPage4 = (pdf, helpers, data) => {
 
   return yPos;
 };
-
   // ==================== MAIN GENERATOR ====================
   const generateExportChecklist = async () => {
     try {
@@ -1156,7 +1274,7 @@ totalPmvGross: exportJob.totalPmvGross || "641900.16",
 totalIgstGross: exportJob.totalIgstGross || "104958.83",
         
         // DBK Details
-        dbkData: exportJob.dbkData || [
+        dbkData: exportJob.drawbackDetails || [
           {
             invNo: "1",
             itemNo: "1", 
@@ -1176,17 +1294,7 @@ totalIgstGross: exportJob.totalIgstGross || "104958.83",
         sampleAcc: exportJob.sampleAcc || "No",
         vesselName: exportJob.vesselName || "FTAU1600308",
         voyageNumber: exportJob.voyageNumber || "",
-        containerData: exportJob.containerData || [
-          {
-            containerNo: "FTAU1600308",
-            size: "20",
-            type: "GP",
-            sealNo: "",
-            sealType: "BTSL - Bottle Seal",
-            sealDate: "",
-            sealDeviceID: ""
-          }
-        ],
+        containers: exportJob.containers,
         
         // Additional Details
         invItemSln: exportJob.invItemSln || "1/1",
@@ -1304,6 +1412,10 @@ Signature of Exporter/CHA with date`
     pdf.addPage();
     helpers.addHeader(4, 4, data.customStation, data.aeoRegistrationNo, data.aeoRole, currentDate);
     renderPage3(pdf, helpers, data);
+
+    pdf.addPage();
+    helpers.addHeader(4, 4, data.customStation, data.aeoRegistrationNo, data.aeoRole, currentDate);
+    renderPage4(pdf, helpers, data);
 
       // Generate filename and display
       const filename = `Export-CheckList-${data.jobNumber.replace(/\//g, '-')}-${currentDate.replace(/ /g, '-')}.pdf`;

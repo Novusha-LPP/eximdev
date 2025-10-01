@@ -464,27 +464,27 @@ function useExportJobDetails(params, setFileSnackbar) {
             modvatReversed: { type: Boolean, default: false },
           },
           otherDetails: {
-  accessories: "",
-  accessoriesRemarks: "",
-  isThirdPartyExport: false,
-  thirdParty: {
-    name: "",
-    ieCode: "",
-    branchSrNo: "",
-    regnNo: "",
-    address: ""
-  },
-  manufacturer: {
-    name: "",
-    code: "",
-    address: "",
-    country: "",
-    stateProvince: "",
-    postalCode: "",
-    sourceState: "",
-    transitCountry: ""
-  }
-},
+            accessories: "",
+            accessoriesRemarks: "",
+            isThirdPartyExport: false,
+            thirdParty: {
+              name: "",
+              ieCode: "",
+              branchSrNo: "",
+              regnNo: "",
+              address: "",
+            },
+            manufacturer: {
+              name: "",
+              code: "",
+              address: "",
+              country: "",
+              stateProvince: "",
+              postalCode: "",
+              sourceState: "",
+              transitCountry: "",
+            },
+          },
         },
       ],
 
@@ -642,189 +642,186 @@ function useExportJobDetails(params, setFileSnackbar) {
     },
 
     // Add to initialValues:
-eSanchitDocuments: [
-  {
-    documentLevel: "",
-    invSerialNo: "",
-    itemSerialNo: "",
-    irn: "",
-    documentType: "",
-    documentReferenceNo: "",
-    otherIcegateId: "",
-    icegateFilename: "",
-    dateOfIssue: "",
-    placeOfIssue: "",
-    expiryDate: "",
-    dateTimeOfUpload: "",
-    issuingParty: {
-      name: "",
-      code: "",
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      pinCode: "",
-    },
-    beneficiaryParty: {
-      name: "",
-      addressLine1: "",
-      city: "",
-      pinCode: ""
-    }
-  }
-],
+    eSanchitDocuments: [
+      {
+        documentLevel: "",
+        invSerialNo: "",
+        itemSerialNo: "",
+        irn: "",
+        documentType: "",
+        documentReferenceNo: "",
+        otherIcegateId: "",
+        icegateFilename: "",
+        dateOfIssue: "",
+        placeOfIssue: "",
+        expiryDate: "",
+        dateTimeOfUpload: "",
+        issuingParty: {
+          name: "",
+          code: "",
+          addressLine1: "",
+          addressLine2: "",
+          city: "",
+          pinCode: "",
+        },
+        beneficiaryParty: {
+          name: "",
+          addressLine1: "",
+          city: "",
+          pinCode: "",
+        },
+      },
+    ],
 
-ar_invoices: [
-  {
-    date: "16-Sep-2025",
-    bill_no: "GEA/123/25-26",
-    type: "INV",
-    organization: "LAXCON STEELS LTD - EX..",
-    currency: "INR",
-    amount: 2065.00,
-    balance: ""
-  },
-  {
-    date: "16-Sep-2025",
-    bill_no: "GE6/123/25-26",
-    type: "INV",
-    organization: "LAXCON STEELS LTD - EX..",
-    currency: "INR",
-    amount: 1.00,
-    balance: ""
-  }
-],
-total_ar_amount: "",
-outstanding_balance: "",
-ar_default_currency: "INR",
-ar_payment_terms_days: "30",
-ar_last_updated: "",
-ar_notes: "",
+    ar_invoices: [
+      {
+        date: "16-Sep-2025",
+        bill_no: "GEA/123/25-26",
+        type: "INV",
+        organization: "LAXCON STEELS LTD - EX..",
+        currency: "INR",
+        amount: 2065.0,
+        balance: "",
+      },
+      {
+        date: "16-Sep-2025",
+        bill_no: "GE6/123/25-26",
+        type: "INV",
+        organization: "LAXCON STEELS LTD - EX..",
+        currency: "INR",
+        amount: 1.0,
+        balance: "",
+      },
+    ],
+    total_ar_amount: "",
+    outstanding_balance: "",
+    ar_default_currency: "INR",
+    ar_payment_terms_days: "30",
+    ar_last_updated: "",
+    ar_notes: "",
 
-// AP Invoices fields
-ap_invoices: [],
-total_ap_amount: 0,
-ap_outstanding_balance: 0,
-ap_default_currency: "INR",
-ap_payment_terms_days: 30,
-ap_last_updated: "",
-ap_notes: "",
+    // AP Invoices fields
+    ap_invoices: [],
+    total_ap_amount: 0,
+    ap_outstanding_balance: 0,
+    ap_default_currency: "INR",
+    ap_payment_terms_days: 30,
+    ap_last_updated: "",
+    ap_notes: "",
 
-// Add to initialValues:
-payment_requests: [],
+    // Add to initialValues:
+    payment_requests: [],
 
-// Add to initialValues:
-job_tracking_completed: "",
-customer_remark: "Ready for Billing",
-workflow_location: "All Locations", 
-shipment_type: "International",
-milestones: [
-  {
-    milestoneName: "SB Filed",
-    planDate: "dd-MMM-yyyy HH:mm",
-    actualDate: "15-Sep-2025 15:45",
-    isCompleted: true,
-    isMandatory: true,
-    completedBy: "",
-    remarks: ""
-  },
-  {
-    milestoneName: "SB Receipt",
-    planDate: "dd-MMM-yyyy HH:mm", 
-    actualDate: "15-Sep-2025 15:51",
-    isCompleted: true,
-    isMandatory: true,
-    completedBy: "",
-    remarks: ""
-  },
-  {
-    milestoneName: "L.E.O",
-    planDate: "dd-MMM-yyyy HH:mm",
-    actualDate: "15-Sep-2025 18:15", 
-    isCompleted: true,
-    isMandatory: true,
-    completedBy: "",
-    remarks: ""
-  },
-  {
-    milestoneName: "Container HO to Concor",
-    planDate: "dd-MMM-yyyy HH:mm",
-    actualDate: "16-Sep-2025 13:47",
-    isCompleted: true,
-    isMandatory: true,
-    completedBy: "",
-    remarks: ""
-  },
-  {
-    milestoneName: "Rail Out",
-    planDate: "dd-MMM-yyyy HH:mm",
-    actualDate: "dd-mmm-yyyy hh:mm",
-    isCompleted: false,
-    isMandatory: false,
-    completedBy: "",
-    remarks: ""
-  },
-  {
-    milestoneName: "Ready for Billing",
-    planDate: "dd-MMM-yyyy HH:mm",
-    actualDate: "16-Sep-2025 13:47",
-    isCompleted: true,
-    isMandatory: true,
-    completedBy: "",
-    remarks: ""
-  },
-  {
-    milestoneName: "Billing Done",
-    planDate: "dd-MMM-yyyy HH:mm",
-    actualDate: "dd-mmm-yyyy hh:mm",
-    isCompleted: false,
-    isMandatory: false,
-    completedBy: "",
-    remarks: ""
-  }
-],
-milestone_remarks: "",
-milestone_view_upload_documents: "",
-milestone_handled_by: "",
-// Add to initialValues:
-charges: [
-  {
-    chargeHead: "EDI CHARGES",
-    category: "Margin",
-    costCenter: "CCL EXP",
-    remark: "",
-    revenue: {
-      basis: "Per S/B",
-      qtyUnit: 1.00,
-      rate: 1.00,
-      amount: 1.00,
-      amountINR: 1.00,
-      curr: "INR",
-      ovrd: false,
-      paid: false
-    },
-    cost: {
-      basis: "Per S/B",
-      qtyUnit: 0,
-      rate: 0,
-      amount: 0,
-      amountINR: 0,
-      curr: "INR",
-      ovrd: false,
-      paid: false
-    },
-    chargeDescription: "",
-    overrideAutoRate: false,
-    receivableType: "Customer",
-    receivableFrom: "LAXCON STEELS LTD - EXPORT",
-    receivableFromBranchCode: "0",
-    copyToCost: false,
-    quotationNo: ""
-  }
-],
+    // Add to initialValues:
+    job_tracking_completed: "",
+    customer_remark: "Ready for Billing",
+    workflow_location: "All Locations",
+    shipment_type: "International",
+    milestones: [
+      {
+        milestoneName: "SB Filed",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "15-Sep-2025 15:45",
+        isCompleted: true,
+        isMandatory: true,
+        completedBy: "",
+        remarks: "",
+      },
+      {
+        milestoneName: "SB Receipt",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "15-Sep-2025 15:51",
+        isCompleted: true,
+        isMandatory: true,
+        completedBy: "",
+        remarks: "",
+      },
+      {
+        milestoneName: "L.E.O",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "15-Sep-2025 18:15",
+        isCompleted: true,
+        isMandatory: true,
+        completedBy: "",
+        remarks: "",
+      },
+      {
+        milestoneName: "Container HO to Concor",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "16-Sep-2025 13:47",
+        isCompleted: true,
+        isMandatory: true,
+        completedBy: "",
+        remarks: "",
+      },
+      {
+        milestoneName: "Rail Out",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "dd-mmm-yyyy hh:mm",
+        isCompleted: false,
+        isMandatory: false,
+        completedBy: "",
+        remarks: "",
+      },
+      {
+        milestoneName: "Ready for Billing",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "16-Sep-2025 13:47",
+        isCompleted: true,
+        isMandatory: true,
+        completedBy: "",
+        remarks: "",
+      },
+      {
+        milestoneName: "Billing Done",
+        planDate: "dd-MMM-yyyy HH:mm",
+        actualDate: "dd-mmm-yyyy hh:mm",
+        isCompleted: false,
+        isMandatory: false,
+        completedBy: "",
+        remarks: "",
+      },
+    ],
+    milestone_remarks: "",
+    milestone_view_upload_documents: "",
+    milestone_handled_by: "",
+    // Add to initialValues:
+    charges: [
+      {
+        chargeHead: "EDI CHARGES",
+        category: "Margin",
+        costCenter: "CCL EXP",
+        remark: "",
+        revenue: {
+          basis: "Per S/B",
+          qtyUnit: 1.0,
+          rate: 1.0,
+          amount: 1.0,
+          amountINR: 1.0,
+          curr: "INR",
+          ovrd: false,
+          paid: false,
+        },
+        cost: {
+          basis: "Per S/B",
+          qtyUnit: 0,
+          rate: 0,
+          amount: 0,
+          amountINR: 0,
+          curr: "INR",
+          ovrd: false,
+          paid: false,
+        },
+        chargeDescription: "",
+        overrideAutoRate: false,
+        receivableType: "Customer",
+        receivableFrom: "LAXCON STEELS LTD - EXPORT",
+        receivableFromBranchCode: "0",
+        copyToCost: false,
+        quotationNo: "",
+      },
+    ],
 
-
-
-    
     enableReinitialize: true,
     onSubmit: async (values) => {
       try {
@@ -1139,6 +1136,7 @@ charges: [
         documents: safeValue(data.documents, {}),
         drawbackDetails: safeValue(data.drawbackDetails, []),
         cessExpDuty: safeValue(data.cessExpDuty, {}),
+        areDetails: safeValue(data.areDetails, []),
 
         // Other fields
         remarks: safeValue(data.remarks),
@@ -1192,69 +1190,68 @@ charges: [
         annex_additional_notes: safeValue(data.annex_additional_notes),
         annex_c1_documents: safeValue(data.annex_c1_documents, []),
 
-// Add these to your formik.setValues mapping:
-exchange_rates: safeValue(data.exchange_rates, [
-  {
-    code: "INR",
-    custom_exch_rate: "1.000000",
-    non_std_cur: "",
-    ex_rate: "1.000000",
-    ex_rate_revenue: "1.000000",
-    agent_ex_rate: "0.000000",
-    cfx: "0.000000",
-    ex_rate_cost: "0.000000",
-    ex_rate_cost_revenue: "1.000000"
-  },
-  {
-    code: "USD",
-    custom_exch_rate: "87.300000",
-    non_std_cur: "",
-    ex_rate: "90.000000",
-    ex_rate_revenue: "90.000000",
-    agent_ex_rate: "0.000000",
-    cfx: "0.000000",
-    ex_rate_cost: "0.000000",
-    ex_rate_cost_revenue: "90.000000"
-  }
-]),
-last_rate_update_date: safeValue(data.last_rate_update_date),
-default_currency: safeValue(data.default_currency),
-auto_update_interval: safeValue(data.auto_update_interval),
-rate_source: safeValue(data.rate_source),
-rate_remarks: safeValue(data.rate_remarks),
-ar_invoices: safeValue(data.ar_invoices, []),
-total_ar_amount: safeValue(data.total_ar_amount, ),
-outstanding_balance: safeValue(data.outstanding_balance ),
-ar_default_currency: safeValue(data.ar_default_currency ),
-ar_payment_terms_days: safeValue(data.ar_payment_terms_days),
-ar_last_updated: safeValue(data.ar_last_updated),
-ar_notes: safeValue(data.ar_notes),
+        // Add these to your formik.setValues mapping:
+        exchange_rates: safeValue(data.exchange_rates, [
+          {
+            code: "INR",
+            custom_exch_rate: "1.000000",
+            non_std_cur: "",
+            ex_rate: "1.000000",
+            ex_rate_revenue: "1.000000",
+            agent_ex_rate: "0.000000",
+            cfx: "0.000000",
+            ex_rate_cost: "0.000000",
+            ex_rate_cost_revenue: "1.000000",
+          },
+          {
+            code: "USD",
+            custom_exch_rate: "87.300000",
+            non_std_cur: "",
+            ex_rate: "90.000000",
+            ex_rate_revenue: "90.000000",
+            agent_ex_rate: "0.000000",
+            cfx: "0.000000",
+            ex_rate_cost: "0.000000",
+            ex_rate_cost_revenue: "90.000000",
+          },
+        ]),
+        last_rate_update_date: safeValue(data.last_rate_update_date),
+        default_currency: safeValue(data.default_currency),
+        auto_update_interval: safeValue(data.auto_update_interval),
+        rate_source: safeValue(data.rate_source),
+        rate_remarks: safeValue(data.rate_remarks),
+        ar_invoices: safeValue(data.ar_invoices, []),
+        total_ar_amount: safeValue(data.total_ar_amount),
+        outstanding_balance: safeValue(data.outstanding_balance),
+        ar_default_currency: safeValue(data.ar_default_currency),
+        ar_payment_terms_days: safeValue(data.ar_payment_terms_days),
+        ar_last_updated: safeValue(data.ar_last_updated),
+        ar_notes: safeValue(data.ar_notes),
 
-// AP Invoices - Map from API response
-ap_invoices: safeValue(data.ap_invoices, []),
-total_ap_amount: safeValue(data.total_ap_amount, 0),
-ap_outstanding_balance: safeValue(data.ap_outstanding_balance, 0),
-ap_default_currency: safeValue(data.ap_default_currency, "INR"),
-ap_payment_terms_days: safeValue(data.ap_payment_terms_days, 30),
-ap_last_updated: safeValue(data.ap_last_updated),
-ap_notes: safeValue(data.ap_notes),
+        // AP Invoices - Map from API response
+        ap_invoices: safeValue(data.ap_invoices, []),
+        total_ap_amount: safeValue(data.total_ap_amount, 0),
+        ap_outstanding_balance: safeValue(data.ap_outstanding_balance, 0),
+        ap_default_currency: safeValue(data.ap_default_currency, "INR"),
+        ap_payment_terms_days: safeValue(data.ap_payment_terms_days, 30),
+        ap_last_updated: safeValue(data.ap_last_updated),
+        ap_notes: safeValue(data.ap_notes),
 
-payment_requests: safeValue(data.payment_requests, []),
+        payment_requests: safeValue(data.payment_requests, []),
 
-job_tracking_completed: safeValue(data.job_tracking_completed),
-customer_remark: safeValue(data.customer_remark, "Ready for Billing"),
-workflow_location: safeValue(data.workflow_location, "All Locations"),
-shipment_type: safeValue(data.shipment_type, "International"),
-milestones: safeValue(data.milestones, []),
-milestone_remarks: safeValue(data.milestone_remarks),
-milestone_view_upload_documents: safeValue(data.milestone_view_upload_documents),
-milestone_handled_by: safeValue(data.milestone_handled_by),
-charges: safeValue(data.charges, []),
-
-
+        job_tracking_completed: safeValue(data.job_tracking_completed),
+        customer_remark: safeValue(data.customer_remark, "Ready for Billing"),
+        workflow_location: safeValue(data.workflow_location, "All Locations"),
+        shipment_type: safeValue(data.shipment_type, "International"),
+        milestones: safeValue(data.milestones, []),
+        milestone_remarks: safeValue(data.milestone_remarks),
+        milestone_view_upload_documents: safeValue(
+          data.milestone_view_upload_documents
+        ),
+        milestone_handled_by: safeValue(data.milestone_handled_by),
+        charges: safeValue(data.charges, []),
 
         eSanchitDocuments: safeValue(data.eSanchitDocuments, []),
-
 
         // Add these Financial AR Invoices fields to your hook initialValues:
         ar_invoices: [

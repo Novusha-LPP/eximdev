@@ -436,9 +436,9 @@ const LogisysEditableHeader = ({ formik, onUpdate, directories }) => {
             {isEditing ? (
               <FormControl size="small" fullWidth>
                 <Select
-                  value={formik.values.transport_mode}
+                  value={formik.values.transportMode}
                   onChange={handleFieldChange}
-                  name="transport_mode"
+                  name="transportMode"
                   sx={{
                     "& .MuiSelect-select": {
                       fontSize: "0.875rem",
@@ -453,7 +453,7 @@ const LogisysEditableHeader = ({ formik, onUpdate, directories }) => {
               </FormControl>
             ) : (
               <Typography variant="body2">
-                {formik.values.transport_mode || "Sea"}
+                {formik.values.transportMode || "Sea"}
               </Typography>
             )}
           </Grid>
@@ -898,8 +898,6 @@ function LogisysExportViewJob() {
           <TrackingCompletedTab formik={formik} />
         </TabPanel>
 
-        
-
         {/* Action Buttons */}
         <Box sx={{ p: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}>
           <Button
@@ -921,7 +919,7 @@ function LogisysExportViewJob() {
         autoHideDuration={3000}
         onClose={() => setFileSnackbar(false)}
       />
-       <ExportChecklistGenerator jobNo={formik.values.job_no}/> 
+      <ExportChecklistGenerator jobNo={formik.values.job_no} />
     </>
   );
 }

@@ -12,9 +12,6 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  Card,
-  CardContent,
-  CardHeader,
   Chip,
   Table,
   TableBody,
@@ -31,8 +28,8 @@ import {
   Select,
   MenuItem,
   Toolbar,
+  Avatar,
   Divider,
-  Avatar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -53,64 +50,172 @@ import DirectoryService from '../Directories/DirectoryService';
 // Professional Logistics Theme
 const logisticsTheme = createTheme({
   palette: {
-    primary: {
-      main: '#2c5aa0',
-      light: '#5a7bc4',
-      dark: '#1e3a6f',
-    },
-    secondary: {
-      main: '#ff6b35',
-      light: '#ff8a65',
-      dark: '#e64a19',
-    },
-    background: {
-      default: '#f5f7fa',
-      paper: '#ffffff',
-    },
-    text: {
-      primary: '#2c3e50',
-      secondary: '#546e7a',
-    },
+    primary: { main: '#2c5aa0', light: '#5a7bc4', dark: '#1e3a6f' },
+    secondary: { main: '#ff6b35', light: '#ff8a65', dark: '#e64a19' },
+    background: { default: '#f5f7fa', paper: '#ffffff' },
+    text: { primary: '#2c3e50', secondary: '#546e7a' },
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-      color: '#2c3e50',
-    },
-    h6: {
-      fontWeight: 500,
-      color: '#34495e',
-    },
+    h4: { fontWeight: 600, color: '#2c3e50' },
+    h6: { fontWeight: 500, color: '#34495e' },
   },
   components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          borderRadius: 8,
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        contained: {
-          borderRadius: 6,
-          textTransform: 'none',
-          fontWeight: 500,
-        },
-      },
-    },
-    MuiTableHead: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#f8fafc',
-        },
-      },
-    },
+    MuiCard: { styleOverrides: { root: { boxShadow: '0 2px 8px rgba(0,0,0,0.08)', borderRadius: 8 } } },
+    MuiButton: { styleOverrides: { contained: { borderRadius: 6, textTransform: 'none', fontWeight: 500 } } },
+    MuiTableHead: { styleOverrides: { root: { backgroundColor: '#f8fafc' } } },
   },
 });
 
+// Directory Listing Table Columns (Compact, dense structure)
+const TABLE_COLUMNS = [
+  { key: 'organization', label: 'Organization', minWidth: 170 },
+  { key: 'alias', label: 'Alias', minWidth: 100 },
+  { key: 'approvalStatus', label: 'Status', minWidth: 80 },
+  { key: 'entityType', label: 'Entity Type', minWidth: 120 },
+  { key: 'ieCode', label: 'IE Code', minWidth: 120 },
+  { key: 'location', label: 'Location', minWidth: 120 },
+  { key: 'createdAt', label: 'Created', minWidth: 100 },
+  { key: 'actions', label: 'Actions', minWidth: 100, align: 'center' },
+];
+
+// Helper - Color for Approval Status
+const getStatusColor = (status) => ({
+  'Approved': 'success',
+  'Rejected': 'error',
+  'Pending': 'warning',
+}[status] || 'info');
+
+// Helper - Entity Type Icon
+const getEntityIcon = (entityType) => {
+  switch (entityType) {
+    case 'Company': return <BusinessIcon sx={{ color: '#2c5aa0', fontSize: 20, mr: .5 }} />;
+    case 'Partnership': return <AssignmentIcon sx={{ color: '#ff6b35', fontSize: 20, mr: .5 }} />;
+    default: return <DocumentIcon sx={{ color: '#5a7bc4', fontSize: 20, mr: .5 }} />;
+  }
+};
+
+// Directory Detail View (Dialog)
+const DirectoryDetailView = ({ directory }) => (
+  <Box sx={{ p: 2 }}>
+    <Grid container spacing={3}>
+      {/* Header Card */}
+      <Grid item xs={12}>
+        <Paper sx={{ bgcolor: 'linear-gradient(135deg, #2c5aa0 0%, #1e3a6f 100%)', color: 'white', p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
+              <BusinessIcon fontSize="large" />
+            </Avatar>
+            <Box>
+              <Typography variant="h5">{directory.organization}</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                {directory.alias} • {directory.generalInfo?.entityType || '-'}
+              </Typography>
+              <Chip
+                label={directory.approvalStatus}
+                sx={{
+                  mt: 1,
+                  bgcolor: directory.approvalStatus === 'Approved'
+                    ? 'rgba(76, 175, 80, 0.16)'
+                    : 'rgba(255, 193, 7, 0.17)',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.35)'
+                }}
+              />
+            </Box>
+          </Box>
+        </Paper>
+      </Grid>
+
+      {/* Quick Stats */}
+      <Grid item xs={12}>
+        <Grid container spacing={2}>
+          <Grid item xs={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <DocumentIcon color="primary" sx={{ fontSize: 32, mb: .5 }} />
+              <Typography variant="h6">{directory.registrationDetails?.ieCode || 'N/A'}</Typography>
+              <Typography variant="caption" color="textSecondary">IE Code</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <BankIcon color="primary" sx={{ fontSize: 32, mb: .5 }} />
+              <Typography variant="h6">{directory.bankDetails?.length || 0}</Typography>
+              <Typography variant="caption" color="textSecondary">Bank Accounts</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <LocationIcon color="primary" sx={{ fontSize: 32, mb: .5 }} />
+              <Typography variant="h6">{directory.branchInfo?.length || 0}</Typography>
+              <Typography variant="caption" color="textSecondary">Branches</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <AssignmentIcon color="primary" sx={{ fontSize: 32, mb: .5 }} />
+              <Typography variant="h6">{directory.registrationDetails?.panNo || 'N/A'}</Typography>
+              <Typography variant="caption" color="textSecondary">PAN Number</Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Grid>
+
+      {/* Detailed - Company Info */}
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2 }}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="h6" color="primary">Company Information</Typography>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="body2"><strong>Company Name:</strong> {directory.generalInfo?.companyName}</Typography>
+            <Typography variant="body2"><strong>Entity Type:</strong> {directory.generalInfo?.entityType}</Typography>
+            <Typography variant="body2"><strong>MSME Registered:</strong> {directory.generalInfo?.msmeRegistered ? 'Yes' : 'No'}</Typography>
+            <Typography variant="body2"><strong>BIN No:</strong> {directory.registrationDetails?.binNo || '-'}</Typography>
+            <Typography variant="body2"><strong>GSTIN:</strong> {directory.registrationDetails?.gstinMainBranch || '-'}</Typography>
+          </Box>
+        </Paper>
+      </Grid>
+      {/* Detailed - Contact Info */}
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2 }}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="h6" color="primary">Contact Information</Typography>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="body2"><strong>Address:</strong> {directory.address?.addressLine || '-'}</Typography>
+            <Typography variant="body2"><strong>City:</strong> {directory.address?.city || '-'}</Typography>
+            <Typography variant="body2"><strong>Postal Code:</strong> {directory.address?.postalCode || '-'}</Typography>
+            <Typography variant="body2"><strong>Phone:</strong> {directory.address?.telephone || '-'}</Typography>
+            <Typography variant="body2"><strong>Email:</strong> {directory.address?.email || '-'}</Typography>
+          </Box>
+        </Paper>
+      </Grid>
+      {/* Detailed - Bank Info */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" color="primary" sx={{ mb: 1 }}>Banking Information</Typography>
+          {directory.bankDetails?.map((bank, idx) => (
+            <Box key={idx} sx={{ mb: 2 }}>
+              <Divider sx={{ mb: 1 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={4}>
+                  <Typography variant="body2"><strong>Bank:</strong> {bank.entityName}</Typography>
+                  <Typography variant="body2"><strong>Branch:</strong> {bank.branchLocation}</Typography>
+                </Grid>
+                <Grid item xs={8}>
+                  <Typography variant="body2"><strong>Account:</strong> {bank.accountNumber}</Typography>
+                  <Typography variant="body2"><strong>AD Code:</strong> {bank.adCode}</Typography>
+                  {bank.isDefault && <Chip label="Default" color="primary" size="small" sx={{ mt: 1 }} />}
+                </Grid>
+              </Grid>
+            </Box>
+          ))}
+        </Paper>
+      </Grid>
+    </Grid>
+  </Box>
+);
+
+// Main Component
 const ExportDirectory = () => {
   const [directories, setDirectories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -118,34 +223,26 @@ const ExportDirectory = () => {
   const [selectedDirectory, setSelectedDirectory] = useState(null);
   const [viewMode, setViewMode] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
-  // Pagination and filtering states
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [filteredDirectories, setFilteredDirectories] = useState([]);
 
-  useEffect(() => {
-    fetchDirectories();
-  }, []);
-
+  useEffect(() => { fetchDirectories(); }, []);
   useEffect(() => {
     let filtered = directories;
-    
     if (searchTerm) {
-      filtered = filtered.filter(dir => 
+      filtered = filtered.filter(dir =>
         dir.organization?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         dir.alias?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         dir.registrationDetails?.ieCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         dir.generalInfo?.companyName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
     if (statusFilter) {
       filtered = filtered.filter(dir => dir.approvalStatus === statusFilter);
     }
-    
     setFilteredDirectories(filtered);
     setPage(0);
   }, [directories, searchTerm, statusFilter]);
@@ -165,34 +262,26 @@ const ExportDirectory = () => {
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
+  const handleChangePage = (event, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
-
   const handleAdd = () => {
     setSelectedDirectory(null);
     setViewMode(false);
     setOpenDialog(true);
   };
-
   const handleEdit = (directory) => {
     setSelectedDirectory(directory);
     setViewMode(false);
     setOpenDialog(true);
   };
-
   const handleView = (directory) => {
     setSelectedDirectory(directory);
     setViewMode(true);
     setOpenDialog(true);
   };
-
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this directory?')) {
       try {
@@ -204,7 +293,6 @@ const ExportDirectory = () => {
       }
     }
   };
-
   const handleSave = async (formData) => {
     try {
       if (selectedDirectory) {
@@ -220,170 +308,9 @@ const ExportDirectory = () => {
       showSnackbar('Error saving directory', 'error');
     }
   };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Approved': return 'success';
-      case 'Rejected': return 'error';
-      default: return 'warning';
-    }
-  };
-
-  const getEntityIcon = (entityType) => {
-    switch (entityType) {
-      case 'Company': return <BusinessIcon />;
-      case 'Partnership': return <AssignmentIcon />;
-      default: return <BusinessIcon />;
-    }
-  };
-
   const paginatedDirectories = filteredDirectories.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
-  );
-
-  const DirectoryDetailView = ({ directory }) => (
-    <Box sx={{ p: 2 }}>
-      <Grid container spacing={3}>
-        {/* Header Card */}
-        <Grid item xs={12}>
-          <Card sx={{ background: 'linear-gradient(135deg, #2c5aa0 0%, #1e3a6f 100%)', color: 'white' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
-                  <BusinessIcon fontSize="large" />
-                </Avatar>
-                <Box>
-                  <Typography variant="h5" gutterBottom>{directory.organization}</Typography>
-                  <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                    {directory.alias} • {directory.generalInfo?.entityType}
-                  </Typography>
-                  <Chip 
-                    label={directory.approvalStatus}
-                    sx={{ 
-                      mt: 1,
-                      bgcolor: directory.approvalStatus === 'Approved' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 193, 7, 0.2)',
-                      color: 'white',
-                      border: '1px solid rgba(255,255,255,0.3)'
-                    }}
-                  />
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Quick Stats */}
-        <Grid item xs={12}>
-          <Grid container spacing={2}>
-            <Grid item xs={3}>
-              <Card>
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <DocumentIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
-                  <Typography variant="h6">{directory.registrationDetails?.ieCode || 'N/A'}</Typography>
-                  <Typography variant="caption" color="textSecondary">IE Code</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={3}>
-              <Card>
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <BankIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
-                  <Typography variant="h6">{directory.bankDetails?.length || 0}</Typography>
-                  <Typography variant="caption" color="textSecondary">Bank Accounts</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={3}>
-              <Card>
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <LocationIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
-                  <Typography variant="h6">{directory.branchInfo?.length || 0}</Typography>
-                  <Typography variant="caption" color="textSecondary">Branches</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={3}>
-              <Card>
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <AssignmentIcon color="primary" sx={{ fontSize: 32, mb: 1 }} />
-                  <Typography variant="h6">{directory.registrationDetails?.panNo || 'N/A'}</Typography>
-                  <Typography variant="caption" color="textSecondary">PAN Number</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Grid>
-
-        {/* Detailed Information */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardHeader 
-              title="Company Information" 
-              avatar={<BusinessIcon color="primary" />}
-              sx={{ bgcolor: 'rgba(44, 90, 160, 0.05)' }}
-            />
-            <CardContent>
-              <Box sx={{ '& > *': { mb: 1 } }}>
-                <Typography variant="body2"><strong>Company Name:</strong> {directory.generalInfo?.companyName}</Typography>
-                <Typography variant="body2"><strong>Entity Type:</strong> {directory.generalInfo?.entityType}</Typography>
-                <Typography variant="body2"><strong>MSME Registered:</strong> {directory.generalInfo?.msmeRegistered ? 'Yes' : 'No'}</Typography>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="body2"><strong>BIN No:</strong> {directory.registrationDetails?.binNo}</Typography>
-                <Typography variant="body2"><strong>GSTIN:</strong> {directory.registrationDetails?.gstinMainBranch}</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardHeader 
-              title="Contact Information" 
-              avatar={<LocationIcon color="primary" />}
-              sx={{ bgcolor: 'rgba(44, 90, 160, 0.05)' }}
-            />
-            <CardContent>
-              <Box sx={{ '& > *': { mb: 1 } }}>
-                <Typography variant="body2"><strong>Address:</strong> {directory.address?.addressLine}</Typography>
-                <Typography variant="body2"><strong>City:</strong> {directory.address?.city}</Typography>
-                <Typography variant="body2"><strong>Postal Code:</strong> {directory.address?.postalCode}</Typography>
-                <Typography variant="body2"><strong>Phone:</strong> {directory.address?.telephone}</Typography>
-                <Typography variant="body2"><strong>Email:</strong> {directory.address?.email}</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Bank Details */}
-        <Grid item xs={12}>
-          <Card>
-            <CardHeader 
-              title="Banking Information" 
-              avatar={<BankIcon color="primary" />}
-              sx={{ bgcolor: 'rgba(44, 90, 160, 0.05)' }}
-            />
-            <CardContent>
-              {directory.bankDetails?.map((bank, index) => (
-                <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: 'rgba(0,0,0,0.02)' }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Bank:</strong> {bank.entityName}</Typography>
-                      <Typography variant="body2"><strong>Branch:</strong> {bank.branchLocation}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Account:</strong> {bank.accountNumber}</Typography>
-                      <Typography variant="body2"><strong>AD Code:</strong> {bank.adCode}</Typography>
-                      {bank.isDefault && <Chip label="Default" color="primary" size="small" sx={{ mt: 1 }} />}
-                    </Grid>
-                  </Grid>
-                </Paper>
-              ))}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
   );
 
   return (
@@ -406,8 +333,8 @@ const ExportDirectory = () => {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleAdd}
-                sx={{ 
-                  bgcolor: 'rgba(255,255,255,0.2)', 
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
                   '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
                 }}
               >
@@ -415,12 +342,12 @@ const ExportDirectory = () => {
               </Button>
             </Toolbar>
           </Paper>
-
-          {/* Search and Filter Controls */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} md={6}>
+          {/* Search & Filter Controls */}
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
                 <TextField
+                  size="small"
                   fullWidth
                   placeholder="Search organizations, aliases, IE codes..."
                   value={searchTerm}
@@ -432,15 +359,14 @@ const ExportDirectory = () => {
                       </InputAdornment>
                     ),
                   }}
-                  variant="outlined"
                 />
               </Grid>
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Status Filter</InputLabel>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
                   <Select
                     value={statusFilter}
-                    label="Status Filter"
+                    label="Status"
                     onChange={(e) => setStatusFilter(e.target.value)}
                   >
                     <MenuItem value="">All Status</MenuItem>
@@ -450,42 +376,39 @@ const ExportDirectory = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={4}>
                 <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h6" color="primary">
-                    {filteredDirectories.length}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Total Directories
-                  </Typography>
+                  <Typography variant="h6" color="primary">{filteredDirectories.length}</Typography>
+                  <Typography variant="body2" color="textSecondary">Total Directories</Typography>
                 </Box>
               </Grid>
             </Grid>
           </Paper>
-
-          {/* Table */}
+          {/* Directory Table - Compact, Professional, Dense */}
           <Paper>
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ maxHeight: '70vh' }}>
+              <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell><strong>Organization</strong></TableCell>
-                    <TableCell><strong>Alias</strong></TableCell>
-                    <TableCell><strong>Status</strong></TableCell>
-                    <TableCell><strong>Entity Type</strong></TableCell>
-                    <TableCell><strong>IE Code</strong></TableCell>
-                    <TableCell><strong>Location</strong></TableCell>
-                    <TableCell align="center"><strong>Actions</strong></TableCell>
+                    {TABLE_COLUMNS.map(col => (
+                      <TableCell
+                        key={col.key}
+                        sx={{ fontWeight: 600, minWidth: col.minWidth }}
+                        align={col.align || 'left'}
+                      >{col.label}</TableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>Loading directories...</TableCell>
+                      <TableCell colSpan={TABLE_COLUMNS.length} align="center" sx={{ py: 4 }}>
+                        Loading directories...
+                      </TableCell>
                     </TableRow>
                   ) : paginatedDirectories.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={TABLE_COLUMNS.length} align="center" sx={{ py: 4 }}>
                         <Box sx={{ textAlign: 'center' }}>
                           <BusinessIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                           <Typography variant="h6" color="textSecondary">No directories found</Typography>
@@ -497,48 +420,38 @@ const ExportDirectory = () => {
                     </TableRow>
                   ) : (
                     paginatedDirectories.map((directory) => (
-                      <TableRow key={directory._id} hover sx={{ '&:hover': { bgcolor: 'rgba(44, 90, 160, 0.04)' } }}>
+                      <TableRow key={directory._id} hover sx={{ '&:hover': { bgcolor: 'rgba(44,90,160,0.05)' }, height: 48 }}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             {getEntityIcon(directory.generalInfo?.entityType)}
                             <Box>
-                              <Typography variant="body2" fontWeight={500}>
-                                {directory.organization}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {directory.generalInfo?.companyName}
-                              </Typography>
+                              <Typography variant="body2" fontWeight={500}>{directory.organization}</Typography>
+                              <Typography variant="caption" color="textSecondary">{directory.generalInfo?.companyName}</Typography>
                             </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <Chip 
-                            label={directory.alias} 
-                            variant="outlined" 
-                            size="small"
-                            color="primary"
-                          />
+                          <Chip label={directory.alias} variant="outlined" size="small" color="primary" />
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={directory.approvalStatus}
-                            color={getStatusColor(directory.approvalStatus)}
-                            size="small"
-                          />
+                          <Chip label={directory.approvalStatus} color={getStatusColor(directory.approvalStatus)} size="small" />
                         </TableCell>
-                        <TableCell>{directory.generalInfo?.entityType || '-'}</TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {directory.registrationDetails?.ieCode || '-'}
-                          </Typography>
+                          <Typography variant="body2">{directory.generalInfo?.entityType || '-'}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontFamily="monospace">{directory.registrationDetails?.ieCode || '-'}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{directory.address?.city || '-'}</Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {directory.address?.city || '-'}
+                            {directory.createdAt ? new Date(directory.createdAt).toLocaleDateString() : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
-                          <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: .5 }}>
                             <IconButton onClick={() => handleView(directory)} size="small" title="View">
                               <ViewIcon />
                             </IconButton>
@@ -556,47 +469,48 @@ const ExportDirectory = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-            
             <TablePagination
-              rowsPerPageOptions={[5, 10, 25, 50]}
+              rowsPerPageOptions={[10, 25, 50, 100]}
               component="div"
               count={filteredDirectories.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{ borderTop: 1, borderColor: 'divider' }}
             />
           </Paper>
-
+          {/* Directory Dialog */}
           <Dialog
             open={openDialog}
             onClose={() => setOpenDialog(false)}
             maxWidth="xl"
             fullWidth
           >
-            <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>
+            <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', pb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <BusinessIcon />
                 {viewMode ? 'View Directory' : selectedDirectory ? 'Edit Directory' : 'Add Directory'}
               </Box>
             </DialogTitle>
             <DialogContent sx={{ p: 0 }}>
-              {viewMode && selectedDirectory ? (
-                <DirectoryDetailView directory={selectedDirectory} />
-              ) : (
-                <DirectoryForm
-                  directory={selectedDirectory}
-                  onSave={handleSave}
-                  onCancel={() => setOpenDialog(false)}
-                  readOnly={viewMode}
-                />
-              )}
+              {viewMode && selectedDirectory
+                ? <DirectoryDetailView directory={selectedDirectory} />
+                : (
+                  <DirectoryForm
+                    directory={selectedDirectory}
+                    onSave={handleSave}
+                    onCancel={() => setOpenDialog(false)}
+                    readOnly={viewMode}
+                  />
+                )
+              }
             </DialogContent>
             <DialogActions sx={{ p: 2 }}>
               <Button onClick={() => setOpenDialog(false)}>Close</Button>
             </DialogActions>
           </Dialog>
-
+          {/* Snackbar */}
           <Snackbar
             open={snackbar.open}
             autoHideDuration={6000}

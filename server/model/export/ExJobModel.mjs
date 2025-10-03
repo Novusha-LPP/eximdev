@@ -225,7 +225,7 @@ const drawbackDetailsSchema = new Schema(
 const invoiceSchema = new Schema(
   {
     invoiceNumber: { type: String },
-    invoiceDate: { type: Date},
+    invoiceDate: { type: Date },
     termsOfInvoice: {
       type: String,
       enum: ["CIF", "FOB", "CFR", "EXW", "FCA", "CPT", "CIP", "DAP", "DDP"],
@@ -252,50 +252,57 @@ const invoiceSchema = new Schema(
   { _id: true }
 );
 // Payment Request Schema
-const paymentRequestSchema = new Schema({
-  date: { type: String, trim: true },
-  no: { type: String, trim: true },
-  mode: { type: String, trim: true, default: "Electronic" },
-  payeeName: { type: String, trim: true },
-  amount: { type: Number, default: 0 },
-  status: { type: String, trim: true, default: "Pending" },
-  remarks: { type: String, trim: true },
-  
-  // Payment Request Details
-  payTo: { type: String, trim: true, default: "Vendor" },
-  against: { type: String, trim: true, default: "Expense" },
-  jobExpenses: { type: Boolean, default: true },
-  nonJobExpenses: { type: Boolean, default: false },
-  jobNo: { type: String, trim: true },
-  requestTo: { type: String, trim: true },
-  referenceNo: { type: String, trim: true },
-  modeOfPayment: { type: String, trim: true, default: "Cheque No." },
-  markAsUrgent: { type: Boolean, default: false },
-  narration: { type: String, trim: true },
-  
-  // Charge Details
-  charges: [{
-    chargeName: { type: String, trim: true },
-    amountTC: { type: Number, default: 0 },
-    curr: { type: String, trim: true, default: "INR" },
-    amountHC: { type: Number, default: 0 },
-    payableTo: { type: String, trim: true }
-  }],
-  
-  // Purchase Bills
-  purchaseBills: [{
-    purchaseBillNo: { type: String, trim: true },
+const paymentRequestSchema = new Schema(
+  {
     date: { type: String, trim: true },
-    vendorInvNo: { type: String, trim: true },
-    curr: { type: String, trim: true, default: "INR" },
-    billAmt: { type: Number, default: 0 },
-    outstandingAmt: { type: Number, default: 0 },
-    amountTC: { type: Number, default: 0 },
-    allocated: { type: Number, default: 0 }
-  }],
-  
-  totalAmount: { type: Number, default: 0 }
-}, { _id: true });
+    no: { type: String, trim: true },
+    mode: { type: String, trim: true, default: "Electronic" },
+    payeeName: { type: String, trim: true },
+    amount: { type: Number, default: 0 },
+    status: { type: String, trim: true, default: "Pending" },
+    remarks: { type: String, trim: true },
+
+    // Payment Request Details
+    payTo: { type: String, trim: true, default: "Vendor" },
+    against: { type: String, trim: true, default: "Expense" },
+    jobExpenses: { type: Boolean, default: true },
+    nonJobExpenses: { type: Boolean, default: false },
+    jobNo: { type: String, trim: true },
+    requestTo: { type: String, trim: true },
+    referenceNo: { type: String, trim: true },
+    modeOfPayment: { type: String, trim: true, default: "Cheque No." },
+    markAsUrgent: { type: Boolean, default: false },
+    narration: { type: String, trim: true },
+
+    // Charge Details
+    charges: [
+      {
+        chargeName: { type: String, trim: true },
+        amountTC: { type: Number, default: 0 },
+        curr: { type: String, trim: true, default: "INR" },
+        amountHC: { type: Number, default: 0 },
+        payableTo: { type: String, trim: true },
+      },
+    ],
+
+    // Purchase Bills
+    purchaseBills: [
+      {
+        purchaseBillNo: { type: String, trim: true },
+        date: { type: String, trim: true },
+        vendorInvNo: { type: String, trim: true },
+        curr: { type: String, trim: true, default: "INR" },
+        billAmt: { type: Number, default: 0 },
+        outstandingAmt: { type: Number, default: 0 },
+        amountTC: { type: Number, default: 0 },
+        allocated: { type: Number, default: 0 },
+      },
+    ],
+
+    totalAmount: { type: Number, default: 0 },
+  },
+  { _id: true }
+);
 // Container Details Schema
 const containerDetailsSchema = new Schema(
   {
@@ -334,7 +341,7 @@ const buyerThirdPartySchema = new Schema(
   {
     // Buyer Information
     buyer: {
-      name: { type: String},
+      name: { type: String },
       addressLine1: String,
       city: String,
       pin: String,
@@ -369,32 +376,42 @@ const buyerThirdPartySchema = new Schema(
   },
   { _id: false }
 );
-  // AP Invoice Schema (Financial - Accounts Payable)
-const apInvoiceSchema = new Schema({
-  date: { type: String, trim: true },
-  bill_no: { type: String, trim: true },
-  type: { type: String, trim: true, default: "INV" },
-  organization: { type: String, trim: true },
-  currency: { type: String, trim: true, default: "INR" },
-  amount: { type: Number, default: 0 },
-  balance: { type: Number, default: 0 },
-  vendor_bill_no: { type: String, trim: true }
-}, { _id: true });
+// AP Invoice Schema (Financial - Accounts Payable)
+const apInvoiceSchema = new Schema(
+  {
+    date: { type: String, trim: true },
+    bill_no: { type: String, trim: true },
+    type: { type: String, trim: true, default: "INV" },
+    organization: { type: String, trim: true },
+    currency: { type: String, trim: true, default: "INR" },
+    amount: { type: Number, default: 0 },
+    balance: { type: Number, default: 0 },
+    vendor_bill_no: { type: String, trim: true },
+  },
+  { _id: true }
+);
 
-const arInvoiceSchema = new Schema({
-  date: { type: String, trim: true },
-  bill_no: { type: String, trim: true },
-  type: { type: String, trim: true, default: "INV" },
-  organization: { type: String, trim: true },
-  currency: { type: String, trim: true, default: "INR" },
-  amount: { type: Number, default: 0 },
-  balance: { type: Number, default: 0 }
-}, { _id: true });
+const arInvoiceSchema = new Schema(
+  {
+    date: { type: String, trim: true },
+    bill_no: { type: String, trim: true },
+    type: { type: String, trim: true, default: "INV" },
+    organization: { type: String, trim: true },
+    currency: { type: String, trim: true, default: "INR" },
+    amount: { type: Number, default: 0 },
+    balance: { type: Number, default: 0 },
+  },
+  { _id: true }
+);
 
 // eSanchit Document Schema
 const eSanchitDocumentSchema = new Schema({
   documentLevel: { type: String, enum: ["Invoice", "Item", "Job"] },
-  scope: { type: String, enum: ["This job only", "All jobs"], default: "This job only" },
+  scope: {
+    type: String,
+    enum: ["This job only", "All jobs"],
+    default: "This job only",
+  },
   invSerialNo: String,
   itemSerialNo: String,
   irn: String,
@@ -419,50 +436,53 @@ const eSanchitDocumentSchema = new Schema({
     addressLine1: String,
     city: String,
     pinCode: String,
-  }
+  },
 });
 
 // Charge Schema
-const chargeSchema = new Schema({
-  chargeHead: { type: String, trim: true, },
-  category: { type: String, trim: true, default: "Margin" },
-  costCenter: { type: String, trim: true, default: "CCL EXP" },
-  remark: { type: String, trim: true },
-  
-  // Revenue Section
-  revenue: {
-    basis: { type: String, trim: true, default: "Per S/B" },
-    qtyUnit: { type: Number, default: 0 },
-    rate: { type: Number, default: 0 },
-    amount: { type: Number, default: 0 },
-    amountINR: { type: Number, default: 0 },
-    curr: { type: String, trim: true, default: "INR" },
-    ovrd: { type: Boolean, default: false },
-    paid: { type: Boolean, default: false }
+const chargeSchema = new Schema(
+  {
+    chargeHead: { type: String, trim: true },
+    category: { type: String, trim: true, default: "Margin" },
+    costCenter: { type: String, trim: true, default: "CCL EXP" },
+    remark: { type: String, trim: true },
+
+    // Revenue Section
+    revenue: {
+      basis: { type: String, trim: true, default: "Per S/B" },
+      qtyUnit: { type: Number, default: 0 },
+      rate: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      amountINR: { type: Number, default: 0 },
+      curr: { type: String, trim: true, default: "INR" },
+      ovrd: { type: Boolean, default: false },
+      paid: { type: Boolean, default: false },
+    },
+
+    // Cost Section
+    cost: {
+      basis: { type: String, trim: true, default: "Per S/B" },
+      qtyUnit: { type: Number, default: 0 },
+      rate: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      amountINR: { type: Number, default: 0 },
+      curr: { type: String, trim: true, default: "INR" },
+      ovrd: { type: Boolean, default: false },
+      paid: { type: Boolean, default: false },
+    },
+
+    // Additional fields from form
+    chargeDescription: { type: String, trim: true },
+    overrideAutoRate: { type: Boolean, default: false },
+    receivableType: { type: String, trim: true, default: "Customer" },
+    receivableFrom: { type: String, trim: true },
+    receivableFromBranchCode: { type: String, trim: true },
+    copyToCost: { type: Boolean, default: false },
+
+    quotationNo: { type: String, trim: true },
   },
-  
-  // Cost Section
-  cost: {
-    basis: { type: String, trim: true, default: "Per S/B" },
-    qtyUnit: { type: Number, default: 0 },
-    rate: { type: Number, default: 0 },
-    amount: { type: Number, default: 0 },
-    amountINR: { type: Number, default: 0 },
-    curr: { type: String, trim: true, default: "INR" },
-    ovrd: { type: Boolean, default: false },
-    paid: { type: Boolean, default: false }
-  },
-  
-  // Additional fields from form
-  chargeDescription: { type: String, trim: true },
-  overrideAutoRate: { type: Boolean, default: false },
-  receivableType: { type: String, trim: true, default: "Customer" },
-  receivableFrom: { type: String, trim: true },
-  receivableFromBranchCode: { type: String, trim: true },
-  copyToCost: { type: Boolean, default: false },
-  
-  quotationNo: { type: String, trim: true }
-}, { _id: true });
+  { _id: true }
+);
 
 // Exchange Rates Schema
 const exchangeRateSchema = new Schema(
@@ -490,15 +510,18 @@ const exchangeRateSchema = new Schema(
 );
 
 // Milestone Tracking Schema
-const milestoneSchema = new Schema({
-  milestoneName: { type: String, trim: true },
-  planDate: { type: String, trim: true }, // Format: dd-MMM-yyyy HH:mm
-  actualDate: { type: String, trim: true }, // Format: dd-MMM-yyyy HH:mm
-  isCompleted: { type: Boolean, default: false },
-  isMandatory: { type: Boolean, default: false },
-  completedBy: { type: String, trim: true },
-  remarks: { type: String, trim: true }
-}, { _id: true });
+const milestoneSchema = new Schema(
+  {
+    milestoneName: { type: String, trim: true },
+    planDate: { type: String, trim: true }, // Format: dd-MMM-yyyy HH:mm
+    actualDate: { type: String, trim: true }, // Format: dd-MMM-yyyy HH:mm
+    isCompleted: { type: Boolean, default: false },
+    isMandatory: { type: Boolean, default: false },
+    completedBy: { type: String, trim: true },
+    remarks: { type: String, trim: true },
+  },
+  { _id: true }
+);
 
 const vesselSchema = new mongoose.Schema({
   name: { type: String },
@@ -692,7 +715,7 @@ const exportJobSchema = new mongoose.Schema(
     shipper: { type: String, trim: true },
     job_received_on: { type: Date },
     sb_type: { type: String, trim: true },
-    transport_mode: { type: String, trim: true },
+    transportMode: { type: String, trim: true },
     exporter_type: { type: String, trim: true },
 
     // Exporter Additional Fields (Missing)
@@ -1263,11 +1286,6 @@ const exportJobSchema = new mongoose.Schema(
       type: String,
       ref: "Directory", // Reference to exporter company
     },
-    transportMode: {
-      type: String,
-      enum: ["Sea", "Air", "Land", "Post", "Rail"],
-      default: "Sea",
-    },
     customHouse: {
       type: String,
       ref: "EDILocation",
@@ -1547,13 +1565,13 @@ const exportJobSchema = new mongoose.Schema(
     // Milestone Tracking
     milestones: [milestoneSchema],
     job_tracking_completed: { type: String, trim: true }, // "16-Sep-2025"
-customer_remark: { type: String, trim: true, default: "Ready for Billing" },
-workflow_location: { type: String, trim: true, default: "All Locations" },
-shipment_type: { type: String, trim: true, default: "International" },
-milestones: [milestoneSchema],
-milestone_remarks: { type: String, trim: true },
-milestone_view_upload_documents: { type: String, trim: true },
-milestone_handled_by: { type: String, trim: true },
+    customer_remark: { type: String, trim: true, default: "Ready for Billing" },
+    workflow_location: { type: String, trim: true, default: "All Locations" },
+    shipment_type: { type: String, trim: true, default: "International" },
+    milestones: [milestoneSchema],
+    milestone_remarks: { type: String, trim: true },
+    milestone_view_upload_documents: { type: String, trim: true },
+    milestone_handled_by: { type: String, trim: true },
 
     // System Fields
     createdBy: { type: String },
@@ -1572,39 +1590,38 @@ milestone_handled_by: { type: String, trim: true },
     products: [productDetailsSchema],
     drawbackDetails: [drawbackDetailsSchema],
     ar_invoices: [arInvoiceSchema],
-  total_ar_amount: { type: Number, default: 0 },
-  outstanding_balance: { type: Number, default: 0 },
-  ar_default_currency: { type: String, trim: true, default: "INR" },
-  ar_payment_terms_days: { type: Number, default: 30 },
-  ar_last_updated: { type: Date },
-  ar_notes: { type: String, trim: true },
+    total_ar_amount: { type: Number, default: 0 },
+    outstanding_balance: { type: Number, default: 0 },
+    ar_default_currency: { type: String, trim: true, default: "INR" },
+    ar_payment_terms_days: { type: Number, default: 30 },
+    ar_last_updated: { type: Date },
+    ar_notes: { type: String, trim: true },
 
-// Add these fields to your main exportJobSchema:
-ap_invoices: [apInvoiceSchema],
-total_ap_amount: { type: Number, default: 0 },
-ap_outstanding_balance: { type: Number, default: 0 },
-ap_default_currency: { type: String, trim: true, default: "INR" },
-ap_payment_terms_days: { type: Number, default: 30 },
-ap_last_updated: { type: Date },
-ap_notes: { type: String, trim: true },
-// Add to main exportJobSchema:
-charges: [chargeSchema],
-// Export Checklist Additional Fields - Missing Fields Added
-cha: { 
-  type: String, 
-  trim: true, 
-  default: "ABOFS1766LCH005 SURAJ FORWARDERS & SHIPPING AGENCIES" 
-},
-masterblno: { type: String, trim: true }, // Master BL Number  
-houseblno: { type: String, trim: true },  // House BL Number
-rbi_waiver_date: { type: String, trim: true }, // RBI Waiver Date (number already exists)
-rotation_no: { type: String, trim: true }, // Rotation Number
-rotation_date: { type: String, trim: true }, // Rotation Date  
-nature_of_contract: { type: String, trim: true }, // Nature of Contract
-str_amount_inr: { type: String, trim: true }, // STR Amount in INR (strCode already exists)
-
+    // Add these fields to your main exportJobSchema:
+    ap_invoices: [apInvoiceSchema],
+    total_ap_amount: { type: Number, default: 0 },
+    ap_outstanding_balance: { type: Number, default: 0 },
+    ap_default_currency: { type: String, trim: true, default: "INR" },
+    ap_payment_terms_days: { type: Number, default: 30 },
+    ap_last_updated: { type: Date },
+    ap_notes: { type: String, trim: true },
+    // Add to main exportJobSchema:
+    charges: [chargeSchema],
+    // Export Checklist Additional Fields - Missing Fields Added
+    cha: {
+      type: String,
+      trim: true,
+      default: "ABOFS1766LCH005 SURAJ FORWARDERS & SHIPPING AGENCIES",
+    },
+    masterblno: { type: String, trim: true }, // Master BL Number
+    houseblno: { type: String, trim: true }, // House BL Number
+    rbi_waiver_date: { type: String, trim: true }, // RBI Waiver Date (number already exists)
+    rotation_no: { type: String, trim: true }, // Rotation Number
+    rotation_date: { type: String, trim: true }, // Rotation Date
+    nature_of_contract: { type: String, trim: true }, // Nature of Contract
+    str_amount_inr: { type: String, trim: true }, // STR Amount in INR (strCode already exists)
   },
-  
+
   {
     timestamps: true,
     toJSON: { virtuals: true },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -18,8 +18,8 @@ import {
   Alert,
   Fade,
   Backdrop,
-  LinearProgress
-} from '@mui/material';
+  LinearProgress,
+} from "@mui/material";
 import {
   Add as AddIcon,
   Business as BusinessIcon,
@@ -29,33 +29,34 @@ import {
   Assignment as AssignmentIcon,
   Clear as ClearIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon
-} from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import axios from 'axios';
+  Error as ErrorIcon,
+} from "@mui/icons-material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import axios from "axios";
 
 const AddExJobs = () => {
   // Form state
   const [formData, setFormData] = useState({
-    exporter_name: '',
-    consignee_name: '',
-    ie_code: '',
-    job_no: '',
-    movement_type: 'FCL',
-    country_of_final_destination: '',
-    commodity_description: '',
-    commercial_invoice_value: '',
-    invoice_currency: 'USD',
-    port_of_loading: '',
-    port_of_discharge: '',
-    total_packages: '',
-    gross_weight_kg: '',
-    net_weight_kg: '',
-    status: 'pending',
-    year: '',
-    job_date: new Date()
+    exporter_name: "",
+    consignee_name: "",
+    ie_code: "",
+    job_no: "",
+    movement_type: "FCL",
+    country_of_final_destination: "",
+    commodity_description: "",
+    commercial_invoice_value: "",
+    invoice_currency: "USD",
+    port_of_loading: "",
+    port_of_discharge: "",
+    total_packages: "",
+    gross_weight_kg: "",
+    net_weight_kg: "",
+    status: "pending",
+    year: "",
+    transportMode: "SEA",
+    job_date: new Date(),
   });
 
   // Organization directory state
@@ -63,21 +64,21 @@ const AddExJobs = () => {
   const [selectedOrganization, setSelectedOrganization] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [orgSearchTerm, setOrgSearchTerm] = useState('');
-  
+  const [orgSearchTerm, setOrgSearchTerm] = useState("");
+
   // Toast notification state
   const [toast, setToast] = useState({
     open: false,
-    message: '',
-    severity: 'success' // 'success' | 'error' | 'warning' | 'info'
+    message: "",
+    severity: "success", // 'success' | 'error' | 'warning' | 'info'
   });
 
   // Validation state
   const [touched, setTouched] = useState({});
 
-  const movementTypes = ['FCL', 'LCL', 'Break Bulk', 'Air Freight'];
-  const currencies = ['USD', 'EUR', 'INR', 'GBP', 'JPY', 'CNY'];
-  const statusOptions = ['pending', 'in-progress', 'completed', 'cancelled'];
+  const movementTypes = ["FCL", "LCL", "Break Bulk", "Air Freight"];
+  const currencies = ["USD", "EUR", "INR", "GBP", "JPY", "CNY"];
+  const statusOptions = ["pending", "in-progress", "completed", "cancelled"];
 
   // Fetch organizations from directory API
   useEffect(() => {
@@ -87,192 +88,201 @@ const AddExJobs = () => {
   const fetchOrganizations = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/directory`);
-      
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/directory`
+      );
+
       if (response.data.success) {
         setOrganizations(response.data.data);
       }
     } catch (error) {
-      console.error('Error fetching organizations:', error);
-      showToast('Failed to load organizations. Please refresh the page.', 'error');
+      console.error("Error fetching organizations:", error);
+      showToast(
+        "Failed to load organizations. Please refresh the page.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   // Show toast notification
-  const showToast = (message, severity = 'success') => {
+  const showToast = (message, severity = "success") => {
     setToast({
       open: true,
       message,
-      severity
+      severity,
     });
   };
 
   // Close toast notification
   const handleCloseToast = (event, reason) => {
-    if (reason === 'clickaway') {
+    if (reason === "clickaway") {
       return;
     }
-    setToast(prev => ({ ...prev, open: false }));
+    setToast((prev) => ({ ...prev, open: false }));
   };
 
   // Handle organization selection and auto-fill related fields
   const handleOrganizationSelect = (event, selectedOrg) => {
     setSelectedOrganization(selectedOrg);
-    
+
     if (selectedOrg) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        exporter_name: selectedOrg.organization || selectedOrg.alias || '',
-        ie_code: selectedOrg.registrationDetails?.ieCode || '',
+        exporter_name: selectedOrg.organization || selectedOrg.alias || "",
+        ie_code: selectedOrg.registrationDetails?.ieCode || "",
       }));
-      
+
       // Mark fields as touched
-      setTouched(prev => ({
+      setTouched((prev) => ({
         ...prev,
         exporter_name: true,
-        ie_code: true
+        ie_code: true,
       }));
-      
-      showToast('Organization details auto-filled successfully', 'info');
+
+      showToast("Organization details auto-filled successfully", "info");
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        exporter_name: '',
-        ie_code: ''
+        exporter_name: "",
+        ie_code: "",
       }));
     }
   };
 
   // Handle form field changes
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   // Handle field blur for validation
   const handleBlur = (field) => {
-    setTouched(prev => ({
+    setTouched((prev) => ({
       ...prev,
-      [field]: true
+      [field]: true,
     }));
   };
 
   // Validate form fields
   const validateField = (field, value) => {
     switch (field) {
-      case 'exporter_name':
-      case 'consignee_name':
-        return value.trim() === '' ? 'This field is required' : '';
-      case 'ie_code':
-        if (value.trim() === '') return 'IE Code is required';
-        if (!/^\d{10}$/.test(value)) return 'IE Code must be exactly 10 digits';
-        return '';
+      case "exporter_name":
+      case "consignee_name":
+        return value.trim() === "" ? "This field is required" : "";
+      case "ie_code":
+        if (value.trim() === "") return "IE Code is required";
+        if (!/^\d{10}$/.test(value)) return "IE Code must be exactly 10 digits";
+        return "";
       default:
-        return '';
+        return "";
     }
   };
 
   // Check if form is valid
   const isFormValid = () => {
     return (
-      formData.exporter_name.trim() !== '' &&
-      formData.consignee_name.trim() !== '' &&
+      formData.exporter_name.trim() !== "" &&
+      formData.consignee_name.trim() !== "" &&
       /^\d{10}$/.test(formData.ie_code)
     );
   };
 
   // Handle form submission
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  // Mark all required fields as touched
-  setTouched({
-    exporter_name: true,
-    consignee_name: true,
-    ie_code: true
-  });
-
-  // Validate required fields
-  if (!isFormValid()) {
-    showToast('Please fill in all required fields correctly', 'error');
-    return;
-  }
-
-  try {
-    setSubmitLoading(true);
-
-    const response = await axios.post(`${process.env.REACT_APP_API_STRING}/jobs/add-job-exp-man`, {
-      ...formData,
-      job_date: formData.job_date.toISOString().split('T')[0]
+    // Mark all required fields as touched
+    setTouched({
+      exporter_name: true,
+      consignee_name: true,
+      ie_code: true,
     });
 
-    if (response.data.success) {
-      const jobNo = response.data.job.job_no;
-      const msg = response.data.message || 'Job created successfully!';
-      showToast(`🎉 ${msg} Job No: ${jobNo}`, 'success');
-
-      // Reset form after short delay
-      setTimeout(() => {
-        handleClear();
-      }, 1000);
+    // Validate required fields
+    if (!isFormValid()) {
+      showToast("Please fill in all required fields correctly", "error");
+      return;
     }
-  } catch (error) {
-    const errorMessage = error.response?.data?.message || 'Failed to create job. Please try again.';
-    showToast(`❌ ${errorMessage}`, 'error');
-    console.error('Error creating job:', error);
-  } finally {
-    setSubmitLoading(false);
-  }
-};
 
+    try {
+      setSubmitLoading(true);
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/jobs/add-job-exp-man`,
+        {
+          ...formData,
+          job_date: formData.job_date.toISOString().split("T")[0],
+        }
+      );
+
+      if (response.data.success) {
+        const jobNo = response.data.job.job_no;
+        const msg = response.data.message || "Job created successfully!";
+        showToast(`🎉 ${msg} Job No: ${jobNo}`, "success");
+
+        // Reset form after short delay
+        setTimeout(() => {
+          handleClear();
+        }, 1000);
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to create job. Please try again.";
+      showToast(`❌ ${errorMessage}`, "error");
+      console.error("Error creating job:", error);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
 
   // Clear form
   const handleClear = () => {
     setFormData({
-      exporter_name: '',
-      consignee_name: '',
-      ie_code: '',
-      job_no: '',
-      movement_type: 'FCL',
-      country_of_final_destination: '',
-      commodity_description: '',
-      commercial_invoice_value: '',
-      invoice_currency: 'USD',
-      port_of_loading: '',
-      port_of_discharge: '',
-      total_packages: '',
-      gross_weight_kg: '',
-      net_weight_kg: '',
-      status: 'pending',
-      year: '',
-      job_date: new Date()
+      exporter_name: "",
+      consignee_name: "",
+      ie_code: "",
+      job_no: "",
+      movement_type: "FCL",
+      country_of_final_destination: "",
+      commodity_description: "",
+      commercial_invoice_value: "",
+      invoice_currency: "USD",
+      port_of_loading: "",
+      port_of_discharge: "",
+      total_packages: "",
+      gross_weight_kg: "",
+      net_weight_kg: "",
+      status: "pending",
+      year: "",
+      job_date: new Date(),
     });
     setSelectedOrganization(null);
     setTouched({});
-    showToast('Form cleared', 'info');
+    showToast("Form cleared", "info");
   };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+      <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
         {/* Header */}
         <Fade in timeout={500}>
-          <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
             <Box
               sx={{
                 p: 1.5,
                 borderRadius: 2,
-                bgcolor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                boxShadow: 2
+                bgcolor: "primary.main",
+                display: "flex",
+                alignItems: "center",
+                boxShadow: 2,
               }}
             >
-              <AssignmentIcon sx={{ fontSize: 32, color: 'white' }} />
+              <AssignmentIcon sx={{ fontSize: 32, color: "white" }} />
             </Box>
             <Box>
               <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
@@ -287,10 +297,10 @@ const handleSubmit = async (e) => {
 
         {/* Loading Backdrop */}
         <Backdrop
-          sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+          sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
           open={submitLoading}
         >
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: "center" }}>
             <CircularProgress color="inherit" size={60} />
             <Typography variant="h6" sx={{ mt: 2 }}>
               Creating Job...
@@ -303,23 +313,26 @@ const handleSubmit = async (e) => {
           open={toast.open}
           autoHideDuration={6000}
           onClose={handleCloseToast}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
           TransitionComponent={Fade}
         >
           <Alert
             onClose={handleCloseToast}
             severity={toast.severity}
             variant="filled"
-            sx={{ 
-              width: '100%',
-              fontSize: '1rem',
-              '& .MuiAlert-icon': {
-                fontSize: '1.5rem'
-              }
+            sx={{
+              width: "100%",
+              fontSize: "1rem",
+              "& .MuiAlert-icon": {
+                fontSize: "1.5rem",
+              },
             }}
             icon={
-              toast.severity === 'success' ? <CheckCircleIcon /> : 
-              toast.severity === 'error' ? <ErrorIcon /> : undefined
+              toast.severity === "success" ? (
+                <CheckCircleIcon />
+              ) : toast.severity === "error" ? (
+                <ErrorIcon />
+              ) : undefined
             }
           >
             {toast.message}
@@ -331,31 +344,40 @@ const handleSubmit = async (e) => {
             {/* Organization Selection Card */}
             <Grid item xs={12}>
               <Fade in timeout={700}>
-                <Card 
-                  elevation={3} 
-                  sx={{ 
-                    borderLeft: 4, 
-                    borderLeftColor: 'primary.main',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 6
-                    }
+                <Card
+                  elevation={3}
+                  sx={{
+                    borderLeft: 4,
+                    borderLeftColor: "primary.main",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: 6,
+                    },
                   }}
                 >
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
                       <BusinessIcon color="primary" sx={{ fontSize: 28 }} />
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Organization Details
                       </Typography>
                     </Box>
-                    
+
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={6}>
                         <Autocomplete
                           options={organizations}
-                          getOptionLabel={(option) => option.organization || option.alias || ''}
+                          getOptionLabel={(option) =>
+                            option.organization || option.alias || ""
+                          }
                           value={selectedOrganization}
                           onChange={handleOrganizationSelect}
                           onInputChange={(event, newValue) => {
@@ -372,7 +394,12 @@ const handleSubmit = async (e) => {
                                 ...params.InputProps,
                                 endAdornment: (
                                   <>
-                                    {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                                    {loading ? (
+                                      <CircularProgress
+                                        color="inherit"
+                                        size={20}
+                                      />
+                                    ) : null}
                                     {params.InputProps.endAdornment}
                                   </>
                                 ),
@@ -380,12 +407,28 @@ const handleSubmit = async (e) => {
                             />
                           )}
                           renderOption={(props, option) => (
-                            <Box component="li" {...props} sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1.5 }}>
-                              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            <Box
+                              component="li"
+                              {...props}
+                              sx={{
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                                py: 1.5,
+                              }}
+                            >
+                              <Typography
+                                variant="body1"
+                                sx={{ fontWeight: 500 }}
+                              >
                                 {option.organization || option.alias}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                IE Code: {option.registrationDetails?.ieCode || 'N/A'} | Type: {option.generalInfo?.entityType || 'N/A'}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                IE Code:{" "}
+                                {option.registrationDetails?.ieCode || "N/A"} |
+                                Type: {option.generalInfo?.entityType || "N/A"}
                               </Typography>
                             </Box>
                           )}
@@ -396,28 +439,42 @@ const handleSubmit = async (e) => {
                       {selectedOrganization && (
                         <Grid item xs={12} md={6}>
                           <Fade in>
-                            <Paper 
-                              sx={{ 
-                                p: 2, 
-                                bgcolor: 'primary.50',
+                            <Paper
+                              sx={{
+                                p: 2,
+                                bgcolor: "primary.50",
                                 border: 1,
-                                borderColor: 'primary.200'
+                                borderColor: "primary.200",
                               }}
                             >
-                              <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 600, mb: 1 }}>
+                              <Typography
+                                variant="subtitle2"
+                                color="primary"
+                                sx={{ fontWeight: 600, mb: 1 }}
+                              >
                                 Selected Organization:
                               </Typography>
                               <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                <strong>Name:</strong> {selectedOrganization.organization}
+                                <strong>Name:</strong>{" "}
+                                {selectedOrganization.organization}
                               </Typography>
                               <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                <strong>IE Code:</strong> {selectedOrganization.registrationDetails?.ieCode}
+                                <strong>IE Code:</strong>{" "}
+                                {
+                                  selectedOrganization.registrationDetails
+                                    ?.ieCode
+                                }
                               </Typography>
                               <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                <strong>Type:</strong> {selectedOrganization.generalInfo?.entityType}
+                                <strong>Type:</strong>{" "}
+                                {selectedOrganization.generalInfo?.entityType}
                               </Typography>
                               <Typography variant="body2">
-                                <strong>PAN:</strong> {selectedOrganization.registrationDetails?.panNo}
+                                <strong>PAN:</strong>{" "}
+                                {
+                                  selectedOrganization.registrationDetails
+                                    ?.panNo
+                                }
                               </Typography>
                             </Paper>
                           </Fade>
@@ -432,28 +489,35 @@ const handleSubmit = async (e) => {
             {/* Basic Job Information */}
             <Grid item xs={12}>
               <Fade in timeout={900}>
-                <Card 
-                  elevation={3} 
-                  sx={{ 
-                    borderLeft: 4, 
-                    borderLeftColor: 'success.main',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 6
-                    }
+                <Card
+                  elevation={3}
+                  sx={{
+                    borderLeft: 4,
+                    borderLeftColor: "success.main",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: 6,
+                    },
                   }}
                 >
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
                       <DescriptionIcon color="success" sx={{ fontSize: 28 }} />
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Job Information
                       </Typography>
                     </Box>
-                    
+
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={4}>
+                      {/* <Grid item xs={12} md={4}>
                         <TextField
                           fullWidth
                           label="Job Number"
@@ -462,26 +526,52 @@ const handleSubmit = async (e) => {
                           onChange={(e) => handleInputChange('job_no', e.target.value)}
                           variant="outlined"
                         />
-                      </Grid>
-                      
+                      </Grid> */}
+
                       <Grid item xs={12} md={4}>
                         <DatePicker
                           label="Job Date"
                           value={formData.job_date}
-                          onChange={(newValue) => handleInputChange('job_date', newValue)}
-                          renderInput={(params) => <TextField {...params} fullWidth />}
+                          onChange={(newValue) =>
+                            handleInputChange("job_date", newValue)
+                          }
+                          renderInput={(params) => (
+                            <TextField {...params} fullWidth />
+                          )}
                         />
                       </Grid>
-                      
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          fullWidth
-                          label="Year"
-                          placeholder="e.g., 24-25"
-                          value={formData.year}
-                          onChange={(e) => handleInputChange('year', e.target.value)}
-                          variant="outlined"
-                        />
+
+                      <Grid item xs={6} md={2}>
+                        <FormControl fullWidth>
+                          <InputLabel>Year</InputLabel>
+                          <Select
+                            value={formData.year}
+                            onChange={(e) =>
+                              handleInputChange("year", e.target.value)
+                            }
+                            label="Year"
+                          >
+                            <MenuItem value="25-26">25-26</MenuItem>
+                            <MenuItem value="26-27">26-27</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+
+                      <Grid item xs={6} md={2}>
+                        <FormControl fullWidth>
+                          <InputLabel>Transport Mode</InputLabel>
+                          <Select
+                            value={formData.transportMode}
+                            onChange={(e) =>
+                              handleInputChange("transportMode", e.target.value)
+                            }
+                            label="Transport Mode"
+                          >
+                            <MenuItem value="SEA">SEA</MenuItem>
+                            <MenuItem value="AIR">AIR</MenuItem>
+                            <MenuItem value="LAND">LAND</MenuItem>
+                          </Select>
+                        </FormControl>
                       </Grid>
                     </Grid>
                   </CardContent>
@@ -492,66 +582,101 @@ const handleSubmit = async (e) => {
             {/* Party Details */}
             <Grid item xs={12}>
               <Fade in timeout={1100}>
-                <Card 
-                  elevation={3} 
-                  sx={{ 
-                    borderLeft: 4, 
-                    borderLeftColor: 'info.main',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 6
-                    }
+                <Card
+                  elevation={3}
+                  sx={{
+                    borderLeft: 4,
+                    borderLeftColor: "info.main",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: 6,
+                    },
                   }}
                 >
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
                       <BusinessIcon color="info" sx={{ fontSize: 28 }} />
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Party Details
                       </Typography>
                     </Box>
-                    
+
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={4}>
                         <TextField
                           fullWidth
                           label="Exporter Name *"
                           value={formData.exporter_name}
-                          onChange={(e) => handleInputChange('exporter_name', e.target.value)}
-                          onBlur={() => handleBlur('exporter_name')}
+                          onChange={(e) =>
+                            handleInputChange("exporter_name", e.target.value)
+                          }
+                          onBlur={() => handleBlur("exporter_name")}
                           variant="outlined"
                           required
-                          error={touched.exporter_name && !formData.exporter_name}
-                          helperText={touched.exporter_name && validateField('exporter_name', formData.exporter_name)}
+                          error={
+                            touched.exporter_name && !formData.exporter_name
+                          }
+                          helperText={
+                            touched.exporter_name &&
+                            validateField(
+                              "exporter_name",
+                              formData.exporter_name
+                            )
+                          }
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={4}>
                         <TextField
                           fullWidth
                           label="Consignee Name *"
                           value={formData.consignee_name}
-                          onChange={(e) => handleInputChange('consignee_name', e.target.value)}
-                          onBlur={() => handleBlur('consignee_name')}
+                          onChange={(e) =>
+                            handleInputChange("consignee_name", e.target.value)
+                          }
+                          onBlur={() => handleBlur("consignee_name")}
                           variant="outlined"
                           required
-                          error={touched.consignee_name && !formData.consignee_name}
-                          helperText={touched.consignee_name && validateField('consignee_name', formData.consignee_name)}
+                          error={
+                            touched.consignee_name && !formData.consignee_name
+                          }
+                          helperText={
+                            touched.consignee_name &&
+                            validateField(
+                              "consignee_name",
+                              formData.consignee_name
+                            )
+                          }
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={4}>
                         <TextField
                           fullWidth
                           label="IE Code *"
                           value={formData.ie_code}
-                          onChange={(e) => handleInputChange('ie_code', e.target.value)}
-                          onBlur={() => handleBlur('ie_code')}
+                          onChange={(e) =>
+                            handleInputChange("ie_code", e.target.value)
+                          }
+                          onBlur={() => handleBlur("ie_code")}
                           variant="outlined"
                           required
-                          error={touched.ie_code && !!validateField('ie_code', formData.ie_code)}
-                          helperText={touched.ie_code && validateField('ie_code', formData.ie_code)}
+                          error={
+                            touched.ie_code &&
+                            !!validateField("ie_code", formData.ie_code)
+                          }
+                          helperText={
+                            touched.ie_code &&
+                            validateField("ie_code", formData.ie_code)
+                          }
                           inputProps={{ maxLength: 10 }}
                         />
                       </Grid>
@@ -564,78 +689,106 @@ const handleSubmit = async (e) => {
             {/* Shipment Details */}
             <Grid item xs={12}>
               <Fade in timeout={1300}>
-                <Card 
-                  elevation={3} 
-                  sx={{ 
-                    borderLeft: 4, 
-                    borderLeftColor: 'warning.main',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 6
-                    }
+                <Card
+                  elevation={3}
+                  sx={{
+                    borderLeft: 4,
+                    borderLeftColor: "warning.main",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: 6,
+                    },
                   }}
                 >
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
                       <ShippingIcon color="warning" sx={{ fontSize: 28 }} />
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Shipment Details
                       </Typography>
                     </Box>
-                    
+
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={3}>
                         <FormControl fullWidth>
                           <InputLabel>Movement Type</InputLabel>
                           <Select
                             value={formData.movement_type}
-                            onChange={(e) => handleInputChange('movement_type', e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange("movement_type", e.target.value)
+                            }
                             label="Movement Type"
                           >
                             {movementTypes.map((type) => (
-                              <MenuItem key={type} value={type}>{type}</MenuItem>
+                              <MenuItem key={type} value={type}>
+                                {type}
+                              </MenuItem>
                             ))}
                           </Select>
                         </FormControl>
                       </Grid>
-                      
+
                       <Grid item xs={12} md={3}>
                         <TextField
                           fullWidth
                           label="Country of Final Destination"
                           value={formData.country_of_final_destination}
-                          onChange={(e) => handleInputChange('country_of_final_destination', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "country_of_final_destination",
+                              e.target.value
+                            )
+                          }
                           variant="outlined"
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={3}>
                         <TextField
                           fullWidth
                           label="Port of Loading"
                           value={formData.port_of_loading}
-                          onChange={(e) => handleInputChange('port_of_loading', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("port_of_loading", e.target.value)
+                          }
                           variant="outlined"
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={3}>
                         <TextField
                           fullWidth
                           label="Port of Discharge"
                           value={formData.port_of_discharge}
-                          onChange={(e) => handleInputChange('port_of_discharge', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "port_of_discharge",
+                              e.target.value
+                            )
+                          }
                           variant="outlined"
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
                           label="Commodity Description"
                           value={formData.commodity_description}
-                          onChange={(e) => handleInputChange('commodity_description', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "commodity_description",
+                              e.target.value
+                            )
+                          }
                           variant="outlined"
                           multiline
                           rows={2}
@@ -650,84 +803,109 @@ const handleSubmit = async (e) => {
             {/* Commercial & Weight Details */}
             <Grid item xs={12}>
               <Fade in timeout={1500}>
-                <Card 
-                  elevation={3} 
-                  sx={{ 
-                    borderLeft: 4, 
-                    borderLeftColor: 'secondary.main',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 6
-                    }
+                <Card
+                  elevation={3}
+                  sx={{
+                    borderLeft: 4,
+                    borderLeftColor: "secondary.main",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: 6,
+                    },
                   }}
                 >
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
                       <BankIcon color="secondary" sx={{ fontSize: 28 }} />
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Commercial & Weight Details
                       </Typography>
                     </Box>
-                    
+
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={3}>
                         <TextField
                           fullWidth
                           label="Commercial Invoice Value"
                           value={formData.commercial_invoice_value}
-                          onChange={(e) => handleInputChange('commercial_invoice_value', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "commercial_invoice_value",
+                              e.target.value
+                            )
+                          }
                           variant="outlined"
                           type="number"
                           inputProps={{ step: "0.01", min: "0" }}
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={3}>
                         <FormControl fullWidth>
                           <InputLabel>Invoice Currency</InputLabel>
                           <Select
                             value={formData.invoice_currency}
-                            onChange={(e) => handleInputChange('invoice_currency', e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "invoice_currency",
+                                e.target.value
+                              )
+                            }
                             label="Invoice Currency"
                           >
                             {currencies.map((currency) => (
-                              <MenuItem key={currency} value={currency}>{currency}</MenuItem>
+                              <MenuItem key={currency} value={currency}>
+                                {currency}
+                              </MenuItem>
                             ))}
                           </Select>
                         </FormControl>
                       </Grid>
-                      
+
                       <Grid item xs={12} md={2}>
                         <TextField
                           fullWidth
                           label="Total Packages"
                           value={formData.total_packages}
-                          onChange={(e) => handleInputChange('total_packages', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("total_packages", e.target.value)
+                          }
                           variant="outlined"
                           type="number"
                           inputProps={{ min: "0" }}
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={2}>
                         <TextField
                           fullWidth
                           label="Gross Weight (KG)"
                           value={formData.gross_weight_kg}
-                          onChange={(e) => handleInputChange('gross_weight_kg', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("gross_weight_kg", e.target.value)
+                          }
                           variant="outlined"
                           type="number"
                           inputProps={{ step: "0.001", min: "0" }}
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={2}>
                         <TextField
                           fullWidth
                           label="Net Weight (KG)"
                           value={formData.net_weight_kg}
-                          onChange={(e) => handleInputChange('net_weight_kg', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("net_weight_kg", e.target.value)
+                          }
                           variant="outlined"
                           type="number"
                           inputProps={{ step: "0.001", min: "0" }}
@@ -748,12 +926,15 @@ const handleSubmit = async (e) => {
                       <InputLabel>Status</InputLabel>
                       <Select
                         value={formData.status}
-                        onChange={(e) => handleInputChange('status', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("status", e.target.value)
+                        }
                         label="Status"
                       >
                         {statusOptions.map((status) => (
                           <MenuItem key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
+                            {status.charAt(0).toUpperCase() +
+                              status.slice(1).replace("-", " ")}
                           </MenuItem>
                         ))}
                       </Select>
@@ -766,40 +947,47 @@ const handleSubmit = async (e) => {
             {/* Action Buttons */}
             <Grid item xs={12}>
               <Fade in timeout={1900}>
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 2,
+                    justifyContent: "flex-end",
+                    mt: 2,
+                  }}
+                >
                   <Button
                     variant="outlined"
                     onClick={handleClear}
                     startIcon={<ClearIcon />}
-                    sx={{ 
+                    sx={{
                       minWidth: 120,
                       height: 48,
-                      fontSize: '1rem'
+                      fontSize: "1rem",
                     }}
                     disabled={submitLoading}
                   >
                     Clear
                   </Button>
-                  
+
                   <Button
                     type="submit"
                     variant="contained"
                     startIcon={submitLoading ? null : <AddIcon />}
                     disabled={submitLoading || !isFormValid()}
-                    sx={{ 
+                    sx={{
                       minWidth: 150,
                       height: 48,
-                      fontSize: '1rem',
+                      fontSize: "1rem",
                       boxShadow: 3,
-                      '&:hover': {
-                        boxShadow: 6
-                      }
+                      "&:hover": {
+                        boxShadow: 6,
+                      },
                     }}
                   >
                     {submitLoading ? (
                       <CircularProgress size={24} color="inherit" />
                     ) : (
-                      'Create Job'
+                      "Create Job"
                     )}
                   </Button>
                 </Box>

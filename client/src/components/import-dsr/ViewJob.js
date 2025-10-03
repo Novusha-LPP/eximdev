@@ -2341,12 +2341,11 @@ function JobDetails() {
                   label="Upload Checklist"
                   bucketPath="checklist"
                   onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.checklist || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("checklist", updatedFiles);
+                    // Replace instead of append since multiple={false}
+                    formik.setFieldValue("checklist", newFiles);
                   }}
-                  multiple={true}
-                />{" "}
+                  multiple={false}
+                />
                 <ImagePreview
                   images={formik.values.checklist || []}
                   onDeleteImage={(index) => {
@@ -2359,22 +2358,6 @@ function JobDetails() {
                   }}
                 />
               </Col>
-              {/* <Col xs={12} lg={4}>
-                <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                  <Button
-                    variant="primary"
-                    onClick={handleGenerate}
-                    style={{
-                      padding: "10px 20px",
-                      fontSize: "16px",
-                      borderRadius: "6px",
-                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                    }}
-                  >
-                    Generate Job Sticker
-                  </Button>
-                </div>
-              </Col> */}
               <JobStickerPDF
                 ref={pdfRef}
                 jobData={{
@@ -3407,12 +3390,19 @@ function JobDetails() {
                           control={
                             <Checkbox
                               checked={doc.is_sent_to_esanchit || false}
-                              onChange={(e) => {
-                                const updatedDocuments = [...cthDocuments];
-                                updatedDocuments[index].is_sent_to_esanchit =
-                                  e.target.checked;
-                                setCthDocuments(updatedDocuments);
-                              }}
+                            onChange={(e) => {
+  const updatedDocuments = [...cthDocuments];
+  updatedDocuments[index].is_sent_to_esanchit = e.target.checked;
+  if (e.target.checked) {
+    // Set send_date to current date in ISO string
+    updatedDocuments[index].send_date = new Date().toISOString();
+  } else {
+    // Optionally unset send_date if unchecked
+    updatedDocuments[index].send_date = "";
+  }
+  setCthDocuments(updatedDocuments);
+}}
+
                               color="primary"
                               size="small"
                             />

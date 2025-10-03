@@ -132,9 +132,18 @@ export const convertToExcel = async (
     ${item.firstCheck ? `\nFirst Check Date: ${formatDate(item.firstCheck)}` : ""}`;
 
     // Safely handle container dates
-    const arrivalDates = item.container_nos && item.container_nos.length > 0 
-      ? formatContainerDates(item.container_nos, "arrival_date")
-      : "";
+ let arrivalDates = "";
+if (item.container_nos && item.container_nos.length > 0) {
+  arrivalDates = item.container_nos
+    .map((container) => {
+      // Show formatted date if available, else show Pending
+      return container.arrival_date
+        ? formatDate(container.arrival_date)
+        : "Pending";
+    })
+    .join(",\n"); // Or use '\n' if you want each on a new line
+}
+
       
     const detentionFrom = item.container_nos && item.container_nos.length > 0
       ? formatContainerDates(item.container_nos, "detention_from")

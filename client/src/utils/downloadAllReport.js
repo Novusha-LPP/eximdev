@@ -109,10 +109,18 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
     }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
 
-    const arrivalDates = formatContainerDates(
-      item.container_nos,
-      "arrival_date"
-    );
+        // Safely handle container dates
+ let arrivalDates = "";
+if (item.container_nos && item.container_nos.length > 0) {
+  arrivalDates = item.container_nos
+    .map((container) => {
+      // Show formatted date if available, else show Pending
+      return container.arrival_date
+        ? formatDate(container.arrival_date)
+        : "Pending";
+    })
+    .join(",\n"); // Or use '\n' if you want each on a new line
+}
     const detentionFrom = formatContainerDates(
       item.container_nos,
       "detention_from"

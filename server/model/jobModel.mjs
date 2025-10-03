@@ -58,6 +58,7 @@ const cthDocumentSchema = new mongoose.Schema({
   irn: { type: String, trim: true },
   document_check_date: { type: String, trim: true },
   is_sent_to_esanchit: { type: Boolean, default: false },
+  send_date: { type: String, trim: true },
 });
 
 const DsrchargesSchema = new mongoose.Schema({

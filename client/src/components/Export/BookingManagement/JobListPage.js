@@ -1,11 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TablePagination, IconButton, Tooltip
-} from '@mui/material';
-import { ChevronRight } from '@mui/icons-material';
-import axios from 'axios';
-import BookingManagement from './BookingManagement'; // Adjust path as needed
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import { ChevronRight } from "@mui/icons-material";
+import axios from "axios";
+import BookingManagement from "./BookingManagement"; // Adjust path as needed
 
 const JobsListPage = () => {
   const [jobs, setJobs] = useState([]);
@@ -20,15 +30,18 @@ const JobsListPage = () => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/exports`, {
-        // params: { page: page + 1, limit: rowsPerPage }
-      });
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/exports`,
+        {
+          // params: { page: page + 1, limit: rowsPerPage }
+        }
+      );
       if (response.data.success) {
         setJobs(response.data.data.jobs);
         setTotalCount(response.data.data.pagination.totalCount);
       }
     } catch (err) {
-      console.error('Error fetching jobs:', err);
+      console.error("Error fetching jobs:", err);
     } finally {
       setLoading(false);
     }
@@ -44,13 +57,20 @@ const JobsListPage = () => {
 
   if (selectedJobNo) {
     // Render BookingManagement passing the selected jobNo
-return <BookingManagement jobNumber={selectedJobNo} onBack={() => setSelectedJobNo(null)} />;
+    return (
+      <BookingManagement
+        jobNumber={selectedJobNo}
+        onBack={() => setSelectedJobNo(null)}
+      />
+    );
   }
 
   return (
-    <Box sx={{ width: '100%', p: 2 }}>
-      <Typography variant="h4" gutterBottom>Export Jobs</Typography>
-      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+    <Box sx={{ width: "100%", p: 2 }}>
+      <Typography variant="h4" gutterBottom>
+        Export Jobs
+      </Typography>
+      <Paper sx={{ width: "100%", overflow: "hidden" }}>
         <TableContainer>
           <Table stickyHeader>
             <TableHead>
@@ -63,13 +83,17 @@ return <BookingManagement jobNumber={selectedJobNo} onBack={() => setSelectedJob
             </TableHead>
             <TableBody>
               {jobs.map((job) => (
-                <TableRow hover key={job._id} sx={{ cursor: 'pointer' }}>
+                <TableRow hover key={job._id} sx={{ cursor: "pointer" }}>
                   <TableCell>{job.job_no}</TableCell>
                   <TableCell>{job.exporter_name}</TableCell>
                   <TableCell>{job.consignee_name}</TableCell>
                   <TableCell align="center">
                     <Tooltip title="Open Booking Management">
-                      <IconButton onClick={() => handleRowClick(job.job_no)} size="small" color="primary">
+                      <IconButton
+                        onClick={() => handleRowClick(job.job_no)}
+                        size="small"
+                        color="primary"
+                      >
                         <ChevronRight />
                       </IconButton>
                     </Tooltip>
@@ -78,7 +102,9 @@ return <BookingManagement jobNumber={selectedJobNo} onBack={() => setSelectedJob
               ))}
               {jobs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">No export jobs found.</TableCell>
+                  <TableCell colSpan={4} align="center">
+                    No export jobs found.
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -90,7 +116,10 @@ return <BookingManagement jobNumber={selectedJobNo} onBack={() => setSelectedJob
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
         />
       </Paper>
     </Box>

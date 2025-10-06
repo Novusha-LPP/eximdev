@@ -31,21 +31,21 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-   CircularProgress,
-   Dialog,
-   DialogTitle,
-   DialogContent,
-   DialogActions
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-import DownloadIcon from '@mui/icons-material/Download';
-import TableViewIcon from '@mui/icons-material/TableView';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import DownloadIcon from "@mui/icons-material/Download";
+import TableViewIcon from "@mui/icons-material/TableView";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const columns = [
   { label: "Srl No.", key: "srlNo", minWidth: 50 },
@@ -65,14 +65,14 @@ const columns = [
 
 const DetailedReport = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [year, setYear] = useState("25-26");
   const [month, setMonth] = useState("6");
   const [exportLoading, setExportLoading] = useState(false);
-  const [exportType, setExportType] = useState('');
+  const [exportType, setExportType] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -102,7 +102,9 @@ const DetailedReport = () => {
     setError("");
     try {
       const apiBase = process.env.REACT_APP_API_STRING || "";
-      const res = await fetch(`${apiBase}/report/import-clearance/${year}/${month}`);
+      const res = await fetch(
+        `${apiBase}/report/import-clearance/${year}/${month}`
+      );
       if (!res.ok) throw new Error("Failed to fetch data");
       const json = await res.json();
       setData(json);
@@ -139,74 +141,88 @@ const DetailedReport = () => {
   // Generate summary data
   const generateSummaryData = () => {
     const locationGroups = {};
-    
-    data.forEach(row => {
-      const location = row.location || 'Unknown';
+
+    data.forEach((row) => {
+      const location = row.location || "Unknown";
       if (!locationGroups[location]) {
         locationGroups[location] = {
           scrap: { count20: 0, count40: 0, teus: 0, containers: 0 },
           others: { count20: 0, count40: 0, teus: 0, containers: 0 },
-          total: { count20: 0, count40: 0, teus: 0, containers: 0 }
+          total: { count20: 0, count40: 0, teus: 0, containers: 0 },
         };
       }
-      
+
       const teus = parseInt(row.teus) || 0;
       const containers = parseInt(row.totalContainers) || 0;
-      const commodity = (row.commodity || '').toLowerCase();
-      
+      const commodity = (row.commodity || "").toLowerCase();
+
       // Determine container sizes from noOfContrSize
-      const sizeInfo = row.noOfContrSize || '';
+      const sizeInfo = row.noOfContrSize || "";
       const count20 = (sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1];
       const count40 = (sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1];
-      
-      const category = commodity.includes('scrap') ? 'scrap' : 'others';
-      
+
+      const category = commodity.includes("scrap") ? "scrap" : "others";
+
       locationGroups[location][category].count20 += parseInt(count20) || 0;
       locationGroups[location][category].count40 += parseInt(count40) || 0;
       locationGroups[location][category].teus += teus;
       locationGroups[location][category].containers += containers;
-      
+
       locationGroups[location].total.count20 += parseInt(count20) || 0;
       locationGroups[location].total.count40 += parseInt(count40) || 0;
       locationGroups[location].total.teus += teus;
       locationGroups[location].total.containers += containers;
     });
-    
+
     return locationGroups;
   };
 
   // Generate summary for dialog (with LCL row)
   const generateSummaryRows = () => {
     const summaryData = {};
-    let lclContainers = 0, lcl20 = 0, lcl40 = 0, lclTeus = 0;
+    let lclContainers = 0,
+      lcl20 = 0,
+      lcl40 = 0,
+      lclTeus = 0;
     let lclTeusSubtract = 0;
-    let total20 = 0, total40 = 0, totalTeus = 0, totalContainers = 0;
-    let scrapTotal20 = 0, scrapTotal40 = 0, scrapTotalTeus = 0, scrapTotalContainers = 0;
-    let othersTotal20 = 0, othersTotal40 = 0, othersTotalTeus = 0, othersTotalContainers = 0;
-    data.forEach(row => {
-      const location = row.location || 'Unknown';
-      const remarks = (row.remarks || '').toLowerCase();
-      const consignmentType = (row.consignment_type || '').toUpperCase();
-      const sizeInfo = row.noOfContrSize || '';
-      const count20 = parseInt((sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1]) || 0;
-      const count40 = parseInt((sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1]) || 0;
+    let total20 = 0,
+      total40 = 0,
+      totalTeus = 0,
+      totalContainers = 0;
+    let scrapTotal20 = 0,
+      scrapTotal40 = 0,
+      scrapTotalTeus = 0,
+      scrapTotalContainers = 0;
+    let othersTotal20 = 0,
+      othersTotal40 = 0,
+      othersTotalTeus = 0,
+      othersTotalContainers = 0;
+    data.forEach((row) => {
+      const location = row.location || "Unknown";
+      const remarks = (row.remarks || "").toLowerCase();
+      const consignmentType = (row.consignment_type || "").toUpperCase();
+      const sizeInfo = row.noOfContrSize || "";
+      const count20 =
+        parseInt((sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1]) || 0;
+      const count40 =
+        parseInt((sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1]) || 0;
       const teus = parseInt(row.teus) || 0;
       const containers = parseInt(row.totalContainers) || 0;
-      if (consignmentType === 'LCL' || remarks.includes('lcl')) {
+      if (consignmentType === "LCL" || remarks.includes("lcl")) {
         lclContainers += containers;
         lcl20 += count20;
         lcl40 += count40;
         lclTeus += teus;
-        lclTeusSubtract += (count20 * 1) + (count40 * 2);
+        lclTeusSubtract += count20 * 1 + count40 * 2;
         return;
       }
       if (!summaryData[location]) {
         summaryData[location] = {
           scrap: { count20: 0, count40: 0, teus: 0, containers: 0 },
-          others: { count20: 0, count40: 0, teus: 0, containers: 0 }
+          others: { count20: 0, count40: 0, teus: 0, containers: 0 },
         };
       }
-      if (remarks.includes('scrap')) {
+      if (remarks.includes("scrap")) {
         summaryData[location].scrap.count20 += count20;
         summaryData[location].scrap.count40 += count40;
         summaryData[location].scrap.teus += teus;
@@ -235,20 +251,20 @@ const DetailedReport = () => {
     const othersRows = [];
     const icdTotalRows = [];
     Object.entries(summaryData).forEach(([location, details]) => {
-      scrapRows.push({ location, details: 'Scrap', ...details.scrap });
+      scrapRows.push({ location, details: "Scrap", ...details.scrap });
     });
     Object.entries(summaryData).forEach(([location, details]) => {
-      othersRows.push({ location, details: 'Others', ...details.others });
+      othersRows.push({ location, details: "Others", ...details.others });
     });
     Object.entries(summaryData).forEach(([location, details]) => {
       // ICD-wise total = Scrap + Others for this location
       icdTotalRows.push({
         location,
-        details: 'TOTAL',
+        details: "TOTAL",
         count20: details.scrap.count20 + details.others.count20,
         count40: details.scrap.count40 + details.others.count40,
         teus: details.scrap.teus + details.others.teus,
-        containers: details.scrap.containers + details.others.containers
+        containers: details.scrap.containers + details.others.containers,
       });
     });
     const rows = [];
@@ -260,14 +276,40 @@ const DetailedReport = () => {
     rows.push(...icdTotalRows);
     // ...removed SCRAP TOTAL and OTHERS TOTAL rows...
     // LCL row
-    rows.push({ location: 'LCL', details: '', count20: lcl20, count40: lcl40, teus: lclTeus, containers: lclContainers });
+    rows.push({
+      location: "LCL",
+      details: "",
+      count20: lcl20,
+      count40: lcl40,
+      teus: lclTeus,
+      containers: lclContainers,
+    });
     // Calculate summary TOTAL TEUS as sum of all ICD-wise total TEUS
-    const summaryTotalTeus = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
-    const summaryTotal20 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count20) || 0), 0);
-    const summaryTotal40 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count40) || 0), 0);
-    const summaryTotalContainers = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.containers) || 0), 0);
+    const summaryTotalTeus = icdTotalRows.reduce(
+      (sum, row) => sum + (parseInt(row.teus) || 0),
+      0
+    );
+    const summaryTotal20 = icdTotalRows.reduce(
+      (sum, row) => sum + (parseInt(row.count20) || 0),
+      0
+    );
+    const summaryTotal40 = icdTotalRows.reduce(
+      (sum, row) => sum + (parseInt(row.count40) || 0),
+      0
+    );
+    const summaryTotalContainers = icdTotalRows.reduce(
+      (sum, row) => sum + (parseInt(row.containers) || 0),
+      0
+    );
     // Final TOTAL row
-    rows.push({ location: 'TOTAL', details: '', count20: summaryTotal20, count40: summaryTotal40, teus: summaryTotalTeus, containers: summaryTotalContainers });
+    rows.push({
+      location: "TOTAL",
+      details: "",
+      count20: summaryTotal20,
+      count40: summaryTotal40,
+      teus: summaryTotalTeus,
+      containers: summaryTotalContainers,
+    });
     return rows;
   };
 
@@ -276,44 +318,50 @@ const DetailedReport = () => {
     setExportLoading(true);
     setExportType(format);
     setAnchorEl(null);
-    
+
     try {
-      if (format === 'excel') {
+      if (format === "excel") {
         await exportToExcel();
-      } else if (format === 'pdf') {
+      } else if (format === "pdf") {
         await exportToPDF();
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      console.error("Export failed:", error);
       setError(`Failed to export report as ${format.toUpperCase()}`);
     } finally {
       setExportLoading(false);
-      setExportType('');
+      setExportType("");
     }
   };
 
   const exportToExcel = async () => {
     const workbook = XLSX.utils.book_new();
-    
+
     // Prepare main data
     const excelData = data.map((row, index) => {
       const excelRow = {};
-      columns.forEach(col => {
+      columns.forEach((col) => {
         switch (col.key) {
-          case 'srlNo':
+          case "srlNo":
             excelRow[col.label] = String(index + 1).padStart(3, "0");
             break;
-          case 'containerNumbers':
-            excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
+          case "containerNumbers":
+            excelRow[col.label] = row.containerNumbers
+              ? row.containerNumbers.join("; ")
+              : "";
             break;
-          case 'be_date':
-            excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
+          case "be_date":
+            excelRow[col.label] = row.be_date
+              ? new Date(row.be_date).toLocaleDateString("en-GB")
+              : "";
             break;
-          case 'out_of_charge':
-            excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
+          case "out_of_charge":
+            excelRow[col.label] = row.out_of_charge
+              ? new Date(row.out_of_charge).toLocaleDateString("en-GB")
+              : "";
             break;
           default:
-            excelRow[col.label] = row[col.key] || '';
+            excelRow[col.label] = row[col.key] || "";
         }
       });
       return excelRow;
@@ -321,11 +369,11 @@ const DetailedReport = () => {
 
     // Create main worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
-    
+
     // Auto-fit columns
-    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    const range = XLSX.utils.decode_range(worksheet["!ref"]);
     const colWidths = [];
-    
+
     for (let col = range.s.c; col <= range.e.c; col++) {
       let maxWidth = 0;
       for (let row = range.s.r; row <= range.e.r; row++) {
@@ -338,25 +386,36 @@ const DetailedReport = () => {
       }
       colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
     }
-    worksheet['!cols'] = colWidths;
+    worksheet["!cols"] = colWidths;
 
     // Add main worksheet
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Import Clearance Report"
+    );
 
     // Create summary worksheet using generateSummaryRows
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const monthName = months.find((m) => m.value === month)?.label || "Unknown";
     const summarySheet = [];
     summarySheet.push([`Summary -- ${monthName} --${year}`]);
-    summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
+    summarySheet.push([
+      "Particulars",
+      "Details",
+      "20",
+      "40",
+      "TEUS",
+      "Containers",
+    ]);
     const summaryRows = generateSummaryRows();
-    summaryRows.forEach(row => {
+    summaryRows.forEach((row) => {
       summarySheet.push([
         row.location,
         row.details,
         row.count20,
         row.count40,
         row.teus,
-        row.containers
+        row.containers,
       ]);
     });
 
@@ -365,14 +424,14 @@ const DetailedReport = () => {
     const summaryColWidths = [
       { wch: 20 }, // Particulars
       { wch: 12 }, // Details
-      { wch: 8 },  // 20
-      { wch: 8 },  // 40
+      { wch: 8 }, // 20
+      { wch: 8 }, // 40
       { wch: 10 }, // TEUS
-      { wch: 10 }  // Containers
+      { wch: 10 }, // Containers
     ];
-    summaryWorksheet['!cols'] = summaryColWidths;
+    summaryWorksheet["!cols"] = summaryColWidths;
 
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Summary");
 
     // Generate filename and save
     const timestamp = new Date().toISOString().slice(0, 10);
@@ -381,11 +440,11 @@ const DetailedReport = () => {
   };
 
   const exportToPDF = async () => {
-    const doc = new jsPDF('l', 'mm', 'a4');
+    const doc = new jsPDF("l", "mm", "a4");
     // Main report page
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const monthName = months.find((m) => m.value === month)?.label || "Unknown";
     doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont("helvetica", "bold");
     const title = `Import Clearing Details of ${monthName}-${year}`;
     const pageWidth = doc.internal.pageSize.getWidth();
     const textWidth = doc.getTextWidth(title);
@@ -394,29 +453,48 @@ const DetailedReport = () => {
 
     // Main table
     const tableHeaders = [
-      'Srl No.', 'JOB No', 'LOCATION', 'IMPORTERS NAME', 'COMMODITY', 
-      'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
-      'No. of Contr & Size', 'Teus', 'CLRG DATE', 'REMARKS'
+      "Srl No.",
+      "JOB No",
+      "LOCATION",
+      "IMPORTERS NAME",
+      "COMMODITY",
+      "B/E. NO.",
+      "DATE",
+      "CONTAINER NO.",
+      "NO. OF CNTR",
+      "SIZE",
+      "No. of Contr & Size",
+      "Teus",
+      "CLRG DATE",
+      "REMARKS",
     ];
     const tableData = data.map((row, index) => {
-      const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
-      const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-      const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+      const containerNos = row.containerNumbers
+        ? row.containerNumbers.join("\n")
+        : "";
+      const beDate = row.be_date
+        ? new Date(row.be_date).toLocaleDateString("en-GB").replace(/\//g, "-")
+        : "";
+      const clrgDate = row.out_of_charge
+        ? new Date(row.out_of_charge)
+            .toLocaleDateString("en-GB")
+            .replace(/\//g, "-")
+        : "";
       return [
         String(index + 1).padStart(4, "0"),
-        row.job_no || '',
-        row.location || '',
-        row.importer || '',
-        row.commodity || '',
-        row.be_no || '',
+        row.job_no || "",
+        row.location || "",
+        row.importer || "",
+        row.commodity || "",
+        row.be_no || "",
         beDate,
         containerNos,
-        row.totalContainers || '',
-        '20/40',
-        row.noOfContrSize || '',
-        row.teus || '',
+        row.totalContainers || "",
+        "20/40",
+        row.noOfContrSize || "",
+        row.teus || "",
         clrgDate,
-        row.remarks || ''
+        row.remarks || "",
       ];
     });
     doc.autoTable({
@@ -426,58 +504,58 @@ const DetailedReport = () => {
       styles: {
         fontSize: 6,
         cellPadding: 1,
-        overflow: 'linebreak',
+        overflow: "linebreak",
         lineColor: [205, 133, 63],
         lineWidth: 0.3,
-        textColor: [0, 0, 0]
+        textColor: [0, 0, 0],
       },
       headStyles: {
         fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
-        fontStyle: 'bold',
+        fontStyle: "bold",
         fontSize: 6,
-        halign: 'center',
-        valign: 'middle',
+        halign: "center",
+        valign: "middle",
         lineColor: [205, 133, 63],
-        lineWidth: 0.5
+        lineWidth: 0.5,
       },
       bodyStyles: {
         fillColor: [255, 255, 255],
         textColor: [0, 0, 0],
         fontSize: 6,
-        valign: 'middle',
+        valign: "middle",
         lineColor: [205, 133, 63],
-        lineWidth: 0.3
+        lineWidth: 0.3,
       },
       alternateRowStyles: {
         fillColor: [255, 255, 255],
       },
       columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 12, halign: 'center' },
-        2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 40, halign: 'left' },
-        4: { cellWidth: 55, halign: 'left' },
-        5: { cellWidth: 18, halign: 'center' },
-        6: { cellWidth: 18, halign: 'center' },
-        7: { cellWidth: 22, halign: 'center' },
-        8: { cellWidth: 12, halign: 'center' },
-        9: { cellWidth: 10, halign: 'center' },
-        10: { cellWidth: 18, halign: 'center' },
-        11: { cellWidth: 12, halign: 'center' },
-        12: { cellWidth: 18, halign: 'center' },
-        13: { cellWidth: 20, halign: 'center' },
+        0: { cellWidth: 12, halign: "center" },
+        1: { cellWidth: 12, halign: "center" },
+        2: { cellWidth: 18, halign: "center" },
+        3: { cellWidth: 40, halign: "left" },
+        4: { cellWidth: 55, halign: "left" },
+        5: { cellWidth: 18, halign: "center" },
+        6: { cellWidth: 18, halign: "center" },
+        7: { cellWidth: 22, halign: "center" },
+        8: { cellWidth: 12, halign: "center" },
+        9: { cellWidth: 10, halign: "center" },
+        10: { cellWidth: 18, halign: "center" },
+        11: { cellWidth: 12, halign: "center" },
+        12: { cellWidth: 18, halign: "center" },
+        13: { cellWidth: 20, halign: "center" },
       },
       margin: { top: 25, right: 5, bottom: 15, left: 5 },
-      theme: 'grid',
+      theme: "grid",
       tableLineColor: [205, 133, 63],
-      tableLineWidth: 0.5
+      tableLineWidth: 0.5,
     });
 
     // Add summary table on a new page
     doc.addPage();
     doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont("helvetica", "bold");
     const summaryTitle = `Summary - ${monthName} ${year}`;
     const summaryTextWidth = doc.getTextWidth(summaryTitle);
     const summaryX = (doc.internal.pageSize.getWidth() - summaryTextWidth) / 2;
@@ -485,14 +563,21 @@ const DetailedReport = () => {
 
     // Prepare summary table data
     const summaryRows = generateSummaryRows();
-    const summaryHeaders = ['Particulars', 'Details', '20', '40', 'TEUS', 'Containers'];
-    const summaryBody = summaryRows.map(row => [
+    const summaryHeaders = [
+      "Particulars",
+      "Details",
+      "20",
+      "40",
+      "TEUS",
+      "Containers",
+    ];
+    const summaryBody = summaryRows.map((row) => [
       row.location,
       row.details,
       row.count20,
       row.count40,
       row.teus,
-      row.containers
+      row.containers,
     ]);
     doc.autoTable({
       head: [summaryHeaders],
@@ -501,38 +586,38 @@ const DetailedReport = () => {
       styles: {
         fontSize: 8,
         cellPadding: 2,
-        halign: 'center',
-        valign: 'middle',
+        halign: "center",
+        valign: "middle",
         lineColor: [205, 133, 63],
         lineWidth: 0.3,
-        textColor: [0, 0, 0]
+        textColor: [0, 0, 0],
       },
       headStyles: {
         fillColor: [255, 224, 178],
         textColor: [51, 51, 51],
-        fontStyle: 'bold',
+        fontStyle: "bold",
         fontSize: 8,
-        halign: 'center',
-        valign: 'middle',
+        halign: "center",
+        valign: "middle",
         lineColor: [205, 133, 63],
-        lineWidth: 0.5
+        lineWidth: 0.5,
       },
       bodyStyles: {
         fillColor: [255, 255, 255],
         textColor: [51, 51, 51],
         fontSize: 8,
-        halign: 'center',
-        valign: 'middle',
+        halign: "center",
+        valign: "middle",
         lineColor: [205, 133, 63],
-        lineWidth: 0.3
+        lineWidth: 0.3,
       },
       alternateRowStyles: {
         fillColor: [247, 250, 255],
       },
       margin: { top: 25, right: 5, bottom: 15, left: 5 },
-      theme: 'grid',
+      theme: "grid",
       tableLineColor: [205, 133, 63],
-      tableLineWidth: 0.5
+      tableLineWidth: 0.5,
     });
 
     // Add page numbering at bottom
@@ -540,8 +625,12 @@ const DetailedReport = () => {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${i}/${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `${i}/${pageCount}`,
+        doc.internal.pageSize.width - 20,
+        doc.internal.pageSize.height - 10
+      );
     }
 
     // Generate filename and save
@@ -551,7 +640,14 @@ const DetailedReport = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ padding: 1, background: 'linear-gradient(135deg, #fdf6f0 0%, #f7faff 100%)', minHeight: '100vh' }}>
+    <Container
+      maxWidth="xl"
+      sx={{
+        padding: 1,
+        background: "linear-gradient(135deg, #fdf6f0 0%, #f7faff 100%)",
+        minHeight: "100vh",
+      }}
+    >
       {/* Compact Header */}
       <Box
         sx={{
@@ -560,64 +656,74 @@ const DetailedReport = () => {
           justifyContent: "space-between",
           marginBottom: 2,
           padding: 1,
-          background: 'linear-gradient(90deg, #1976d2 0%, #e3f2fd 100%)',
+          background: "linear-gradient(90deg, #1976d2 0%, #e3f2fd 100%)",
           borderRadius: 1,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
         }}
       >
-        <Box sx={{ flex: 1, display: 'flex', gap: 1 }}>
+        <Box sx={{ flex: 1, display: "flex", gap: 1 }}>
           {/* Export Button with Dark Blue Gradient */}
           <Button
             variant="contained"
-            startIcon={exportLoading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+            startIcon={
+              exportLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <DownloadIcon />
+              )
+            }
             endIcon={!exportLoading && <ArrowDropDownIcon />}
             onClick={handleExportClick}
             disabled={loading || data.length === 0 || exportLoading}
             size="small"
             sx={{
-              fontWeight: 'bold',
-              background: 'linear-gradient(135deg, #1a237e 0%, #3949ab 50%, #5c6bc0 100%)',
-              boxShadow: '0 4px 8px rgba(26, 35, 126, 0.3)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: 'white',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%)',
-                boxShadow: '0 6px 12px rgba(26, 35, 126, 0.4)',
-                transform: 'translateY(-1px)'
+              fontWeight: "bold",
+              background:
+                "linear-gradient(135deg, #1a237e 0%, #3949ab 50%, #5c6bc0 100%)",
+              boxShadow: "0 4px 8px rgba(26, 35, 126, 0.3)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "white",
+              "&:hover": {
+                background:
+                  "linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%)",
+                boxShadow: "0 6px 12px rgba(26, 35, 126, 0.4)",
+                transform: "translateY(-1px)",
               },
-              '&:disabled': {
-                background: 'linear-gradient(135deg, #9e9e9e 0%, #bdbdbd 100%)',
-                color: 'rgba(255,255,255,0.7)'
+              "&:disabled": {
+                background: "linear-gradient(135deg, #9e9e9e 0%, #bdbdbd 100%)",
+                color: "rgba(255,255,255,0.7)",
               },
-              transition: 'all 0.3s ease'
+              transition: "all 0.3s ease",
             }}
           >
-            {exportLoading ? `Exporting ${exportType}...` : 'Export Report'}
+            {exportLoading ? `Exporting ${exportType}...` : "Export Report"}
           </Button>
 
           {/* Summary Button */}
           <Button
             variant="outlined"
-            startIcon={<TableViewIcon fontSize="small" sx={{ color: '#1976d2' }} />}
+            startIcon={
+              <TableViewIcon fontSize="small" sx={{ color: "#1976d2" }} />
+            }
             onClick={() => setSummaryOpen(true)}
             disabled={loading || data.length === 0}
             size="small"
             sx={{
-              fontWeight: 'bold',
-              borderColor: '#1976d2',
-              color: '#1976d2',
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #fdf6f0 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #bbdefb 0%, #ffe0b2 100%)',
-                borderColor: '#1976d2',
-                color: '#1565c0'
+              fontWeight: "bold",
+              borderColor: "#1976d2",
+              color: "#1976d2",
+              background: "linear-gradient(135deg, #e3f2fd 0%, #fdf6f0 100%)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #bbdefb 0%, #ffe0b2 100%)",
+                borderColor: "#1976d2",
+                color: "#1565c0",
               },
-              '&:disabled': {
-                color: '#bdbdbd',
-                borderColor: '#bdbdbd',
-                background: 'linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%)'
+              "&:disabled": {
+                color: "#bdbdbd",
+                borderColor: "#bdbdbd",
+                background: "linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%)",
               },
-              transition: 'all 0.3s ease'
+              transition: "all 0.3s ease",
             }}
           >
             Summary
@@ -634,104 +740,196 @@ const DetailedReport = () => {
                 mt: 1,
                 minWidth: 200,
                 borderRadius: 2,
-                '& .MuiMenuItem-root': {
+                "& .MuiMenuItem-root": {
                   px: 2,
                   py: 1.5,
                   borderRadius: 1,
                   mx: 1,
                   my: 0.5,
-                  '&:hover': {
-                    backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                  }
-                }
-              }
+                  "&:hover": {
+                    backgroundColor: "rgba(25, 118, 210, 0.08)",
+                  },
+                },
+              },
             }}
           >
-            <MenuItem onClick={() => handleExportReport('excel')}>
+            <MenuItem onClick={() => handleExportReport("excel")}>
               <ListItemIcon>
-                <TableViewIcon fontSize="small" sx={{ color: '#1976d2' }} />
+                <TableViewIcon fontSize="small" sx={{ color: "#1976d2" }} />
               </ListItemIcon>
-              <ListItemText 
-                primary="Export as Excel" 
+              <ListItemText
+                primary="Export as Excel"
                 secondary="With summary sheet"
-                sx={{ 
-                  '& .MuiListItemText-secondary': { 
-                    fontSize: '0.75rem', 
-                    color: '#666' 
-                  }
+                sx={{
+                  "& .MuiListItemText-secondary": {
+                    fontSize: "0.75rem",
+                    color: "#666",
+                  },
                 }}
               />
             </MenuItem>
             <Divider sx={{ mx: 1 }} />
-            <MenuItem onClick={() => handleExportReport('pdf')}>
+            <MenuItem onClick={() => handleExportReport("pdf")}>
               <ListItemIcon>
-                <PictureAsPdfIcon fontSize="small" sx={{ color: '#d32f2f' }} />
+                <PictureAsPdfIcon fontSize="small" sx={{ color: "#d32f2f" }} />
               </ListItemIcon>
-              <ListItemText 
-                primary="Export as PDF" 
+              <ListItemText
+                primary="Export as PDF"
                 secondary="With summary table"
-                sx={{ 
-                  '& .MuiListItemText-secondary': { 
-                    fontSize: '0.75rem', 
-                    color: '#666' 
-                  }
+                sx={{
+                  "& .MuiListItemText-secondary": {
+                    fontSize: "0.75rem",
+                    color: "#666",
+                  },
                 }}
               />
             </MenuItem>
           </Menu>
         </Box>
-    {/* Summary Dialog */}
-    <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 'bold', background: 'linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)' }}>
-        Summary - {months.find(m => m.value === month)?.label} {year}
-      </DialogTitle>
-      <DialogContent sx={{ background: '#fff' }}>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {generateSummaryRows().map((row, idx) => (
-                <TableRow key={idx} sx={{ background: row.location === 'LCL' ? '#e3f2fd' : (row.details === 'Scrap' ? '#fffde7' : row.details === 'Others' ? '#f7faff' : undefined) }}>
-                  <TableCell align="center" sx={{ fontWeight: row.location === 'LCL' ? 'bold' : 'normal' }}>{row.location}</TableCell>
-                  <TableCell align="center">{row.details}</TableCell>
-                  <TableCell align="center">{row.count20}</TableCell>
-                  <TableCell align="center">{row.count40}</TableCell>
-                  <TableCell align="center">{row.teus}</TableCell>
-                  <TableCell align="center">{row.containers}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setSummaryOpen(false)} color="primary" variant="contained">Close</Button>
-      </DialogActions>
-    </Dialog>
-        
-        <Typography 
-          variant="h6" 
-          align="center" 
-          sx={{ 
-            fontWeight: 'bold',
-            color: 'white',
-            textShadow: '0 1px 4px rgba(25, 118, 210, 0.15)',
-            fontSize: '1rem'
+        {/* Summary Dialog */}
+        <Dialog
+          open={summaryOpen}
+          onClose={() => setSummaryOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle
+            sx={{
+              fontWeight: "bold",
+              background: "linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)",
+            }}
+          >
+            Summary - {months.find((m) => m.value === month)?.label} {year}
+          </DialogTitle>
+          <DialogContent sx={{ background: "#fff" }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        background: "#ffe0b2",
+                        color: "#333",
+                      }}
+                    >
+                      Particulars
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        background: "#ffe0b2",
+                        color: "#333",
+                      }}
+                    >
+                      Details
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        background: "#ffe0b2",
+                        color: "#333",
+                      }}
+                    >
+                      20
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        background: "#ffe0b2",
+                        color: "#333",
+                      }}
+                    >
+                      40
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        background: "#ffe0b2",
+                        color: "#333",
+                      }}
+                    >
+                      TEUS
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        background: "#ffe0b2",
+                        color: "#333",
+                      }}
+                    >
+                      Containers
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {generateSummaryRows().map((row, idx) => (
+                    <TableRow
+                      key={idx}
+                      sx={{
+                        background:
+                          row.location === "LCL"
+                            ? "#e3f2fd"
+                            : row.details === "Scrap"
+                            ? "#fffde7"
+                            : row.details === "Others"
+                            ? "#f7faff"
+                            : undefined,
+                      }}
+                    >
+                      <TableCell
+                        align="center"
+                        sx={{
+                          fontWeight:
+                            row.location === "LCL" ? "bold" : "normal",
+                        }}
+                      >
+                        {row.location}
+                      </TableCell>
+                      <TableCell align="center">{row.details}</TableCell>
+                      <TableCell align="center">{row.count20}</TableCell>
+                      <TableCell align="center">{row.count40}</TableCell>
+                      <TableCell align="center">{row.teus}</TableCell>
+                      <TableCell align="center">{row.containers}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => setSummaryOpen(false)}
+              color="primary"
+              variant="contained"
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Typography
+          variant="h6"
+          align="center"
+          sx={{
+            fontWeight: "bold",
+            color: "white",
+            textShadow: "0 1px 4px rgba(25, 118, 210, 0.15)",
+            fontSize: "1rem",
           }}
         >
           Import Clearance Report
         </Typography>
-        
-        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+
+        <Box
+          sx={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 1 }}
+        >
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <InputLabel>Year</InputLabel>
             <Select
@@ -740,23 +938,25 @@ const DetailedReport = () => {
               label="Year"
             >
               {years.map((y) => (
-                <MenuItem key={y.value} value={y.value}>{y.label}</MenuItem>
+                <MenuItem key={y.value} value={y.value}>
+                  {y.label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <IconButton 
-              size="small" 
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <IconButton
+              size="small"
               onClick={handlePreviousMonth}
-              sx={{ 
-                bgcolor: '#f5f5f5',
-                '&:hover': { bgcolor: '#e0e0e0' }
+              sx={{
+                bgcolor: "#f5f5f5",
+                "&:hover": { bgcolor: "#e0e0e0" },
               }}
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
-            
+
             <FormControl size="small" sx={{ minWidth: 100 }}>
               <InputLabel>Month</InputLabel>
               <Select
@@ -765,17 +965,19 @@ const DetailedReport = () => {
                 label="Month"
               >
                 {months.map((m) => (
-                  <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                  <MenuItem key={m.value} value={m.value}>
+                    {m.label}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
-            
-            <IconButton 
-              size="small" 
+
+            <IconButton
+              size="small"
               onClick={handleNextMonth}
-              sx={{ 
-                bgcolor: '#f5f5f5',
-                '&:hover': { bgcolor: '#e0e0e0' }
+              sx={{
+                bgcolor: "#f5f5f5",
+                "&:hover": { bgcolor: "#e0e0e0" },
               }}
             >
               <ArrowForwardIosIcon fontSize="small" />
@@ -793,22 +995,33 @@ const DetailedReport = () => {
       {/* Data Summary Card */}
       {data.length > 0 && (
         <Card elevation={1} sx={{ marginBottom: 2, padding: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              Report Summary: {data.length} records found for {months.find(m => m.value === month)?.label} {year}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+              Report Summary: {data.length} records found for{" "}
+              {months.find((m) => m.value === month)?.label} {year}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#666' }}>
-              Total TEUs: {
-                (() => {
-                  const totalTeus = data.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
-                  const lclTeus = data.reduce((sum, row) => {
-                    const consType = (row.consignment_type || '').toUpperCase();
-                    const remarks = (row.remarks || '').toLowerCase();
-                    return (consType === 'LCL' || remarks.includes('lcl')) ? sum + (parseInt(row.teus) || 0) : sum;
-                  }, 0);
-                  return totalTeus - lclTeus;
-                })()
-              }
+            <Typography variant="body2" sx={{ color: "#666" }}>
+              Total TEUs:{" "}
+              {(() => {
+                const totalTeus = data.reduce(
+                  (sum, row) => sum + (parseInt(row.teus) || 0),
+                  0
+                );
+                const lclTeus = data.reduce((sum, row) => {
+                  const consType = (row.consignment_type || "").toUpperCase();
+                  const remarks = (row.remarks || "").toLowerCase();
+                  return consType === "LCL" || remarks.includes("lcl")
+                    ? sum + (parseInt(row.teus) || 0)
+                    : sum;
+                }, 0);
+                return totalTeus - lclTeus;
+              })()}
             </Typography>
           </Box>
         </Card>
@@ -816,24 +1029,24 @@ const DetailedReport = () => {
 
       {/* Data Table */}
       {data.length > 0 && (
-        <Card elevation={1} sx={{ overflow: 'hidden' }}>
-          <TableContainer sx={{ maxHeight: 'calc(100vh - 200px)' }}>
+        <Card elevation={1} sx={{ overflow: "hidden" }}>
+          <TableContainer sx={{ maxHeight: "calc(100vh - 200px)" }}>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
                   {columns.map((col) => (
-                    <TableCell 
-                      key={col.key} 
-                      align="center" 
-                      sx={{ 
-                        fontWeight: "bold", 
+                    <TableCell
+                      key={col.key}
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
                         fontSize: "0.75rem",
                         padding: "8px 6px",
-                        backgroundColor: '#f5f5f5',
-                        color: '#333',
+                        backgroundColor: "#f5f5f5",
+                        color: "#333",
                         minWidth: col.minWidth,
-                        whiteSpace: 'nowrap',
-                        borderBottom: '2px solid #e0e0e0'
+                        whiteSpace: "nowrap",
+                        borderBottom: "2px solid #e0e0e0",
                       }}
                     >
                       {col.label}
@@ -846,13 +1059,13 @@ const DetailedReport = () => {
                   ? Array.from({ length: 8 }).map((_, idx) => (
                       <TableRow key={idx}>
                         {columns.map((col) => (
-                          <TableCell 
-                            key={col.key} 
-                            align="center" 
-                            sx={{ 
-                              fontSize: "0.75rem", 
+                          <TableCell
+                            key={col.key}
+                            align="center"
+                            sx={{
+                              fontSize: "0.75rem",
                               padding: "6px 8px",
-                              borderBottom: '1px solid #e0e0e0'
+                              borderBottom: "1px solid #e0e0e0",
                             }}
                           >
                             <Skeleton variant="text" height={20} />
@@ -861,129 +1074,151 @@ const DetailedReport = () => {
                       </TableRow>
                     ))
                   : data.map((row, idx) => (
-                      <TableRow 
+                      <TableRow
                         key={idx}
-                        sx={{ 
-                          '&:hover': { 
-                            backgroundColor: '#f9f9f9'
+                        sx={{
+                          "&:hover": {
+                            backgroundColor: "#f9f9f9",
                           },
-                          '&:nth-of-type(even)': {
-                            backgroundColor: '#fafafa'
-                          }
+                          "&:nth-of-type(even)": {
+                            backgroundColor: "#fafafa",
+                          },
                         }}
                       >
-                        <TableCell 
-                          align="center" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
+                        <TableCell
+                          align="center"
+                          sx={{
+                            fontSize: "0.75rem",
                             padding: "6px 8px",
-                            fontWeight: 'bold',
-                            color: '#666'
+                            fontWeight: "bold",
+                            color: "#666",
                           }}
                         >
                           {String(idx + 1).padStart(3, "0")}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
+                        <TableCell
+                          align="center"
+                          sx={{
+                            fontSize: "0.75rem",
                             padding: "6px 8px",
-                            fontWeight: '500'
+                            fontWeight: "500",
                           }}
                         >
                           {row.job_no}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
                           {row.location}
                         </TableCell>
-                        <TableCell 
-                          align="left" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
+                        <TableCell
+                          align="left"
+                          sx={{
+                            fontSize: "0.75rem",
                             padding: "6px 8px",
                             maxWidth: 150,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                           }}
                         >
                           <Tooltip title={row.importer}>
                             <span>{row.importer}</span>
                           </Tooltip>
                         </TableCell>
-                        <TableCell 
-                          align="left" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
+                        <TableCell
+                          align="left"
+                          sx={{
+                            fontSize: "0.75rem",
                             padding: "6px 8px",
                             maxWidth: 120,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                           }}
                         >
                           <Tooltip title={row.commodity}>
                             <span>{row.commodity}</span>
                           </Tooltip>
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
                           {row.be_no}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
-                          {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
+                          {row.be_date
+                            ? new Date(row.be_date).toLocaleDateString("en-GB")
+                            : ""}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
-                          <Box sx={{ 
-                            display: "flex", 
-                            flexDirection: "column", 
-                            alignItems: "center",
-                            gap: 0.5
-                          }}>
-                            {row.containerNumbers && row.containerNumbers.map((num, i) => (
-                              <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
-                                {num}
-                              </Typography>
-                            ))}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            {row.containerNumbers &&
+                              row.containerNumbers.map((num, i) => (
+                                <Typography
+                                  key={i}
+                                  variant="caption"
+                                  sx={{ fontSize: "0.7rem" }}
+                                >
+                                  {num}
+                                </Typography>
+                              ))}
                           </Box>
                         </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}
+                        <TableCell
+                          align="center"
+                          sx={{
+                            fontSize: "0.75rem",
+                            padding: "6px 8px",
+                            fontWeight: "bold",
+                          }}
                         >
                           {row.totalContainers}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
                           {row.noOfContrSize}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}
+                        <TableCell
+                          align="center"
+                          sx={{
+                            fontSize: "0.75rem",
+                            padding: "6px 8px",
+                            fontWeight: "bold",
+                            color: "#1976d2",
+                          }}
                         >
                           {row.teus}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
-                          {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
+                          {row.out_of_charge
+                            ? new Date(row.out_of_charge).toLocaleDateString(
+                                "en-GB"
+                              )
+                            : ""}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
+                        <TableCell
+                          align="center"
                           sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
                         >
                           {row.remarks}
@@ -998,12 +1233,13 @@ const DetailedReport = () => {
 
       {/* No Data State */}
       {!loading && data.length === 0 && (
-        <Card elevation={1} sx={{ padding: 4, textAlign: 'center' }}>
+        <Card elevation={1} sx={{ padding: 4, textAlign: "center" }}>
           <Typography variant="h6" color="textSecondary" sx={{ mb: 2 }}>
             No Data Available
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            No import clearance records found for {months.find(m => m.value === month)?.label} {year}
+            No import clearance records found for{" "}
+            {months.find((m) => m.value === month)?.label} {year}
           </Typography>
         </Card>
       )}

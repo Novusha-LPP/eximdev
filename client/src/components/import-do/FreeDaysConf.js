@@ -12,7 +12,7 @@ import {
   Pagination,
   Typography,
   MenuItem,
-  Autocomplete
+  Autocomplete,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
@@ -26,8 +26,7 @@ import { UserContext } from "../../contexts/UserContext";
 const FreeDaysConf = () => {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  
-  
+
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
@@ -74,10 +73,7 @@ const FreeDaysConf = () => {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
-
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -232,10 +228,10 @@ const FreeDaysConf = () => {
   };
 
   const handleEditClick = (row) => {
-    if(row.consignment_type !== "LCL") {
-    setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
-    setFreeTimeValue(row.free_time); // Set the current value for editing
-    setCurrentPageBeforeEdit(page); // Remember the current page before editing
+    if (row.consignment_type !== "LCL") {
+      setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
+      setFreeTimeValue(row.free_time); // Set the current value for editing
+      setCurrentPageBeforeEdit(page); // Remember the current page before editing
     } else {
       alert("Free Time cannot be edited for LCL consignment type.");
     }
@@ -305,15 +301,14 @@ const FreeDaysConf = () => {
         const line_no = row.original.line_no || "N/A";
         return (
           <>
-           <BLNumberCell
-          blNumber={row.original.awb_bl_no}
-          portOfReporting={row.original.port_of_reporting}
-          shippingLine={row.original.shipping_line_airline}
-          containerNos={row.original.container_nos}
-
+            <BLNumberCell
+              blNumber={row.original.awb_bl_no}
+              portOfReporting={row.original.port_of_reporting}
+              shippingLine={row.original.shipping_line_airline}
+              containerNos={row.original.container_nos}
             />
-                <div>
-            { `Line No: ${line_no}`}
+            <div>
+              {`Line No: ${line_no}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -325,8 +320,8 @@ const FreeDaysConf = () => {
               </IconButton>
             </div>
           </>
-        )
-      }
+        );
+      },
     },
     {
       accessorKey: "free_time",

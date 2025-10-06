@@ -28,7 +28,7 @@ function ImportDSR() {
   const [selectedYear, setSelectedYear] = React.useState("");
   const [alt, setAlt] = React.useState(false);
   const [lastJobsDate, setLastJobsDate] = React.useState("");
-  
+
   const inputRef = React.useRef();
 
   const handleChange = (event, newValue) => {
@@ -45,11 +45,8 @@ function ImportDSR() {
     getLastJobsDate();
   }, [alt]);
 
-  const { handleFileUpload, snackbar, loading, error , setError } = useFileUpload(
-    inputRef,
-    alt,
-    setAlt
-  );
+  const { handleFileUpload, snackbar, loading, error, setError } =
+    useFileUpload(inputRef, alt, setAlt);
 
   return (
     <SelectedYearContext.Provider value={{ selectedYear, setSelectedYear }}>
@@ -109,7 +106,7 @@ function ImportDSR() {
           )}
         </div>
         {error && (
-          <Alert 
+          <Alert
             severity="error"
             sx={{ marginTop: "10px", marginBottom: "10px" }}
             onClose={() => setError(null)}

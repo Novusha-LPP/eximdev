@@ -1,12 +1,22 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const PortService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/ports`,
-  
+
   getAll: async (params = {}) => {
     try {
       const response = await axios.get(`${PortService.baseURL}/`, { params });
@@ -50,16 +60,16 @@ const PortService = {
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const PortForm = ({ portData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    portCode: '',
-    portName: '',
-    portDetails: '',
-    country: ''
+    portCode: "",
+    portName: "",
+    portDetails: "",
+    country: "",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -69,42 +79,43 @@ const PortForm = ({ portData, onSave, onCancel }) => {
       setFormData(portData);
     } else {
       setFormData({
-        portCode: '',
-        portName: '',
-        portDetails: '',
-        country: ''
+        portCode: "",
+        portName: "",
+        portDetails: "",
+        country: "",
       });
     }
   }, [portData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'portCode' ? value.toUpperCase() : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "portCode" ? value.toUpperCase() : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.portCode?.trim()) {
-      newErrors.portCode = 'Port Code is required';
+      newErrors.portCode = "Port Code is required";
     } else if (!/^[A-Z0-9]{2,10}$/.test(formData.portCode)) {
-      newErrors.portCode = 'Code must be 2-10 uppercase alphanumeric characters';
+      newErrors.portCode =
+        "Code must be 2-10 uppercase alphanumeric characters";
     }
-    
+
     if (!formData.portName?.trim()) {
-      newErrors.portName = 'Port Name is required';
+      newErrors.portName = "Port Name is required";
     }
-    
+
     if (!formData.country?.trim()) {
-      newErrors.country = 'Country is required';
+      newErrors.country = "Country is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -122,7 +133,7 @@ const PortForm = ({ portData, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving port');
+      alert(error.message || "Error saving port");
     } finally {
       setLoading(false);
     }
@@ -131,7 +142,7 @@ const PortForm = ({ portData, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{portData ? 'Edit Port' : 'Add New Port'}</h5>
+        <h5>{portData ? "Edit Port" : "Add New Port"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -209,7 +220,7 @@ const PortForm = ({ portData, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -226,8 +237,8 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
   const [availableCountries, setAvailableCountries] = useState([]);
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    country: ''
+    search: "",
+    country: "",
   });
 
   useEffect(() => {
@@ -240,12 +251,14 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
       const response = await PortService.getAll(filters);
       setPorts(response.data || response);
       setPagination(response.pagination || {});
-      
+
       // Extract unique countries for filtering
-      const countries = [...new Set((response.data || []).map(item => item.country))].sort();
+      const countries = [
+        ...new Set((response.data || []).map((item) => item.country)),
+      ].sort();
       setAvailableCountries(countries);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setPorts([]);
     } finally {
       setLoading(false);
@@ -253,12 +266,12 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const truncateDetails = (text, maxLength = 100) => {
-    return text && text.length > maxLength 
-      ? `${text.substring(0, maxLength)}...` 
+    return text && text.length > maxLength
+      ? `${text.substring(0, maxLength)}...`
       : text;
   };
 
@@ -279,17 +292,19 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by port code or name..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={6}>
           <Form.Select
             value={filters.country}
-            onChange={(e) => handleFilterChange('country', e.target.value)}
+            onChange={(e) => handleFilterChange("country", e.target.value)}
           >
             <option value="">All Countries</option>
-            {availableCountries.map(country => (
-              <option key={country} value={country}>{country}</option>
+            {availableCountries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
             ))}
           </Form.Select>
         </Col>
@@ -300,11 +315,11 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
         <Table striped bordered hover>
           <thead>
             <tr>
-              <th style={{ width: '120px' }}>Port Code</th>
-              <th style={{ width: '200px' }}>Port Name</th>
+              <th style={{ width: "120px" }}>Port Code</th>
+              <th style={{ width: "200px" }}>Port Name</th>
               <th>Port Details</th>
-              <th style={{ width: '150px' }}>Country</th>
-              <th style={{ width: '150px' }}>Actions</th>
+              <th style={{ width: "150px" }}>Country</th>
+              <th style={{ width: "150px" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -315,16 +330,16 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
                     <strong>{item.portCode}</strong>
                   </span>
                 </td>
-                <td><strong>{item.portName}</strong></td>
+                <td>
+                  <strong>{item.portName}</strong>
+                </td>
                 <td>
                   <div title={item.portDetails}>
-                    {truncateDetails(item.portDetails) || '-'}
+                    {truncateDetails(item.portDetails) || "-"}
                   </div>
                 </td>
                 <td>
-                  <span className="badge bg-info">
-                    {item.country}
-                  </span>
+                  <span className="badge bg-info">{item.country}</span>
                 </td>
                 <td>
                   <Button
@@ -359,29 +374,50 @@ const PortList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -401,7 +437,7 @@ const PortCodeSea = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -416,28 +452,29 @@ const PortCodeSea = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this port?')) {
-          await PortService.delete(ids[0]);
-          showAlert('Port deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (window.confirm("Are you sure you want to delete this port?")) {
+            await PortService.delete(ids[0]);
+            showAlert("Port deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
         }
+      } catch (error) {
+        showAlert(error.message || "Error deleting port", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting port', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingPort(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingPort 
-        ? 'Port updated successfully' 
-        : 'Port created successfully'
+      editingPort ? "Port updated successfully" : "Port created successfully"
     );
   }, [editingPort, showAlert]);
 
@@ -451,9 +488,9 @@ const PortCodeSea = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >
@@ -462,7 +499,7 @@ const PortCodeSea = () => {
           )}
 
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1 className="mb-0">Port Code-Sea  </h1>
+            <h1 className="mb-0">Port Code-Sea </h1>
             <div>
               {showForm && (
                 <Button

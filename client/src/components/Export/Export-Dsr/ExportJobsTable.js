@@ -1,15 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TablePagination, TextField, Box, Typography, Chip, IconButton, Tooltip,
-  FormControl, InputLabel, Select, MenuItem, Grid, Card, CardContent, Button,
-  Tabs, Tab, Badge
-} from '@mui/material';
-import { Edit, Delete, Visibility, Refresh, Download, BuildCircle as ToolboxIcon } from '@mui/icons-material';
-import { format, parseISO } from 'date-fns';
-import { useNavigate } from 'react-router-dom'; // Add this import
-import axios from 'axios';
-import PropTypes from 'prop-types';
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  TablePagination,
+  TextField,
+  Box,
+  Typography,
+  Chip,
+  IconButton,
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  Tabs,
+  Tab,
+  Badge,
+} from "@mui/material";
+import {
+  Edit,
+  Delete,
+  Visibility,
+  Refresh,
+  Download,
+  BuildCircle as ToolboxIcon,
+} from "@mui/icons-material";
+import { format, parseISO } from "date-fns";
+import { useNavigate } from "react-router-dom"; // Add this import
+import axios from "axios";
+import PropTypes from "prop-types";
 
 // Custom Tab Panel Component
 function CustomTabPanel(props) {
@@ -36,30 +64,33 @@ const ExportJobsTableContent = ({ status }) => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
-    search: '',
-    exporter: '',
-    country: '',
-    movement_type: ''
+    search: "",
+    exporter: "",
+    country: "",
+    movement_type: "",
   });
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/exports`, {
-        params: {
-          page: page + 1,
-          limit: rowsPerPage,
-          status: status.toLowerCase(), // Add status filter
-          ...filters
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/exports`,
+        {
+          params: {
+            page: page + 1,
+            limit: rowsPerPage,
+            status: status.toLowerCase(), // Add status filter
+            ...filters,
+          },
         }
-      });
-      
+      );
+
       if (response.data.success) {
         setJobs(response.data.data.jobs || []);
         setTotalCount(response.data.data.pagination?.totalCount || 0);
       }
     } catch (err) {
-      console.error('Error fetching export jobs:', err);
+      console.error("Error fetching export jobs:", err);
       setJobs([]);
       setTotalCount(0);
     } finally {
@@ -74,13 +105,13 @@ const ExportJobsTableContent = ({ status }) => {
   // Handle row click navigation
   const handleRowClick = (job, event) => {
     // Prevent navigation if clicking on action buttons
-    if (event.target.closest('.MuiIconButton-root')) {
+    if (event.target.closest(".MuiIconButton-root")) {
       return;
     }
-    
+
     const jobNo = job.job_no;
     const year = job.year;
-    
+
     if (jobNo && year) {
       navigate(`/export-dsr/job/${year}/${jobNo}`, {
         state: {
@@ -88,8 +119,8 @@ const ExportJobsTableContent = ({ status }) => {
           searchQuery: filters.search,
           selectedExporter: filters.exporter,
           selectedCountry: filters.country,
-          currentTab: status === 'Pending' ? 0 : status === 'Completed' ? 1 : 2
-        }
+          currentTab: status === "Pending" ? 0 : status === "Completed" ? 1 : 2,
+        },
       });
     }
   };
@@ -108,38 +139,50 @@ const ExportJobsTableContent = ({ status }) => {
   const handleDeleteClick = (job, event) => {
     event.stopPropagation();
     // Add delete functionality here
-    console.log('Delete job:', job);
+    console.log("Delete job:", job);
   };
 
   const columns = [
-    { id: 'job_no', label: 'Job Number', minWidth: 120 },
-    { id: 'exporter_name', label: 'Exporter', minWidth: 200 },
-    { id: 'consignee_name', label: 'Consignee Name', minWidth: 200 },
-    { id: 'port_of_origin', label: 'Port of Origin', minWidth: 150 },
-    { id: 'port_of_discharge', label: 'Port of Destination', minWidth: 150 },
-    { id: 'country_of_final_destination', label: 'Country', minWidth: 120 },
-    { id: 'movement_type', label: 'LCL/FCL/AIR', minWidth: 100 },
-    { id: 'cntr_size', label: 'CNTR 20/40', minWidth: 100 },
-    { id: 'commercial_invoice_number', label: 'Invoice No', minWidth: 120 },
-    { id: 'commercial_invoice_date', label: 'Invoice Date', minWidth: 120 },
-    { id: 'commercial_invoice_value', label: 'Invoice Value', minWidth: 120 },
-    { id: 'shipping_bill_number', label: 'SB Number', minWidth: 120 },
-    { id: 'shipping_bill_date', label: 'SB Date', minWidth: 120 },
-    { id: 'total_packages', label: 'No of Packages', minWidth: 120 },
-    { id: 'net_weight_kg', label: 'Net Weight Kgs', minWidth: 130 },
-    { id: 'gross_weight_kg', label: 'Gross Weight Kgs', minWidth: 140 },
-    { id: 'container_placement_date_factory', label: 'Container Placement', minWidth: 160 },
-    { id: 'original_docs_received_date', label: 'Original Docs Received', minWidth: 180 },
-    { id: 'gate_in_thar_khodiyar_date', label: 'Gate In Thar/Khodiyar', minWidth: 180 },
-    { id: 'hand_over_date', label: 'Hand Over Date', minWidth: 140 },
-    { id: 'rail_out_date_plan', label: 'Rail Out Plan', minWidth: 140 },
-    { id: 'rail_out_date_actual', label: 'Rail Out Actual', minWidth: 150 },
-    { id: 'port_gate_in_date', label: 'Port Gate In', minWidth: 140 },
-    { id: 'tracking_remarks', label: 'Remarks', minWidth: 250 }
+    { id: "job_no", label: "Job Number", minWidth: 120 },
+    { id: "exporter_name", label: "Exporter", minWidth: 200 },
+    { id: "consignee_name", label: "Consignee Name", minWidth: 200 },
+    { id: "port_of_origin", label: "Port of Origin", minWidth: 150 },
+    { id: "port_of_discharge", label: "Port of Destination", minWidth: 150 },
+    { id: "country_of_final_destination", label: "Country", minWidth: 120 },
+    { id: "movement_type", label: "LCL/FCL/AIR", minWidth: 100 },
+    { id: "cntr_size", label: "CNTR 20/40", minWidth: 100 },
+    { id: "commercial_invoice_number", label: "Invoice No", minWidth: 120 },
+    { id: "commercial_invoice_date", label: "Invoice Date", minWidth: 120 },
+    { id: "commercial_invoice_value", label: "Invoice Value", minWidth: 120 },
+    { id: "shipping_bill_number", label: "SB Number", minWidth: 120 },
+    { id: "shipping_bill_date", label: "SB Date", minWidth: 120 },
+    { id: "total_packages", label: "No of Packages", minWidth: 120 },
+    { id: "net_weight_kg", label: "Net Weight Kgs", minWidth: 130 },
+    { id: "gross_weight_kg", label: "Gross Weight Kgs", minWidth: 140 },
+    {
+      id: "container_placement_date_factory",
+      label: "Container Placement",
+      minWidth: 160,
+    },
+    {
+      id: "original_docs_received_date",
+      label: "Original Docs Received",
+      minWidth: 180,
+    },
+    {
+      id: "gate_in_thar_khodiyar_date",
+      label: "Gate In Thar/Khodiyar",
+      minWidth: 180,
+    },
+    { id: "hand_over_date", label: "Hand Over Date", minWidth: 140 },
+    { id: "rail_out_date_plan", label: "Rail Out Plan", minWidth: 140 },
+    { id: "rail_out_date_actual", label: "Rail Out Actual", minWidth: 150 },
+    { id: "port_gate_in_date", label: "Port Gate In", minWidth: 140 },
+    { id: "tracking_remarks", label: "Remarks", minWidth: 250 },
   ];
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: "100%" }}>
       {/* Filters Card */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
@@ -152,7 +195,9 @@ const ExportJobsTableContent = ({ status }) => {
                 fullWidth
                 label="Search (Job No, Exporter, Consignee)"
                 value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, search: e.target.value })
+                }
                 size="small"
               />
             </Grid>
@@ -161,7 +206,9 @@ const ExportJobsTableContent = ({ status }) => {
                 fullWidth
                 label="Exporter"
                 value={filters.exporter}
-                onChange={(e) => setFilters({ ...filters, exporter: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, exporter: e.target.value })
+                }
                 size="small"
               />
             </Grid>
@@ -170,7 +217,9 @@ const ExportJobsTableContent = ({ status }) => {
                 fullWidth
                 label="Country"
                 value={filters.country}
-                onChange={(e) => setFilters({ ...filters, country: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, country: e.target.value })
+                }
                 size="small"
               />
             </Grid>
@@ -180,7 +229,9 @@ const ExportJobsTableContent = ({ status }) => {
                 <Select
                   value={filters.movement_type}
                   label="Movement Type"
-                  onChange={(e) => setFilters({ ...filters, movement_type: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, movement_type: e.target.value })
+                  }
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="FCL">FCL</MenuItem>
@@ -195,7 +246,7 @@ const ExportJobsTableContent = ({ status }) => {
       </Card>
 
       {/* Jobs Table */}
-      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+      <Paper sx={{ width: "100%", overflow: "hidden" }}>
         <TableContainer sx={{ maxHeight: 600 }}>
           <Table stickyHeader size="small">
             <TableHead>
@@ -205,8 +256,8 @@ const ExportJobsTableContent = ({ status }) => {
                     key={column.id}
                     style={{
                       minWidth: column.minWidth,
-                      fontWeight: 'bold',
-                      backgroundColor: '#f5f5f5'
+                      fontWeight: "bold",
+                      backgroundColor: "#f5f5f5",
                     }}
                   >
                     {column.label}
@@ -215,8 +266,8 @@ const ExportJobsTableContent = ({ status }) => {
                 <TableCell
                   style={{
                     minWidth: 120,
-                    fontWeight: 'bold',
-                    backgroundColor: '#f5f5f5'
+                    fontWeight: "bold",
+                    backgroundColor: "#f5f5f5",
                   }}
                 >
                   Actions
@@ -233,64 +284,65 @@ const ExportJobsTableContent = ({ status }) => {
               ) : jobs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length + 1} align="center">
-                    <Typography>No {status.toLowerCase()} jobs found</Typography>
+                    <Typography>
+                      No {status.toLowerCase()} jobs found
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 jobs.map((job, index) => (
-                  <TableRow 
-                    hover 
+                  <TableRow
+                    hover
                     key={job._id || index}
                     onClick={(event) => handleRowClick(job, event)}
-                    sx={{ 
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: '#f5f5f5'
-                      }
+                    sx={{
+                      cursor: "pointer",
+                      "&:hover": {
+                        backgroundColor: "#f5f5f5",
+                      },
                     }}
                   >
                     {columns.map((column) => {
                       let value = job[column.id];
-                      
-                      if (column.id.includes('date') && value) {
-                        value = format(parseISO(value), 'dd-MM-yyyy');
-                      } else if (column.id === 'movement_type') {
+
+                      if (column.id.includes("date") && value) {
+                        value = format(parseISO(value), "dd-MM-yyyy");
+                      } else if (column.id === "movement_type") {
                         value = (
                           <Chip
-                            label={value || 'N/A'}
+                            label={value || "N/A"}
                             size="small"
                             color="primary"
                             variant="outlined"
                           />
                         );
-                      } else if (column.id === 'status') {
+                      } else if (column.id === "status") {
                         const colors = {
-                          pending: 'warning',
-                          completed: 'success',
-                          cancelled: 'error'
+                          pending: "warning",
+                          completed: "success",
+                          cancelled: "error",
                         };
                         value = (
-                          <Chip 
-                            label={value?.charAt(0).toUpperCase() + value?.slice(1) || 'N/A'} 
-                            size="small" 
-                            color={colors[value?.toLowerCase()] || 'default'} 
+                          <Chip
+                            label={
+                              value?.charAt(0).toUpperCase() +
+                                value?.slice(1) || "N/A"
+                            }
+                            size="small"
+                            color={colors[value?.toLowerCase()] || "default"}
                           />
                         );
                       } else if (!value) {
-                        value = '-';
+                        value = "-";
                       }
-                      
-                      return (
-                        <TableCell key={column.id}>
-                          {value}
-                        </TableCell>
-                      );
+
+                      return <TableCell key={column.id}>{value}</TableCell>;
                     })}
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
                         <Tooltip title="View Details">
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             color="info"
                             onClick={(event) => handleViewClick(job, event)}
                           >
@@ -298,18 +350,18 @@ const ExportJobsTableContent = ({ status }) => {
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Edit Job">
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             color="primary"
                             onClick={(event) => handleEditClick(job, event)}
                           >
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        {status === 'Pending' && (
+                        {status === "Pending" && (
                           <Tooltip title="Cancel Job">
-                            <IconButton 
-                              size="small" 
+                            <IconButton
+                              size="small"
                               color="error"
                               onClick={(event) => handleDeleteClick(job, event)}
                             >
@@ -348,7 +400,7 @@ const ExportJobsTable = () => {
   const [statusCounts, setStatusCounts] = useState({
     pending: 0,
     completed: 0,
-    cancelled: 0
+    cancelled: 0,
   });
 
   const handleChange = (event, newValue) => {
@@ -359,23 +411,25 @@ const ExportJobsTable = () => {
   useEffect(() => {
     const fetchStatusCounts = async () => {
       try {
-        const statuses = ['pending', 'completed', 'cancelled'];
-        const promises = statuses.map(status =>
-          axios.get(`${process.env.REACT_APP_API_STRING}/exports/count`, {
-            params: { status }
-          }).catch(() => ({ data: { count: 0 } }))
+        const statuses = ["pending", "completed", "cancelled"];
+        const promises = statuses.map((status) =>
+          axios
+            .get(`${process.env.REACT_APP_API_STRING}/exports/count`, {
+              params: { status },
+            })
+            .catch(() => ({ data: { count: 0 } }))
         );
 
         const results = await Promise.all(promises);
         const counts = {
           pending: results[0].data.count || 0,
           completed: results[1].data.count || 0,
-          cancelled: results[2].data.count || 0
+          cancelled: results[2].data.count || 0,
         };
 
         setStatusCounts(counts);
       } catch (error) {
-        console.error('Error fetching status counts:', error);
+        console.error("Error fetching status counts:", error);
       }
     };
 
@@ -383,10 +437,15 @@ const ExportJobsTable = () => {
   }, []);
 
   return (
-    <Box sx={{ width: '100%', p: 2 }}>
+    <Box sx={{ width: "100%", p: 2 }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" sx={{ fontWeight: 600, color: '#1976d2' }}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 600, color: "#1976d2" }}>
           Export Jobs Management
         </Typography>
         <Button
@@ -394,14 +453,14 @@ const ExportJobsTable = () => {
           startIcon={<ToolboxIcon />}
           sx={{
             borderRadius: 3,
-            textTransform: 'none',
+            textTransform: "none",
             fontWeight: 500,
-            background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-              boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-              transform: 'translateY(-1px)',
+            background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+            boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+            "&:hover": {
+              background: "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+              boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+              transform: "translateY(-1px)",
             },
           }}
         >
@@ -410,15 +469,15 @@ const ExportJobsTable = () => {
       </Box>
 
       {/* Tabs */}
-      <Box sx={{ width: '100%' }}>
+      <Box sx={{ width: "100%" }}>
         <Box
           sx={{
             borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 2
+            borderColor: "divider",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
           }}
         >
           <Tabs

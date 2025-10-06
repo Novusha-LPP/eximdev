@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { TextField, MenuItem } from "@mui/material";
+import {
+  TextField,
+  MenuItem,
+  Tabs,
+  Tab,
+  Box,
+  Autocomplete,
+} from "@mui/material";
 import AssignModule from "./AssignModule";
 import AssignRole from "./AssignRole/AssignRole";
-import Autocomplete from "@mui/material/Autocomplete";
 import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignImporters from "./AssignImporters";
@@ -13,8 +19,15 @@ function Assign() {
   const [selectedUser, setSelectedUser] = useState("");
   const [masterType, setMasterType] = useState("Assign Module");
 
+  // New state to hold selected category tab - default 'Transport'
+  const [category, setCategory] = useState("Transport");
+
   const handleMasterChange = (e) => {
     setMasterType(e.target.value);
+  };
+
+  const handleCategoryChange = (event, newValue) => {
+    setCategory(newValue);
   };
 
   useEffect(() => {
@@ -36,7 +49,8 @@ function Assign() {
   const masterComponent = () => {
     switch (masterType) {
       case "Assign Module":
-        return <AssignModule selectedUser={selectedUser} />;
+        // Pass selected category as prop
+        return <AssignModule selectedUser={selectedUser} category={category} />;
       case "Assign Role":
         return <AssignRole selectedUser={selectedUser} />;
       case "Change Password":
@@ -52,7 +66,10 @@ function Assign() {
 
   return (
     <>
-      <div className="flex-div" style={{ marginTop: "20px" }}>
+      <div
+        className="flex-div"
+        style={{ marginTop: "20px", marginBottom: "10px" }}
+      >
         <div style={{ flex: 1 }}>
           <Autocomplete
             value={selectedUser}
@@ -74,7 +91,7 @@ function Assign() {
           sx={{ width: "200px", marginBottom: "20px" }}
           value={masterType}
           onChange={handleMasterChange}
-          disabled={!selectedUser} // Disable if no user is selected
+          disabled={!selectedUser}
         >
           <MenuItem value="Assign Module">Assign Module</MenuItem>
           <MenuItem value="Assign Role">Assign Role</MenuItem>
@@ -83,6 +100,21 @@ function Assign() {
           <MenuItem value="Assign Importers">Assign Importers</MenuItem>
         </TextField>
       </div>
+
+      {/* Only show category tabs when 'Assign Module' is active */}
+      {masterType === "Assign Module" && (
+        <Box sx={{ borderBottom: 1, borderColor: "divider", marginBottom: 2 }}>
+          <Tabs
+            value={category}
+            onChange={handleCategoryChange}
+            aria-label="module category tabs"
+          >
+            <Tab label="Transport" value="Transport" />
+            <Tab label="Export" value="Export" />
+            <Tab label="Import" value="Import" />
+          </Tabs>
+        </Box>
+      )}
 
       {masterComponent()}
     </>

@@ -22,20 +22,20 @@ const OperationListJob = () => {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Add stored search parameters state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
 
   // Store search parameters from location state
   useEffect(() => {
     if (location.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        selectedICD, 
-        selectedYearState, 
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedICD,
+        selectedYearState,
         currentTab,
-        currentPage 
+        currentPage,
       } = location.state;
       setStoredSearchParams({
         searchQuery,
@@ -131,15 +131,14 @@ const OperationListJob = () => {
             data.documentation_completed_date_time,
         }
       );
-      
+
       // Navigate back with preserved search parameters
       const tabIndex = storedSearchParams?.currentTab ?? 0;
-     // Close the tab after successful submit
-        setTimeout(() => {
-          window.close();
-        }, 500);
+      // Close the tab after successful submit
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
-      
       await fetchJobDetails(); // Fetch updated data after submission
     } catch (error) {
       console.error("Error updating documentation date:", error);
@@ -265,7 +264,8 @@ const OperationListJob = () => {
         ))}
       </Box>
     );
-  };  return (
+  };
+  return (
     <div>
       {/* Back to Job List Button */}
       <Box sx={{ mb: 2 }}>
@@ -300,16 +300,13 @@ const OperationListJob = () => {
             <JobDetailsRowHeading heading="All Documents" />
             {renderAllDocuments(data.all_documents)}
           </div>
-               {/* ********************** submission ********************** */}
-               <div className="job-details-container">
+          {/* ********************** submission ********************** */}
+          <div className="job-details-container">
             <Row>
               <Col xs={12} md={4}>
                 <div className="mb-3">
                   <strong>Verified Checklist:&nbsp;</strong>
-                  <ImagePreview
-                    images={data.checklist || []}
-                    readOnly
-                  />
+                  <ImagePreview images={data.checklist || []} readOnly />
                 </div>
               </Col>
               <Col xs={12} md={4}>
@@ -329,8 +326,6 @@ const OperationListJob = () => {
               </Col>
             </Row>
           </div>
-
-          
         </>
       ) : (
         <p>Loading job details...</p>

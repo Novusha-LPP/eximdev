@@ -1,15 +1,28 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Badge, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Badge,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const TariffHeadService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/tariffHeads`,
-  
+
   getAll: async (params = {}) => {
     try {
-      const response = await axios.get(`${TariffHeadService.baseURL}/`, { params });
+      const response = await axios.get(`${TariffHeadService.baseURL}/`, {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -36,7 +49,10 @@ const TariffHeadService = {
 
   update: async (id, data) => {
     try {
-      const response = await axios.put(`${TariffHeadService.baseURL}/${id}`, data);
+      const response = await axios.put(
+        `${TariffHeadService.baseURL}/${id}`,
+        data
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -50,24 +66,42 @@ const TariffHeadService = {
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const TariffHeadForm = ({ tariffHeadData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    tariffHead: '',
-    description: '',
-    uqc: '',
-    status: 'Active'
+    tariffHead: "",
+    description: "",
+    uqc: "",
+    status: "Active",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
   // Common UQC options
   const uqcOptions = [
-    'NOS', 'KGS', 'PCS', 'LTR', 'MTR', 'SQM', 'CBM', 'PAI', 'SET', 'DOZ', 
-    'GRS', 'BAG', 'BOX', 'BTL', 'CAN', 'CTN', 'PKT', 'ROL', 'SHT', 'TUB'
+    "NOS",
+    "KGS",
+    "PCS",
+    "LTR",
+    "MTR",
+    "SQM",
+    "CBM",
+    "PAI",
+    "SET",
+    "DOZ",
+    "GRS",
+    "BAG",
+    "BOX",
+    "BTL",
+    "CAN",
+    "CTN",
+    "PKT",
+    "ROL",
+    "SHT",
+    "TUB",
   ];
 
   useEffect(() => {
@@ -75,44 +109,44 @@ const TariffHeadForm = ({ tariffHeadData, onSave, onCancel }) => {
       setFormData(tariffHeadData);
     } else {
       setFormData({
-        tariffHead: '',
-        description: '',
-        uqc: '',
-        status: 'Active'
+        tariffHead: "",
+        description: "",
+        uqc: "",
+        status: "Active",
       });
     }
   }, [tariffHeadData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'uqc' ? value.toUpperCase() : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "uqc" ? value.toUpperCase() : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.tariffHead?.trim()) {
-      newErrors.tariffHead = 'Tariff Head is required';
+      newErrors.tariffHead = "Tariff Head is required";
     } else if (!/^\d{4,8}(\.\d{2})?$/.test(formData.tariffHead)) {
-      newErrors.tariffHead = 'Invalid format (e.g., 8708.80, 84821000)';
+      newErrors.tariffHead = "Invalid format (e.g., 8708.80, 84821000)";
     }
-    
+
     if (!formData.description?.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = "Description is required";
     }
-    
+
     if (!formData.uqc?.trim()) {
-      newErrors.uqc = 'UQC is required';
+      newErrors.uqc = "UQC is required";
     } else if (!/^[A-Z]{2,10}$/.test(formData.uqc)) {
-      newErrors.uqc = 'UQC must be 2-10 uppercase letters';
+      newErrors.uqc = "UQC must be 2-10 uppercase letters";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -130,7 +164,7 @@ const TariffHeadForm = ({ tariffHeadData, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving tariff head');
+      alert(error.message || "Error saving tariff head");
     } finally {
       setLoading(false);
     }
@@ -139,7 +173,7 @@ const TariffHeadForm = ({ tariffHeadData, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{tariffHeadData ? 'Edit Tariff Head' : 'Add New Tariff Head'}</h5>
+        <h5>{tariffHeadData ? "Edit Tariff Head" : "Add New Tariff Head"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -173,8 +207,10 @@ const TariffHeadForm = ({ tariffHeadData, onSave, onCancel }) => {
                   isInvalid={!!errors.uqc}
                 >
                   <option value="">Select UQC</option>
-                  {uqcOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                  {uqcOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">
@@ -221,7 +257,7 @@ const TariffHeadForm = ({ tariffHeadData, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -237,9 +273,9 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
   const [pagination, setPagination] = useState({});
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    uqc: '',
-    status: ''
+    search: "",
+    uqc: "",
+    status: "",
   });
 
   useEffect(() => {
@@ -253,7 +289,7 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
       setTariffHeads(response.data || response);
       setPagination(response.pagination || {});
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setTariffHeads([]);
     } finally {
       setLoading(false);
@@ -261,12 +297,12 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const truncateDescription = (text, maxLength = 100) => {
-    return text && text.length > maxLength 
-      ? `${text.substring(0, maxLength)}...` 
+    return text && text.length > maxLength
+      ? `${text.substring(0, maxLength)}...`
       : text;
   };
 
@@ -287,13 +323,13 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by tariff head or description..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={3}>
           <Form.Select
             value={filters.uqc}
-            onChange={(e) => handleFilterChange('uqc', e.target.value)}
+            onChange={(e) => handleFilterChange("uqc", e.target.value)}
           >
             <option value="">All UQC</option>
             <option value="NOS">NOS</option>
@@ -306,7 +342,7 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
         <Col md={3}>
           <Form.Select
             value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
+            onChange={(e) => handleFilterChange("status", e.target.value)}
           >
             <option value="">All Status</option>
             <option value="Active">Active</option>
@@ -321,11 +357,11 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
         <Table striped bordered hover>
           <thead>
             <tr>
-              <th style={{ width: '120px' }}>Tariff Head</th>
+              <th style={{ width: "120px" }}>Tariff Head</th>
               <th>Description</th>
-              <th style={{ width: '80px' }}>UQC</th>
-              <th style={{ width: '100px' }}>Status</th>
-              <th style={{ width: '150px' }}>Actions</th>
+              <th style={{ width: "80px" }}>UQC</th>
+              <th style={{ width: "100px" }}>Status</th>
+              <th style={{ width: "150px" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -347,10 +383,15 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
                   </Badge>
                 </td>
                 <td>
-                  <Badge bg={
-                    item.status === 'Active' ? 'success' : 
-                    item.status === 'Obsolete' ? 'danger' : 'secondary'
-                  }>
+                  <Badge
+                    bg={
+                      item.status === "Active"
+                        ? "success"
+                        : item.status === "Obsolete"
+                        ? "danger"
+                        : "secondary"
+                    }
+                  >
                     {item.status}
                   </Badge>
                 </td>
@@ -387,29 +428,50 @@ const TariffHeadList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -429,7 +491,7 @@ const TarrifHead = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -444,28 +506,33 @@ const TarrifHead = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this tariff head?')) {
-          await TariffHeadService.delete(ids[0]);
-          showAlert('Tariff Head deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (
+            window.confirm("Are you sure you want to delete this tariff head?")
+          ) {
+            await TariffHeadService.delete(ids[0]);
+            showAlert("Tariff Head deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
         }
+      } catch (error) {
+        showAlert(error.message || "Error deleting tariff head", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting tariff head', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingTariffHead(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingTariffHead 
-        ? 'Tariff Head updated successfully' 
-        : 'Tariff Head created successfully'
+      editingTariffHead
+        ? "Tariff Head updated successfully"
+        : "Tariff Head created successfully"
     );
   }, [editingTariffHead, showAlert]);
 
@@ -479,9 +546,9 @@ const TarrifHead = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >

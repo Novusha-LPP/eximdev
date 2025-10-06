@@ -410,22 +410,22 @@ function ClearanceCompleted() {
         Cell: ({ cell }) => {
           const { out_of_charge } = cell.row.original;
           if (!out_of_charge) return "-";
-          
+
           // Format the date-time if it's a valid date
           try {
             const date = new Date(out_of_charge);
             if (isNaN(date.getTime())) return out_of_charge; // Return as-is if not a valid date
-            
-            return date.toLocaleString('en-GB', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true
+
+            return date.toLocaleString("en-GB", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
             });
           } catch (error) {
-            return out_of_charge ; // Return as-is if formatting fails
+            return out_of_charge; // Return as-is if formatting fails
           }
         },
       },
@@ -438,82 +438,98 @@ function ClearanceCompleted() {
           const { be_no, be_date } = cell.row.original;
           return (
             <div>
-              {be_no || "-"} <br /> 
-              {be_date ? new Date(be_date).toLocaleDateString('en-GB') : "-"}
+              {be_no || "-"} <br />
+              {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
             </div>
           );
         },
       },
-{
-  accessorKey: "expenses",
-  header: "Expenses",
-  enableSorting: false,
-  size: 300,
-  Cell: ({ cell }) => {
-    const { DsrCharges } = cell.row.original;
+      {
+        accessorKey: "expenses",
+        header: "Expenses",
+        enableSorting: false,
+        size: 300,
+        Cell: ({ cell }) => {
+          const { DsrCharges } = cell.row.original;
 
-    // If no charges at all, show "No expenses"
-    if (!DsrCharges || DsrCharges.length === 0) {
-      return (
-        <span style={{ color: "#666", fontSize: "12px" }}>No expenses</span>
-      );
-    }
-
-    // Static number to start from 1
-    let serialNumber = 1;
-
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "5px",
-          width: "100%",
-        }}
-      >
-        {/* Loop through all charges */}
-        {DsrCharges.map((charge, chargeIndex) => {
-          // If charge has URLs, show as links
-          if (charge.url && charge.url.length > 0) {
-            return charge.url.map((url, urlIndex) => (
-              <a
-                key={`${charge.document_name}-${urlIndex}-${serialNumber}`}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: charge.document_amount_details ? "blue" : "#ff6b6b",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  marginBottom: "5px",
-                }}
-              >
-                {serialNumber++}. {charge.document_name} {charge.url.length > 1 ? `${urlIndex + 1}` : ''} - {charge.document_amount_details ? `₹${parseFloat(charge.document_amount_details).toFixed(2)}` : "No Amount Details"}
-              </a>
-            ));
-          } 
-          // If no URL but charge details exist, show as plain text
-          else {
+          // If no charges at all, show "No expenses"
+          if (!DsrCharges || DsrCharges.length === 0) {
             return (
-              <div
-                key={`charge-${chargeIndex}-${serialNumber}`}
-                style={{
-                  color: charge.document_amount_details ? "#333" : "#666",
-                  marginBottom: "5px",
-                  fontSize: "14px",
-                }}
-              >
-                {serialNumber++}. {charge.document_name || "Unnamed Charge"} - {charge.document_amount_details ? `₹${parseFloat(charge.document_amount_details).toFixed(2)}` : "No Amount Details"}
-              </div>
+              <span style={{ color: "#666", fontSize: "12px" }}>
+                No expenses
+              </span>
             );
           }
-        })}
-      </div>
-    );
-  },
-},
+
+          // Static number to start from 1
+          let serialNumber = 1;
+
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "5px",
+                width: "100%",
+              }}
+            >
+              {/* Loop through all charges */}
+              {DsrCharges.map((charge, chargeIndex) => {
+                // If charge has URLs, show as links
+                if (charge.url && charge.url.length > 0) {
+                  return charge.url.map((url, urlIndex) => (
+                    <a
+                      key={`${charge.document_name}-${urlIndex}-${serialNumber}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: charge.document_amount_details
+                          ? "blue"
+                          : "#ff6b6b",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                        marginBottom: "5px",
+                      }}
+                    >
+                      {serialNumber++}. {charge.document_name}{" "}
+                      {charge.url.length > 1 ? `${urlIndex + 1}` : ""} -{" "}
+                      {charge.document_amount_details
+                        ? `₹${parseFloat(
+                            charge.document_amount_details
+                          ).toFixed(2)}`
+                        : "No Amount Details"}
+                    </a>
+                  ));
+                }
+                // If no URL but charge details exist, show as plain text
+                else {
+                  return (
+                    <div
+                      key={`charge-${chargeIndex}-${serialNumber}`}
+                      style={{
+                        color: charge.document_amount_details ? "#333" : "#666",
+                        marginBottom: "5px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {serialNumber++}.{" "}
+                      {charge.document_name || "Unnamed Charge"} -{" "}
+                      {charge.document_amount_details
+                        ? `₹${parseFloat(
+                            charge.document_amount_details
+                          ).toFixed(2)}`
+                        : "No Amount Details"}
+                    </div>
+                  );
+                }
+              })}
+            </div>
+          );
+        },
+      },
     ],
     [navigate, handleCopy]
   );
@@ -572,7 +588,7 @@ function ClearanceCompleted() {
         >
           Billing Ready Jobs: {totalJobs}
         </Typography>
-        
+
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo

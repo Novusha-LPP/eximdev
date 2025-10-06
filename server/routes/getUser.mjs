@@ -7,9 +7,7 @@ router.get("/api/get-user/:username", async (req, res) => {
   const { username } = req.params;
 
   try {
-    const user = await UserModel.findOne({ username }).select(
-      "username role modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer_name selected_icd_codes"
-    );
+    const user = await UserModel.findOne({ username });
 
     if (!user) {
       return res.status(200).json({ message: "User not found" });

@@ -26,13 +26,13 @@ function Home() {
   const { user } = useContext(UserContext);
   const [data, setData] = useState();
   const navigate = useNavigate();
-  
+
   // Get search context functions to clear all search state
   const {
     setSearchQuery,
     setDetailedStatus,
     setSelectedICD,
-    setSelectedImporter
+    setSelectedImporter,
   } = useSearchQuery();
 
   // Clear all search queries when visiting the home page
@@ -58,7 +58,7 @@ function Home() {
     getUser();
   }, [user]);
 
-  const categorizedModules = data?.modules?.reduce((acc, module) => {
+  const categorizedModules = data?.import_modules?.reduce((acc, module) => {
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(module);

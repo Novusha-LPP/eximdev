@@ -12,7 +12,7 @@ const EditableArrivalDate = ({ cell }) => {
 
   // Safe destructuring with defaults to avoid undefined access
   const rowData = cell?.row?.original || {};
-  const { _id = null, container_nos = [] } = rowData;  // Initialize containers from rowData after safe destructuring
+  const { _id = null, container_nos = [] } = rowData; // Initialize containers from rowData after safe destructuring
   useEffect(() => {
     if (cell && cell.row && cell.row.original && container_nos.length > 0) {
       setContainers([...container_nos]);
@@ -40,7 +40,7 @@ const EditableArrivalDate = ({ cell }) => {
   const handleDateInputChange = (e) => {
     setTempDateValue(e.target.value);
     setDateError("");
-  };  // Handle initiating edit mode for a date field
+  }; // Handle initiating edit mode for a date field
   const handleEditStart = (index) => {
     setEditable(`arrival_date_${index}`);
     setTempDateValue(""); // Start with empty value like EditableDateCell
@@ -54,10 +54,10 @@ const EditableArrivalDate = ({ cell }) => {
 
     const updatedContainers = containers.map((container, i) => {
       if (i === index) {
-        return { 
-          ...container, 
+        return {
+          ...container,
           arrival_date: "",
-          detention_from: "" // Also clear detention_from when clearing arrival_date
+          detention_from: "", // Also clear detention_from when clearing arrival_date
         };
       }
       return container;
@@ -69,28 +69,32 @@ const EditableArrivalDate = ({ cell }) => {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
       // Update database
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        container_nos: updatedContainers,
-      }, { headers });
-      
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+        {
+          container_nos: updatedContainers,
+        },
+        { headers }
+      );
+
       // Update the original cell data to prevent state resets
       cell.row.original.container_nos = updatedContainers;
-      
+
       // Trigger status update if available
-      if (typeof window.refreshJobTable === 'function') {
+      if (typeof window.refreshJobTable === "function") {
         window.refreshJobTable();
       }
     } catch (err) {
       console.error("Error clearing arrival date:", err);
     }
-  };// Submit date changes
+  }; // Submit date changes
   const handleDateSubmit = async (index) => {
     if (!validateDate(tempDateValue)) {
       setDateError("Please enter a valid date");
@@ -109,7 +113,7 @@ const EditableArrivalDate = ({ cell }) => {
     const updatedContainers = containers.map((container, i) => {
       if (i === index) {
         const updatedContainer = { ...container, arrival_date: finalValue };
-        
+
         // Automatically update detention_from if arrival_date is changed (like EditableDateCell)
         if (!finalValue) {
           // If arrival_date is cleared, also clear detention_from
@@ -126,7 +130,7 @@ const EditableArrivalDate = ({ cell }) => {
             .toISOString()
             .slice(0, 10);
         }
-        
+
         return updatedContainer;
       }
       return container;
@@ -138,26 +142,30 @@ const EditableArrivalDate = ({ cell }) => {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
       // Update database
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        container_nos: updatedContainers,
-      }, { headers });
-      
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+        {
+          container_nos: updatedContainers,
+        },
+        { headers }
+      );
+
       // Update the original cell data to prevent state resets
       cell.row.original.container_nos = updatedContainers;
-      
+
       setEditable(null);
       setTempDateValue("");
       setDateError("");
-      
+
       // Trigger status update if available (like EditableDateCell)
-      if (typeof window.refreshJobTable === 'function') {
+      if (typeof window.refreshJobTable === "function") {
         window.refreshJobTable();
       }
     } catch (err) {
@@ -187,10 +195,14 @@ const EditableArrivalDate = ({ cell }) => {
       <strong>Arrival Dates:</strong>
       <br />
       {containers.map((container, id) => (
-        <div key={id} style={{ marginBottom: "8px" }}>          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+        <div key={id} style={{ marginBottom: "8px" }}>
+          {" "}
+          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
             <span>
-              Container {id + 1}: {container.arrival_date?.slice(0, 10) || "N/A"}
-            </span><FcCalendar
+              Container {id + 1}:{" "}
+              {container.arrival_date?.slice(0, 10) || "N/A"}
+            </span>
+            <FcCalendar
               style={{ cursor: "pointer", fontSize: "18px" }}
               onClick={() => handleEditStart(id)}
               onDoubleClick={() => handleClearDate(id)}
@@ -208,7 +220,7 @@ const EditableArrivalDate = ({ cell }) => {
                   borderRadius: "3px",
                   padding: "4px",
                   fontSize: "12px",
-                  width: "100%"
+                  width: "100%",
                 }}
               />
               <div style={{ marginTop: "3px" }}>
@@ -222,11 +234,12 @@ const EditableArrivalDate = ({ cell }) => {
                     padding: "2px 6px",
                     cursor: "pointer",
                     marginRight: "5px",
-                    fontSize: "12px"
+                    fontSize: "12px",
                   }}
                 >
                   ✓
-                </button>                <button
+                </button>{" "}
+                <button
                   onClick={handleCancel}
                   style={{
                     backgroundColor: "#dc3545",
@@ -235,14 +248,16 @@ const EditableArrivalDate = ({ cell }) => {
                     borderRadius: "3px",
                     padding: "2px 6px",
                     cursor: "pointer",
-                    fontSize: "12px"
+                    fontSize: "12px",
                   }}
                 >
                   ✕
                 </button>
               </div>
               {dateError && (
-                <div style={{ color: "red", fontSize: "11px", marginTop: "2px" }}>
+                <div
+                  style={{ color: "red", fontSize: "11px", marginTop: "2px" }}
+                >
                   {dateError}
                 </div>
               )}

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import FileUpload from '../gallery/FileUpload.js';
-import ImagePreview from '../gallery/ImagePreview.js';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import axios from "axios";
+import FileUpload from "../gallery/FileUpload.js";
+import ImagePreview from "../gallery/ImagePreview.js";
 import {
   Button,
   CircularProgress,
@@ -12,40 +12,43 @@ import {
   Paper,
   Divider,
   Stack,
-} from '@mui/material';
+} from "@mui/material";
 
-const acceptedFileTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+const acceptedFileTypes = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
 
 const labelMapping = {
-  leo_copy: 'LEO Copy',
-  assessed_copy: 'Assessed Copy',
-  gate_pass_copy: 'Gate Pass Copy',
+  leo_copy: "LEO Copy",
+  assessed_copy: "Assessed Copy",
+  gate_pass_copy: "Gate Pass Copy",
 };
 
 const basicInfoFields = [
-  { label: 'Job Number', key: 'job_no' },
-  { label: 'Custom House', key: 'custom_house' },
-  { label: 'Exporter Name', key: 'exporter_name' },
-  { label: 'Invoice Number', key: 'invoice_number' },
-  { label: 'Invoice Date', key: 'invoice_date' },
-  { label: 'Supplier/Exporter', key: 'supplier_exporter' },
-  { label: 'Gross Weight', key: 'gross_weight' },
-  { label: 'Net Weight', key: 'net_weight' },
-  { label: 'Port of Origin', key: 'port_of_origin' },
-  { label: 'Port of Discharge', key: 'port_of_discharge' },
-  { label: 'Country of Final Destination', key: 'country_of_final_destination' },
-  { label: 'Movement Type', key: 'movement_type' },
-  { label: 'Priority', key: 'priorityJob' },
-  { label: 'Bank Name', key: 'bank_name' },
-  { label: 'CTH No', key: 'cth_no' },
-  { label: 'Status', key: 'status' },
-  { label: 'Detailed Status', key: 'detailed_status' },
-  { label: 'Remarks', key: 'remarks' },
-  { label: 'Authorized Dealer Code', key: 'adCode' },
+  { label: "Job Number", key: "job_no" },
+  { label: "Custom House", key: "custom_house" },
+  { label: "Exporter Name", key: "exporter_name" },
+  { label: "Invoice Number", key: "invoice_number" },
+  { label: "Invoice Date", key: "invoice_date" },
+  { label: "Supplier/Exporter", key: "supplier_exporter" },
+  { label: "Gross Weight", key: "gross_weight" },
+  { label: "Net Weight", key: "net_weight" },
+  { label: "Port of Origin", key: "port_of_origin" },
+  { label: "Port of Discharge", key: "port_of_discharge" },
+  {
+    label: "Country of Final Destination",
+    key: "country_of_final_destination",
+  },
+  { label: "Movement Type", key: "movement_type" },
+  { label: "Priority", key: "priorityJob" },
+  { label: "Bank Name", key: "bank_name" },
+  { label: "CTH No", key: "cth_no" },
+  { label: "Status", key: "status" },
+  { label: "Detailed Status", key: "detailed_status" },
+  { label: "Remarks", key: "remarks" },
+  { label: "Authorized Dealer Code", key: "adCode" },
 ];
 
 const formatDate = (dateStr) => {
-  if (!dateStr) return '-';
+  if (!dateStr) return "-";
   const date = new Date(dateStr);
   if (isNaN(date)) return dateStr;
   return date.toLocaleDateString();
@@ -80,11 +83,11 @@ const DocumentViewJob = () => {
             gate_pass_copy: res.data.job.gate_pass_copy || [],
           });
         } else {
-          alert('Failed to fetch job details');
+          alert("Failed to fetch job details");
         }
       } catch (err) {
         console.error(err);
-        alert('Error fetching job details');
+        alert("Error fetching job details");
       } finally {
         setLoading(false);
       }
@@ -123,19 +126,25 @@ const DocumentViewJob = () => {
         }
       );
       if (res.data.success) {
-        alert('Job submitted successfully');
+        alert("Job submitted successfully");
       } else {
-        alert('Failed to submit job');
+        alert("Failed to submit job");
       }
     } catch (err) {
       console.error(err);
-      alert('Error submitting job');
+      alert("Error submitting job");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <CircularProgress size={40} sx={{ display: 'block', margin: '40px auto' }} />;
+  if (loading)
+    return (
+      <CircularProgress
+        size={40}
+        sx={{ display: "block", margin: "40px auto" }}
+      />
+    );
   if (!job) return <Typography>No job data found for {job_no}</Typography>;
 
   return (
@@ -154,18 +163,22 @@ const DocumentViewJob = () => {
         </Typography>
         <Grid container spacing={2}>
           {basicInfoFields.map(({ label, key }) => {
-            let val = basicDetails[key] ?? '-';
-            if (
-              key.toLowerCase().includes('date') ||
-              key === 'invoice_date'
-            ) {
+            let val = basicDetails[key] ?? "-";
+            if (key.toLowerCase().includes("date") || key === "invoice_date") {
               val = formatDate(val);
             }
-            if (key === 'priorityJob' && val) {
-              const clr = val.toLowerCase() === 'high' ? 'error' : val.toLowerCase() === 'urgent' ? 'warning' : 'default';
+            if (key === "priorityJob" && val) {
+              const clr =
+                val.toLowerCase() === "high"
+                  ? "error"
+                  : val.toLowerCase() === "urgent"
+                  ? "warning"
+                  : "default";
               return (
                 <Grid key={key} item xs={6} sm={4} md={3}>
-                  <Typography variant="subtitle2" color="textSecondary">{label}</Typography>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    {label}
+                  </Typography>
                   <Typography variant="body1" color={clr} fontWeight="bold">
                     {val}
                   </Typography>
@@ -177,7 +190,11 @@ const DocumentViewJob = () => {
                 <Typography variant="subtitle2" color="textSecondary">
                   {label}
                 </Typography>
-                <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
+                <Typography
+                  variant="body1"
+                  fontWeight="medium"
+                  sx={{ wordBreak: "break-word" }}
+                >
                   {val}
                 </Typography>
               </Grid>
@@ -188,7 +205,7 @@ const DocumentViewJob = () => {
 
       <Divider />
 
-      {['leo_copy', 'assessed_copy', 'gate_pass_copy'].map((field) => (
+      {["leo_copy", "assessed_copy", "gate_pass_copy"].map((field) => (
         <Box key={field} mt={4}>
           <Typography variant="h6" gutterBottom>
             {labelMapping[field]}
@@ -215,7 +232,7 @@ const DocumentViewJob = () => {
           disabled={submitting}
           size="large"
         >
-          {submitting ? 'Submitting...' : 'Submit Job'}
+          {submitting ? "Submitting..." : "Submit Job"}
         </Button>
       </Box>
     </Box>

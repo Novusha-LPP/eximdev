@@ -45,24 +45,26 @@ const ImportUtilityTool = () => {
   const [searchResults, setSearchResults] = useState(null);
   const [multipleResults, setMultipleResults] = useState([]);
   const [multipleResultsSource, setMultipleResultsSource] = useState("cth");
-  const [isLoading, setIsLoading] = useState(false);  const [activeTab, setActiveTab] = useState(1); // Default to Recent Searches tab
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(1); // Default to Recent Searches tab
   const [recentSearches, setRecentSearches] = useState([]);
   const [favorites, setFavorites] = useState([]);
-  const [contextItems, setContextItems] = useState([]);  const [notification, setNotification] = useState({
+  const [contextItems, setContextItems] = useState([]);
+  const [notification, setNotification] = useState({
     open: false,
     message: "",
     severity: "success",
   });
   const [dutyCalculatorOpen, setDutyCalculatorOpen] = useState(false);
-  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);  
+  const [selectedItemForDuty, setSelectedItemForDuty] = useState(null);
   const [dutyCalculatorForm, setDutyCalculatorForm] = useState({
-    importTerms: 'CIF',
-    cifValue: '',
-    freight: '',
-    insurance: '',
-    bcdRate: '',
-    swsRate: '10',
-    igstRate: ''
+    importTerms: "CIF",
+    cifValue: "",
+    freight: "",
+    insurance: "",
+    bcdRate: "",
+    swsRate: "10",
+    igstRate: "",
   });
 
   // API base URL
@@ -78,26 +80,27 @@ const ImportUtilityTool = () => {
   }, []);
   // Handle close notification
   const handleCloseNotification = useCallback(() => {
-    setNotification(prev => ({ ...prev, open: false }));
-  }, []);  // Handle duty calculator modal
+    setNotification((prev) => ({ ...prev, open: false }));
+  }, []); // Handle duty calculator modal
   const handleOpenDutyCalculator = useCallback((item) => {
     setSelectedItemForDuty(item);
-    
-    
+
     // Logic to select the appropriate duty rate
-    let selectedDuty = '';
-      // Helper function to check if a value is valid (not null, not empty, not "nan", and is a number including "0")
+    let selectedDuty = "";
+    // Helper function to check if a value is valid (not null, not empty, not "nan", and is a number including "0")
     const isValidDuty = (value) => {
-      return value != null && 
-             value !== '' && 
-             value !== 'nan' && 
-             value !== 'NaN' && 
-             !isNaN(parseFloat(value));
+      return (
+        value != null &&
+        value !== "" &&
+        value !== "nan" &&
+        value !== "NaN" &&
+        !isNaN(parseFloat(value))
+      );
     };
-    
+
     const hasBasicDuty = isValidDuty(item.basic_duty_sch);
     const hasNotificationDuty = isValidDuty(item.basic_duty_ntfn);
-      // Check if both basic_duty_sch and basic_duty_ntfn are available
+    // Check if both basic_duty_sch and basic_duty_ntfn are available
     if (hasNotificationDuty && hasBasicDuty) {
       // ALWAYS prioritize notification duty (basic_duty_ntfn) when both are available
       selectedDuty = item.basic_duty_ntfn;
@@ -112,17 +115,17 @@ const ImportUtilityTool = () => {
     }
     // If neither is available, selectedDuty remains empty string
     else {
-      console.log('No duty values available');
+      console.log("No duty values available");
     }
-        
+
     setDutyCalculatorForm({
-      importTerms: 'CIF',
-      cifValue: '',
-      freight: '',
-      insurance: '',
+      importTerms: "CIF",
+      cifValue: "",
+      freight: "",
+      insurance: "",
       bcdRate: selectedDuty,
-      swsRate: '10',
-      igstRate: item.igst || ''
+      swsRate: "10",
+      igstRate: item.igst || "",
     });
     setDutyCalculatorOpen(true);
   }, []);
@@ -130,56 +133,64 @@ const ImportUtilityTool = () => {
     setDutyCalculatorOpen(false);
     setSelectedItemForDuty(null);
     setDutyCalculatorForm({
-      importTerms: 'CIF',
-      cifValue: '',
-      freight: '',
-      insurance: '',
-      bcdRate: '',
-      swsRate: '10',
-      igstRate: ''
+      importTerms: "CIF",
+      cifValue: "",
+      freight: "",
+      insurance: "",
+      bcdRate: "",
+      swsRate: "10",
+      igstRate: "",
     });
   }, []);
   // Handle duty form changes
   const handleDutyFormChange = useCallback((field, value) => {
-    setDutyCalculatorForm(prev => ({
+    setDutyCalculatorForm((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   }, []);
 
   // Clear user-entered values only (preserve CTH API values)
   const handleClearUserValues = useCallback(() => {
-    setDutyCalculatorForm(prev => ({
+    setDutyCalculatorForm((prev) => ({
       ...prev,
-      cifValue: '',
-      freight: '',
-      insurance: ''
+      cifValue: "",
+      freight: "",
+      insurance: "",
       // Keep importTerms, bcdRate, swsRate, igstRate as they come from CTH API
     }));
   }, []);
   // Calculate duties
   const calculateDuties = useCallback(() => {
-    const { importTerms, cifValue, freight, insurance, bcdRate, swsRate, igstRate } = dutyCalculatorForm;
-    
+    const {
+      importTerms,
+      cifValue,
+      freight,
+      insurance,
+      bcdRate,
+      swsRate,
+      igstRate,
+    } = dutyCalculatorForm;
+
     // Calculate assessable value based on import terms
     let assessableValue = 0;
-    
+
     switch (importTerms) {
-      case 'CIF':
+      case "CIF":
         assessableValue = parseFloat(cifValue) || 0;
         break;
-      case 'FOB':
+      case "FOB":
         const fobValue = parseFloat(cifValue) || 0;
         const freightValue = parseFloat(freight) || 0;
         const insuranceValue = parseFloat(insurance) || 0;
         assessableValue = fobValue + freightValue + insuranceValue;
         break;
-      case 'CF':
+      case "CF":
         const cfValue = parseFloat(cifValue) || 0;
         const cfInsuranceValue = parseFloat(insurance) || 0;
         assessableValue = cfValue + cfInsuranceValue;
         break;
-      case 'CI':
+      case "CI":
         const ciValue = parseFloat(cifValue) || 0;
         const ciFreightValue = parseFloat(freight) || 0;
         assessableValue = ciValue + ciFreightValue;
@@ -187,7 +198,7 @@ const ImportUtilityTool = () => {
       default:
         assessableValue = parseFloat(cifValue) || 0;
     }
-    
+
     if (!assessableValue || !bcdRate || !igstRate) {
       return { bcd: 0, sws: 0, igst: 0, total: 0, assessableValue: 0 };
     }
@@ -195,7 +206,7 @@ const ImportUtilityTool = () => {
     const bcdPercentage = parseFloat(bcdRate) / 100 || 0;
     const swsPercentage = parseFloat(swsRate) / 100 || 0;
     const igstPercentage = parseFloat(igstRate) / 100 || 0;
-    
+
     const bcd = assessableValue * bcdPercentage;
     const sws = bcd * swsPercentage;
     const finalAssessableValue = assessableValue + bcd + sws;
@@ -207,7 +218,7 @@ const ImportUtilityTool = () => {
       sws: sws.toFixed(2),
       igst: igst.toFixed(2),
       total: total.toFixed(2),
-      assessableValue: assessableValue.toFixed(2)
+      assessableValue: assessableValue.toFixed(2),
     };
   }, [dutyCalculatorForm]);
 
@@ -236,245 +247,296 @@ const ImportUtilityTool = () => {
   }, [API_URL, showNotification]);
 
   // Fetch context items
-  const fetchContextItems = useCallback(async (hsCode) => {
-    try {
-      const response = await axios.get(`${API_URL}/context/${hsCode}`);
-      
-      if (response.data && response.data.contextItems) {
-        setContextItems(response.data.contextItems);
-      } else {
+  const fetchContextItems = useCallback(
+    async (hsCode) => {
+      try {
+        const response = await axios.get(`${API_URL}/context/${hsCode}`);
+
+        if (response.data && response.data.contextItems) {
+          setContextItems(response.data.contextItems);
+        } else {
+          setContextItems([]);
+        }
+      } catch (error) {
+        console.error("Error fetching context items:", error);
         setContextItems([]);
       }
-    } catch (error) {
-      console.error("Error fetching context items:", error);
-      setContextItems([]);
-    }
-  }, [API_URL]);
+    },
+    [API_URL]
+  );
   // Perform search
-  const performSearch = useCallback(async (query, addToRecent = false) => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(
-        `${API_URL}/search?query=${encodeURIComponent(query)}&addToRecent=${addToRecent}`
-      );
+  const performSearch = useCallback(
+    async (query, addToRecent = false) => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get(
+          `${API_URL}/search?query=${encodeURIComponent(
+            query
+          )}&addToRecent=${addToRecent}`
+        );
 
-      // Switch to Search Results tab when API call is made
-      setActiveTab(0);
+        // Switch to Search Results tab when API call is made
+        setActiveTab(0);
 
-      // Handle context items
-      if (response.data.contextItems && response.data.contextItems.length > 0) {
-        setContextItems(response.data.contextItems);
-      } else {
-        setContextItems([]);
-      }
+        // Handle context items
+        if (
+          response.data.contextItems &&
+          response.data.contextItems.length > 0
+        ) {
+          setContextItems(response.data.contextItems);
+        } else {
+          setContextItems([]);
+        }
 
-      if (response.data.results && response.data.results.length > 0) {
-        // If multiple results
-        const source = response.data.source || "cth";
-        setMultipleResults(response.data.results);
-        setMultipleResultsSource(source);
+        if (response.data.results && response.data.results.length > 0) {
+          // If multiple results
+          const source = response.data.source || "cth";
+          setMultipleResults(response.data.results);
+          setMultipleResultsSource(source);
 
-        // If addToRecent is true, also set the first result as the main result
-        if (addToRecent) {
+          // If addToRecent is true, also set the first result as the main result
+          if (addToRecent) {
+            setSearchResults({
+              result: response.data.results[0],
+              source: source,
+            });
+            setMultipleResults([]); // Clear multiple results to show only the selected one
+            fetchRecentSearches();
+          } else {
+            setSearchResults(null);
+          }
+        } else if (response.data.result) {
+          // If single result
+          const source = response.data.source || "cth";
           setSearchResults({
-            result: response.data.results[0],
+            result: response.data.result,
             source: source,
           });
-          setMultipleResults([]); // Clear multiple results to show only the selected one
-          fetchRecentSearches();
-        } else {
-          setSearchResults(null);
-        }
-      } else if (response.data.result) {
-        // If single result
-        const source = response.data.source || "cth";
-        setSearchResults({
-          result: response.data.result,
-          source: source,
-        });
-        setMultipleResults([]);
+          setMultipleResults([]);
 
-        if (addToRecent) {
-          fetchRecentSearches();
+          if (addToRecent) {
+            fetchRecentSearches();
+          }
         }
+      } catch (error) {
+        // Still switch to Search Results tab even on error to show "No results found"
+        setActiveTab(0);
+
+        if (error.response && error.response.status === 404) {
+          setSearchResults(null);
+          setMultipleResults([]);
+          setContextItems([]);
+          showNotification("No results found", "info");
+        } else {
+          showNotification("Error performing search", "error");
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      // Still switch to Search Results tab even on error to show "No results found"
-      setActiveTab(0);
-      
-      if (error.response && error.response.status === 404) {
-        setSearchResults(null);
-        setMultipleResults([]);
-        setContextItems([]);
-        showNotification("No results found", "info");
-      } else {
-        showNotification("Error performing search", "error");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [API_URL, fetchRecentSearches, showNotification]);
+    },
+    [API_URL, fetchRecentSearches, showNotification]
+  );
 
   // Determine the proper collection source
-  const determineCollectionSource = useCallback((item, explicitSource = null) => {
-    if (explicitSource) return explicitSource;
-    
-    const inFavorites = favorites.some(fav => fav._id === item._id || fav.hs_code === item.hs_code);
-    if (inFavorites) return "favorite";
-    
-    const inRecent = recentSearches.some(recent => recent._id === item._id || recent.hs_code === item.hs_code);
-    if (inRecent) return "recent";
-    
-    return "cth";
-  }, [favorites, recentSearches]);
+  const determineCollectionSource = useCallback(
+    (item, explicitSource = null) => {
+      if (explicitSource) return explicitSource;
+
+      const inFavorites = favorites.some(
+        (fav) => fav._id === item._id || fav.hs_code === item.hs_code
+      );
+      if (inFavorites) return "favorite";
+
+      const inRecent = recentSearches.some(
+        (recent) => recent._id === item._id || recent.hs_code === item.hs_code
+      );
+      if (inRecent) return "recent";
+
+      return "cth";
+    },
+    [favorites, recentSearches]
+  );
 
   // Toggle favorite status (without confirmation)
-  const handleToggleFavorite = useCallback(async (document, explicitSource = null) => {
-    try {
-      const collectionSource = determineCollectionSource(document, explicitSource);
-      
-      await axios.patch(
-        `${API_URL}/toggle-favorite/${document._id}`,
-        { collectionName: collectionSource }
-      );
-
-      const newFavoriteStatus = !document.favourite;
-      const hsCode = document.hs_code;
-
-      // Update UI for single search result
-      if (searchResults?.result?.hs_code === hsCode) {
-        setSearchResults(prev => ({
-          ...prev,
-          result: {
-            ...prev.result,
-            favourite: newFavoriteStatus,
-          },
-        }));
-      }
-
-      // Update multiple results
-      if (multipleResults.length > 0) {
-        setMultipleResults(prev => 
-          prev.map(item =>
-            item.hs_code === hsCode ? { ...item, favourite: newFavoriteStatus } : item
-          )
+  const handleToggleFavorite = useCallback(
+    async (document, explicitSource = null) => {
+      try {
+        const collectionSource = determineCollectionSource(
+          document,
+          explicitSource
         );
-      }
 
-      // Update recent searches
-      setRecentSearches(prev => 
-        prev.map(item =>
-          item.hs_code === hsCode ? { ...item, favourite: newFavoriteStatus } : item
-        )
-      );
+        await axios.patch(`${API_URL}/toggle-favorite/${document._id}`, {
+          collectionName: collectionSource,
+        });
 
-      // Update favorites
-      if (newFavoriteStatus) {
-        if (!favorites.some(item => item.hs_code === hsCode)) {
-          fetchFavorites();
-        } else {
-          setFavorites(prev => 
-            prev.map(item =>
-              item.hs_code === hsCode ? { ...item, favourite: true } : item
+        const newFavoriteStatus = !document.favourite;
+        const hsCode = document.hs_code;
+
+        // Update UI for single search result
+        if (searchResults?.result?.hs_code === hsCode) {
+          setSearchResults((prev) => ({
+            ...prev,
+            result: {
+              ...prev.result,
+              favourite: newFavoriteStatus,
+            },
+          }));
+        }
+
+        // Update multiple results
+        if (multipleResults.length > 0) {
+          setMultipleResults((prev) =>
+            prev.map((item) =>
+              item.hs_code === hsCode
+                ? { ...item, favourite: newFavoriteStatus }
+                : item
             )
           );
         }
-      } else {
-        setFavorites(prev => prev.filter(item => item.hs_code !== hsCode));
-      }
 
-      showNotification(
-        newFavoriteStatus ? "Added to favorites" : "Removed from favorites",
-        "success"
-      );
-    } catch (error) {
-      console.error("Error toggling favorite:", error);
-      showNotification("Failed to update favorite status", "error");
-    }
-  }, [API_URL, determineCollectionSource, favorites, multipleResults, searchResults, showNotification, fetchFavorites]);
+        // Update recent searches
+        setRecentSearches((prev) =>
+          prev.map((item) =>
+            item.hs_code === hsCode
+              ? { ...item, favourite: newFavoriteStatus }
+              : item
+          )
+        );
+
+        // Update favorites
+        if (newFavoriteStatus) {
+          if (!favorites.some((item) => item.hs_code === hsCode)) {
+            fetchFavorites();
+          } else {
+            setFavorites((prev) =>
+              prev.map((item) =>
+                item.hs_code === hsCode ? { ...item, favourite: true } : item
+              )
+            );
+          }
+        } else {
+          setFavorites((prev) =>
+            prev.filter((item) => item.hs_code !== hsCode)
+          );
+        }
+
+        showNotification(
+          newFavoriteStatus ? "Added to favorites" : "Removed from favorites",
+          "success"
+        );
+      } catch (error) {
+        console.error("Error toggling favorite:", error);
+        showNotification("Failed to update favorite status", "error");
+      }
+    },
+    [
+      API_URL,
+      determineCollectionSource,
+      favorites,
+      multipleResults,
+      searchResults,
+      showNotification,
+      fetchFavorites,
+    ]
+  );
 
   // Delete item (without confirmation)
-  const handleDeleteItem = useCallback(async (itemId, collection) => {
-    try {
-      // Store the HS code before deletion to update UI
-      let hsCode = null;
-      let wasFavorite = false;
+  const handleDeleteItem = useCallback(
+    async (itemId, collection) => {
+      try {
+        // Store the HS code before deletion to update UI
+        let hsCode = null;
+        let wasFavorite = false;
 
-      // Find the item to get its HS code
-      if (collection === 'recent') {
-        const item = recentSearches.find(item => item._id === itemId);
-        if (item) {
-          hsCode = item.hs_code;
-          wasFavorite = item.favourite;
+        // Find the item to get its HS code
+        if (collection === "recent") {
+          const item = recentSearches.find((item) => item._id === itemId);
+          if (item) {
+            hsCode = item.hs_code;
+            wasFavorite = item.favourite;
+          }
+        } else if (collection === "favorite") {
+          const item = favorites.find((item) => item._id === itemId);
+          if (item) {
+            hsCode = item.hs_code;
+            wasFavorite = true;
+          }
         }
-      } else if (collection === 'favorite') {
-        const item = favorites.find(item => item._id === itemId);
-        if (item) {
-          hsCode = item.hs_code;
-          wasFavorite = true;
+
+        await axios.delete(`${API_URL}/delete/${collection}/${itemId}`);
+
+        // Update UI based on which collection was affected
+        if (collection === "recent") {
+          setRecentSearches((prev) =>
+            prev.filter((item) => item._id !== itemId)
+          );
+          showNotification("Item removed from recent searches", "success");
+        } else if (collection === "favorite") {
+          setFavorites((prev) => prev.filter((item) => item._id !== itemId));
+
+          // Also update favorite status in recent searches
+          if (hsCode) {
+            setRecentSearches((prev) =>
+              prev.map((item) =>
+                item.hs_code === hsCode ? { ...item, favourite: false } : item
+              )
+            );
+          }
+
+          showNotification("Item removed from favorites", "success");
         }
-      }
 
-      await axios.delete(`${API_URL}/delete/${collection}/${itemId}`);
+        // Update search results if needed
+        if (searchResults?.result?.hs_code === hsCode) {
+          if (collection === "favorite") {
+            setSearchResults((prev) => ({
+              ...prev,
+              result: {
+                ...prev.result,
+                favourite: false,
+              },
+            }));
+          }
+        }
 
-      // Update UI based on which collection was affected
-      if (collection === 'recent') {
-        setRecentSearches(prev => prev.filter(item => item._id !== itemId));
-        showNotification("Item removed from recent searches", "success");
-      } else if (collection === 'favorite') {
-        setFavorites(prev => prev.filter(item => item._id !== itemId));
-
-        // Also update favorite status in recent searches
-        if (hsCode) {
-          setRecentSearches(prev =>
-            prev.map(item =>
+        // Update multiple results if needed
+        if (multipleResults.length > 0 && hsCode && collection === "favorite") {
+          setMultipleResults((prev) =>
+            prev.map((item) =>
               item.hs_code === hsCode ? { ...item, favourite: false } : item
             )
           );
         }
-
-        showNotification("Item removed from favorites", "success");
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        showNotification("Failed to delete item", "error");
       }
-
-      // Update search results if needed
-      if (searchResults?.result?.hs_code === hsCode) {
-        if (collection === 'favorite') {
-          setSearchResults(prev => ({
-            ...prev,
-            result: {
-              ...prev.result,
-              favourite: false,
-            },
-          }));
-        }
-      }
-
-      // Update multiple results if needed
-      if (multipleResults.length > 0 && hsCode && collection === 'favorite') {
-        setMultipleResults(prev =>
-          prev.map(item =>
-            item.hs_code === hsCode ? { ...item, favourite: false } : item
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error deleting item:", error);
-      showNotification("Failed to delete item", "error");
-    }
-  }, [API_URL, favorites, multipleResults, recentSearches, searchResults, showNotification]);
+    },
+    [
+      API_URL,
+      favorites,
+      multipleResults,
+      recentSearches,
+      searchResults,
+      showNotification,
+    ]
+  );
 
   // Clear all favorites
   const handleClearAllFavorites = useCallback(async () => {
     try {
       await axios.delete(`${API_URL}/favorite-cth/clear`);
       setFavorites([]);
-      setRecentSearches(prev => prev.map(item => ({ ...item, favourite: false })));
+      setRecentSearches((prev) =>
+        prev.map((item) => ({ ...item, favourite: false }))
+      );
       showNotification("All favorite CTH entries deleted.", "success");
     } catch (error) {
       showNotification("Failed to clear favorites", "error");
     }
   }, [API_URL, showNotification]);
-  
+
   // Clear all recent
   const handleClearAllRecent = useCallback(async () => {
     try {
@@ -487,33 +549,38 @@ const ImportUtilityTool = () => {
   }, [API_URL, showNotification]);
 
   // Handle item click
-  const handleItemClick = useCallback((item, source) => {
-    setActiveTab(0);
-    setSearchResults({
-      result: item,
-      source: source
-    });
-    setMultipleResults([]);
-    fetchContextItems(item.hs_code);
-  }, [fetchContextItems]);
-
-  // Handle select result
-  const handleSelectResult = useCallback(async (item) => {
-    try {
-      await axios
-        .post(`${API_URL}/add-to-recent`, item);
-
-      const source = multipleResultsSource;
+  const handleItemClick = useCallback(
+    (item, source) => {
+      setActiveTab(0);
       setSearchResults({
         result: item,
         source: source,
       });
       setMultipleResults([]);
-      fetchRecentSearches();
-    } catch (error) {
-      showNotification("Failed to add to recent searches", "error");
-    }
-  }, [API_URL, fetchRecentSearches, multipleResultsSource, showNotification]);
+      fetchContextItems(item.hs_code);
+    },
+    [fetchContextItems]
+  );
+
+  // Handle select result
+  const handleSelectResult = useCallback(
+    async (item) => {
+      try {
+        await axios.post(`${API_URL}/add-to-recent`, item);
+
+        const source = multipleResultsSource;
+        setSearchResults({
+          result: item,
+          source: source,
+        });
+        setMultipleResults([]);
+        fetchRecentSearches();
+      } catch (error) {
+        showNotification("Failed to add to recent searches", "error");
+      }
+    },
+    [API_URL, fetchRecentSearches, multipleResultsSource, showNotification]
+  );
 
   // Handle search input change
   const handleSearchInputChange = useCallback((event) => {
@@ -521,11 +588,14 @@ const ImportUtilityTool = () => {
   }, []);
 
   // Handle search submit
-  const handleSearchSubmit = useCallback((event) => {
-    if (event.key === "Enter" && searchQuery.trim()) {
-      performSearch(searchQuery.trim(), true);
-    }
-  }, [performSearch, searchQuery]);
+  const handleSearchSubmit = useCallback(
+    (event) => {
+      if (event.key === "Enter" && searchQuery.trim()) {
+        performSearch(searchQuery.trim(), true);
+      }
+    },
+    [performSearch, searchQuery]
+  );
 
   // Handle tab change
   const handleTabChange = useCallback((event, newValue) => {
@@ -555,102 +625,127 @@ const ImportUtilityTool = () => {
   }, [fetchFavorites, fetchRecentSearches]);
 
   // Render search result with context
-  const renderSearchResultWithContext = useCallback((mainItem) => {
-    const fields = mainItem ? Object.keys(mainItem).filter(key =>
-      !['_id', 'updatedAt', 'row_index', 'favourite', "createdAt", "__v"].includes(key)
-    ) : [];
+  const renderSearchResultWithContext = useCallback(
+    (mainItem) => {
+      const fields = mainItem
+        ? Object.keys(mainItem).filter(
+            (key) =>
+              ![
+                "_id",
+                "updatedAt",
+                "row_index",
+                "favourite",
+                "createdAt",
+                "__v",
+              ].includes(key)
+          )
+        : [];
 
-    return (
-      <Box
-      sx={{
-        mb: 16,
-        maxHeight: '500px',
-        overflow: 'auto', // allows both X and Y scrolling
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {contextItems.length > 0 && (
+      return (
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            mb: 1,
-            maxWidth: '100%',
-            flexShrink: 0,
+            mb: 16,
+            maxHeight: "500px",
+            overflow: "auto", // allows both X and Y scrolling
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <Chip
-            icon={<InfoIcon />}
-            label={`${contextItems.length} context item${contextItems.length > 1 ? 's' : ''} included below`}
-            color="primary"
-            variant="outlined"
-            sx={{ mr: 1 }}
-          />
-        </Box>
-      )}
-    
-    
+          {contextItems.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                mb: 1,
+                maxWidth: "100%",
+                flexShrink: 0,
+              }}
+            >
+              <Chip
+                icon={<InfoIcon />}
+                label={`${contextItems.length} context item${
+                  contextItems.length > 1 ? "s" : ""
+                } included below`}
+                color="primary"
+                variant="outlined"
+                sx={{ mr: 1 }}
+              />
+            </Box>
+          )}
 
-        <TableContainer component={Paper} elevation={3}>
-          <Table size="small">
-          <TableHead>
-  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-    {fields.map((field) => (
-      <TableCell
-        key={field}
-        sx={{
-          fontWeight: 'bold',
-          minWidth:
-            field === 'item_description'
-              ? 300
-              : field === 'import_policy'
-              ? 300 // Set your preferred width here
-              : 100,
-          textAlign: 'center',
-        }}
-      >
-        {field
-          .split('_')
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ')}
-      </TableCell>
-    ))}
-  </TableRow>
-</TableHead>
-
-
-            <TableBody>
-              {/* Main item row */}
-              <TableRow sx={{ backgroundColor: "#f8f8ff", height: 100 }}>
-                {fields.map((field) => (
-                  <TableCell key={field} sx={{ textAlign: 'center' }}>
-                    {mainItem[field] && mainItem[field] !== "nan" ?
-                      field.includes('duty') || field.includes('igst') || field.includes('sws') ?
-                        `${mainItem[field]}%` : mainItem[field]
-                      : "-"}
-                  </TableCell>
-                ))}
-              </TableRow>
-
-              {contextItems.map((item, index) => (
-                <TableRow key={index} sx={{ backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white" }}>
+          <TableContainer component={Paper} elevation={3}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                   {fields.map((field) => (
-                    <TableCell key={field} sx={{ textAlign: 'center' }}>
-                      {item[field] && item[field] !== "nan" ?
-                        field.includes('duty') || field.includes('igst') || field.includes('sws') ?
-                          `${item[field]}%` : item[field]
+                    <TableCell
+                      key={field}
+                      sx={{
+                        fontWeight: "bold",
+                        minWidth:
+                          field === "item_description"
+                            ? 300
+                            : field === "import_policy"
+                            ? 300 // Set your preferred width here
+                            : 100,
+                        textAlign: "center",
+                      }}
+                    >
+                      {field
+                        .split("_")
+                        .map(
+                          (word) => word.charAt(0).toUpperCase() + word.slice(1)
+                        )
+                        .join(" ")}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {/* Main item row */}
+                <TableRow sx={{ backgroundColor: "#f8f8ff", height: 100 }}>
+                  {fields.map((field) => (
+                    <TableCell key={field} sx={{ textAlign: "center" }}>
+                      {mainItem[field] && mainItem[field] !== "nan"
+                        ? field.includes("duty") ||
+                          field.includes("igst") ||
+                          field.includes("sws")
+                          ? `${mainItem[field]}%`
+                          : mainItem[field]
                         : "-"}
                     </TableCell>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-    );
-  }, [contextItems]);
+
+                {contextItems.map((item, index) => (
+                  <TableRow
+                    key={index}
+                    sx={{
+                      backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white",
+                    }}
+                  >
+                    {fields.map((field) => (
+                      <TableCell key={field} sx={{ textAlign: "center" }}>
+                        {item[field] && item[field] !== "nan"
+                          ? field.includes("duty") ||
+                            field.includes("igst") ||
+                            field.includes("sws")
+                            ? `${item[field]}%`
+                            : item[field]
+                          : "-"}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      );
+    },
+    [contextItems]
+  );
 
   // Render multiple results
   const renderMultipleResults = useCallback(() => {
@@ -680,7 +775,8 @@ const ImportUtilityTool = () => {
               >
                 <TableCell>{item.hs_code}</TableCell>
                 <TableCell>{item.item_description}</TableCell>
-                <TableCell>{item.total_duty_with_sws}%</TableCell>                <TableCell>{item.igst}%</TableCell>
+                <TableCell>{item.total_duty_with_sws}%</TableCell>{" "}
+                <TableCell>{item.igst}%</TableCell>
                 <TableCell>
                   <IconButton
                     onClick={(e) => {
@@ -705,78 +801,95 @@ const ImportUtilityTool = () => {
               </TableRow>
             ))}
           </TableBody>
-        </Table>      </TableContainer>
+        </Table>{" "}
+      </TableContainer>
     );
-  }, [handleSelectResult, handleToggleFavorite, multipleResults, multipleResultsSource, handleOpenDutyCalculator]);
+  }, [
+    handleSelectResult,
+    handleToggleFavorite,
+    multipleResults,
+    multipleResultsSource,
+    handleOpenDutyCalculator,
+  ]);
 
   // Render item
-  const renderItem = useCallback((item, source) => {
-    const showDeleteButton = source === "recent";
+  const renderItem = useCallback(
+    (item, source) => {
+      const showDeleteButton = source === "recent";
 
-    return (
-      <Paper
-        elevation={2}
-        sx={{
-          p: 2,
-          mb: 2,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          "&:hover": { backgroundColor: "#f9f9f9" },
-        }}
-      >
-        <Box
+      return (
+        <Paper
+          elevation={2}
           sx={{
-            flexGrow: 1,
-            cursor: "pointer"
+            p: 2,
+            mb: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            "&:hover": { backgroundColor: "#f9f9f9" },
           }}
-          onClick={() => handleItemClick(item, source)}
         >
-          <Typography variant="subtitle1" fontWeight="bold">
-            {item.hs_code} - {item.item_description}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Duty: {item.total_duty_with_sws}% | IGST: {item.igst}%
-          </Typography>
-        </Box>        <Box display="flex" alignItems="center">
-          {/* Calculate Duty button */}
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenDutyCalculator(item);
+          <Box
+            sx={{
+              flexGrow: 1,
+              cursor: "pointer",
             }}
-            color="primary"
-            title="Calculate Duty"
+            onClick={() => handleItemClick(item, source)}
           >
-            <CalculateIcon />
-          </IconButton>
-
-          {/* Favorite icon */}
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleFavorite(item, source);
-            }}
-            color={item.favourite ? "warning" : "default"}
-          >
-            {item.favourite ? <StarIcon /> : <StarBorderIcon />}
-          </IconButton>
-
-          {/* Delete icon - only show for recent searches */}
-          {showDeleteButton && (
+            <Typography variant="subtitle1" fontWeight="bold">
+              {item.hs_code} - {item.item_description}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Duty: {item.total_duty_with_sws}% | IGST: {item.igst}%
+            </Typography>
+          </Box>{" "}
+          <Box display="flex" alignItems="center">
+            {/* Calculate Duty button */}
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteItem(item._id, "recent");
+                handleOpenDutyCalculator(item);
               }}
-              color="error"
+              color="primary"
+              title="Calculate Duty"
             >
-              <DeleteIcon />
+              <CalculateIcon />
             </IconButton>
-          )}
-        </Box>      </Paper>
-    );
-  }, [handleDeleteItem, handleItemClick, handleToggleFavorite, handleOpenDutyCalculator]);
+
+            {/* Favorite icon */}
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleFavorite(item, source);
+              }}
+              color={item.favourite ? "warning" : "default"}
+            >
+              {item.favourite ? <StarIcon /> : <StarBorderIcon />}
+            </IconButton>
+
+            {/* Delete icon - only show for recent searches */}
+            {showDeleteButton && (
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteItem(item._id, "recent");
+                }}
+                color="error"
+              >
+                <DeleteIcon />
+              </IconButton>
+            )}
+          </Box>{" "}
+        </Paper>
+      );
+    },
+    [
+      handleDeleteItem,
+      handleItemClick,
+      handleToggleFavorite,
+      handleOpenDutyCalculator,
+    ]
+  );
 
   return (
     <Box sx={{ maxWidth: 1500, margin: "0 auto", p: 3 }}>
@@ -787,13 +900,20 @@ const ImportUtilityTool = () => {
           textAlign: "center",
           fontWeight: 550,
           fontSize: "1.75rem",
-          mb: 6
+          mb: 6,
         }}
       >
         CTH Directory Search
       </Typography>
-
-      <Box sx={{ display: "flex", mb: 3, width: "100%", justifyContent: "center", alignItems: "center" }}>
+      <Box
+        sx={{
+          display: "flex",
+          mb: 3,
+          width: "100%",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <TextField
           placeholder="Search by HS Code or Item Description"
           size="small"
@@ -818,7 +938,6 @@ const ImportUtilityTool = () => {
           style={{ width: "35%" }}
         />
       </Box>
-
       <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
         <Tab label="Search Result" icon={<SearchIcon />} iconPosition="start" />
         <Tab
@@ -828,7 +947,6 @@ const ImportUtilityTool = () => {
         />
         <Tab label="Favorites" icon={<StarIcon />} iconPosition="start" />
       </Tabs>
-
       {/* Search Results Tab */}
       {activeTab === 0 && (
         <Box>
@@ -841,23 +959,40 @@ const ImportUtilityTool = () => {
               </Typography>
               {renderMultipleResults()}
             </Box>
-          )}          {/* Display single result if available */}
+          )}{" "}
+          {/* Display single result if available */}
           {searchResults && searchResults.result && (
             <Box>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+                mb={1}
+              >
                 <Box display="flex" alignItems="center">
                   <Typography variant="subtitle1">
                     Found in {searchResults.source} collection
                   </Typography>
                   <IconButton
-                    onClick={() => handleToggleFavorite(searchResults.result, searchResults.source)}
-                    color={searchResults.result.favourite ? "warning" : "default"}
+                    onClick={() =>
+                      handleToggleFavorite(
+                        searchResults.result,
+                        searchResults.source
+                      )
+                    }
+                    color={
+                      searchResults.result.favourite ? "warning" : "default"
+                    }
                     sx={{ ml: 1 }}
                   >
-                    {searchResults.result.favourite ? <StarIcon /> : <StarBorderIcon />}
+                    {searchResults.result.favourite ? (
+                      <StarIcon />
+                    ) : (
+                      <StarBorderIcon />
+                    )}
                   </IconButton>
                 </Box>
-                
+
                 <Button
                   variant="contained"
                   color="primary"
@@ -873,7 +1008,6 @@ const ImportUtilityTool = () => {
               {renderSearchResultWithContext(searchResults.result)}
             </Box>
           )}
-
           {/* No results message */}
           {!searchResults && multipleResults.length === 0 && (
             <Typography
@@ -889,11 +1023,15 @@ const ImportUtilityTool = () => {
           )}
         </Box>
       )}
-
       {/* Recent Searches Tab */}
       {activeTab === 1 && (
         <Box>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
+          >
             <Typography variant="subtitle1">
               Recently Searched Items (Last 20)
             </Typography>
@@ -909,9 +1047,7 @@ const ImportUtilityTool = () => {
 
           {recentSearches.length > 0 ? (
             recentSearches.map((item) => (
-              <Box key={item._id}>
-                {renderItem(item, "recent")}
-              </Box>
+              <Box key={item._id}>{renderItem(item, "recent")}</Box>
             ))
           ) : (
             <Typography
@@ -925,14 +1061,16 @@ const ImportUtilityTool = () => {
           )}
         </Box>
       )}
-
       {/* Favorites Tab */}
       {activeTab === 2 && (
         <Box>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="subtitle1">
-              Favorite Items
-            </Typography>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
+          >
+            <Typography variant="subtitle1">Favorite Items</Typography>
             <Button
               variant="outlined"
               color="error"
@@ -945,9 +1083,7 @@ const ImportUtilityTool = () => {
 
           {favorites.length > 0 ? (
             favorites.map((item) => (
-              <Box key={item._id}>
-                {renderItem(item, "favorite")}
-              </Box>
+              <Box key={item._id}>{renderItem(item, "favorite")}</Box>
             ))
           ) : (
             <Typography
@@ -960,7 +1096,8 @@ const ImportUtilityTool = () => {
             </Typography>
           )}
         </Box>
-      )}      <Snackbar
+      )}{" "}
+      <Snackbar
         open={notification.open}
         autoHideDuration={4000}
         onClose={handleCloseNotification}
@@ -973,7 +1110,8 @@ const ImportUtilityTool = () => {
         >
           {notification.message}
         </Alert>
-      </Snackbar>      {/* Duty Calculator Modal */}
+      </Snackbar>{" "}
+      {/* Duty Calculator Modal */}
       <Dialog
         open={dutyCalculatorOpen}
         onClose={handleCloseDutyCalculator}
@@ -981,26 +1119,30 @@ const ImportUtilityTool = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '8px',
-            background: '#fff',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          }
+            borderRadius: "8px",
+            background: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          },
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box sx={{ fontSize: '16px', fontWeight: 600, color: '#34495e' }}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Box sx={{ fontSize: "16px", fontWeight: 600, color: "#34495e" }}>
               💸 Duty Calculator
             </Box>
             {selectedItemForDuty && (
-              <Chip 
+              <Chip
                 label={`HS: ${selectedItemForDuty.hs_code}`}
                 size="small"
-                sx={{ 
-                  fontSize: '12px', 
+                sx={{
+                  fontSize: "12px",
                   fontWeight: 600,
-                  backgroundColor: '#e3f2fd',
-                  color: '#1976d2'
+                  backgroundColor: "#e3f2fd",
+                  color: "#1976d2",
                 }}
               />
             )}
@@ -1008,104 +1150,142 @@ const ImportUtilityTool = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 2, pt: 1 }}>
           {selectedItemForDuty && (
-            <Box>              <Box sx={{ 
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 1.5,
-                '& .field-group': {
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 0.5
-                },
-                '& .field-label': {
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: '#555'
-                },
-                '& input, & .MuiOutlinedInput-root': {
-                  padding: '6px 8px',
-                  fontSize: '13px',
-                  borderRadius: '4px',
-                  border: '1px solid #ddd',
-                  '&:focus': {
-                    borderColor: '#007bff',
-                    outline: 'none'
-                  }
-                },
-                '& .MuiFormControl-root': {
-                  minWidth: '100%'
-                },
-                '& .calculated-value': {
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: '#28a745',
-                  marginTop: '2px'
-                },
-                '& .full-width': {
-                  gridColumn: '1 / -1'
-                }
-              }}>
-                
+            <Box>
+              {" "}
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 1.5,
+                  "& .field-group": {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0.5,
+                  },
+                  "& .field-label": {
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#555",
+                  },
+                  "& input, & .MuiOutlinedInput-root": {
+                    padding: "6px 8px",
+                    fontSize: "13px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd",
+                    "&:focus": {
+                      borderColor: "#007bff",
+                      outline: "none",
+                    },
+                  },
+                  "& .MuiFormControl-root": {
+                    minWidth: "100%",
+                  },
+                  "& .calculated-value": {
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#28a745",
+                    marginTop: "2px",
+                  },
+                  "& .full-width": {
+                    gridColumn: "1 / -1",
+                  },
+                }}
+              >
                 {/* HS Code & Description */}
-                <Box className="field-group full-width" sx={{ 
-                  p: 1.5, 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '4px',
-                  mb: 1
-                }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '13px', color: '#2c3e50' }}>
-                    {selectedItemForDuty.hs_code} - {selectedItemForDuty.item_description}
+                <Box
+                  className="field-group full-width"
+                  sx={{
+                    p: 1.5,
+                    backgroundColor: "#f8f9fa",
+                    borderRadius: "4px",
+                    mb: 1,
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{ fontWeight: 600, fontSize: "13px", color: "#2c3e50" }}
+                  >
+                    {selectedItemForDuty.hs_code} -{" "}
+                    {selectedItemForDuty.item_description}
                   </Typography>
-                </Box>                {/* Import Terms */}
+                </Box>{" "}
+                {/* Import Terms */}
                 <Box className="field-group full-width">
                   <Typography className="field-label">Import Terms</Typography>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    gap: 1, 
-                    flexWrap: 'wrap',
-                    mt: 0.5
-                  }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      mt: 0.5,
+                    }}
+                  >
                     {[
-                      { value: 'CIF', label: 'CIF', color: '#2563eb' },
-                      { value: 'FOB', label: 'FOB', color: '#059669' },
-                      { value: 'CF', label: 'C&F', color: '#dc2626' },
-                      { value: 'CI', label: 'C&I', color: '#7c3aed' }
+                      { value: "CIF", label: "CIF", color: "#2563eb" },
+                      { value: "FOB", label: "FOB", color: "#059669" },
+                      { value: "CF", label: "C&F", color: "#dc2626" },
+                      { value: "CI", label: "C&I", color: "#7c3aed" },
                     ].map((option) => (
                       <Box
                         key={option.value}
-                        onClick={() => handleDutyFormChange('importTerms', option.value)}
+                        onClick={() =>
+                          handleDutyFormChange("importTerms", option.value)
+                        }
                         sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: `1px solid ${dutyCalculatorForm.importTerms === option.value ? option.color : '#d1d5db'}`,
-                          backgroundColor: dutyCalculatorForm.importTerms === option.value ? option.color : '#ffffff',
-                          color: dutyCalculatorForm.importTerms === option.value ? '#ffffff' : '#374151',
-                          fontSize: '13px',
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          border: `1px solid ${
+                            dutyCalculatorForm.importTerms === option.value
+                              ? option.color
+                              : "#d1d5db"
+                          }`,
+                          backgroundColor:
+                            dutyCalculatorForm.importTerms === option.value
+                              ? option.color
+                              : "#ffffff",
+                          color:
+                            dutyCalculatorForm.importTerms === option.value
+                              ? "#ffffff"
+                              : "#374151",
+                          fontSize: "13px",
                           fontWeight: 500,
-                          minWidth: '60px',
-                          justifyContent: 'center',
-                          transition: 'all 0.15s ease',
-                          boxShadow: dutyCalculatorForm.importTerms === option.value ? `0 2px 4px ${option.color}20` : 'none',
-                          '&:hover': {
+                          minWidth: "60px",
+                          justifyContent: "center",
+                          transition: "all 0.15s ease",
+                          boxShadow:
+                            dutyCalculatorForm.importTerms === option.value
+                              ? `0 2px 4px ${option.color}20`
+                              : "none",
+                          "&:hover": {
                             borderColor: option.color,
-                            backgroundColor: dutyCalculatorForm.importTerms === option.value ? option.color : `${option.color}08`,
-                            transform: 'translateY(-1px)',
-                            boxShadow: `0 3px 6px ${option.color}20`
-                          }
+                            backgroundColor:
+                              dutyCalculatorForm.importTerms === option.value
+                                ? option.color
+                                : `${option.color}08`,
+                            transform: "translateY(-1px)",
+                            boxShadow: `0 3px 6px ${option.color}20`,
+                          },
                         }}
                       >
                         <Box
                           sx={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            border: `2px solid ${dutyCalculatorForm.importTerms === option.value ? '#ffffff' : option.color}`,
-                            backgroundColor: dutyCalculatorForm.importTerms === option.value ? '#ffffff' : 'transparent',
-                            marginRight: '8px',
-                            transition: 'all 0.15s ease'
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            border: `2px solid ${
+                              dutyCalculatorForm.importTerms === option.value
+                                ? "#ffffff"
+                                : option.color
+                            }`,
+                            backgroundColor:
+                              dutyCalculatorForm.importTerms === option.value
+                                ? "#ffffff"
+                                : "transparent",
+                            marginRight: "8px",
+                            transition: "all 0.15s ease",
                           }}
                         />
                         {option.label}
@@ -1113,143 +1293,203 @@ const ImportUtilityTool = () => {
                     ))}
                   </Box>
                 </Box>
-
                 {/* Base Value */}
                 <Box className="field-group">
-                  <Typography className="field-label">{dutyCalculatorForm.importTerms} Value (₹)</Typography>
+                  <Typography className="field-label">
+                    {dutyCalculatorForm.importTerms} Value (₹)
+                  </Typography>
                   <input
                     type="number"
                     value={dutyCalculatorForm.cifValue}
-                    onChange={(e) => handleDutyFormChange('cifValue', e.target.value)}
+                    onChange={(e) =>
+                      handleDutyFormChange("cifValue", e.target.value)
+                    }
                     placeholder="Enter value"
                   />
                 </Box>
-
                 {/* Conditional Fields */}
-                {(dutyCalculatorForm.importTerms === 'FOB' || dutyCalculatorForm.importTerms === 'CI') && (
+                {(dutyCalculatorForm.importTerms === "FOB" ||
+                  dutyCalculatorForm.importTerms === "CI") && (
                   <Box className="field-group">
                     <Typography className="field-label">Freight (₹)</Typography>
                     <input
                       type="number"
                       value={dutyCalculatorForm.freight}
-                      onChange={(e) => handleDutyFormChange('freight', e.target.value)}
+                      onChange={(e) =>
+                        handleDutyFormChange("freight", e.target.value)
+                      }
                       placeholder="Freight"
                     />
                   </Box>
                 )}
-
-                {(dutyCalculatorForm.importTerms === 'FOB' || dutyCalculatorForm.importTerms === 'CF') && (
+                {(dutyCalculatorForm.importTerms === "FOB" ||
+                  dutyCalculatorForm.importTerms === "CF") && (
                   <Box className="field-group">
-                    <Typography className="field-label">Insurance (₹)</Typography>
+                    <Typography className="field-label">
+                      Insurance (₹)
+                    </Typography>
                     <input
                       type="number"
                       value={dutyCalculatorForm.insurance}
-                      onChange={(e) => handleDutyFormChange('insurance', e.target.value)}
+                      onChange={(e) =>
+                        handleDutyFormChange("insurance", e.target.value)
+                      }
                       placeholder="Insurance"
                     />
                   </Box>
                 )}
-
                 {/* BCD */}
                 <Box className="field-group">
                   <Typography className="field-label">
-                    BCD (%) <span style={{ color: '#007bff', cursor: 'help' }} title="Basic Customs Duty">ℹ️</span>
+                    BCD (%){" "}
+                    <span
+                      style={{ color: "#007bff", cursor: "help" }}
+                      title="Basic Customs Duty"
+                    >
+                      ℹ️
+                    </span>
                   </Typography>
                   <input
                     type="number"
                     value={dutyCalculatorForm.bcdRate}
-                    onChange={(e) => handleDutyFormChange('bcdRate', e.target.value)}
+                    onChange={(e) =>
+                      handleDutyFormChange("bcdRate", e.target.value)
+                    }
                     placeholder="BCD rate"
                   />
-                  <div className="calculated-value">₹{parseFloat(calculatedDuties.bcd || 0).toFixed(2)}</div>
+                  <div className="calculated-value">
+                    ₹{parseFloat(calculatedDuties.bcd || 0).toFixed(2)}
+                  </div>
                 </Box>
-
                 {/* SWS */}
                 <Box className="field-group">
                   <Typography className="field-label">
-                    SWS (%) <span style={{ color: '#007bff', cursor: 'help' }} title="10% of BCD">ℹ️</span>
+                    SWS (%){" "}
+                    <span
+                      style={{ color: "#007bff", cursor: "help" }}
+                      title="10% of BCD"
+                    >
+                      ℹ️
+                    </span>
                   </Typography>
                   <input
                     type="number"
                     value={dutyCalculatorForm.swsRate}
-                    onChange={(e) => handleDutyFormChange('swsRate', e.target.value)}
-                    style={{ backgroundColor: '#f8f9fa' }}
+                    onChange={(e) =>
+                      handleDutyFormChange("swsRate", e.target.value)
+                    }
+                    style={{ backgroundColor: "#f8f9fa" }}
                   />
-                  <div className="calculated-value">₹{parseFloat(calculatedDuties.sws || 0).toFixed(2)}</div>
+                  <div className="calculated-value">
+                    ₹{parseFloat(calculatedDuties.sws || 0).toFixed(2)}
+                  </div>
                 </Box>
-
                 {/* IGST */}
                 <Box className="field-group">
                   <Typography className="field-label">
-                    IGST (%) <span style={{ color: '#007bff', cursor: 'help' }} title="Integrated GST">ℹ️</span>
+                    IGST (%){" "}
+                    <span
+                      style={{ color: "#007bff", cursor: "help" }}
+                      title="Integrated GST"
+                    >
+                      ℹ️
+                    </span>
                   </Typography>
                   <input
                     type="number"
                     value={dutyCalculatorForm.igstRate}
-                    onChange={(e) => handleDutyFormChange('igstRate', e.target.value)}
+                    onChange={(e) =>
+                      handleDutyFormChange("igstRate", e.target.value)
+                    }
                     placeholder="IGST rate"
                   />
-                  <div className="calculated-value">₹{parseFloat(calculatedDuties.igst || 0).toFixed(2)}</div>
+                  <div className="calculated-value">
+                    ₹{parseFloat(calculatedDuties.igst || 0).toFixed(2)}
+                  </div>
                 </Box>
-
                 {/* Assessable Value */}
                 <Box className="field-group">
-                  <Typography className="field-label">Assessable Value</Typography>
-                  <Box sx={{ 
-                    p: 1, 
-                    backgroundColor: '#e8f5e8', 
-                    borderRadius: '4px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#155724',
-                    textAlign: 'center'
-                  }}>
-                    ₹{parseFloat(calculatedDuties.assessableValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  <Typography className="field-label">
+                    Assessable Value
+                  </Typography>
+                  <Box
+                    sx={{
+                      p: 1,
+                      backgroundColor: "#e8f5e8",
+                      borderRadius: "4px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#155724",
+                      textAlign: "center",
+                    }}
+                  >
+                    ₹
+                    {parseFloat(
+                      calculatedDuties.assessableValue || 0
+                    ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </Box>
                 </Box>
-
                 {/* Total Duty */}
                 <Box className="field-group">
                   <Typography className="field-label">💰 Total Duty</Typography>
-                  <Box sx={{ 
-                    p: 1, 
-                    backgroundColor: '#ffeaa7', 
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    color: '#2d3436',
-                    textAlign: 'center'
-                  }}>
-                    ₹{parseFloat(calculatedDuties.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  <Box
+                    sx={{
+                      p: 1,
+                      backgroundColor: "#ffeaa7",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      color: "#2d3436",
+                      textAlign: "center",
+                    }}
+                  >
+                    ₹
+                    {parseFloat(calculatedDuties.total || 0).toLocaleString(
+                      "en-IN",
+                      { minimumFractionDigits: 2 }
+                    )}
                   </Box>
                 </Box>
-              </Box>            </Box>
+              </Box>{" "}
+            </Box>
           )}
-        </DialogContent>        <DialogActions sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ 
-            fontSize: '10px', 
-            color: '#666', 
-            fontStyle: 'italic'
-          }}>
+        </DialogContent>{" "}
+        <DialogActions
+          sx={{
+            px: 2,
+            pb: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: "10px",
+              color: "#666",
+              fontStyle: "italic",
+            }}
+          >
             ⚠️ Estimated calculation only
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
-              onClick={handleClearUserValues} 
-              size="small" 
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button
+              onClick={handleClearUserValues}
+              size="small"
               variant="outlined"
               color="secondary"
               sx={{
-                fontSize: '11px',
-                padding: '4px 12px',
-                minWidth: 'auto'
+                fontSize: "11px",
+                padding: "4px 12px",
+                minWidth: "auto",
               }}
             >
               Clear All
             </Button>
-            <Button 
-              onClick={handleCloseDutyCalculator} 
-              size="small" 
+            <Button
+              onClick={handleCloseDutyCalculator}
+              size="small"
               variant="outlined"
             >
               Close

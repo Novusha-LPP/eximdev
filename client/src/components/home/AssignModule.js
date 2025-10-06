@@ -41,7 +41,7 @@ const allModules = [
   "Booking Management",
   "Export - Documentation",
   "Export - ESanchit",
-  "Export - Submission"
+  "Export - Submission",
 ];
 
 function not(a, b) {
@@ -100,6 +100,7 @@ function AssignModule(props) {
     await axios.post(`${process.env.REACT_APP_API_STRING}/assign-modules`, {
       modules: leftChecked,
       username: props.selectedUser,
+      category: props.category,
     });
   };
 
@@ -107,28 +108,55 @@ function AssignModule(props) {
     const newLeft = left.concat(rightChecked).sort();
     const newRight = not(right, rightChecked).sort();
     setLeft(newLeft);
+
     setRight(newRight);
     setChecked(not(checked, rightChecked));
     await axios.post(`${process.env.REACT_APP_API_STRING}/unassign-modules`, {
       modules: rightChecked,
       username: props.selectedUser,
+      category: props.category,
     });
   };
 
-  // Fetch modules of selected user
+  console.log("LEFT", left);
   useEffect(() => {
     async function getUserModules() {
-      if (props.selectedUser) {
-        const res = await axios(
-          `${process.env.REACT_APP_API_STRING}/get-user/${props.selectedUser}`
-        );
+      if (props.selectedUser && props.category) {
+        try {
+          const res = await axios(
+            `${process.env.REACT_APP_API_STRING}/get-user/${props.selectedUser}`
+          );
 
-        setRight(res.data.modules?.sort());
-        setLeft(
-          allModules
-            .sort()
-            .filter((module) => !res.data.modules?.includes(module))
-        );
+          let userModules = [];
+          if (props.category === "Transport") {
+            userModules = res.data.transport_modules || [];
+          } else if (props.category === "Export") {
+            userModules = res.data.export_modules || [];
+          } else if (props.category === "Import") {
+            userModules = res.data.import_modules || [];
+          }
+
+          // Defensive: Log values
+          console.log("userModules", userModules);
+          console.log("allModules", allModules);
+
+          setRight([...userModules].sort());
+
+          // Only run setLeft if allModules is an array
+          if (Array.isArray(allModules)) {
+            setLeft(
+              [...allModules]
+                .sort()
+                .filter((module) => !userModules.includes(module))
+            );
+          } else {
+            setLeft([]);
+          }
+        } catch (error) {
+          console.error("Error fetching user modules:", error);
+          setLeft([]);
+          setRight([]);
+        }
       } else {
         setLeft([]);
         setRight([]);
@@ -136,8 +164,7 @@ function AssignModule(props) {
     }
 
     getUserModules();
-    // eslint-disable-next-line
-  }, [props.selectedUser]);
+  }, [props.selectedUser, props.category, allModules]); // add allModules if it's derived async
 
   const customList = (title, items) => (
     <Card>
@@ -150,7 +177,7 @@ function AssignModule(props) {
               numberOfChecked(items) === items?.length && items?.length !== 0
             }
             indeterminate={
-              numberOfChecked(items) !== items?.length && 
+              numberOfChecked(items) !== items?.length &&
               numberOfChecked(items) !== 0
             }
             disabled={items?.length === 0}

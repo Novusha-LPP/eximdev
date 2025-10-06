@@ -1,51 +1,59 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { 
-  Grid, 
-  Card, 
-  CardContent, 
-  Fade, 
-  Box, 
-  Typography, 
-  IconButton, 
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import {
+  Grid,
+  Card,
+  CardContent,
+  Fade,
+  Box,
+  Typography,
+  IconButton,
   Tooltip,
   Chip,
   Avatar,
   LinearProgress,
   Divider,
   useTheme,
-  alpha
-} from '@mui/material';
-import { 
-  Timeline as TimelineIcon, 
-  Assessment as AssessmentIcon, 
+  alpha,
+} from "@mui/material";
+import {
+  Timeline as TimelineIcon,
+  Assessment as AssessmentIcon,
   Insights as InsightsIcon,
   TrendingUp as TrendingUpIcon,
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
   Download as DownloadIcon,
-  Info as InfoIcon
-} from '@mui/icons-material';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  CartesianGrid, 
-  XAxis, 
-  YAxis, 
-  Tooltip as ChartTooltip, 
-  PieChart, 
-  Pie, 
-  Cell, 
+  Info as InfoIcon,
+} from "@mui/icons-material";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as ChartTooltip,
+  PieChart,
+  Pie,
+  Cell,
   Legend,
   Bar,
-  BarChart
-} from 'recharts';
+  BarChart,
+} from "recharts";
 
-const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassMorphismCard, LoadingSkeleton, alpha: alphaFn }) => {
+const AuditCharts = ({
+  userFilter: propUserFilter,
+  filters,
+  colorPalette,
+  glassMorphismCard,
+  LoadingSkeleton,
+  alpha: alphaFn,
+}) => {
   const theme = useTheme();
   // Use userFilter from props or from filters
-  const userFilter = propUserFilter !== undefined ? propUserFilter : (filters?.username || '');
+  const userFilter =
+    propUserFilter !== undefined ? propUserFilter : filters?.username || "";
   const [statsLoading, setStatsLoading] = useState(true);
   const [dailyActivity, setDailyActivity] = useState([]);
   const [actionTypes, setActionTypes] = useState([]);
@@ -56,22 +64,35 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
 
   // Enhanced color palette for charts
   const chartColors = [
-    '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', 
-    '#10b981', '#ef4444', '#06b6d4', '#84cc16'
+    "#6366f1",
+    "#8b5cf6",
+    "#ec4899",
+    "#f59e0b",
+    "#10b981",
+    "#ef4444",
+    "#06b6d4",
+    "#84cc16",
   ];
 
   useEffect(() => {
     // Log the API URL and userFilter for debugging
     const params = new URLSearchParams();
     if (userFilter) {
-      params.append('username', userFilter);
+      params.append("username", userFilter);
     }
     const today = new Date();
-    const fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29);
-    params.append('fromDate', fromDate.toISOString().slice(0, 10));
-    params.append('toDate', today.toISOString().slice(0, 10));
-    console.log('Activity timeline API:', `${process.env.REACT_APP_API_STRING}/audit-trail/activity-timeline?${params}`);
-    console.log('userFilter:', userFilter);
+    const fromDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - 29
+    );
+    params.append("fromDate", fromDate.toISOString().slice(0, 10));
+    params.append("toDate", today.toISOString().slice(0, 10));
+    console.log(
+      "Activity timeline API:",
+      `${process.env.REACT_APP_API_STRING}/audit-trail/activity-timeline?${params}`
+    );
+    console.log("userFilter:", userFilter);
     loadData();
   }, [userFilter]);
 
@@ -79,17 +100,25 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
     setStatsLoading(true);
     const params = new URLSearchParams();
     if (userFilter) {
-      params.append('username', userFilter);
+      params.append("username", userFilter);
     }
     const today = new Date();
-    const fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29);
-    params.append('fromDate', fromDate.toISOString().slice(0, 10));
-    params.append('toDate', today.toISOString().slice(0, 10));
+    const fromDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - 29
+    );
+    params.append("fromDate", fromDate.toISOString().slice(0, 10));
+    params.append("toDate", today.toISOString().slice(0, 10));
     // No need to send groupBy, backend always returns day-wise
     try {
       const [activityRes, statsRes] = await Promise.all([
-        axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/activity-timeline?${params}`),
-        axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`)
+        axios.get(
+          `${process.env.REACT_APP_API_STRING}/audit-trail/activity-timeline?${params}`
+        ),
+        axios.get(
+          `${process.env.REACT_APP_API_STRING}/audit-trail/stats?${params}`
+        ),
       ]);
 
       // Use day-wise activity data for line graph
@@ -98,57 +127,77 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
 
       // Calculate statistics
       const total = activityData.reduce((sum, day) => sum + day.actions, 0);
-      const avg = activityData.length > 0 ? (total / activityData.length).toFixed(1) : 0;
-      const peak = activityData.reduce((max, day) => day.actions > max.actions ? day : max, { actions: 0 });
-      
+      const avg =
+        activityData.length > 0 ? (total / activityData.length).toFixed(1) : 0;
+      const peak = activityData.reduce(
+        (max, day) => (day.actions > max.actions ? day : max),
+        { actions: 0 }
+      );
+
       setTotalActions(total);
       setAvgDailyActions(avg);
       setPeakDay(peak);
 
       // Enhanced action types with colors
-      const actionTypesData = (statsRes.data.actionTypes || []).map((a, index) => ({
-        name: a._id,
-        value: a.count,
-        color: chartColors[index % chartColors.length],
-        percentage: ((a.count / total) * 100).toFixed(1)
-      }));
+      const actionTypesData = (statsRes.data.actionTypes || []).map(
+        (a, index) => ({
+          name: a._id,
+          value: a.count,
+          color: chartColors[index % chartColors.length],
+          percentage: ((a.count / total) * 100).toFixed(1),
+        })
+      );
 
       setActionTypes(actionTypesData);
       setStatsLoading(false);
     } catch (error) {
       setStatsLoading(false);
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
     }
   };
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <Box sx={{
-          backgroundColor: 'rgba(255, 255, 255, 0.98)',
-          border: `1px solid ${alphaFn(colorPalette.primary, 0.2)}`,
-          borderRadius: '16px',
-          padding: '16px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          backdropFilter: 'blur(16px)',
-          minWidth: '200px'
-        }}>
-          <Typography variant="subtitle2" sx={{ color: colorPalette.textPrimary, fontWeight: 600, mb: 1 }}>
-            {new Date(label).toLocaleDateString('en-US', { 
-              weekday: 'short', 
-              month: 'short', 
-              day: 'numeric' 
+        <Box
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.98)",
+            border: `1px solid ${alphaFn(colorPalette.primary, 0.2)}`,
+            borderRadius: "16px",
+            padding: "16px",
+            boxShadow:
+              "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            backdropFilter: "blur(16px)",
+            minWidth: "200px",
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{ color: colorPalette.textPrimary, fontWeight: 600, mb: 1 }}
+          >
+            {new Date(label).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
             })}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box sx={{ 
-              width: 8, 
-              height: 8, 
-              borderRadius: '50%', 
-              backgroundColor: colorPalette.primary 
-            }} />
-            <Typography variant="body2" sx={{ color: colorPalette.textSecondary }}>
-              Actions: <strong style={{ color: colorPalette.textPrimary }}>{payload[0].value}</strong>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: colorPalette.primary,
+              }}
+            />
+            <Typography
+              variant="body2"
+              sx={{ color: colorPalette.textSecondary }}
+            >
+              Actions:{" "}
+              <strong style={{ color: colorPalette.textPrimary }}>
+                {payload[0].value}
+              </strong>
             </Typography>
           </Box>
         </Box>
@@ -158,27 +207,41 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
   };
 
   const StatCard = ({ icon, title, value, subtitle, color }) => (
-    <Box sx={{
-      p: 2,
-      borderRadius: 2,
-      backgroundColor: alphaFn(color, 0.05),
-      border: `1px solid ${alphaFn(color, 0.1)}`,
-      transition: 'all 0.2s ease-in-out',
-      '&:hover': {
-        backgroundColor: alphaFn(color, 0.08),
-        transform: 'translateY(-2px)',
-        boxShadow: `0 8px 25px ${alphaFn(color, 0.15)}`
-      }
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Avatar sx={{ backgroundColor: alphaFn(color, 0.1), width: 40, height: 40 }}>
+    <Box
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        backgroundColor: alphaFn(color, 0.05),
+        border: `1px solid ${alphaFn(color, 0.1)}`,
+        transition: "all 0.2s ease-in-out",
+        "&:hover": {
+          backgroundColor: alphaFn(color, 0.08),
+          transform: "translateY(-2px)",
+          boxShadow: `0 8px 25px ${alphaFn(color, 0.15)}`,
+        },
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Avatar
+          sx={{ backgroundColor: alphaFn(color, 0.1), width: 40, height: 40 }}
+        >
           {icon}
         </Avatar>
         <Box>
-          <Typography variant="h4" sx={{ color: colorPalette.textPrimary, fontWeight: 700, lineHeight: 1 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              color: colorPalette.textPrimary,
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
             {value}
           </Typography>
-          <Typography variant="body2" sx={{ color: colorPalette.textSecondary, mb: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: colorPalette.textSecondary, mb: 0.5 }}
+          >
             {title}
           </Typography>
           {subtitle && (
@@ -197,25 +260,37 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
         <Grid item xs={12}>
           <Card sx={glassMorphismCard}>
             <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Box sx={{ p: 1, borderRadius: 2, backgroundColor: alphaFn(colorPalette.primary, 0.1), mr: 2 }}>
-                  <TimelineIcon sx={{ color: colorPalette.primary, fontSize: 24 }} />
+              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                <Box
+                  sx={{
+                    p: 1,
+                    borderRadius: 2,
+                    backgroundColor: alphaFn(colorPalette.primary, 0.1),
+                    mr: 2,
+                  }}
+                >
+                  <TimelineIcon
+                    sx={{ color: colorPalette.primary, fontSize: 24 }}
+                  />
                 </Box>
-                <Typography variant="h6" sx={{ color: colorPalette.textPrimary, fontWeight: 600 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ color: colorPalette.textPrimary, fontWeight: 600 }}
+                >
                   Loading Analytics...
                 </Typography>
               </Box>
-              <LinearProgress 
-                sx={{ 
-                  mb: 2, 
-                  height: 6, 
+              <LinearProgress
+                sx={{
+                  mb: 2,
+                  height: 6,
                   borderRadius: 3,
                   backgroundColor: alphaFn(colorPalette.primary, 0.1),
-                  '& .MuiLinearProgress-bar': {
+                  "& .MuiLinearProgress-bar": {
                     backgroundColor: colorPalette.primary,
-                    borderRadius: 3
-                  }
-                }} 
+                    borderRadius: 3,
+                  },
+                }}
               />
               <LoadingSkeleton rows={4} />
             </CardContent>
@@ -306,115 +381,186 @@ const AuditCharts = ({ userFilter: propUserFilter, filters, colorPalette, glassM
 
       {/* Activity Timeline */}
       <Grid item xs={12} md={12}>
-        <Fade in={true} style={{ transitionDelay: '200ms' }}>
-          <Card sx={{ 
-            ...glassMorphismCard, 
-            overflow: 'hidden',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: `0 20px 40px ${alphaFn(colorPalette.primary, 0.1)}`
-            }
-          }}>
+        <Fade in={true} style={{ transitionDelay: "200ms" }}>
+          <Card
+            sx={{
+              ...glassMorphismCard,
+              overflow: "hidden",
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: `0 20px 40px ${alphaFn(colorPalette.primary, 0.1)}`,
+              },
+            }}
+          >
             <CardContent sx={{ p: 0 }}>
               <Box sx={{ p: 3, pb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      backgroundColor: alphaFn(colorPalette.primary, 0.1), 
-                      mr: 2 
-                    }}>
-                      <TimelineIcon sx={{ color: colorPalette.primary, fontSize: 24 }} />
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    mb: 2,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: alphaFn(colorPalette.primary, 0.1),
+                        mr: 2,
+                      }}
+                    >
+                      <TimelineIcon
+                        sx={{ color: colorPalette.primary, fontSize: 24 }}
+                      />
                     </Box>
                     <Box>
-                      <Typography variant="h6" sx={{ color: colorPalette.textPrimary, fontWeight: 600, mb: 0.5 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: colorPalette.textPrimary,
+                          fontWeight: 600,
+                          mb: 0.5,
+                        }}
+                      >
                         Activity Timeline
                       </Typography>
-                      <Typography variant="body2" sx={{ color: colorPalette.textSecondary }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: colorPalette.textSecondary }}
+                      >
                         Daily audit activities over the last 30 days
                       </Typography>
                     </Box>
                   </Box>
-                  
                 </Box>
-                
-                {hoveredData && hoveredData.date && typeof hoveredData.actions === 'number' && (
-                  <Chip
-                    label={`${hoveredData.actions} actions on ${new Date(hoveredData.date).toLocaleDateString()}`}
-                    size="small"
-                    sx={{
-                      backgroundColor: alphaFn(colorPalette.primary, 0.1),
-                      color: colorPalette.primary,
-                      border: `1px solid ${alphaFn(colorPalette.primary, 0.2)}`
-                    }}
-                  />
-                )}
+
+                {hoveredData &&
+                  hoveredData.date &&
+                  typeof hoveredData.actions === "number" && (
+                    <Chip
+                      label={`${hoveredData.actions} actions on ${new Date(
+                        hoveredData.date
+                      ).toLocaleDateString()}`}
+                      size="small"
+                      sx={{
+                        backgroundColor: alphaFn(colorPalette.primary, 0.1),
+                        color: colorPalette.primary,
+                        border: `1px solid ${alphaFn(
+                          colorPalette.primary,
+                          0.2
+                        )}`,
+                      }}
+                    />
+                  )}
               </Box>
-              
-              <Divider sx={{ borderColor: alphaFn(colorPalette.primary, 0.1) }} />
-              
+
+              <Divider
+                sx={{ borderColor: alphaFn(colorPalette.primary, 0.1) }}
+              />
+
               <Box sx={{ p: 3, pt: 2 }}>
                 {dailyActivity.length === 0 ? (
-                  <Box sx={{ 
-                    p: 6, 
-                    textAlign: 'center', 
-                    backgroundColor: alphaFn(colorPalette.primary, 0.02), 
-                    borderRadius: 3,
-                    border: `2px dashed ${alphaFn(colorPalette.primary, 0.1)}`,
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': {
-                      backgroundColor: alphaFn(colorPalette.primary, 0.04)
-                    }
-                  }}>
-                    <InsightsIcon sx={{ fontSize: 64, color: alphaFn(colorPalette.primary, 0.3), mb: 2 }} />
-                    <Typography variant="h6" sx={{ color: colorPalette.textPrimary, mb: 1, fontWeight: 600 }}>
+                  <Box
+                    sx={{
+                      p: 6,
+                      textAlign: "center",
+                      backgroundColor: alphaFn(colorPalette.primary, 0.02),
+                      borderRadius: 3,
+                      border: `2px dashed ${alphaFn(
+                        colorPalette.primary,
+                        0.1
+                      )}`,
+                      transition: "all 0.2s ease-in-out",
+                      "&:hover": {
+                        backgroundColor: alphaFn(colorPalette.primary, 0.04),
+                      },
+                    }}
+                  >
+                    <InsightsIcon
+                      sx={{
+                        fontSize: 64,
+                        color: alphaFn(colorPalette.primary, 0.3),
+                        mb: 2,
+                      }}
+                    />
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: colorPalette.textPrimary,
+                        mb: 1,
+                        fontWeight: 600,
+                      }}
+                    >
                       No Activity Data
                     </Typography>
-                    <Typography variant="body2" sx={{ color: colorPalette.textSecondary, maxWidth: 300, mx: 'auto' }}>
-                      No activity data available for the selected period. Try adjusting your filters or check back later.
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: colorPalette.textSecondary,
+                        maxWidth: 300,
+                        mx: "auto",
+                      }}
+                    >
+                      No activity data available for the selected period. Try
+                      adjusting your filters or check back later.
                     </Typography>
                   </Box>
                 ) : (
                   <ResponsiveContainer width="100%" height={350}>
-                    <AreaChart 
+                    <AreaChart
                       data={dailyActivity}
                       onMouseEnter={(data) => setHoveredData(data)}
                       onMouseLeave={() => setHoveredData(null)}
                     >
                       <defs>
-                        <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={colorPalette.primary} stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor={colorPalette.primary} stopOpacity={0.02}/>
+                        <linearGradient
+                          id="colorActivity"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor={colorPalette.primary}
+                            stopOpacity={0.4}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor={colorPalette.primary}
+                            stopOpacity={0.02}
+                          />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid 
-                        strokeDasharray="3 3" 
-                        stroke={alphaFn(colorPalette.primary, 0.08)} 
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={alphaFn(colorPalette.primary, 0.08)}
                         vertical={false}
                       />
-                      <XAxis 
-                        dataKey="date" 
-                        stroke={colorPalette.textSecondary} 
-                        tick={{ fontSize: 11 }} 
-                        interval={Math.floor(dailyActivity.length / 6)} 
-                        angle={-45} 
-                        textAnchor="end" 
+                      <XAxis
+                        dataKey="date"
+                        stroke={colorPalette.textSecondary}
+                        tick={{ fontSize: 11 }}
+                        interval={Math.floor(dailyActivity.length / 6)}
+                        angle={-45}
+                        textAnchor="end"
                         height={80}
                         axisLine={false}
                         tickLine={false}
                       />
-                      <YAxis 
-                        stroke={colorPalette.textSecondary} 
+                      <YAxis
+                        stroke={colorPalette.textSecondary}
                         tick={{ fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <ChartTooltip content={<CustomTooltip />} />
-                      <Area 
+                      <Area
                         type="monotone"
-                        dataKey="actions" 
-                        stroke={colorPalette.primary} 
+                        dataKey="actions"
+                        stroke={colorPalette.primary}
                         fill="url(#colorActivity)"
                         dot={false}
                       />

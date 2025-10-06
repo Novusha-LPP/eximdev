@@ -1,15 +1,28 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Badge, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Badge,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const CurrencyService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/currencies`,
-  
+
   getAll: async (params = {}) => {
     try {
-      const response = await axios.get(`${CurrencyService.baseURL}/`, { params });
+      const response = await axios.get(`${CurrencyService.baseURL}/`, {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -36,7 +49,10 @@ const CurrencyService = {
 
   update: async (id, data) => {
     try {
-      const response = await axios.put(`${CurrencyService.baseURL}/${id}`, data);
+      const response = await axios.put(
+        `${CurrencyService.baseURL}/${id}`,
+        data
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -50,17 +66,17 @@ const CurrencyService = {
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const CurrencyForm = ({ currencyData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    currencyCode: '',
-    currencyDescription: '',
-    countryCode: '',
-    schNo: '',
-    standardCurrency: false
+    currencyCode: "",
+    currencyDescription: "",
+    countryCode: "",
+    schNo: "",
+    standardCurrency: false,
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -70,46 +86,50 @@ const CurrencyForm = ({ currencyData, onSave, onCancel }) => {
       setFormData(currencyData);
     } else {
       setFormData({
-        currencyCode: '',
-        currencyDescription: '',
-        countryCode: '',
-        schNo: '',
-        standardCurrency: false
+        currencyCode: "",
+        currencyDescription: "",
+        countryCode: "",
+        schNo: "",
+        standardCurrency: false,
       });
     }
   }, [currencyData]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : 
-              (name === 'currencyCode' || name === 'countryCode') ? value.toUpperCase() : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : name === "currencyCode" || name === "countryCode"
+          ? value.toUpperCase()
+          : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.currencyCode?.trim()) {
-      newErrors.currencyCode = 'Currency Code is required';
+      newErrors.currencyCode = "Currency Code is required";
     } else if (!/^[A-Z]{3}$/.test(formData.currencyCode)) {
-      newErrors.currencyCode = 'Code must be 3 uppercase letters (e.g., USD)';
+      newErrors.currencyCode = "Code must be 3 uppercase letters (e.g., USD)";
     }
-    
+
     if (!formData.currencyDescription?.trim()) {
-      newErrors.currencyDescription = 'Currency Description is required';
+      newErrors.currencyDescription = "Currency Description is required";
     }
-    
+
     if (!formData.countryCode?.trim()) {
-      newErrors.countryCode = 'Country Code is required';
+      newErrors.countryCode = "Country Code is required";
     } else if (!/^[A-Z]{2}$/.test(formData.countryCode)) {
-      newErrors.countryCode = 'Code must be 2 uppercase letters (e.g., US)';
+      newErrors.countryCode = "Code must be 2 uppercase letters (e.g., US)";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -127,7 +147,7 @@ const CurrencyForm = ({ currencyData, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving currency');
+      alert(error.message || "Error saving currency");
     } finally {
       setLoading(false);
     }
@@ -136,7 +156,7 @@ const CurrencyForm = ({ currencyData, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{currencyData ? 'Edit Currency' : 'Add New Currency'}</h5>
+        <h5>{currencyData ? "Edit Currency" : "Add New Currency"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -230,7 +250,7 @@ const CurrencyForm = ({ currencyData, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -247,9 +267,9 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
   const [availableCountries, setAvailableCountries] = useState([]);
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    countryCode: '',
-    standardCurrency: ''
+    search: "",
+    countryCode: "",
+    standardCurrency: "",
   });
 
   useEffect(() => {
@@ -262,12 +282,14 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
       const response = await CurrencyService.getAll(filters);
       setCurrencies(response.data || response);
       setPagination(response.pagination || {});
-      
+
       // Extract unique countries for filtering
-      const countries = [...new Set((response.data || []).map(item => item.countryCode))].sort();
+      const countries = [
+        ...new Set((response.data || []).map((item) => item.countryCode)),
+      ].sort();
       setAvailableCountries(countries);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setCurrencies([]);
     } finally {
       setLoading(false);
@@ -275,7 +297,7 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   if (loading) {
@@ -295,24 +317,28 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by currency code or description..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={4}>
           <Form.Select
             value={filters.countryCode}
-            onChange={(e) => handleFilterChange('countryCode', e.target.value)}
+            onChange={(e) => handleFilterChange("countryCode", e.target.value)}
           >
             <option value="">All Countries</option>
-            {availableCountries.map(country => (
-              <option key={country} value={country}>{country}</option>
+            {availableCountries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
             ))}
           </Form.Select>
         </Col>
         <Col md={4}>
           <Form.Select
             value={filters.standardCurrency}
-            onChange={(e) => handleFilterChange('standardCurrency', e.target.value)}
+            onChange={(e) =>
+              handleFilterChange("standardCurrency", e.target.value)
+            }
           >
             <option value="">All Types</option>
             <option value="true">Standard Currency</option>
@@ -326,12 +352,12 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
         <Table striped bordered hover>
           <thead>
             <tr>
-              <th style={{ width: '100px' }}>Currency Code</th>
+              <th style={{ width: "100px" }}>Currency Code</th>
               <th>Currency Description</th>
-              <th style={{ width: '120px' }}>Country Code</th>
-              <th style={{ width: '100px' }}>SCH NO</th>
-              <th style={{ width: '120px' }}>Standard</th>
-              <th style={{ width: '150px' }}>Actions</th>
+              <th style={{ width: "120px" }}>Country Code</th>
+              <th style={{ width: "100px" }}>SCH NO</th>
+              <th style={{ width: "120px" }}>Standard</th>
+              <th style={{ width: "150px" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -342,20 +368,18 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
                     <strong>{item.currencyCode}</strong>
                   </span>
                 </td>
-                <td><strong>{item.currencyDescription}</strong></td>
                 <td>
-                  <span className="font-monospace">
-                    {item.countryCode}
-                  </span>
+                  <strong>{item.currencyDescription}</strong>
                 </td>
                 <td>
-                  <span className="text-muted">
-                    {item.schNo || '-'}
-                  </span>
+                  <span className="font-monospace">{item.countryCode}</span>
                 </td>
                 <td>
-                  <Badge bg={item.standardCurrency ? 'success' : 'secondary'}>
-                    {item.standardCurrency ? 'Yes' : 'No'}
+                  <span className="text-muted">{item.schNo || "-"}</span>
+                </td>
+                <td>
+                  <Badge bg={item.standardCurrency ? "success" : "secondary"}>
+                    {item.standardCurrency ? "Yes" : "No"}
                   </Badge>
                 </td>
                 <td>
@@ -391,29 +415,50 @@ const CurrencyList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -433,7 +478,7 @@ const Currency = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -448,28 +493,33 @@ const Currency = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this currency?')) {
-          await CurrencyService.delete(ids[0]);
-          showAlert('Currency deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (
+            window.confirm("Are you sure you want to delete this currency?")
+          ) {
+            await CurrencyService.delete(ids[0]);
+            showAlert("Currency deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
         }
+      } catch (error) {
+        showAlert(error.message || "Error deleting currency", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting currency', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingCurrency(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingCurrency 
-        ? 'Currency updated successfully' 
-        : 'Currency created successfully'
+      editingCurrency
+        ? "Currency updated successfully"
+        : "Currency created successfully"
     );
   }, [editingCurrency, showAlert]);
 
@@ -483,9 +533,9 @@ const Currency = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >

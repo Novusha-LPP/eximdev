@@ -1,15 +1,27 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const NonEDILocationService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/nonEdiLocations`,
-  
+
   getAll: async (params = {}) => {
     try {
-      const response = await axios.get(`${NonEDILocationService.baseURL}/`, { params });
+      const response = await axios.get(`${NonEDILocationService.baseURL}/`, {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -18,7 +30,9 @@ const NonEDILocationService = {
 
   getById: async (id) => {
     try {
-      const response = await axios.get(`${NonEDILocationService.baseURL}/${id}`);
+      const response = await axios.get(
+        `${NonEDILocationService.baseURL}/${id}`
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -27,7 +41,10 @@ const NonEDILocationService = {
 
   create: async (data) => {
     try {
-      const response = await axios.post(`${NonEDILocationService.baseURL}/`, data);
+      const response = await axios.post(
+        `${NonEDILocationService.baseURL}/`,
+        data
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -36,7 +53,10 @@ const NonEDILocationService = {
 
   update: async (id, data) => {
     try {
-      const response = await axios.put(`${NonEDILocationService.baseURL}/${id}`, data);
+      const response = await axios.put(
+        `${NonEDILocationService.baseURL}/${id}`,
+        data
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -45,21 +65,23 @@ const NonEDILocationService = {
 
   delete: async (id) => {
     try {
-      const response = await axios.delete(`${NonEDILocationService.baseURL}/${id}`);
+      const response = await axios.delete(
+        `${NonEDILocationService.baseURL}/${id}`
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const NonEDILocationForm = ({ nonEdiLocationData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    locationCode: '',
-    category: '',
-    locationName: '',
-    endDate: ''
+    locationCode: "",
+    category: "",
+    locationName: "",
+    endDate: "",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -68,51 +90,53 @@ const NonEDILocationForm = ({ nonEdiLocationData, onSave, onCancel }) => {
     if (nonEdiLocationData) {
       setFormData({
         ...nonEdiLocationData,
-        endDate: nonEdiLocationData.endDate ? 
-          new Date(nonEdiLocationData.endDate).toISOString().split('T')[0] : ''
+        endDate: nonEdiLocationData.endDate
+          ? new Date(nonEdiLocationData.endDate).toISOString().split("T")[0]
+          : "",
       });
     } else {
       setFormData({
-        locationCode: '',
-        category: '',
-        locationName: '',
-        endDate: ''
+        locationCode: "",
+        category: "",
+        locationName: "",
+        endDate: "",
       });
     }
   }, [nonEdiLocationData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'locationCode' ? value.toUpperCase() : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "locationCode" ? value.toUpperCase() : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.locationCode?.trim()) {
-      newErrors.locationCode = 'Location Code is required';
+      newErrors.locationCode = "Location Code is required";
     } else if (!/^[A-Z0-9]{2,10}$/.test(formData.locationCode)) {
-      newErrors.locationCode = 'Code must be 2-10 uppercase alphanumeric characters';
+      newErrors.locationCode =
+        "Code must be 2-10 uppercase alphanumeric characters";
     }
-    
+
     if (!formData.category?.trim()) {
-      newErrors.category = 'Category is required';
+      newErrors.category = "Category is required";
     }
-    
+
     if (!formData.locationName?.trim()) {
-      newErrors.locationName = 'Location Name is required';
+      newErrors.locationName = "Location Name is required";
     }
-    
+
     if (!formData.endDate?.trim()) {
-      newErrors.endDate = 'End Date is required';
+      newErrors.endDate = "End Date is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -125,7 +149,7 @@ const NonEDILocationForm = ({ nonEdiLocationData, onSave, onCancel }) => {
     try {
       const submitData = {
         ...formData,
-        endDate: new Date(formData.endDate)
+        endDate: new Date(formData.endDate),
       };
 
       if (nonEdiLocationData?._id) {
@@ -135,7 +159,7 @@ const NonEDILocationForm = ({ nonEdiLocationData, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving non-EDI location');
+      alert(error.message || "Error saving non-EDI location");
     } finally {
       setLoading(false);
     }
@@ -144,7 +168,11 @@ const NonEDILocationForm = ({ nonEdiLocationData, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{nonEdiLocationData ? 'Edit Non-EDI Location' : 'Add New Non-EDI Location'}</h5>
+        <h5>
+          {nonEdiLocationData
+            ? "Edit Non-EDI Location"
+            : "Add New Non-EDI Location"}
+        </h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -228,7 +256,7 @@ const NonEDILocationForm = ({ nonEdiLocationData, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -245,8 +273,8 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
   const [availableCategories, setAvailableCategories] = useState([]);
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    category: ''
+    search: "",
+    category: "",
   });
 
   useEffect(() => {
@@ -259,12 +287,14 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
       const response = await NonEDILocationService.getAll(filters);
       setNonEdiLocations(response.data || response);
       setPagination(response.pagination || {});
-      
+
       // Extract unique categories for dynamic filtering
-      const categories = [...new Set((response.data || []).map(item => item.category))].sort();
+      const categories = [
+        ...new Set((response.data || []).map((item) => item.category)),
+      ].sort();
       setAvailableCategories(categories);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setNonEdiLocations([]);
     } finally {
       setLoading(false);
@@ -272,14 +302,14 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
@@ -300,17 +330,19 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by location code or name..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={6}>
           <Form.Select
             value={filters.category}
-            onChange={(e) => handleFilterChange('category', e.target.value)}
+            onChange={(e) => handleFilterChange("category", e.target.value)}
           >
             <option value="">All Categories</option>
-            {availableCategories.map(category => (
-              <option key={category} value={category}>{category}</option>
+            {availableCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
           </Form.Select>
         </Col>
@@ -321,11 +353,11 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
         <Table striped bordered hover>
           <thead>
             <tr>
-              <th style={{ width: '120px' }}>Location Code</th>
-              <th style={{ width: '150px' }}>Category</th>
+              <th style={{ width: "120px" }}>Location Code</th>
+              <th style={{ width: "150px" }}>Category</th>
               <th>Location Name</th>
-              <th style={{ width: '140px' }}>End Date</th>
-              <th style={{ width: '150px' }}>Actions</th>
+              <th style={{ width: "140px" }}>End Date</th>
+              <th style={{ width: "150px" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -337,11 +369,11 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
                   </span>
                 </td>
                 <td>
-                  <span className="badge bg-secondary">
-                    {item.category}
-                  </span>
+                  <span className="badge bg-secondary">{item.category}</span>
                 </td>
-                <td><strong>{item.locationName}</strong></td>
+                <td>
+                  <strong>{item.locationName}</strong>
+                </td>
                 <td>
                   <span className="font-monospace">
                     {formatDate(item.endDate)}
@@ -380,29 +412,50 @@ const NonEDILocationList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -422,7 +475,7 @@ const NonEDILocation = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -437,28 +490,35 @@ const NonEDILocation = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this non-EDI location?')) {
-          await NonEDILocationService.delete(ids[0]);
-          showAlert('Non-EDI Location deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (
+            window.confirm(
+              "Are you sure you want to delete this non-EDI location?"
+            )
+          ) {
+            await NonEDILocationService.delete(ids[0]);
+            showAlert("Non-EDI Location deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
         }
+      } catch (error) {
+        showAlert(error.message || "Error deleting non-EDI location", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting non-EDI location', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingNonEDILocation(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingNonEDILocation 
-        ? 'Non-EDI Location updated successfully' 
-        : 'Non-EDI Location created successfully'
+      editingNonEDILocation
+        ? "Non-EDI Location updated successfully"
+        : "Non-EDI Location created successfully"
     );
   }, [editingNonEDILocation, showAlert]);
 
@@ -472,9 +532,9 @@ const NonEDILocation = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >

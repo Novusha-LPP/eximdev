@@ -173,7 +173,7 @@ function PaymentRequested() {
         selectedImporter,
         selectedYearState,
         showUnresolvedOnly,
-          user.username,
+        user.username
       );
     }
   }, [

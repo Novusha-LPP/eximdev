@@ -1,12 +1,23 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Badge, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Badge,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const UQCService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/uqcs`,
-  
+
   getAll: async (params = {}) => {
     try {
       const response = await axios.get(`${UQCService.baseURL}/`, { params });
@@ -50,15 +61,15 @@ const UQCService = {
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const UQCForm = ({ uqcData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    uqc: '',
-    description: '',
-    type: ''
+    uqc: "",
+    description: "",
+    type: "",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -68,41 +79,41 @@ const UQCForm = ({ uqcData, onSave, onCancel }) => {
       setFormData(uqcData);
     } else {
       setFormData({
-        uqc: '',
-        description: '',
-        type: ''
+        uqc: "",
+        description: "",
+        type: "",
       });
     }
   }, [uqcData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'uqc' ? value.toUpperCase() : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "uqc" ? value.toUpperCase() : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.uqc?.trim()) {
-      newErrors.uqc = 'UQC Code is required';
+      newErrors.uqc = "UQC Code is required";
     } else if (!/^[A-Z0-9]{1,10}$/.test(formData.uqc)) {
-      newErrors.uqc = 'Code must be 1-10 uppercase alphanumeric characters';
+      newErrors.uqc = "Code must be 1-10 uppercase alphanumeric characters";
     }
-    
+
     if (!formData.description?.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = "Description is required";
     }
-    
+
     if (!formData.type?.trim()) {
-      newErrors.type = 'Type is required';
+      newErrors.type = "Type is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -120,7 +131,7 @@ const UQCForm = ({ uqcData, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving UQC');
+      alert(error.message || "Error saving UQC");
     } finally {
       setLoading(false);
     }
@@ -129,7 +140,7 @@ const UQCForm = ({ uqcData, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{uqcData ? 'Edit UQC' : 'Add New UQC'}</h5>
+        <h5>{uqcData ? "Edit UQC" : "Add New UQC"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -198,7 +209,7 @@ const UQCForm = ({ uqcData, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -215,8 +226,8 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
   const [availableTypes, setAvailableTypes] = useState([]);
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    type: ''
+    search: "",
+    type: "",
   });
 
   useEffect(() => {
@@ -229,12 +240,14 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
       const response = await UQCService.getAll(filters);
       setUqcs(response.data || response);
       setPagination(response.pagination || {});
-      
+
       // Extract unique types for filtering
-      const types = [...new Set((response.data || []).map(item => item.type))].sort();
+      const types = [
+        ...new Set((response.data || []).map((item) => item.type)),
+      ].sort();
       setAvailableTypes(types);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setUqcs([]);
     } finally {
       setLoading(false);
@@ -242,23 +255,23 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const getTypeColor = (type) => {
     const colors = {
-      'Weight': 'primary',
-      'Length': 'success',
-      'Volume': 'info',
-      'Area': 'warning',
-      'Measure': 'secondary'
+      Weight: "primary",
+      Length: "success",
+      Volume: "info",
+      Area: "warning",
+      Measure: "secondary",
     };
-    return colors[type] || 'secondary';
+    return colors[type] || "secondary";
   };
 
   const truncateDescription = (text, maxLength = 100) => {
-    return text && text.length > maxLength 
-      ? `${text.substring(0, maxLength)}...` 
+    return text && text.length > maxLength
+      ? `${text.substring(0, maxLength)}...`
       : text;
   };
 
@@ -279,17 +292,19 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by UQC code or description..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={6}>
           <Form.Select
             value={filters.type}
-            onChange={(e) => handleFilterChange('type', e.target.value)}
+            onChange={(e) => handleFilterChange("type", e.target.value)}
           >
             <option value="">All Types</option>
-            {availableTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
+            {availableTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
             ))}
           </Form.Select>
         </Col>
@@ -300,10 +315,10 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
         <Table striped bordered hover>
           <thead>
             <tr>
-              <th style={{ width: '100px' }}>UQC Code</th>
+              <th style={{ width: "100px" }}>UQC Code</th>
               <th>Description</th>
-              <th style={{ width: '150px' }}>UQC Type</th>
-              <th style={{ width: '150px' }}>Actions</th>
+              <th style={{ width: "150px" }}>UQC Type</th>
+              <th style={{ width: "150px" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -320,9 +335,7 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
                   </div>
                 </td>
                 <td>
-                  <Badge bg={getTypeColor(item.type)}>
-                    {item.type}
-                  </Badge>
+                  <Badge bg={getTypeColor(item.type)}>{item.type}</Badge>
                 </td>
                 <td>
                   <Button
@@ -357,29 +370,50 @@ const UQCList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -399,7 +433,7 @@ const Uqcs = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -414,28 +448,29 @@ const Uqcs = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this UQC?')) {
-          await UQCService.delete(ids[0]);
-          showAlert('UQC deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (window.confirm("Are you sure you want to delete this UQC?")) {
+            await UQCService.delete(ids[0]);
+            showAlert("UQC deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
         }
+      } catch (error) {
+        showAlert(error.message || "Error deleting UQC", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting UQC', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingUQC(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingUQC 
-        ? 'UQC updated successfully' 
-        : 'UQC created successfully'
+      editingUQC ? "UQC updated successfully" : "UQC created successfully"
     );
   }, [editingUQC, showAlert]);
 
@@ -449,9 +484,9 @@ const Uqcs = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >

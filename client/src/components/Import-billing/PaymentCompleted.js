@@ -24,7 +24,15 @@ import DocsCell from "../gallery/DocsCell.js";
 function PaymentCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();    useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageTab0: currentPage,
+    setCurrentPageTab0: setCurrentPage,
+  } = useSearchQuery();
+  useSearchQuery();
   const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
@@ -395,8 +403,8 @@ function PaymentCompleted() {
           const { be_no, be_date } = cell.row.original;
           return (
             <div>
-              {be_no || "-"} <br /> 
-              {be_date ? new Date(be_date).toLocaleDateString('en-GB') : "-"}
+              {be_no || "-"} <br />
+              {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
             </div>
           );
         },
@@ -459,7 +467,7 @@ function PaymentCompleted() {
         >
           Total Jobs: {totalJobs}
         </Typography>
-        
+
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo

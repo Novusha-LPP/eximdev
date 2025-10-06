@@ -1,12 +1,23 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Badge, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Badge,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const GenInfoService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/genInfo`,
-  
+
   getAll: async (params = {}) => {
     try {
       const response = await axios.get(`${GenInfoService.baseURL}`, { params });
@@ -54,25 +65,27 @@ const GenInfoService = {
 
   bulkDelete: async (ids) => {
     try {
-      const response = await axios.delete(`${GenInfoService.baseURL}/`, { data: { ids } });
+      const response = await axios.delete(`${GenInfoService.baseURL}/`, {
+        data: { ids },
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    organizationName: '',
-    shortName: '',
-    type: '',
-    panNo: '',
-    gstin: '',
-    ieCode: '',
-    branchCode: '',
-    status: 'Active'
+    organizationName: "",
+    shortName: "",
+    type: "",
+    panNo: "",
+    gstin: "",
+    ieCode: "",
+    branchCode: "",
+    status: "Active",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -82,42 +95,47 @@ const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
       setFormData(genInfo);
     } else {
       setFormData({
-        organizationName: '',
-        shortName: '',
-        type: '',
-        panNo: '',
-        gstin: '',
-        ieCode: '',
-        branchCode: '',
-        status: 'Active'
+        organizationName: "",
+        shortName: "",
+        type: "",
+        panNo: "",
+        gstin: "",
+        ieCode: "",
+        branchCode: "",
+        status: "Active",
       });
     }
   }, [genInfo]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.organizationName?.trim()) {
-      newErrors.organizationName = 'Organization name is required';
+      newErrors.organizationName = "Organization name is required";
     }
     if (!formData.shortName?.trim()) {
-      newErrors.shortName = 'Short name is required';
+      newErrors.shortName = "Short name is required";
     }
     if (!formData.type) {
-      newErrors.type = 'Type is required';
+      newErrors.type = "Type is required";
     }
     if (formData.panNo && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNo)) {
-      newErrors.panNo = 'Invalid PAN format';
+      newErrors.panNo = "Invalid PAN format";
     }
-    if (formData.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstin)) {
-      newErrors.gstin = 'Invalid GSTIN format';
+    if (
+      formData.gstin &&
+      !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
+        formData.gstin
+      )
+    ) {
+      newErrors.gstin = "Invalid GSTIN format";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -136,7 +154,7 @@ const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving data');
+      alert(error.message || "Error saving data");
     } finally {
       setLoading(false);
     }
@@ -145,7 +163,7 @@ const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{genInfo ? 'Edit Organization' : 'Add New Organization'}</h5>
+        <h5>{genInfo ? "Edit Organization" : "Add New Organization"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -224,7 +242,7 @@ const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
                   onChange={handleChange}
                   isInvalid={!!errors.panNo}
                   placeholder="e.g., ABCTY1234D"
-                  style={{ textTransform: 'uppercase' }}
+                  style={{ textTransform: "uppercase" }}
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.panNo}
@@ -241,7 +259,7 @@ const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
                   onChange={handleChange}
                   isInvalid={!!errors.gstin}
                   placeholder="e.g., 29ABCTY1234D1Z5"
-                  style={{ textTransform: 'uppercase' }}
+                  style={{ textTransform: "uppercase" }}
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.gstin}
@@ -276,7 +294,7 @@ const GenInfoForm = ({ genInfo, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -292,9 +310,9 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
   const [pagination, setPagination] = useState({});
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    type: '',
-    status: ''
+    search: "",
+    type: "",
+    status: "",
   });
 
   useEffect(() => {
@@ -308,7 +326,7 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
       setGenInfos(response.data);
       setPagination(response.pagination);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setGenInfos([]);
     } finally {
       setLoading(false);
@@ -316,7 +334,7 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   if (loading) {
@@ -336,13 +354,13 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={3}>
           <Form.Select
             value={filters.type}
-            onChange={(e) => handleFilterChange('type', e.target.value)}
+            onChange={(e) => handleFilterChange("type", e.target.value)}
           >
             <option value="">All Types</option>
             <option value="Shipper">Shipper</option>
@@ -355,7 +373,7 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
         <Col md={3}>
           <Form.Select
             value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
+            onChange={(e) => handleFilterChange("status", e.target.value)}
           >
             <option value="">All Status</option>
             <option value="Active">Active</option>
@@ -386,12 +404,12 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
                 <td>{item.organizationName}</td>
                 <td>{item.shortName}</td>
                 <td>{item.type}</td>
-                <td>{item.panNo || '-'}</td>
-                <td>{item.gstin || '-'}</td>
-                <td>{item.ieCode || '-'}</td>
-                <td>{item.branchCode || '-'}</td>
+                <td>{item.panNo || "-"}</td>
+                <td>{item.gstin || "-"}</td>
+                <td>{item.ieCode || "-"}</td>
+                <td>{item.branchCode || "-"}</td>
                 <td>
-                  <Badge bg={item.status === 'Active' ? 'success' : 'danger'}>
+                  <Badge bg={item.status === "Active" ? "success" : "danger"}>
                     {item.status}
                   </Badge>
                 </td>
@@ -422,29 +440,50 @@ const GenInfoList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -464,7 +503,7 @@ const GenInfo = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -479,32 +518,37 @@ const GenInfo = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this organization?')) {
-          await GenInfoService.delete(ids[0]);
-          showAlert('Organization deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (
+            window.confirm("Are you sure you want to delete this organization?")
+          ) {
+            await GenInfoService.delete(ids[0]);
+            showAlert("Organization deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
+        } else {
+          await GenInfoService.bulkDelete(ids);
+          showAlert(`${ids.length} organizations deleted successfully`);
+          setRefresh((prev) => prev + 1);
         }
-      } else {
-        await GenInfoService.bulkDelete(ids);
-        showAlert(`${ids.length} organizations deleted successfully`);
-        setRefresh(prev => prev + 1);
+      } catch (error) {
+        showAlert(error.message || "Error deleting organization(s)", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting organization(s)', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingGenInfo(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingGenInfo 
-        ? 'Organization updated successfully' 
-        : 'Organization created successfully'
+      editingGenInfo
+        ? "Organization updated successfully"
+        : "Organization created successfully"
     );
   }, [editingGenInfo, showAlert]);
 
@@ -518,9 +562,9 @@ const GenInfo = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >

@@ -59,16 +59,19 @@ function JobTabs() {
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const location = useLocation();
-  const { 
+  const {
     setSearchQuery,
     setDetailedStatus,
     setSelectedICD,
-    setSelectedImporter 
+    setSelectedImporter,
   } = useSearchQuery();
 
   // Handle tab restoration when returning from job details
   React.useEffect(() => {
-    if (location.state?.fromJobDetails && location.state?.tabIndex !== undefined) {
+    if (
+      location.state?.fromJobDetails &&
+      location.state?.tabIndex !== undefined
+    ) {
       setValue(location.state.tabIndex);
       // Clear the state from history so it doesn't persist
       window.history.replaceState({}, document.title);
@@ -110,13 +113,15 @@ function JobTabs() {
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Box sx={{ 
-        borderBottom: 1, 
-        borderColor: "divider",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
-      }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: "divider",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <Tabs
           value={value}
           onChange={handleChange}
@@ -127,75 +132,76 @@ function JobTabs() {
           <Tab label="Cancelled" {...a11yProps(2)} />
         </Tabs>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box sx={{ position: 'relative' }}>
+          <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"
               size="small"
               onClick={() => setShowUnresolvedOnly((prev) => !prev)}
               sx={{
-                 borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              padding: '8px 20px',
-              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-              color: '#ffffff',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                transform: 'translateY(-1px)',
-              },
-              '&:active': {
-                transform: 'translateY(0px)',
-              },
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
               }}
             >
               {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
             </Button>
-            <Badge 
-              badgeContent={unresolvedCount} 
-              color="error" 
-              overlap="circular" 
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              sx={{ 
-                position: 'absolute',
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
                 top: -8,
                 right: -8,
-                '& .MuiBadge-badge': {
-                  fontSize: '0.75rem',
-                  minWidth: '18px',
-                  height: '18px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                }
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
               }}
             />
           </Box>
-          
+
           <Button
             variant="contained"
             startIcon={<ToolboxIcon />}
             onClick={handleOpenUtilityTool}
             sx={{
               borderRadius: 3,
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 500,
-              fontSize: '0.875rem',
-              padding: '8px 20px',
-              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-              color: '#ffffff',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                transform: 'translateY(-1px)',
+              fontSize: "0.875rem",
+              padding: "8px 20px",
+              background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+              color: "#ffffff",
+              border: "none",
+              boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                background: "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                transform: "translateY(-1px)",
               },
-              '&:active': {
-                transform: 'translateY(0px)',
+              "&:active": {
+                transform: "translateY(0px)",
               },
             }}
           >
@@ -228,13 +234,15 @@ function JobTabs() {
           },
         }}
       >
-        <DialogTitle sx={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center",
-          borderBottom: 1,
-          borderColor: "divider"
-        }}>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: 1,
+            borderColor: "divider",
+          }}
+        >
           Import Utility Tool
           <IconButton
             onClick={handleCloseUtilityTool}

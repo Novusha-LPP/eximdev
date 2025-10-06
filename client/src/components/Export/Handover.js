@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
@@ -14,22 +14,22 @@ import {
   ListItem,
   ListItemText,
   Paper,
-} from '@mui/material';
+} from "@mui/material";
 
 const API_BASE = process.env.REACT_APP_API_STRING;
 
 function Handover() {
   const [formData, setFormData] = useState({
-    exportJobId: '',
-    shippingBillNumber: '',
-    handoverType: 'MANUAL',
-    documentType: '',
-    handoverDateTime: '',
-    recipientName: '',
-    remarks: ''
+    exportJobId: "",
+    shippingBillNumber: "",
+    handoverType: "MANUAL",
+    documentType: "",
+    handoverDateTime: "",
+    recipientName: "",
+    remarks: "",
   });
   const [handovers, setHandovers] = useState([]);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
 
   const fetchHandovers = async () => {
     try {
@@ -37,7 +37,7 @@ function Handover() {
       const data = await res.json();
       setHandovers(data);
     } catch {
-      setMessage('Error fetching handovers');
+      setMessage("Error fetching handovers");
     }
   };
 
@@ -45,37 +45,37 @@ function Handover() {
     fetchHandovers();
   }, []);
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage("");
     try {
       const res = await fetch(`${API_BASE}/handover`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
       const result = await res.json();
       if (res.ok) {
-        setMessage('Handover logged successfully');
+        setMessage("Handover logged successfully");
         fetchHandovers();
         setFormData({
-          exportJobId: '',
-          shippingBillNumber: '',
-          handoverType: 'MANUAL',
-          documentType: '',
-          handoverDateTime: '',
-          recipientName: '',
-          remarks: ''
+          exportJobId: "",
+          shippingBillNumber: "",
+          handoverType: "MANUAL",
+          documentType: "",
+          handoverDateTime: "",
+          recipientName: "",
+          remarks: "",
         });
       } else {
-        setMessage(result.error || 'Submission failed');
+        setMessage(result.error || "Submission failed");
       }
     } catch {
-      setMessage('Error submitting data');
+      setMessage("Error submitting data");
     }
   };
 
@@ -87,7 +87,7 @@ function Handover() {
         </Typography>
         <Box
           component="form"
-          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          sx={{ display: "flex", flexDirection: "column", gap: 2 }}
           onSubmit={handleSubmit}
         >
           <TextField
@@ -156,7 +156,7 @@ function Handover() {
           </Button>
           {message && (
             <Alert
-              severity={message.includes('successfully') ? 'success' : 'error'}
+              severity={message.includes("successfully") ? "success" : "error"}
               sx={{ mt: 2 }}
             >
               {message}
@@ -172,14 +172,14 @@ function Handover() {
           {handovers.map((h) => (
             <ListItem key={h._id} divider>
               <ListItemText
-                primary={
-                  `${h.exportJobId} - ${h.shippingBillNumber} - ${h.handoverType}`
+                primary={`${h.exportJobId} - ${h.shippingBillNumber} - ${h.handoverType}`}
+                secondary={`Date: ${
+                  h.handoverDateTime
+                    ? new Date(h.handoverDateTime).toLocaleString()
+                    : ""
                 }
-                secondary={
-                  `Date: ${h.handoverDateTime ? new Date(h.handoverDateTime).toLocaleString() : ''}
                   | Recipient: ${h.recipientName}
-                  | Status: ${h.status}`
-                }
+                  | Status: ${h.status}`}
               />
             </ListItem>
           ))}

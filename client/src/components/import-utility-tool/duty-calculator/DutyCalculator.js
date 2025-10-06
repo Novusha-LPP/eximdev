@@ -38,7 +38,7 @@ const ImportDutyCalculator = () => {
 
   // State for tracking if user has modified assessable value
   const [userModified, setUserModified] = useState(false);
-  
+
   // New state to track if user has manually changed SWS rate
   const [userModifiedSWS, setUserModifiedSWS] = useState(false);
 
@@ -172,12 +172,12 @@ const ImportDutyCalculator = () => {
   // Function to handle duty rates change
   const handleDutyRateChange = (e) => {
     const { id, value } = e.target;
-    
+
     // If SWS rate is being changed, mark it as user modified
     if (id === "swsRate") {
       setUserModifiedSWS(true);
     }
-    
+
     setDutyRates((prev) => ({
       ...prev,
       [id]: value,
@@ -223,7 +223,7 @@ const ImportDutyCalculator = () => {
 
       if (data.success && data.data) {
         // Auto-fill the form with the fetched data, but preserve SWS rate if user modified it
-        setDutyRates(prev => ({
+        setDutyRates((prev) => ({
           bcdRate:
             !data.data.basic_duty_ntfn || data.data.basic_duty_ntfn === "nan"
               ? data.data.basic_duty_sch

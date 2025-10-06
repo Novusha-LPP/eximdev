@@ -28,10 +28,11 @@ import EditableDateCell from "../gallery/EditableDateCell";
 import { TabContext } from "./ImportOperations.js";
 import { Link } from "react-router-dom";
 function OperationsList() {
- const { currentTab } = useContext(TabContext); // Access context for tab state
+  const { currentTab } = useContext(TabContext); // Access context for tab state
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = React.useState([]);
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const [importers, setImporters] = useState("");
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const [importers, setImporters] = useState("");
   const [loading, setLoading] = useState(false); // Loading state
   const [rows, setRows] = React.useState([]);
   const { user } = React.useContext(UserContext);
@@ -43,7 +44,14 @@ function OperationsList() {
   const limit = 100;
 
   // Use context for searchQuery, selectedImporter, and currentPage for Operations List tab
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageOpTab0: currentPage, setCurrentPageOpTab0: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageOpTab0: currentPage,
+    setCurrentPageOpTab0: setCurrentPage,
+  } = useSearchQuery();
 
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
@@ -81,10 +89,7 @@ function OperationsList() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
-
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -121,7 +126,7 @@ function OperationsList() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination
-const fetchJobs = useCallback(
+  const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
@@ -156,7 +161,8 @@ const fetchJobs = useCallback(
           totalPages,
           currentPage: returnedPage,
           jobs,
-        } = res.data;        setRows(jobs);
+        } = res.data;
+        setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
       } catch (error) {
@@ -168,7 +174,7 @@ const fetchJobs = useCallback(
       }
     },
     [limit, user?.username] // Dependencies - add username
-  );  // Fetch jobs when dependencies change
+  ); // Fetch jobs when dependencies change
   useEffect(() => {
     if (selectedYearState && user?.username) {
       fetchJobs(
@@ -257,8 +263,7 @@ const fetchJobs = useCallback(
   }, []);
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
-        setCurrentPage(1); // Reset to first page when user types
-
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   const columns = [
@@ -268,7 +273,8 @@ const fetchJobs = useCallback(
       enableSorting: false,
       size: 150,
       Cell: ({ row }) => {
-        const { job_no, year, type_of_b_e, consignment_type, custom_house } = row.original;
+        const { job_no, year, type_of_b_e, consignment_type, custom_house } =
+          row.original;
 
         return (
           <Link
@@ -276,8 +282,9 @@ const fetchJobs = useCallback(
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              display: 'inline-block',
-              backgroundColor: selectedJobId === job_no ? "#ffffcc" : "transparent",
+              display: "inline-block",
+              backgroundColor:
+                selectedJobId === job_no ? "#ffffcc" : "transparent",
               cursor: "pointer",
               color: "blue",
               padding: "10px",
@@ -489,12 +496,14 @@ const fetchJobs = useCallback(
             ))}
           </div>
         );
-      },    },
+      },
+    },
     {
       accessorKey: "dates",
       header: "Dates",
       enableSorting: false,
-      size: 300,      Cell: ({ cell }) => {
+      size: 300,
+      Cell: ({ cell }) => {
         // Use the custom EditableArrivalDate component to allow date editing
         return <EditableArrivalDate cell={cell} />;
       },

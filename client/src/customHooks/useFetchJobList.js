@@ -24,17 +24,26 @@ function useFetchJobList(
     setLoading(true);
     try {
       // Validate if user can access the selected importer
-      if (user && user.role !== "Admin" && selectedImporter && selectedImporter.toLowerCase() !== "select importer") {
+      if (
+        user &&
+        user.role !== "Admin" &&
+        selectedImporter &&
+        selectedImporter.toLowerCase() !== "select importer"
+      ) {
         const userAssignedImporters = user.assigned_importer_name || [];
-        const hasAllAccess = userAssignedImporters.some(imp => imp.toUpperCase() === "ALL");
-        
+        const hasAllAccess = userAssignedImporters.some(
+          (imp) => imp.toUpperCase() === "ALL"
+        );
+
         if (!hasAllAccess) {
-          const canAccessImporter = userAssignedImporters.some(imp => 
-            imp.toLowerCase() === selectedImporter.toLowerCase()
+          const canAccessImporter = userAssignedImporters.some(
+            (imp) => imp.toLowerCase() === selectedImporter.toLowerCase()
           );
-          
+
           if (!canAccessImporter) {
-            console.warn(`User ${user.username} cannot access importer: ${selectedImporter}`);
+            console.warn(
+              `User ${user.username} cannot access importer: ${selectedImporter}`
+            );
             // Still proceed with API call - let backend handle the filtering
           }
         }
@@ -63,12 +72,18 @@ function useFetchJobList(
         },
       });
 
-      const { data, total, totalPages, currentPage, userImporters: responseUserImporters } = response.data;
+      const {
+        data,
+        total,
+        totalPages,
+        currentPage,
+        userImporters: responseUserImporters,
+      } = response.data;
       setRows(data);
       setTotal(total);
       setTotalPages(totalPages);
       setCurrentPage(currentPage);
-      
+
       // Store user's allowed importers from response
       if (responseUserImporters) {
         setUserImporters(responseUserImporters);
@@ -107,14 +122,16 @@ function useFetchJobList(
   const canAccessImporter = (importerName) => {
     if (!user || !importerName) return false;
     if (user.role === "Admin") return true;
-    
+
     const userAssignedImporters = user.assigned_importer_name || [];
-    const hasAllAccess = userAssignedImporters.some(imp => imp.toUpperCase() === "ALL");
-    
+    const hasAllAccess = userAssignedImporters.some(
+      (imp) => imp.toUpperCase() === "ALL"
+    );
+
     if (hasAllAccess) return true;
-    
-    return userAssignedImporters.some(imp => 
-      imp.toLowerCase() === importerName.toLowerCase()
+
+    return userAssignedImporters.some(
+      (imp) => imp.toLowerCase() === importerName.toLowerCase()
     );
   };
 

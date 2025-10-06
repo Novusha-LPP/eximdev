@@ -6,9 +6,15 @@ import axios from "axios";
 const DocsCell = ({ cell, onDocumentsUpdated }) => {
   const [activeUpload, setActiveUpload] = useState(null);
   const [oocFiles, setOocFiles] = useState(cell.row.original.ooc_copies || []);
-  const [icdCfsInvoices, setIcdCfsInvoices] = useState(cell.row.original.icd_cfs_invoice_img || []);
-  const [shippingLineInvoices, setShippingLineInvoices] = useState(cell.row.original.shipping_line_invoice_imgs || []);
-  const [concorInvoices, setConcorInvoices] = useState(cell.row.original.concor_invoice_and_receipt_copy || []);
+  const [icdCfsInvoices, setIcdCfsInvoices] = useState(
+    cell.row.original.icd_cfs_invoice_img || []
+  );
+  const [shippingLineInvoices, setShippingLineInvoices] = useState(
+    cell.row.original.shipping_line_invoice_imgs || []
+  );
+  const [concorInvoices, setConcorInvoices] = useState(
+    cell.row.original.concor_invoice_and_receipt_copy || []
+  );
 
   const rowId = cell.row.original._id || cell.row.id;
 
@@ -35,7 +41,7 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
   // Handle file uploads for different document types
   const handleFilesUploaded = async (newFiles, fieldName) => {
     let updatedFiles;
-    
+
     // Determine which state to update based on the field
     if (fieldName === "ooc_copies") {
       updatedFiles = [...oocFiles, ...newFiles];
@@ -50,22 +56,26 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
       updatedFiles = [...concorInvoices, ...newFiles];
       setConcorInvoices(updatedFiles);
     }
-    
+
     // Update the database with the complete array
     try {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
-        [fieldName]: updatedFiles
-      }, { headers });
-      
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${rowId}`,
+        {
+          [fieldName]: updatedFiles,
+        },
+        { headers }
+      );
+
       // Call parent component's update function if available
       if (onDocumentsUpdated) {
         onDocumentsUpdated(rowId, fieldName, updatedFiles);
@@ -74,7 +84,7 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
       console.error(`Error updating ${fieldName}:`, error);
       // You might want to show an error message to the user
     }
-    
+
     // Close the upload popup
     setActiveUpload(null);
   };
@@ -82,9 +92,15 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
   // Component to render the upload button and popup
   const renderUploadButton = (fieldName, title) => {
     const isActive = activeUpload === fieldName;
-    
+
     return (
-      <div style={{ position: "relative", display: "inline-block", marginLeft: "10px" }}>
+      <div
+        style={{
+          position: "relative",
+          display: "inline-block",
+          marginLeft: "10px",
+        }}
+      >
         <button
           type="button"
           onClick={() => setActiveUpload(isActive ? null : fieldName)}
@@ -93,28 +109,32 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
             border: "none",
             cursor: "pointer",
             padding: "0",
-            color: "#0066cc"
+            color: "#0066cc",
           }}
           title={`Upload ${title}`}
         >
           <FaUpload size={14} />
         </button>
-        
+
         {isActive && (
-          <div style={{ 
-            position: "absolute", 
-            zIndex: 10, 
-            width: "100px", 
-            height: "100px",
-            padding: "10px", 
-            borderRadius: "4px",
-            right: 0,
-            marginTop: "5px"
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              zIndex: 10,
+              width: "100px",
+              height: "100px",
+              padding: "10px",
+              borderRadius: "4px",
+              right: 0,
+              marginTop: "5px",
+            }}
+          >
             <FileUpload
               label={`Upload ${title}`}
               bucketPath={fieldName}
-              onFilesUploaded={(newFiles) => handleFilesUploaded(newFiles, fieldName)}
+              onFilesUploaded={(newFiles) =>
+                handleFilesUploaded(newFiles, fieldName)
+              }
               multiple={true}
             />
             <button
@@ -127,7 +147,7 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
                 border: "1px solid #ccc",
                 borderRadius: "3px",
                 cursor: "pointer",
-                fontSize: "12px"
+                fontSize: "12px",
               }}
             >
               Cancel
@@ -157,7 +177,7 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
               textDecoration: "underline",
               cursor: "pointer",
               display: "block",
-              marginTop: index === 0 ? 0 : "3px"
+              marginTop: index === 0 ? 0 : "3px",
             }}
           >
             {baseLabel} {index + 1}
@@ -173,19 +193,33 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
-        padding: "8px 0"
+        padding: "8px 0",
       }}
     >
       {/* OOC Copies */}
-      <div style={{ width: "100%", marginBottom: "12px", display: "flex", alignItems: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          marginBottom: "12px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
         <div style={{ flex: 1 }}>
           {renderDocumentLinks(oocFiles, "OOC Copy")}
-        </div>  
+        </div>
         {renderUploadButton("ooc_copies", "OOC Copy")}
       </div>
 
       {/* ICD/CFS Invoice */}
-      <div style={{ width: "100%", marginBottom: "12px", display: "flex", alignItems: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          marginBottom: "12px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
         <div style={{ flex: 1 }}>
           {renderDocumentLinks(icdCfsInvoices, "ICD/CFS Invoice")}
         </div>
@@ -193,19 +227,39 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
       </div>
 
       {/* Shipping Line Invoice */}
-      <div style={{ width: "100%", marginBottom: "12px", display: "flex", alignItems: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          marginBottom: "12px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
         <div style={{ flex: 1 }}>
           {renderDocumentLinks(shippingLineInvoices, "Shipping Line Invoice")}
         </div>
-        {renderUploadButton("shipping_line_invoice_imgs", "Shipping Line Invoice")}
+        {renderUploadButton(
+          "shipping_line_invoice_imgs",
+          "Shipping Line Invoice"
+        )}
       </div>
 
       {/* Concor Invoice & Receipt */}
-      <div style={{ width: "100%", marginBottom: "12px", display: "flex", alignItems: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          marginBottom: "12px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
         <div style={{ flex: 1 }}>
           {renderDocumentLinks(concorInvoices, "Concor Invoice/Receipt")}
         </div>
-        {renderUploadButton("concor_invoice_and_receipt_copy", "Concor Invoice/Receipt")}
+        {renderUploadButton(
+          "concor_invoice_and_receipt_copy",
+          "Concor Invoice/Receipt"
+        )}
       </div>
     </div>
   );

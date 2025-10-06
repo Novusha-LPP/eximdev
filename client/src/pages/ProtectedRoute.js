@@ -1,8 +1,8 @@
 // components/ProtectedRoute.js
-import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
-import { CircularProgress, Box } from '@mui/material';
+import React, { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import axios from "axios";
+import { CircularProgress, Box } from "@mui/material";
 
 const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   const [userModules, setUserModules] = useState(null);
@@ -14,8 +14,8 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
     const fetchUserModules = async () => {
       try {
         // Get current user info - adjust this based on how you store user info
-         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-        
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+
         if (!user) {
           setError(true);
           setLoading(false);
@@ -23,12 +23,14 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
         }
 
         const response = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/get-user/${user.username || user.id}`
+          `${process.env.REACT_APP_API_STRING}/get-user/${
+            user.username || user.id
+          }`
         );
-        
+
         setUserModules(response.data.modules || []);
       } catch (err) {
-        console.error('Error fetching user modules:', err);
+        console.error("Error fetching user modules:", err);
         setError(true);
       } finally {
         setLoading(false);
@@ -40,7 +42,12 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+      >
         <CircularProgress />
       </Box>
     );
@@ -56,13 +63,13 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   if (!hasPermission) {
     // Redirect to fallback path with a message
     return (
-      <Navigate 
-        to={fallbackPath} 
-        replace 
-        state={{ 
-          from: location, 
-          message: `Access denied. You don't have permission to access ${requiredModule}.` 
-        }} 
+      <Navigate
+        to={fallbackPath}
+        replace
+        state={{
+          from: location,
+          message: `Access denied. You don't have permission to access ${requiredModule}.`,
+        }}
       />
     );
   }

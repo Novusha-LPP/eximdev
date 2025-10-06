@@ -33,7 +33,7 @@ const useImportJobForm = () => {
 
   // Initialize the state with the determined year pair
   const [year, setYear] = useState(defaultYearPair);
-  const [job_date, setJob_date] = useState("")
+  const [job_date, setJob_date] = useState("");
 
   // Existing states:
   // const [job_no, setJobNo] = useState("");
@@ -111,17 +111,16 @@ const useImportJobForm = () => {
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
-   const [HSS, setHSS] = useState("");
+  const [HSS, setHSS] = useState("");
   const [sallerName, setSallerName] = useState("");
-  const [bankName, setBankName] = useState("")
+  const [bankName, setBankName] = useState("");
 
   useEffect(() => {
     if (importer) {
       const formattedImporter = importer.replace(/\s+/g, "_");
       setImporterURL(formattedImporter);
     }
-  }, [importer]); 
-  
+  }, [importer]);
 
   // Fetch job numbers dynamically
   // Fetch job details dynamically
@@ -197,9 +196,9 @@ const useImportJobForm = () => {
     setSelectedDocument("");
     setNewDocumentName("");
     setNewDocumentCode("");
-    setHSS("")
-    setSallerName("")
-    setBankName("")
+    setHSS("");
+    setSallerName("");
+    setBankName("");
 
     // Reset any other states if necessary
   };
@@ -252,16 +251,16 @@ const useImportJobForm = () => {
           clearanceValue,
           saller_name: sallerName,
           hss: HSS,
-          bank_name: bankName
+          bank_name: bankName,
         };
 
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
 
         // Make the API call and store response
@@ -270,27 +269,28 @@ const useImportJobForm = () => {
           payload,
           { headers }
         );
-      
+
         // Show success alert
         alert(
           `✅ Job successfully created! \nJob No: ${response.data.job?.job_no}`
         );
-      
+
         // Reset the form after successful submission
         resetForm();
         formik.resetForm();
       } catch (error) {
         console.log("❌ Error creating job:", error);
-      
+
         let errorMessage = "Failed to create job. Please try again.";
-      
+
         if (error.response) {
           // Extract error message from API response
-          errorMessage = error.response.data?.message || `Error: ${error.response.status}`;
+          errorMessage =
+            error.response.data?.message || `Error: ${error.response.status}`;
         } else if (error.message) {
           errorMessage = error.message;
         }
-      
+
         alert(`❌ ${errorMessage}`); // Show alert with the exact error message
       }
     },
@@ -507,7 +507,7 @@ const useImportJobForm = () => {
     sallerName,
     setSallerName,
     bankName,
-    setBankName
+    setBankName,
   };
 };
 

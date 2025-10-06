@@ -1,12 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TablePagination, TextField, Box, Typography, Chip,
-  FormControl, InputLabel, Select, MenuItem, Grid, Card, CardContent
-} from '@mui/material';
-import { format, parseISO } from 'date-fns';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  TablePagination,
+  TextField,
+  Box,
+  Typography,
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  Card,
+  CardContent,
+} from "@mui/material";
+import { format, parseISO } from "date-fns";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = `${process.env.REACT_APP_API_STRING}/exports/pending`;
 
@@ -17,10 +33,10 @@ const ExportDocumentJobs = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
-    search: '',
-    exporter: '',
-    country: '',
-    movement_type: ''
+    search: "",
+    exporter: "",
+    country: "",
+    movement_type: "",
   });
 
   const navigate = useNavigate();
@@ -32,7 +48,7 @@ const ExportDocumentJobs = () => {
       const params = {
         page: page + 1,
         limit: rowsPerPage,
-        ...filters
+        ...filters,
       };
       const response = await axios.get(API_URL, { params });
 
@@ -41,7 +57,7 @@ const ExportDocumentJobs = () => {
         setTotalCount(response.data.data.pagination?.totalCount || 0);
       }
     } catch (err) {
-      console.error('Error fetching documentation jobs:', err);
+      console.error("Error fetching documentation jobs:", err);
       setJobs([]);
       setTotalCount(0);
     } finally {
@@ -56,13 +72,13 @@ const ExportDocumentJobs = () => {
 
   // Table columns configuration
   const columns = [
-    { id: 'job_no', label: 'Job Number', minWidth: 120 },
-    { id: 'exporter_name', label: 'Exporter', minWidth: 200 },
-    { id: 'consignee_name', label: 'Consignee Name', minWidth: 200 },
-    { id: 'port_of_origin', label: 'Port of Origin', minWidth: 150 },
-    { id: 'port_of_discharge', label: 'Port of Destination', minWidth: 150 },
-    { id: 'country_of_final_destination', label: 'Country', minWidth: 120 },
-    { id: 'movement_type', label: 'Movement', minWidth: 100 }
+    { id: "job_no", label: "Job Number", minWidth: 120 },
+    { id: "exporter_name", label: "Exporter", minWidth: 200 },
+    { id: "consignee_name", label: "Consignee Name", minWidth: 200 },
+    { id: "port_of_origin", label: "Port of Origin", minWidth: 150 },
+    { id: "port_of_discharge", label: "Port of Destination", minWidth: 150 },
+    { id: "country_of_final_destination", label: "Country", minWidth: 120 },
+    { id: "movement_type", label: "Movement", minWidth: 100 },
   ];
 
   // Navigate to documentation details page for selected job
@@ -71,7 +87,7 @@ const ExportDocumentJobs = () => {
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: "100%" }}>
       {/* Filters Section */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
@@ -84,7 +100,9 @@ const ExportDocumentJobs = () => {
                 fullWidth
                 label="Search (Job No, Exporter, Consignee)"
                 value={filters.search}
-                onChange={e => setFilters({ ...filters, search: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, search: e.target.value })
+                }
                 size="small"
               />
             </Grid>
@@ -93,7 +111,9 @@ const ExportDocumentJobs = () => {
                 fullWidth
                 label="Exporter"
                 value={filters.exporter}
-                onChange={e => setFilters({ ...filters, exporter: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, exporter: e.target.value })
+                }
                 size="small"
               />
             </Grid>
@@ -102,7 +122,9 @@ const ExportDocumentJobs = () => {
                 fullWidth
                 label="Country"
                 value={filters.country}
-                onChange={e => setFilters({ ...filters, country: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, country: e.target.value })
+                }
                 size="small"
               />
             </Grid>
@@ -112,7 +134,9 @@ const ExportDocumentJobs = () => {
                 <Select
                   value={filters.movement_type}
                   label="Movement Type"
-                  onChange={e => setFilters({ ...filters, movement_type: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, movement_type: e.target.value })
+                  }
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="FCL">FCL</MenuItem>
@@ -127,18 +151,18 @@ const ExportDocumentJobs = () => {
       </Card>
 
       {/* Data Table */}
-      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+      <Paper sx={{ width: "100%", overflow: "hidden" }}>
         <TableContainer sx={{ maxHeight: 600 }}>
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                {columns.map(col => (
+                {columns.map((col) => (
                   <TableCell
                     key={col.id}
                     style={{
                       minWidth: col.minWidth,
-                      fontWeight: 'bold',
-                      backgroundColor: '#f5f5f5'
+                      fontWeight: "bold",
+                      backgroundColor: "#f5f5f5",
                     }}
                   >
                     {col.label}
@@ -161,31 +185,34 @@ const ExportDocumentJobs = () => {
                 </TableRow>
               ) : (
                 jobs.map((job, index) => (
-                  <TableRow 
-                    hover 
+                  <TableRow
+                    hover
                     key={job._id || index}
                     onClick={() => handleRowClick(job.job_no)}
-                    sx={{ 
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: '#f5f5f5'
-                      }
+                    sx={{
+                      cursor: "pointer",
+                      "&:hover": {
+                        backgroundColor: "#f5f5f5",
+                      },
                     }}
                   >
-                    {columns.map(col => {
+                    {columns.map((col) => {
                       let value = job[col.id];
-                      if (col.id.includes('date') && value) {
-                        value = format(parseISO(value), 'dd-MM-yyyy');
+                      if (col.id.includes("date") && value) {
+                        value = format(parseISO(value), "dd-MM-yyyy");
                       }
-                      if (col.id === 'movement_type' && value) {
+                      if (col.id === "movement_type" && value) {
                         value = (
-                          <Chip label={value} size="small" color="primary" variant="outlined" />
+                          <Chip
+                            label={value}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
                         );
                       }
-                      if (!value) value = '-';
-                      return (
-                        <TableCell key={col.id}>{value}</TableCell>
-                      );
+                      if (!value) value = "-";
+                      return <TableCell key={col.id}>{value}</TableCell>;
                     })}
                   </TableRow>
                 ))

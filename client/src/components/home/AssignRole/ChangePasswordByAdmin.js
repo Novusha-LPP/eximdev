@@ -7,7 +7,7 @@ import {
   Typography,
   Box,
   Alert,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
 import { UserContext } from "../../../contexts/UserContext";
 
@@ -24,7 +24,7 @@ function ChangePasswordByAdmin({ selectedUser }) {
     setNewPassword("");
     setConfirmPassword("");
     setMessage({ text: "", type: "" });
-    
+
     // Fetch user data to check role
     if (selectedUser) {
       fetchUserData();
@@ -39,22 +39,22 @@ function ChangePasswordByAdmin({ selectedUser }) {
       setUserData(res.data);
     } catch (error) {
       console.error("Error fetching user data:", error);
-      setMessage({ 
-        text: "Error fetching user information", 
-        type: "error" 
+      setMessage({
+        text: "Error fetching user information",
+        type: "error",
       });
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Basic validation
     if (!newPassword || !confirmPassword) {
       setMessage({ text: "Please fill in all fields", type: "error" });
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       setMessage({ text: "Passwords do not match", type: "error" });
       return;
@@ -62,13 +62,23 @@ function ChangePasswordByAdmin({ selectedUser }) {
 
     // Password strength validation
     if (newPassword.length < 8) {
-      setMessage({ text: "Password must be at least 8 characters long", type: "error" });
+      setMessage({
+        text: "Password must be at least 8 characters long",
+        type: "error",
+      });
       return;
     }
 
     // Check if current user is admin and target user is also admin
-    if (userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username) {
-      setMessage({ text: "Admin cannot change another admin's password", type: "error" });
+    if (
+      userData?.role === "Admin" &&
+      user.role === "Admin" &&
+      userData.username !== user.username
+    ) {
+      setMessage({
+        text: "Admin cannot change another admin's password",
+        type: "error",
+      });
       return;
     }
 
@@ -79,32 +89,32 @@ function ChangePasswordByAdmin({ selectedUser }) {
         {
           username: selectedUser,
           newPassword: newPassword,
-          adminUsername: user.username
+          adminUsername: user.username,
         }
       );
-      
+
       setMessage({ text: response.data.message, type: "success" });
       // Reset form fields after successful password change
       setNewPassword("");
       setConfirmPassword("");
     } catch (error) {
       console.error("Error changing password:", error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
-        setMessage({ 
-          text: error.response.data.message || "Unauthorized action", 
-          type: "error" 
+        setMessage({
+          text: error.response.data.message || "Unauthorized action",
+          type: "error",
         });
       } else if (error.response?.status === 404) {
-        setMessage({ 
-          text: "User not found", 
-          type: "error" 
+        setMessage({
+          text: "User not found",
+          type: "error",
         });
       } else {
-        setMessage({ 
-          text: error.response?.data?.message || "Error changing password", 
-          type: "error" 
+        setMessage({
+          text: error.response?.data?.message || "Error changing password",
+          type: "error",
         });
       }
     } finally {
@@ -117,14 +127,19 @@ function ChangePasswordByAdmin({ selectedUser }) {
       <Typography variant="h6" gutterBottom>
         Change Password for {selectedUser}
       </Typography>
-      
+
       {message.text && (
-        <Alert severity={message.type === "success" ? "success" : "error"} sx={{ mb: 2 }}>
+        <Alert
+          severity={message.type === "success" ? "success" : "error"}
+          sx={{ mb: 2 }}
+        >
           {message.text}
         </Alert>
       )}
-      
-      {userData?.role === "Admin" && user.role === "Admin" && userData.username !== user.username ? (
+
+      {userData?.role === "Admin" &&
+      user.role === "Admin" &&
+      userData.username !== user.username ? (
         <Alert severity="warning">
           Admin cannot change another admin's password
         </Alert>
@@ -139,7 +154,7 @@ function ChangePasswordByAdmin({ selectedUser }) {
             margin="normal"
             size="small"
           />
-          
+
           <TextField
             label="Confirm New Password"
             type="password"
@@ -149,11 +164,11 @@ function ChangePasswordByAdmin({ selectedUser }) {
             margin="normal"
             size="small"
           />
-          
-          <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary" 
+
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
             sx={{ mt: 2 }}
             disabled={loading}
           >

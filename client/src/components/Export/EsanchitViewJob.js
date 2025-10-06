@@ -1,21 +1,21 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { useFormik } from 'formik';
-import FileUpload from '../gallery/FileUpload';
-import ImagePreview from '../gallery/ImagePreview';
-import { UserContext } from '../../contexts/UserContext';
-import { Row, Col } from 'react-bootstrap';
+import React, { useEffect, useState, useContext } from "react";
+import { useParams } from "react-router-dom";
+import axios from "axios";
+import { useFormik } from "formik";
+import FileUpload from "../gallery/FileUpload";
+import ImagePreview from "../gallery/ImagePreview";
+import { UserContext } from "../../contexts/UserContext";
+import { Row, Col } from "react-bootstrap";
 import {
   Box,
   Typography,
   TextField,
   Checkbox,
   Button,
-  Snackbar
-} from '@mui/material';
+  Snackbar,
+} from "@mui/material";
 
-const acceptedFileTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+const acceptedFileTypes = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
 
 const predefinedDocuments = [
   { document_name: "Commercial Invoice", document_code: "CINV" },
@@ -43,21 +43,26 @@ const EsanchitViewJob = () => {
     async function fetchDocuments() {
       setLoading(true);
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/export/eshanchit/jobs/${job_no}`);
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/export/eshanchit/jobs/${job_no}`
+        );
         const storedDocuments = res.data.documents || [];
-        const mergedDocuments = predefinedDocuments.map(doc => {
-          const storedDoc = storedDocuments.find(d => d.document_code === doc.document_code) || {};
+        const mergedDocuments = predefinedDocuments.map((doc) => {
+          const storedDoc =
+            storedDocuments.find(
+              (d) => d.document_code === doc.document_code
+            ) || {};
           return {
             ...doc,
             url: storedDoc.url || [],
-            document_number: storedDoc.document_number || '',
-            verification_date: storedDoc.verification_date || '',
-            is_verified: storedDoc.is_verified || false
+            document_number: storedDoc.document_number || "",
+            verification_date: storedDoc.verification_date || "",
+            is_verified: storedDoc.is_verified || false,
           };
         });
         formik.setValues({ cth_documents: mergedDocuments });
       } catch {
-        alert('Failed to fetch documents!');
+        alert("Failed to fetch documents!");
       } finally {
         setLoading(false);
       }
@@ -72,7 +77,7 @@ const EsanchitViewJob = () => {
     onSubmit: async (values) => {
       setSubmitting(true);
       const updatedDocs = values.cth_documents.filter(
-        doc =>
+        (doc) =>
           (doc.url && doc.url.length) ||
           doc.document_number ||
           doc.verification_date ||
@@ -86,51 +91,62 @@ const EsanchitViewJob = () => {
         if (res.data.success) {
           setSnackbar(true);
         } else {
-          alert('Failed to update documents');
+          alert("Failed to update documents");
         }
       } catch {
-        alert('Error saving documents!');
+        alert("Error saving documents!");
       } finally {
         setSubmitting(false);
       }
-    }
+    },
   });
 
-  const isDisabled = user.role !== 'Admin'; // example condition for disabling inputs
+  const isDisabled = user.role !== "Admin"; // example condition for disabling inputs
 
   const handleFileUpload = (urls, document) => {
     const idx = formik.values.cth_documents.findIndex(
-      d => d.document_code === document.document_code && d.document_name === document.document_name
+      (d) =>
+        d.document_code === document.document_code &&
+        d.document_name === document.document_name
     );
     if (idx < 0) return;
     const updatedDocs = [...formik.values.cth_documents];
     updatedDocs[idx].url = [...(updatedDocs[idx].url || []), ...urls];
-    formik.setFieldValue('cth_documents', updatedDocs);
+    formik.setFieldValue("cth_documents", updatedDocs);
   };
 
   const handleDeleteFile = (document, fileIdx) => {
     const idx = formik.values.cth_documents.findIndex(
-      d => d.document_code === document.document_code && d.document_name === document.document_name
+      (d) =>
+        d.document_code === document.document_code &&
+        d.document_name === document.document_name
     );
     if (idx < 0) return;
     const updatedDocs = [...formik.values.cth_documents];
     updatedDocs[idx].url.splice(fileIdx, 1);
-    formik.setFieldValue('cth_documents', updatedDocs);
+    formik.setFieldValue("cth_documents", updatedDocs);
   };
 
   if (loading) return <Typography>Loading documents...</Typography>;
 
   return (
     <form onSubmit={formik.handleSubmit}>
-      <Box sx={{ p: 2 , background: '#fff'}}>
-        <Typography variant="h5" gutterBottom>Documents</Typography>
+      <Box sx={{ p: 2, background: "#fff" }}>
+        <Typography variant="h5" gutterBottom>
+          Documents
+        </Typography>
 
         {formik.values.cth_documents.map((document, idx) => (
-          <Box 
-            key={document.document_code} 
-            sx={{ border: '1px solid #ddd', borderRadius: 1, p: 2, mb: 2 }}>
+          <Box
+            key={document.document_code}
+            sx={{ border: "1px solid #ddd", borderRadius: 1, p: 2, mb: 2 }}
+          >
             <Row className="align-items-center">
-              <Col xs={12} lg={4} style={{ marginBottom: 20, position: 'relative' }}>
+              <Col
+                xs={12}
+                lg={4}
+                style={{ marginBottom: 20, position: "relative" }}
+              >
                 <FileUpload
                   label={`${document.document_name} (${document.document_code})`}
                   bucketPath={`cth-documents/${document.document_name}`}
@@ -141,7 +157,9 @@ const EsanchitViewJob = () => {
                 />
                 <ImagePreview
                   images={document.url || []}
-                  onDeleteImage={(fileIdx) => handleDeleteFile(document, fileIdx)}
+                  onDeleteImage={(fileIdx) =>
+                    handleDeleteFile(document, fileIdx)
+                  }
                   readOnly={isDisabled}
                 />
               </Col>
@@ -152,11 +170,11 @@ const EsanchitViewJob = () => {
                   size="small"
                   fullWidth
                   disabled={isDisabled}
-                  value={document.document_number || ''}
+                  value={document.document_number || ""}
                   onChange={(e) => {
                     const updatedDocs = [...formik.values.cth_documents];
                     updatedDocs[idx].document_number = e.target.value;
-                    formik.setFieldValue('cth_documents', updatedDocs);
+                    formik.setFieldValue("cth_documents", updatedDocs);
                   }}
                 />
               </Col>
@@ -169,11 +187,13 @@ const EsanchitViewJob = () => {
                     onChange={() => {
                       const updatedDocs = [...formik.values.cth_documents];
                       if (updatedDocs[idx].verification_date) {
-                        updatedDocs[idx].verification_date = '';
+                        updatedDocs[idx].verification_date = "";
                       } else {
-                        updatedDocs[idx].verification_date = new Date().toISOString().slice(0, 10);
+                        updatedDocs[idx].verification_date = new Date()
+                          .toISOString()
+                          .slice(0, 10);
                       }
-                      formik.setFieldValue('cth_documents', updatedDocs);
+                      formik.setFieldValue("cth_documents", updatedDocs);
                     }}
                   />
                   <Typography>Approved Date</Typography>
@@ -184,11 +204,11 @@ const EsanchitViewJob = () => {
                     fullWidth
                     size="small"
                     disabled={isDisabled}
-                    value={document.verification_date || ''}
+                    value={document.verification_date || ""}
                     onChange={(e) => {
                       const updatedDocs = [...formik.values.cth_documents];
                       updatedDocs[idx].verification_date = e.target.value;
-                      formik.setFieldValue('cth_documents', updatedDocs);
+                      formik.setFieldValue("cth_documents", updatedDocs);
                     }}
                     InputLabelProps={{ shrink: true }}
                   />
@@ -198,14 +218,14 @@ const EsanchitViewJob = () => {
           </Box>
         ))}
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-          <Button 
-            variant="contained" 
-            color="primary" 
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+          <Button
+            variant="contained"
+            color="primary"
             type="submit"
             disabled={submitting}
           >
-            {submitting ? 'Saving...' : 'Submit'}
+            {submitting ? "Saving..." : "Submit"}
           </Button>
         </Box>
 

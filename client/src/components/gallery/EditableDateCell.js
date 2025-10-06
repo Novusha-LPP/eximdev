@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { FcCalendar } from "react-icons/fc";
 import axios from "axios";
-import {
-  TextField,
-  MenuItem,
-  Button,
-} from "@mui/material";
+import { TextField, MenuItem, Button } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
@@ -39,15 +35,26 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   } = rowData;
 
   // Memoize initial dates to prevent unnecessary re-renders
-  const initialDates = useMemo(() => ({
-    assessment_date,
-    vessel_berthing,
-    gateway_igm_date,
-    discharge_date,
-    pcv_date,
-    out_of_charge,
-    duty_paid_date,
-  }), [assessment_date, vessel_berthing, gateway_igm_date, discharge_date, pcv_date, out_of_charge, duty_paid_date]);
+  const initialDates = useMemo(
+    () => ({
+      assessment_date,
+      vessel_berthing,
+      gateway_igm_date,
+      discharge_date,
+      pcv_date,
+      out_of_charge,
+      duty_paid_date,
+    }),
+    [
+      assessment_date,
+      vessel_berthing,
+      gateway_igm_date,
+      discharge_date,
+      pcv_date,
+      out_of_charge,
+      duty_paid_date,
+    ]
+  );
 
   const [dates, setDates] = useState(initialDates);
   const [localStatus, setLocalStatus] = useState(detailed_status);
@@ -60,7 +67,10 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
   // Memoize free time options
-  const options = useMemo(() => Array.from({ length: 25 }, (_, index) => index), []);
+  const options = useMemo(
+    () => Array.from({ length: 25 }, (_, index) => index),
+    []
+  );
 
   // Memoized utility function to calculate number of days between two dates
   const calculateDaysBetween = useCallback((startDate, endDate) => {
@@ -115,29 +125,36 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     setIgstModalOpen(false);
   }, []);
 
-  const handleIgstSubmit = useCallback(async (updateData) => {
-    try {
-      // Get user info from localStorage for audit trail
-      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
-      };
+  const handleIgstSubmit = useCallback(
+    async (updateData) => {
+      try {
+        // Get user info from localStorage for audit trail
+        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+        const headers = {
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
+        };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          updateData,
+          { headers }
+        );
 
-      // Update the cell.row.original data to reflect the changes
-      if (typeof onRowDataUpdate === "function") {
-        onRowDataUpdate(_id, updateData);
+        // Update the cell.row.original data to reflect the changes
+        if (typeof onRowDataUpdate === "function") {
+          onRowDataUpdate(_id, updateData);
+        }
+
+        setIgstModalOpen(false);
+      } catch (error) {
+        console.error("Error submitting IGST data:", error);
       }
-
-      setIgstModalOpen(false);
-    } catch (error) {
-      console.error("Error submitting IGST data:", error);
-    }
-  }, [_id, onRowDataUpdate]);
+    },
+    [_id, onRowDataUpdate]
+  );
 
   const updateDetailedStatus = useCallback(async () => {
     const eta = dates.vessel_berthing;
@@ -197,16 +214,21 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          detailed_status: newStatus,
-        }, { headers });
-        setLocalStatus(newStatus);        if (typeof onRowDataUpdate === "function") {
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          {
+            detailed_status: newStatus,
+          },
+          { headers }
+        );
+        setLocalStatus(newStatus);
+        if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { detailed_status: newStatus });
         }
       } catch (err) {
@@ -237,31 +259,38 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   ]);
 
   // Check if arrival date should be disabled based on business logic
-  const isArrivalDateDisabled = useCallback((containerIndex) => {
-    const container = containers[containerIndex];
-    const ExBondflag = type_of_b_e === "Ex-Bond";
-    const LCLFlag = consignment_type === "LCL";
-    
-    if (ExBondflag) {
-      return true;
-    }
-    
-    if (LCLFlag) {
-      return !container?.by_road_movement_date;
-    } else {
-      return !container?.container_rail_out_date;
-    }
-  }, [containers, type_of_b_e, consignment_type]);
+  const isArrivalDateDisabled = useCallback(
+    (containerIndex) => {
+      const container = containers[containerIndex];
+      const ExBondflag = type_of_b_e === "Ex-Bond";
+      const LCLFlag = consignment_type === "LCL";
+
+      if (ExBondflag) {
+        return true;
+      }
+
+      if (LCLFlag) {
+        return !container?.by_road_movement_date;
+      } else {
+        return !container?.container_rail_out_date;
+      }
+    },
+    [containers, type_of_b_e, consignment_type]
+  );
 
   // Handle date editing
   const handleEditStart = (field, index = null) => {
     // Check if arrival date is disabled before allowing edit
-    if (field === "arrival_date" && index !== null && isArrivalDateDisabled(index)) {
+    if (
+      field === "arrival_date" &&
+      index !== null &&
+      isArrivalDateDisabled(index)
+    ) {
       return; // Don't allow editing if disabled
     }
-    
+
     setEditable(index !== null ? `${field}_${index}` : field);
-    
+
     // Clear the date when starting to edit
     setTempDateValue("");
     setTempTimeValue("");
@@ -289,9 +318,10 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     if (cell.row.original._id !== _id) {
       // Your existing reset logic...
     }
-  }, [cell.row.original]);  const handleDateSubmit = async (field, index = null) => {
+  }, [cell.row.original]);
+  const handleDateSubmit = async (field, index = null) => {
     let finalValue;
-    
+
     // Allow clearing dates
     if (tempDateValue === "") {
       finalValue = "";
@@ -340,25 +370,30 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       });
 
       // Optimistic update
-      setContainers(updatedContainers);      try {
+      setContainers(updatedContainers);
+      try {
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          container_nos: updatedContainers,
-        }, { headers });
-        
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          {
+            container_nos: updatedContainers,
+          },
+          { headers }
+        );
+
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { container_nos: updatedContainers });
         }
-        
+
         setEditable(null);
         updateDetailedStatus();
       } catch (err) {
@@ -371,25 +406,30 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       const newDates = { ...dates, [field]: finalValue || null };
 
       // Optimistic update
-      setDates(newDates);      try {
+      setDates(newDates);
+      try {
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          [field]: finalValue || null,
-        }, { headers });
-        
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          {
+            [field]: finalValue || null,
+          },
+          { headers }
+        );
+
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { [field]: finalValue || null });
         }
-        
+
         setEditable(null);
         updateDetailedStatus();
       } catch (err) {
@@ -399,7 +439,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       }
     }
   };
-  
+
   const handleFreeTimeChange = (value) => {
     // Don't update free time for LCL consignments
     if (consignment_type === "LCL") {
@@ -407,20 +447,24 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     }
 
     setLocalFreeTime(value);
-    
+
     // Get user info from localStorage for audit trail
     const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
     const headers = {
-      'Content-Type': 'application/json',
-      'user-id': user.username || 'unknown',
-      'username': user.username || 'unknown',
-      'user-role': user.role || 'unknown'
+      "Content-Type": "application/json",
+      "user-id": user.username || "unknown",
+      username: user.username || "unknown",
+      "user-role": user.role || "unknown",
     };
 
     axios
-      .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        free_time: value,
-      }, { headers })
+      .patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+        {
+          free_time: value,
+        },
+        { headers }
+      )
       .then(() => {
         // Update parent component data for free_time
         if (typeof onRowDataUpdate === "function") {
@@ -444,9 +488,13 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
           setContainers(updatedContainers);
           axios
-            .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-              container_nos: updatedContainers,
-            }, { headers })
+            .patch(
+              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+              {
+                container_nos: updatedContainers,
+              },
+              { headers }
+            )
             .then(() => {
               // Update parent component data for containers
               if (typeof onRowDataUpdate === "function") {
@@ -458,9 +506,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       })
       .catch((err) => console.error("Error Updating Free Time:", err));
   };
-  
-  const isIgstFieldsAvailable =
-    assessable_ammount && igst_ammount;
+
+  const isIgstFieldsAvailable = assessable_ammount && igst_ammount;
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -469,7 +516,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         {type_of_b_e !== "Ex-Bond" && (
           <>
             <div>
-              <strong>ETA:</strong> {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>ETA:</strong>{" "}
+              {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("vessel_berthing")}
@@ -501,7 +549,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             </div>
             <br />
             <div>
-              <strong>GIGM:</strong> {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>GIGM:</strong>{" "}
+              {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("gateway_igm_date")}
@@ -533,7 +582,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             </div>
             <br />
             <div>
-              <strong>Discharge:</strong> {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>Discharge:</strong>{" "}
+              {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("discharge_date")}
@@ -570,10 +620,15 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               containers.map((container, id) => (
                 <div key={id}>
                   <div>
-                    <strong>Rail-out:</strong> {container.container_rail_out_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <strong>Rail-out:</strong>{" "}
+                    {container.container_rail_out_date
+                      ?.slice(0, 10)
+                      .replace("T", " ") || "N/A"}{" "}
                     <FcCalendar
                       style={styles.icon}
-                      onClick={() => handleEditStart("container_rail_out_date", id)}
+                      onClick={() =>
+                        handleEditStart("container_rail_out_date", id)
+                      }
                     />
                     {editable === `container_rail_out_date_${id}` && (
                       <div>
@@ -586,7 +641,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                         />
                         <button
                           style={styles.submitButton}
-                          onClick={() => handleDateSubmit("container_rail_out_date", id)}
+                          onClick={() =>
+                            handleDateSubmit("container_rail_out_date", id)
+                          }
                         >
                           ✓
                         </button>
@@ -596,7 +653,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                         >
                           ✕
                         </button>
-                        {dateError && <div style={styles.errorText}>{dateError}</div>}
+                        {dateError && (
+                          <div style={styles.errorText}>{dateError}</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -607,10 +666,15 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               containers.map((container, id) => (
                 <div key={id}>
                   <div>
-                    <strong>ByRoad:</strong> {container.by_road_movement_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <strong>ByRoad:</strong>{" "}
+                    {container.by_road_movement_date
+                      ?.slice(0, 10)
+                      .replace("T", " ") || "N/A"}{" "}
                     <FcCalendar
                       style={styles.icon}
-                      onClick={() => handleEditStart("by_road_movement_date", id)}
+                      onClick={() =>
+                        handleEditStart("by_road_movement_date", id)
+                      }
                     />
                     {editable === `by_road_movement_date_${id}` && (
                       <div>
@@ -623,7 +687,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                         />
                         <button
                           style={styles.submitButton}
-                          onClick={() => handleDateSubmit("by_road_movement_date", id)}
+                          onClick={() =>
+                            handleDateSubmit("by_road_movement_date", id)
+                          }
                         >
                           ✓
                         </button>
@@ -633,7 +699,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                         >
                           ✕
                         </button>
-                        {dateError && <div style={styles.errorText}>{dateError}</div>}
+                        {dateError && (
+                          <div style={styles.errorText}>{dateError}</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -645,16 +713,29 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                 {containers.map((container, id) => (
                   <div key={id}>
                     <div>
-                      <strong>Arrival:</strong> {container.arrival_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                      <strong>Arrival:</strong>{" "}
+                      {container.arrival_date?.slice(0, 10).replace("T", " ") ||
+                        "N/A"}{" "}
                       <FcCalendar
                         style={{
                           ...styles.icon,
                           opacity: isArrivalDateDisabled(id) ? 0.4 : 1,
-                          filter: isArrivalDateDisabled(id) ? "grayscale(100%)" : "none",
-                          cursor: isArrivalDateDisabled(id) ? "not-allowed" : "pointer"
+                          filter: isArrivalDateDisabled(id)
+                            ? "grayscale(100%)"
+                            : "none",
+                          cursor: isArrivalDateDisabled(id)
+                            ? "not-allowed"
+                            : "pointer",
                         }}
-                        onClick={() => !isArrivalDateDisabled(id) && handleEditStart("arrival_date", id)}
-                        title={isArrivalDateDisabled(id) ? "Arrival date is disabled. Please set rail-out/by-road date first." : "Edit date"}
+                        onClick={() =>
+                          !isArrivalDateDisabled(id) &&
+                          handleEditStart("arrival_date", id)
+                        }
+                        title={
+                          isArrivalDateDisabled(id)
+                            ? "Arrival date is disabled. Please set rail-out/by-road date first."
+                            : "Edit date"
+                        }
                       />
                       {editable === `arrival_date_${id}` && (
                         <div>
@@ -677,7 +758,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                           >
                             ✕
                           </button>
-                          {dateError && <div style={styles.errorText}>{dateError}</div>}
+                          {dateError && (
+                            <div style={styles.errorText}>{dateError}</div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -737,7 +820,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       {/* Right Section */}
       <div>
         <div>
-          <strong>Assessment Date:</strong> {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <strong>Assessment Date:</strong>{" "}
+          {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
           <FcCalendar
             style={styles.icon}
             onClick={() => handleEditStart("assessment_date")}
@@ -769,7 +853,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         </div>
         <br />
         <div>
-          <strong>PCV:</strong> {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <strong>PCV:</strong>{" "}
+          {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
           <FcCalendar
             style={styles.icon}
             onClick={() => handleEditStart("pcv_date")}
@@ -800,7 +885,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           )}
         </div>
         <br />
-
         <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
           <span>
             <strong>Duty Paid:</strong>{" "}
@@ -849,9 +933,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           </div>
         )}
         <br />
-
         <div>
-          <strong>OOC:</strong> {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <strong>OOC:</strong>{" "}
+          {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
           <FcCalendar
             style={styles.icon}
             onClick={() => handleEditStart("out_of_charge")}
@@ -882,11 +966,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           )}
         </div>
         <br />
-
         {containers.map((container, id) => (
           <div key={id}>
             <div>
-              <strong>Delivery:</strong> {container.delivery_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>Delivery:</strong>{" "}
+              {container.delivery_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("delivery_date", id)}
@@ -918,19 +1002,22 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             </div>
           </div>
         ))}
-
         <br />
-
         {consignment_type !== "LCL" && (
           <>
             {/* <strong>EmptyOff:</strong> */}
             {containers.map((container, id) => (
               <div key={id}>
                 <div>
-                  <strong>EmptyOff:</strong> {container.emptyContainerOffLoadDate?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                  <strong>EmptyOff:</strong>{" "}
+                  {container.emptyContainerOffLoadDate
+                    ?.slice(0, 10)
+                    .replace("T", " ") || "N/A"}{" "}
                   <FcCalendar
                     style={styles.icon}
-                    onClick={() => handleEditStart("emptyContainerOffLoadDate", id)}
+                    onClick={() =>
+                      handleEditStart("emptyContainerOffLoadDate", id)
+                    }
                   />
                   {editable === `emptyContainerOffLoadDate_${id}` && (
                     <div>
@@ -943,7 +1030,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                       />
                       <button
                         style={styles.submitButton}
-                        onClick={() => handleDateSubmit("emptyContainerOffLoadDate", id)}
+                        onClick={() =>
+                          handleDateSubmit("emptyContainerOffLoadDate", id)
+                        }
                       >
                         ✓
                       </button>
@@ -953,7 +1042,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                       >
                         ✕
                       </button>
-                      {dateError && <div style={styles.errorText}>{dateError}</div>}
+                      {dateError && (
+                        <div style={styles.errorText}>{dateError}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -961,8 +1052,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             ))}
           </>
         )}
-
-        <br />      </div>
+        <br />{" "}
+      </div>
 
       {/* IGST Modal */}
       <IgstModal
@@ -976,8 +1067,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     </div>
   );
 });
-
-
 
 const styles = {
   icon: {
@@ -1015,4 +1104,3 @@ const styles = {
 };
 
 export default EditableDateCell;
-

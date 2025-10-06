@@ -1,6 +1,8 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_URL = `${process.env.REACT_APP_API_STRING}/directory` || 'http://localhost:5000/api/directory';
+const API_URL =
+  `${process.env.REACT_APP_API_STRING}/directory` ||
+  "http://localhost:5000/api/directory";
 
 const DirectoryService = {
   getAll: async (params = {}) => {
@@ -46,7 +48,7 @@ const DirectoryService = {
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 export default DirectoryService;

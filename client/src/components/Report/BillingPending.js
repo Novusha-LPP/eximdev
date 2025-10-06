@@ -40,7 +40,7 @@ function BillingPending() {
   const [data, setData] = useState({
     count: 0,
     importerCount: [],
-    results: []
+    results: [],
   });
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,26 +54,22 @@ function BillingPending() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Use API base from environment variable
-      const apiBase = process.env.REACT_APP_API_STRING || '';
-      const response = await axios.get(
-        `${apiBase}/report/billing-pending`,
-        {
-          params: {
-            year: selectedYear
-          }
-        }
-      );
-      
+      const apiBase = process.env.REACT_APP_API_STRING || "";
+      const response = await axios.get(`${apiBase}/report/billing-pending`, {
+        params: {
+          year: selectedYear,
+        },
+      });
+
       console.log("API Response:", response.data); // For debugging
-      
+
       setData({
         count: response.data.count || 0,
         importerCount: response.data.importerCount || [],
-        results: response.data.results || []
+        results: response.data.results || [],
       });
-      
     } catch (err) {
       console.error("Error fetching billing pending data:", err);
       setError(`Failed to fetch billing pending data: ${err.message}`);
@@ -97,14 +93,23 @@ function BillingPending() {
     .slice(0, 5);
 
   const StatsCard = ({ title, value, icon, color, subtitle }) => (
-    <Card sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}>
+    <Card sx={{ height: "100%", boxShadow: 2, borderRadius: 2 }}>
       <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {title}
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}
+            >
               {value}
             </Typography>
             {subtitle && (
@@ -113,7 +118,9 @@ function BillingPending() {
               </Typography>
             )}
           </Box>
-          <Avatar sx={{ bgcolor: `${color}15`, color: color, width: 48, height: 48 }}>
+          <Avatar
+            sx={{ bgcolor: `${color}15`, color: color, width: 48, height: 48 }}
+          >
             {icon}
           </Avatar>
         </Box>
@@ -137,7 +144,7 @@ function BillingPending() {
         justifyContent="center"
         alignItems="center"
         minHeight="400px"
-        sx={{ bgcolor: 'grey.50', borderRadius: 2, p: 4 }}
+        sx={{ bgcolor: "grey.50", borderRadius: 2, p: 4 }}
       >
         <CircularProgress size={48} sx={{ mb: 2 }} />
         <Typography variant="body1" color="text.secondary">
@@ -148,34 +155,45 @@ function BillingPending() {
   }
 
   return (
-    <Box sx={{ width: "100%", minHeight: "100vh", bgcolor: 'grey.50', p: 3 }}>
+    <Box sx={{ width: "100%", minHeight: "100vh", bgcolor: "grey.50", p: 3 }}>
       {/* Header Section */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}
+            >
               Billing Pending Jobs
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Monitor and track jobs with pending billing status for year {selectedYear}
+              Monitor and track jobs with pending billing status for year{" "}
+              {selectedYear}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton 
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <IconButton
               onClick={handleRefresh}
-              sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+              sx={{ bgcolor: "white", "&:hover": { bgcolor: "grey.100" } }}
               title="Refresh Data"
             >
               <Refresh />
             </IconButton>
-            <IconButton 
-              sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+            <IconButton
+              sx={{ bgcolor: "white", "&:hover": { bgcolor: "grey.100" } }}
               title="Download Report"
             >
               <Download />
             </IconButton>
-            <IconButton 
-              sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+            <IconButton
+              sx={{ bgcolor: "white", "&:hover": { bgcolor: "grey.100" } }}
               title="Filter Options"
             >
               <FilterList />
@@ -221,7 +239,7 @@ function BillingPending() {
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Top 5 Importers by Pending Jobs
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                 {topImporters.map((importer, index) => (
                   <Chip
                     key={index}
@@ -229,13 +247,13 @@ function BillingPending() {
                     variant="outlined"
                     size="small"
                     sx={{
-                      fontSize: '0.75rem',
-                      '& .MuiChip-label': {
-                        maxWidth: '200px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }
+                      fontSize: "0.75rem",
+                      "& .MuiChip-label": {
+                        maxWidth: "200px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      },
                     }}
                   />
                 ))}
@@ -246,8 +264,8 @@ function BillingPending() {
       </Box>
 
       {/* Search and Filters */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-        <FormControl sx={{ minWidth: 120, bgcolor: 'white' }}>
+      <Box sx={{ mb: 3, display: "flex", gap: 2, alignItems: "center" }}>
+        <FormControl sx={{ minWidth: 120, bgcolor: "white" }}>
           <InputLabel>Year</InputLabel>
           <Select
             value={selectedYear}
@@ -265,12 +283,12 @@ function BillingPending() {
           placeholder="Search by Job No or Importer..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ 
-            flexGrow: 1, 
-            bgcolor: 'white',
-            '& .MuiOutlinedInput-root': {
+          sx={{
+            flexGrow: 1,
+            bgcolor: "white",
+            "& .MuiOutlinedInput-root": {
               borderRadius: 2,
-            }
+            },
           }}
           InputProps={{
             startAdornment: (
@@ -293,43 +311,46 @@ function BillingPending() {
         <CardContent sx={{ p: 0 }}>
           <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
             <Table sx={{ minWidth: 650 }}>
-              <TableHead sx={{ bgcolor: 'grey.100' }}>
+              <TableHead sx={{ bgcolor: "grey.100" }}>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 600 }}>Job No</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Year</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Importer</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Detailed Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Detailed Status
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredResults.length > 0 ? (
                   filteredResults.map((row, index) => (
-                    <TableRow 
+                    <TableRow
                       key={`${row.job_no}-${index}`}
-                      sx={{ 
-                        '&:last-child td, &:last-child th': { border: 0 },
-                        '&:hover': { bgcolor: 'grey.50' }
+                      sx={{
+                        "&:last-child td, &:last-child th": { border: 0 },
+                        "&:hover": { bgcolor: "grey.50" },
                       }}
                     >
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 500, color: "primary.main" }}
+                        >
                           {row.job_no}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
-                          {row.year}
-                        </Typography>
+                        <Typography variant="body2">{row.year}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography 
+                        <Typography
                           variant="body2"
                           sx={{
-                            maxWidth: '250px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
+                            maxWidth: "250px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                           title={row.importer}
                         >
@@ -340,7 +361,9 @@ function BillingPending() {
                         <Chip
                           label={row.status}
                           size="small"
-                          color={row.status === 'Pending' ? 'warning' : 'default'}
+                          color={
+                            row.status === "Pending" ? "warning" : "default"
+                          }
                         />
                       </TableCell>
                       <TableCell>
@@ -356,13 +379,27 @@ function BillingPending() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <PendingActions sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                        }}
+                      >
+                        <PendingActions
+                          sx={{ fontSize: 48, color: "grey.400", mb: 2 }}
+                        />
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 1 }}
+                        >
                           No Billing Pending Jobs Found
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {searchTerm ? 'Try adjusting your search criteria' : `No pending jobs found for year ${selectedYear}`}
+                          {searchTerm
+                            ? "Try adjusting your search criteria"
+                            : `No pending jobs found for year ${selectedYear}`}
                         </Typography>
                       </Box>
                     </TableCell>

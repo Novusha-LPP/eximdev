@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef , useCallback} from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -33,16 +33,16 @@ import { Cell } from "jspdf-autotable";
 
 function DoPlanning() {
   const [doDocCounts, setDoDocCounts] = useState({
-  totalJobs: 0,
-  prepared: 0,
-  notPrepared: 0
-});
-  
+    totalJobs: 0,
+    prepared: 0,
+    notPrepared: 0,
+  });
+
   // ✅ State for status filter counts
   const [statusFilterCounts, setStatusFilterCounts] = useState({});
-      const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-      const [unresolvedCount, setUnresolvedCount] = useState(0);
-   const [selectedICD, setSelectedICD] = useState("");
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
   const [importers, setImporters] = useState(null);
@@ -52,7 +52,14 @@ function DoPlanning() {
   const [loading, setLoading] = useState(false); // Loading state
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(""); // New status filter state
   // Use context for search functionality like E-Sanchit
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab1: currentPage, setCurrentPageDoTab1: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageDoTab1: currentPage,
+    setCurrentPageDoTab1: setCurrentPage,
+  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,84 +70,101 @@ function DoPlanning() {
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
-  );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  );
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
 
   // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
-    { 
-      value: "", 
+    {
+      value: "",
       label: "All Status",
-      count: statusFilterCounts.total || 0
+      count: statusFilterCounts.total || 0,
     },
-    { 
-      value: "do_doc_prepared", 
+    {
+      value: "do_doc_prepared",
       label: "DO Doc Prepared",
-      count: statusFilterCounts.do_doc_prepared || 0
+      count: statusFilterCounts.do_doc_prepared || 0,
     },
-    { 
-      value: "do_doc_not_prepared", 
+    {
+      value: "do_doc_not_prepared",
       label: "DO Doc Not Prepared",
-      count: statusFilterCounts.do_doc_not_prepared || 0
+      count: statusFilterCounts.do_doc_not_prepared || 0,
     },
-    { 
-      value: "payment_request_sent", 
+    {
+      value: "payment_request_sent",
       label: "Payment Request Sent to Billing Team",
-      count: statusFilterCounts.payment_request_sent || 0
+      count: statusFilterCounts.payment_request_sent || 0,
     },
-    { 
-      value: "payment_request_not_sent", 
+    {
+      value: "payment_request_not_sent",
       label: "Payment Request Not Sent to Billing Team",
-      count: statusFilterCounts.payment_request_not_sent || 0
+      count: statusFilterCounts.payment_request_not_sent || 0,
     },
-    { 
-      value: "payment_made", 
+    {
+      value: "payment_made",
       label: "Payment Made",
-      count: statusFilterCounts.payment_made || 0
+      count: statusFilterCounts.payment_made || 0,
     },
-    { 
-      value: "payment_not_made", 
+    {
+      value: "payment_not_made",
       label: "Payment Not Made",
-      count: statusFilterCounts.payment_not_made || 0
+      count: statusFilterCounts.payment_not_made || 0,
     },
-    { 
-      value: "obl_received", 
+    {
+      value: "obl_received",
       label: "OBL Received",
-      count: statusFilterCounts.obl_received || 0
+      count: statusFilterCounts.obl_received || 0,
     },
-    { 
-      value: "obl_not_received", 
+    {
+      value: "obl_not_received",
       label: "OBL Not Received",
-      count: statusFilterCounts.obl_not_received || 0
+      count: statusFilterCounts.obl_not_received || 0,
     },
-    { 
-      value: "doc_sent_to_shipping_line", 
+    {
+      value: "doc_sent_to_shipping_line",
       label: "Doc Sent to Shipping Line",
-      count: statusFilterCounts.doc_sent_to_shipping_line || 0
+      count: statusFilterCounts.doc_sent_to_shipping_line || 0,
     },
-    { 
-      value: "doc_not_sent_to_shipping_line", 
+    {
+      value: "doc_not_sent_to_shipping_line",
       label: "Doc Not Sent to Shipping Line",
-      count: statusFilterCounts.doc_not_sent_to_shipping_line || 0
-    }
+      count: statusFilterCounts.doc_not_sent_to_shipping_line || 0,
+    },
   ];
 
   // DO List options
   const doListOptions = [
     { value: "", label: "Select DO List" },
-    { value: "ICD Khodiyar / ICD AHMEDABAD", label: "ICD Khodiyar / ICD AHMEDABAD" },
+    {
+      value: "ICD Khodiyar / ICD AHMEDABAD",
+      label: "ICD Khodiyar / ICD AHMEDABAD",
+    },
     { value: "ICD SANAND", label: "ICD SANAND" },
-    { value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK", label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK" },
+    {
+      value: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
+      label: "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
+    },
     { value: "ABHI CONTAINER SERVICES", label: "ABHI CONTAINER SERVICES" },
-    { value: "Golden Horn Container Services (Nr. ICD Khodiyar)", label: "Golden Horn Container Services (Nr. ICD Khodiyar)" },
-    { value: "Golden Horn Container Services (Nr. ICD SANAND)", label: "Golden Horn Container Services (Nr. ICD SANAND)" },
-    { value: "JAY BHAVANI CONTAINERS YARD", label: "JAY BHAVANI CONTAINERS YARD" },
+    {
+      value: "Golden Horn Container Services (Nr. ICD Khodiyar)",
+      label: "Golden Horn Container Services (Nr. ICD Khodiyar)",
+    },
+    {
+      value: "Golden Horn Container Services (Nr. ICD SANAND)",
+      label: "Golden Horn Container Services (Nr. ICD SANAND)",
+    },
+    {
+      value: "JAY BHAVANI CONTAINERS YARD",
+      label: "JAY BHAVANI CONTAINERS YARD",
+    },
     { value: "BALAJI QUEST YARD", label: "BALAJI QUEST YARD" },
-    { value: "SATURN GLOBAL TERMINAL PVT LTD", label: "SATURN GLOBAL TERMINAL PVT LTD" },
-    { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" }
+    {
+      value: "SATURN GLOBAL TERMINAL PVT LTD",
+      label: "SATURN GLOBAL TERMINAL PVT LTD",
+    },
+    { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
   ];
-
- 
 
   // Remove the automatic clearing - we'll handle this from the tab component instead
 
@@ -155,7 +179,7 @@ function DoPlanning() {
     }
     getImporterList();
   }, [selectedYearState]);
- 
+
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -174,9 +198,7 @@ function DoPlanning() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -212,106 +234,100 @@ function DoPlanning() {
     getYears();
   }, [selectedYearState, setSelectedYear]);
 
- const handleCopy = (event, text) => {
-   event.stopPropagation();
-   if (!text || text === "N/A") return; // Prevent copying empty values
-   if (
-     navigator.clipboard &&
-     typeof navigator.clipboard.writeText === "function"
-   ) {
-     navigator.clipboard
-       .writeText(text)
-       .then(() => console.log("Copied:", text))
-       .catch((err) => console.error("Copy failed:", err));
-   } else {
-     const textArea = document.createElement("textarea");
-     textArea.value = text;
-     document.body.appendChild(textArea);
-     textArea.select();
-     try {
-       document.execCommand("copy");
-       console.log("Copied (fallback):", text);
-     } catch (err) {
-       console.error("Fallback failed:", err);
-     }
-     document.body.removeChild(textArea);
-   }
- };
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return; // Prevent copying empty values
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   // Fetch jobs with pagination and search
   // Fetch jobs with pagination
-const fetchJobs = useCallback(
-  async (
-    currentPage,
-    currentSearchQuery,
-    currentYear,
-    currentICD,
-    selectedImporter,
-    statusFilter = "",
-    unresolvedOnly = false
+  const fetchJobs = useCallback(
+    async (
+      currentPage,
+      currentSearchQuery,
+      currentYear,
+      currentICD,
+      selectedImporter,
+      statusFilter = "",
+      unresolvedOnly = false
+    ) => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
+          {
+            params: {
+              page: currentPage,
+              limit,
+              search: currentSearchQuery,
+              year: currentYear,
+              selectedICD: currentICD,
+              importer: selectedImporter?.trim() || "",
+              username: user?.username || "",
+              statusFilter: statusFilter || "",
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+            },
+          }
+        );
 
-  ) => {
-    setLoading(true);
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-do-module-jobs`,
-        {
-          params: {
-            page: currentPage,
-            limit,
-            search: currentSearchQuery,
-            year: currentYear,
-            selectedICD: currentICD,
-            importer: selectedImporter?.trim() || "",
-            username: user?.username || "",
-            statusFilter: statusFilter || "",
-            unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+        const {
+          totalJobs,
+          totalPages,
+          currentPage: returnedPage,
+          jobs,
+          doDocCounts, // Get the new counts
+          statusFilterCounts, // Get the status filter counts
+          unresolvedCount, // ✅ Get unresolved count from response
+        } = res.data;
 
-          },
+        setRows(jobs);
+        setTotalPages(totalPages);
+        setTotalJobs(totalJobs);
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+
+        // Set the DO Doc counts
+        if (doDocCounts) {
+          setDoDocCounts(doDocCounts);
         }
-      );
 
-      const {
-        totalJobs,
-        totalPages,
-        currentPage: returnedPage,
-        jobs,
-        doDocCounts, // Get the new counts
-        statusFilterCounts, // Get the status filter counts
-        unresolvedCount, // ✅ Get unresolved count from response
-      } = res.data;
-
-      setRows(jobs);
-      setTotalPages(totalPages);
-      setTotalJobs(totalJobs);
-      setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-
-      
-      // Set the DO Doc counts
-      if (doDocCounts) {
-        setDoDocCounts(doDocCounts);  
+        // Set the status filter counts
+        if (statusFilterCounts) {
+          setStatusFilterCounts(statusFilterCounts);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setRows([]);
+        setTotalPages(1);
+        setDoDocCounts({ totalJobs: 0, prepared: 0, notPrepared: 0 });
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+      } finally {
+        setLoading(false);
       }
-
-      // Set the status filter counts
-      if (statusFilterCounts) {
-        setStatusFilterCounts(statusFilterCounts);
-      }
-      
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setRows([]);
-      setTotalPages(1);
-      setDoDocCounts({ totalJobs: 0, prepared: 0, notPrepared: 0 });
-      setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-      setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-
-    } finally {
-      setLoading(false);
-    }
-  },
-  [limit, user?.username]
-);
-
+    },
+    [limit, user?.username]
+  );
 
   // Fetch jobs when dependencies change
   useEffect(() => {
@@ -329,7 +345,7 @@ const fetchJobs = useCallback(
       );
     }
   }, [
-      currentPage,
+    currentPage,
     debouncedSearchQuery,
     selectedYearState,
     selectedICD,
@@ -343,8 +359,7 @@ const fetchJobs = useCallback(
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
-        setCurrentPage(1); // Reset to first page when user types
-
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   // Handle status filter change
@@ -363,108 +378,115 @@ const fetchJobs = useCallback(
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage); // Update current page
-        setCurrentPage(1); // Reset to first page when user types
-
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   // 3. Add display component for the counts (place this where you want to show the counts)
-const DoDocCountsDisplay = () => (
-<div style={{ 
-  display: 'flex', 
-  gap: '12px', 
-  alignItems: 'center'
-}}>
-  <div style={{ 
-    padding: '8px 16px', 
-    backgroundColor: '#e3f2fd', 
-    borderRadius: '8px',
-    textAlign: 'center',
-    border: '2px solid #1976d2',
-    minWidth: '80px'
-  }}>
-    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1976d2' }}>
-      {doDocCounts.totalJobs}
-    </div>
-    <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Total Jobs</div>
-  </div>
-  
-  <div style={{ 
-    padding: '8px 16px', 
-    backgroundColor: '#e8f5e8', 
-    borderRadius: '8px',
-    textAlign: 'center',
-    border: '2px solid #2e7d32',
-    minWidth: '80px'
-  }}>
-    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2e7d32' }}>
-      {doDocCounts.prepared}
-    </div>
-    <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>DO Doc Prepared</div>
-  </div>
-  
-  <div style={{ 
-    padding: '8px 16px', 
-    backgroundColor: '#ffebee', 
-    borderRadius: '8px',
-    textAlign: 'center',
-    border: '2px solid #d32f2f',
-    minWidth: '80px'
-  }}>
-    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#d32f2f' }}>
-      {doDocCounts.notPrepared}
-    </div>
-    <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>DO Doc Not Prepared</div>
-  </div>
-</div>
-
-
-);
-
-
-  const columns = [
-
-
-{
-  accessorKey: "job_no",
-  header: "Job No",
-  size: 120,
-  Cell: ({ cell }) => {
-    const {
-      job_no,
-      custom_house,
-      _id,
-      type_of_b_e,
-      consignment_type,
-      year,
-    } = cell.row.original;
-
-    const isSelected = selectedJobId === _id;
-
-    return (
-     <Link
-  to={`/edit-do-planning/${job_no}/${year}?jobId=${_id}`}
-  target="_blank"
-
-        // target="_blank" // open in new tab
-        rel="noopener noreferrer"
-        onClick={() => setSelectedJobId(_id)} // still highlight in current table
+  const DoDocCountsDisplay = () => (
+    <div
+      style={{
+        display: "flex",
+        gap: "12px",
+        alignItems: "center",
+      }}
+    >
+      <div
         style={{
-          backgroundColor: isSelected ? "#ffffcc" : "transparent",
+          padding: "8px 16px",
+          backgroundColor: "#e3f2fd",
+          borderRadius: "8px",
           textAlign: "center",
-          cursor: "pointer",
-          color: "blue",
-          display: "inline-block",
-          width: "100%",
-          padding: "5px",
-          textDecoration: "none",
+          border: "2px solid #1976d2",
+          minWidth: "80px",
         }}
       >
-        {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
-        {custom_house}
-      </Link>
-    );
-  },
-},
+        <div style={{ fontSize: "20px", fontWeight: "bold", color: "#1976d2" }}>
+          {doDocCounts.totalJobs}
+        </div>
+        <div style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+          Total Jobs
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: "8px 16px",
+          backgroundColor: "#e8f5e8",
+          borderRadius: "8px",
+          textAlign: "center",
+          border: "2px solid #2e7d32",
+          minWidth: "80px",
+        }}
+      >
+        <div style={{ fontSize: "20px", fontWeight: "bold", color: "#2e7d32" }}>
+          {doDocCounts.prepared}
+        </div>
+        <div style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+          DO Doc Prepared
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: "8px 16px",
+          backgroundColor: "#ffebee",
+          borderRadius: "8px",
+          textAlign: "center",
+          border: "2px solid #d32f2f",
+          minWidth: "80px",
+        }}
+      >
+        <div style={{ fontSize: "20px", fontWeight: "bold", color: "#d32f2f" }}>
+          {doDocCounts.notPrepared}
+        </div>
+        <div style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+          DO Doc Not Prepared
+        </div>
+      </div>
+    </div>
+  );
+
+  const columns = [
+    {
+      accessorKey: "job_no",
+      header: "Job No",
+      size: 120,
+      Cell: ({ cell }) => {
+        const {
+          job_no,
+          custom_house,
+          _id,
+          type_of_b_e,
+          consignment_type,
+          year,
+        } = cell.row.original;
+
+        const isSelected = selectedJobId === _id;
+
+        return (
+          <Link
+            to={`/edit-do-planning/${job_no}/${year}?jobId=${_id}`}
+            target="_blank"
+            // target="_blank" // open in new tab
+            rel="noopener noreferrer"
+            onClick={() => setSelectedJobId(_id)} // still highlight in current table
+            style={{
+              backgroundColor: isSelected ? "#ffffcc" : "transparent",
+              textAlign: "center",
+              cursor: "pointer",
+              color: "blue",
+              display: "inline-block",
+              width: "100%",
+              padding: "5px",
+              textDecoration: "none",
+            }}
+          >
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+            {custom_house}
+          </Link>
+        );
+      },
+    },
 
     {
       accessorKey: "importer",
@@ -474,7 +496,9 @@ const DoDocCountsDisplay = () => (
       Cell: ({ cell, row }) => {
         const importerName = cell?.getValue()?.toString();
         const _id = row.original._id;
-        const [isDoDocPrepared, setIsDoDocPrepared] = React.useState(row.original.is_do_doc_prepared || false);
+        const [isDoDocPrepared, setIsDoDocPrepared] = React.useState(
+          row.original.is_do_doc_prepared || false
+        );
 
         // Sync local state when row data changes
         React.useEffect(() => {
@@ -486,9 +510,12 @@ const DoDocCountsDisplay = () => (
 
         // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
         const doShippingLineInvoice = row.original.do_shipping_line_invoice;
-        let paymentReciptDate = '';
-        let paymentRequestDate = '';
-        if (Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0) {
+        let paymentReciptDate = "";
+        let paymentRequestDate = "";
+        if (
+          Array.isArray(doShippingLineInvoice) &&
+          doShippingLineInvoice.length > 0
+        ) {
           paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
           paymentRequestDate = doShippingLineInvoice[0].payment_request_date;
         }
@@ -496,18 +523,18 @@ const DoDocCountsDisplay = () => (
         const handleToggleDoDocPrepared = async (event) => {
           const newValue = event.target.checked;
           const previousValue = isDoDocPrepared;
-          
+
           // Update local state immediately
           setIsDoDocPrepared(newValue);
-          
+
           // Update the row data directly
           row.original.is_do_doc_prepared = newValue;
-          
+
           try {
             const now = new Date().toISOString();
             const updateData = {
               is_do_doc_prepared: newValue,
-              do_doc_prepared_date: now
+              do_doc_prepared_date: now,
             };
             const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
             const headers = {
@@ -516,11 +543,15 @@ const DoDocCountsDisplay = () => (
               username: user.username || "unknown",
               "user-role": user.role || "unknown",
             };
-            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-            
+            await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+              updateData,
+              { headers }
+            );
+
             // Update the main state
-            setRows(prevRows => 
-              prevRows.map(r => 
+            setRows((prevRows) =>
+              prevRows.map((r) =>
                 r._id === _id ? { ...r, is_do_doc_prepared: newValue } : r
               )
             );
@@ -528,11 +559,11 @@ const DoDocCountsDisplay = () => (
             // Revert the changes on error
             setIsDoDocPrepared(previousValue);
             row.original.is_do_doc_prepared = previousValue;
-            console.error('Error updating DO doc prepared status:', error);
-            
+            console.error("Error updating DO doc prepared status:", error);
+
             // Revert the state as well
-            setRows(prevRows => 
-              prevRows.map(r => 
+            setRows((prevRows) =>
+              prevRows.map((r) =>
                 r._id === _id ? { ...r, is_do_doc_prepared: previousValue } : r
               )
             );
@@ -556,44 +587,87 @@ const DoDocCountsDisplay = () => (
             {/* Show payment request info if available */}
             {paymentRequestDate && (
               <>
-                <div style={{ color: '#d32f2f', fontWeight: 500, fontSize: '12px', marginTop: 4 }}>
+                <div
+                  style={{
+                    color: "#d32f2f",
+                    fontWeight: 500,
+                    fontSize: "12px",
+                    marginTop: 4,
+                  }}
+                >
                   Payment request sent to billing team
                 </div>
-                <div style={{ color: '#0288d1', fontWeight: 500, fontSize: '12px', marginBottom: 2 }}>
-                 Payment Request Date: {new Date(paymentRequestDate).toLocaleString('en-IN', { hour12: true })}
+                <div
+                  style={{
+                    color: "#0288d1",
+                    fontWeight: 500,
+                    fontSize: "12px",
+                    marginBottom: 2,
+                  }}
+                >
+                  Payment Request Date:{" "}
+                  {new Date(paymentRequestDate).toLocaleString("en-IN", {
+                    hour12: true,
+                  })}
                 </div>
               </>
             )}
             {/* Show payment receipt links if available */}
-            {Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0 && doShippingLineInvoice.map((invoice, idx) =>
-              invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
-                <div key={idx} style={{ fontSize: '11px', color: '#388e3c', marginTop: '2px' }}>
-                  {invoice.payment_recipt.map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#388e3c', textDecoration: 'underline', marginRight: 8 }}
-                    >
-                      View Payment Receipt {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ''}
-                    </a>
-                  ))}
-                </div>
-              ) : null
-            )}
+            {Array.isArray(doShippingLineInvoice) &&
+              doShippingLineInvoice.length > 0 &&
+              doShippingLineInvoice.map((invoice, idx) =>
+                invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
+                  <div
+                    key={idx}
+                    style={{
+                      fontSize: "11px",
+                      color: "#388e3c",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {invoice.payment_recipt.map((url, i) => (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#388e3c",
+                          textDecoration: "underline",
+                          marginRight: 8,
+                        }}
+                      >
+                        View Payment Receipt{" "}
+                        {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ""}
+                      </a>
+                    ))}
+                  </div>
+                ) : null
+              )}
             {paymentReciptDate && (
-              <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
-                Payment Receipt Uploaded: {new Date(paymentReciptDate).toLocaleString('en-IN', { hour12: true })}
+              <div
+                style={{ fontSize: "11px", color: "#1976d2", marginTop: "2px" }}
+              >
+                Payment Receipt Uploaded:{" "}
+                {new Date(paymentReciptDate).toLocaleString("en-IN", {
+                  hour12: true,
+                })}
               </div>
             )}
             <br />
-            <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', marginTop: '4px' }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                fontSize: "12px",
+                marginTop: "4px",
+              }}
+            >
               <input
                 type="checkbox"
                 checked={isDoDocPrepared}
                 onChange={handleToggleDoDocPrepared}
-                style={{ marginRight: '6px' }}
+                style={{ marginRight: "6px" }}
               />
               DO Doc Prepared
             </label>
@@ -628,230 +702,278 @@ const DoDocCountsDisplay = () => (
     //   },
     // },
 
-{
-  accessorKey: "be_no_igm_details",
-  header: "Bill Of Entry & IGM Details",
-  enableSorting: false,
-  size: 300,
-  Cell: ({ cell }) => {
-    const {
-      be_no,
-      igm_date,
-      igm_no,
-      be_date,
-      gateway_igm_date,
-      gateway_igm,
-    } = cell.row.original;
+    {
+      accessorKey: "be_no_igm_details",
+      header: "Bill Of Entry & IGM Details",
+      enableSorting: false,
+      size: 300,
+      Cell: ({ cell }) => {
+        const {
+          be_no,
+          igm_date,
+          igm_no,
+          be_date,
+          gateway_igm_date,
+          gateway_igm,
+        } = cell.row.original;
 
-    return (
-      <div>
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>BE No:</strong> {be_no || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, be_no)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy BE No">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+        return (
+          <div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>BE No:</strong> {be_no || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, be_no)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy BE No">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, be_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy BE Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, be_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy BE Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, gateway_igm)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy GIGM">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, gateway_igm)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy GIGM">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, gateway_igm_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy GIGM Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, gateway_igm_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy GIGM Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, igm_no)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy IGM No">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, igm_no)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy IGM No">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, igm_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy IGM Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-      </div>
-    );
-  },
-},
-{
-  accessorKey: "awb_bl_no",
-  header: "BL Number",
-  size: 200,
-  Cell: ({ row }) => {
-    const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
-    const voyageNo = row.original.voyage_no?.toString() || "N/A";
-    const line_no = row.original.line_no || "N/A";
-    const [isOblReceived, setIsOblReceived] = React.useState(row.original.is_obl_recieved || false);
-    const _id = row.original._id;
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, igm_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy IGM Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "awb_bl_no",
+      header: "BL Number",
+      size: 200,
+      Cell: ({ row }) => {
+        const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
+        const voyageNo = row.original.voyage_no?.toString() || "N/A";
+        const line_no = row.original.line_no || "N/A";
+        const [isOblReceived, setIsOblReceived] = React.useState(
+          row.original.is_obl_recieved || false
+        );
+        const _id = row.original._id;
 
-    // Sync local state when row data changes
-    React.useEffect(() => {
-      setIsOblReceived(row.original.is_obl_recieved || false);
-    }, [row.original.is_obl_recieved]);
+        // Sync local state when row data changes
+        React.useEffect(() => {
+          setIsOblReceived(row.original.is_obl_recieved || false);
+        }, [row.original.is_obl_recieved]);
 
-    const handleToggleOBL = async (event) => {
-      const newValue = event.target.checked;
-      const previousValue = isOblReceived;
-      
-      // Update local state immediately
-      setIsOblReceived(newValue);
-      
-      // Update the row data directly
-      row.original.is_obl_recieved = newValue;
-      
-      try {
-        const now = new Date().toISOString();
-        const updateData = {
-          is_obl_recieved: newValue,
-          obl_recieved_date: now
+        const handleToggleOBL = async (event) => {
+          const newValue = event.target.checked;
+          const previousValue = isOblReceived;
+
+          // Update local state immediately
+          setIsOblReceived(newValue);
+
+          // Update the row data directly
+          row.original.is_obl_recieved = newValue;
+
+          try {
+            const now = new Date().toISOString();
+            const updateData = {
+              is_obl_recieved: newValue,
+              obl_recieved_date: now,
+            };
+            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+            const headers = {
+              "Content-Type": "application/json",
+              "user-id": user.username || "unknown",
+              username: user.username || "unknown",
+              "user-role": user.role || "unknown",
+            };
+            await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+              updateData,
+              { headers }
+            );
+            console.log("OBL status and date updated successfully");
+
+            // Update the main state
+            setRows((prevRows) =>
+              prevRows.map((r) =>
+                r._id === _id ? { ...r, is_obl_recieved: newValue } : r
+              )
+            );
+          } catch (error) {
+            console.error("Error updating OBL status:", error);
+            // Revert the changes on error
+            setIsOblReceived(previousValue);
+            row.original.is_obl_recieved = previousValue;
+
+            // Revert the state as well
+            setRows((prevRows) =>
+              prevRows.map((r) =>
+                r._id === _id ? { ...r, is_obl_recieved: previousValue } : r
+              )
+            );
+          }
         };
- const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-      const headers = {
-        "Content-Type": "application/json",
-        "user-id": user.username || "unknown",
-        username: user.username || "unknown",
-        "user-role": user.role || "unknown",
-      };
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-        console.log('OBL status and date updated successfully');
-        
-        // Update the main state
-        setRows(prevRows => 
-          prevRows.map(r => 
-            r._id === _id ? { ...r, is_obl_recieved: newValue } : r
-          )
-        );
-      } catch (error) {
-        console.error('Error updating OBL status:', error);
-        // Revert the changes on error
-        setIsOblReceived(previousValue);
-        row.original.is_obl_recieved = previousValue;
-        
-        // Revert the state as well
-        setRows(prevRows => 
-          prevRows.map(r => 
-            r._id === _id ? { ...r, is_obl_recieved: previousValue } : r
-          )
-        );
-      }
-    };
 
-    return (         
-      <React.Fragment>
-        <BLNumberCell
-          blNumber={row.original.awb_bl_no}
-          portOfReporting={row.original.port_of_reporting}
-          shippingLine={row.original.shipping_line_airline}
-          containerNos={row.original.container_nos}
-        />
-
-        <div>
-          {vesselFlight}
-          <IconButton
-            size="small"
-            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-            onClick={(event) => handleCopy(event, vesselFlight)}
-          >
-            <abbr title="Copy Vessel">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-
-        <div>
-        { `Vessel Voyage: ${voyageNo}`}
-          <IconButton
-            size="small"
-            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-            onClick={(event) => handleCopy(event, voyageNo)}
-          >
-            <abbr title="Copy Voyage Number">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-        
-        <div>
-        { `Line No: ${line_no}`}
-          <IconButton
-            size="small"
-            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-            onClick={(event) => handleCopy(event, line_no)}
-          >
-            <abbr title="Copy Line No Number">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
-            <input
-              type="checkbox"
-              checked={isOblReceived}
-              onChange={handleToggleOBL}
-              style={{ marginRight: '6px' }}
+        return (
+          <React.Fragment>
+            <BLNumberCell
+              blNumber={row.original.awb_bl_no}
+              portOfReporting={row.original.port_of_reporting}
+              shippingLine={row.original.shipping_line_airline}
+              containerNos={row.original.container_nos}
             />
-            OBL Received
-          </label>
-        </div>
-      </React.Fragment>
-    );
-  },
-},
+
+            <div>
+              {vesselFlight}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, vesselFlight)}
+              >
+                <abbr title="Copy Vessel">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+
+            <div>
+              {`Vessel Voyage: ${voyageNo}`}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, voyageNo)}
+              >
+                <abbr title="Copy Voyage Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+
+            <div>
+              {`Line No: ${line_no}`}
+              <IconButton
+                size="small"
+                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                onClick={(event) => handleCopy(event, line_no)}
+              >
+                <abbr title="Copy Line No Number">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: "12px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isOblReceived}
+                  onChange={handleToggleOBL}
+                  style={{ marginRight: "6px" }}
+                />
+                OBL Received
+              </label>
+            </div>
+          </React.Fragment>
+        );
+      },
+    },
 
     {
       accessorKey: "container_numbers",
@@ -915,13 +1037,13 @@ const DoDocCountsDisplay = () => (
     //     const handleToggleDoDoc = async (event) => {
     //       const newValue = event.target.checked;
     //       const previousValue = isDoDocRecieved;
-          
+
     //       // Update local state immediately
     //       setIsDoDocRecieved(newValue);
-          
+
     //       // Update the row data directly
     //       row.original.is_do_doc_recieved = newValue;
-          
+
     //       try {
     //         const now = new Date().toISOString();
     //         const updateData = {
@@ -936,10 +1058,10 @@ const DoDocCountsDisplay = () => (
     //     "user-role": user.role || "unknown",
     //   };
     //         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-            
+
     //         // Update the main state
-    //         setRows(prevRows => 
-    //           prevRows.map(r => 
+    //         setRows(prevRows =>
+    //           prevRows.map(r =>
     //             r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
     //           )
     //         );
@@ -948,10 +1070,10 @@ const DoDocCountsDisplay = () => (
     //         setIsDoDocRecieved(previousValue);
     //         row.original.is_do_doc_recieved = previousValue;
     //         console.error('Error updating DO doc received status:', error);
-            
+
     //         // Revert the state as well
-    //         setRows(prevRows => 
-    //           prevRows.map(r => 
+    //         setRows(prevRows =>
+    //           prevRows.map(r =>
     //             r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
     //           )
     //         );
@@ -961,13 +1083,13 @@ const DoDocCountsDisplay = () => (
     //     const handleDoListChange = async (event) => {
     //       const newValue = event.target.value;
     //       const previousValue = selectedDoList;
-          
+
     //       // Update local state immediately for UI responsiveness
     //       setSelectedDoList(newValue);
-          
+
     //       // Update the row data directly for immediate UI update
     //       row.original.do_list = newValue;
-          
+
     //       try {
     //         const updateData = {
     //           do_list: newValue
@@ -981,10 +1103,10 @@ const DoDocCountsDisplay = () => (
     //   };
     //         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
     //         console.log('DO list updated successfully');
-            
+
     //         // Force a re-render by updating the rows state
-    //         setRows(prevRows => 
-    //           prevRows.map(r => 
+    //         setRows(prevRows =>
+    //           prevRows.map(r =>
     //             r._id === _id ? { ...r, do_list: newValue } : r
     //           )
     //         );
@@ -993,10 +1115,10 @@ const DoDocCountsDisplay = () => (
     //         setSelectedDoList(previousValue);
     //         row.original.do_list = previousValue;
     //         console.error('Error updating DO list:', error);
-            
+
     //         // Revert the state as well
-    //         setRows(prevRows => 
-    //           prevRows.map(r => 
+    //         setRows(prevRows =>
+    //           prevRows.map(r =>
     //             r._id === _id ? { ...r, do_list: previousValue } : r
     //           )
     //         );
@@ -1025,7 +1147,7 @@ const DoDocCountsDisplay = () => (
     //         Do document send to shipping line
     //       </label>
     //     </div>
-        
+
     //     {/* DO List Dropdown */}
     //     <div style={{ marginTop: '8px' }}>
     //       <select
@@ -1051,95 +1173,114 @@ const DoDocCountsDisplay = () => (
     //     );
     //   },
     // },
-   {
-  accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
-  header: "Required Do Validity Upto",
-  enableSorting: false,
-  size: 200,
-  Cell: ({row}) => {
-    const displayDate = row.original.displayDate || "N/A";
-    const do_list = row.original.do_list || "N/A";
-    const typeOfDo = row.original.type_of_Do || "N/A";
-    const [isDoDocRecieved, setIsDoDocRecieved] = React.useState(row.original.is_do_doc_recieved || false);
-    const _id = row.original._id;
-
-    // Sync local state when row data changes
-    React.useEffect(() => {
-      setIsDoDocRecieved(row.original.is_do_doc_recieved || false);
-    }, [row.original.is_do_doc_recieved]);
-
-    const handleToggleDoDoc = async (event) => {
-      event.stopPropagation(); // Prevent row click event
-      const newValue = event.target.checked;
-      const previousValue = isDoDocRecieved;
-      
-      // Update local state immediately
-      setIsDoDocRecieved(newValue);
-      
-      // Update the row data directly
-      row.original.is_do_doc_recieved = newValue;
-      
-      try {
-        const now = new Date().toISOString();
-        const updateData = {
-          is_do_doc_recieved: newValue,
-          do_doc_recieved_date: now
-        };
-        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-        const headers = {
-          "Content-Type": "application/json",
-          "user-id": user.username || "unknown",
-          username: user.username || "unknown",
-          "user-role": user.role || "unknown",
-        };
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
-        
-        // Update the main state
-        setRows(prevRows => 
-          prevRows.map(r => 
-            r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
-          )
+    {
+      accessorKey: "displayDate", // Use the backend-calculated `displayDate` field
+      header: "Required Do Validity Upto",
+      enableSorting: false,
+      size: 200,
+      Cell: ({ row }) => {
+        const displayDate = row.original.displayDate || "N/A";
+        const do_list = row.original.do_list || "N/A";
+        const typeOfDo = row.original.type_of_Do || "N/A";
+        const [isDoDocRecieved, setIsDoDocRecieved] = React.useState(
+          row.original.is_do_doc_recieved || false
         );
-      } catch (error) {
-        // Revert the changes on error
-        setIsDoDocRecieved(previousValue);
-        row.original.is_do_doc_recieved = previousValue;
-        console.error('Error updating DO doc received status:', error);
-        
-        // Revert the state as well
-        setRows(prevRows => 
-          prevRows.map(r => 
-            r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
-          )
-        );
-      }
-    };
+        const _id = row.original._id;
 
-    return (
-      <div style={{
-        backgroundColor: row.original.dayDifference > 0 ? "#FFCCCC" : "#CCFFCC",
-        padding: "8px",
-        borderRadius: "4px",
-      }}>
-        <div>{displayDate}</div>
-        {row.original.dayDifference > 0 && <div>(+{row.original.dayDifference} days)</div>}
-        <div>Type Of Do: {typeOfDo}</div>
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
-            <input
-              type="checkbox"
-              checked={isDoDocRecieved}
-              onChange={handleToggleDoDoc}
-              style={{ marginRight: '6px' }}
-            />
-            Do document send to shipping line
-          </label>
-        </div>
-        <div style={{ marginTop: '5px', fontSize: '12px' }}><strong>EmptyOff LOC:</strong> {do_list}</div>
-      </div>
-    );
-  }
-},
+        // Sync local state when row data changes
+        React.useEffect(() => {
+          setIsDoDocRecieved(row.original.is_do_doc_recieved || false);
+        }, [row.original.is_do_doc_recieved]);
+
+        const handleToggleDoDoc = async (event) => {
+          event.stopPropagation(); // Prevent row click event
+          const newValue = event.target.checked;
+          const previousValue = isDoDocRecieved;
+
+          // Update local state immediately
+          setIsDoDocRecieved(newValue);
+
+          // Update the row data directly
+          row.original.is_do_doc_recieved = newValue;
+
+          try {
+            const now = new Date().toISOString();
+            const updateData = {
+              is_do_doc_recieved: newValue,
+              do_doc_recieved_date: now,
+            };
+            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+            const headers = {
+              "Content-Type": "application/json",
+              "user-id": user.username || "unknown",
+              username: user.username || "unknown",
+              "user-role": user.role || "unknown",
+            };
+            await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+              updateData,
+              { headers }
+            );
+
+            // Update the main state
+            setRows((prevRows) =>
+              prevRows.map((r) =>
+                r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
+              )
+            );
+          } catch (error) {
+            // Revert the changes on error
+            setIsDoDocRecieved(previousValue);
+            row.original.is_do_doc_recieved = previousValue;
+            console.error("Error updating DO doc received status:", error);
+
+            // Revert the state as well
+            setRows((prevRows) =>
+              prevRows.map((r) =>
+                r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
+              )
+            );
+          }
+        };
+
+        return (
+          <div
+            style={{
+              backgroundColor:
+                row.original.dayDifference > 0 ? "#FFCCCC" : "#CCFFCC",
+              padding: "8px",
+              borderRadius: "4px",
+            }}
+          >
+            <div>{displayDate}</div>
+            {row.original.dayDifference > 0 && (
+              <div>(+{row.original.dayDifference} days)</div>
+            )}
+            <div>Type Of Do: {typeOfDo}</div>
+            <div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: "12px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isDoDocRecieved}
+                  onChange={handleToggleDoDoc}
+                  style={{ marginRight: "6px" }}
+                />
+                Do document send to shipping line
+              </label>
+            </div>
+            <div style={{ marginTop: "5px", fontSize: "12px" }}>
+              <strong>EmptyOff LOC:</strong> {do_list}
+            </div>
+          </div>
+        );
+      },
+    },
     {
       accessorKey: "do_revalidation_upto",
       header: "DO Revalidation Upto",
@@ -1228,11 +1369,8 @@ const DoDocCountsDisplay = () => (
       enableSorting: false,
       size: 150,
       Cell: ({ cell }) => {
-        const {
-          processed_be_attachment,
-          cth_documents,
-          checklist,
-        } = cell.row.original;
+        const { processed_be_attachment, cth_documents, checklist } =
+          cell.row.original;
 
         // Helper function to safely get the first link if it's an array or a string
         const getFirstLink = (input) => {
@@ -1308,7 +1446,8 @@ const DoDocCountsDisplay = () => (
                   (doc) =>
                     doc.url &&
                     doc.url.length > 0 &&
-                    (doc.document_name === "Pre-Shipment Inspection Certificate" ||
+                    (doc.document_name ===
+                      "Pre-Shipment Inspection Certificate" ||
                       doc.document_name === "Bill of Lading")
                 )
                 .map((doc) => (
@@ -1330,8 +1469,7 @@ const DoDocCountsDisplay = () => (
             ) : (
               <span style={{ color: "gray" }}>
                 {" "}
-                No Pre-Shipment Inspection Certificate{" "}
-                <br />
+                No Pre-Shipment Inspection Certificate <br />
                 No Bill of Lading{" "}
               </span>
             )}
@@ -1399,14 +1537,15 @@ const DoDocCountsDisplay = () => (
         }}
       >
         {/* First Row - Header and Counts */}
-        <div style={{ 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "space-between",
-          borderBottom: "1px solid #e0e0e0",
-          paddingBottom: "12px"
-        }}>
-          
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #e0e0e0",
+            paddingBottom: "12px",
+          }}
+        >
           <DoDocCountsDisplay />
         </div>
 
@@ -1419,8 +1558,6 @@ const DoDocCountsDisplay = () => (
             alignItems: "end",
           }}
         >
-
-
           {/* Importer Filter */}
           <Autocomplete
             size="small"
@@ -1433,10 +1570,10 @@ const DoDocCountsDisplay = () => (
                 variant="outlined"
                 label="Select Importer"
                 fullWidth
-                sx={{ 
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: 'white',
-                  }
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
                 }}
               />
             )}
@@ -1450,10 +1587,10 @@ const DoDocCountsDisplay = () => (
             onChange={(e) => setSelectedYearState(e.target.value)}
             label="Financial Year"
             fullWidth
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white',
-              }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
             }}
           >
             {years.map((year, index) => (
@@ -1475,10 +1612,10 @@ const DoDocCountsDisplay = () => (
               setCurrentPage(1);
             }}
             fullWidth
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white',
-              }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
             }}
           >
             <MenuItem value="">All ICDs</MenuItem>
@@ -1496,41 +1633,41 @@ const DoDocCountsDisplay = () => (
             value={selectedStatusFilter}
             onChange={handleStatusFilterChange}
             fullWidth
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white',
-              }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
             }}
           >
             {statusFilterOptions.map((option, index) => (
-              <MenuItem 
-                key={`status-${option.value}-${index}`} 
+              <MenuItem
+                key={`status-${option.value}-${index}`}
                 value={option.value}
                 sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  paddingRight: '16px'
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingRight: "16px",
                 }}
               >
                 <span>{option.label}</span>
-               <div
+                <div
                   style={{
                     // backgroundColor: ' #ec7a80ff',
-                    color: '#000000ff',
-                    borderRadius: '100px',
-                    minWidth: '24px',
-                    height: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '10px',
-                    fontWeight: '600',
-                    marginLeft: 'auto',
-                    border: '2px solid #e41515ff',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    letterSpacing: '0.5px',
-                    transition: 'all 0.2s ease'
+                    color: "#000000ff",
+                    borderRadius: "100px",
+                    minWidth: "24px",
+                    height: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "10px",
+                    fontWeight: "600",
+                    marginLeft: "auto",
+                    border: "2px solid #e41515ff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    letterSpacing: "0.5px",
+                    transition: "all 0.2s ease",
                   }}
                 >
                   {option.count}
@@ -1539,7 +1676,7 @@ const DoDocCountsDisplay = () => (
             ))}
           </TextField>
 
-                    {/* Search Field - Takes more space */}
+          {/* Search Field - Takes more space */}
           <div style={{ gridColumn: "span 2", minWidth: "300px" }}>
             <TextField
               placeholder="Search by Job No, Importer, AWB/BL Number..."
@@ -1564,60 +1701,62 @@ const DoDocCountsDisplay = () => (
                   </InputAdornment>
                 ),
               }}
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'white',
-                }
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
+                },
               }}
             />
           </div>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <Box sx={{ position: 'relative' }}>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                        sx={{
-                           borderRadius: 3,
-                        textTransform: 'none',
-                        fontWeight: 500,
-                        fontSize: '0.875rem',
-                        padding: '8px 20px',
-                        background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                          boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                          transform: 'translateY(-1px)',
-                        },
-                        '&:active': {
-                          transform: 'translateY(0px)',
-                        },
-                        }}
-                      >
-                        {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                      </Button>
-                      <Badge 
-                        badgeContent={unresolvedCount} 
-                        color="error" 
-                        overlap="circular" 
-                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                        sx={{ 
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          '& .MuiBadge-badge': {
-                            fontSize: '0.75rem',
-                            minWidth: '18px',
-                            height: '18px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                          }
-                        }}
-                      />
-                    </Box>
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                  background:
+                    "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                    boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                    transform: "translateY(-1px)",
+                  },
+                  "&:active": {
+                    transform: "translateY(0px)",
+                  },
+                }}
+              >
+                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              </Button>
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
           </Box>
         </div>
       </div>
@@ -1636,9 +1775,8 @@ const DoDocCountsDisplay = () => (
   return (
     <div style={{ height: "80%" }}>
       {/* Search Input */}
-
       {/* Table */}
-      <MaterialReactTable table={table} />      {/* Pagination */}
+      <MaterialReactTable table={table} /> {/* Pagination */}
       <Pagination
         count={totalPages}
         page={currentPage}

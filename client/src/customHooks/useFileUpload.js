@@ -27,7 +27,7 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // Get all data including headers for validation
       const allData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
-      
+
       // Check if second row exists
       if (allData.length < 2) {
         setError("Invalid Excel format: File must contain at least 2 rows");
@@ -38,8 +38,10 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // Check for AHMEDABAD in the second row
       const secondRow = allData[1];
-      const containsAhmedabad = secondRow.some(cell => 
-        String(cell || '').toUpperCase().includes("AHMEDABAD")
+      const containsAhmedabad = secondRow.some((cell) =>
+        String(cell || "")
+          .toUpperCase()
+          .includes("AHMEDABAD")
       );
 
       if (!containsAhmedabad) {
@@ -51,7 +53,6 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       // If validation passes, continue with existing processing
       handleFileRead(event);
-      
     } catch (err) {
       console.error("Error validating file:", err);
       setError("Error processing file. Please check the format.");
@@ -265,15 +266,16 @@ function useFileUpload(inputRef, alt, setAlt) {
 
       const existingVesselBerthing =
         lastJobsDateRes.data?.vessel_berthing || "";
-        
-      const existingGatewayIGM =
-        lastJobsDateRes.data?.gateway_igm_date || "";
+
+      const existingGatewayIGM = lastJobsDateRes.data?.gateway_igm_date || "";
 
       // Modify the data before sending it to the backend
       const finalData = modifiedData.map((item) => {
         if (
-          item.vessel_berthing && item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
-          ((!existingVesselBerthing || existingVesselBerthing.trim() === "") && (!existingGatewayIGM || existingGatewayIGM.trim() === "")) // And the existing value is empty or null
+          item.vessel_berthing &&
+          item.gateway_igm_date && // If Excel sheet has a vessel_berthing date
+          (!existingVesselBerthing || existingVesselBerthing.trim() === "") &&
+          (!existingGatewayIGM || existingGatewayIGM.trim() === "") // And the existing value is empty or null
         ) {
           return item; // Use the Excel sheet's vessel_berthing date
         } else {
@@ -286,10 +288,10 @@ function useFileUpload(inputRef, alt, setAlt) {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
       // First, upload the data

@@ -78,15 +78,19 @@ const BENumberCell = ({ cell, onDocumentsUpdated, copyFn }) => {
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json',
-        'user-id': user.username || 'unknown',
-        'username': user.username || 'unknown',
-        'user-role': user.role || 'unknown'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
-        [fieldName]: updatedFiles,
-      }, { headers });
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${rowId}`,
+        {
+          [fieldName]: updatedFiles,
+        },
+        { headers }
+      );
 
       // Call parent component's update function if available
       if (onDocumentsUpdated) {

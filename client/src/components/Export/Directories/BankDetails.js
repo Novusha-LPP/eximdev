@@ -1,15 +1,28 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Badge, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Badge,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const BankDetailsService = {
   baseURL: `${process.env.REACT_APP_API_STRING}/bankDetails`,
-  
+
   getAll: async (params = {}) => {
     try {
-      const response = await axios.get(`${BankDetailsService.baseURL}/`, { params });
+      const response = await axios.get(`${BankDetailsService.baseURL}/`, {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -36,7 +49,10 @@ const BankDetailsService = {
 
   update: async (id, data) => {
     try {
-      const response = await axios.put(`${BankDetailsService.baseURL}/${id}`, data);
+      const response = await axios.put(
+        `${BankDetailsService.baseURL}/${id}`,
+        data
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -45,7 +61,9 @@ const BankDetailsService = {
 
   delete: async (id) => {
     try {
-      const response = await axios.delete(`${BankDetailsService.baseURL}/${id}`);
+      const response = await axios.delete(
+        `${BankDetailsService.baseURL}/${id}`
+      );
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -54,24 +72,26 @@ const BankDetailsService = {
 
   bulkDelete: async (ids) => {
     try {
-      const response = await axios.delete(`${BankDetailsService.baseURL}/`, { data: { ids } });
+      const response = await axios.delete(`${BankDetailsService.baseURL}/`, {
+        data: { ids },
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // Form Component
 const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    bankName: '',
-    branch: '',
-    accountNumber: '',
-    ifscCode: '',
-    swiftCode: '',
-    bankAddress: '',
-    status: 'Active'
+    bankName: "",
+    branch: "",
+    accountNumber: "",
+    ifscCode: "",
+    swiftCode: "",
+    bankAddress: "",
+    status: "Active",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -81,56 +101,59 @@ const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
       setFormData(bankDetails);
     } else {
       setFormData({
-        bankName: '',
-        branch: '',
-        accountNumber: '',
-        ifscCode: '',
-        swiftCode: '',
-        bankAddress: '',
-        status: 'Active'
+        bankName: "",
+        branch: "",
+        accountNumber: "",
+        ifscCode: "",
+        swiftCode: "",
+        bankAddress: "",
+        status: "Active",
       });
     }
   }, [bankDetails]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.bankName?.trim()) {
-      newErrors.bankName = 'Bank Name is required';
+      newErrors.bankName = "Bank Name is required";
     }
-    
+
     if (!formData.branch?.trim()) {
-      newErrors.branch = 'Branch is required';
+      newErrors.branch = "Branch is required";
     }
-    
+
     if (!formData.accountNumber?.trim()) {
-      newErrors.accountNumber = 'Account Number is required';
+      newErrors.accountNumber = "Account Number is required";
     } else if (!/^\d{9,18}$/.test(formData.accountNumber)) {
-      newErrors.accountNumber = 'Account Number must be 9-18 digits';
+      newErrors.accountNumber = "Account Number must be 9-18 digits";
     }
-    
+
     if (!formData.ifscCode?.trim()) {
-      newErrors.ifscCode = 'IFSC Code is required';
+      newErrors.ifscCode = "IFSC Code is required";
     } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode)) {
-      newErrors.ifscCode = 'Invalid IFSC Code format (e.g., SBIN0001234)';
+      newErrors.ifscCode = "Invalid IFSC Code format (e.g., SBIN0001234)";
     }
-    
-    if (formData.swiftCode && !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(formData.swiftCode)) {
-      newErrors.swiftCode = 'Invalid SWIFT Code format (8 or 11 characters)';
+
+    if (
+      formData.swiftCode &&
+      !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(formData.swiftCode)
+    ) {
+      newErrors.swiftCode = "Invalid SWIFT Code format (8 or 11 characters)";
     }
-    
+
     if (!formData.bankAddress?.trim()) {
-      newErrors.bankAddress = 'Bank Address is required';
+      newErrors.bankAddress = "Bank Address is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -148,7 +171,7 @@ const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving bank details');
+      alert(error.message || "Error saving bank details");
     } finally {
       setLoading(false);
     }
@@ -157,7 +180,7 @@ const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{bankDetails ? 'Edit Bank Details' : 'Add New Bank Details'}</h5>
+        <h5>{bankDetails ? "Edit Bank Details" : "Add New Bank Details"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -224,7 +247,7 @@ const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
                   onChange={handleChange}
                   isInvalid={!!errors.ifscCode}
                   placeholder="e.g., SBIN0001234"
-                  style={{ textTransform: 'uppercase' }}
+                  style={{ textTransform: "uppercase" }}
                   maxLength={11}
                 />
                 <Form.Control.Feedback type="invalid">
@@ -245,7 +268,7 @@ const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
                   onChange={handleChange}
                   isInvalid={!!errors.swiftCode}
                   placeholder="e.g., SBININBB123"
-                  style={{ textTransform: 'uppercase' }}
+                  style={{ textTransform: "uppercase" }}
                   maxLength={11}
                 />
                 <Form.Control.Feedback type="invalid">
@@ -293,7 +316,7 @@ const BankDetailsForm = ({ bankDetails, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -309,9 +332,9 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
   const [pagination, setPagination] = useState({});
   const [filters, setFilters] = useState({
     page: 1,
-    search: '',
-    bankName: '',
-    status: ''
+    search: "",
+    bankName: "",
+    status: "",
   });
 
   useEffect(() => {
@@ -325,7 +348,7 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
       setBankDetails(response.data);
       setPagination(response.pagination);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
       setBankDetails([]);
     } finally {
       setLoading(false);
@@ -333,16 +356,16 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const formatAccountNumber = (accountNumber) => {
-    if (!accountNumber) return '-';
+    if (!accountNumber) return "-";
     // Show first 4 and last 4 digits, mask middle with asterisks
     if (accountNumber.length <= 8) return accountNumber;
     const first4 = accountNumber.substring(0, 4);
     const last4 = accountNumber.substring(accountNumber.length - 4);
-    const masked = '*'.repeat(accountNumber.length - 8);
+    const masked = "*".repeat(accountNumber.length - 8);
     return `${first4}${masked}${last4}`;
   };
 
@@ -363,7 +386,7 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by bank name, branch, IFSC..."
             value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
         <Col md={4}>
@@ -371,13 +394,13 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Filter by bank name"
             value={filters.bankName}
-            onChange={(e) => handleFilterChange('bankName', e.target.value)}
+            onChange={(e) => handleFilterChange("bankName", e.target.value)}
           />
         </Col>
         <Col md={4}>
           <Form.Select
             value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
+            onChange={(e) => handleFilterChange("status", e.target.value)}
           >
             <option value="">All Status</option>
             <option value="Active">Active</option>
@@ -405,7 +428,9 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
           <tbody>
             {bankDetails.map((item) => (
               <tr key={item._id}>
-                <td><strong>{item.bankName}</strong></td>
+                <td>
+                  <strong>{item.bankName}</strong>
+                </td>
                 <td>{item.branch}</td>
                 <td>
                   <span className="font-monospace">
@@ -419,24 +444,28 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
                 </td>
                 <td>
                   <span className="font-monospace">
-                    {item.swiftCode || '-'}
+                    {item.swiftCode || "-"}
                   </span>
                 </td>
                 <td>
-                  <div style={{ maxWidth: '200px' }}>
+                  <div style={{ maxWidth: "200px" }}>
                     <small className="text-muted">
-                      {item.bankAddress.length > 50 
-                        ? `${item.bankAddress.substring(0, 50)}...` 
-                        : item.bankAddress
-                      }
+                      {item.bankAddress.length > 50
+                        ? `${item.bankAddress.substring(0, 50)}...`
+                        : item.bankAddress}
                     </small>
                   </div>
                 </td>
                 <td>
-                  <Badge bg={
-                    item.status === 'Active' ? 'success' : 
-                    item.status === 'Closed' ? 'danger' : 'secondary'
-                  }>
+                  <Badge
+                    bg={
+                      item.status === "Active"
+                        ? "success"
+                        : item.status === "Closed"
+                        ? "danger"
+                        : "secondary"
+                    }
+                  >
                     {item.status}
                   </Badge>
                 </td>
@@ -473,29 +502,50 @@ const BankDetailsList = ({ onEdit, onDelete, refresh }) => {
       {pagination.totalPages > 1 && (
         <nav>
           <ul className="pagination justify-content-center">
-            <li className={`page-item ${pagination.currentPage === 1 ? 'disabled' : ''}`}>
+            <li
+              className={`page-item ${
+                pagination.currentPage === 1 ? "disabled" : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage - 1)
+                }
                 disabled={pagination.currentPage === 1}
               >
                 Previous
               </button>
             </li>
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-              <li key={page} className={`page-item ${pagination.currentPage === page ? 'active' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => handleFilterChange('page', page)}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <li
+                  key={page}
+                  className={`page-item ${
+                    pagination.currentPage === page ? "active" : ""
+                  }`}
                 >
-                  {page}
-                </button>
-              </li>
-            ))}
-            <li className={`page-item ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handleFilterChange("page", page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              )
+            )}
+            <li
+              className={`page-item ${
+                pagination.currentPage === pagination.totalPages
+                  ? "disabled"
+                  : ""
+              }`}
+            >
               <button
                 className="page-link"
-                onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
+                onClick={() =>
+                  handleFilterChange("page", pagination.currentPage + 1)
+                }
                 disabled={pagination.currentPage === pagination.totalPages}
               >
                 Next
@@ -515,7 +565,7 @@ const BankDetails = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -530,32 +580,37 @@ const BankDetails = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this bank details?')) {
-          await BankDetailsService.delete(ids[0]);
-          showAlert('Bank details deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (
+            window.confirm("Are you sure you want to delete this bank details?")
+          ) {
+            await BankDetailsService.delete(ids[0]);
+            showAlert("Bank details deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
+        } else {
+          await BankDetailsService.bulkDelete(ids);
+          showAlert(`${ids.length} bank details deleted successfully`);
+          setRefresh((prev) => prev + 1);
         }
-      } else {
-        await BankDetailsService.bulkDelete(ids);
-        showAlert(`${ids.length} bank details deleted successfully`);
-        setRefresh(prev => prev + 1);
+      } catch (error) {
+        showAlert(error.message || "Error deleting bank details", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting bank details', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingBankDetails(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingBankDetails 
-        ? 'Bank details updated successfully' 
-        : 'Bank details created successfully'
+      editingBankDetails
+        ? "Bank details updated successfully"
+        : "Bank details created successfully"
     );
   }, [editingBankDetails, showAlert]);
 
@@ -569,9 +624,9 @@ const BankDetails = () => {
       <Row>
         <Col>
           {alert && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
+            <Alert
+              variant={alert.type}
+              dismissible
               onClose={() => setAlert(null)}
               className="mb-4"
             >

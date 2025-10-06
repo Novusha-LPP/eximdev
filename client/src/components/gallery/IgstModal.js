@@ -355,8 +355,9 @@ const IgstModal = ({
       parseFloat(igstValues.sws_ammount || 0) +
       parseFloat(igstValues.intrest_ammount || 0) +
       parseFloat(igstValues.penalty_amount || 0) + // Manually entered penalty
-      parseFloat(igstValues.fine_amount || 0)      // Auto-calculated fine
-    ).toFixed(2);
+      parseFloat(igstValues.fine_amount || 0)
+    ) // Auto-calculated fine
+      .toFixed(2);
 
     const updateData = {
       assessable_ammount: igstValues.assessable_ammount,
@@ -365,17 +366,17 @@ const IgstModal = ({
       sws_ammount: igstValues.sws_ammount,
       intrest_ammount: igstValues.intrest_ammount,
       penalty_amount: igstValues.penalty_amount, // Manually entered
-      fine_amount: igstValues.fine_amount,       // Auto-calculated
+      fine_amount: igstValues.fine_amount, // Auto-calculated
       total_duty: totalDuty,
       igst_rate: igstValues.igstRate,
       penalty_by_us: igstValues.penalty_by_us,
       penalty_by_importer: igstValues.penalty_by_importer,
-      zero_penalty_as_per_bill_of_entry: igstValues.zero_penalty_as_per_bill_of_entry,
+      zero_penalty_as_per_bill_of_entry:
+        igstValues.zero_penalty_as_per_bill_of_entry,
     };
 
     onSubmit(updateData);
   };
-
 
   return (
     <Dialog

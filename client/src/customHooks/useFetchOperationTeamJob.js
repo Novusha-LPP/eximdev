@@ -11,24 +11,25 @@ function useFetchOperationTeamJob(params) {
   const location = useLocation();
   const { setCurrentTab, currentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
-  
+
   // Store search parameters from location state
   const [storedSearchParams, setStoredSearchParams] = useState(null);
-  
+
   useEffect(() => {
     if (location.state) {
-      const { 
-        searchQuery, 
-        selectedImporter, 
-        selectedJobId, 
-        currentTab, 
-        selectedICD, 
-        selectedYearState,        detailedStatusExPlan,
+      const {
+        searchQuery,
+        selectedImporter,
+        selectedJobId,
+        currentTab,
+        selectedICD,
+        selectedYearState,
+        detailedStatusExPlan,
         currentPage,
-        tab_number
+        tab_number,
       } = location.state;
-      
-       setStoredSearchParams({
+
+      setStoredSearchParams({
         searchQuery,
         selectedImporter,
         selectedJobId,
@@ -71,43 +72,41 @@ function useFetchOperationTeamJob(params) {
       out_of_charge: "",
       custodian_gate_pass: [],
       concor_invoice_and_receipt_copy: [],
-                  dsr_queries: [],
+      dsr_queries: [],
     },
 
     onSubmit: async (values) => {
       try {
         // Get user info from context or localStorage fallback
-        const username = user?.username || localStorage.getItem('username') || 'unknown';
-        const userId = user?._id || localStorage.getItem('userId') || 'unknown';
-        const userRole = user?.role || localStorage.getItem('userRole') || 'unknown';
-        
-        
+        const username =
+          user?.username || localStorage.getItem("username") || "unknown";
+        const userId = user?._id || localStorage.getItem("userId") || "unknown";
+        const userRole =
+          user?.role || localStorage.getItem("userRole") || "unknown";
+
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-operations-job/${params.year}/${params.job_no}`,
           values,
           {
             headers: {
-              'username': username,
-              'user-id': userId,
-              'user-role': userRole
-            }
+              username: username,
+              "user-id": userId,
+              "user-role": userRole,
+            },
           }
         );
-        
-        
+
         // Determine which tab to navigate to
-        const tabIndex = storedSearchParams?.currentTab ?? 2  ;
-        
+        const tabIndex = storedSearchParams?.currentTab ?? 2;
+
         // Set the current tab in context
         setCurrentTab(tabIndex);
-        
+
         // Navigate back with all the stored search parameters
-            // Close the tab after successful submit
+        // Close the tab after successful submit
         setTimeout(() => {
           window.close();
         }, 500);
-
-        
       } catch (error) {
         console.error("Error updating job:", error);
       }
@@ -132,7 +131,8 @@ function useFetchOperationTeamJob(params) {
         weight_shortage: container.weight_shortage || "",
         weight_excess: container.weight_excess || "",
         weighment_slip_images: container.weighment_slip_images || [],
-        container_pre_damage_images: container.container_pre_damage_images || [],
+        container_pre_damage_images:
+          container.container_pre_damage_images || [],
         container_images: container.container_images || [],
         loose_material: container.loose_material || [],
         examination_videos: container.examination_videos || [],
@@ -143,13 +143,15 @@ function useFetchOperationTeamJob(params) {
         driver_phone: container.driver_phone || "",
         seal_no: container.seal_no || "",
         do_revalidation_date: container.do_revalidation_date || "",
-        do_validity_upto_container_level: container.do_validity_upto_container_level || "",
+        do_validity_upto_container_level:
+          container.do_validity_upto_container_level || "",
         required_do_validity_upto: container.required_do_validity_upto || "",
         seal_number: container.seal_number || "",
         container_rail_out_date: container.container_rail_out_date || "",
         by_road_movement_date: container.by_road_movement_date || "",
         emptyContainerOffLoadDate: container.emptyContainerOffLoadDate || "",
-        net_weight_as_per_PL_document: container.net_weight_as_per_PL_document || "",
+        net_weight_as_per_PL_document:
+          container.net_weight_as_per_PL_document || "",
         delivery_chalan_file: container.delivery_chalan_file || "",
         delivery_date: container.delivery_date || "",
         do_revalidation: container.do_revalidation || [],
@@ -165,14 +167,14 @@ function useFetchOperationTeamJob(params) {
         completed_operation_date: data.completed_operation_date || "",
         out_of_charge: data.out_of_charge || "",
         custodian_gate_pass: data.custodian_gate_pass || [],
-         dsr_queries: data.dsr_queries || [],
+        dsr_queries: data.dsr_queries || [],
         concor_invoice_and_receipt_copy:
           data.concor_invoice_and_receipt_copy || [],
       });
     }
   }, [data]); // When data changes, formik values are updated
 
-  return { data, formik, setData};
+  return { data, formik, setData };
 }
 
 export default useFetchOperationTeamJob;

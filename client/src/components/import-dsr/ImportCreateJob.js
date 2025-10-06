@@ -141,10 +141,18 @@ const ImportCreateJob = () => {
     setHSS,
     setSallerName,
     setBankName,
-    bankName
+    bankName,
   } = useImportJobForm();
 
-  const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
+  const schemeOptions = [
+    "Full Duty",
+    "DEEC",
+    "EPCG",
+    "RODTEP",
+    "ROSTL",
+    "TQ",
+    "SIL",
+  ];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
@@ -339,17 +347,17 @@ const ImportCreateJob = () => {
         <Grid item xs={12} md={6}></Grid>
 
         <Grid item xs={12} md={6}>
-    <Typography variant="body1" style={{ fontWeight: 600 }}>
-      Bank Name:
-    </Typography>
-    <TextField
-      value={bankName}
-      onChange={(e) => setBankName(e.target.value)}
-      variant="outlined"
-      size="small"
-      fullWidth
-    />
-  </Grid>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Bank Name:
+          </Typography>
+          <TextField
+            value={bankName}
+            onChange={(e) => setBankName(e.target.value)}
+            variant="outlined"
+            size="small"
+            fullWidth
+          />
+        </Grid>
         {/* <Grid item xs={12} md={4}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
            bank:
@@ -469,58 +477,57 @@ const ImportCreateJob = () => {
         </Grid>
         {/* BL Number */}
 
-{/* FCL/LCL Selector */}
-<Grid item xs={12} md={6}>
-  <Typography variant="body1" style={{ fontWeight: 600 }}>
-     House:
-  </Typography>
-  <FormControlLabel
-    control={
-      <Checkbox
-        checked={isCheckedHouse}
-        onChange={(e) => setIsCheckedHouse(e.target.checked)}
-        color="primary"
-      />
-    }
-    label="House"
-  />
-</Grid>
+        {/* FCL/LCL Selector */}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            House:
+          </Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isCheckedHouse}
+                onChange={(e) => setIsCheckedHouse(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="House"
+          />
+        </Grid>
 
-{/* Conditionally render HAWB/HBL fields when checkbox is true */}
-{isCheckedHouse && (
-  <>
-    <Grid item xs={12} md={6}>
-      <Typography variant="body1" style={{ fontWeight: 600 }}>
-        HAWB/HBL No:
-      </Typography>
-      <TextField
-        value={hawb_hbl_no}
-        onChange={(e) => setHawb_hbl_no(e.target.value)}
-        variant="outlined"
-        size="small"
-        fullWidth
-        placeholder="Enter HAWB/HBL Number"
-      />
-    </Grid>
+        {/* Conditionally render HAWB/HBL fields when checkbox is true */}
+        {isCheckedHouse && (
+          <>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body1" style={{ fontWeight: 600 }}>
+                HAWB/HBL No:
+              </Typography>
+              <TextField
+                value={hawb_hbl_no}
+                onChange={(e) => setHawb_hbl_no(e.target.value)}
+                variant="outlined"
+                size="small"
+                fullWidth
+                placeholder="Enter HAWB/HBL Number"
+              />
+            </Grid>
 
-    <Grid item xs={12} md={6}>
-      <Typography variant="body1" style={{ fontWeight: 600 }}>
-        HAWB/HBL Date:
-      </Typography>
-      <TextField
-        type="date"
-        value={hawb_hbl_date}
-        onChange={(e) => setHawb_hbl_date(e.target.value)}
-        variant="outlined"
-        size="small"
-        fullWidth
-        InputLabelProps={{ shrink: true }}
-      />
-    </Grid>
-  </>
-)}
+            <Grid item xs={12} md={6}>
+              <Typography variant="body1" style={{ fontWeight: 600 }}>
+                HAWB/HBL Date:
+              </Typography>
+              <TextField
+                type="date"
+                value={hawb_hbl_date}
+                onChange={(e) => setHawb_hbl_date(e.target.value)}
+                variant="outlined"
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </>
+        )}
 
-            
         <Grid item xs={12} md={6}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Gross Weight:
@@ -714,28 +721,27 @@ const ImportCreateJob = () => {
 
         {/* HSS */}
         <Grid item xs={12} md={6}>
-  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-    HSS:
-  </Typography>
-  <TextField
-    select // This is the key missing part!
-    variant="outlined"
-    size="small"
-    value={HSS}
-    id="hss"
-    name="hss"
-    onChange={(e) => setHSS(e.target.value)}
-    helperText="Start typing to see suggestions"
-    fullWidth
-  >
-    {hssOptions.map((option) => (
-      <MenuItem key={option} value={option}>
-        {option}
-      </MenuItem>
-    ))}
-  </TextField>
-</Grid>
-
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            HSS:
+          </Typography>
+          <TextField
+            select // This is the key missing part!
+            variant="outlined"
+            size="small"
+            value={HSS}
+            id="hss"
+            name="hss"
+            onChange={(e) => setHSS(e.target.value)}
+            helperText="Start typing to see suggestions"
+            fullWidth
+          >
+            {hssOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
 
         {/* conditionallyy render this saller name */}
 

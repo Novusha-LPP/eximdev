@@ -1,4 +1,10 @@
-import React, { useContext, useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
@@ -33,9 +39,12 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 // Memoized search input to prevent unnecessary re-renders
 const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs }) => {
-  const handleSearchChange = useCallback((e) => {
-    setSearchQuery(e.target.value);
-  }, [setSearchQuery]);
+  const handleSearchChange = useCallback(
+    (e) => {
+      setSearchQuery(e.target.value);
+    },
+    [setSearchQuery]
+  );
 
   const handleSearchClick = useCallback(() => {
     fetchJobs(1);
@@ -62,8 +71,7 @@ const SearchInput = React.memo(({ searchQuery, setSearchQuery, fetchJobs }) => {
   );
 });
 
-SearchInput.displayName = 'SearchInput';
-
+SearchInput.displayName = "SearchInput";
 
 function JobList(props) {
   const showUnresolvedOnly = props.showUnresolvedOnly;
@@ -71,13 +79,19 @@ function JobList(props) {
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  
-  const { 
-    searchQuery, setSearchQuery,
-    detailedStatus, setDetailedStatus,
-    selectedICD, setSelectedICD,
-    selectedImporter, setSelectedImporter  } = useSearchQuery();
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);  const [importers, setImporters] = useState("");
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    detailedStatus,
+    setDetailedStatus,
+    selectedICD,
+    setSelectedICD,
+    selectedImporter,
+    setSelectedImporter,
+  } = useSearchQuery();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const [importers, setImporters] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger state
 
   const [open, setOpen] = useState(false);
@@ -133,35 +147,47 @@ function JobList(props) {
   //   }
   // }, [importerNames]);
 
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows } =
-    useFetchJobList(
-      detailedStatus,
-      selectedYearState,
-      props.status,
-      selectedICD,
-      debouncedSearchQuery,
-      selectedImporter,
-      showUnresolvedOnly // Use prop from JobTabs
-    );  // Callback to update row data when data changes in EditableDateCell
-  const handleRowDataUpdate = useCallback((jobId, updatedData) => {
-    setRows(prevRows => 
-      prevRows.map(row => 
-        row._id === jobId 
-          ? { ...row, ...updatedData }
-          : row
-      )
-    );
-    // Also increment refreshTrigger to force getRowProps to recalculate
-    setRefreshTrigger(prev => prev + 1);
-  }, [setRows]);
+  const {
+    rows,
+    total,
+    totalPages,
+    currentPage,
+    handlePageChange,
+    fetchJobs,
+    setRows,
+  } = useFetchJobList(
+    detailedStatus,
+    selectedYearState,
+    props.status,
+    selectedICD,
+    debouncedSearchQuery,
+    selectedImporter,
+    showUnresolvedOnly // Use prop from JobTabs
+  ); // Callback to update row data when data changes in EditableDateCell
+  const handleRowDataUpdate = useCallback(
+    (jobId, updatedData) => {
+      setRows((prevRows) =>
+        prevRows.map((row) =>
+          row._id === jobId ? { ...row, ...updatedData } : row
+        )
+      );
+      // Also increment refreshTrigger to force getRowProps to recalculate
+      setRefreshTrigger((prev) => prev + 1);
+    },
+    [setRows]
+  );
 
   // Determine current tab index based on status
   const getCurrentTabIndex = () => {
     switch (props.status) {
-      case "Pending": return 0;
-      case "Completed": return 1;
-      case "Cancelled": return 2;
-      default: return 0;
+      case "Pending":
+        return 0;
+      case "Completed":
+        return 1;
+      case "Cancelled":
+        return 2;
+      default:
+        return 0;
     }
   };
 
@@ -213,7 +239,8 @@ function JobList(props) {
       }
     }
     getYears();
-  }, [selectedYearState, setSelectedYearState]);  useEffect(() => {
+  }, [selectedYearState, setSelectedYearState]);
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 300); // Reduced from 500ms to 300ms for more responsive search
@@ -221,51 +248,55 @@ function JobList(props) {
   }, [searchQuery]);
   // Memoize the data transformation to prevent expensive re-calculations on every render
   const tableData = useMemo(() => {
-    return rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` }));
-  }, [rows]);  // Memoize the row props function to prevent re-creation on every render
+    return rows.map((row, index) => ({
+      ...row,
+      id: row._id || `row-${index}`,
+    }));
+  }, [rows]); // Memoize the row props function to prevent re-creation on every render
   const getRowProps = useMemo(
-    () => ({ row }) => ({
-      className: getTableRowsClassname(row),
-      sx: { textAlign: "center" },
-    }),
+    () =>
+      ({ row }) => ({
+        className: getTableRowsClassname(row),
+        sx: { textAlign: "center" },
+      }),
     [rows, refreshTrigger] // Add refreshTrigger as dependency to force re-calculation
-  );  // Add unresolved queries filter state
+  ); // Add unresolved queries filter state
   // Helper to check if a job has any unresolved queries
-const hasUnresolvedQuery = (job) => {
-  const queryKeys = [
-    "do_queries",
-    "documentationQueries",
-    "eSachitQueries", 
-    "submissionQueries",
-  ];
-  
-  return queryKeys.some((key) => {
-    const queries = job[key];
-    
-    if (!Array.isArray(queries) || queries.length === 0) {
-      return false;
-    }
-    
-    return queries.some((query) => {
-      // A query is considered unresolved if:
-      // 1. resolved is not explicitly true, OR
-      // 2. resolved is true but there's no meaningful reply (if reply is required)
-      
-      // If you want to require both resolved=true AND a non-empty reply:
-      // return !(query.resolved === true && query.reply && query.reply.trim() !== "");
-      
-      // If resolved=true is sufficient regardless of reply:
-      return query.resolved !== true;
-    });
-  });
-};
+  const hasUnresolvedQuery = (job) => {
+    const queryKeys = [
+      "do_queries",
+      "documentationQueries",
+      "eSachitQueries",
+      "submissionQueries",
+    ];
 
+    return queryKeys.some((key) => {
+      const queries = job[key];
+
+      if (!Array.isArray(queries) || queries.length === 0) {
+        return false;
+      }
+
+      return queries.some((query) => {
+        // A query is considered unresolved if:
+        // 1. resolved is not explicitly true, OR
+        // 2. resolved is true but there's no meaningful reply (if reply is required)
+
+        // If you want to require both resolved=true AND a non-empty reply:
+        // return !(query.resolved === true && query.reply && query.reply.trim() !== "");
+
+        // If resolved=true is sufficient regardless of reply:
+        return query.resolved !== true;
+      });
+    });
+  };
 
   // Filtered table data based on unresolved toggle
   const filteredRows = useMemo(() => {
     if (!showUnresolvedOnly) return rows;
     return rows.filter(hasUnresolvedQuery);
-  }, [rows, showUnresolvedOnly]);  const table = useMaterialReactTable({
+  }, [rows, showUnresolvedOnly]);
+  const table = useMaterialReactTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
@@ -312,22 +343,22 @@ const hasUnresolvedQuery = (job) => {
           {props.status} Jobs: {total}
         </Typography>
 
-         <TextField
-                  select
-                  size="small"
-                  variant="outlined"
-                  label="ICD Code"
-                  value={selectedICD}
-                  onChange={(e) => {
-                    setSelectedICD(e.target.value); // Update the selected ICD code
-                  }}
-                  sx={{ width: "200px", marginRight: "20px" }}
-                >
-                  <MenuItem value="all">All ICDs</MenuItem>
-                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-                </TextField>
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="ICD Code"
+          value={selectedICD}
+          onChange={(e) => {
+            setSelectedICD(e.target.value); // Update the selected ICD code
+          }}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="all">All ICDs</MenuItem>
+          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+        </TextField>
 
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
@@ -346,22 +377,21 @@ const hasUnresolvedQuery = (job) => {
           )}
         />
 
-{years.length > 0 && (
-  <TextField
-    select
-    size="small"
-    value={selectedYearState}
-    onChange={(e) => setSelectedYearState(e.target.value)}
-    sx={{ width: "100px", marginRight: "20px" }}
-  >
-    {years.map((year, index) => (
-      <MenuItem key={`year-${year}-${index}`} value={year}>
-        {year}
-      </MenuItem>
-    ))}
-  </TextField>
-)}
-
+        {years.length > 0 && (
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            sx={{ width: "100px", marginRight: "20px" }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
 
         <TextField
           select
@@ -377,9 +407,10 @@ const hasUnresolvedQuery = (job) => {
             >
               {option.name}
             </MenuItem>
-          ))}        </TextField>
+          ))}{" "}
+        </TextField>
 
-        <SearchInput 
+        <SearchInput
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           fetchJobs={fetchJobs}
@@ -403,7 +434,7 @@ const hasUnresolvedQuery = (job) => {
         sx={{ mt: 2, display: "flex", justifyContent: "center" }}
       />
 
- <SelectImporterModal
+      <SelectImporterModal
         open={open}
         handleClose={handleClose}
         status={props.status}

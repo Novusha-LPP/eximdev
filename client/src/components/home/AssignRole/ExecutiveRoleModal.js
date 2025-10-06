@@ -31,12 +31,14 @@ function ExecutiveRoleModal({
   // When the modal opens, set selectedOptions with matching transformed objects
   useEffect(() => {
     if (open) {
-      const formattedImporters = initialSelectedImporters.map((importerName) => {
-        const match = transformedImporterOptions.find(
-          (option) => option.name === importerName
-        );
-        return match || { id: null, name: importerName };
-      });
+      const formattedImporters = initialSelectedImporters.map(
+        (importerName) => {
+          const match = transformedImporterOptions.find(
+            (option) => option.name === importerName
+          );
+          return match || { id: null, name: importerName };
+        }
+      );
       setSelectedOptions(formattedImporters);
     }
   }, [open, initialSelectedImporters, transformedImporterOptions]);

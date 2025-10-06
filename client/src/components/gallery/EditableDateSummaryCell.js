@@ -70,7 +70,7 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
 
   const handleDateSubmit = async (field, index = null) => {
     let finalValue;
-    
+
     // Allow clearing dates
     if (tempDateValue === "") {
       finalValue = "";
@@ -86,7 +86,7 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
     if (index !== null) {
       // Handle container-specific dates (arrival_date)
       const oldContainers = [...containers];
-      
+
       const updatedContainers = containers.map((container, i) => {
         if (i === index) {
           return {
@@ -104,21 +104,25 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          container_nos: updatedContainers,
-        }, { headers });
-        
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          {
+            container_nos: updatedContainers,
+          },
+          { headers }
+        );
+
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { container_nos: updatedContainers });
         }
-        
+
         setEditable(null);
       } catch (err) {
         console.error("Error Updating Container:", err);
@@ -137,21 +141,25 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
+          "Content-Type": "application/json",
+          "user-id": user.username || "unknown",
+          username: user.username || "unknown",
+          "user-role": user.role || "unknown",
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          [field]: finalValue || null,
-        }, { headers });
-        
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          {
+            [field]: finalValue || null,
+          },
+          { headers }
+        );
+
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { [field]: finalValue || null });
         }
-        
+
         setEditable(null);
       } catch (err) {
         console.error(`Error Updating ${field}:`, err);
@@ -166,7 +174,14 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
     return dateString.slice(0, 10);
   };
 
-  const DateField = ({ label, value, field, index = null, tooltip, isEditable = true }) => (
+  const DateField = ({
+    label,
+    value,
+    field,
+    index = null,
+    tooltip,
+    isEditable = true,
+  }) => (
     <div style={{ marginBottom: "2px" }}>
       <Tooltip title={tooltip} arrow>
         <strong>{label}: </strong>
@@ -231,7 +246,10 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
                   >
                     ✓
                   </button>
-                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setEditable(null)}
+                  >
                     ✕
                   </button>
                   {dateError && <div style={styles.errorText}>{dateError}</div>}
@@ -280,7 +298,6 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
     </div>
   );
 };
-
 
 const styles = {
   icon: {

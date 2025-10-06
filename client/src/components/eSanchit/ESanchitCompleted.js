@@ -24,23 +24,30 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
 function ESanchitCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);  const { user } = useContext(UserContext);
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
-  
+
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
-      const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-      const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 1
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab1: currentPage, setCurrentPageTab1: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageTab1: currentPage,
+    setCurrentPageTab1: setCurrentPage,
+  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
-  
-  
+
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
     async function getImporterList() {
@@ -108,7 +115,7 @@ function ESanchitCompleted() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
- const fetchJobs = useCallback(
+  const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
@@ -160,7 +167,13 @@ function ESanchitCompleted() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        showUnresolvedOnly
+      );
     }
   }, [
     currentPage,
@@ -202,8 +215,7 @@ function ESanchitCompleted() {
     ) {
       navigator.clipboard
         .writeText(text)
-        .then(() => {
-        })
+        .then(() => {})
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
           console.error("Failed to copy:", err);
@@ -258,10 +270,11 @@ function ESanchitCompleted() {
                     : "transparent", // Dynamically set the background color
                 padding: "10px", // Add padding for better visibility
                 borderRadius: "5px", // Optional: Add some styling for aesthetics
-                textDecoration: "none"
+                textDecoration: "none",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
               <br />
             </a>
           );
@@ -452,7 +465,6 @@ function ESanchitCompleted() {
           )}
         />
 
-
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -462,7 +474,8 @@ function ESanchitCompleted() {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton                  onClick={() => {
+                <IconButton
+                  onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
                     setCurrentPage(1);
                   }}
@@ -476,54 +489,54 @@ function ESanchitCompleted() {
         />
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Box sx={{ position: 'relative' }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                      sx={{
-                         borderRadius: 3,
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      padding: '8px 20px',
-                      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                        transform: 'translateY(-1px)',
-                      },
-                      '&:active': {
-                        transform: 'translateY(0px)',
-                      },
-                      }}
-                    >
-                      {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                    </Button>
-                    <Badge 
-                      badgeContent={unresolvedCount} 
-                      color="error" 
-                      overlap="circular" 
-                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                      sx={{ 
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        '& .MuiBadge-badge': {
-                          fontSize: '0.75rem',
-                          minWidth: '18px',
-                          height: '18px',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        }
-                      }}
-                    />
-                  </Box>
-                </Box>
-                
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   };
@@ -531,7 +544,8 @@ function ESanchitCompleted() {
   return (
     <div style={{ height: "80%" }}>
       <>
-        <MaterialReactTable {...tableConfig} />        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <MaterialReactTable {...tableConfig} />{" "}
+        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
           <Pagination
             count={totalPages}
             page={currentPage}
@@ -547,6 +561,3 @@ function ESanchitCompleted() {
 }
 
 export default React.memo(ESanchitCompleted);
-
-
-

@@ -12,7 +12,18 @@ const userSchema = new Schema({
     required: true,
   },
   role: { type: String },
-  modules: [
+
+  transport_modules: [
+    {
+      type: String,
+    },
+  ],
+  export_modules: [
+    {
+      type: String,
+    },
+  ],
+  import_modules: [
     {
       type: String,
     },
@@ -195,10 +206,12 @@ const userSchema = new Schema({
   kyc_approval: {
     type: String,
   },
-  selected_icd_codes: [{
-    type: String,
-    trim: true,
-  }],
+  selected_icd_codes: [
+    {
+      type: String,
+      trim: true,
+    },
+  ],
 });
 
 const UserModel = mongoose.model("User", userSchema);

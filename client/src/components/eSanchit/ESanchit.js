@@ -26,21 +26,27 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 function ESanchit() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-    const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext);
   const [years, setYears] = useState([]);
-    const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-    const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state  // Use context for searchQuery, selectedImporter, and currentPage for tab 0
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageTab0: currentPage,
+    setCurrentPageTab0: setCurrentPage,
+  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
-
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -109,7 +115,7 @@ function ESanchit() {
   }, [selectedYearState, setSelectedYearState]);
 
   // Fetch jobs with pagination and search
- const fetchJobs = useCallback(
+  const fetchJobs = useCallback(
     async (
       currentPage,
       currentSearchQuery,
@@ -161,7 +167,13 @@ function ESanchit() {
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
-      fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly);
+      fetchJobs(
+        currentPage,
+        debouncedSearchQuery,
+        selectedImporter,
+        selectedYearState,
+        showUnresolvedOnly
+      );
     }
   }, [
     currentPage,
@@ -185,8 +197,7 @@ function ESanchit() {
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
-        setCurrentPage(1); // Reset to first page when user types
-
+    setCurrentPage(1); // Reset to first page when user types
   };
 
   // Handle page change
@@ -204,8 +215,7 @@ function ESanchit() {
     ) {
       navigator.clipboard
         .writeText(text)
-        .then(() => {
-        })
+        .then(() => {})
         .catch((err) => {
           alert("Failed to copy text to clipboard.");
           console.error("Failed to copy:", err);
@@ -258,11 +268,12 @@ function ESanchit() {
                     : "transparent", // Dynamically set the background color
                 padding: "10px", // Add padding for better visibility
                 borderRadius: "5px", // Optional: Add some styling for aesthetics
-                textDecoration: "none"
+                textDecoration: "none",
               }}
               target="_blank"
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {custom_house}
               <br />
             </a>
           );
@@ -339,7 +350,10 @@ function ESanchit() {
             >
               {/* Loop through CTH Documents and display document name with serial number */}
               {cth_documents
-                ?.filter((doc) => doc.url && doc.url.length > 0 && doc.is_sent_to_esanchit)
+                ?.filter(
+                  (doc) =>
+                    doc.url && doc.url.length > 0 && doc.is_sent_to_esanchit
+                )
                 .map((doc) => (
                   <a
                     key={doc._id}
@@ -378,7 +392,6 @@ function ESanchit() {
           );
         },
       },
-    
     ],
     [navigate, handleCopy]
   );
@@ -478,7 +491,8 @@ function ESanchit() {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton                  onClick={() => {
+                <IconButton
+                  onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
                     setCurrentPage(1);
                   }}
@@ -491,55 +505,55 @@ function ESanchit() {
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
 
-<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box sx={{ position: 'relative' }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"
               size="small"
               onClick={() => setShowUnresolvedOnly((prev) => !prev)}
               sx={{
-                 borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              padding: '8px 20px',
-              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-              color: '#ffffff',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                transform: 'translateY(-1px)',
-              },
-              '&:active': {
-                transform: 'translateY(0px)',
-              },
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
               }}
             >
               {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
             </Button>
-            <Badge 
-              badgeContent={unresolvedCount} 
-              color="error" 
-              overlap="circular" 
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              sx={{ 
-                position: 'absolute',
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
                 top: 4,
                 right: 4,
-                '& .MuiBadge-badge': {
-                  fontSize: '0.75rem',
-                  minWidth: '18px',
-                  height: '18px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                }
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
               }}
             />
           </Box>
         </Box>
-        
       </div>
     ),
   };
@@ -547,8 +561,8 @@ function ESanchit() {
   return (
     <div style={{ height: "80%" }}>
       <>
-        <MaterialReactTable {...tableConfig} />       
-         <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+        <MaterialReactTable {...tableConfig} />
+        <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
           <Pagination
             count={totalPages}
             page={currentPage}

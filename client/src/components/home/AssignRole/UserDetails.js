@@ -39,7 +39,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
   const [right, setRight] = useState([]); // Assigned importers
   const [left, setLeft] = useState([]); // Available importers
   const [allImporters, setAllImporters] = useState([]);
-  
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -59,7 +59,9 @@ function UserDetails({ selectedUser, onClose, onSave }) {
           const res = await axios.get(
             `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`
           );
-          const importerNames = res.data.map((item) => item.importer || item.name || item);
+          const importerNames = res.data.map(
+            (item) => item.importer || item.name || item
+          );
           setAllImporters(importerNames.sort());
         } catch (error) {
           setAllImporters([]);
@@ -78,17 +80,16 @@ function UserDetails({ selectedUser, onClose, onSave }) {
           `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
         );
         setUserData(res.data);
-        
+
         // Set assigned importers (right side)
         const assignedImporters = res.data.assigned_importer_name || [];
         setRight(assignedImporters.sort());
-        
+
         // Set available importers (left side) - exclude already assigned ones
         const availableImporters = allImporters.filter(
           (importer) => !assignedImporters.includes(importer)
         );
         setLeft(availableImporters.sort());
-        
       } catch (error) {
         console.error("Error fetching user data:", error);
         setSnackbar({
@@ -101,12 +102,20 @@ function UserDetails({ selectedUser, onClose, onSave }) {
       }
     };
 
-    if (typeof selectedUser === "string" && selectedUser && allImporters.length > 0) {
+    if (
+      typeof selectedUser === "string" &&
+      selectedUser &&
+      allImporters.length > 0
+    ) {
       fetchUserData();
-    } else if (selectedUser && typeof selectedUser === "object" && allImporters.length > 0) {
+    } else if (
+      selectedUser &&
+      typeof selectedUser === "object" &&
+      allImporters.length > 0
+    ) {
       const assignedImporters = selectedUser.assigned_importer_name || [];
       setRight(assignedImporters.sort());
-      
+
       const availableImporters = allImporters.filter(
         (importer) => !assignedImporters.includes(importer)
       );
@@ -371,7 +380,7 @@ UserDetails.propTypes = {
       role: PropTypes.string.isRequired,
       employee_photo: PropTypes.string,
       assigned_importer_name: PropTypes.arrayOf(PropTypes.string),
-    })
+    }),
   ]),
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func,

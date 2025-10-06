@@ -122,22 +122,24 @@ export default function SelectImporterModal(props) {
       >
         <Box sx={style}>
           {/* Header with title and close button */}
-          <Box sx={{ 
-            display: "flex", 
-            justifyContent: "space-between", 
-            alignItems: "center",
-            marginBottom: 2
-          }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 2,
+            }}
+          >
             <Typography id="modal-modal-title" variant="h6" component="h2">
               Select an importer to download DSR
             </Typography>
             <IconButton
               onClick={props.handleClose}
-              sx={{ 
+              sx={{
                 color: "grey.500",
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.04)'
-                }
+                "&:hover": {
+                  backgroundColor: "rgba(0, 0, 0, 0.04)",
+                },
               }}
             >
               <CloseIcon />

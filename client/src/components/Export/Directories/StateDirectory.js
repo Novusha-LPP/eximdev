@@ -1,7 +1,17 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert, Table, Form, Card, Spinner } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Alert,
+  Table,
+  Form,
+  Card,
+  Spinner,
+} from "react-bootstrap";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 // API Service
 const StateService = {
@@ -54,20 +64,22 @@ const StateService = {
 
   bulkDelete: async (ids) => {
     try {
-      const response = await axios.delete(`${StateService.baseURL}/`, { data: { ids } });
+      const response = await axios.delete(`${StateService.baseURL}/`, {
+        data: { ids },
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
-  }
+  },
 };
 
 // --- FORM COMPONENT ---
 const StateForm = ({ stateData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
-    stateName: '',
-    tinNumber: '',
-    stateCode: ''
+    stateName: "",
+    tinNumber: "",
+    stateCode: "",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -77,26 +89,29 @@ const StateForm = ({ stateData, onSave, onCancel }) => {
       setFormData(stateData);
     } else {
       setFormData({
-        stateName: '',
-        tinNumber: '',
-        stateCode: ''
+        stateName: "",
+        tinNumber: "",
+        stateCode: "",
       });
     }
   }, [stateData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.stateName?.trim()) newErrors.stateName = 'State Name is required';
-    if (!formData.tinNumber?.trim() || formData.tinNumber.length !== 2) newErrors.tinNumber = 'TIN must be 2 digits';
-    if (!formData.stateCode?.trim() || formData.stateCode.length !== 2) newErrors.stateCode = 'Code must be 2 chars';
+    if (!formData.stateName?.trim())
+      newErrors.stateName = "State Name is required";
+    if (!formData.tinNumber?.trim() || formData.tinNumber.length !== 2)
+      newErrors.tinNumber = "TIN must be 2 digits";
+    if (!formData.stateCode?.trim() || formData.stateCode.length !== 2)
+      newErrors.stateCode = "Code must be 2 chars";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -114,7 +129,7 @@ const StateForm = ({ stateData, onSave, onCancel }) => {
       }
       onSave();
     } catch (error) {
-      alert(error.message || 'Error saving state');
+      alert(error.message || "Error saving state");
     } finally {
       setLoading(false);
     }
@@ -123,7 +138,7 @@ const StateForm = ({ stateData, onSave, onCancel }) => {
   return (
     <Card>
       <Card.Header>
-        <h5>{stateData ? 'Edit State' : 'Add New State'}</h5>
+        <h5>{stateData ? "Edit State" : "Add New State"}</h5>
       </Card.Header>
       <Card.Body>
         <Form onSubmit={handleSubmit}>
@@ -190,7 +205,7 @@ const StateForm = ({ stateData, onSave, onCancel }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+              {loading ? "Saving..." : "Save"}
             </Button>
           </div>
         </Form>
@@ -204,8 +219,8 @@ const StateList = ({ onEdit, onDelete, refresh }) => {
   const [states, setStates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    search: '',
-    stateName: ''
+    search: "",
+    stateName: "",
   });
 
   useEffect(() => {
@@ -219,15 +234,18 @@ const StateList = ({ onEdit, onDelete, refresh }) => {
       let filtered = allStates;
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        filtered = filtered.filter(s =>
-          (s.stateName && s.stateName.toLowerCase().includes(q)) ||
-          (s.tinNumber && s.tinNumber.toLowerCase().includes(q)) ||
-          (s.stateCode && s.stateCode.toLowerCase().includes(q))
+        filtered = filtered.filter(
+          (s) =>
+            (s.stateName && s.stateName.toLowerCase().includes(q)) ||
+            (s.tinNumber && s.tinNumber.toLowerCase().includes(q)) ||
+            (s.stateCode && s.stateCode.toLowerCase().includes(q))
         );
       }
       if (filters.stateName) {
-        filtered = filtered.filter(s =>
-          s.stateName && s.stateName.toLowerCase().includes(filters.stateName.toLowerCase())
+        filtered = filtered.filter(
+          (s) =>
+            s.stateName &&
+            s.stateName.toLowerCase().includes(filters.stateName.toLowerCase())
         );
       }
       setStates(filtered);
@@ -239,7 +257,7 @@ const StateList = ({ onEdit, onDelete, refresh }) => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   if (loading) {
@@ -258,7 +276,7 @@ const StateList = ({ onEdit, onDelete, refresh }) => {
             type="text"
             placeholder="Search by state, TIN or code..."
             value={filters.search}
-            onChange={e => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
           />
         </Col>
       </Row>
@@ -275,14 +293,25 @@ const StateList = ({ onEdit, onDelete, refresh }) => {
           <tbody>
             {states.map((item) => (
               <tr key={item._id}>
-                <td><strong>{item.stateName}</strong></td>
+                <td>
+                  <strong>{item.stateName}</strong>
+                </td>
                 <td>{item.tinNumber}</td>
                 <td>{item.stateCode}</td>
                 <td>
-                  <Button size="sm" variant="primary" className="me-2" onClick={() => onEdit(item)}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="me-2"
+                    onClick={() => onEdit(item)}
+                  >
                     Edit
                   </Button>
-                  <Button size="sm" variant="danger" onClick={() => onDelete([item._id])}>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => onDelete([item._id])}
+                  >
                     Delete
                   </Button>
                 </td>
@@ -307,7 +336,7 @@ const StateDirectory = () => {
   const [refresh, setRefresh] = useState(0);
   const [alert, setAlert] = useState(null);
 
-  const showAlert = useCallback((message, type = 'success') => {
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 5000);
   }, []);
@@ -322,32 +351,33 @@ const StateDirectory = () => {
     setShowForm(true);
   }, []);
 
-  const handleDelete = useCallback(async (ids) => {
-    try {
-      if (ids.length === 1) {
-        if (window.confirm('Are you sure you want to delete this state?')) {
-          await StateService.delete(ids[0]);
-          showAlert('State deleted successfully');
-          setRefresh(prev => prev + 1);
+  const handleDelete = useCallback(
+    async (ids) => {
+      try {
+        if (ids.length === 1) {
+          if (window.confirm("Are you sure you want to delete this state?")) {
+            await StateService.delete(ids[0]);
+            showAlert("State deleted successfully");
+            setRefresh((prev) => prev + 1);
+          }
+        } else {
+          await StateService.bulkDelete(ids);
+          showAlert(`${ids.length} states deleted successfully`);
+          setRefresh((prev) => prev + 1);
         }
-      } else {
-        await StateService.bulkDelete(ids);
-        showAlert(`${ids.length} states deleted successfully`);
-        setRefresh(prev => prev + 1);
+      } catch (error) {
+        showAlert(error.message || "Error deleting state", "danger");
       }
-    } catch (error) {
-      showAlert(error.message || 'Error deleting state', 'danger');
-    }
-  }, [showAlert]);
+    },
+    [showAlert]
+  );
 
   const handleSave = useCallback(() => {
     setShowForm(false);
     setEditingState(null);
-    setRefresh(prev => prev + 1);
+    setRefresh((prev) => prev + 1);
     showAlert(
-      editingState
-        ? 'State updated successfully'
-        : 'State created successfully'
+      editingState ? "State updated successfully" : "State created successfully"
     );
   }, [editingState, showAlert]);
 

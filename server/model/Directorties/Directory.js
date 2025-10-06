@@ -40,7 +40,6 @@ const addressSchema = new Schema({
 const generalInfoSchema = new Schema({
   entityType: { 
     type: String, 
-    required: true,
     enum: ['Company', 'Partnership', 'LLP', 'Proprietorship']
   },
   companyName: { type: String, required: true },

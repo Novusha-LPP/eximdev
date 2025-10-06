@@ -634,7 +634,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         accessorKey: "cth_documents",
         header: "E-sanchit Doc",
         enableSorting: false,
-        size: 180,
+        size: 400,
         Cell: ({ row }) => {
           const { cth_documents = [] } = row.original;
           // Filter out documents that do not have a document_check_date
@@ -665,7 +665,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                         display: "block",
                       }}
                     >
-                      {`${doc.document_name}`}
+                      {`${doc.document_name} - ${doc.irn}`}
                     </a>
                     <div style={{ fontSize: "12px", color: "#555" }}>
                       {/* Display the checked date */}

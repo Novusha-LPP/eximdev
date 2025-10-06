@@ -448,6 +448,7 @@ useEffect(() => {
       bill_no: "",
       bill_date: "",
       dsr_queries: [],
+      lockBankDetails: false
     },
     onSubmit: async (values) => {
       // Create a copy of cthDocuments to modify
@@ -546,6 +547,7 @@ useEffect(() => {
           do_revalidation_date: values.do_revalidation_date,          is_checklist_aprroved_date: values.is_checklist_aprroved_date,
           is_checklist_aprroved: values.is_checklist_aprroved,
           is_checklist_clicked: Boolean(values.is_checklist_clicked),
+          lockBankDetails: Boolean(values.lockBankDetails),
           required_do_validity_upto: values.required_do_validity_upto,
           out_of_charge: values.out_of_charge,
           checked: values.checked,
@@ -722,6 +724,7 @@ formik.setValues({
   do_planning_date: safeValue(data.do_planning_date),
   is_checklist_aprroved: safeValue(data.is_checklist_aprroved),
   is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
+  lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
   is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
   examinationPlanning: safeValue(data.examinationPlanning, false),
   examination_planning_date: safeValue(data.examination_planning_date),

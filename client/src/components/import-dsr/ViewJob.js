@@ -1558,12 +1558,49 @@ function JobDetails() {
               )}
 
               <Row style={{ marginTop: "20px" }}>
+                {/* Checkbox to lock/unlock fields — hidden if already locked */}
+                {!formik.values.lockBankDetails && (
+                  <Col xs={12}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formik.values.lockBankDetails || false}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              formik.setFieldValue("lockBankDetails", checked);
+
+                              // If locked, disable editing
+                              if (checked) {
+                                formik.setFieldValue("adCodeDisabled", true);
+                                formik.setFieldValue("bankDisabled", true);
+                              } else {
+                                // Unlock only if user is admin
+                                if (user.role === "Admin") {
+                                  formik.setFieldValue("adCodeDisabled", false);
+                                  formik.setFieldValue("bankDisabled", false);
+                                }
+                              }
+                            }}
+                          />
+                        }
+                        label="Lock AD Code and Bank Name"
+                      />
+                    </div>
+                  </Col>
+                )}
+
                 <Col xs={12} lg={4}>
                   <div
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
                   >
-                    {/* Seller Name Field */}
                     <strong>AD Code:&nbsp;</strong>
                     <TextField
                       fullWidth
@@ -1571,11 +1608,14 @@ function JobDetails() {
                       variant="outlined"
                       id="adCode"
                       name="adCode"
-                      disabled={isSubmissionDate}
                       value={formik.values.adCode || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
                       placeholder="Enter AD Code"
+                      disabled={
+                        formik.values.adCodeDisabled ||
+                        (formik.values.lockBankDetails && user.role !== "Admin")
+                      }
                     />
                   </div>
                 </Col>
@@ -1585,7 +1625,6 @@ function JobDetails() {
                     className="job-detail-input-container"
                     style={{ justifyContent: "flex-start" }}
                   >
-                    {/* Seller Name Field */}
                     <strong>Bank Name:&nbsp;</strong>
                     <TextField
                       fullWidth
@@ -1593,11 +1632,14 @@ function JobDetails() {
                       variant="outlined"
                       id="bank_name"
                       name="bank_name"
-                      disabled={isSubmissionDate}
                       value={formik.values.bank_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
                       placeholder="Enter Bank Name"
+                      disabled={
+                        formik.values.bankDisabled ||
+                        (formik.values.lockBankDetails && user.role !== "Admin")
+                      }
                     />
                   </div>
                 </Col>
@@ -3390,19 +3432,20 @@ function JobDetails() {
                           control={
                             <Checkbox
                               checked={doc.is_sent_to_esanchit || false}
-                            onChange={(e) => {
-  const updatedDocuments = [...cthDocuments];
-  updatedDocuments[index].is_sent_to_esanchit = e.target.checked;
-  if (e.target.checked) {
-    // Set send_date to current date in ISO string
-    updatedDocuments[index].send_date = new Date().toISOString();
-  } else {
-    // Optionally unset send_date if unchecked
-    updatedDocuments[index].send_date = "";
-  }
-  setCthDocuments(updatedDocuments);
-}}
-
+                              onChange={(e) => {
+                                const updatedDocuments = [...cthDocuments];
+                                updatedDocuments[index].is_sent_to_esanchit =
+                                  e.target.checked;
+                                if (e.target.checked) {
+                                  // Set send_date to current date in ISO string
+                                  updatedDocuments[index].send_date =
+                                    new Date().toISOString();
+                                } else {
+                                  // Optionally unset send_date if unchecked
+                                  updatedDocuments[index].send_date = "";
+                                }
+                                setCthDocuments(updatedDocuments);
+                              }}
                               color="primary"
                               size="small"
                             />

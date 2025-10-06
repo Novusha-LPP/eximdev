@@ -286,7 +286,7 @@ const hasUnresolvedQuery = (job) => {
     enableStickyHeader: true,
     enablePinning: true,
     muiTableContainerProps: {
-      sx: { maxHeight: "590px", overflowY: "auto" },
+      sx: { maxHeight: "720px", overflowY: "auto" },
     },
     muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: {

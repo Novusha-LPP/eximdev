@@ -51,16 +51,7 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
-        { be_no: { $in: [null, ""] } }, // ✅ Exclude documents where `be_no` has a value
         { job_no: { $ne: null } }, // Ensure job_no is not null
-        {
-          out_of_charge_date: { $in: [null, ""] }, // ✅ Exclude if `out_of_charge_date` has any value
-        },
-        {
-          detailed_status: {
-            $in: statusOrder,
-          },
-        },
         {
           $or: [
             {documentation_completed_date_time: { $exists: true, $ne: "" } },

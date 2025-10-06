@@ -50,7 +50,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     const decodedICD = selectedICD
       ? decodeURIComponent(selectedICD).trim()
       : "";
-    
+
     const decodedOBL = obl_telex_bl
       ? decodeURIComponent(obl_telex_bl).trim()
       : "";
@@ -69,13 +69,12 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       ],
     };
 
-    
-     if (unresolvedOnly === "true") {
+    if (unresolvedOnly === "true") {
       baseQuery.$and.push({
-        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
       });
     }
-    
+
     if (selectedYear) {
       baseQuery.$and.push({ year: selectedYear });
     }
@@ -108,7 +107,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     if (req.userIcdFilter) {
       // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
-    } 
+    }
 
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
@@ -117,20 +116,73 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       )
       .lean();
 
-       const unresolvedQueryBase = { ...baseQuery };
-              unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
-                !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
-              );
-              unresolvedQueryBase.$and.push({
-                dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-              });
-              
-              const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
-      
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(
+      (condition) => !condition.hasOwnProperty("dsr_queries") // Remove the unresolved filter temporarily
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
+    // Enhanced sorting: First by send_date (most recent first), then by priority
+    const calculateDaysDifference = (dateStr) => {
+      const currentDate = new Date();
+      const date = new Date(dateStr);
+      const diffTime = date.getTime() - currentDate.getTime();
+      return Math.ceil(diffTime / (1000 * 3600 * 24));
+    };
+
+    const getColorPriority = (daysDifference) => {
+      if (daysDifference == null) return 4; // treat null as lowest priority
+      if (daysDifference <= -10) return 1; // red - most overdue
+      if (daysDifference <= -6) return 2; // orange - overdue
+      if (daysDifference <= 0) return 3; // white - slightly overdue
+      return 4; // future or unknown
+    };
+
+    const rankedJobs = allJobs
+      .map((job) => {
+        let minDaysDifference = null;
+
+        if (job.detailed_status === "Billing Pending" && job.container_nos) {
+          job.container_nos.forEach((container) => {
+            const targetDate =
+              job.consignment_type === "LCL"
+                ? container.delivery_date
+                : container.emptyContainerOffLoadDate;
+
+            if (targetDate) {
+              const daysDiff = calculateDaysDifference(targetDate);
+              if (minDaysDifference === null || daysDiff < minDaysDifference) {
+                minDaysDifference = daysDiff;
+              }
+            }
+          });
+        } else {
+          // fallback to vessel_berthing or delivery_date for other jobs
+          const dateStr = job.vessel_berthing || job.delivery_date;
+          minDaysDifference = dateStr ? calculateDaysDifference(dateStr) : null;
+        }
+
+        const colorPriority = getColorPriority(minDaysDifference);
+
+        return { ...job, daysDifference: minDaysDifference, colorPriority };
+      })
+      .sort((a, b) => {
+        if (a.colorPriority !== b.colorPriority) {
+          return a.colorPriority - b.colorPriority;
+        }
+        if (a.daysDifference == null) return 1;
+        if (b.daysDifference == null) return -1;
+        return a.daysDifference - b.daysDifference;
+      });
 
     // **Step 3: Apply Pagination**
-    const totalJobs = allJobs.length;
-    const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
+
+    const totalJobs = rankedJobs.length;
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
 
     // ✅ Return paginated response
     res.status(200).json({
@@ -138,8 +190,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       totalPages: Math.ceil(totalJobs / limitNumber),
       currentPage: pageNumber,
       jobs: paginatedJobs,
-      unresolvedCount
-
+      unresolvedCount,
     });
   } catch (error) {
     console.error("Error in /api/get-do-billing:", error.stack || error);

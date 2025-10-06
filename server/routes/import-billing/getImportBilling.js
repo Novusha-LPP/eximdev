@@ -3,7 +3,6 @@ import JobModel from "../../model/jobModel.mjs";
 import icdFilter from "../../middleware/icdFilter.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 
-
 const router = express.Router();
 
 // Function to build the search query
@@ -24,6 +23,75 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
+// Function to calculate color priority for a job
+const calculateColorPriority = (job) => {
+  const currentDate = new Date();
+  
+  // Function to calculate the days difference
+  const calculateDaysDifference = (targetDate) => {
+    const date = new Date(targetDate);
+    const timeDifference = date.getTime() - currentDate.getTime();
+    return Math.ceil(timeDifference / (1000 * 3600 * 24));
+  };
+
+  let highestPriority = 3; // Default: white (lowest priority)
+
+  // Check if the detailed status is "Billing Pending"
+  if (job.detailed_status === "Billing Pending" && job.container_nos) {
+    job.container_nos.forEach((container) => {
+      // Choose the appropriate date based on consignment type
+      const targetDate =
+        job.consignment_type === "LCL"
+          ? container.delivery_date
+          : container.emptyContainerOffLoadDate;
+
+      if (targetDate) {
+        const daysDifference = calculateDaysDifference(targetDate);
+
+        // Apply colors based on past and current dates only
+        if (daysDifference <= -10) {
+          highestPriority = Math.min(highestPriority, 1); // Red (highest priority)
+        } else if (daysDifference <= -6 && daysDifference >= -9) {
+          highestPriority = Math.min(highestPriority, 2); // Orange (medium priority)
+        } else if (daysDifference <= 0 && daysDifference >= -5) {
+          highestPriority = Math.min(highestPriority, 3); // White (low priority)
+        }
+      }
+    });
+  }
+
+  return highestPriority;
+};
+
+// Function to sort jobs by color priority (Red > Orange > White)
+const sortJobsByColorPriority = (jobs) => {
+  return jobs.sort((a, b) => {
+    // First, sort by color priority
+    const colorPriorityA = calculateColorPriority(a);
+    const colorPriorityB = calculateColorPriority(b);
+    
+    if (colorPriorityA !== colorPriorityB) {
+      return colorPriorityA - colorPriorityB; // Lower number = higher priority
+    }
+    
+    // If same color priority, use the existing ranking logic
+    const rankA = getJobRank(a);
+    const rankB = getJobRank(b);
+    
+    return rankA - rankB;
+  });
+};
+
+// Function to get job rank (existing logic)
+const getJobRank = (job) => {
+  if (job.priorityJob === "High Priority") return 1;
+  if (job.priorityJob === "Priority") return 2;
+  if (job.detailed_status === "Discharged") return 3;
+  if (job.detailed_status === "Gateway IGM Filed") return 4;
+  if (job.detailed_status === "Billing Pending") return 5;
+  if (job.detailed_status === "Custom Clearance Completed") return 6;
+  return 7;
+};
 
 router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) => {
   // Extract and decode query parameters
@@ -35,7 +103,7 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
-  const selectedYear = year ? year.toString() : null; // ✅ Ensure it’s a string
+  const selectedYear = year ? year.toString() : null; // ✅ Ensure it's a string
 
   if (isNaN(pageNumber) || pageNumber < 1) {
     return res.status(400).json({ message: "Invalid page number" });
@@ -46,7 +114,9 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
 
   try {
     // Calculate pagination skip value
-    const skip = (pageNumber - 1) * limitNumber;    // Build the base query with required conditions
+    const skip = (pageNumber - 1) * limitNumber;
+    
+    // Build the base query with required conditions
     const baseQuery = {
       $and: [
         { status: { $regex: /^pending$/i } },
@@ -66,7 +136,7 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
       ],
     };
 
-        // ✅ Apply unresolved queries filter if requested
+    // ✅ Apply unresolved queries filter if requested
     if (unresolvedOnly === "true") {
       baseQuery.$and.push({
         dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
@@ -97,19 +167,10 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
       )
       .sort({ gateway_igm_date: 1 });
 
-    // Custom sorting
-    const rankedJobs = allJobs.sort((a, b) => {
-      const rank = (job) => {
-        if (job.priorityJob === "High Priority") return 1;
-        if (job.priorityJob === "Priority") return 2;
-        if (job.detailed_status === "Discharged") return 3;
-        if (job.detailed_status === "Gateway IGM Filed") return 4;
-        return 5;
-      };
-      return rank(a) - rank(b);
-    });
+    // Custom sorting with color priority
+    const rankedJobs = sortJobsByColorPriority(allJobs);
 
-     // Get count of jobs with unresolved queries (for badge)
+    // Get count of jobs with unresolved queries (for badge)
     const unresolvedQueryBase = { ...baseQuery };
     unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
       !condition.hasOwnProperty('dsr_queries') // Remove the unresolved filter temporarily
@@ -117,7 +178,9 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
     unresolvedQueryBase.$and.push({
       dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
     });
-        const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
     // Pagination
     const totalJobs = rankedJobs.length;
     const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
@@ -132,6 +195,7 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
         unresolvedCount
       });
     }
+    
     // Send response
     return res.status(200).json({
       totalJobs,
@@ -220,17 +284,8 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
       )
       .sort({ gateway_igm_date: 1 });
 
-    // Custom sorting - prioritize "Billing Pending" over "Custom Clearance Completed"
-    const rankedJobs = allJobs.sort((a, b) => {
-      const rank = (job) => {
-        if (job.priorityJob === "High Priority") return 1;
-        if (job.priorityJob === "Priority") return 2;
-        if (job.detailed_status === "Billing Pending") return 3;
-        if (job.detailed_status === "Custom Clearance Completed") return 4;
-        return 5;
-      };
-      return rank(a) - rank(b);
-    });
+    // Custom sorting with color priority
+    const rankedJobs = sortJobsByColorPriority(allJobs);
 
     // Pagination
     const totalJobs = rankedJobs.length;
@@ -257,7 +312,6 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 // GET /api/get-payment-requested-jobs
 router.get("/api/get-payment-requested-jobs", applyUserIcdFilter, async (req, res) => {
@@ -436,48 +490,51 @@ router.get("/api/get-payment-requested-jobs", applyUserIcdFilter, async (req, re
     }
     
     // ✅ Build separate query for unresolved count that matches the main pipeline logic
-const unresolvedPipeline = [
-  { $match: unresolvedMatchConditions },
-  {
-    $addFields: {
-      has_pending_payments: {
-        $gt: [
-          {
-            $size: {
-              $filter: {
-                input: "$do_shipping_line_invoice",
-                as: "invoice",
-                cond: {
-                  $and: [
-                    { $eq: ["$$invoice.is_payment_requested", true] },
-                    {
-                      $or: [
-                        { $eq: ["$$invoice.payment_made_date", ""] },
-                        { $eq: ["$$invoice.payment_made_date", null] },
-                        { $not: { $ifNull: ["$$invoice.payment_made_date", false] } }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          0
-        ]
-      }
-    }
-  },
-  { $match: { has_pending_payments: true } },
-  { $count: "total" }
-];
+    const unresolvedPipeline = [
+      { $match: unresolvedMatchConditions },
+      {
+        $addFields: {
+          has_pending_payments: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: "$do_shipping_line_invoice",
+                    as: "invoice",
+                    cond: {
+                      $and: [
+                        { $eq: ["$$invoice.is_payment_requested", true] },
+                        {
+                          $or: [
+                            { $eq: ["$$invoice.payment_made_date", ""] },
+                            { $eq: ["$$invoice.payment_made_date", null] },
+                            { $not: { $ifNull: ["$$invoice.payment_made_date", false] } }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+      { $match: { has_pending_payments: true } },
+      { $count: "total" }
+    ];
 
-    
     const unresolvedResult = await JobModel.aggregate(unresolvedPipeline);
     const unresolvedCount = unresolvedResult.length > 0 ? unresolvedResult[0].total : 0;
     
     const allJobs = await JobModel.aggregate(pipeline);
-    const totalJobs = allJobs.length;
-    const paginatedJobs = allJobs.slice(skip, skip + limitNumber);
+    
+    // Apply color-based sorting to aggregated results
+    const rankedJobs = sortJobsByColorPriority(allJobs);
+    
+    const totalJobs = rankedJobs.length;
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
 
     return res.status(200).json({
       totalJobs,
@@ -562,8 +619,11 @@ router.get("/api/get-payment-completed-jobs", applyUserIcdFilter, async (req, re
       return allPaymentsMade;
     });
 
-    const totalJobs = filteredJobs.length;
-    const paginatedJobs = filteredJobs.slice(skip, skip + limitNumber);
+    // Apply color-based sorting
+    const rankedJobs = sortJobsByColorPriority(filteredJobs);
+    
+    const totalJobs = rankedJobs.length;
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
 
     // Add payment status information
     const jobsWithStatus = paginatedJobs.map(job => {
@@ -601,8 +661,5 @@ router.get("/api/get-payment-completed-jobs", applyUserIcdFilter, async (req, re
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-
-
-
 
 export default router;

@@ -198,6 +198,7 @@ const jobSchema = new mongoose.Schema({
       ],
     },
   ],
+  lockBankDetails: { type: Boolean, default: false },
   is_checklist_aprroved: { type: Boolean, default: false },
   is_checklist_aprroved_date: { type: String, trim: true },
   is_checklist_clicked: { type: Boolean, trim: true },

@@ -13,7 +13,7 @@ import {
   TextField,
   InputAdornment,
   Pagination,
-    Button,
+  Button,
   Box,
   Badge,
   Typography,
@@ -29,20 +29,26 @@ import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-  
-  
+
   const [selectedICD, setSelectedICD] = useState("");
   const [blValue, setBlValue] = useState("");
   const [years, setYears] = useState([]);
-     const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-        const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [importers, setImporters] = useState(null);
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // Use context for search functionality and pagination for BillingSheet tab
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab3: currentPage, setCurrentPageDoTab3: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageDoTab3: currentPage,
+    setCurrentPageDoTab3: setCurrentPage,
+  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
@@ -53,7 +59,7 @@ function BillingSheet() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
-  
+
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
     if (location.state?.fromJobDetails) {
@@ -115,7 +121,6 @@ function BillingSheet() {
     };
   }, []);
 
-
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -145,9 +150,7 @@ function BillingSheet() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -179,7 +182,8 @@ function BillingSheet() {
       } catch (error) {
         console.error("Error fetching years:", error);
       }
-    }    getYears();
+    }
+    getYears();
   }, [selectedYearState, setSelectedYearState]);
 
   // Handle search input change
@@ -197,7 +201,6 @@ function BillingSheet() {
     return () => clearTimeout(handler); // Cleanup on unmount
   }, [searchQuery]);
 
-  
   // Fetch jobs based on search query and pagination
   const fetchJobs = useCallback(
     async (
@@ -207,49 +210,43 @@ function BillingSheet() {
       currentICD,
       OBLvalue,
       selectedImporter,
-          unresolvedOnly = false
-
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
-
         const apiString =
-        process.env.REACT_APP_API_STRING || "http://localhost:9000"; // Fallback for dev
-      const res = await axios.get(`${apiString}/get-do-billing`, {
-            params: {
-              page: currentPage,
-              limit,
-              search: currentSearchQuery,
-              year: currentYear,
-              selectedICD: currentICD,
-              obl_telex_bl: OBLvalue.trim(),
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
-              username: user?.username || "", // ✅ Send username for ICD filtering
-                          unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
-
-            },
-          }
-        );
+          process.env.REACT_APP_API_STRING || "http://localhost:9000"; // Fallback for dev
+        const res = await axios.get(`${apiString}/get-do-billing`, {
+          params: {
+            page: currentPage,
+            limit,
+            search: currentSearchQuery,
+            year: currentYear,
+            selectedICD: currentICD,
+            obl_telex_bl: OBLvalue.trim(),
+            importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+            username: user?.username || "", // ✅ Send username for ICD filtering
+            unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+          },
+        });
 
         const {
           totalJobs,
           totalPages,
           currentPage: returnedPage,
           jobs,
-                  unresolvedCount, // ✅ Get unresolved count from response
-
+          unresolvedCount, // ✅ Get unresolved count from response
         } = res.data;
 
         setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
-              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
         setRows([]); // Reset data on failure
         setTotalPages(1);
-              setUnresolvedCount(0);
+        setUnresolvedCount(0);
       } finally {
         setLoading(false);
       }
@@ -268,7 +265,7 @@ function BillingSheet() {
         selectedICD,
         blValue,
         selectedImporter,
-                showUnresolvedOnly
+        showUnresolvedOnly
       );
     }
   }, [
@@ -284,143 +281,91 @@ function BillingSheet() {
   ]);
 
   const columns = [
-  {
-        accessorKey: "job_no",
-        header: "Job No",
-        enableSorting: false,
-        size: 150,        Cell: ({ cell }) => {
-          const {
-            job_no,
-            year,
-            _id,
-            type_of_b_e,
-            consignment_type,
-            custom_house,
-            detailed_status,
-            vessel_berthing,
-            container_nos,
-          } = cell.row.original;
+    {
+      accessorKey: "job_no",
+      header: "Job No",
+      enableSorting: false,
+      size: 150,
+      Cell: ({ cell }) => {
+        const {
+          job_no,
+          year,
+          _id,
+          type_of_b_e,
+          consignment_type,
+          custom_house,
+          detailed_status,
+          vessel_berthing,
+          container_nos,
+        } = cell.row.original;
 
-          // Color-coding logic based on job status and dates
-          let bgColor = "";
-          let textColor = "blue"; // Default text color
+        // Color-coding logic based on job status and dates
+        let bgColor = "";
+        let textColor = "blue"; // Default text color
 
-          const currentDate = new Date();
+        const currentDate = new Date();
 
-          // Function to calculate the days difference
-          const calculateDaysDifference = (targetDate) => {
-            const date = new Date(targetDate);
-            const timeDifference = date.getTime() - currentDate.getTime();
-            return Math.ceil(timeDifference / (1000 * 3600 * 24));
-          };
+        // Function to calculate the days difference
+        const calculateDaysDifference = (targetDate) => {
+          const date = new Date(targetDate);
+          const timeDifference = date.getTime() - currentDate.getTime();
+          return Math.ceil(timeDifference / (1000 * 3600 * 24));
+        };
 
-          // Check if the detailed status is "Estimated Time of Arrival"
-          if (detailed_status === "Estimated Time of Arrival") {
-            const daysDifference = calculateDaysDifference(vessel_berthing);
+        // Check if the detailed status is "Billing Pending"
+        if (detailed_status === "Billing Pending" && container_nos) {
+          container_nos.forEach((container) => {
+            // Choose the appropriate date based on consignment type
+            const targetDate =
+              consignment_type === "LCL"
+                ? container.delivery_date
+                : container.emptyContainerOffLoadDate;
 
-            // Only apply the background color if the berthing date is today or in the future
-            if (daysDifference >= 0) {
-              if (daysDifference === 0) {
-                bgColor = "#ff1111";
+            if (targetDate) {
+              const daysDifference = calculateDaysDifference(targetDate);
+
+              // Apply colors based on past and current dates only
+              if (daysDifference <= 0 && daysDifference >= -5) {
+                bgColor = "white";
+                textColor = "blue";
+              } else if (daysDifference <= -6 && daysDifference >= -9) {
+                bgColor = "orange";
+                textColor = "black";
+              } else if (daysDifference <= -10) {
+                bgColor = "red";
                 textColor = "white";
-              } else if (daysDifference <= 2) {
-                bgColor = "#f85a5a";
-                textColor = "black";
-              } else if (daysDifference <= 5) {
-                bgColor = "#fd8e8e";
-                textColor = "black";
               }
             }
-          }
+          });
+        }
 
-          // Check if the detailed status is "Billing Pending"
-          if (detailed_status === "Billing Pending" && container_nos) {
-            container_nos.forEach((container) => {
-              // Choose the appropriate date based on consignment type
-              const targetDate =
-                consignment_type === "LCL"
-                  ? container.delivery_date
-                  : container.emptyContainerOffLoadDate;
+        // Build query string for context passing
+        const queryParams = new URLSearchParams({
+          selectedJobId: _id,
+        }).toString();
 
-              if (targetDate) {
-                const daysDifference = calculateDaysDifference(targetDate);
-
-                // Apply colors based on past and current dates only
-                if (daysDifference <= 0 && daysDifference >= -5) {
-                  // delivery_date up to the next 5 days - White background for current and past dates
-                  bgColor = "white";
-                  textColor = "blue";
-                } else if (daysDifference <= -6 && daysDifference >= -10) {
-                  // 5 days following the white period - Orange background for past dates
-                  bgColor = "orange";
-                  textColor = "black";
-                } else if (daysDifference < -10) {
-                  // Any date beyond the orange period - Red background for past dates
-                  bgColor = "red";
-                  textColor = "white";
-                }
-              }
-            });
-          }
-
-          // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
-          if (
-            (detailed_status === "Custom Clearance Completed" && container_nos) ||
-            detailed_status === "BE Noted, Clearance Pending" ||
-            detailed_status === "PCV Done, Duty Payment Pending"
-          ) {
-            container_nos.forEach((container) => {
-              const daysDifference = calculateDaysDifference(
-                container.detention_from
-              );
-
-              // Apply background color based on the days difference before the current date
-              if (daysDifference <= 0) {
-                // Dark Red Background for current date or older detention dates
-                bgColor = "darkred";
-                textColor = "white"; // White text on dark red background
-              } else if (daysDifference === 1) {
-                // Red Background for 1 day before current date
-                bgColor = "red";
-                textColor = "white"; // White text on red background
-              } else if (daysDifference === 2) {
-                // Orange Background for 2 days before current date
-                bgColor = "orange";
-                textColor = "black"; // Black text on orange background
-              } else if (daysDifference === 3) {
-                // Yellow Background for 3 days before current date
-                bgColor = "yellow";
-                textColor = "black"; // Black text on yellow background
-              }
-            });
-          }
-
-          // Build query string for context passing
-          const queryParams = new URLSearchParams({
-            selectedJobId: _id,
-          }).toString();
-
-          return (
-            <Link
-              to={`/edit-billing-sheet/${job_no}/${year}?${queryParams}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-block',
-                cursor: "pointer",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-                textDecoration: "none",
-              }}
-            >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
-            </Link>
-          );
-        },
+        return (
+          <Link
+            to={`/edit-billing-sheet/${job_no}/${year}?${queryParams}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-block",
+              cursor: "pointer",
+              color: textColor,
+              backgroundColor: bgColor || "transparent",
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              textDecoration: "none",
+            }}
+          >
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
+          </Link>
+        );
       },
+    },
     {
       accessorKey: "importer",
       header: "Party",
@@ -548,7 +493,6 @@ function BillingSheet() {
       },
     },
   ];
-  
 
   const table = useMaterialReactTable({
     columns,
@@ -585,7 +529,6 @@ function BillingSheet() {
         >
           Job Count: {totalJobs}
         </Typography>
-
         <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
@@ -602,7 +545,6 @@ function BillingSheet() {
             />
           )}
         />
-
         <TextField
           select
           size="small"
@@ -616,7 +558,6 @@ function BillingSheet() {
             </MenuItem>
           ))}
         </TextField>
-
         <TextField
           select
           size="small"
@@ -625,13 +566,14 @@ function BillingSheet() {
           value={blValue}
           onChange={(e) => setBlValue(e.target.value)}
           sx={{ width: "200px", marginRight: "20px" }}
-        > <MenuItem value="">Select OBL</MenuItem>
+        >
+          {" "}
+          <MenuItem value="">Select OBL</MenuItem>
           <MenuItem value="Original Documents">Original Documents</MenuItem>
           <MenuItem value="Telex">Telex</MenuItem>
           <MenuItem value="Surrender BL">Surrender BL</MenuItem>
           <MenuItem value="Waybill">Waybill</MenuItem>
         </TextField>
-
         {/* ICD Code Filter */}
         <TextField
           select
@@ -649,7 +591,8 @@ function BillingSheet() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>        <TextField
+        </TextField>{" "}
+        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
@@ -671,54 +614,55 @@ function BillingSheet() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Box sx={{ position: 'relative' }}>
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                                sx={{
-                                   borderRadius: 3,
-                                textTransform: 'none',
-                                fontWeight: 500,
-                                fontSize: '0.875rem',
-                                padding: '8px 20px',
-                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                                color: '#ffffff',
-                                border: 'none',
-                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                                  transform: 'translateY(-1px)',
-                                },
-                                '&:active': {
-                                  transform: 'translateY(0px)',
-                                },
-                                }}
-                              >
-                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                              </Button>
-                              <Badge 
-                                badgeContent={unresolvedCount} 
-                                color="error" 
-                                overlap="circular" 
-                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                sx={{ 
-                                  position: 'absolute',
-                                  top: 4,
-                                  right: 4,
-                                  '& .MuiBadge-badge': {
-                                    fontSize: '0.75rem',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                  }
-                                }}
-                              />
-                            </Box>
-                  </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   });

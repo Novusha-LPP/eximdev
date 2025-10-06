@@ -558,6 +558,10 @@ const DocumentationJob = () => {
                   setData((prevData) => ({
                     ...prevData,
                     checklist: updatedFiles,
+                     documentation_completed_date_time: updatedFiles.length > 0
+      ? new Date().toISOString()
+      : "",  // or null if cleared
+
                   }));
                   updateChecklist(updatedFiles); // Update the backend immediately
                 }}

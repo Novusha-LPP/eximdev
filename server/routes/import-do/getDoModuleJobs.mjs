@@ -116,7 +116,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_no year do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no"
+        "job_no year do_list is_do_doc_recieved do_shipping_line_invoice importer awb_bl_no is_obl_recieved is_do_doc_prepared shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm be_no checklist be_date processed_be_attachment line_no is_og_doc_recieved"
       )
       .lean();
 
@@ -522,6 +522,226 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
       message: "Internal Server Error",
       error: error.message,
     });
+  }
+});
+
+router.get("/api/get-today-do-billing", applyUserIcdFilter, getTodayJob);
+
+export async function getTodayJob (req, res) {
+      try {
+    // Extract and validate query parameters
+    const {
+      page = 1,
+      limit = 100,
+      search = "",
+      importer,
+      selectedICD,
+      obl_telex_bl,
+      year,
+      unresolvedOnly,
+    } = req.query;
+
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const selectedYear = year ? year.trim() : "";
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      return res.status(400).json({ message: "Invalid page number" });
+    }
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      return res.status(400).json({ message: "Invalid limit value" });
+    }
+
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Decode and trim query parameters
+    const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedICD = selectedICD
+      ? decodeURIComponent(selectedICD).trim()
+      : "";
+    const decodedOBL = obl_telex_bl
+      ? decodeURIComponent(obl_telex_bl).trim()
+      : "";
+
+    // **Get today's date range (start of day to end of day)**
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    // **Step 1: Simple query - Jobs that met conditions TODAY**
+    const baseQuery = {
+      $and: [
+        { status: { $regex: /^pending$/i } },
+        { 
+          met_do_billing_conditions_date: { 
+            $gte: startOfDay, 
+            $lte: endOfDay 
+          } 
+        }
+      ],
+    };
+
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
+      });
+    }
+
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
+
+    // ✅ Apply search filter if provided
+    if (search) {
+      baseQuery.$and.push(buildSearchQuery(search));
+    }
+
+    // ✅ If importer is selected, filter by importer
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
+    }
+
+    // ✅ If selectedICD is provided, filter by ICD Code
+    if (decodedICD && decodedICD !== "Select ICD") {
+      baseQuery.$and.push({
+        custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
+      });
+    }
+    
+    if (decodedOBL && decodedOBL !== "Select OBL") {
+      baseQuery.$and.push({
+        obl_telex_bl: { $regex: new RegExp(`^${decodedOBL}$`, "i") },
+      });
+    }
+
+    // ✅ Apply user-based ICD filter from middleware
+    if (req.userIcdFilter) {
+      baseQuery.$and.push(req.userIcdFilter);
+    }
+
+    // **Step 2: Fetch only today's eligible jobs**
+    const allJobs = await JobModel.find(baseQuery)
+      .select(
+        "job_no year importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos do_completed doPlanning met_do_billing_conditions_date"
+      )
+      .lean();
+
+    // **Step 3: Get unresolved count for today's jobs only**
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(
+      (condition) => !condition.hasOwnProperty("dsr_queries")
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
+    });
+
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+
+    // **Step 4: Apply sorting logic**
+    const calculateDaysDifference = (dateStr) => {
+      const currentDate = new Date();
+      const date = new Date(dateStr);
+      const diffTime = date.getTime() - currentDate.getTime();
+      return Math.ceil(diffTime / (1000 * 3600 * 24));
+    };
+
+    const getColorPriority = (daysDifference) => {
+      if (daysDifference == null) return 4;
+      if (daysDifference <= -10) return 1;
+      if (daysDifference <= -6) return 2;
+      if (daysDifference <= 0) return 3;
+      return 4;
+    };
+
+    const rankedJobs = allJobs
+      .map((job) => {
+        let minDaysDifference = null;
+
+        if (job.detailed_status === "Billing Pending" && job.container_nos) {
+          job.container_nos.forEach((container) => {
+            const targetDate =
+              job.consignment_type === "LCL"
+                ? container.delivery_date
+                : container.emptyContainerOffLoadDate;
+
+            if (targetDate) {
+              const daysDiff = calculateDaysDifference(targetDate);
+              if (minDaysDifference === null || daysDiff < minDaysDifference) {
+                minDaysDifference = daysDiff;
+              }
+            }
+          });
+        } else {
+          const dateStr = job.vessel_berthing || job.delivery_date;
+          minDaysDifference = dateStr ? calculateDaysDifference(dateStr) : null;
+        }
+
+        const colorPriority = getColorPriority(minDaysDifference);
+
+        return { ...job, daysDifference: minDaysDifference, colorPriority };
+      })
+      .sort((a, b) => {
+        if (a.colorPriority !== b.colorPriority) {
+          return a.colorPriority - b.colorPriority;
+        }
+        if (a.daysDifference == null) return 1;
+        if (b.daysDifference == null) return -1;
+        return a.daysDifference - b.daysDifference;
+      });
+
+    // **Step 5: Apply Pagination**
+    const totalJobs = rankedJobs.length;
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
+
+    // ✅ Return only today's jobs that met conditions
+    res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
+      unresolvedCount,
+      dateFilter: {
+        today: today.toISOString().split('T')[0],
+        startOfDay: startOfDay.toISOString(),
+        endOfDay: endOfDay.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error("Error in /api/get-today-do-billing:", error.stack || error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+}
+
+
+// Add this to your backend routes
+router.get('/get-new-do-billing-jobs', async (req, res) => {
+  try {
+    const { since, username } = req.query;
+    
+    // Find jobs that met DO billing conditions since the given timestamp
+    const newJobs = await Job.find({
+      met_do_billing_conditions_date: {
+        $gte: new Date(since)
+      }
+    })
+    .select('job_no importer be_no met_do_billing_conditions_date')
+    .sort({ met_do_billing_conditions_date: -1 })
+    .limit(50);
+    
+    res.json({
+      newJobs,
+      latestCheck: new Date().toISOString(),
+      count: newJobs.length
+    });
+    
+  } catch (error) {
+    console.error('Error fetching new DO billing jobs:', error);
+    res.status(500).json({ error: 'Failed to fetch new jobs' });
   }
 });
 

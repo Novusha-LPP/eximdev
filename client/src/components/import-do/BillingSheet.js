@@ -390,12 +390,6 @@ function BillingSheet() {
       enableSorting: false,
       size: 180,
     },
-    {
-      accessorKey: "bill_document_sent_to_accounts",
-      header: "Bill Doc Sent To Accounts",
-      enableSorting: false,
-      size: 300,
-    },
 
     {
       accessorKey: "Doc",

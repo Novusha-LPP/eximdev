@@ -285,154 +285,156 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         },
       },
 
-{
-  accessorKey: "awb_bl_no",
-  header: "BL Number",
-  size: 150,
-  Cell: ({ cell, row }) => {
-    const blNumber = cell?.getValue()?.toString() || "";
-    const hblNumber = row?.original?.hawb_hbl_no?.toString() || "";
+      {
+        accessorKey: "awb_bl_no",
+        header: "BL Number",
+        size: 150,
+        Cell: ({ cell, row }) => {
+          const blNumber = cell?.getValue()?.toString() || "";
+          const hblNumber = row?.original?.hawb_hbl_no?.toString() || "";
 
-    const portOfReporting = row?.original?.port_of_reporting || "";
-    const shippingLine = row?.original?.shipping_line_airline || "";
-    const gross_weight = row?.original?.gross_weight || "";
-    const job_net_weight = row?.original?.job_net_weight || "";
-    const loading_port = row?.original.loading_port || "";
-    const port_of_reporting = row?.original.port_of_reporting || "";
+          const portOfReporting = row?.original?.port_of_reporting || "";
+          const shippingLine = row?.original?.shipping_line_airline || "";
+          const gross_weight = row?.original?.gross_weight || "";
+          const job_net_weight = row?.original?.job_net_weight || "";
+          const loading_port = row?.original.loading_port || "";
+          const port_of_reporting = row?.original.port_of_reporting || "";
 
-    const cleanLoadingPort = loading_port
-      ? loading_port.replace(/\(.*?\)\s*/, "")
-      : "N/A";
-    const cleanPortOfReporting = port_of_reporting
-      ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-      : "N/A";
+          const cleanLoadingPort = loading_port
+            ? loading_port.replace(/\(.*?\)\s*/, "")
+            : "N/A";
+          const cleanPortOfReporting = port_of_reporting
+            ? port_of_reporting.replace(/\(.*?\)\s*/, "")
+            : "N/A";
 
-    const containerFirst =
-      row?.original?.container_nos?.[0]?.container_number || "";
+          const containerFirst =
+            row?.original?.container_nos?.[0]?.container_number || "";
 
-    const location = getPortLocation(portOfReporting);
+          const location = getPortLocation(portOfReporting);
 
-    // Utility to build shipping line URLs for a given number
-    const buildShippingLineUrls = (num) => ({
-      MSC: `https://www.msc.com/en/track-a-shipment`,
-      "M S C": `https://www.msc.com/en/track-a-shipment`,
-      "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
-      "Maersk Line": `https://www.maersk.com/tracking/${num}`,
-      "CMA CGM AGENCIES INDIA PVT. LTD":
-        "https://www.cma-cgm.com/ebusiness/tracking/search",
-      "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${num}`,
-      "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${num}`,
-      "ONE LINE":
-        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-      HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-      HYUNDI:
-        "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-      "Cosco Container Lines":
-        "https://elines.coscoshipping.com/ebusiness/cargotracking",
-      COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
-      "Unifeeder Agencies India Pvt Ltd": num
-        ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(0, 3)}%2F${num.slice(
-            3,
-            6
-          )}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
-        : "#",
-      UNIFEEDER: num
-        ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(0, 3)}%2F${num.slice(
-            3,
-            6
-          )}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
-        : "#",
-    });
+          // Utility to build shipping line URLs for a given number
+          const buildShippingLineUrls = (num) => ({
+            MSC: `https://www.msc.com/en/track-a-shipment`,
+            "M S C": `https://www.msc.com/en/track-a-shipment`,
+            "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
+            "Maersk Line": `https://www.maersk.com/tracking/${num}`,
+            "CMA CGM AGENCIES INDIA PVT. LTD":
+              "https://www.cma-cgm.com/ebusiness/tracking/search",
+            "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${num}`,
+            "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${num}`,
+            "ONE LINE":
+              "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+            HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+            HYUNDI:
+              "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
+            "Cosco Container Lines":
+              "https://elines.coscoshipping.com/ebusiness/cargotracking",
+            COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
+            "Unifeeder Agencies India Pvt Ltd": num
+              ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(
+                  0,
+                  3
+                )}%2F${num.slice(3, 6)}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
+              : "#",
+            UNIFEEDER: num
+              ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(
+                  0,
+                  3
+                )}%2F${num.slice(3, 6)}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
+              : "#",
+          });
 
-    // Helper to render the number block (BL or HBL)
-    const renderNumberBlock = (num, label) => {
-      if (!num) return null;
+          // Helper to render the number block (BL or HBL)
+          const renderNumberBlock = (num, label) => {
+            if (!num) return null;
 
-      const urls = buildShippingLineUrls(num);
-      const url = urls[shippingLine] || "#";
+            const urls = buildShippingLineUrls(num);
+            const url = urls[shippingLine] || "#";
 
-      return (
-        <div style={{ marginBottom: "12px" }}>
-          {/* Number as clickable link */}
-          <a
-            href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${num}&HAWB_NO=`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {num}
-          </a>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "4px",
-            }}
-          >
-            {/* Copy Number */}
-            <IconButton size="small" onClick={(event) => handleCopy(event, num)}>
-              <abbr title={`Copy ${label}`}>
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-
-            {/* Shipping Line Tracking Link */}
-            {shippingLine && url !== "#" && (
-              <abbr title={`Track Shipment at ${shippingLine}`}>
-                <a href={url} target="_blank" rel="noopener noreferrer">
-                  <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+            return (
+              <div style={{ marginBottom: "12px" }}>
+                {/* Number as clickable link */}
+                <a
+                  href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${num}&HAWB_NO=`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {num}
                 </a>
-              </abbr>
-            )}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginTop: "4px",
+                  }}
+                >
+                  {/* Copy Number */}
+                  <IconButton
+                    size="small"
+                    onClick={(event) => handleCopy(event, num)}
+                  >
+                    <abbr title={`Copy ${label}`}>
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
 
-            {/* Sea IGM Entry Link */}
-            <abbr title={`Sea IGM Entry`}>
-              <a
-                href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${num}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
-              </a>
-            </abbr>
-          </div>
-        </div>
-      );
-    };
+                  {/* Shipping Line Tracking Link */}
+                  {shippingLine && url !== "#" && (
+                    <abbr title={`Track Shipment at ${shippingLine}`}>
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
+                      </a>
+                    </abbr>
+                  )}
 
-    return (
-      <div>
-        {blNumber && renderNumberBlock(blNumber, "BL Number")}
-        {hblNumber && renderNumberBlock(hblNumber, "HBL Number")}
-
-        {/* Show common details only once */}
-        {(blNumber || hblNumber) && (
-          <>
-            <Tooltip title="shippingLine" arrow>
-              <strong> {shippingLine} </strong>
-            </Tooltip>
-            <Tooltip title="Gross Weight" arrow>
-              <div>
-                <strong>Gross(KGS): {gross_weight || "N/A"} </strong>
+                  {/* Sea IGM Entry Link */}
+                  <abbr title={`Sea IGM Entry`}>
+                    <a
+                      href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${location}&MAWB_NO=${num}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
+                    </a>
+                  </abbr>
+                </div>
               </div>
-            </Tooltip>
-            <Tooltip title="Net Weight" arrow>
-              <div>
-                <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
-              </div>
-            </Tooltip>
+            );
+          };
+
+          return (
             <div>
-              <strong>LO :</strong> {cleanLoadingPort} <br />
-              <strong>POD :</strong> {cleanPortOfReporting} <br />
-            </div>
-          </>
-        )}
-      </div>
-    );
-  },
-}
+              {blNumber && renderNumberBlock(blNumber, "BL Number")}
+              {hblNumber && renderNumberBlock(hblNumber, "HBL Number")}
 
-,
+              {/* Show common details only once */}
+              {(blNumber || hblNumber) && (
+                <>
+                  <Tooltip title="shippingLine" arrow>
+                    <strong> {shippingLine} </strong>
+                  </Tooltip>
+                  <Tooltip title="Gross Weight" arrow>
+                    <div>
+                      <strong>Gross(KGS): {gross_weight || "N/A"} </strong>
+                    </div>
+                  </Tooltip>
+                  <Tooltip title="Net Weight" arrow>
+                    <div>
+                      <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
+                    </div>
+                  </Tooltip>
+                  <div>
+                    <strong>LO :</strong> {cleanLoadingPort} <br />
+                    <strong>POD :</strong> {cleanPortOfReporting} <br />
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        },
+      },
+
       {
         accessorKey: "dates",
         header: "Dates",
@@ -536,21 +538,23 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         header: "DO Completed & Validity",
         enableSorting: false,
         size: 200,
-        Cell: ({row}) => {
- 
+        Cell: ({ row }) => {
           const do_validity = row.original.do_validity;
           const do_completed = row.original.do_completed;
           const isDoDocRecieved = row.original.is_do_doc_recieved;
           const isOblRecieved = row.original.is_obl_recieved;
           const doDocRecievedDate = row.original.do_doc_recieved_date;
+          const ogDocRecievedDate = row.original.og_doc_recieved_date;
+          const is_og_doc_recieved = row.original.is_og_doc_recieved;
           const oblRecievedDate = row.original.obl_recieved_date;
           const do_copies = row.original.do_copies;
-          const do_list = row.original.do_list ;
+          const do_list = row.original.do_list;
           const doCopies = do_copies;
           const doCompleted = formatDate(do_completed);
           const doValidity = formatDate(do_validity);
           const formattedOblRecievedDate = formatDate(oblRecievedDate);
           const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
+          const formattedOgDocRecievedDate = formatDate(ogDocRecievedDate);
 
           return (
             <div style={{ textAlign: "left" }}>
@@ -577,6 +581,19 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                   {formattedDoDocRecievedDate && (
                     <div style={{ fontSize: "12px", color: "#666" }}>
                       Date: {formattedDoDocRecievedDate}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Second: Show DO document sent status if available */}
+              {is_og_doc_recieved && (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{ color: "blue", fontWeight: "bold" }}>
+                    OG document Recieved By Do Team
+                  </span>
+                  {formattedOgDocRecievedDate && (
+                    <div style={{ fontSize: "12px", color: "#666" }}>
+                      Date: {formattedOgDocRecievedDate}
                     </div>
                   )}
                 </div>

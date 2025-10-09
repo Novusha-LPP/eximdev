@@ -28,7 +28,7 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
           }`
         );
 
-        setUserModules(response.data.modules || []);
+        setUserModules(response.data.import_modules || []);
       } catch (err) {
         console.error("Error fetching user modules:", err);
         setError(true);

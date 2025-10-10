@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { type } from "os";
-import { broadcastNewDoBillingJob } from '../doBillingWebSocket.js';
 const ImageSchema = new mongoose.Schema({
   url: { type: String, trim: true },
 });
@@ -528,62 +527,6 @@ jobSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
-
-// // Pre-save hook to check conditions
-// jobSchema.pre('save', function(next) {
-//   const job = this;
-//   const meetsConditions = checkDoBillingConditions(job);
-  
-//   if (meetsConditions) {
-//     if (!job.met_do_billing_conditions_date) {
-//       job.met_do_billing_conditions_date = new Date();
-//       console.log('🎯 Job now meets DO billing conditions:', job.job_no);
-//     }
-//   } else {
-//     job.met_do_billing_conditions_date = null;
-//   }
-  
-//   next();
-// });
-
-// // Post-save hook to handle broadcast after successful save
-// jobSchema.post('save', function(doc) {
-//   const meetsConditions = checkDoBillingConditions(doc);
-  
-//   if (meetsConditions && doc.met_do_billing_conditions_date) {
-//     const jobObj = doc.toObject();
-//     console.log('🚀 Broadcasting job:', jobObj.job_no);
-//     broadcastNewDoBillingJob(jobObj);
-//   }
-// });
-
-
-// // Helper function to check your complex conditions
-// function checkDoBillingConditions(job) {
-//   const condition1 = (
-//     (job.do_completed === true || job.do_completed === "Yes" || job.do_completed !== undefined) &&
-//     job.container_nos && job.container_nos.some(container => 
-//       container.do_revalidation && container.do_revalidation.some(reval =>
-//         reval.do_revalidation_upto && 
-//         reval.do_revalidation_upto !== "" && 
-//         reval.do_Revalidation_Completed === false
-//       )
-//     )
-//   );
-
-//   const condition2 = (
-//     (job.doPlanning === true || job.doPlanning === "true") &&
-//     (
-//       job.do_completed === false ||
-//       job.do_completed === "No" ||
-//       job.do_completed === undefined ||
-//       job.do_completed === "" ||
-//       job.do_completed === null
-//     )
-//   );
-
-//   return condition1 || condition2;
-// }
 
 
 jobSchema.index({ importerURL: 1, year: 1, status: 1 });

@@ -67,6 +67,7 @@ SearchInput.displayName = 'SearchInput';
 
 function JobList(props) {
   const showUnresolvedOnly = props.showUnresolvedOnly;
+  const { onUnresolvedCountChange } = props; // Add prop for callback
 
   const [years, setYears] = useState([]);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -133,7 +134,7 @@ function JobList(props) {
   //   }
   // }, [importerNames]);
 
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows } =
+  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows, unresolvedCount } =
     useFetchJobList(
       detailedStatus,
       selectedYearState,
@@ -265,7 +266,14 @@ const hasUnresolvedQuery = (job) => {
   const filteredRows = useMemo(() => {
     if (!showUnresolvedOnly) return rows;
     return rows.filter(hasUnresolvedQuery);
-  }, [rows, showUnresolvedOnly]);  const table = useMaterialReactTable({
+  }, [rows, showUnresolvedOnly]);
+
+  // Update parent component with unresolved count when it changes
+  useEffect(() => {
+    if (props.status === "Pending" && onUnresolvedCountChange) {
+      onUnresolvedCountChange(unresolvedCount);
+    }
+  }, [unresolvedCount, onUnresolvedCountChange, props.status]);  const table = useMaterialReactTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
@@ -286,7 +294,7 @@ const hasUnresolvedQuery = (job) => {
     enableStickyHeader: true,
     enablePinning: true,
     muiTableContainerProps: {
-      sx: { maxHeight: "720px", overflowY: "auto" },
+      sx: { maxHeight: "690px", overflowY: "auto" },
     },
     muiTableBodyRowProps: getRowProps,
     muiTableHeadCellProps: {

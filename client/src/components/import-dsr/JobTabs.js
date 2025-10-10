@@ -92,21 +92,7 @@ function JobTabs() {
     setOpenUtilityTool(false);
   };
 
-  // Fetch unresolved count for Pending tab only
-  React.useEffect(() => {
-    async function fetchUnresolvedCount() {
-      try {
-        const res = await fetch(
-          `${process.env.REACT_APP_API_STRING}/25-26/jobs/Pending/all/all/all?page=1&limit=100&search=&unresolvedOnly=true`
-        );
-        const data = await res.json();
-        setUnresolvedCount(data.total || 0);
-      } catch (e) {
-        setUnresolvedCount(0);
-      }
-    }
-    fetchUnresolvedCount();
-  }, [showUnresolvedOnly]);
+
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -205,13 +191,25 @@ function JobTabs() {
       </Box>
 
       <CustomTabPanel value={value} index={0}>
-        <JobList status="Pending" showUnresolvedOnly={showUnresolvedOnly} />
+        <JobList 
+          status="Pending" 
+          showUnresolvedOnly={showUnresolvedOnly}
+          onUnresolvedCountChange={setUnresolvedCount}
+        />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
-        <JobList status="Completed" showUnresolvedOnly={showUnresolvedOnly} />
+        <JobList 
+          status="Completed" 
+          showUnresolvedOnly={showUnresolvedOnly}
+          onUnresolvedCountChange={setUnresolvedCount}
+        />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={2}>
-        <JobList status="Cancelled" showUnresolvedOnly={showUnresolvedOnly} />
+        <JobList 
+          status="Cancelled" 
+          showUnresolvedOnly={showUnresolvedOnly}
+          onUnresolvedCountChange={setUnresolvedCount}
+        />
       </CustomTabPanel>
 
       {/* Utility Tool Modal */}

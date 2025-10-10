@@ -17,6 +17,7 @@ function useFetchJobList(
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [userImporters, setUserImporters] = useState([]);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
 
   // Accept unresolvedOnly as an argument to fetchJobs
@@ -69,6 +70,11 @@ function useFetchJobList(
       setTotalPages(totalPages);
       setCurrentPage(currentPage);
       
+      // If this is the Pending status, update unresolved count from the total when unresolvedOnly is true
+      if (status === "Pending" && unresolved) {
+        setUnresolvedCount(total);
+      }
+      
       // Store user's allowed importers from response
       if (responseUserImporters) {
         setUserImporters(responseUserImporters);
@@ -85,6 +91,36 @@ function useFetchJobList(
     }
   };
 
+  // Fetch initial unresolved count for Pending status
+  useEffect(() => {
+    async function fetchInitialUnresolvedCount() {
+      if (status === "Pending" && selectedYearState && user) {
+        try {
+          const queryParams = new URLSearchParams({
+            page: 1,
+            limit: 1,
+            search: '',
+            unresolvedOnly: true
+          });
+
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${selectedImporter || 'all'}?${queryParams}`,
+            {
+              headers: {
+                ...(user?.username ? { "x-username": user.username } : {}),
+              },
+            }
+          );
+          setUnresolvedCount(response.data.total || 0);
+        } catch (error) {
+          console.error("Error fetching initial unresolved count:", error);
+          setUnresolvedCount(0);
+        }
+      }
+    }
+    fetchInitialUnresolvedCount();
+  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter]);
+
   useEffect(() => {
     if (selectedYearState && user) {
       fetchJobs(currentPage, unresolvedOnly);
@@ -97,8 +133,8 @@ function useFetchJobList(
     currentPage,
     searchQuery,
     selectedImporter,
-    user, // Add user to dependencies
-    unresolvedOnly, // Add unresolvedOnly to dependencies
+    user,
+    unresolvedOnly,
   ]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
@@ -129,6 +165,7 @@ function useFetchJobList(
     fetchJobs,
     userImporters, // Available importers for current user
     canAccessImporter, // Helper function to check access
+    unresolvedCount, // Add unresolvedCount to the returned object
   };
 }
 

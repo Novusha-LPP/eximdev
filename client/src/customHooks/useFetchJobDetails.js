@@ -631,7 +631,6 @@ const safeValue = (value, defaultVal = "") =>
         formik.values.container_nos.map((container) => ({
           arrival_date: container.arrival_date,
           // container_rail_out_date: container.container_rail_out_date,
-          free_time: container.free_time,
           required_do_validity_upto: container.required_do_validity_upto || "",
         }))
       ),

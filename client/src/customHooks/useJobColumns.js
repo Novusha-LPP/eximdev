@@ -555,6 +555,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const formattedOblRecievedDate = formatDate(oblRecievedDate);
           const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
           const formattedOgDocRecievedDate = formatDate(ogDocRecievedDate);
+           const invoices = row.original.do_shipping_line_invoice || [];
+
 
           return (
             <div style={{ textAlign: "left" }}>
@@ -641,6 +643,42 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
               )}
               <div>
                 <strong>EmptyOff LOC:</strong> {do_list}
+              </div>
+              <div>
+                {invoices.some(invoice => invoice.url && invoice.url.length > 0) ? (
+                  <div style={{ marginTop: "4px" }}>
+                    {invoices.map((invoice, index) => {
+                      if (!invoice.url || invoice.url.length === 0) return null;
+                      return (
+                        <div key={index} style={{ marginBottom: "8px" }}>
+                          <div>
+                            <a
+                              href={invoice.url[0]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "#007bff",
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {invoice.document_name || `Shipping Line Invoice ${index + 1}`}
+                            </a>
+                            {invoice.is_draft && (
+                              <span style={{ color: "orange", marginLeft: "8px" }}>(Draft)</span>
+                            )}
+                            {invoice.is_final && (
+                              <span style={{ color: "green", marginLeft: "8px" }}>(Final)</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: "5px" }}>
+                    <span style={{ color: "gray" }}>No Invoices</span>
+                  </div>
+                )}
               </div>
             </div>
           );

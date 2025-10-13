@@ -37,6 +37,7 @@ import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
 import ViewJob from "../components/import-dsr/ViewJob.js";
+import LogsPage from "../components/import-dsr/LogsPage.js";
 // Import Operations
 import ImportOperations from "../components/import-operations/ImportOperations.js";
 import DocumentationTab from "../components/documentation/DocumentationTab.js";
@@ -284,6 +285,15 @@ function HomePage() {
                 element={
                   <ProtectedRoute requiredModule="Import - DSR">
                     <ImportDSR />
+                  </ProtectedRoute>
+                } 
+              />
+              {/* Import DSR */}
+              <Route 
+                path="/logs" 
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <LogsPage />
                   </ProtectedRoute>
                 } 
               />

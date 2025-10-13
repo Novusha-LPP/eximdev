@@ -237,6 +237,111 @@ router.get("/api/get-billing-import-job", applyUserIcdFilter, async (req, res) =
   }
 });
 
+
+router.get("/api/get-completed-billing-import-job", applyUserIcdFilter, async (req, res) => {
+  const { page = 1, limit = 100, search = "", importer, year, unresolvedOnly } = req.query;
+  const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? year.toString() : null;
+
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    return res.status(400).json({ message: "Invalid page number" });
+  }
+  if (isNaN(limitNumber) || limitNumber < 1) {
+    return res.status(400).json({ message: "Invalid limit value" });
+  }
+
+  try {
+    const skip = (pageNumber - 1) * limitNumber;
+    
+    const baseQuery = {
+      $and: [
+        {
+          bill_document_sent_to_accounts: {
+            $exists: true,
+            $nin: [null, ""],
+          },
+        },
+        {
+          billing_completed_date: { $exists: true, $nin: [null, ""] },
+        },
+      
+      ],
+    };
+
+    if (unresolvedOnly === "true") {
+      baseQuery.$and.push({
+        dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+      });
+    }
+
+    if (search && search.trim()) {
+      baseQuery.$and.push(buildSearchQuery(search.trim()));
+    }
+
+    if (selectedYear) {
+      baseQuery.$and.push({ year: selectedYear });
+    }
+
+    if (decodedImporter && decodedImporter !== "Select Importer") {
+      baseQuery.$and.push({
+        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+      });
+    }
+
+    if (req.userIcdFilter) {
+      baseQuery.$and.push(req.userIcdFilter);
+    }
+
+    const allJobs = await JobModel.find(baseQuery)
+      .select(
+        "priorityJob eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing"
+      )
+      .lean();
+
+    // Apply color-based sorting
+    const rankedJobs = sortJobsByColorPriority(allJobs);
+
+    // Get count of jobs with unresolved queries
+    const unresolvedQueryBase = { ...baseQuery };
+    unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(condition => 
+      !condition.hasOwnProperty('dsr_queries')
+    );
+    unresolvedQueryBase.$and.push({
+      dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
+    });
+    
+    const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
+    
+    const totalJobs = rankedJobs.length;
+    const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
+
+    if (!paginatedJobs || paginatedJobs.length === 0) {
+      return res.status(200).json({
+        totalJobs: 0,
+        totalPages: 1,
+        currentPage: pageNumber,
+        jobs: [],
+        unresolvedCount
+      });
+    }
+    
+    return res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs: paginatedJobs,
+      unresolvedCount
+    });
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
 router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
   const { page = 1, limit = 100, search = "", importer, year, detailed_status } = req.query;
 

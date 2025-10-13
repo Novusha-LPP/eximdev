@@ -26,20 +26,56 @@ router.get(
     try {
       let { years, importerURL, status } = req.params;
 
-      // Convert years into an array (e.g., "24-25,25-26" => ["24-25", "25-26"])
+      // Convert years into an array
       let yearArray = years.split(",");
 
-      // MongoDB query to match any year in the list with case-insensitive importerURL
+      // Create flexible regex patterns to handle both formats
+      const escapedImporterURL = importerURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Pattern 1: Exact match (for backward compatibility)
+      const exactPattern = `^${escapedImporterURL}$`;
+      
+      // Pattern 2: Handle periods and underscores interchangeably
+      const flexiblePattern = escapedImporterURL
+        .replace(/\./g, '[._]?')  // Periods become optional periods or underscores
+        .replace(/_/g, '[._]?');  // Underscores become optional periods or underscores
+      
+      // Pattern 3: Handle "pvt" variations (pvt, pvt., pvt_, etc.)
+      const pvtPattern = escapedImporterURL
+        .replace(/pvt/g, 'pvt[._]?')
+        .replace(/ltd/g, 'ltd[._]?');
+
+      // MongoDB query with multiple pattern options
       const query = {
         year: { $in: yearArray },
-        importerURL: { $regex: new RegExp(`^${importerURL}$`, 'i') }, // Case-insensitive match
+        $or: [
+          { importerURL: { $regex: new RegExp(exactPattern, 'i') } },
+          { importerURL: { $regex: new RegExp(`^${flexiblePattern}$`, 'i') } },
+          { importerURL: { $regex: new RegExp(`^${pvtPattern}$`, 'i') } }
+        ],
         status,
       };
 
+      console.log('Search patterns:', {
+        exactPattern,
+        flexiblePattern, 
+        pvtPattern,
+        receivedImporterURL: importerURL
+      });
+
       let jobs = await JobModel.find(query);
+
+      console.log(`Found ${jobs.length} jobs before filtering`);
 
       // Filter out jobs with `detailed_status` as "Billing Pending"
       jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
+
+      console.log(`Found ${jobs.length} jobs after filtering`);
+
+      // Log found jobs for debugging
+      jobs.forEach(job => {
+        console.log(`Job ${job.job_no}: ${job.importerURL} - ${job.detailed_status}`);
+      });
 
       // Rest of your sorting logic...
       jobs.sort((a, b) => {

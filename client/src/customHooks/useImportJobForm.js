@@ -115,13 +115,17 @@ const useImportJobForm = () => {
   const [sallerName, setSallerName] = useState("");
   const [bankName, setBankName] = useState("")
 
-  useEffect(() => {
-    if (importer) {
-      const formattedImporter = importer.replace(/\s+/g, "_");
-      setImporterURL(formattedImporter);
-    }
-  }, [importer]); 
-  
+useEffect(() => {
+  if (importer) {
+    const formattedImporter = importer
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^\w]+/g, "")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "");
+    setImporterURL(formattedImporter);
+  }
+}, [importer]);
 
   // Fetch job numbers dynamically
   // Fetch job details dynamically

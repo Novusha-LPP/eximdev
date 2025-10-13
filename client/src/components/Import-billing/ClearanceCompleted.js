@@ -241,48 +241,78 @@ function ClearanceCompleted() {
             custom_house,
             detailed_status,
             vessel_berthing,
+                colorPriority,      // ✅ USE THIS FROM BACKEND
             container_nos,
           } = cell.row.original;
 
           // Color-coding logic based on job status and dates
-          let bgColor = "";
-          let textColor = "blue"; // Default text color
+          // Color-coding logic - NOW USES BACKEND DATA
+  let bgColor = "";
+  let textColor = "blue";
 
-          const currentDate = new Date();
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
 
-          // Function to calculate the days difference
-          const calculateDaysDifference = (targetDate) => {
-            const date = new Date(targetDate);
-            const timeDifference = date.getTime() - currentDate.getTime();
-            return Math.ceil(timeDifference / (1000 * 3600 * 24));
-          };
+  // Function to calculate the days difference (MUST MATCH BACKEND)
+  const calculateDaysDifference = (targetDate) => {
+    if (!targetDate) return null;
+    
+    const date = new Date(targetDate);
+    date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
+    
+    const timeDifference = date.getTime() - currentDate.getTime();
+    return Math.floor(timeDifference / (1000 * 3600 * 24));
+  };
 
-          // Check if the detailed status is "Billing Pending"
-        if (detailed_status === "Billing Pending" && container_nos) {
-          container_nos.forEach((container) => {
-            // Choose the appropriate date based on consignment type
-            const targetDate =
-              consignment_type === "LCL"
-                ? container.delivery_date
-                : container.emptyContainerOffLoadDate;
+  // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
+  if (colorPriority) {
+    if (colorPriority === 1) {
+      bgColor = "red";
+      textColor = "white";
+    } else if (colorPriority === 2) {
+      bgColor = "orange";
+      textColor = "black";
+    } else if (colorPriority === 3) {
+      bgColor = "white";
+      textColor = "blue";
+    }
+  } 
+  // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
+  else if (detailed_status === "Billing Pending" && container_nos) {
+    let mostCriticalDays = null;
 
-            if (targetDate) {
-              const daysDifference = calculateDaysDifference(targetDate);
+    container_nos.forEach((container) => {
+      const targetDate = consignment_type === "LCL"
+        ? container.delivery_date
+        : container.emptyContainerOffLoadDate;
 
-              // Apply colors based on past and current dates only
-              if (daysDifference <= 0 && daysDifference >= -5) {
-                bgColor = "white";
-                textColor = "blue";
-              } else if (daysDifference <= -6 && daysDifference >= -9) {
-                bgColor = "orange";
-                textColor = "black";
-              } else if (daysDifference <= -10) {
-                bgColor = "red";
-                textColor = "white";
-              }
-            }
-          });
+      if (targetDate) {
+        const daysDifference = calculateDaysDifference(targetDate);
+        
+        if (mostCriticalDays === null || daysDifference < mostCriticalDays) {
+          mostCriticalDays = daysDifference;
         }
+      }
+    });
+
+    // Apply colors based on the most critical container
+    if (mostCriticalDays !== null && mostCriticalDays < 0) {
+      if (mostCriticalDays <= -10) {
+        bgColor = "red";
+        textColor = "white";
+      } else if (mostCriticalDays <= -6) {
+        bgColor = "orange";
+        textColor = "black";
+      } else if (mostCriticalDays <= -1) {
+        bgColor = "white";
+        textColor = "blue";
+      }
+    }
+  }
+
+  const queryParams = new URLSearchParams({
+    selectedJobId: _id,
+  }).toString();
 
           // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
           return (

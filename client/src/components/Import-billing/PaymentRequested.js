@@ -258,108 +258,78 @@ function PaymentRequested() {
             custom_house,
             detailed_status,
             vessel_berthing,
+                colorPriority,      // ✅ USE THIS FROM BACKEND
             container_nos,
           } = cell.row.original;
+
           // Color-coding logic based on job status and dates
-          let bgColor = "";
-          let textColor = "blue"; // Default text color
+          // Color-coding logic - NOW USES BACKEND DATA
+  let bgColor = "";
+  let textColor = "blue";
 
-          const currentDate = new Date();
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
 
-          // Function to calculate the days difference
-          const calculateDaysDifference = (targetDate) => {
-            const date = new Date(targetDate);
-            const timeDifference = date.getTime() - currentDate.getTime();
-            return Math.ceil(timeDifference / (1000 * 3600 * 24));
-          };
+  // Function to calculate the days difference (MUST MATCH BACKEND)
+  const calculateDaysDifference = (targetDate) => {
+    if (!targetDate) return null;
+    
+    const date = new Date(targetDate);
+    date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
+    
+    const timeDifference = date.getTime() - currentDate.getTime();
+    return Math.floor(timeDifference / (1000 * 3600 * 24));
+  };
 
-          // Check if the detailed status is "Estimated Time of Arrival"
-          if (detailed_status === "Estimated Time of Arrival") {
-            const daysDifference = calculateDaysDifference(vessel_berthing);
+  // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
+  if (colorPriority) {
+    if (colorPriority === 1) {
+      bgColor = "red";
+      textColor = "white";
+    } else if (colorPriority === 2) {
+      bgColor = "orange";
+      textColor = "black";
+    } else if (colorPriority === 3) {
+      bgColor = "white";
+      textColor = "blue";
+    }
+  } 
+  // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
+  else if (detailed_status === "Billing Pending" && container_nos) {
+    let mostCriticalDays = null;
 
-            // Only apply the background color if the berthing date is today or in the future
-            if (daysDifference >= 0) {
-              if (daysDifference === 0) {
-                bgColor = "#ff1111";
-                textColor = "white";
-              } else if (daysDifference <= 2) {
-                bgColor = "#f85a5a";
-                textColor = "black";
-              } else if (daysDifference <= 5) {
-                bgColor = "#fd8e8e";
-                textColor = "black";
-              }
-            }
-          }
+    container_nos.forEach((container) => {
+      const targetDate = consignment_type === "LCL"
+        ? container.delivery_date
+        : container.emptyContainerOffLoadDate;
 
-          // Check if the detailed status is "Billing Pending"
-          if (detailed_status === "Billing Pending" && container_nos) {
-            container_nos.forEach((container) => {
-              // Choose the appropriate date based on consignment type
-              const targetDate =
-                consignment_type === "LCL"
-                  ? container.delivery_date
-                  : container.emptyContainerOffLoadDate;
+      if (targetDate) {
+        const daysDifference = calculateDaysDifference(targetDate);
+        
+        if (mostCriticalDays === null || daysDifference < mostCriticalDays) {
+          mostCriticalDays = daysDifference;
+        }
+      }
+    });
 
-              if (targetDate) {
-                const daysDifference = calculateDaysDifference(targetDate);
+    // Apply colors based on the most critical container
+    if (mostCriticalDays !== null && mostCriticalDays < 0) {
+      if (mostCriticalDays <= -10) {
+        bgColor = "red";
+        textColor = "white";
+      } else if (mostCriticalDays <= -6) {
+        bgColor = "orange";
+        textColor = "black";
+      } else if (mostCriticalDays <= -1) {
+        bgColor = "white";
+        textColor = "blue";
+      }
+    }
+  }
 
-                // Apply colors based on past and current dates only
-                if (daysDifference <= 0 && daysDifference >= -5) {
-                  // delivery_date up to the next 5 days - White background for current and past dates
-                  bgColor = "white";
-                  textColor = "blue";
-                } else if (daysDifference <= -6 && daysDifference >= -10) {
-                  // 5 days following the white period - Orange background for past dates
-                  bgColor = "orange";
-                  textColor = "black";
-                } else if (daysDifference < -10) {
-                  // Any date beyond the orange period - Red background for past dates
-                  bgColor = "red";
-                  textColor = "white";
-                }
-              }
-            });
-          }
-
-          // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
-          if (
-            (detailed_status === "Custom Clearance Completed" &&
-              container_nos) ||
-            detailed_status === "BE Noted, Clearance Pending" ||
-            detailed_status === "PCV Done, Duty Payment Pending"
-          ) {
-            container_nos.forEach((container) => {
-              const daysDifference = calculateDaysDifference(
-                container.detention_from
-              );
-
-              // Apply background color based on the days difference before the current date
-              if (daysDifference <= 0) {
-                // Dark Red Background for current date or older detention dates
-                bgColor = "darkred";
-                textColor = "white"; // White text on dark red background
-              } else if (daysDifference === 1) {
-                // Red Background for 1 day before current date
-                bgColor = "red";
-                textColor = "white"; // White text on red background
-              } else if (daysDifference === 2) {
-                // Orange Background for 2 days before current date
-                bgColor = "orange";
-                textColor = "black"; // Black text on orange background
-              } else if (daysDifference === 3) {
-                // Yellow Background for 3 days before current date
-                bgColor = "yellow";
-                textColor = "black"; // Black text on yellow background
-              }
-            });
-          }
-
-          // Build query string for context passing
-          const queryParams = new URLSearchParams({
-            selectedJobId: _id,
-          }).toString();
-
+  const queryParams = new URLSearchParams({
+    selectedJobId: _id,
+  }).toString();
           return (
             <Link
               to={`/view-payment-request-job/${job_no}/${year}?${queryParams}`}

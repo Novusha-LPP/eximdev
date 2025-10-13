@@ -34,7 +34,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
-    const selectedYear = year ? year.trim() : ""; // ✅ Keep year as a string
+    const selectedYear = year ? year.trim() : "";
 
     if (isNaN(pageNumber) || pageNumber < 1) {
       return res.status(400).json({ message: "Invalid page number" });
@@ -50,7 +50,6 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     const decodedICD = selectedICD
       ? decodeURIComponent(selectedICD).trim()
       : "";
-
     const decodedOBL = obl_telex_bl
       ? decodeURIComponent(obl_telex_bl).trim()
       : "";
@@ -64,8 +63,8 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
             { bill_document_sent_to_accounts: { $exists: false } },
             { bill_document_sent_to_accounts: "" },
           ],
-        }, // Exclude jobs where bill_document_sent_to_accounts is set
-        { detailed_status: { $regex: /^Billing Pending$/i } }, // New condition for detail_status
+        },
+        { detailed_status: { $regex: /^Billing Pending$/i } },
       ],
     };
 
@@ -105,7 +104,6 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
 
     // ✅ Apply user-based ICD filter from middleware
     if (req.userIcdFilter) {
-      // User has specific ICD restrictions
       baseQuery.$and.push(req.userIcdFilter);
     }
 
@@ -118,7 +116,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
 
     const unresolvedQueryBase = { ...baseQuery };
     unresolvedQueryBase.$and = unresolvedQueryBase.$and.filter(
-      (condition) => !condition.hasOwnProperty("dsr_queries") // Remove the unresolved filter temporarily
+      (condition) => !condition.hasOwnProperty("dsr_queries")
     );
     unresolvedQueryBase.$and.push({
       dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
@@ -126,61 +124,88 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
 
     const unresolvedCount = await JobModel.countDocuments(unresolvedQueryBase);
 
-    // Enhanced sorting: First by send_date (most recent first), then by priority
-    const calculateDaysDifference = (dateStr) => {
-      const currentDate = new Date();
-      const date = new Date(dateStr);
-      const diffTime = date.getTime() - currentDate.getTime();
-      return Math.ceil(diffTime / (1000 * 3600 * 24));
-    };
+    // FIXED: Enhanced sorting logic
+const calculateDaysDifference = (dateStr) => {
+  if (!dateStr) return null;
+  
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+  
+  const date = new Date(dateStr);
+  date.setHours(0, 0, 0, 0);
+  
+  const diffTime = date.getTime() - currentDate.getTime();
+  return Math.floor(diffTime / (1000 * 3600 * 24));
+};
 
-    const getColorPriority = (daysDifference) => {
-      if (daysDifference == null) return 4; // treat null as lowest priority
-      if (daysDifference <= -10) return 1; // red - most overdue
-      if (daysDifference <= -6) return 2; // orange - overdue
-      if (daysDifference <= 0) return 3; // white - slightly overdue
-      return 4; // future or unknown
-    };
+const getColorPriority = (daysDifference) => {
+  if (daysDifference === null) return 999;
+  
+  if (daysDifference <= -10) return 1;  // Red
+  if (daysDifference <= -6) return 2;   // Orange  
+  if (daysDifference < 0) return 3;     // White
+  
+  return 100; // Future dates
+};
 
-    const rankedJobs = allJobs
-      .map((job) => {
-        let minDaysDifference = null;
+const rankedJobs = allJobs
+  .map((job) => {
+    let mostCriticalDays = null;
+    let mostCriticalPriority = 999;
 
-        if (job.detailed_status === "Billing Pending" && job.container_nos) {
-          job.container_nos.forEach((container) => {
-            const targetDate =
-              job.consignment_type === "LCL"
-                ? container.delivery_date
-                : container.emptyContainerOffLoadDate;
+    if (job.detailed_status === "Billing Pending" && Array.isArray(job.container_nos) && job.container_nos.length > 0) {
+      job.container_nos.forEach((container) => {
+        const targetDate = job.consignment_type === "LCL" 
+          ? container.delivery_date 
+          : container.emptyContainerOffLoadDate;
 
-            if (targetDate) {
-              const daysDiff = calculateDaysDifference(targetDate);
-              if (minDaysDifference === null || daysDiff < minDaysDifference) {
-                minDaysDifference = daysDiff;
-              }
+        if (targetDate) {
+          const daysDiff = calculateDaysDifference(targetDate);
+          const priority = getColorPriority(daysDiff);
+          
+          if (priority < mostCriticalPriority) {
+            mostCriticalDays = daysDiff;
+            mostCriticalPriority = priority;
+          } else if (priority === mostCriticalPriority && daysDiff !== null) {
+            if (mostCriticalDays === null || daysDiff < mostCriticalDays) {
+              mostCriticalDays = daysDiff;
             }
-          });
-        } else {
-          // fallback to vessel_berthing or delivery_date for other jobs
-          const dateStr = job.vessel_berthing || job.delivery_date;
-          minDaysDifference = dateStr ? calculateDaysDifference(dateStr) : null;
+          }
         }
-
-        const colorPriority = getColorPriority(minDaysDifference);
-
-        return { ...job, daysDifference: minDaysDifference, colorPriority };
-      })
-      .sort((a, b) => {
-        if (a.colorPriority !== b.colorPriority) {
-          return a.colorPriority - b.colorPriority;
-        }
-        if (a.daysDifference == null) return 1;
-        if (b.daysDifference == null) return -1;
-        return a.daysDifference - b.daysDifference;
       });
+    }
+
+    if (mostCriticalDays === null && mostCriticalPriority === 999) {
+      const fallbackDate = job.vessel_berthing || job.delivery_date;
+      if (fallbackDate) {
+        mostCriticalDays = calculateDaysDifference(fallbackDate);
+        mostCriticalPriority = getColorPriority(mostCriticalDays);
+      }
+    }
+
+    return { 
+      ...job, 
+      daysDifference: mostCriticalDays, 
+      colorPriority: mostCriticalPriority
+    };
+  })
+  .sort((a, b) => {
+    if (a.colorPriority !== b.colorPriority) {
+      return a.colorPriority - b.colorPriority;
+    }
+    
+    if (a.daysDifference !== null && b.daysDifference !== null) {
+      return a.daysDifference - b.daysDifference;
+    }
+    
+    if (a.daysDifference === null && b.daysDifference !== null) return 1;
+    if (a.daysDifference !== null && b.daysDifference === null) return -1;
+    
+    return a.job_no.localeCompare(b.job_no);
+  });
+
 
     // **Step 3: Apply Pagination**
-
     const totalJobs = rankedJobs.length;
     const paginatedJobs = rankedJobs.slice(skip, skip + limitNumber);
 
@@ -200,5 +225,4 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     });
   }
 });
-
 export default router;

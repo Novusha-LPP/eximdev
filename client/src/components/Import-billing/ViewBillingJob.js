@@ -221,6 +221,30 @@ const ViewBillingJob = () => {
     formik.values.agency_bill_no &&
     formik.values.reimbursement_bill_no &&
     formik.values.reimbursement_bill_date;
+
+  // When fields are filled (isFieldDisabled === true) and billing_completed_date is empty,
+  // set it to the current local datetime (same format used by handleCheckboxChange).
+  // When fields become editable (isFieldDisabled === false), clear the billing_completed_date.
+  useEffect(() => {
+    const currentDate = new Date();
+    const isoDate = new Date(
+      currentDate.getTime() - currentDate.getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .slice(0, 16);
+
+    if (isFieldDisabled) {
+      // fields are filled/disabled for editing; ensure billing_completed_date is set
+      if (!formik.values.billing_completed_date) {
+        formik.setFieldValue("billing_completed_date", isoDate);
+      }
+    } else {
+      // fields are editable by user/team; clear the billing_completed_date
+      if (formik.values.billing_completed_date) {
+        formik.setFieldValue("billing_completed_date", "");
+      }
+    }
+  }, [isFieldDisabled, formik.values.billing_completed_date]);
   const renderDocuments = (documents, type) => {
     if (!documents || documents.length === 0) {
       return <p>No {type} uploaded yet.</p>;

@@ -700,38 +700,60 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           return (
             <div style={{ textAlign: "left" }}>
               {validDocuments.length > 0 ? (
-                validDocuments.map((doc, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      marginBottom: "5px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <a
-                      href={doc.url[0]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        textDecoration: "none",
-                        color: "#007bff",
-                        display: "block",
-                      }}
-                    >
-                      {`${doc.document_name} - ${doc.irn}`}
-                    </a>
-                    <div style={{ fontSize: "12px", color: "#555" }}>
-                      {/* Display the checked date */}
-                      Checked Date:{" "}
-                      {new Date(doc.document_check_date).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div>No Documents Available</div>
-              )}
+                        validDocuments.map((doc, index) => (
+                          <div
+                            key={index}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "flex-start",
+                              margin: 0,
+                              padding: 0,
+                              gap: 0,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: 0, padding: 0 }}>
+                              <a
+                                href={doc.url?.[0] || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  textDecoration: "none",
+                                  color: "#007bff",
+                                  display: "inline-block",
+                                  margin: 0,
+                                  padding: 0,
+                                }}
+                              >
+                                {`${doc.document_name} - ${doc.irn}`}
+                              </a>
+
+                              {/* Copy IRN button; stop propagation to avoid opening the link */}
+                              <IconButton
+                                size="small"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  if (doc.irn) handleCopy(event, doc.irn);
+                                }}
+                                aria-label={`Copy IRN ${doc.irn}`}
+                                style={{ padding: 4 }}
+                              >
+                                <abbr title={`Copy IRN`}>
+                                  <ContentCopyIcon fontSize="inherit" />
+                                </abbr>
+                              </IconButton>
+                            </div>
+
+                            <div style={{ fontSize: "12px", color: "#555", margin: 0, padding: 0 }}>
+                              {/* Display the checked date */}
+                              {new Date(doc.document_check_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ margin: 0, padding: 0 }}>No Documents Available</div>
+                      )}
             </div>
           );
         },

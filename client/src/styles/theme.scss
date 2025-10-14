@@ -1,0 +1,23 @@
+// Theme variables for a professional logistics look-and-feel
+$primary: #1f6feb; // brand blue
+$secondary: #0b5d3b; // deep green accent
+$accent: #ff8a00; // orange accent for chips/badges
+$surface: #ffffff; // card background
+$muted: #e6eef8; // subtle divider
+$mutedText: #6b7280; // muted text color
+$heading: #0f1724; // heading color
+// shadow color to use with rgba(...)
+$shadow-color: #000; // black, used with rgba($shadow-color, alpha)
+
+// Spacing scale
+$spacing-xs: 6px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+
+// Simple utility mixins
+@mixin card() {
+  background: $surface;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba($shadow-color, 0.08);
+}

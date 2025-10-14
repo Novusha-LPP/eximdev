@@ -1,4 +1,5 @@
 import "./App.scss";
+import "./styles/job-details.scss";
 import { UserContext } from "./contexts/UserContext";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";

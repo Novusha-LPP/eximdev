@@ -113,7 +113,6 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const {
             job_no,
             year,
-            _id,
             type_of_b_e,
             consignment_type,
             custom_house,
@@ -768,6 +767,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
       detailedStatus,
       selectedICD,
       selectedImporter,
+      handleRowDataUpdate,
+      formatDate,
     ]
   );
 

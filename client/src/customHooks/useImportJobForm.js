@@ -256,7 +256,8 @@ useEffect(() => {
           clearanceValue,
           saller_name: sallerName,
           hss: HSS,
-          bank_name: bankName
+          bank_name: bankName,
+          detailed_status: "ETA Date Pending",
         };
 
         // Get user info from localStorage for audit trail

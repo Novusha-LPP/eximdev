@@ -289,7 +289,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     if (cell.row.original._id !== _id) {
       // Your existing reset logic...
     }
-  }, [cell.row.original]);  const handleDateSubmit = async (field, index = null) => {
+  }, [cell.row.original]);  
+
+  const handleDateSubmit = async (field, index = null) => {
     let finalValue;
     
     // Allow clearing dates
@@ -399,6 +401,120 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       }
     }
   };
+
+   useEffect(() => {
+    if (consignment_type === "LCL") return; // Skip for LCL
+    
+    const updatedContainers = containers.map(container => {
+      if (container.arrival_date && !container.detention_from) {
+        // Calculate detention date if arrival exists but detention is missing
+        const arrival = new Date(container.arrival_date);
+        const freeDays = parseInt(localFreeTime) || 0;
+        const detentionDate = new Date(arrival);
+        detentionDate.setDate(detentionDate.getDate() + freeDays);
+        
+        return {
+          ...container,
+          detention_from: detentionDate.toISOString().split("T")[0]
+        };
+      }
+      return container;
+    });
+
+    // Check if any containers were updated
+    const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
+    
+    if (hasUpdates) {
+      // Update containers state optimistically
+      setContainers(updatedContainers);
+      
+      // Persist to backend
+      const updateContainersInDB = async () => {
+        try {
+          const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+          const headers = {
+            'Content-Type': 'application/json',
+            'user-id': user.username || 'unknown',
+            'username': user.username || 'unknown',
+            'user-role': user.role || 'unknown'
+          };
+
+          await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+            container_nos: updatedContainers,
+          }, { headers });
+
+          // Update parent component
+          if (typeof onRowDataUpdate === "function") {
+            onRowDataUpdate(_id, { container_nos: updatedContainers });
+          }
+        } catch (err) {
+          console.error("Error updating detention dates:", err);
+          // Revert on error
+          setContainers(containers);
+        }
+      };
+
+      updateContainersInDB();
+    }
+  }, [containers, localFreeTime, consignment_type, _id, onRowDataUpdate]);
+
+  // Also recalculate when free time changes for existing arrival dates
+  useEffect(() => {
+    if (consignment_type === "LCL") return; // Skip for LCL
+    
+    const updatedContainers = containers.map(container => {
+      if (container.arrival_date) {
+        // Recalculate detention date whenever free time changes
+        const arrival = new Date(container.arrival_date);
+        const freeDays = parseInt(localFreeTime) || 0;
+        const detentionDate = new Date(arrival);
+        detentionDate.setDate(detentionDate.getDate() + freeDays);
+        
+        return {
+          ...container,
+          detention_from: detentionDate.toISOString().split("T")[0]
+        };
+      }
+      return container;
+    });
+
+    // Check if any containers were updated
+    const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
+    
+    if (hasUpdates) {
+      setContainers(updatedContainers);
+      
+      // Only update backend if this wasn't triggered by the initial free time setup
+      const shouldUpdateBackend = localFreeTime !== free_time;
+      
+      if (shouldUpdateBackend) {
+        const updateContainersInDB = async () => {
+          try {
+            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+            const headers = {
+              'Content-Type': 'application/json',
+              'user-id': user.username || 'unknown',
+              'username': user.username || 'unknown',
+              'user-role': user.role || 'unknown'
+            };
+
+            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+              container_nos: updatedContainers,
+            }, { headers });
+
+            if (typeof onRowDataUpdate === "function") {
+              onRowDataUpdate(_id, { container_nos: updatedContainers });
+            }
+          } catch (err) {
+            console.error("Error updating detention dates:", err);
+            setContainers(containers);
+          }
+        };
+
+        updateContainersInDB();
+      }
+    }
+  }, [localFreeTime, containers, consignment_type, _id, free_time, onRowDataUpdate]);
   
   const handleFreeTimeChange = (value) => {
     // Don't update free time for LCL consignments

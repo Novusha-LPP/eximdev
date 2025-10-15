@@ -59,9 +59,6 @@ const ViewBillingJob = () => {
     });
   };
 
-  const isAdmin = user.role === "Admin";
-  const isDisabled = !isAdmin;
-
   useEffect(() => {
     fetchJobDetails();
   }, [job_no, year]);

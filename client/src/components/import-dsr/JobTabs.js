@@ -434,7 +434,7 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
       </Dialog>
 
 {/* API Fetch Modal */}
-{/* {user.role === "Admin" && ( */}
+{user.role === "Admin" && (
   <Dialog
     open={openApiFetch}
     onClose={handleCloseApiFetch}
@@ -672,7 +672,7 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
       </Button>
     </DialogActions>
   </Dialog>
-{/* )} */}
+ )} 
     </Box>
   );
 }

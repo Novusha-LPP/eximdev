@@ -6,7 +6,7 @@ const router = express.Router();
 // Route: /api/report/monthly-containers/:year/:month
 router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
   const { year, month } = req.params;
-  const { custom_house } = req.query; // Get custom_house from query parameters
+  const { custom_house } = req.query;
   const monthInt = parseInt(month);
 
   try {
@@ -26,17 +26,35 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
     const groupId = custom_house 
       ? { importer: "$importer", custom_house: "$custom_house" }
       : { importer: "$importer" };
-    
+
     const [containerStats, beStats] = await Promise.all([
-      // CONTAINER AGGREGATION
+      // CONTAINER AGGREGATION - FIXED VERSION
       JobModel.aggregate([
         {
           $match: baseMatch,
         },
         {
           $addFields: {
-            outOfChargeDate: { $toDate: "$out_of_charge" },
-          },
+            // Safe date conversion with error handling
+            outOfChargeDate: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $ne: ["$out_of_charge", null] },
+                    { $ne: ["$out_of_charge", ""] },
+                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } } // Basic ISO date format check
+                  ]
+                },
+                then: { $toDate: "$out_of_charge" },
+                else: null
+              }
+            }
+          }
+        },
+        {
+          $match: {
+            outOfChargeDate: { $ne: null } // Filter out documents with invalid dates
+          }
         },
         {
           $addFields: {
@@ -51,7 +69,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         {
           $group: {
             _id: groupId,
-
             // Total 20ft containers
             container20Ft: {
               $sum: {
@@ -64,7 +81,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 },
               },
             },
-
             // Total 40ft containers
             container40Ft: {
               $sum: {
@@ -77,7 +93,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 },
               },
             },
-
             // LCL 20ft containers
             lcl20Ft: {
               $sum: {
@@ -96,7 +111,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 ],
               },
             },
-
             // LCL 40ft containers
             lcl40Ft: {
               $sum: {
@@ -130,20 +144,38 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         },
       ]),
 
-      // BE DATE AGGREGATION
+      // BE DATE AGGREGATION - FIXED VERSION
       JobModel.aggregate([
         {
           $match: {
             year,
             be_date: { $ne: null, $ne: "" },
             importer: { $ne: null, $ne: "" },
-            ...(custom_house ? { custom_house } : {}), // Add custom_house filter if provided
+            ...(custom_house ? { custom_house } : {}),
           },
         },
         {
           $addFields: {
-            beDateObj: { $toDate: "$be_date" },
-          },
+            // Safe date conversion with error handling
+            beDateObj: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $ne: ["$be_date", null] },
+                    { $ne: ["$be_date", ""] },
+                    { $regexMatch: { input: "$be_date", regex: /^\d{4}-\d{2}-\d{2}/ } } // Basic ISO date format check
+                  ]
+                },
+                then: { $toDate: "$be_date" },
+                else: null
+              }
+            }
+          }
+        },
+        {
+          $match: {
+            beDateObj: { $ne: null } // Filter out documents with invalid dates
+          }
         },
         {
           $addFields: {
@@ -218,7 +250,10 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error("❌ Aggregation error:", error);
-    res.status(500).json({ message: "Server Error while aggregating data." });
+    res.status(500).json({ 
+      message: "Server Error while aggregating data.",
+      details: error.message 
+    });
   }
 });
 

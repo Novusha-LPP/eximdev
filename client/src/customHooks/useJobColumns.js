@@ -113,7 +113,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const {
             job_no,
             year,
-            type_of_b_e,
+                       type_of_b_e,
             consignment_type,
             custom_house,
             detailed_status,
@@ -253,6 +253,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
           const adCode = row?.original?.adCode || "";
+          const RMS = row?.original?.RMS || "";
 
           return (
             <>
@@ -278,6 +279,9 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
               </Tooltip>
               <span style={{ marginTop: "5px" }}>
                 <strong>AD Code: </strong> {adCode ? adCode : "NA"}
+              </span>
+              <span style={{ marginTop: "5px" }}>
+                <strong>RMD: </strong> {RMS}
               </span>
             </>
           );

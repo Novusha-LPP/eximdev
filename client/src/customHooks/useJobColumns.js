@@ -280,9 +280,12 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
               <span style={{ marginTop: "5px" }}>
                 <strong>AD Code: </strong> {adCode ? adCode : "NA"}
               </span>
-              <span style={{ marginTop: "5px" }}>
-                <strong>RMD: </strong> {RMS}
-              </span>
+    {RMS && (
+  <span style={{ marginTop: '5px', display: 'inline-block' }}>
+    <strong>RMS: </strong>{RMS}
+  </span>
+)}
+
             </>
           );
         },

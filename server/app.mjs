@@ -52,6 +52,7 @@ import Charges from "./routes/ChargesSection/ChargesSection.js";
 // Accounts
 import Accounts from "./routes/accounts/accounts.js";
 import reminderRoutes from './routes/accounts/remiderRoutes.js';
+import accountLedger from './routes/accounts/Ledger/accountLedger.mjs'
 
 
 // Documentation
@@ -280,6 +281,7 @@ if (cluster.isPrimary) {
 
       app.use("/api",Accounts);
       app.use('/api', reminderRoutes);
+      app.use('/api', accountLedger);
 
       // Documentation
       app.use(updateDocumentationJob);

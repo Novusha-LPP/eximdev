@@ -113,7 +113,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const {
             job_no,
             year,
-                       type_of_b_e,
+            type_of_b_e,
             consignment_type,
             custom_house,
             detailed_status,
@@ -280,12 +280,12 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
               <span style={{ marginTop: "5px" }}>
                 <strong>AD Code: </strong> {adCode ? adCode : "NA"}
               </span>
-    {RMS && (
-  <span style={{ marginTop: '5px', display: 'inline-block' }}>
-    <strong>RMS: </strong>{RMS}
-  </span>
-)}
-
+              {RMS && (
+                <span style={{ marginTop: "5px", display: "inline-block" }}>
+                  <strong>RMS: </strong>
+                  {RMS}
+                </span>
+              )}
             </>
           );
         },
@@ -456,64 +456,99 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         size: 200,
         Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
       },
+{
+  accessorKey: "container_numbers",
+  header: "Container Numbers and Size",
+  size: 200,
+  Cell: ({ cell }) => {
+    const containerNos = cell.row.original.container_nos;
+    const jobData = cell.row.original;
 
-      {
-        accessorKey: "container_numbers",
-        header: "Container Numbers and Size",
-        size: 200,
-        Cell: ({ cell }) => {
-          const containerNos = cell.row.original.container_nos;
-          const jobData = cell.row.original;
+    // Helper function to get color based on shortage amount
+    const getShortageColor = (shortage) => {
+      if (shortage > 0) {
+        return "#e02251"; // Red for shortage
+      } else {
+        return "#2e7d32"; // Green for no shortage
+      } 
+    };
 
+    // Helper function to get shortage text for tooltip
+    const getShortageText = (shortage) => {
+      if (shortage > 0) {
+        return `Shortage: +${Math.abs(shortage).toFixed(2)} kg`;
+      } else if (shortage < 0) {
+        return `Excess: -${Math.abs(shortage).toFixed(2)} kg`;
+      } else {
+        return "No shortage/excess";
+      }
+    };
+
+    return (
+      <React.Fragment>
+        {containerNos?.map((container, id) => {
+          const weightShortage = parseFloat(container.weight_shortage) || 0;
+          const containerColor = getShortageColor(weightShortage);
+          const tooltipText = getShortageText(weightShortage);
+          
           return (
-            <React.Fragment>
-              {containerNos?.map((container, id) => (
-                <div key={id} style={{ marginBottom: "4px" }}>
-                  <a
-                    href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+            <div key={id} style={{ marginBottom: "4px" }}>
+              <Tooltip title={tooltipText} arrow placement="top">
+                <a
+                  href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: containerColor,
+                    fontWeight: 'bold',
+                    textDecoration: 'none',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                  onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                >
+                  {container.container_number}
+                </a>
+              </Tooltip>
+              | "{container.size}"
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <Tooltip title="Copy Container Number" arrow>
+                  <IconButton
+                    size="small"
+                    onClick={(event) =>
+                      handleCopy(event, container.container_number)
+                    }
                   >
-                    {container.container_number}
-                  </a>
-                  | "{container.size}"
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={(event) =>
-                        handleCopy(event, container.container_number)
-                      }
-                    >
-                      <abbr title="Copy Container Number">
-                        <ContentCopyIcon fontSize="inherit" />
-                      </abbr>
-                    </IconButton>
-                    {/* Delivery Challan Download Icon */}{" "}
-                    <DeliveryChallanPdf
-                      year={jobData.year}
-                      jobNo={jobData.job_no}
-                      containerIndex={id}
-                      renderAsIcon={true}
-                    />
-                    <IgstCalculationPDF
-                      year={jobData.year}
-                      jobNo={jobData.job_no}
-                      containerIndex={id}
-                      renderAsIcon={true}
-                    />
-                  </div>
-                </div>
-              ))}
-            </React.Fragment>
+                    <ContentCopyIcon fontSize="inherit" />
+                  </IconButton>
+                </Tooltip>
+                {/* Delivery Challan Download Icon */}
+                <DeliveryChallanPdf
+                  year={jobData.year}
+                  jobNo={jobData.job_no}
+                  containerIndex={id}
+                  renderAsIcon={true}
+                />
+                <IgstCalculationPDF
+                  year={jobData.year}
+                  jobNo={jobData.job_no}
+                  containerIndex={id}
+                  renderAsIcon={true}
+                />
+              </div>
+            </div>
           );
-        },
-      },
+        })}
+      </React.Fragment>
+    );
+  },
+},
       // {
       //   accessorKey: "arrival_date",
       //   header: "Arrival Date",
@@ -561,8 +596,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           const formattedOblRecievedDate = formatDate(oblRecievedDate);
           const formattedDoDocRecievedDate = formatDate(doDocRecievedDate);
           const formattedOgDocRecievedDate = formatDate(ogDocRecievedDate);
-           const invoices = row.original.do_shipping_line_invoice || [];
-
+          const invoices = row.original.do_shipping_line_invoice || [];
 
           return (
             <div style={{ textAlign: "left" }}>
@@ -651,7 +685,9 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 <strong>EmptyOff LOC:</strong> {do_list}
               </div>
               <div>
-                {invoices.some(invoice => invoice.url && invoice.url.length > 0) ? (
+                {invoices.some(
+                  (invoice) => invoice.url && invoice.url.length > 0
+                ) ? (
                   <div style={{ marginTop: "4px" }}>
                     {invoices.map((invoice, index) => {
                       if (!invoice.url || invoice.url.length === 0) return null;
@@ -667,13 +703,22 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                                 textDecoration: "underline",
                               }}
                             >
-                              {invoice.document_name || `Shipping Line Invoice ${index + 1}`}
+                              {invoice.document_name ||
+                                `Shipping Line Invoice ${index + 1}`}
                             </a>
                             {invoice.is_draft && (
-                              <span style={{ color: "orange", marginLeft: "8px" }}>(Draft)</span>
+                              <span
+                                style={{ color: "orange", marginLeft: "8px" }}
+                              >
+                                (Draft)
+                              </span>
                             )}
                             {invoice.is_final && (
-                              <span style={{ color: "green", marginLeft: "8px" }}>(Final)</span>
+                              <span
+                                style={{ color: "green", marginLeft: "8px" }}
+                              >
+                                (Final)
+                              </span>
                             )}
                           </div>
                         </div>
@@ -706,60 +751,77 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
           return (
             <div style={{ textAlign: "left" }}>
               {validDocuments.length > 0 ? (
-                        validDocuments.map((doc, index) => (
-                          <div
-                            key={index}
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "flex-start",
-                              margin: 0,
-                              padding: 0,
-                              gap: 0,
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: 0, padding: 0 }}>
-                              <a
-                                href={doc.url?.[0] || '#'}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  textDecoration: "none",
-                                  color: "#007bff",
-                                  display: "inline-block",
-                                  margin: 0,
-                                  padding: 0,
-                                }}
-                              >
-                                {`${doc.document_name} - ${doc.irn}`}
-                              </a>
+                validDocuments.map((doc, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      margin: 0,
+                      padding: 0,
+                      gap: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        margin: 0,
+                        padding: 0,
+                      }}
+                    >
+                      <a
+                        href={doc.url?.[0] || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          textDecoration: "none",
+                          color: "#007bff",
+                          display: "inline-block",
+                          margin: 0,
+                          padding: 0,
+                        }}
+                      >
+                        {`${doc.document_name} - ${doc.irn}`}
+                      </a>
 
-                              {/* Copy IRN button; stop propagation to avoid opening the link */}
-                              <IconButton
-                                size="small"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  if (doc.irn) handleCopy(event, doc.irn);
-                                }}
-                                aria-label={`Copy IRN ${doc.irn}`}
-                                style={{ padding: 4 }}
-                              >
-                                <abbr title={`Copy IRN`}>
-                                  <ContentCopyIcon fontSize="inherit" />
-                                </abbr>
-                              </IconButton>
-                            </div>
+                      {/* Copy IRN button; stop propagation to avoid opening the link */}
+                      <IconButton
+                        size="small"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (doc.irn) handleCopy(event, doc.irn);
+                        }}
+                        aria-label={`Copy IRN ${doc.irn}`}
+                        style={{ padding: 4 }}
+                      >
+                        <abbr title={`Copy IRN`}>
+                          <ContentCopyIcon fontSize="inherit" />
+                        </abbr>
+                      </IconButton>
+                    </div>
 
-                            <div style={{ fontSize: "12px", color: "#555", margin: 0, padding: 0 }}>
-                              {/* Display the checked date */}
-                              {new Date(doc.document_check_date).toLocaleDateString()}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{ margin: 0, padding: 0 }}>No Documents Available</div>
-                      )}
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#555",
+                        margin: 0,
+                        padding: 0,
+                      }}
+                    >
+                      {/* Display the checked date */}
+                      {new Date(doc.document_check_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ margin: 0, padding: 0 }}>
+                  No Documents Available
+                </div>
+              )}
             </div>
           );
         },

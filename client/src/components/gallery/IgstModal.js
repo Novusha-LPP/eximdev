@@ -1495,7 +1495,7 @@ const IgstModal = ({
               Cancel
             </Button>
             <Button
-              // onClick={handleSubmit}
+              onClick={handleSubmit}
               variant="contained"
               sx={{
                 borderRadius: "4px",

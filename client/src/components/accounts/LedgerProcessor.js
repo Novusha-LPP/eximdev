@@ -169,11 +169,11 @@ function LedgerProcessor() {
     <Box sx={{ maxWidth: 800, margin: '0 auto', p: 3 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center" color="primary">
-          Ledger Interest calculation
+          Interest on Outstanding Ledger
         </Typography>
         
         <Typography variant="body1" sx={{ mb: 4 }} align="center">
-          Upload ledger files and process them with FIFO allocation
+        Upload. Process. Balance — Ledgers Reconciled by FIFO Intelligence        
         </Typography>
 
         {/* Error/Success Alerts */}

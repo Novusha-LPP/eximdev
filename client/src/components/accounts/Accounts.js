@@ -37,7 +37,7 @@ function Accounts() {
         >
           <Tab label="Forms" {...a11yProps(0)} />
           <Tab label="View" {...a11yProps(1)} />
-          <Tab label="Ledger Processor" {...a11yProps(2)} />
+          <Tab label="Ledger Calc." {...a11yProps(2)} />
         </Tabs>
       </Box>
       <CustomTabPanel value={value} index={0}>

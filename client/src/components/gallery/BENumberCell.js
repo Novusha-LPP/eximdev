@@ -57,6 +57,12 @@ const BENumberCell = ({ cell, onDocumentsUpdated, copyFn, module }) => {
   const location = getCustomHouseLocation(customHouse);
   const rowId = cell.row.original._id || cell.row.id;
 
+  // make a URL-safe date (avoid '/' splitting the path) and encode all segments
+  const beDateForUrl = beDate ? beDate.replace(/\//g, "-") : "";
+  const beUrl = `/be-status/${encodeURIComponent(beNumber)}/${encodeURIComponent(
+    beDateForUrl
+  )}/${encodeURIComponent(location)}`;
+
   // Handle file uploads for different document types
   const handleFilesUploaded = async (newFiles, fieldName) => {
     let updatedFiles;
@@ -222,8 +228,8 @@ const BENumberCell = ({ cell, onDocumentsUpdated, copyFn, module }) => {
       {beNumber && (
         <div>
           <div style={{ display: "flex", alignItems: "center" }}>
-            <a
-              href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${beNumber}&BE_DT=${beDate}&beTrack_location=${location}`}
+           <a
+              href={beUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{

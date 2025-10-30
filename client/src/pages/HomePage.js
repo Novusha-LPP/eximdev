@@ -80,6 +80,7 @@ import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
+import BEStatus from "../customHooks/BeStatus.js";
 
 
 const drawerWidth = 60;
@@ -510,6 +511,12 @@ function HomePage() {
                   <ProtectedRoute requiredModule="Outward Register">
                     <OutwardRegister />
                   </ProtectedRoute>
+                } 
+              />
+              <Route 
+              path="/be-status/:beNo/:beDt/:location" 
+                element={
+                    <BEStatus />
                 } 
               />
               <Route

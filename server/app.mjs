@@ -391,7 +391,6 @@ if (cluster.isPrimary) {
       app.use(auditTrail);
 
 app.post('/api/be-details', async (req, res) => {
-  console.log('Received BE details request:', req.body);
   
   try {
     const { location, beNo, beDt } = req.body;
@@ -429,11 +428,6 @@ app.post('/api/be-details', async (req, res) => {
     formData.append('beno', beNo);
     formData.append('loc', location);
 
-    console.log('Making request to ICEGATE API with data:', {
-      location,
-      beNo, 
-      beDt: formattedDate
-    });
 
     const response = await axios.post(
       'https://foservices.icegate.gov.in/enquiry/publicEnquiries/BETrack_Ices_action_Public',
@@ -445,8 +439,7 @@ app.post('/api/be-details', async (req, res) => {
       }
     );
 
-    console.log('ICEGATE API response status:', response.status);
-    console.log('ICEGATE API response headers:', response.headers);
+
     
     if (response.status === 200 && response.data) {
       res.json({
@@ -456,7 +449,6 @@ app.post('/api/be-details', async (req, res) => {
       });
     } else {
       // Try alternative approach with JSON content type
-      console.log('Trying alternative approach with JSON...');
       
       const jsonResponse = await axios.post(
         'https://foservices.icegate.gov.in/enquiry/publicEnquiries/BETrack_Ices_action_Public',

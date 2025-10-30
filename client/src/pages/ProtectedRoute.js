@@ -47,7 +47,7 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   }
 
   if (error || !userModules) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // Check if user has the required module permission

@@ -429,10 +429,6 @@ setImmediate(async () => {
                 !change.fieldPath.endsWith('.detailed_status')
               );
               
-              if (filteredChanges.length === 0) {
-                console.log(`ℹ️ [req.jobInfo path] All changes were detailed_status related after final filter, skipping audit trail`);
-                return;
-              }
               
               await logAuditTrail({
                 documentId,
@@ -651,30 +647,19 @@ setImmediate(async () => {
           // Also project out fields from originalDocument for fair comparison
           const { detailed_status, updatedAt, __v, ...origDocFiltered } = originalDocument || {};
           // If only detailed_status/system fields changed, skip audit
-          if (JSON.stringify(origDocFiltered) === JSON.stringify(updatedDocument)) {
-            console.log(`ℹ️ [Aggregation] Only detailed_status/system fields changed, skipping audit trail`);
-            return;
-          }
+        
         } else {
           // Fallback for other document types
           updatedDocument = await JobModel.findById(documentId).lean();
-          if (isOnlyDetailedStatusChange(originalDocument, updatedDocument)) {
-            console.log(`ℹ️ [General path] Only detailed_status and system fields changed, skipping audit trail entirely`);
-            return;
-          }
         }
         // SECOND: If other changes exist, filter them and log
         const changes = findChanges(originalDocument, updatedDocument);
         if (changes.length > 0) {
-          console.log(`📝 [General path] Logging ${changes.length} changes for audit trail`);
           // Final safety check: ensure no detailed_status changes slipped through
           const filteredChanges = changes.filter(change => 
             !change.fieldPath.includes('detailed_status')
           );
-          if (filteredChanges.length === 0) {
-            console.log(`ℹ️ [General path] All changes were detailed_status related after final filter, skipping audit trail`);
-            return;
-          }
+        
           await logAuditTrail({
             documentId,
             documentType,

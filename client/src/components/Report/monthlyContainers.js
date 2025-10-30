@@ -289,6 +289,8 @@
           aValue = a.beDateCount;
           bValue = b.beDateCount;
           break;
+          case 'oocCount': // NEW
+    aValue = a.oocCount; bValue = b.oocCount; break;
         case 'container20Ft':
           aValue = Math.max(0, (Number(a.container20Ft) || 0) - (Number(a.lcl20Ft) || 0));
           bValue = Math.max(0, (Number(b.container20Ft) || 0) - (Number(b.lcl20Ft) || 0));
@@ -349,6 +351,7 @@
 
     // Calculate statistics with LCL subtraction
     const totalBEs = data.reduce((sum, row) => sum + (Number(row.beDateCount) || 0), 0);
+    const totalOutOfCharge = data.reduce((sum, row) => sum + (Number(row.oocCount) || 0), 0);
     const totalNet20Ft = data.reduce((sum, row) => sum + Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0)), 0);
     const totalNet40Ft = data.reduce((sum, row) => sum + Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0)), 0);
     const totalLCL = data.reduce((sum, row) => sum + (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0), 0);
@@ -540,8 +543,8 @@
 
         {data.length > 0 && (
           <>
-            <Grid container spacing={3} sx={{ marginBottom: 3 }}>
-              <Grid item xs={12} sm={6} md={3}>
+            <Grid container spacing={2} sx={{ marginBottom: 3 }}>
+              <Grid item xs={12} sm={6} md={2}>
                 <StatCard 
                   title="Total Importers" 
                   value={data.length} 
@@ -549,7 +552,7 @@
                   color={theme.palette.primary.main}
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={2}>
                 <StatCard 
                   title="Total BEs" 
                   value={totalBEs} 
@@ -557,6 +560,17 @@
                   color={theme.palette.success.main}
                 />
               </Grid>
+
+              <Grid item xs={12} sm={6} md={2}>
+                <StatCard 
+                  title="Total Out Of Charge" 
+                  value={totalOutOfCharge } 
+                  icon={<AssessmentIcon sx={{ fontSize: 40 }} />}
+                  color={theme.palette.success.main}
+                />
+              </Grid>
+
+
               <Grid item xs={12} sm={6} md={2}>
                 <StatCard 
                   title="Net Containers" 
@@ -607,6 +621,16 @@
                             BEs Filed
                           </TableSortLabel>
                         </TableCell>
+                        <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
+  <TableSortLabel
+    active={sortColumn === 'oocCount'}
+    direction={sortColumn === 'oocCount' ? sortDirection : 'asc'}
+    onClick={() => handleSort('oocCount')}
+  >
+    Out of Charge
+  </TableSortLabel>
+</TableCell>
+
                         <TableCell sx={{ fontWeight: "bold", fontSize: '1rem' }}>
                           <TableSortLabel
                             active={sortColumn === 'container20Ft'}
@@ -703,6 +727,24 @@
                                   {row.beDateCount}
                                 </Box>
                               </TableCell>
+                              <TableCell>
+  <Box
+    sx={{
+      backgroundColor: '#6a1b9a',
+      color: 'white',
+      padding: '8px 12px',
+      borderRadius: '8px',
+      fontWeight: 'bold',
+      fontSize: '0.875rem',
+      textAlign: 'center',
+      minWidth: '50px',
+      display: 'inline-block'
+    }}
+  >
+    {row.oocCount ?? 0}
+  </Box>
+</TableCell>
+
                               <TableCell>
                                 <Box
                                   sx={{

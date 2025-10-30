@@ -16,60 +16,44 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
       out_of_charge: { $ne: null, $ne: "" },
       importer: { $ne: null, $ne: "" },
     };
-    
+
     // Add custom_house filter if provided
     if (custom_house) {
       baseMatch.custom_house = custom_house;
     }
 
-    // Create dynamic grouping based on whether custom_house is provided
-    const groupId = custom_house 
+    // Dynamic grouping
+    const groupId = custom_house
       ? { importer: "$importer", custom_house: "$custom_house" }
       : { importer: "$importer" };
 
-    const [containerStats, beStats] = await Promise.all([
-      // CONTAINER AGGREGATION - FIXED VERSION
+    const [containerStats, beStats, oocStats] = await Promise.all([
+      // CONTAINER AGGREGATION
       JobModel.aggregate([
-        {
-          $match: baseMatch,
-        },
+        { $match: baseMatch },
         {
           $addFields: {
-            // Safe date conversion with error handling
             outOfChargeDate: {
               $cond: {
                 if: {
                   $and: [
                     { $ne: ["$out_of_charge", null] },
                     { $ne: ["$out_of_charge", ""] },
-                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } } // Basic ISO date format check
-                  ]
+                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } },
+                  ],
                 },
                 then: { $toDate: "$out_of_charge" },
-                else: null
-              }
-            }
-          }
-        },
-        {
-          $match: {
-            outOfChargeDate: { $ne: null } // Filter out documents with invalid dates
-          }
-        },
-        {
-          $addFields: {
-            outMonth: { $month: "$outOfChargeDate" },
+                else: null,
+              },
+            },
           },
         },
-        {
-          $match: {
-            outMonth: monthInt,
-          },
-        },
+        { $match: { outOfChargeDate: { $ne: null } } },
+        { $addFields: { outMonth: { $month: "$outOfChargeDate" } } },
+        { $match: { outMonth: monthInt } },
         {
           $group: {
             _id: groupId,
-            // Total 20ft containers
             container20Ft: {
               $sum: {
                 $size: {
@@ -81,7 +65,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 },
               },
             },
-            // Total 40ft containers
             container40Ft: {
               $sum: {
                 $size: {
@@ -93,7 +76,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 },
               },
             },
-            // LCL 20ft containers
             lcl20Ft: {
               $sum: {
                 $cond: [
@@ -111,7 +93,6 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
                 ],
               },
             },
-            // LCL 40ft containers
             lcl40Ft: {
               $sum: {
                 $cond: [
@@ -144,7 +125,7 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         },
       ]),
 
-      // BE DATE AGGREGATION - FIXED VERSION
+      // BE DATE AGGREGATION
       JobModel.aggregate([
         {
           $match: {
@@ -156,37 +137,24 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         },
         {
           $addFields: {
-            // Safe date conversion with error handling
             beDateObj: {
               $cond: {
                 if: {
                   $and: [
                     { $ne: ["$be_date", null] },
                     { $ne: ["$be_date", ""] },
-                    { $regexMatch: { input: "$be_date", regex: /^\d{4}-\d{2}-\d{2}/ } } // Basic ISO date format check
-                  ]
+                    { $regexMatch: { input: "$be_date", regex: /^\d{4}-\d{2}-\d{2}/ } },
+                  ],
                 },
                 then: { $toDate: "$be_date" },
-                else: null
-              }
-            }
-          }
-        },
-        {
-          $match: {
-            beDateObj: { $ne: null } // Filter out documents with invalid dates
-          }
-        },
-        {
-          $addFields: {
-            beMonth: { $month: "$beDateObj" },
+                else: null,
+              },
+            },
           },
         },
-        {
-          $match: {
-            beMonth: monthInt,
-          },
-        },
+        { $match: { beDateObj: { $ne: null } } },
+        { $addFields: { beMonth: { $month: "$beDateObj" } } },
+        { $match: { beMonth: monthInt } },
         {
           $group: {
             _id: groupId,
@@ -202,16 +170,62 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           },
         },
       ]),
+
+      // OUT OF CHARGE COUNT (monthly, importer-wise)
+      JobModel.aggregate([
+        {
+          $match: {
+            year,
+            out_of_charge: { $ne: null, $ne: "" },
+            importer: { $ne: null, $ne: "" },
+            ...(custom_house ? { custom_house } : {}),
+          },
+        },
+        {
+          $addFields: {
+            oocDateObj: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $ne: ["$out_of_charge", null] },
+                    { $ne: ["$out_of_charge", ""] },
+                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } },
+                  ],
+                },
+                then: { $toDate: "$out_of_charge" },
+                else: null,
+              },
+            },
+          },
+        },
+        { $match: { oocDateObj: { $ne: null } } },
+        { $addFields: { oocMonth: { $month: "$oocDateObj" } } },
+        { $match: { oocMonth: monthInt } },
+        {
+          $group: {
+            _id: groupId,
+            oocCount: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            importer: "$_id.importer",
+            custom_house: custom_house ? "$_id.custom_house" : null,
+            oocCount: 1,
+          },
+        },
+      ]),
     ]);
 
-    // MERGE RESULTS BY IMPORTER (and custom_house if provided)
+    // MERGE RESULTS BY IMPORTER (+ custom_house if provided)
     const merged = {};
 
     for (const entry of containerStats) {
-      const key = custom_house 
+      const key = custom_house
         ? `${entry.importer}|${entry.custom_house || ""}`
         : entry.importer;
-        
+
       merged[key] = {
         importer: entry.importer,
         ...(custom_house && { custom_house: entry.custom_house || "" }),
@@ -220,14 +234,15 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         lcl20Ft: entry.lcl20Ft,
         lcl40Ft: entry.lcl40Ft,
         beDateCount: 0,
+        oocCount: 0,
       };
     }
 
     for (const entry of beStats) {
-      const key = custom_house 
+      const key = custom_house
         ? `${entry.importer}|${entry.custom_house || ""}`
         : entry.importer;
-        
+
       if (merged[key]) {
         merged[key].beDateCount = entry.beDateCount;
       } else {
@@ -239,6 +254,28 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           lcl20Ft: 0,
           lcl40Ft: 0,
           beDateCount: entry.beDateCount,
+          oocCount: 0,
+        };
+      }
+    }
+
+    for (const entry of oocStats) {
+      const key = custom_house
+        ? `${entry.importer}|${entry.custom_house || ""}`
+        : entry.importer;
+
+      if (merged[key]) {
+        merged[key].oocCount = entry.oocCount;
+      } else {
+        merged[key] = {
+          importer: entry.importer,
+          ...(custom_house && { custom_house: entry.custom_house || "" }),
+          container20Ft: 0,
+          container40Ft: 0,
+          lcl20Ft: 0,
+          lcl40Ft: 0,
+          beDateCount: 0,
+          oocCount: entry.oocCount,
         };
       }
     }
@@ -250,9 +287,9 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error("❌ Aggregation error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Server Error while aggregating data.",
-      details: error.message 
+      details: error.message,
     });
   }
 });

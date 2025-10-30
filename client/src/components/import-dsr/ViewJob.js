@@ -93,6 +93,32 @@ function JobDetails() {
     }
   }, [location.state]);
 
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return;
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   // const handleBackClick = () => {
   //   navigate('/import-dsr', {
   //     state: {
@@ -1942,6 +1968,17 @@ function JobDetails() {
                     onChange={formik.handleChange}
                     disabled={isSubmissionDate}
                   />
+                  <IconButton
+                    size="small"
+                    onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                    onClick={(event) => {
+                      handleCopy(event, formik.values.description);
+                    }}
+                  >
+                    <abbr title="Copy description">
+                      <ContentCopyIcon fontSize="inherit" />
+                    </abbr>
+                  </IconButton>
                 </div>
               </Col>
               <Col xs={12} lg={4}>

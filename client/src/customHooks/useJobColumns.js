@@ -466,7 +466,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
 
     // Helper function to get color based on shortage amount
     const getShortageColor = (shortage) => {
-      if (shortage > 0) {
+      if (shortage < 0) {
         return "#e02251"; // Red for shortage
       } else {
         return "#2e7d32"; // Green for no shortage
@@ -475,10 +475,10 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
 
     // Helper function to get shortage text for tooltip
     const getShortageText = (shortage) => {
-      if (shortage > 0) {
-        return `Shortage: +${Math.abs(shortage).toFixed(2)} kg`;
-      } else if (shortage < 0) {
-        return `Excess: -${Math.abs(shortage).toFixed(2)} kg`;
+      if (shortage <0) {
+        return `Shortage: -${Math.abs(shortage).toFixed(2)} kg`;
+      } else if (shortage > 0) {
+        return `Excess: +${Math.abs(shortage).toFixed(2)} kg`;
       } else {
         return "No shortage/excess";
       }

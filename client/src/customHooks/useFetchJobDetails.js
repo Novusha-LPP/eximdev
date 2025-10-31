@@ -894,17 +894,43 @@ formik.setValues({
       setDetentionFrom(updatedDate);
 
       // Find the earliest date from updatedDate
-      const earliestDate = updatedDate.reduce((earliest, current) => {
-        return current < earliest ? current : earliest;
-      }, "9999-12-31"); // Set a far future date as the initial value
+      // Find the earliest date from updatedDate
+const earliestDate = updatedDate.reduce((earliest, current) => {
+  return current < earliest ? current : earliest;
+}, "9999-12-31");
 
-      // Set do_validity_upto_job_level to the earliest date
-      formik.setFieldValue(
-        "do_validity_upto_job_level",
-        earliestDate === "9999-12-31"
-          ? data.do_validity_upto_job_level
-          : earliestDate
-      );
+// Helper to subtract one day safely
+function subtractOneDay(dateString) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  date.setDate(date.getDate() - 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+if (earliestDate !== "9999-12-31") {
+  const earliest = new Date(earliestDate);
+  const oneDayBefore = new Date(earliest);
+  oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+
+  // If difference between earliestDate and oneDayBefore is > 0, use oneDayBefore
+  const diffDays = (earliest - oneDayBefore) / (1000 * 60 * 60 * 24);
+
+  const validityDate =
+    diffDays > 0
+      ? subtractOneDay(earliestDate)
+      : earliestDate;
+
+  formik.setFieldValue("do_validity_upto_job_level", validityDate);
+} else {
+  formik.setFieldValue(
+    "do_validity_upto_job_level",
+    data.do_validity_upto_job_level
+  );
+}
+
     }
     // eslint-disable-next-line
   }, [

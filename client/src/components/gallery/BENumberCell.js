@@ -6,7 +6,7 @@ import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import BEStatusModal from "../../customHooks/BeStatus"; // Import the modal component
 
-const BENumberCell = ({ cell, onDocumentsUpdated, module }) => {
+const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedBE, setSelectedBE] = useState(null);
   const [activeUpload, setActiveUpload] = useState(null);
@@ -271,7 +271,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module }) => {
               {/* Copy BE Number */}
               <IconButton
                 size="small"
-                onClick={(event) => handleCopy(event, beNumber)}
+                onClick={(event) => copyFn(event, beNumber)}
               >
                 <abbr title="Copy BE Number">
                   <ContentCopyIcon fontSize="inherit" />

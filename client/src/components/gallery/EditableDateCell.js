@@ -235,6 +235,32 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     containers,
     updateDetailedStatus,
   ]);
+// Utility function to safely format date as YYYY-MM-DD
+const formatDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Subtract one day but ensure result is not before earliest date if diff is 0
+const adjustValidityDate = (earliestDateString) => {
+  if (!earliestDateString) return "";
+  const date = new Date(earliestDateString);
+  const oneDayBefore = new Date(date);
+  oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+
+  const diffDays = (date - oneDayBefore) / (1000 * 60 * 60 * 24);
+  return diffDays > 0 ? formatDate(oneDayBefore) : earliestDateString;
+};
+
+const getEarliestDetention = (containersArr) => {
+  const validDetentionDates = (containersArr || [])
+    .map((c) => c?.detention_from)
+    .filter(Boolean)
+    .sort(); // ISO 'YYYY-MM-DD' sorts lexicographically
+  return validDetentionDates[0];
+};
 
   // Check if arrival date should be disabled based on business logic
   const isArrivalDateDisabled = useCallback((containerIndex) => {
@@ -342,7 +368,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       });
 
       // Optimistic update
-      setContainers(updatedContainers);      try {
+      setContainers(updatedContainers);   
+        try {
         // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
@@ -352,13 +379,21 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           'user-role': user.role || 'unknown'
         };
 
+        // Compute earliest detention and adjusted job-level validity
+        const earliestDetention = getEarliestDetention(updatedContainers);
+        const adjustedValidity = adjustValidityDate(earliestDetention);
+
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           container_nos: updatedContainers,
+          do_validity_upto_job_level: adjustedValidity,
         }, { headers });
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {
-          onRowDataUpdate(_id, { container_nos: updatedContainers });
+          onRowDataUpdate(_id, {
+            container_nos: updatedContainers,
+            do_validity_upto_job_level: adjustedValidity,
+          });
         }
         
         setEditable(null);
@@ -367,7 +402,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         console.error("Error Updating Container:", err);
         // Revert on error
         setContainers(oldContainers);
-      }
+      } 
     } else {
       const oldDates = { ...dates };
       const newDates = { ...dates, [field]: finalValue || null };
@@ -424,10 +459,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     // Check if any containers were updated
     const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
     
-    if (hasUpdates) {
+     if (hasUpdates) {
       // Update containers state optimistically
       setContainers(updatedContainers);
-      
+
+      // Compute earliest detention and adjusted job-level validity
+      const earliestDetention = getEarliestDetention(updatedContainers);
+      const adjustedValidity = adjustValidityDate(earliestDetention);
+
       // Persist to backend
       const updateContainersInDB = async () => {
         try {
@@ -441,11 +480,15 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
           await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
             container_nos: updatedContainers,
+            do_validity_upto_job_level: adjustedValidity,
           }, { headers });
 
           // Update parent component
           if (typeof onRowDataUpdate === "function") {
-            onRowDataUpdate(_id, { container_nos: updatedContainers });
+            onRowDataUpdate(_id, {
+              container_nos: updatedContainers,
+              do_validity_upto_job_level: adjustedValidity,
+            });
           }
         } catch (err) {
           console.error("Error updating detention dates:", err);
@@ -456,6 +499,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
       updateContainersInDB();
     }
+
+
   }, [containers, localFreeTime, consignment_type, _id, onRowDataUpdate]);
 
   // Also recalculate when free time changes for existing arrival dates
@@ -483,10 +528,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     
     if (hasUpdates) {
       setContainers(updatedContainers);
-      
+
+      // Compute earliest detention and adjusted job-level validity
+      const earliestDetention = getEarliestDetention(updatedContainers);
+      const adjustedValidity = adjustValidityDate(earliestDetention);
+
       // Only update backend if this wasn't triggered by the initial free time setup
       const shouldUpdateBackend = localFreeTime !== free_time;
-      
+
       if (shouldUpdateBackend) {
         const updateContainersInDB = async () => {
           try {
@@ -500,10 +549,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
             await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
               container_nos: updatedContainers,
+              do_validity_upto_job_level: adjustedValidity,
             }, { headers });
 
             if (typeof onRowDataUpdate === "function") {
-              onRowDataUpdate(_id, { container_nos: updatedContainers });
+              onRowDataUpdate(_id, {
+                container_nos: updatedContainers,
+                do_validity_upto_job_level: adjustedValidity,
+              });
             }
           } catch (err) {
             console.error("Error updating detention dates:", err);
@@ -514,6 +567,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         updateContainersInDB();
       }
     }
+
   }, [localFreeTime, containers, consignment_type, _id, free_time, onRowDataUpdate]);
   
   const handleFreeTimeChange = (value) => {
@@ -557,20 +611,29 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           return updatedContainer;
         });
 
-        if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
-          setContainers(updatedContainers);
-          axios
-            .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-              container_nos: updatedContainers,
-            }, { headers })
-            .then(() => {
-              // Update parent component data for containers
-              if (typeof onRowDataUpdate === "function") {
-                onRowDataUpdate(_id, { container_nos: updatedContainers });
-              }
-            })
-            .catch((err) => console.error("Error Updating Containers:", err));
-        }
+if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
+            setContainers(updatedContainers);
+
+            // compute earliest detention & adjusted validity
+            const earliestDetention = getEarliestDetention(updatedContainers);
+            const adjustedValidity = adjustValidityDate(earliestDetention);
+
+            axios
+              .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+                container_nos: updatedContainers,
+                do_validity_upto_job_level: adjustedValidity,
+              }, { headers })
+              .then(() => {
+                // Update parent component data for containers + validity
+                if (typeof onRowDataUpdate === "function") {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              })
+              .catch((err) => console.error("Error Updating Containers:", err));
+          }
       })
       .catch((err) => console.error("Error Updating Free Time:", err));
   };

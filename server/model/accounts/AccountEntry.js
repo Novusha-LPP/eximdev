@@ -21,36 +21,44 @@ const accountEntrySchema = new mongoose.Schema({
       type: String,
       trim: true
     },
-    billingDate: {
-      type: Date
+    phoneNumber: {
+      type: String,
+      trim: true
+    },
+    email: {
+      type: String,
+      trim: true
+    },
+    gstNumber: {
+      type: String,
+      trim: true
     },
     dueDate: {
-      type: Date
-    },
-    reminder: {
-      type: String,
-      enum: ['weekly', 'monthly', 'quarterly', 'half-yearly', 'yearly'],
-      default: 'monthly'
-    }
-  },
-  customFields: [{
-    name: {
-      type: String,
+      type: Date,
       required: true
     },
-    value: {
-      type: mongoose.Schema.Types.Mixed // Can store any type of value
+    amount: {
+      type: Number
     },
-    type: {
-      type: String,
-      enum: ['text', 'number', 'date', 'email', 'phone', 'upload',  'select', 'boolean'],
-      default: 'text'
+    description: {
+      type: String
     },
-    required: {
+    documents: [{
+      type: String // S3 URLs
+    }],
+    isPaid: {
       type: Boolean,
       default: false
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['paid', 'unpaid', 'overdue'],
+      default: 'unpaid'
+    },
+    paymentDate: {
+      type: Date
     }
-  }],
+  },
   createdAt: {
     type: Date,
     default: Date.now

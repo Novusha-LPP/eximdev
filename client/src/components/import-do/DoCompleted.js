@@ -6,6 +6,8 @@ import {
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
+
 import {
   IconButton,
   TextField,
@@ -37,7 +39,14 @@ function DoCompleted() {
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
   // Use context for searchQuery, selectedImporter, and currentPage for DO Completed tab
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageDoTab2: currentPage, setCurrentPageDoTab2: setCurrentPage } = useSearchQuery();
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedImporter,
+    setSelectedImporter,
+    currentPageDoTab2: currentPage,
+    setCurrentPageDoTab2: setCurrentPage,
+  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,9 +55,9 @@ function DoCompleted() {
   const [selectedJobId, setSelectedJobId] = useState(
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
-  );  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  );
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
-
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -82,7 +91,6 @@ function DoCompleted() {
       return dateStr;
     }
   }, []);
-  
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -95,7 +103,7 @@ function DoCompleted() {
     }
     getImporterList();
   }, [selectedYearState]);
- 
+
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
@@ -114,9 +122,7 @@ function DoCompleted() {
       }));
   };
 
-  const importerNames = [
-    ...getUniqueImporterNames(importers),
-  ];
+  const importerNames = [...getUniqueImporterNames(importers)];
 
   useEffect(() => {
     async function getYears() {
@@ -152,31 +158,31 @@ function DoCompleted() {
     getYears();
   }, [selectedYearState, setSelectedYear]);
 
- const handleCopy = (event, text) => {
-   event.stopPropagation();
-   if (!text || text === "N/A") return; // Prevent copying empty values
-   if (
-     navigator.clipboard &&
-     typeof navigator.clipboard.writeText === "function"
-   ) {
-     navigator.clipboard
-       .writeText(text)
-       .then(() => console.log("Copied:", text))
-       .catch((err) => console.error("Copy failed:", err));
-   } else {
-     const textArea = document.createElement("textarea");
-     textArea.value = text;
-     document.body.appendChild(textArea);
-     textArea.select();
-     try {
-       document.execCommand("copy");
-       console.log("Copied (fallback):", text);
-     } catch (err) {
-       console.error("Fallback failed:", err);
-     }
-     document.body.removeChild(textArea);
-   }
- };
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return; // Prevent copying empty values
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Copied (fallback):", text);
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
@@ -186,8 +192,7 @@ function DoCompleted() {
       currentYear,
       currentICD,
       selectedImporter,
-          unresolvedOnly = false
-
+      unresolvedOnly = false
     ) => {
       setLoading(true);
       try {
@@ -202,7 +207,7 @@ function DoCompleted() {
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "",
               username: user?.username || "", // ✅ Send username for ICD filtering
-                          unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
+              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             },
           }
         );
@@ -212,12 +217,12 @@ function DoCompleted() {
           totalPages,
           currentPage: returnedPage,
           jobs,
-          unresolvedCount
+          unresolvedCount,
         } = res.data;
         setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
-              setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
+        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
       } catch (error) {
         console.error("Error fetching data:", error);
         setRows([]);
@@ -239,8 +244,7 @@ function DoCompleted() {
         selectedYearState,
         selectedICD,
         selectedImporter,
-                showUnresolvedOnly
-
+        showUnresolvedOnly
       );
     }
   }, [
@@ -250,7 +254,7 @@ function DoCompleted() {
     selectedICD,
     selectedImporter,
     user?.username,
-            showUnresolvedOnly,
+    showUnresolvedOnly,
 
     fetchJobs,
   ]);
@@ -290,11 +294,12 @@ function DoCompleted() {
           priorityColor,
         } = cell.row.original;
         const textColor = "blue";
-        const bgColor = cell.row.original.priorityJob === "High Priority"
-          ? "orange"
-          : cell.row.original.priorityJob === "Priority"
-          ? "yellow"
-          : "transparent";
+        const bgColor =
+          cell.row.original.priorityJob === "High Priority"
+            ? "orange"
+            : cell.row.original.priorityJob === "Priority"
+            ? "yellow"
+            : "transparent";
         const isSelected = selectedJobId === _id;
         // Get selectedImporter, currentPage, searchQuery from context
         // ...existing code...
@@ -334,9 +339,12 @@ function DoCompleted() {
 
         // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
         const doShippingLineInvoice = row.original.do_shipping_line_invoice;
-        let paymentReciptDate = '';
-        let paymentRequestDate = '';
-        if (Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0) {
+        let paymentReciptDate = "";
+        let paymentRequestDate = "";
+        if (
+          Array.isArray(doShippingLineInvoice) &&
+          doShippingLineInvoice.length > 0
+        ) {
           paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
           paymentRequestDate = doShippingLineInvoice[0].payment_request_date;
         }
@@ -357,35 +365,71 @@ function DoCompleted() {
             {/* Show payment request info if available */}
             {paymentRequestDate && (
               <>
-                <div style={{ color: '#d32f2f', fontWeight: 500, fontSize: '12px', marginTop: 4 }}>
+                <div
+                  style={{
+                    color: "#d32f2f",
+                    fontWeight: 500,
+                    fontSize: "12px",
+                    marginTop: 4,
+                  }}
+                >
                   Payment request sent to billing team
                 </div>
-                <div style={{ color: '#0288d1', fontWeight: 500, fontSize: '12px', marginBottom: 2 }}>
-                 Payment Request Date: {new Date(paymentRequestDate).toLocaleString('en-IN', { hour12: true })}
+                <div
+                  style={{
+                    color: "#0288d1",
+                    fontWeight: 500,
+                    fontSize: "12px",
+                    marginBottom: 2,
+                  }}
+                >
+                  Payment Request Date:{" "}
+                  {new Date(paymentRequestDate).toLocaleString("en-IN", {
+                    hour12: true,
+                  })}
                 </div>
               </>
             )}
             {/* Show payment receipt links if available */}
-            {Array.isArray(doShippingLineInvoice) && doShippingLineInvoice.length > 0 && doShippingLineInvoice.map((invoice, idx) =>
-              invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
-                <div key={idx} style={{ fontSize: '11px', color: '#388e3c', marginTop: '2px' }}>
-                  {invoice.payment_recipt.map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#388e3c', textDecoration: 'underline', marginRight: 8 }}
-                    >
-                      View Payment Receipt {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ''}
-                    </a>
-                  ))}
-                </div>
-              ) : null
-            )}
+            {Array.isArray(doShippingLineInvoice) &&
+              doShippingLineInvoice.length > 0 &&
+              doShippingLineInvoice.map((invoice, idx) =>
+                invoice.payment_recipt && invoice.payment_recipt.length > 0 ? (
+                  <div
+                    key={idx}
+                    style={{
+                      fontSize: "11px",
+                      color: "#388e3c",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {invoice.payment_recipt.map((url, i) => (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#388e3c",
+                          textDecoration: "underline",
+                          marginRight: 8,
+                        }}
+                      >
+                        View Payment Receipt{" "}
+                        {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ""}
+                      </a>
+                    ))}
+                  </div>
+                ) : null
+              )}
             {paymentReciptDate && (
-              <div style={{ fontSize: '11px', color: '#1976d2', marginTop: '2px' }}>
-                Payment Receipt Uploaded: {new Date(paymentReciptDate).toLocaleString('en-IN', { hour12: true })}
+              <div
+                style={{ fontSize: "11px", color: "#1976d2", marginTop: "2px" }}
+              >
+                Payment Receipt Uploaded:{" "}
+                {new Date(paymentReciptDate).toLocaleString("en-IN", {
+                  hour12: true,
+                })}
               </div>
             )}
             <br />
@@ -420,104 +464,140 @@ function DoCompleted() {
     //   },
     // },
 
-{
-  accessorKey: "be_no_igm_details",
-  header: "Bill Of Entry & IGM Details",
-  enableSorting: false,
-  size: 300,
-  Cell: ({ cell }) => {
-    const {
-      be_no,
-      igm_date,
-      igm_no,
-      be_date,
-      gateway_igm_date,
-      gateway_igm,
-    } = cell.row.original;
+    {
+      accessorKey: "be_no_igm_details",
+      header: "Bill Of Entry & IGM Details",
+      enableSorting: false,
+      size: 300,
+      Cell: ({ cell }) => {
+        const {
+          be_no,
+          igm_date,
+          igm_no,
+          be_date,
+          gateway_igm_date,
+          gateway_igm,
+        } = cell.row.original;
 
-    return (
-      <div>
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>BE No:</strong> {be_no || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, be_no)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy BE No">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+        return (
+          <div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>BE No:</strong> {be_no || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, be_no)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy BE No">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>BE Date:</strong> {be_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, be_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy BE Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>BE Date:</strong> {be_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, be_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy BE Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, gateway_igm)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy GIGM">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>GIGM:</strong> {gateway_igm || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, gateway_igm)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy GIGM">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, gateway_igm_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy GIGM Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>GIGM Date:</strong> {gateway_igm_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, gateway_igm_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy GIGM Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, igm_no)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy IGM No">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>IGM No:</strong> {igm_no || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, igm_no)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy IGM No">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
 
-        <div style={{ marginBottom: "2px", display: "flex", alignItems: "center" }}>
-          <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
-          <IconButton 
-            size="small" 
-            onClick={(event) => handleCopy(event, igm_date)}
-            sx={{ padding: "2px", marginLeft: "4px" }}
-          >
-            <abbr title="Copy IGM Date">
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
-        </div>
-      </div>
-    );
-  },
-},
+            <div
+              style={{
+                marginBottom: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <strong>IGM Date:</strong> {igm_date || "N/A"}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => handleCopy(event, igm_date)}
+                sx={{ padding: "2px", marginLeft: "4px" }}
+              >
+                <abbr title="Copy IGM Date">
+                  <ContentCopyIcon fontSize="inherit" />
+                </abbr>
+              </IconButton>
+            </div>
+          </div>
+        );
+      },
+    },
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
@@ -527,15 +607,21 @@ function DoCompleted() {
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
         const line_no = row.original.line_no || "N/A";
 
-        return (         
+        return (
           <React.Fragment>
-            <BLNumberCell
+            <BLTrackingCell
               blNumber={row.original.awb_bl_no}
-              portOfReporting={row.original.port_of_reporting}
+              hblNumber={row.original?.hawb_hbl_no?.toString() || ""}
               shippingLine={row.original.shipping_line_airline}
+              customHouse={row.original?.custom_house || ""}
+              container_nos={row.original.container_nos}
+              jobId={row.original._id}
+              portOfReporting={row.original.port_of_reporting}
               containerNos={row.original.container_nos}
+              onCopy={handleCopy}
             />
 
+            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               {vesselFlight}
               <IconButton
@@ -550,7 +636,7 @@ function DoCompleted() {
             </div>
 
             <div>
-            { `Vessel Voyage: ${voyageNo}`}
+              {`Vessel Voyage: ${voyageNo}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -561,8 +647,9 @@ function DoCompleted() {
                 </abbr>
               </IconButton>
             </div>
+
             <div>
-            { `Line No: ${line_no}`}
+              {`Line No: ${line_no}`}
               <IconButton
                 size="small"
                 onPointerOver={(e) => (e.target.style.cursor = "pointer")}
@@ -577,7 +664,6 @@ function DoCompleted() {
         );
       },
     },
-
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
@@ -621,9 +707,9 @@ function DoCompleted() {
       Cell: ({ cell, row }) => {
         const displayDate = cell.getValue(); // "displayDate" from backend
         const dayDifference = row.original.dayDifference; // "dayDifference" from backend
-        const  typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
+        const typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
 
-              const do_list = row.original.do_list; // "do_list" from backend
+        const do_list = row.original.do_list; // "do_list" from backend
         return (
           <div
             style={{
@@ -633,10 +719,8 @@ function DoCompleted() {
             }}
           >
             {displayDate}{" "}
-            
             {dayDifference > 0 && <div>(+{dayDifference} days)</div>}
             <div>Type Of Do: {typeOfDo}</div>
-
             <strong> EmptyOff LOC:</strong> {do_list}
           </div>
         );
@@ -730,17 +814,12 @@ function DoCompleted() {
       enableSorting: false,
       size: 200,
       Cell: ({ cell }) => {
-        const {
-          do_completed,
-          do_validity,
-          do_copies,
-          cth_documents
-        } = cell.row.original;
+        const { do_completed, do_validity, do_copies, cth_documents } =
+          cell.row.original;
 
-        const doCopies = do_copies
-        const doCompleted = formatDate(do_completed)
-        const doValidity =  formatDate(do_validity)
-        
+        const doCopies = do_copies;
+        const doCompleted = formatDate(do_completed);
+        const doValidity = formatDate(do_validity);
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -750,16 +829,14 @@ function DoCompleted() {
               (doc) =>
                 doc.url &&
                 doc.url.length > 0 &&
-                (
-                  doc.document_name === "Bill of Lading")
+                doc.document_name === "Bill of Lading"
             ) ? (
               cth_documents
                 .filter(
                   (doc) =>
                     doc.url &&
                     doc.url.length > 0 &&
-                    (
-                      doc.document_name === "Bill of Lading")
+                    doc.document_name === "Bill of Lading"
                 )
                 .map((doc) => (
                   <div key={doc._id} style={{ marginBottom: "5px" }}>
@@ -778,27 +855,24 @@ function DoCompleted() {
                   </div>
                 ))
             ) : (
-              <span style={{ color: "gray" }}>
-                No Bill of Lading{" "}
-              </span>
-            )}  
+              <span style={{ color: "gray" }}>No Bill of Lading </span>
+            )}
 
-          <div>
-  {doCompleted ? (
-    <strong>DO Completed Date: {doCompleted}</strong>
-  ) : (
-    <span style={{color: "gray"}}>No DO Completed Date</span>
-  )}
-</div>
-<div>
-  {doValidity ? (
-    <strong>DO Validity: {doCompleted}</strong>
-  ) : (
-    <span style={{color: "gray"}}>No DO Validity</span>
-  )}
-</div>
+            <div>
+              {doCompleted ? (
+                <strong>DO Completed Date: {doCompleted}</strong>
+              ) : (
+                <span style={{ color: "gray" }}>No DO Completed Date</span>
+              )}
+            </div>
+            <div>
+              {doValidity ? (
+                <strong>DO Validity: {doCompleted}</strong>
+              ) : (
+                <span style={{ color: "gray" }}>No DO Validity</span>
+              )}
+            </div>
 
-           
             {Array.isArray(doCopies) && doCopies.length > 0 ? (
               <div style={{ marginTop: "4px" }}>
                 {doCopies.map((url, index) => (
@@ -816,13 +890,9 @@ function DoCompleted() {
               </div>
             ) : (
               <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>
-                  {" "}
-                 No DO copies{" "}
-                </span>
+                <span style={{ color: "gray" }}> No DO copies </span>
               </div>
             )}
-
           </div>
         );
       },
@@ -888,7 +958,8 @@ function DoCompleted() {
           sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
         >
           Job Count: {totalJobs}
-        </Typography>        <Autocomplete
+        </Typography>{" "}
+        <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
@@ -907,7 +978,6 @@ function DoCompleted() {
             />
           )}
         />
-
         <TextField
           select
           size="small"
@@ -921,7 +991,6 @@ function DoCompleted() {
             </MenuItem>
           ))}
         </TextField>
-
         {/* ICD Code Filter */}
         <TextField
           select
@@ -939,7 +1008,8 @@ function DoCompleted() {
           <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
           <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-        </TextField>        <TextField
+        </TextField>{" "}
+        <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
           variant="outlined"
@@ -961,55 +1031,55 @@ function DoCompleted() {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
-
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Box sx={{ position: 'relative' }}>
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                                sx={{
-                                   borderRadius: 3,
-                                textTransform: 'none',
-                                fontWeight: 500,
-                                fontSize: '0.875rem',
-                                padding: '8px 20px',
-                                background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                                color: '#ffffff',
-                                border: 'none',
-                                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                  background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                                  transform: 'translateY(-1px)',
-                                },
-                                '&:active': {
-                                  transform: 'translateY(0px)',
-                                },
-                                }}
-                              >
-                                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-                              </Button>
-                              <Badge 
-                                badgeContent={unresolvedCount} 
-                                color="error" 
-                                overlap="circular" 
-                                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                sx={{ 
-                                  position: 'absolute',
-                                  top: 4,
-                                  right: 4,
-                                  '& .MuiBadge-badge': {
-                                    fontSize: '0.75rem',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                  }
-                                }}
-                              />
-                            </Box>
-                          </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ position: "relative" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+            </Button>
+            <Badge
+              badgeContent={unresolvedCount}
+              color="error"
+              overlap="circular"
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                "& .MuiBadge-badge": {
+                  fontSize: "0.75rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                },
+              }}
+            />
+          </Box>
+        </Box>
       </div>
     ),
   });

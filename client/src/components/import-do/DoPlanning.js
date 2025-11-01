@@ -6,6 +6,7 @@ import {
 } from "material-react-table";
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
 import { useNavigate, useLocation } from "react-router-dom";
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
 
 import {
   IconButton,
@@ -182,65 +183,77 @@ function DoPlanning() {
   ];
 
   // Handle new job notification
-  const handleNewJobNotification = useCallback((message) => {
-    console.log("🆕 Processing notification:", message);
-    
-    // Extract job data from different possible message formats
-    const jobData = message.data || message.job || message;
-    const jobNo = jobData.job_no || jobData.jobNumber || 'Unknown';
-    
-    if (!jobData.job_no) {
-      console.warn("⚠️ Notification missing job_no:", message);
-      return; // Don't process if no job number
-    }
-    
-    console.log("🆕 New DO Billing Job:", jobNo, jobData);
-    
-    // Create notification object
-    const newNotification = {
-      id: Date.now() + Math.random(),
-      job: jobData,
-      timestamp: message.timestamp || new Date().toISOString(),
-      read: false,
-      type: 'do_billing'
-    };
+  const handleNewJobNotification = useCallback(
+    (message) => {
+      console.log("🆕 Processing notification:", message);
 
-    // Add to notifications
-    setNotifications((prev) => {
-      const updated = [newNotification, ...prev.slice(0, 49)];
-      console.log("📋 Notifications updated, total:", updated.length);
-      return updated;
-    });
+      // Extract job data from different possible message formats
+      const jobData = message.data || message.job || message;
+      const jobNo = jobData.job_no || jobData.jobNumber || "Unknown";
 
-    // Update badge count
-    setNewJobsCount((prev) => {
-      const newCount = prev + 1;
-      console.log("🔔 New jobs count:", newCount);
-      return newCount;
-    });
+      if (!jobData.job_no) {
+        console.warn("⚠️ Notification missing job_no:", message);
+        return; // Don't process if no job number
+      }
 
-    // Play notification sound
-    playNotificationSound();
+      console.log("🆕 New DO Billing Job:", jobNo, jobData);
 
-    // Show toast notification if not viewing today's jobs
-    if (!showTodayJobs) {
-      showToastNotification(jobData);
-    }
+      // Create notification object
+      const newNotification = {
+        id: Date.now() + Math.random(),
+        job: jobData,
+        timestamp: message.timestamp || new Date().toISOString(),
+        read: false,
+        type: "do_billing",
+      };
 
-    // Refresh data to show the new job if viewing today's jobs
-    if (showTodayJobs) {
-      console.log("🔄 Refreshing data for today's jobs");
-      fetchJobs(
-        currentPage,
-        debouncedSearchQuery,
-        selectedYearState,
-        selectedICD,
-        selectedImporter,
-        selectedStatusFilter,
-        showUnresolvedOnly
-      );
-    }
-  }, [showTodayJobs, currentPage, debouncedSearchQuery, selectedYearState, selectedICD, selectedImporter, selectedStatusFilter, showUnresolvedOnly]);
+      // Add to notifications
+      setNotifications((prev) => {
+        const updated = [newNotification, ...prev.slice(0, 49)];
+        console.log("📋 Notifications updated, total:", updated.length);
+        return updated;
+      });
+
+      // Update badge count
+      setNewJobsCount((prev) => {
+        const newCount = prev + 1;
+        console.log("🔔 New jobs count:", newCount);
+        return newCount;
+      });
+
+      // Play notification sound
+      playNotificationSound();
+
+      // Show toast notification if not viewing today's jobs
+      if (!showTodayJobs) {
+        showToastNotification(jobData);
+      }
+
+      // Refresh data to show the new job if viewing today's jobs
+      if (showTodayJobs) {
+        console.log("🔄 Refreshing data for today's jobs");
+        fetchJobs(
+          currentPage,
+          debouncedSearchQuery,
+          selectedYearState,
+          selectedICD,
+          selectedImporter,
+          selectedStatusFilter,
+          showUnresolvedOnly
+        );
+      }
+    },
+    [
+      showTodayJobs,
+      currentPage,
+      debouncedSearchQuery,
+      selectedYearState,
+      selectedICD,
+      selectedImporter,
+      selectedStatusFilter,
+      showUnresolvedOnly,
+    ]
+  );
 
   // Play notification sound
   const playNotificationSound = () => {
@@ -316,146 +329,147 @@ function DoPlanning() {
   };
 
   // ✅ Simple WebSocket implementation - like your working Screen1
-useEffect(() => {
-  const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || 'localhost:9000'}`;
-  console.log('🔗 Connecting to DO Billing WebSocket:', SOCKET_URL);
+  useEffect(() => {
+    const SOCKET_URL = `ws://${
+      process.env.REACT_APP_SOCKET_URL || "localhost:9000"
+    }`;
+    console.log("🔗 Connecting to DO Billing WebSocket:", SOCKET_URL);
 
-  let socket = null;
-  let reconnectTimeout = null;
-  let connectionTimeout = null;
-  let subscriptionSent = false;
+    let socket = null;
+    let reconnectTimeout = null;
+    let connectionTimeout = null;
+    let subscriptionSent = false;
 
-  const connectWebSocket = () => {
-    try {
-      // Clear any existing timeouts
+    const connectWebSocket = () => {
+      try {
+        // Clear any existing timeouts
+        if (connectionTimeout) clearTimeout(connectionTimeout);
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+
+        // Close existing socket if any
+        if (socket && socket.readyState !== WebSocket.CLOSED) {
+          socket.close(1000, "New connection requested");
+        }
+
+        setConnectionStatus("Connecting");
+        setSocketError(null);
+        subscriptionSent = false;
+
+        // Use the dedicated path for DO billing WebSocket
+        socket = new WebSocket(`${SOCKET_URL}/do-billing`);
+
+        // Set connection timeout
+        connectionTimeout = setTimeout(() => {
+          if (socket?.readyState !== WebSocket.OPEN) {
+            console.error("❌ Connection timeout");
+            socket?.close(4000, "Connection timeout");
+            setSocketError("Connection timeout");
+          }
+        }, 5000);
+
+        socket.onopen = () => {
+          console.log("✅ Connected successfully");
+          setConnectionStatus("Connected");
+          setSocketError(null);
+          clearTimeout(connectionTimeout);
+
+          if (!subscriptionSent) {
+            // Send subscription message
+            // Simplified subscription message
+            const subscribeMessage = {
+              type: "subscribe",
+              module: "do_billing",
+              timestamp: new Date().toISOString(),
+            };
+
+            try {
+              const messageString = JSON.stringify(subscribeMessage);
+              console.log("📤 Subscription payload:", messageString);
+              socket.send(messageString);
+              subscriptionSent = true;
+              console.log("📤 Subscribe message sent successfully");
+            } catch (err) {
+              console.error("❌ Failed to send subscribe:", err);
+              setSocketError("Failed to subscribe: " + err.message);
+            }
+          }
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            console.log("📨 Message received:", message);
+
+            switch (message.type) {
+              case "welcome":
+                console.log("👋 Server welcomed connection");
+                break;
+
+              case "subscribed":
+                console.log("✅ Successfully subscribed");
+                setConnectionStatus("Subscribed");
+                setSocketError(null);
+                break;
+
+              case "new_job":
+                console.log("🎯 New job notification:", message);
+                handleNewJobNotification(message);
+                break;
+
+              case "error":
+                console.error("❌ Server error:", message);
+                setSocketError(message.error);
+                break;
+
+              default:
+                console.log("📨 Other message:", message);
+            }
+          } catch (err) {
+            console.error("❌ Failed to process message:", err);
+          }
+        };
+
+        socket.onerror = (error) => {
+          console.error("❌ WebSocket error:", error);
+          setConnectionStatus("Error");
+          setSocketError("Connection error occurred");
+        };
+
+        socket.onclose = (event) => {
+          console.log("👋 WebSocket closed:", event);
+          setConnectionStatus("Disconnected");
+
+          // Only reconnect on abnormal closure
+          if (event.code !== 1000 && event.code !== 1001) {
+            reconnectTimeout = setTimeout(() => {
+              console.log("🔄 Attempting to reconnect...");
+              connectWebSocket();
+            }, 3000);
+          }
+        };
+      } catch (error) {
+        console.error("❌ Failed to create WebSocket:", error);
+        setSocketError("Failed to create connection");
+      }
+    };
+
+    // Initial connection
+    connectWebSocket();
+
+    // Cleanup
+    return () => {
       if (connectionTimeout) clearTimeout(connectionTimeout);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
-
-      // Close existing socket if any
-      if (socket && socket.readyState !== WebSocket.CLOSED) {
-        socket.close(1000, 'New connection requested');
-      }
-
-      setConnectionStatus('Connecting');
-      setSocketError(null);
-      subscriptionSent = false;
-      
-      // Use the dedicated path for DO billing WebSocket
-      socket = new WebSocket(`${SOCKET_URL}/do-billing`);
-      
-      // Set connection timeout
-      connectionTimeout = setTimeout(() => {
-        if (socket?.readyState !== WebSocket.OPEN) {
-          console.error('❌ Connection timeout');
-          socket?.close(4000, 'Connection timeout');
-          setSocketError('Connection timeout');
-        }
-      }, 5000);
-
-      socket.onopen = () => {
-        console.log('✅ Connected successfully');
-        setConnectionStatus('Connected');
-        setSocketError(null);
-        clearTimeout(connectionTimeout);
-
-        if (!subscriptionSent) {
-          // Send subscription message
-          // Simplified subscription message
-          const subscribeMessage = {
-            type: 'subscribe',
-            module: 'do_billing',
-            timestamp: new Date().toISOString()
-          };
-
-          try {
-            const messageString = JSON.stringify(subscribeMessage);
-            console.log('📤 Subscription payload:', messageString);
-            socket.send(messageString);
-            subscriptionSent = true;
-            console.log('📤 Subscribe message sent successfully');
-          } catch (err) {
-            console.error('❌ Failed to send subscribe:', err);
-            setSocketError('Failed to subscribe: ' + err.message);
-          }
-        }
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          console.log('📨 Message received:', message);
-
-          switch (message.type) {
-            case 'welcome':
-              console.log('👋 Server welcomed connection');
-              break;
-
-            case 'subscribed':
-              console.log('✅ Successfully subscribed');
-              setConnectionStatus('Subscribed');
-              setSocketError(null);
-              break;
-
-            case 'new_job':
-              console.log('🎯 New job notification:', message);
-              handleNewJobNotification(message);
-              break;
-
-            case 'error':
-              console.error('❌ Server error:', message);
-              setSocketError(message.error);
-              break;
-
-            default:
-              console.log('📨 Other message:', message);
-          }
-        } catch (err) {
-          console.error('❌ Failed to process message:', err);
-        }
-      };
-
-      socket.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-        setConnectionStatus('Error');
-        setSocketError('Connection error occurred');
-      };
-
-      socket.onclose = (event) => {
-        console.log('👋 WebSocket closed:', event);
-        setConnectionStatus('Disconnected');
-        
-        // Only reconnect on abnormal closure
-        if (event.code !== 1000 && event.code !== 1001) {
-          reconnectTimeout = setTimeout(() => {
-            console.log('🔄 Attempting to reconnect...');
-            connectWebSocket();
-          }, 3000);
-        }
-      };
-    } catch (error) {
-      console.error('❌ Failed to create WebSocket:', error);
-      setSocketError('Failed to create connection');
-    }
-  };
-
-  // Initial connection
-  connectWebSocket();
-
-  // Cleanup
-  return () => {
-    if (connectionTimeout) clearTimeout(connectionTimeout);
-    if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    if (socket) socket.close(1000, 'Component unmounting');
-  };
-}, [handleNewJobNotification]);
-
+      if (socket) socket.close(1000, "Component unmounting");
+    };
+  }, [handleNewJobNotification]);
 
   // Test function for WebSocket
   const testDoBillingWebSocket = () => {
-    console.log('🧪 DO Billing WebSocket Test:', {
+    console.log("🧪 DO Billing WebSocket Test:", {
       connectionStatus,
       socketError,
-      notifications: notifications.length
+      notifications: notifications.length,
     });
 
     // Simulate a test notification
@@ -464,8 +478,8 @@ useEffect(() => {
       data: {
         job_no: "TEST-" + Date.now(),
         importer: "Test Company",
-        be_no: "TEST123"
-      }
+        be_no: "TEST123",
+      },
     });
   };
 
@@ -1261,13 +1275,19 @@ useEffect(() => {
 
         return (
           <React.Fragment>
-            <BLNumberCell
+            <BLTrackingCell
               blNumber={row.original.awb_bl_no}
-              portOfReporting={row.original.port_of_reporting}
+              hblNumber={row.original?.hawb_hbl_no?.toString() || ""}
               shippingLine={row.original.shipping_line_airline}
+              customHouse={row.original?.custom_house || ""}
+              container_nos={row.original.container_nos}
+              jobId={_id}
+              portOfReporting={row.original.port_of_reporting}
               containerNos={row.original.container_nos}
+              onCopy={handleCopy}
             />
 
+            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               {vesselFlight}
               <IconButton
@@ -1521,7 +1541,9 @@ useEffect(() => {
         };
 
         const checklistLink = getFirstLink(checklist);
-        const processed_be_attachmentLink = getFirstLink(processed_be_attachment);
+        const processed_be_attachmentLink = getFirstLink(
+          processed_be_attachment
+        );
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -1562,9 +1584,7 @@ useEffect(() => {
               </div>
             ) : (
               <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>
-                  Processed Copy of BE no.
-                </span>
+                <span style={{ color: "gray" }}>Processed Copy of BE no.</span>
               </div>
             )}
 
@@ -1658,19 +1678,21 @@ useEffect(() => {
         }}
       >
         {/* First Row - Header and Counts */}
-        <div style={{ 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "space-between",
-          borderBottom: "1px solid #e0e0e0",
-          paddingBottom: "12px"
-        }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #e0e0e0",
+            paddingBottom: "12px",
+          }}
+        >
           <DoDocCountsDisplay />
-          
+
           {/* Notification Bell and Today's Jobs Toggle */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Chip 
-              label={showTodayJobs ? "Today's Jobs" : "All Jobs"} 
+            <Chip
+              label={showTodayJobs ? "Today's Jobs" : "All Jobs"}
               color={showTodayJobs ? "primary" : "default"}
               variant={showTodayJobs ? "filled" : "outlined"}
               onClick={handleViewAllJobs}
@@ -1678,32 +1700,33 @@ useEffect(() => {
               deleteIcon={showTodayJobs ? <span>✕</span> : undefined}
               sx={{ fontWeight: 500 }}
             />
-            
+
             <IconButton
-            onClick={handleViewTodayJobs}
+              onClick={handleViewTodayJobs}
               sx={{
-                position: 'relative',
-                background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
-                color: 'white',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #ff5252 0%, #d63031 100%)',
-                  transform: 'scale(1.05)',
+                position: "relative",
+                background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)",
+                color: "white",
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #ff5252 0%, #d63031 100%)",
+                  transform: "scale(1.05)",
                 },
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 12px rgba(255, 107, 107, 0.3)',
+                transition: "all 0.3s ease",
+                boxShadow: "0 4px 12px rgba(255, 107, 107, 0.3)",
               }}
             >
-              <Badge 
-                badgeContent={newJobsCount} 
+              <Badge
+                badgeContent={newJobsCount}
                 color="error"
                 overlap="circular"
                 sx={{
-                  '& .MuiBadge-badge': {
-                    fontSize: '0.75rem',
-                    minWidth: '20px',
-                    height: '20px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  }
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "20px",
+                    height: "20px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
                 }}
               >
                 <NotificationsIcon />
@@ -1732,10 +1755,10 @@ useEffect(() => {
                 variant="outlined"
                 label="Select Importer"
                 fullWidth
-                sx={{ 
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: 'white',
-                  }
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
                 }}
               />
             )}
@@ -1748,10 +1771,10 @@ useEffect(() => {
             onChange={(e) => setSelectedYearState(e.target.value)}
             label="Financial Year"
             fullWidth
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white',
-              }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
             }}
           >
             {years.map((year, index) => (
@@ -1772,10 +1795,10 @@ useEffect(() => {
               setCurrentPage(1);
             }}
             fullWidth
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white',
-              }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
             }}
           >
             <MenuItem value="">All ICDs</MenuItem>
@@ -1792,40 +1815,40 @@ useEffect(() => {
             value={selectedStatusFilter}
             onChange={handleStatusFilterChange}
             fullWidth
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white',
-              }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
             }}
           >
             {statusFilterOptions.map((option, index) => (
-              <MenuItem 
-                key={`status-${option.value}-${index}`} 
+              <MenuItem
+                key={`status-${option.value}-${index}`}
                 value={option.value}
                 sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  paddingRight: '16px'
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingRight: "16px",
                 }}
               >
                 <span>{option.label}</span>
                 <div
                   style={{
-                    color: '#000000ff',
-                    borderRadius: '100px',
-                    minWidth: '24px',
-                    height: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '10px',
-                    fontWeight: '600',
-                    marginLeft: 'auto',
-                    border: '2px solid #e41515ff',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    letterSpacing: '0.5px',
-                    transition: 'all 0.2s ease'
+                    color: "#000000ff",
+                    borderRadius: "100px",
+                    minWidth: "24px",
+                    height: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "10px",
+                    fontWeight: "600",
+                    marginLeft: "auto",
+                    border: "2px solid #e41515ff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    letterSpacing: "0.5px",
+                    transition: "all 0.2s ease",
                   }}
                 >
                   {option.count}
@@ -1858,58 +1881,60 @@ useEffect(() => {
                   </InputAdornment>
                 ),
               }}
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'white',
-                }
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
+                },
               }}
             />
           </div>
-          
+
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Box sx={{ position: 'relative' }}>
+            <Box sx={{ position: "relative" }}>
               <Button
                 variant="contained"
                 size="small"
                 onClick={() => setShowUnresolvedOnly((prev) => !prev)}
                 sx={{
                   borderRadius: 3,
-                  textTransform: 'none',
+                  textTransform: "none",
                   fontWeight: 500,
-                  fontSize: '0.875rem',
-                  padding: '8px 20px',
-                  background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-                    boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                    transform: 'translateY(-1px)',
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                  background:
+                    "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
+                    boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                    transform: "translateY(-1px)",
                   },
-                  '&:active': {
-                    transform: 'translateY(0px)',
+                  "&:active": {
+                    transform: "translateY(0px)",
                   },
                 }}
               >
                 {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
               </Button>
-              <Badge 
-                badgeContent={unresolvedCount} 
-                color="error" 
-                overlap="circular" 
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                sx={{ 
-                  position: 'absolute',
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
                   top: 4,
                   right: 4,
-                  '& .MuiBadge-badge': {
-                    fontSize: '0.75rem',
-                    minWidth: '18px',
-                    height: '18px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  }
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
                 }}
               />
             </Box>
@@ -1930,10 +1955,10 @@ useEffect(() => {
 
   return (
     <div style={{ height: "80%" }}>
-      {/* Notification Popover */}      
+      {/* Notification Popover */}
       {/* Table */}
       <MaterialReactTable table={table} />
-      
+
       {/* Pagination */}
       <Pagination
         count={totalPages}

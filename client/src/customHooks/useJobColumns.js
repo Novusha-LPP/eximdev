@@ -10,8 +10,9 @@ import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
 import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
-import BLStatus from './BLStatus.js'; 
-import SeaCargoStatus from './SeaCargoStatus.js';
+import BLStatus from "./BLStatus.js";
+import SeaCargoStatus from "./SeaCargoStatus.js";
+import BLTrackingCell from "./BLTrackingCell.js";
 
 // Custom hook to manage job columns configuration
 function useJobColumns(handleRowDataUpdate, customNavigation = null) {
@@ -33,12 +34,12 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   }, []);
 
   const extractLocationCode = (locationString) => {
-  if (!locationString) return '';
-  
-  // Extract value inside parenthesis
-  const match = locationString.match(/\(([^)]+)\)/);
-  return match ? match[1] : locationString;
-};
+    if (!locationString) return "";
+
+    // Extract value inside parenthesis
+    const match = locationString.match(/\(([^)]+)\)/);
+    return match ? match[1] : locationString;
+  };
 
   const handleCopy = (event, text) => {
     // Optimized handleCopy function using useCallback to avoid re-creation on each render
@@ -302,206 +303,50 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         },
       },
 
-{
-  accessorKey: "awb_bl_no",
-  header: "BL Number",
-  size: 150,
-  Cell: ({ cell, row }) => {
-    const [isAirCargoDialogOpen, setIsAirCargoDialogOpen] = useState(false);
-    const [isSeaCargoDialogOpen, setIsSeaCargoDialogOpen] = useState(false);
-    const [selectedMawb, setSelectedMawb] = useState('');
-    const [selectedBL, setSelectedBL] = useState('');
-    const [selectedLocation, setSelectedLocation] = useState('');
+      {
+        accessorKey: "awb_bl_no",
+        header: "BL Number",
+        size: 150,
+        Cell: ({ cell, row }) => (
+          <>
+            <BLTrackingCell
+              blNumber={cell?.getValue()?.toString() || ""}
+              hblNumber={row?.original?.hawb_hbl_no?.toString() || ""}
+              shippingLine={row?.original?.shipping_line_airline || ""}
+              customHouse={row?.original?.custom_house || ""}
+              container_nos={row?.original?.container_nos || []}
+              jobId={row.original._id}
+              portOfReporting={row?.original?.port_of_reporting || ""}
+              containerNos={row?.original?.container_nos || []}
+              onCopy={handleCopy}
+            />
 
-    const blNumber = cell?.getValue()?.toString() || "";
-    const hblNumber = row?.original?.hawb_hbl_no?.toString() || "";
-    const _id = row.original._id;
-    const portOfReporting = row?.original?.port_of_reporting || "";
-    const shippingLine = row?.original?.shipping_line_airline || "";
-    const gross_weight = row?.original?.gross_weight || "";
-    const job_net_weight = row?.original?.job_net_weight || "";
-    const loading_port = row?.original.loading_port || "";
-    const port_of_reporting = row?.original.port_of_reporting || "";
-    const customHouse = row?.original?.custom_house || "";
-    const container_nos = row?.original?.container_nos || [];
-
-    const cleanLoadingPort = loading_port
-      ? loading_port.replace(/\(.*?\)\s*/, "")
-      : "N/A";
-    const cleanPortOfReporting = port_of_reporting
-      ? port_of_reporting.replace(/\(.*?\)\s*/, "")
-      : "N/A";
-
-    const containerFirst =
-      row?.original?.container_nos?.[0]?.container_number || "";
-
-    const location = getPortLocation(portOfReporting);
-    const locationCode = location?.match(/\(([^)]+)\)/)?.[1] || location;
-
-    // Utility to build shipping line URLs for a given number
-    const buildShippingLineUrls = (num) => ({
-      MSC: `https://www.msc.com/en/track-a-shipment`,
-      "M S C": `https://www.msc.com/en/track-a-shipment`,
-      "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
-      "Maersk Line": `https://www.maersk.com/tracking/${num}`,
-      "CMA CGM AGENCIES INDIA PVT. LTD":
-        "https://www.cma-cgm.com/ebusiness/tracking/search",
-      "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${num}`,
-      "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${num}`,
-      "ONE LINE":
-        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-      HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-      HYUNDI:
-        "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-      "Cosco Container Lines":
-        "https://elines.coscoshipping.com/ebusiness/cargotracking",
-      COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
-      "Unifeeder Agencies India Pvt Ltd": num
-        ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(
-            0,
-            3
-          )}%2F${num.slice(3, 6)}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
-        : "#",
-      UNIFEEDER: num
-        ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(
-            0,
-            3
-          )}%2F${num.slice(3, 6)}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
-        : "#",
-    });
-
-    // Handle opening BL Status dialog
-    const handleOpenAirCargoDialog = (event, mawbNumber) => {
-      event.preventDefault();
-      setSelectedMawb(mawbNumber);
-      setIsAirCargoDialogOpen(true);
-    };
-
-    // Handle opening Sea Cargo dialog
-    const handleOpenSeaCargoDialog = (event, blNo) => {
-      event.preventDefault();
-      setSelectedBL(blNo);
-      setSelectedLocation(locationCode);
-      setIsSeaCargoDialogOpen(true);
-    };
-
-    // Helper to render the number block (BL or HBL)
-    const renderNumberBlock = (num, label) => {
-      if (!num) return null;
-
-      const urls = buildShippingLineUrls(num);
-      const url = urls[shippingLine] || "#";
-
-      return (
-        <div style={{ marginBottom: "12px" }}>
-          {/* Number as clickable link - CHANGED to open BL Status dialog */}
-          <a
-            href="#"
-            onClick={(e) => handleOpenAirCargoDialog(e, num)}
-            style={{ 
-              cursor: 'pointer', 
-              color: '#1976d2',
-              textDecoration: 'none',
-              fontWeight: 500
-            }}
-            onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-            onMouseOut={(e) => e.target.style.textDecoration = 'none'}
-          >
-            {num}
-          </a>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "4px",
-            }}
-          >
-            {/* Copy Number */}
-            <IconButton
-              size="small"
-              onClick={(event) => handleCopy(event, num)}
-            >
-              <abbr title={`Copy ${label}`}>
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-
-            {/* Shipping Line Tracking Link */}
-            {shippingLine && url !== "#" && (
-              <abbr title={`Track Shipment at ${shippingLine}`}>
-                <a href={url} target="_blank" rel="noopener noreferrer">
-                  <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
-                </a>
-              </abbr>
-            )}
-
-            {/* Sea IGM Entry Link - CHANGED to open Sea Cargo dialog */}
-            <abbr title={`Sea IGM Entry`}>
-              <a
-                href="#"
-                onClick={(e) => handleOpenSeaCargoDialog(e, num)}
-                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-              >
-                <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
-              </a>
-            </abbr>
-          </div>
-        </div>
-      );
-    };
-
-    return (
-      <>
-        <div>
-          {blNumber && renderNumberBlock(blNumber, "BL Number")}
-          {hblNumber && renderNumberBlock(hblNumber, "HBL Number")}
-
-          {/* Show common details only once */}
-          {(blNumber || hblNumber) && (
-            <>
-              <Tooltip title="shippingLine" arrow>
-                <strong> {shippingLine} </strong>
-              </Tooltip>
-              <Tooltip title="Gross Weight" arrow>
-                <div>
-                  <strong>Gross(KGS): {gross_weight || "N/A"} </strong>
-                </div>
-              </Tooltip>
-              <Tooltip title="Net Weight" arrow>
-                <div>
-                  <strong>Net(KGS): {job_net_weight || "N/A"}</strong>
-                </div>
-              </Tooltip>
+            {/* REST OF YOUR CUSTOM CONTENT */}
+            <div>
+              <strong> {row?.original?.shipping_line_airline} </strong>
               <div>
-                <strong>LO :</strong> {cleanLoadingPort} <br />
-                <strong>POD :</strong> {cleanPortOfReporting} <br />
+                <strong>
+                  Gross(KGS): {row?.original?.gross_weight || "N/A"}{" "}
+                </strong>
               </div>
-            </>
-          )}
-        </div>
-
-        {/* BL Status Status Dialog */}
-        <BLStatus
-          isOpen={isAirCargoDialogOpen}
-          jobId={_id}  // Pass the job ID here
-          customHouse={customHouse}
-          container_nos={container_nos}
-          onClose={() => setIsAirCargoDialogOpen(false)}
-          mawbNumber={selectedMawb}
-        />
-
-        {/* Sea Cargo Status Dialog */}
-        <SeaCargoStatus
-          isOpen={isSeaCargoDialogOpen}
-          onClose={() => setIsSeaCargoDialogOpen(false)}
-          location={selectedLocation}
-          masterBlNo={selectedBL}
-        />
-      </>
-    );
-  },
-},
+              <div>
+                <strong>
+                  Net(KGS): {row?.original?.job_net_weight || "N/A"}
+                </strong>
+              </div>
+              <div>
+                <strong>LO :</strong>{" "}
+                {row?.original?.loading_port?.replace(/\(.*?\)\s*/, "") ||
+                  "N/A"}{" "}
+                <br />
+                <strong>POD :</strong>{" "}
+                {row?.original?.port_of_reporting?.replace(/\(.*?\)\s*/, "") ||
+                  "N/A"}
+              </div>
+            </div>
+          </>
+        ),
+      },
 
       {
         accessorKey: "dates",
@@ -518,99 +363,104 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
         size: 200,
         Cell: ({ cell }) => <BENumberCell cell={cell} copyFn={handleCopy} />,
       },
-{
-  accessorKey: "container_numbers",
-  header: "Container Numbers and Size",
-  size: 200,
-  Cell: ({ cell }) => {
-    const containerNos = cell.row.original.container_nos;
-    const jobData = cell.row.original;
+      {
+        accessorKey: "container_numbers",
+        header: "Container Numbers and Size",
+        size: 200,
+        Cell: ({ cell }) => {
+          const containerNos = cell.row.original.container_nos;
+          const jobData = cell.row.original;
 
-    // Helper function to get color based on shortage amount
-    const getShortageColor = (shortage) => {
-      if (shortage < 0) {
-        return "#e02251"; // Red for shortage
-      } else {
-        return "#2e7d32"; // Green for no shortage
-      } 
-    };
+          // Helper function to get color based on shortage amount
+          const getShortageColor = (shortage) => {
+            if (shortage < 0) {
+              return "#e02251"; // Red for shortage
+            } else {
+              return "#2e7d32"; // Green for no shortage
+            }
+          };
 
-    // Helper function to get shortage text for tooltip
-    const getShortageText = (shortage) => {
-      if (shortage <0) {
-        return `Shortage: -${Math.abs(shortage).toFixed(2)} kg`;
-      } else if (shortage > 0) {
-        return `Excess: +${Math.abs(shortage).toFixed(2)} kg`;
-      } else {
-        return "No shortage/excess";
-      }
-    };
+          // Helper function to get shortage text for tooltip
+          const getShortageText = (shortage) => {
+            if (shortage < 0) {
+              return `Shortage: -${Math.abs(shortage).toFixed(2)} kg`;
+            } else if (shortage > 0) {
+              return `Excess: +${Math.abs(shortage).toFixed(2)} kg`;
+            } else {
+              return "No shortage/excess";
+            }
+          };
 
-    return (
-      <React.Fragment>
-        {containerNos?.map((container, id) => {
-          const weightShortage = parseFloat(container.weight_shortage) || 0;
-          const containerColor = getShortageColor(weightShortage);
-          const tooltipText = getShortageText(weightShortage);
-          
           return (
-            <div key={id} style={{ marginBottom: "4px" }}>
-              <Tooltip title={tooltipText} arrow placement="top">
-                <a
-                  href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: containerColor,
-                    fontWeight: 'bold',
-                    textDecoration: 'none',
-                    cursor: 'pointer'
-                  }}
-                  onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-                  onMouseOut={(e) => e.target.style.textDecoration = 'none'}
-                >
-                  {container.container_number}
-                </a>
-              </Tooltip>
-              | "{container.size}"
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <Tooltip title="Copy Container Number" arrow>
-                  <IconButton
-                    size="small"
-                    onClick={(event) =>
-                      handleCopy(event, container.container_number)
-                    }
-                  >
-                    <ContentCopyIcon fontSize="inherit" />
-                  </IconButton>
-                </Tooltip>
-                {/* Delivery Challan Download Icon */}
-                <DeliveryChallanPdf
-                  year={jobData.year}
-                  jobNo={jobData.job_no}
-                  containerIndex={id}
-                  renderAsIcon={true}
-                />
-                <IgstCalculationPDF
-                  year={jobData.year}
-                  jobNo={jobData.job_no}
-                  containerIndex={id}
-                  renderAsIcon={true}
-                />
-              </div>
-            </div>
+            <React.Fragment>
+              {containerNos?.map((container, id) => {
+                const weightShortage =
+                  parseFloat(container.weight_shortage) || 0;
+                const containerColor = getShortageColor(weightShortage);
+                const tooltipText = getShortageText(weightShortage);
+
+                return (
+                  <div key={id} style={{ marginBottom: "4px" }}>
+                    <Tooltip title={tooltipText} arrow placement="top">
+                      <a
+                        href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: containerColor,
+                          fontWeight: "bold",
+                          textDecoration: "none",
+                          cursor: "pointer",
+                        }}
+                        onMouseOver={(e) =>
+                          (e.target.style.textDecoration = "underline")
+                        }
+                        onMouseOut={(e) =>
+                          (e.target.style.textDecoration = "none")
+                        }
+                      >
+                        {container.container_number}
+                      </a>
+                    </Tooltip>
+                    | "{container.size}"
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <Tooltip title="Copy Container Number" arrow>
+                        <IconButton
+                          size="small"
+                          onClick={(event) =>
+                            handleCopy(event, container.container_number)
+                          }
+                        >
+                          <ContentCopyIcon fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
+                      {/* Delivery Challan Download Icon */}
+                      <DeliveryChallanPdf
+                        year={jobData.year}
+                        jobNo={jobData.job_no}
+                        containerIndex={id}
+                        renderAsIcon={true}
+                      />
+                      <IgstCalculationPDF
+                        year={jobData.year}
+                        jobNo={jobData.job_no}
+                        containerIndex={id}
+                        renderAsIcon={true}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </React.Fragment>
           );
-        })}
-      </React.Fragment>
-    );
-  },
-},
+        },
+      },
       // {
       //   accessorKey: "arrival_date",
       //   header: "Arrival Date",

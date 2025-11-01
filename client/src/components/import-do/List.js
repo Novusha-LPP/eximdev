@@ -7,6 +7,7 @@ import {
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
 import { useNavigate, useLocation } from "react-router-dom";
 import BLNumberCell from "../../utils/BLNumberCell";
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
 import {
   IconButton,
   TextField,
@@ -470,13 +471,19 @@ function List() {
 
         return (
           <React.Fragment>
-            <BLNumberCell
+            <BLTrackingCell
               blNumber={row.original.awb_bl_no}
-              portOfReporting={row.original.port_of_reporting}
+              hblNumber={row.original?.hawb_hbl_no?.toString() || ""}
               shippingLine={row.original.shipping_line_airline}
+              customHouse={row.original?.custom_house || ""}
+              container_nos={row.original.container_nos}
+              jobId={row.original._id}
+              portOfReporting={row.original.port_of_reporting}
               containerNos={row.original.container_nos}
+              onCopy={handleCopy}
             />
 
+            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               {vesselFlight}
               <IconButton
@@ -502,6 +509,7 @@ function List() {
                 </abbr>
               </IconButton>
             </div>
+
             <div>
               <span>{`Line No: ${line_no}`}</span>
               <IconButton

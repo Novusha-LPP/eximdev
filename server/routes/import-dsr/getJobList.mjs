@@ -291,7 +291,8 @@ if (unresolvedOnly === "true") {
   }
 );
 
-// PATCH API to update job dates
+// editable patch api
+
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
   try {
     const { id } = req.params;
@@ -304,15 +305,27 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
     });
 
     if (!updatedJob) {
-      return res.status(404).json({ message: "Job not found" });
+      return res.status(404).json({ 
+        success: false,
+        message: "Job not found" 
+      });
     }
 
-    res.status(200).json(updatedJob);
+    res.status(200).json({ 
+      success: true,
+      message: "Job updated successfully",
+      data: updatedJob 
+    });
   } catch (error) {
     console.error("Error updating job:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ 
+      success: false,
+      message: "Internal Server Error" 
+    });
   }
 });
+
+
 
 router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   try {

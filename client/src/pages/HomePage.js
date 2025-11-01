@@ -513,12 +513,6 @@ function HomePage() {
                   </ProtectedRoute>
                 } 
               />
-              <Route 
-              path="/be-status/:beNo/:beDt/:location" 
-                element={
-                    <BEStatus />
-                } 
-              />
               <Route
                 path="/outward-register-details/:_id"
                 element={

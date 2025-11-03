@@ -18,6 +18,8 @@ import {
   Paper,
   Chip,
   LinearProgress,
+  Snackbar,
+  Alert,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -35,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
-const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
+const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdateSuccess }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -43,6 +45,14 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   const tabLabels = [
     { label: 'Shipment Summary', icon: <InfoIcon fontSize="small" /> },
@@ -57,6 +67,23 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, location, masterBlNo]);
+
+  // Show snackbar message
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  // Close snackbar
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar({ ...snackbar, open: false });
+  };
 
   const fetchCargoDetails = async () => {
     setLoading(true);
@@ -84,6 +111,99 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Format date to match database format: "2025-10-22T12:07"
+  const formatDateForDatabase = (dateString) => {
+    if (!dateString) return null;
+
+    try {
+      const date = new Date(dateString);
+      
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
+        return dateString;
+      }
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (err) {
+      console.error('Date formatting error:', err);
+      return null;
+    }
+  };
+
+  // Handle Update to Database
+  const handleUpdateDatabase = async () => {
+    if (!jobId || !cargoDetails) {
+      showSnackbar('Missing job ID or cargo details', 'error');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const summary = cargoDetails.summary?.[0] || {};
+      const containerDetails = cargoDetails.container_details || [];
+
+      // Base update data (always included)
+      const updateData = {
+        line_no: summary.lineNo || null,
+        no_of_pkgs: summary.totalPackage && summary.packageCode 
+          ? `${summary.totalPackage} ${summary.packageCode}` 
+          : summary.totalPackage || null,
+        gateway_igm: summary.igmNo || null,
+        gateway_igm_date: formatDateForDatabase(summary.igmDate)
+      };
+
+      console.log('Base updateData:', updateData);
+
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      const response = await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${jobId}`,
+        updateData,
+        { headers, timeout: 30000 }
+      );
+
+      if (response.data?.success) {
+        const successMsg = 'Job updated successfully with sea cargo data';
+        
+        showSnackbar(successMsg, 'success');
+        
+        if (onUpdateSuccess) {
+          onUpdateSuccess(response.data);
+        }
+
+        setTimeout(() => {
+          onClose();
+        }, 1000);
+      } else {
+        showSnackbar(response.data?.message || 'Failed to update job', 'error');
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      
+      let errorMessage = 'Failed to update job';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.message || `Error: ${err.response.status}`;
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout. Please try again.';
+      } else {
+        errorMessage = err.message || 'Network error';
+      }
+
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -159,7 +279,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
     const containerDetails = cargoDetails.container_details || [];
 
     if (activeTab === 0) {
-      // Shipment Summary Tab
       const fields = [
         { 
           label: 'Master BL Number', 
@@ -169,8 +288,8 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
         { label: 'BL Date', value: summary.blDate },
         { label: 'House BL Number', value: summary.houseBlNo },
         { label: 'House BL Date', value: summary.houseBlDate },
-        { label: 'G-IGM Number', value: summary.igmNo },
-        { label: 'GIGM Date', value: summary.igmDate },
+        { label: 'IGM Number', value: summary.igmNo },
+        { label: 'IGM Date', value: summary.igmDate },
         { label: 'Line Number', value: summary.lineNo },
         { label: 'Sub Line Number', value: summary.subLineNo },
         { label: 'Cargo Movement', value: summary.cargoMovement },
@@ -180,7 +299,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
     }
 
     if (activeTab === 1) {
-      // Cargo Information Tab
       const fields = [
         { 
           label: 'Description of Goods', 
@@ -199,7 +317,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
     }
 
     if (activeTab === 2) {
-      // Vessel Details Tab
       const fields = [
         { 
           label: 'Vessel Code', 
@@ -218,7 +335,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
     }
 
     if (activeTab === 3) {
-      // Container Details Tab
       if (containerDetails.length === 0) {
         return (
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -290,154 +406,202 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo }) => {
   if (!isOpen) return null;
 
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      fullScreen={isMobile}
-      PaperProps={{
-        sx: {
-          height: isMobile ? '100vh' : '88vh',
-          borderRadius: isMobile ? 0 : 1.5,
-          overflow: 'hidden'
-        }
-      }}
-      disableEnforceFocus
-      disableAutoFocus
-      disableRestoreFocus
-    >
-      {/* Header */}
-      <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                Sea Cargo Tracking
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Chip 
-                  icon={<AnchorIcon fontSize="small" />}
-                  label={`Master BL: ${renderValue(masterBlNo)}`}
-                  size="small" 
-                  variant="outlined" 
-                  sx={{ fontWeight: 600 }} 
-                />
-                {cargoDetails?.summary?.[0] && (
-                  <>
-                    <Chip
-                      icon={<LocationOnIcon fontSize="small" />}
-                      label={renderValue(location?.toUpperCase())}
-                      size="small"
-                      variant="outlined"
-                    />
-                    <Chip
-                      icon={<InfoIcon fontSize="small" />}
-                      label={renderValue(cargoDetails.summary[0].cargoMovement)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </>
-                )}
+    <>
+      <Dialog
+        open={isOpen}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            height: isMobile ? '100vh' : '88vh',
+            borderRadius: isMobile ? 0 : 1.5,
+            overflow: 'hidden'
+          }
+        }}
+        disableEnforceFocus
+        disableAutoFocus
+        disableRestoreFocus
+      >
+        {/* Header */}
+        <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                  Sea Cargo Tracking
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip 
+                    icon={<AnchorIcon fontSize="small" />}
+                    label={`Master BL: ${renderValue(masterBlNo)}`}
+                    size="small" 
+                    variant="outlined" 
+                    sx={{ fontWeight: 600 }} 
+                  />
+                  {cargoDetails?.summary?.[0] && (
+                    <>
+                      <Chip
+                        icon={<LocationOnIcon fontSize="small" />}
+                        label={renderValue(location?.toUpperCase())}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        icon={<InfoIcon fontSize="small" />}
+                        label={renderValue(cargoDetails.summary[0].cargoMovement)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </>
+                  )}
+                </Box>
               </Box>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <IconButton onClick={() => window.print()} title="Print">
-                <PrintIcon />
-              </IconButton>
-              <IconButton onClick={onClose} title="Close">
-                <CloseIcon />
-              </IconButton>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <IconButton onClick={() => window.print()} title="Print">
+                  <PrintIcon />
+                </IconButton>
+                <IconButton onClick={onClose} title="Close">
+                  <CloseIcon />
+                </IconButton>
+              </Box>
             </Box>
           </Box>
         </Box>
-      </Box>
 
-      {/* Tabs */}
-      <Paper elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', borderRadius: 0 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            minHeight: 48,
-            '& .MuiTab-root': { minHeight: 48, textTransform: 'none' }
-          }}
-        >
-          {tabLabels.map((tab, index) => (
-            <Tab
-              key={index}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  {tab.icon}
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {tab.label}
-                  </Typography>
+        {/* Tabs */}
+        <Paper elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', borderRadius: 0 }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              minHeight: 48,
+              '& .MuiTab-root': { minHeight: 48, textTransform: 'none' }
+            }}
+          >
+            {tabLabels.map((tab, index) => (
+              <Tab
+                key={index}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    {tab.icon}
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {tab.label}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ minWidth: 120, maxWidth: 220 }}
+              />
+            ))}
+          </Tabs>
+        </Paper>
+
+        {/* Content */}
+        {loading ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: 320,
+              p: 3
+            }}
+          >
+            <CircularProgress size={48} />
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
+              Loading Sea Cargo Details
+            </Typography>
+            <LinearProgress sx={{ width: 200, height: 4, borderRadius: 2, mt: 1.5 }} />
+          </Box>
+        ) : error ? (
+          <Box sx={{ p: 3 }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'error.light' }}>
+              <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
+                Request Failed
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
+                {error}
+              </Typography>
+              <Button variant="contained" color="error" onClick={fetchCargoDetails}>
+                Retry
+              </Button>
+            </Paper>
+          </Box>
+        ) : (
+          <DialogContent
+            sx={{
+              p: { xs: 2, sm: 3 },
+              overflow: 'auto',
+              bgcolor: 'background.default'
+            }}
+          >
+            <Box sx={{ maxWidth: 1040, mx: 'auto' }}>
+              {renderTabContent()}
+              
+              {/* Update Button */}
+              {cargoDetails && jobId && (
+                <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                  <Button 
+                    variant="outlined" 
+                    onClick={onClose}
+                    disabled={isUpdating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="contained" 
+                    onClick={handleUpdateDatabase}
+                    disabled={isUpdating}
+                    sx={{ position: 'relative' }}
+                  >
+                    {isUpdating ? (
+                      <>
+                        <CircularProgress size={20} sx={{ mr: 1 }} />
+                        Updating...
+                      </>
+                    ) : (
+                      'Update Job'
+                    )}
+                  </Button>
                 </Box>
-              }
-              sx={{ minWidth: 120, maxWidth: 220 }}
-            />
-          ))}
-        </Tabs>
-      </Paper>
+              )}
+            </Box>
+          </DialogContent>
+        )}
 
-      {/* Content */}
-      {loading ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: 320,
-            p: 3
-          }}
-        >
-          <CircularProgress size={48} />
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
-            Loading Sea Cargo Details
-          </Typography>
-          <LinearProgress sx={{ width: 200, height: 4, borderRadius: 2, mt: 1.5 }} />
-        </Box>
-      ) : error ? (
-        <Box sx={{ p: 3 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'error.light' }}>
-            <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
-              Request Failed
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
-              {error}
-            </Typography>
-            <Button variant="contained" color="error" onClick={fetchCargoDetails}>
-              Retry
-            </Button>
-          </Paper>
-        </Box>
-      ) : (
-        <DialogContent
-          sx={{
-            p: { xs: 2, sm: 3 },
-            overflow: 'auto',
-            bgcolor: 'background.default'
-          }}
-        >
-          <Box sx={{ maxWidth: 1040, mx: 'auto' }}>{renderTabContent()}</Box>
-        </DialogContent>
-      )}
-
-      {/* Print cleanup */}
-      <style jsx>{`
-        @media print {
-          .MuiDialog-paper {
-            box-shadow: none !important;
-            border: none !important;
-            max-height: none !important;
-            height: auto !important;
+        {/* Print cleanup */}
+        <style jsx>{`
+          @media print {
+            .MuiDialog-paper {
+              box-shadow: none !important;
+              border: none !important;
+              max-height: none !important;
+              height: auto !important;
+            }
           }
-        }
-      `}</style>
-    </Dialog>
+        `}</style>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 

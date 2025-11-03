@@ -161,6 +161,7 @@ const BLTrackingCell = ({
       {/* Sea Cargo Status Dialog */}
       <SeaCargoStatus
         isOpen={isSeaCargoDialogOpen}
+        jobId={jobId}
         onClose={() => setIsSeaCargoDialogOpen(false)}
         location={selectedLocation}
         masterBlNo={selectedBL}

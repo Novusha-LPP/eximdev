@@ -142,8 +142,7 @@ const BLStatus = ({ isOpen, onClose, mawbNumber, jobId, onUpdateSuccess, customH
                        customHouse.toUpperCase().includes('ICD KHODIYAR');
 
   // Handle Update to Database
-// Handle Update to Database
-// Handle Update to Database
+
 const handleUpdateDatabase = async () => {
   if (!jobId || !cargoDetails) {
     showSnackbar('Missing job ID or cargo details', 'error');
@@ -210,8 +209,6 @@ const handleUpdateDatabase = async () => {
         'warning'
       );
     }
-
-    console.log('Final Update Payload:', JSON.stringify(updateData, null, 2));
 
     const headers = {
       'Content-Type': 'application/json'

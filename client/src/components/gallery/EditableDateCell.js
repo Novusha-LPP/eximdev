@@ -9,6 +9,43 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
+// Safe date helpers - ADD THESE AT THE TOP
+const safeToISOString = (dateValue) => {
+  if (!dateValue) return null;
+  
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date detected:', dateValue);
+      return null;
+    }
+    return date.toISOString();
+  } catch (error) {
+    console.error('Error converting date:', dateValue, error);
+    return null;
+  }
+};
+
+const safeFormatDate = (dateValue) => {
+  if (!dateValue) return null;
+  
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date for formatting:', dateValue);
+      return null;
+    }
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error('Error formatting date:', dateValue, error);
+    return null;
+  }
+};
+
 const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const rowData = cell.row.original;
   const {
@@ -38,7 +75,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     fine_amount,
   } = rowData;
 
-  // Memoize initial dates to prevent unnecessary re-renders
   const initialDates = useMemo(() => ({
     assessment_date,
     vessel_berthing,
@@ -59,10 +95,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
-  // Memoize free time options
   const options = useMemo(() => Array.from({ length: 25 }, (_, index) => index), []);
 
-  // Memoized utility function to calculate number of days between two dates
   const calculateDaysBetween = useCallback((startDate, endDate) => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
@@ -71,7 +105,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }, []);
 
-  // Reset data when row ID changes
   useEffect(() => {
     if (cell?.row?.original) {
       const {
@@ -106,7 +139,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     }
   }, [_id]);
 
-  // Handle IGST modal open
   const handleOpenIgstModal = useCallback(() => {
     setIgstModalOpen(true);
   }, []);
@@ -117,7 +149,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   const handleIgstSubmit = useCallback(async (updateData) => {
     try {
-      // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
         'Content-Type': 'application/json',
@@ -128,7 +159,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
       await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
 
-      // Update the cell.row.original data to reflect the changes
       if (typeof onRowDataUpdate === "function") {
         onRowDataUpdate(_id, updateData);
       }
@@ -194,7 +224,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       cell.row.original.detailed_status = newStatus;
 
       try {
-        // Get user info from localStorage for audit trail
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
           'Content-Type': 'application/json',
@@ -206,7 +235,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           detailed_status: newStatus,
         }, { headers });
-        setLocalStatus(newStatus);        if (typeof onRowDataUpdate === "function") {
+        setLocalStatus(newStatus);
+        
+        if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { detailed_status: newStatus });
         }
       } catch (err) {
@@ -222,6 +253,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     type_of_b_e,
     localStatus,
     _id,
+    onRowDataUpdate,
+    cell
   ]);
 
   useEffect(() => {
@@ -235,34 +268,33 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     containers,
     updateDetailedStatus,
   ]);
-// Utility function to safely format date as YYYY-MM-DD
-const formatDate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
-// Subtract one day but ensure result is not before earliest date if diff is 0
-const adjustValidityDate = (earliestDateString) => {
-  if (!earliestDateString) return "";
-  const date = new Date(earliestDateString);
-  const oneDayBefore = new Date(date);
-  oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+  // UPDATED: Use safe formatting
+  const formatDate = (date) => {
+    return safeFormatDate(date);
+  };
 
-  const diffDays = (date - oneDayBefore) / (1000 * 60 * 60 * 24);
-  return diffDays > 0 ? formatDate(oneDayBefore) : earliestDateString;
-};
+  const adjustValidityDate = (earliestDateString) => {
+    if (!earliestDateString) return "";
+    const date = new Date(earliestDateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const oneDayBefore = new Date(date);
+    oneDayBefore.setDate(oneDayBefore.getDate() - 1);
 
-const getEarliestDetention = (containersArr) => {
-  const validDetentionDates = (containersArr || [])
-    .map((c) => c?.detention_from)
-    .filter(Boolean)
-    .sort(); // ISO 'YYYY-MM-DD' sorts lexicographically
-  return validDetentionDates[0];
-};
+    const diffDays = (date - oneDayBefore) / (1000 * 60 * 60 * 24);
+    const formatted = formatDate(oneDayBefore);
+    return diffDays > 0 && formatted ? formatted : earliestDateString;
+  };
 
-  // Check if arrival date should be disabled based on business logic
+  const getEarliestDetention = (containersArr) => {
+    const validDetentionDates = (containersArr || [])
+      .map((c) => c?.detention_from)
+      .filter(Boolean)
+      .sort();
+    return validDetentionDates[0];
+  };
+
   const isArrivalDateDisabled = useCallback((containerIndex) => {
     const container = containers[containerIndex];
     const ExBondflag = type_of_b_e === "Ex-Bond";
@@ -279,16 +311,12 @@ const getEarliestDetention = (containersArr) => {
     }
   }, [containers, type_of_b_e, consignment_type]);
 
-  // Handle date editing
   const handleEditStart = (field, index = null) => {
-    // Check if arrival date is disabled before allowing edit
     if (field === "arrival_date" && index !== null && isArrivalDateDisabled(index)) {
-      return; // Don't allow editing if disabled
+      return;
     }
     
     setEditable(index !== null ? `${field}_${index}` : field);
-    
-    // Clear the date when starting to edit
     setTempDateValue("");
     setTempTimeValue("");
     setDateError("");
@@ -297,7 +325,7 @@ const getEarliestDetention = (containersArr) => {
   const validateDate = (dateString) => {
     if (!dateString || dateString.trim() === "") return true;
     const date = new Date(dateString);
-    return !isNaN(date.getTime()); // Only check if valid date
+    return !isNaN(date.getTime());
   };
 
   const handleDateInputChange = (e) => {
@@ -309,34 +337,23 @@ const getEarliestDetention = (containersArr) => {
     setTempDateValue(e.target.value);
   };
 
-  // Add this to prevent unnecessary state resets
   useEffect(() => {
-    // Only reset when job data actually changes
     if (cell.row.original._id !== _id) {
       // Your existing reset logic...
     }
-  }, [cell.row.original]);  
+  }, [cell.row.original, _id]);
 
   const handleDateSubmit = async (field, index = null) => {
     let finalValue;
     
-    // Allow clearing dates
     if (tempDateValue === "") {
       finalValue = "";
-    }
-    // Validate non-empty dates
-    else if (!validateDate(tempDateValue)) {
+    } else if (!validateDate(tempDateValue)) {
       setDateError("Please enter a valid date");
       return;
     } else {
       finalValue = tempDateValue;
     }
-
-    // // Special handling for by-road dates only (keep rail-out with datetime)
-    // if (field === "by_road_movement_date") {
-    //   // Extract only date portion (YYYY-MM-DD)
-    //   finalValue = tempDateValue.split("T")[0];
-    // }
 
     if (index !== null) {
       const oldContainers = [...containers];
@@ -348,18 +365,22 @@ const getEarliestDetention = (containersArr) => {
             [field]: finalValue || null,
           };
 
-          // Auto-calculate detention date - only for non-LCL consignments
+          // UPDATED: Safe detention calculation
           if (field === "arrival_date" && consignment_type !== "LCL") {
             if (!finalValue) {
               updatedContainer.detention_from = "";
             } else {
               const arrival = new Date(finalValue);
-              const freeDays = parseInt(localFreeTime) || 0;
-              const detentionDate = new Date(arrival);
-              detentionDate.setDate(detentionDate.getDate() + freeDays);
-              updatedContainer.detention_from = detentionDate
-                .toISOString()
-                .split("T")[0];
+              if (!isNaN(arrival.getTime())) {
+                const freeDays = parseInt(localFreeTime) || 0;
+                const detentionDate = new Date(arrival);
+                detentionDate.setDate(detentionDate.getDate() + freeDays);
+                
+                const isoString = safeToISOString(detentionDate);
+                if (isoString) {
+                  updatedContainer.detention_from = isoString.split("T")[0];
+                }
+              }
             }
           }
           return updatedContainer;
@@ -367,10 +388,9 @@ const getEarliestDetention = (containersArr) => {
         return container;
       });
 
-      // Optimistic update
-      setContainers(updatedContainers);   
-        try {
-        // Get user info from localStorage for audit trail
+      setContainers(updatedContainers);
+
+      try {
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
           'Content-Type': 'application/json',
@@ -379,7 +399,6 @@ const getEarliestDetention = (containersArr) => {
           'user-role': user.role || 'unknown'
         };
 
-        // Compute earliest detention and adjusted job-level validity
         const earliestDetention = getEarliestDetention(updatedContainers);
         const adjustedValidity = adjustValidityDate(earliestDetention);
 
@@ -388,7 +407,6 @@ const getEarliestDetention = (containersArr) => {
           do_validity_upto_job_level: adjustedValidity,
         }, { headers });
         
-        // Update parent component data
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, {
             container_nos: updatedContainers,
@@ -400,16 +418,15 @@ const getEarliestDetention = (containersArr) => {
         updateDetailedStatus();
       } catch (err) {
         console.error("Error Updating Container:", err);
-        // Revert on error
         setContainers(oldContainers);
-      } 
+      }
     } else {
       const oldDates = { ...dates };
       const newDates = { ...dates, [field]: finalValue || null };
 
-      // Optimistic update
-      setDates(newDates);      try {
-        // Get user info from localStorage for audit trail
+      setDates(newDates);
+
+      try {
         const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
         const headers = {
           'Content-Type': 'application/json',
@@ -422,7 +439,6 @@ const getEarliestDetention = (containersArr) => {
           [field]: finalValue || null,
         }, { headers });
         
-        // Update parent component data
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { [field]: finalValue || null });
         }
@@ -431,43 +447,44 @@ const getEarliestDetention = (containersArr) => {
         updateDetailedStatus();
       } catch (err) {
         console.error(`Error Updating ${field}:`, err);
-        // Revert on error
         setDates(oldDates);
       }
     }
   };
 
-   useEffect(() => {
-    if (consignment_type === "LCL") return; // Skip for LCL
+  // UPDATED: Safe detention auto-calculation
+  useEffect(() => {
+    if (consignment_type === "LCL") return;
     
     const updatedContainers = containers.map(container => {
       if (container.arrival_date && !container.detention_from) {
-        // Calculate detention date if arrival exists but detention is missing
         const arrival = new Date(container.arrival_date);
-        const freeDays = parseInt(localFreeTime) || 0;
-        const detentionDate = new Date(arrival);
-        detentionDate.setDate(detentionDate.getDate() + freeDays);
         
-        return {
-          ...container,
-          detention_from: detentionDate.toISOString().split("T")[0]
-        };
+        if (!isNaN(arrival.getTime())) {
+          const freeDays = parseInt(localFreeTime) || 0;
+          const detentionDate = new Date(arrival);
+          detentionDate.setDate(detentionDate.getDate() + freeDays);
+          
+          const isoString = safeToISOString(detentionDate);
+          if (isoString) {
+            return {
+              ...container,
+              detention_from: isoString.split("T")[0]
+            };
+          }
+        }
       }
       return container;
     });
 
-    // Check if any containers were updated
     const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
     
-     if (hasUpdates) {
-      // Update containers state optimistically
+    if (hasUpdates) {
       setContainers(updatedContainers);
 
-      // Compute earliest detention and adjusted job-level validity
       const earliestDetention = getEarliestDetention(updatedContainers);
       const adjustedValidity = adjustValidityDate(earliestDetention);
 
-      // Persist to backend
       const updateContainersInDB = async () => {
         try {
           const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
@@ -483,7 +500,6 @@ const getEarliestDetention = (containersArr) => {
             do_validity_upto_job_level: adjustedValidity,
           }, { headers });
 
-          // Update parent component
           if (typeof onRowDataUpdate === "function") {
             onRowDataUpdate(_id, {
               container_nos: updatedContainers,
@@ -492,48 +508,47 @@ const getEarliestDetention = (containersArr) => {
           }
         } catch (err) {
           console.error("Error updating detention dates:", err);
-          // Revert on error
           setContainers(containers);
         }
       };
 
       updateContainersInDB();
     }
-
-
   }, [containers, localFreeTime, consignment_type, _id, onRowDataUpdate]);
 
-  // Also recalculate when free time changes for existing arrival dates
+  // UPDATED: Safe recalculation on free time change
   useEffect(() => {
-    if (consignment_type === "LCL") return; // Skip for LCL
+    if (consignment_type === "LCL") return;
     
     const updatedContainers = containers.map(container => {
       if (container.arrival_date) {
-        // Recalculate detention date whenever free time changes
         const arrival = new Date(container.arrival_date);
-        const freeDays = parseInt(localFreeTime) || 0;
-        const detentionDate = new Date(arrival);
-        detentionDate.setDate(detentionDate.getDate() + freeDays);
         
-        return {
-          ...container,
-          detention_from: detentionDate.toISOString().split("T")[0]
-        };
+        if (!isNaN(arrival.getTime())) {
+          const freeDays = parseInt(localFreeTime) || 0;
+          const detentionDate = new Date(arrival);
+          detentionDate.setDate(detentionDate.getDate() + freeDays);
+          
+          const isoString = safeToISOString(detentionDate);
+          if (isoString) {
+            return {
+              ...container,
+              detention_from: isoString.split("T")[0]
+            };
+          }
+        }
       }
       return container;
     });
 
-    // Check if any containers were updated
     const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
     
     if (hasUpdates) {
       setContainers(updatedContainers);
 
-      // Compute earliest detention and adjusted job-level validity
       const earliestDetention = getEarliestDetention(updatedContainers);
       const adjustedValidity = adjustValidityDate(earliestDetention);
 
-      // Only update backend if this wasn't triggered by the initial free time setup
       const shouldUpdateBackend = localFreeTime !== free_time;
 
       if (shouldUpdateBackend) {
@@ -567,18 +582,16 @@ const getEarliestDetention = (containersArr) => {
         updateContainersInDB();
       }
     }
-
   }, [localFreeTime, containers, consignment_type, _id, free_time, onRowDataUpdate]);
-  
+
+  // UPDATED: Safe free time change handler
   const handleFreeTimeChange = (value) => {
-    // Don't update free time for LCL consignments
     if (consignment_type === "LCL") {
       return;
     }
 
     setLocalFreeTime(value);
     
-    // Get user info from localStorage for audit trail
     const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
     const headers = {
       'Content-Type': 'application/json',
@@ -592,7 +605,6 @@ const getEarliestDetention = (containersArr) => {
         free_time: value,
       }, { headers })
       .then(() => {
-        // Update parent component data for free_time
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { free_time: value });
         }
@@ -601,45 +613,54 @@ const getEarliestDetention = (containersArr) => {
           const updatedContainer = { ...container };
           if (updatedContainer.arrival_date) {
             const arrival = new Date(updatedContainer.arrival_date);
-            const freeDays = parseInt(value) || 0;
-            const detentionDate = new Date(arrival);
-            detentionDate.setDate(detentionDate.getDate() + freeDays);
-            updatedContainer.detention_from = detentionDate
-              .toISOString()
-              .slice(0, 10);
+            
+            if (!isNaN(arrival.getTime())) {
+              const freeDays = parseInt(value) || 0;
+              const detentionDate = new Date(arrival);
+              detentionDate.setDate(detentionDate.getDate() + freeDays);
+              
+              const isoString = safeToISOString(detentionDate);
+              if (isoString) {
+                updatedContainer.detention_from = isoString.slice(0, 10);
+              }
+            }
           }
           return updatedContainer;
         });
 
-if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
-            setContainers(updatedContainers);
+        if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
+          setContainers(updatedContainers);
 
-            // compute earliest detention & adjusted validity
-            const earliestDetention = getEarliestDetention(updatedContainers);
-            const adjustedValidity = adjustValidityDate(earliestDetention);
+          const earliestDetention = getEarliestDetention(updatedContainers);
+          const adjustedValidity = adjustValidityDate(earliestDetention);
 
-            axios
-              .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-                container_nos: updatedContainers,
-                do_validity_upto_job_level: adjustedValidity,
-              }, { headers })
-              .then(() => {
-                // Update parent component data for containers + validity
-                if (typeof onRowDataUpdate === "function") {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              })
-              .catch((err) => console.error("Error Updating Containers:", err));
-          }
+          axios
+            .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+              container_nos: updatedContainers,
+              do_validity_upto_job_level: adjustedValidity,
+            }, { headers })
+            .then(() => {
+              if (typeof onRowDataUpdate === "function") {
+                onRowDataUpdate(_id, {
+                  container_nos: updatedContainers,
+                  do_validity_upto_job_level: adjustedValidity,
+                });
+              }
+            })
+            .catch((err) => console.error("Error Updating Containers:", err));
+        }
       })
       .catch((err) => console.error("Error Updating Free Time:", err));
   };
-  
-  const isIgstFieldsAvailable =
-    assessable_ammount && igst_ammount;
+
+  const isIgstFieldsAvailable = assessable_ammount && igst_ammount;
+
+  // UPDATED: Safe date rendering
+  const renderDateValue = (dateValue) => {
+    if (!dateValue) return "N/A";
+    const formatted = safeFormatDate(dateValue);
+    return formatted || "N/A";
+  };
 
   return (
     <div style={{ display: "flex", gap: "20px" }}>
@@ -648,7 +669,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
         {type_of_b_e !== "Ex-Bond" && (
           <>
             <div>
-              <strong>ETA:</strong> {dates.vessel_berthing?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>ETA:</strong> {renderDateValue(dates.vessel_berthing)}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("vessel_berthing")}
@@ -680,7 +701,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
             </div>
             <br />
             <div>
-              <strong>GIGM:</strong> {dates.gateway_igm_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>GIGM:</strong> {renderDateValue(dates.gateway_igm_date)}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("gateway_igm_date")}
@@ -712,7 +733,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
             </div>
             <br />
             <div>
-              <strong>Discharge:</strong> {dates.discharge_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>Discharge:</strong> {renderDateValue(dates.discharge_date)}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("discharge_date")}
@@ -743,13 +764,13 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
               )}
             </div>
             <br />
-
+            
             {type_of_b_e !== "Ex-Bond" &&
               consignment_type !== "LCL" &&
               containers.map((container, id) => (
                 <div key={id}>
                   <div>
-                    <strong>Rail-out:</strong> {container.container_rail_out_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <strong>Rail-out:</strong> {renderDateValue(container.container_rail_out_date)}{" "}
                     <FcCalendar
                       style={styles.icon}
                       onClick={() => handleEditStart("container_rail_out_date", id)}
@@ -786,7 +807,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
               containers.map((container, id) => (
                 <div key={id}>
                   <div>
-                    <strong>ByRoad:</strong> {container.by_road_movement_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                    <strong>ByRoad:</strong> {renderDateValue(container.by_road_movement_date)}{" "}
                     <FcCalendar
                       style={styles.icon}
                       onClick={() => handleEditStart("by_road_movement_date", id)}
@@ -824,7 +845,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
                 {containers.map((container, id) => (
                   <div key={id}>
                     <div>
-                      <strong>Arrival:</strong> {container.arrival_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                      <strong>Arrival:</strong> {renderDateValue(container.arrival_date)}{" "}
                       <FcCalendar
                         style={{
                           ...styles.icon,
@@ -865,7 +886,6 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
 
                 <br />
 
-                {/* Hide free time section for LCL consignments */}
                 {consignment_type !== "LCL" && (
                   <div style={{ marginBottom: "10px" }}>
                     <strong>Free time:</strong>{" "}
@@ -895,13 +915,12 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
                 )}
 
                 <br />
-                {/* Hide detention date for LCL consignments */}
                 {consignment_type !== "LCL" && type_of_b_e !== "Ex-Bond" && (
                   <>
                     <strong>Detention F.:</strong>
                     {containers.map((container, id) => (
                       <div key={id}>
-                        {container.detention_from?.slice(0, 10) || "N/A"}
+                        {renderDateValue(container.detention_from)}
                       </div>
                     ))}
                   </>
@@ -913,10 +932,11 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
           </>
         )}
       </div>
+      
       {/* Right Section */}
       <div>
         <div>
-          <strong>Assessment Date:</strong> {dates.assessment_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <strong>Assessment Date:</strong> {renderDateValue(dates.assessment_date)}{" "}
           <FcCalendar
             style={styles.icon}
             onClick={() => handleEditStart("assessment_date")}
@@ -948,7 +968,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
         </div>
         <br />
         <div>
-          <strong>PCV:</strong> {dates.pcv_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <strong>PCV:</strong> {renderDateValue(dates.pcv_date)}{" "}
           <FcCalendar
             style={styles.icon}
             onClick={() => handleEditStart("pcv_date")}
@@ -979,11 +999,11 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
           )}
         </div>
         <br />
-
+        
         <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
           <span>
             <strong>Duty Paid:</strong>{" "}
-            {dates.duty_paid_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+            {renderDateValue(dates.duty_paid_date)}{" "}
           </span>
           <FcCalendar
             style={{ ...styles.icon, marginRight: "5px" }}
@@ -1030,7 +1050,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
         <br />
 
         <div>
-          <strong>OOC:</strong> {dates.out_of_charge?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+          <strong>OOC:</strong> {renderDateValue(dates.out_of_charge)}{" "}
           <FcCalendar
             style={styles.icon}
             onClick={() => handleEditStart("out_of_charge")}
@@ -1065,7 +1085,7 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
         {containers.map((container, id) => (
           <div key={id}>
             <div>
-              <strong>Delivery:</strong> {container.delivery_date?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+              <strong>Delivery:</strong> {renderDateValue(container.delivery_date)}{" "}
               <FcCalendar
                 style={styles.icon}
                 onClick={() => handleEditStart("delivery_date", id)}
@@ -1102,11 +1122,10 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
 
         {consignment_type !== "LCL" && (
           <>
-            {/* <strong>EmptyOff:</strong> */}
             {containers.map((container, id) => (
               <div key={id}>
                 <div>
-                  <strong>EmptyOff:</strong> {container.emptyContainerOffLoadDate?.slice(0, 10).replace("T", " ") || "N/A"}{" "}
+                  <strong>EmptyOff:</strong> {renderDateValue(container.emptyContainerOffLoadDate)}{" "}
                   <FcCalendar
                     style={styles.icon}
                     onClick={() => handleEditStart("emptyContainerOffLoadDate", id)}
@@ -1141,7 +1160,8 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
           </>
         )}
 
-        <br />      </div>
+        <br />
+      </div>
 
       {/* IGST Modal */}
       <IgstModal
@@ -1155,8 +1175,6 @@ if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
     </div>
   );
 });
-
-
 
 const styles = {
   icon: {
@@ -1194,4 +1212,3 @@ const styles = {
 };
 
 export default EditableDateCell;
-

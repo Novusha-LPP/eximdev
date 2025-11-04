@@ -37,11 +37,9 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
-
 const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdateSuccess }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
 
   const [cargoDetails, setCargoDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -56,7 +54,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     severity: 'success'
   });
 
-
   const tabLabels = [
     { label: 'Shipment Summary', icon: <InfoIcon fontSize="small" /> },
     { label: 'Cargo Information', icon: <InventoryIcon fontSize="small" /> },
@@ -64,14 +61,12 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     { label: 'Container Details', icon: <LocalShippingIcon fontSize="small" /> }
   ];
 
-
   useEffect(() => {
     if (isOpen && location && masterBlNo) {
       fetchCargoDetails();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, location, masterBlNo]);
-
 
   // Show snackbar message
   const showSnackbar = (message, severity = 'success') => {
@@ -82,7 +77,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     });
   };
 
-
   // Close snackbar
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') {
@@ -90,7 +84,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     }
     setSnackbar({ ...snackbar, open: false });
   };
-
 
   const fetchCargoDetails = async () => {
     setLoading(true);
@@ -114,7 +107,7 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
         // 404 - Record not found
         setError({ 
           type: 'notfound', 
-          message: 'No records found for the provided Master BL number.' 
+          message: 'No records found for the provided location and Master BL number.' 
         });
       } else if (err.code === 'ERR_NETWORK') {
         setError({ 
@@ -142,38 +135,59 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     }
   };
 
-
   // Format date to match database format: "2025-10-22T12:07"
-  const formatDateForDatabase = (dateString) => {
-    if (!dateString) return null;
+// Enhanced date formatting function that handles DD/MM/YYYY format
+const formatDateForDatabase = (dateString) => {
+  if (!dateString) return '';
 
-    try {
-      const date = new Date(dateString);
-      
-      // Check if date is invalid
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date detected:', dateString);
-        return null;
+  try {
+    // Handle DD/MM/YYYY format (common in ICEGATE responses)
+    if (typeof dateString === 'string' && dateString.includes('/')) {
+      const parts = dateString.split('/');
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0');
+        const month = parts[1].padStart(2, '0');
+        const year = parts[2];
+        
+        // Create date in YYYY-MM-DD format
+        const formattedDate = `${year}-${month}-${day}`;
+        console.log('Formatted DD/MM/YYYY date:', dateString, '->', formattedDate);
+        return formattedDate;
       }
-      
-      // If already in correct format, return as-is
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
-        return dateString;
-      }
-
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch (err) {
-      console.error('Date formatting error:', err);
-      return null;
     }
-  };
 
+    // Handle existing formats
+    const date = new Date(dateString);
+    
+    // Check if date is invalid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date detected:', dateString);
+      return '';
+    }
+    
+    // If already in correct format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
+      return dateString;
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (err) {
+    console.error('Date formatting error:', err);
+    return '';
+  }
+};
+
+  // Helper function to check if value is valid (not N/A, null, undefined, or empty)
+  const isValidValue = (value) => {
+    const invalidValues = [null, undefined, '', 'N.A.', 'N/A'];
+    return invalidValues.includes(value) ? '' : value;
+  };
 
   // Handle Update to Database
   const handleUpdateDatabase = async () => {
@@ -185,15 +199,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     setIsUpdating(true);
     try {
       const summary = cargoDetails.summary?.[0] || {};
-
-      // Helper function to check if value is valid (not N/A, null, undefined, or empty)
-      const isValidValue = (value) => {
-        return value !== null && 
-               value !== undefined && 
-               value !== '' && 
-               value !== 'N.A.' && 
-               value !== 'N/A';
-      };
 
       // Start with empty updateData - only add valid fields
       const updateData = {};
@@ -274,13 +279,10 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     }
   };
 
-
   const renderValue = (v) =>
-   v === NaN || v === undefined || v === null || v === '' || v === 'N.A.' ? 'N/A' : String(v);
-
+    v === undefined || v === null || v === '' || v === 'N.A.' ? 'N.A.' : String(v);
 
   const handleTabChange = (_e, val) => setActiveTab(val);
-
 
   const KeyValuePanel = ({ title, fields }) => (
     <Paper
@@ -340,7 +342,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
       ))}
     </Paper>
   );
-
 
   const renderTabContent = () => {
     if (!cargoDetails) return <Typography variant="body2">No data available.</Typography>;
@@ -474,9 +475,7 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     return null;
   };
 
-
   if (!isOpen) return null;
-
 
   return (
     <>
@@ -543,7 +542,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
           </Box>
         </Box>
 
-
         {/* Tabs */}
         <Paper elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', borderRadius: 0 }}>
           <Tabs
@@ -572,7 +570,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
             ))}
           </Tabs>
         </Paper>
-
 
         {/* Content */}
         {loading ? (
@@ -678,7 +675,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
           </DialogContent>
         )}
 
-
         {/* Print cleanup */}
         <style jsx>{`
           @media print {
@@ -691,7 +687,6 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
           }
         `}</style>
       </Dialog>
-
 
       {/* Snackbar for notifications */}
       <Snackbar
@@ -711,6 +706,5 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
     </>
   );
 };
-
 
 export default SeaCargoStatus;

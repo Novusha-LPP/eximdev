@@ -136,15 +136,31 @@ const fetchCargoDetails = async () => {
 
   // Format date to match database format: "2025-10-22T12:07"
 const formatDateForDatabase = (dateString) => {
-  if (!dateString) return null;
+  if (!dateString) return '';
 
   try {
+    // Handle DD/MM/YYYY format (common in ICEGATE responses)
+    if (typeof dateString === 'string' && dateString.includes('/')) {
+      const parts = dateString.split('/');
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0');
+        const month = parts[1].padStart(2, '0');
+        const year = parts[2];
+        
+        // Create date in YYYY-MM-DD format
+        const formattedDate = `${year}-${month}-${day}`;
+        console.log('Formatted DD/MM/YYYY date:', dateString, '->', formattedDate);
+        return formattedDate;
+      }
+    }
+
+    // Handle existing formats
     const date = new Date(dateString);
     
     // Check if date is invalid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date detected:', dateString);
-      return null;
+      return '';
     }
     
     // If already in correct format, return as-is
@@ -161,9 +177,10 @@ const formatDateForDatabase = (dateString) => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   } catch (err) {
     console.error('Date formatting error:', err);
-    return null;
+    return '';
   }
 };
+
 
 
   // Check if custom house is ICD KODIYAR

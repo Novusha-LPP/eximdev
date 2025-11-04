@@ -26,6 +26,7 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  Tooltip,
   Chip,
 } from "@mui/material";
 import { Link } from "react-router-dom";
@@ -1207,7 +1208,7 @@ function DoPlanning() {
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
-      size: 200,
+      size: 220,
       Cell: ({ row }) => {
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
@@ -1216,6 +1217,7 @@ function DoPlanning() {
           row.original.is_obl_recieved || false
         );
         const _id = row.original._id;
+        const shipping_line_airline = row.original.shipping_line_airline;
 
         // Sync local state when row data changes
         React.useEffect(() => {
@@ -1288,44 +1290,53 @@ function DoPlanning() {
             />
 
             {/* REST OF YOUR CUSTOM CONTENT */}
-            <div>
-              {vesselFlight}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, vesselFlight)}
-              >
-                <abbr title="Copy Vessel">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+<div>
+  {shipping_line_airline}
+  <Tooltip title="Copy Shipping Line" arrow>
+    <IconButton
+      size="small"
+      onClick={(event) => handleCopy(event, shipping_line_airline)}
+    >
+      <ContentCopyIcon fontSize="inherit" />
+    </IconButton>
+  </Tooltip>
+</div>
 
-            <div>
-              {`Vessel Voyage: ${voyageNo}`}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, voyageNo)}
-              >
-                <abbr title="Copy Voyage Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+<div>
+  {vesselFlight}
+  <Tooltip title="Copy Vessel" arrow>
+    <IconButton
+      size="small"
+      onClick={(event) => handleCopy(event, vesselFlight)}
+    >
+      <ContentCopyIcon fontSize="inherit" />
+    </IconButton>
+  </Tooltip>
+</div>
 
-            <div>
-              {`Line No: ${line_no}`}
-              <IconButton
-                size="small"
-                onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                onClick={(event) => handleCopy(event, line_no)}
-              >
-                <abbr title="Copy Line No Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
-            </div>
+<div>
+  {`Vessel Voyage: ${voyageNo}`}
+  <Tooltip title="Copy Voyage Number" arrow>
+    <IconButton
+      size="small"
+      onClick={(event) => handleCopy(event, voyageNo)}
+    >
+      <ContentCopyIcon fontSize="inherit" />
+    </IconButton>
+  </Tooltip>
+</div>
+
+<div>
+  {`Line No: ${line_no}`}
+  <Tooltip title="Copy Line Number" arrow>
+    <IconButton
+      size="small"
+      onClick={(event) => handleCopy(event, line_no)}
+    >
+      <ContentCopyIcon fontSize="inherit" />
+    </IconButton>
+  </Tooltip>
+</div>
 
             <div>
               <label

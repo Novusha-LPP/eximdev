@@ -2375,16 +2375,24 @@ function JobDetails() {
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
-                <FileUpload
-                  label="Upload Checklist"
-                  bucketPath="checklist"
-                  onFilesUploaded={(newFiles) => {
-                    const existingFiles = formik.values.checklist || [];
-                    const updatedFiles = [...existingFiles, ...newFiles];
-                    formik.setFieldValue("checklist", updatedFiles);
-                  }}
-                  multiple={true}
-                />{" "}
+<FileUpload
+  label="Upload Checklist"
+  bucketPath="checklist"
+  onFilesUploaded={(newFiles, replaceMode) => {
+    if (replaceMode) {
+      // Replace existing files with new uploaded file
+      formik.setFieldValue("checklist", newFiles);
+    } else {
+      // Append to existing files (default behavior)
+      const existingFiles = formik.values.checklist || [];
+      const updatedFiles = [...existingFiles, ...newFiles];
+      formik.setFieldValue("checklist", updatedFiles);
+    }
+  }}
+  singleFileOnly={true}
+  replaceMode={true}
+/>
+
                 <ImagePreview
                   images={formik.values.checklist || []}
                   onDeleteImage={(index) => {

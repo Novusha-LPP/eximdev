@@ -1,7 +1,8 @@
 import React, { useState, useContext } from "react";
 import { uploadFileToS3 } from "../../utils/awsFileUpload";
-import { Button, CircularProgress } from "@mui/material";
+import { Button, CircularProgress, Tooltip } from "@mui/material";
 import { UserContext } from "../../contexts/UserContext";
+
 
 const FileUpload = ({
   label,
@@ -9,57 +10,80 @@ const FileUpload = ({
   bucketPath,
   multiple = true,
   acceptedFileTypes = [],
-  readOnly = false, // Default to false
+  readOnly = false,
+  replaceMode = false, // New prop: when true, replaces existing files; when false, appends
+  singleFileOnly = false, // New prop: when true, only allows one file to be selected
 }) => {
   const [uploading, setUploading] = useState(false);
   const { user } = useContext(UserContext);
 
+
   const handleFileUpload = async (event) => {
-    if (readOnly) return; // Prevent upload if readOnly is true
+    if (readOnly) return;
+
 
     const files = event.target.files;
     const uploadedFiles = [];
 
+
     setUploading(true);
-    for (const file of files) {
-      try {
-        const result = await uploadFileToS3(file, bucketPath);
-        uploadedFiles.push(result.Location);
-      } catch (error) {
-        console.error(`Failed to upload ${file.name}:`, error);
+    
+    try {
+      // If singleFileOnly is true, only upload the first file
+      const filesToUpload = singleFileOnly ? [files[0]] : Array.from(files);
+      
+      for (const file of filesToUpload) {
+        try {
+          const result = await uploadFileToS3(file, bucketPath);
+          uploadedFiles.push(result.Location);
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+        }
       }
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
-    onFilesUploaded(uploadedFiles);
+    
+    // Pass the upload mode to the callback
+    onFilesUploaded(uploadedFiles, replaceMode);
   };
+
 
   return (
     <div style={{ marginTop: "10px" }}>
-      <Button
-        variant="contained"
-        component="label"
-        style={{
-          backgroundColor: readOnly ? "#ccc" : "#1c1e22",
-          color: "#fff",
-          cursor: readOnly ? "not-allowed" : "pointer",
-        }}
-        disabled={readOnly || uploading} // Disable button when readOnly
+      <Tooltip 
+        title={readOnly ? "Upload is disabled" : `Select file to upload${singleFileOnly ? " (single file)" : ""}`}
+        arrow
       >
-        {label}
-        <input
-          type="file"
-          hidden
-          multiple={multiple}
-          accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
-          onChange={handleFileUpload}
-          disabled={readOnly || uploading} // Disable input when readOnly
-        />
-      </Button>
+        <span>
+          <Button
+            variant="contained"
+            component="label"
+            style={{
+              backgroundColor: readOnly ? "#ccc" : "#1c1e22",
+              color: "#fff",
+              cursor: readOnly ? "not-allowed" : "pointer",
+            }}
+            disabled={readOnly || uploading}
+          >
+            {label}
+            <input
+              type="file"
+              hidden
+              multiple={!singleFileOnly && multiple} // Disable multiple when singleFileOnly is true
+              accept={acceptedFileTypes.length ? acceptedFileTypes.join(",") : ""}
+              onChange={handleFileUpload}
+              disabled={readOnly || uploading}
+            />
+          </Button>
+        </span>
+      </Tooltip>
       {uploading && (
         <CircularProgress size={24} style={{ marginLeft: "10px" }} />
       )}
     </div>
   );
 };
+
 
 export default FileUpload;

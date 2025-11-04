@@ -42,7 +42,7 @@ const BLStatus = ({ isOpen, onClose, mawbNumber, jobId, onUpdateSuccess, customH
 
   const [cargoDetails, setCargoDetails] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+const [error, setError] = useState({ type: '', message: '' });
   const [activeTab, setActiveTab] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
   
@@ -84,58 +84,87 @@ const BLStatus = ({ isOpen, onClose, mawbNumber, jobId, onUpdateSuccess, customH
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const fetchCargoDetails = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/bl-tracking`,
-        { mawbNumber },
-        { timeout: 35000, headers: { 'Content-Type': 'application/json' } }
-      );
-      if (res.data?.success) {
-        setCargoDetails(res.data.data || null);
-      } else {
-        setError(res.data?.error || 'Failed to fetch BL Status details');
-      }
-    } catch (err) {
-      if (err.code === 'ERR_NETWORK') {
-        setError('Cannot connect to backend server. Ensure the proxy server is running.');
-      } else if (err.code === 'ECONNABORTED') {
-        setError('Request timeout. The upstream service may be slow.');
-      } else if (err.response) {
-        setError(`Server error: ${err.response.status} - ${err.response.data?.error || 'Unknown error'}`);
-      } else {
-        setError(`Network error: ${err.message}`);
-      }
-    } finally {
-      setLoading(false);
+const fetchCargoDetails = async () => {
+  setLoading(true);
+  setError({ type: '', message: '' });
+  try {
+    const res = await axios.post(
+      `${process.env.REACT_APP_API_STRING}/bl-tracking`,
+      { mawbNumber },
+      { timeout: 35000, headers: { 'Content-Type': 'application/json' } }
+    );
+    if (res.data?.success) {
+      setCargoDetails(res.data.data || null);
+    } else {
+      setError({ 
+        type: 'api', 
+        message: res.data?.error || 'Failed to fetch BL Status details' 
+      });
     }
-  };
+  } catch (err) {
+    if (err.response?.status === 404) {
+      // 404 - Record not found
+      setError({ 
+        type: 'notfound', 
+        message: 'No records found for the provided BL number.' 
+      });
+    } else if (err.code === 'ERR_NETWORK') {
+      setError({ 
+        type: 'network', 
+        message: 'Cannot connect to backend server. Please check your connection.' 
+      });
+    } else if (err.code === 'ECONNABORTED') {
+      setError({ 
+        type: 'timeout', 
+        message: 'Request timeout. The service is taking too long to respond.' 
+      });
+    } else if (err.response) {
+      setError({ 
+        type: 'server', 
+        message: `Server error: ${err.response.status} - ${err.response.data?.error || 'Unknown error'}` 
+      });
+    } else {
+      setError({ 
+        type: 'unknown', 
+        message: `Error: ${err.message}` 
+      });
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Format date to match database format: "2025-10-22T12:07"
-  const formatDateForDatabase = (dateString) => {
-    if (!dateString) return null;
+const formatDateForDatabase = (dateString) => {
+  if (!dateString) return null;
 
-    try {
-      const date = new Date(dateString);
-      
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
-        return dateString;
-      }
-
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch (err) {
-      console.error('Date formatting error:', err);
+  try {
+    const date = new Date(dateString);
+    
+    // Check if date is invalid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date detected:', dateString);
       return null;
     }
-  };
+    
+    // If already in correct format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
+      return dateString;
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (err) {
+    console.error('Date formatting error:', err);
+    return null;
+  }
+};
+
 
   // Check if custom house is ICD KODIYAR
   const isIcdKodiyar = customHouse && 
@@ -154,45 +183,79 @@ const handleUpdateDatabase = async () => {
     const statusData = cargoDetails.status_data?.[0] || {};
     const containerDetails = cargoDetails.container_details || [];
 
-    // Base update data (always included)
-    const updateData = {
-      line_no: statusData.lineNo || null,
-      no_of_pkgs: statusData.totalPackage && statusData.packageCode 
-        ? `${statusData.totalPackage} ${statusData.packageCode}` 
-        : statusData.totalPackage || null,
-      igm_no: statusData.igmRTN || null,
-      igm_date: formatDateForDatabase(statusData.igmDT) || null,
-      discharge_date: formatDateForDatabase(statusData.inwDT) || null
-    };
+    // Helper function to check if value is valid (not N/A, null, undefined, or empty)
+    const isValidValue = (value) => {
+  const invalidValues = [null, undefined, '', 'N.A.', 'N/A'];
+  return invalidValues.includes(value) ? '' : value;
+};
+
+    // Start with empty updateData - only add valid fields
+    const updateData = {};
+
+    // Only add line_no if valid
+    if (isValidValue(statusData.lineNo)) {
+      updateData.line_no = statusData.lineNo;
+    }
+
+    // Only add no_of_pkgs if valid
+    if (statusData.totalPackage && statusData.packageCode) {
+      updateData.no_of_pkgs = `${statusData.totalPackage} ${statusData.packageCode}`;
+    } else if (isValidValue(statusData.totalPackage)) {
+      updateData.no_of_pkgs = statusData.totalPackage;
+    }
+
+    // Only add igm_no if valid
+    if (isValidValue(statusData.igmRTN)) {
+      updateData.igm_no = statusData.igmRTN;
+    }
+
+    // Only add igm_date if the formatted date is valid
+    const formattedIgmDate = formatDateForDatabase(statusData.igmDT);
+    if (isValidValue(formattedIgmDate)) {
+      updateData.igm_date = formattedIgmDate;
+    }
+
+    // Only add discharge_date if the formatted date is valid
+    const formattedDischargeDate = formatDateForDatabase(statusData.inwDT);
+    if (isValidValue(formattedDischargeDate)) {
+      updateData.discharge_date = formattedDischargeDate;
+    }
 
     // Only add container arrival_date updates if custom house is ICD KODIYAR
     if (isIcdKodiyar && container_nos && container_nos.length > 0) {
-      // Create a map of container numbers from ICEGATE response with arrival dates
       const containerArrivalMap = {};
       
       containerDetails.forEach(container => {
         if (container.contNo && container.arrDT) {
           const formattedDate = formatDateForDatabase(container.arrDT);
-          containerArrivalMap[container.contNo] = formattedDate;
-          
-          console.log(`Mapping container: ${container.contNo} -> Arrival: ${formattedDate}`);
+          // Only add to map if the date is valid
+          if (isValidValue(formattedDate)) {
+            containerArrivalMap[container.contNo] = formattedDate;
+            console.log(`Mapping container: ${container.contNo} -> Arrival: ${formattedDate}`);
+          }
         }
       });
 
       console.log('Container Arrival Map:', containerArrivalMap);
       console.log('Existing containers from job:', container_nos);
 
-      // Update arrival_date for matching containers
+      // Update arrival_date for matching containers only if new valid date exists
       const updatedContainers = container_nos.map(containerObj => {
         const containerNum = containerObj.container_number;
         const arrivalDate = containerArrivalMap[containerNum];
         
         console.log(`Processing container: ${containerNum}, Has Arrival Date: ${!!arrivalDate}, Date: ${arrivalDate}`);
 
-        return {
-          ...containerObj,
-          arrival_date: arrivalDate || containerObj.arrival_date || null
-        };
+        // Only update arrival_date if we have a new valid value
+        if (isValidValue(arrivalDate)) {
+          return {
+            ...containerObj,
+            arrival_date: arrivalDate
+          };
+        }
+        
+        // Otherwise keep existing container object unchanged
+        return containerObj;
       });
 
       console.log('Updated Containers:', JSON.stringify(updatedContainers, null, 2));
@@ -209,6 +272,15 @@ const handleUpdateDatabase = async () => {
         'warning'
       );
     }
+
+    // Check if we have any valid data to update
+    if (Object.keys(updateData).length === 0) {
+      showSnackbar('No valid data available to update', 'warning');
+      setIsUpdating(false);
+      return;
+    }
+
+    console.log('Final updateData being sent:', updateData);
 
     const headers = {
       'Content-Type': 'application/json'
@@ -255,6 +327,8 @@ const handleUpdateDatabase = async () => {
     setIsUpdating(false);
   }
 };
+
+
 
 
   const renderValue = (v) =>
@@ -579,20 +653,50 @@ const handleUpdateDatabase = async () => {
             </Typography>
             <LinearProgress sx={{ width: 200, height: 4, borderRadius: 2, mt: 1.5 }} />
           </Box>
-        ) : error ? (
-          <Box sx={{ p: 3 }}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'error.light' }}>
-              <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
-                Request Failed
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
-                {error}
-              </Typography>
-              <Button variant="contained" color="error" onClick={fetchCargoDetails}>
-                Retry
-              </Button>
-            </Paper>
-          </Box>
+        ) : error.message ? (
+  <Box sx={{ p: 3 }}>
+    {error.type === 'notfound' ? (
+      // 404 - No Record Found (user-friendly)
+      <Paper elevation={0} sx={{ 
+        p: 3, 
+        borderRadius: 1, 
+        border: '1px solid', 
+        borderColor: 'info.light',
+        bgcolor: 'info.50' 
+      }}>
+        <Typography variant="subtitle1" sx={{ color: 'info.main', fontWeight: 700, mb: 1 }}>
+          No Record Found
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+          {error.message}
+        </Typography>
+        <Button variant="outlined" color="info" onClick={onClose}>
+          Close
+        </Button>
+      </Paper>
+    ) : (
+      // All other errors (network, server, timeout, etc.)
+      <Paper elevation={0} sx={{ 
+        p: 3, 
+        borderRadius: 1, 
+        border: '1px solid', 
+        borderColor: 'error.light' 
+      }}>
+        <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
+          {error.type === 'network' ? 'Connection Error' : 
+           error.type === 'timeout' ? 'Request Timeout' : 
+           error.type === 'server' ? 'Server Error' : 
+           'Request Failed'}
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
+          {error.message}
+        </Typography>
+        <Button variant="contained" color="error" onClick={fetchCargoDetails}>
+          Retry
+        </Button>
+      </Paper>
+    )}
+  </Box>
         ) : (
           <DialogContent
             sx={{

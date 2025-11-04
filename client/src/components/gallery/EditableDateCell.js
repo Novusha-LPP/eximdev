@@ -52,6 +52,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     _id,
     job_no,
     cth_no,
+    payment_method,
     assessment_date,
     free_time,
     vessel_berthing,
@@ -1000,9 +1001,10 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         </div>
         <br />
         
-        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+     { payment_method !== "Deferred" &&   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
           <span>
             <strong>Duty Paid:</strong>{" "}
+            
             {renderDateValue(dates.duty_paid_date)}{" "}
           </span>
           <FcCalendar
@@ -1015,7 +1017,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             onClick={handleOpenIgstModal}
             title="Add Duty Details"
           />
-        </div>
+        </div>}
         {editable === "duty_paid_date" && (
           <div>
             <input

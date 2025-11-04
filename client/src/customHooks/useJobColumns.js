@@ -127,6 +127,7 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             year,
             type_of_b_e,
             consignment_type,
+            payment_method,
             custom_house,
             detailed_status,
             vessel_berthing,
@@ -243,8 +244,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 textDecoration: "none",
               }}
             >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+              {job_no} <br /> {type_of_b_e} <br /> {consignment_type}<br />{" "}
+              {custom_house} <br/>  {payment_method}
             </a>
           );
         },

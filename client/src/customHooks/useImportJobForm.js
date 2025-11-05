@@ -7,6 +7,7 @@ import {
   shippingLineOptions,
   cth_Dropdown,
 } from "../components/MasterLists/MasterLists";
+import { set } from "date-fns";
 
 const useImportJobForm = () => {
   // Get the current date
@@ -52,6 +53,7 @@ const useImportJobForm = () => {
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
   const [gross_weight, setGrossWeight] = useState("");
+  const [job_net_weight, setJob_net_weight] = useState("");
   const [cth_no, setCthNo] = useState("");
   const [origin_country, setOriginCountry] = useState("");
   const [port_of_reporting, setPortOfReporting] = useState("");
@@ -160,6 +162,7 @@ useEffect(() => {
     setTypeOfBE("");
     setLoadingPort("");
     setGrossWeight("");
+    setJob_net_weight("");
     setCthNo("");
     setOriginCountry("");
     setPortOfReporting("");
@@ -233,6 +236,7 @@ useEffect(() => {
           type_of_b_e,
           loading_port,
           gross_weight,
+          job_net_weight,
           cth_no,
           origin_country,
           port_of_reporting,
@@ -445,6 +449,8 @@ useEffect(() => {
     setLoadingPort,
     gross_weight,
     setGrossWeight,
+    job_net_weight,
+    setJob_net_weight,
     cth_no,
     setCthNo,
     origin_country,

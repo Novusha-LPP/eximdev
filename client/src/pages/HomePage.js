@@ -69,6 +69,7 @@ import OutwardRegisterDetails from "../components/outward-register/OutwardRegist
 import AppbarComponent from "../components/home/AppbarComponent.js";
 import DrawerComponent from "../components/home/DrawerComponent.js";
 import ReleaseNotes from "../components/home/ReleaseNotes.js";
+import Feedback from "../components/home/Feedback.js";
 
 // Screens
 import Screen1 from "../components/Screens/Screen1.js";
@@ -527,6 +528,12 @@ function HomePage() {
                 path="/release-notes"
                 element={
                     <ReleaseNotes />
+                }
+              />
+              <Route
+                path="/feedback"
+                element={
+                    <Feedback />
                 }
               />
               

@@ -50,8 +50,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const rowData = cell.row.original;
   const {
     _id,
-    job_no,
-    cth_no,
     payment_method,
     assessment_date,
     free_time,
@@ -68,12 +66,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     duty_paid_date,
     assessable_ammount,
     igst_ammount,
-    igst_rate,
-    job_net_weight,
-    bcd_ammount,
-    sws_ammount,
-    penalty_amount,
-    fine_amount,
   } = rowData;
 
   const initialDates = useMemo(() => ({

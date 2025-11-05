@@ -67,6 +67,8 @@ const ImportCreateJob = () => {
     setLoadingPort,
     gross_weight,
     setGrossWeight,
+    job_net_weight,
+    setJob_net_weight,
     cth_no,
     setCthNo,
     origin_country,
@@ -521,13 +523,26 @@ const ImportCreateJob = () => {
 )}
 
             
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={3}>
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Gross Weight:
           </Typography>
           <TextField
             value={gross_weight}
             onChange={(e) => setGrossWeight(e.target.value)}
+            variant="outlined"
+            size="small"
+            placeholder="Enter Gross Weight"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            Net Weight:
+          </Typography>
+          <TextField
+            value={job_net_weight}
+            onChange={(e) => setJob_net_weight(e.target.value)}
             variant="outlined"
             size="small"
             placeholder="Enter Gross Weight"

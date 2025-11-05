@@ -87,6 +87,19 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
+      <Tooltip title="Feedback" enterDelay={0} placement="right">
+        <ListItemButton
+          sx={{ textAlign: "left" }}
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/feedback")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+      <FeedbackIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
+
       <Tooltip title="Logout" enterDelay={0} placement="right">
         <ListItemButton
           sx={{ textAlign: "left" }}

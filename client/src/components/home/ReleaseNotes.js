@@ -95,7 +95,7 @@ const ReleaseNotes = () => {
     setLoading(true);
     setError('');
     try {
-      const endpoint = isAdmin ? '/release-notes/all' : '/release-notes';
+      const endpoint = '/release-notes/all' 
       const response = await axios.get(`${process.env.REACT_APP_API_STRING}${endpoint}`);
       if (response.data?.success) {
         setReleaseNotes(response.data.data);
@@ -268,18 +268,17 @@ const ReleaseNotes = () => {
       return <Alert severity="error">{error}</Alert>;
     }
 
-    const displayNotes = releaseNotes.filter(note => isAdmin || note.isPublished);
 
     return (
       <Stack spacing={3}>
-        {displayNotes.length === 0 ? (
+        {releaseNotes.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">
               No release notes available yet.
             </Typography>
           </Paper>
         ) : (
-          displayNotes.map((note, index) => (
+          releaseNotes.map((note, index) => (
             <Card key={note._id} elevation={2} sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

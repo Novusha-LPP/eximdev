@@ -164,6 +164,9 @@ import icegateProxy from "./routes/icegateProxy.js";
 
 //release notes
 import releaseNoteRoutes from "./routes/releaseNoteRoutes.js";
+
+// feedback
+import feedback from "./routes/feedbackRoutes.js";
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -400,6 +403,10 @@ if (cluster.isPrimary) {
 
       // release notes 
       app.use('/api', releaseNoteRoutes);
+
+      // feedback 
+      app.use('/api', feedback);
+
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

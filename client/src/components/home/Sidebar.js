@@ -8,6 +8,7 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import { UserContext } from "../../contexts/UserContext";
+import DescriptionIcon from '@mui/icons-material/Description';
 
 function Sidebar() {
   const navigate = useNavigate();
@@ -69,6 +70,19 @@ function Sidebar() {
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <LockResetIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
+
+      <Tooltip title="release notes" enterDelay={0} placement="right">
+        <ListItemButton
+          sx={{ textAlign: "left" }}
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/release-notes")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <DescriptionIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

@@ -162,6 +162,8 @@ import dutyCalculator from "./routes/CthUtil/dutycalculator.mjs";
 //proxy apis
 import icegateProxy from "./routes/icegateProxy.js";
 
+//release notes
+import releaseNoteRoutes from "./routes/releaseNoteRoutes.js";
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -396,6 +398,8 @@ if (cluster.isPrimary) {
       app.use(icegateProxy);
 
 
+      // release notes 
+      app.use('/api', releaseNoteRoutes);
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

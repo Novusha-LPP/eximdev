@@ -68,6 +68,7 @@ import OutwardRegister from "../components/outward-register/OutwardRegister.js";
 import OutwardRegisterDetails from "../components/outward-register/OutwardRegisterDetails.js";
 import AppbarComponent from "../components/home/AppbarComponent.js";
 import DrawerComponent from "../components/home/DrawerComponent.js";
+import ReleaseNotes from "../components/home/ReleaseNotes.js";
 
 // Screens
 import Screen1 from "../components/Screens/Screen1.js";
@@ -521,6 +522,14 @@ function HomePage() {
                   </ProtectedRoute>
                 }
               />
+
+              <Route
+                path="/release-notes"
+                element={
+                    <ReleaseNotes />
+                }
+              />
+              
             </Routes>
           </Box>
         </Box>

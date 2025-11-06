@@ -1,11 +1,9 @@
 import React, { useMemo, useCallback } from "react";
 import { Row, Col } from "react-bootstrap";
-import { IconButton } from "@mui/material";
+import { IconButton, Tooltip } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
-
-
 
 function JobDetailsStaticData(props) {
   if (props.data) {
@@ -20,9 +18,7 @@ function JobDetailsStaticData(props) {
     }, 0);
   }
 
-
-    const handleCopy = useCallback((event, text) => {
-    // Optimized handleCopy function using useCallback to avoid re-creation on each render
+  const handleCopy = useCallback((event, text) => {
     event.stopPropagation();
 
     if (
@@ -39,7 +35,6 @@ function JobDetailsStaticData(props) {
           console.error("Failed to copy:", err);
         });
     } else {
-      // Fallback approach for older browsers
       const textArea = document.createElement("textarea");
       textArea.value = text;
       document.body.appendChild(textArea);
@@ -54,7 +49,7 @@ function JobDetailsStaticData(props) {
       document.body.removeChild(textArea);
     }
   }, []);
-  
+
   const getShippingLineUrl = (shippingLine, blNumber, containerFirst) => {
     const shippingLineUrls = {
       MSC: `https://www.msc.com/en/track-a-shipment`,
@@ -67,7 +62,6 @@ function JobDetailsStaticData(props) {
       "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
       "ONE LINE":
         "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-
       HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
       HYUNDI:
         "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
@@ -89,7 +83,7 @@ function JobDetailsStaticData(props) {
     };
     return shippingLineUrls[shippingLine] || "#";
   };
-  // Memoized utility functions to avoid unnecessary re-calculations
+
   const getPortLocation = useMemo(
     () => (portOfReporting) => {
       const portMap = {
@@ -125,19 +119,32 @@ function JobDetailsStaticData(props) {
     return `${year}/${month}/${day}`;
   }, []);
 
+  const compactRowStyle = {
+    padding: "6px 12px",
+    marginBottom: "4px",
+    backgroundColor: "#f8f9fa",
+    borderRadius: "4px",
+    fontSize: "0.875rem",
+  };
+
+  const labelStyle = {
+    color: "#495057",
+    fontWeight: "600",
+    fontSize: "0.85rem",
+  };
+
+  const valueStyle = {
+    color: "#212529",
+    fontWeight: "400",
+  };
+
   return (
-    <div className="job-details-container">
-      <Row>
-        <h4>
-          Job Number:&nbsp;{props.params.job_no}&nbsp;|&nbsp;
-          {props.data && `Custom House: ${props.data.custom_house}`}
-          &nbsp;
-          {props.data?.be_no ? (
-            // Render BE No if it exists
-            <>&nbsp;</>
-          ) : (
-            // Render Priority Job if BE No does not exist
-            props.data?.priorityJob &&
+    <div className="job-details-container" style={{ padding: "10px" }}>
+      {/* Header */}
+      <Row style={{ marginBottom: "8px" }}>
+        <h5 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "8px" }}>
+          Job Number: {props.params.job_no} | Custom House: {props.data?.custom_house}
+          {props.data?.be_no ? null : props.data?.priorityJob &&
             (props.data.priorityJob === "High Priority" ||
               props.data.priorityJob === "Priority") && (
               <span
@@ -145,192 +152,149 @@ function JobDetailsStaticData(props) {
                   display: "inline-block",
                   fontWeight: "bold",
                   fontStyle: "italic",
-                  fontSize: "1.2rem",
-                  color:
-                    props.data.priorityJob === "High Priority"
-                      ? "white"
-                      : "black",
+                  fontSize: "0.9rem",
+                  color: props.data.priorityJob === "High Priority" ? "white" : "black",
                   border: "2px solid",
-                  borderColor:
-                    props.data.priorityJob === "High Priority" ? "red" : "blue",
-                  borderRadius: "8px",
-                  padding: "8px 12px",
+                  borderColor: props.data.priorityJob === "High Priority" ? "red" : "blue",
+                  borderRadius: "6px",
+                  padding: "4px 8px",
                   backgroundColor:
                     props.data.priorityJob === "High Priority"
                       ? "rgba(255, 0, 0, 0.8)"
                       : "rgba(0, 0, 255, 0.2)",
-                  marginTop: "10px",
+                  marginLeft: "8px",
                 }}
               >
                 {props.data.priorityJob}
               </span>
-            )
-          )}
-        </h4>
+            )}
+        </h5>
       </Row>
 
-      <Row
-        className="job-detail-row"
-        style={{
-          padding: "20px", // Add padding for better spacing
-          marginBottom: "15px", // Add spacing between rows
-          backgroundColor: "#f8f9fa", // Light background color for visual distinction
-          borderRadius: "8px", // Rounded corners for a modern look
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", // Subtle shadow for depth
-        }}
-      >
-        <Col
-          xs={12}
-          lg={5}
-          style={{
-            borderRight: "2px solid #ddd", // Add a vertical separator
-            paddingRight: "10px", // Add padding inside the column
-          }}
-        >
-          <strong style={{ color: "#495057", fontSize: "1.1rem" }}>
-            Payment Method:&nbsp;
-          </strong>
-          <span
-            className="non-editable-text"
-            style={{
-              color: "#007bff", // Highlight the value in a blue color
-              fontWeight: "600", // Semi-bold for emphasis
-            }}
-          >
-            {props.data.payment_method}
-          </span>
+      {/* Row 1: Payment, Clearance, FTA, Import Terms */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Payment Method: </span>
+          <span style={valueStyle}>{props.data.payment_method}</span>
         </Col>
-
-        <Col
-          xs={12}
-          lg={3}
-          style={{
-            borderRight: "2px solid #ddd", // Add a vertical separator
-            paddingRight: "10px", // Add padding inside the column
-          }}
-        >
-          <strong style={{ color: "#495057", fontSize: "1.1rem" }}>
-            Clearance Under:&nbsp;
-          </strong>
-          <span
-            className="non-editable-text"
-            style={{
-              color: "#007bff", // Use green to signify "clearance under" value
-              fontWeight: "600",
-            }}
-          >
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Clearance Under: </span>
+          <span style={valueStyle}>
             {props.data.type_of_b_e === "Ex-Bond"
               ? props.data.exBondValue && props.data.exBondValue === "other"
-                ? `${props.data.clearanceValue} `
+                ? `${props.data.clearanceValue}`
                 : `${props.data.clearanceValue} (${props.data.exBondValue})`
-              : props.data.clearanceValue || "NA"}{" "}
+              : props.data.clearanceValue || "NA"}
           </span>
         </Col>
-
-        <Col xs={12} lg={4}>
-          <strong style={{ color: "#495057", fontSize: "1.1rem" }}>
-            FTA Benefit:&nbsp;
-          </strong>
-          <span
-            className="non-editable-text"
-            style={{
-              color: "#007bff", // Red to signify time-sensitive or critical information
-              fontWeight: "600",
-            }}
-          >
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>FTA Benefit: </span>
+          <span style={valueStyle}>
             {isNaN(new Date(props.data.fta_Benefit_date_time).getTime()) ||
             props.data.fta_Benefit_date_time === ""
               ? `No (${props.data.origin_country})`
-              : `Yes (${new Date(
-                  props.data.fta_Benefit_date_time
-                ).toLocaleString()}) (${props.data.origin_country})`}
+              : `Yes (${props.data.origin_country})`}
           </span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Import Terms: </span>
+          <span style={valueStyle}>{props.data.import_terms}</span>
         </Col>
       </Row>
 
-      {/*************************** Row 1 ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>Importer:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.importer} - {props.data.ie_code_no}</span>
+      {/* Row 2: Importer, IE Code, Invoice No, Invoice Date */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Importer: </span>
+          <span style={valueStyle}>{props.data.importer}</span>
         </Col>
-        <Col xs={12} lg={3}>
-          <strong>Invoice No.:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.invoice_number}</span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>IE Code: </span>
+          <span style={valueStyle}>{props.data.ie_code_no}</span>
         </Col>
-        <Col xs={12} lg={4}>
-          <strong>Invoice Date:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.invoice_date}</span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Invoice No.: </span>
+          <span style={valueStyle}>{props.data.invoice_number}</span>
         </Col>
-      </Row>
-      {/*************************** Row 2 ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>Invoice Value and Unit Price:&nbsp;</strong>
-          <span className="non-editable-text">
-            {invoice_value_and_unit_price}
-          </span>
-        </Col>
-        {/* <Col xs={12} lg={3}>
-          <strong>Bill Number:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.bill_no}</span>
-        </Col> */}
-        <Col xs={12} lg={3}>
-          <strong>Origin Country:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.origin_country}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          <strong>Supplier/Exporter:&nbsp;</strong>
-          <span className="non-editable-text">
-            {props.data.supplier_exporter}
-          </span>
-        </Col>
-        {/* <Col xs={12} lg={4}>
-          <strong>Bill Date:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.bill_date}</span>
-        </Col> */}
-      </Row>
-      {/*************************** Row 3 ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>POL:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.loading_port}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          <strong>POD:&nbsp;</strong>
-          <span className="non-editable-text">
-            {props.data.port_of_reporting}
-          </span>
-        </Col>
-        <Col xs={12} lg={4}>
-          <strong>Shipping Line:&nbsp;</strong>
-          <span className="non-editable-text">
-            {props.data.shipping_line_airline}
-          </span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Invoice Date: </span>
+          <span style={valueStyle}>{props.data.invoice_date}</span>
         </Col>
       </Row>
-      {/*************************** Row 4 ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>CTH No:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.cth_no}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          <strong>Exchange Rate:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.exrate}</span>
-        </Col>
-        <Col xs={12} lg={4}>
-          <strong>CIF Amount(INR):&nbsp;</strong>
-          <span className="non-editable-text">{props.data.cif_amount}</span>
-        </Col>
-      </Row>
-      {/*************************** Row 4+ ****************************/}
 
-      {/*************************** Row 5 ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>Bill Of Entry (BOE) No.:&nbsp;</strong>
-          <span className="non-editable-text">
+      {/* Row 3: Invoice Value, Origin, Supplier, BE Filing Type */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Invoice Value: </span>
+          <span style={valueStyle}>{invoice_value_and_unit_price}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Origin Country: </span>
+          <span style={valueStyle}>{props.data.origin_country}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Supplier: </span>
+          <span style={valueStyle}>{props.data.supplier_exporter}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>BE Filing Type: </span>
+          <span style={valueStyle}>{props.data.be_filing_type}</span>
+        </Col>
+      </Row>
+
+      {/* Row 4: POL, POD, Shipping Line + Copy, CTH */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>POL: </span>
+          <span style={valueStyle}>{props.data.loading_port}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>POD: </span>
+          <span style={valueStyle}>{props.data.port_of_reporting}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Shipping Line: </span>
+          <span style={valueStyle}>{props.data.shipping_line_airline}</span>
+          <Tooltip title="Copy Shipping Line">
+            <IconButton
+              size="small"
+              onClick={(e) => handleCopy(e, props.data.shipping_line_airline)}
+            >
+              <ContentCopyIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>CTH No: </span>
+          <span style={valueStyle}>{props.data.cth_no}</span>
+        </Col>
+      </Row>
+
+      {/* Row 5: Exchange Rate, CIF Amount, Gross Weight, Net Weight */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Exchange Rate: </span>
+          <span style={valueStyle}>{props.data.exrate}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>CIF Amount: </span>
+          <span style={valueStyle}>{props.data.cif_amount}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Gross Weight: </span>
+          <span style={valueStyle}>{props.data.gross_weight}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Net Weight: </span>
+          <span style={valueStyle}>{props.data.job_net_weight}</span>
+        </Col>
+      </Row>
+
+      {/* Row 6: BOE No, BOE Date, No of Packages, Ad Code */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>BOE No.: </span>
+          <span style={valueStyle}>
             {props.data.be_no && (
               <a
                 href={`https://enquiry.icegate.gov.in/enquiryatices/beTrackIces?BE_NO=${
@@ -348,193 +312,137 @@ function JobDetailsStaticData(props) {
             )}
           </span>
         </Col>
-
-        <Col xs={12} lg={3}>
-          <strong> BOE Date:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.be_date}</span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>BOE Date: </span>
+          <span style={valueStyle}>{props.data.be_date}</span>
         </Col>
-        <Col xs={12} lg={4}>
-          <strong> No of Packages: &nbsp;</strong>
-          <span className="non-editable-text">{props.data.no_of_pkgs}</span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>No of Packages: </span>
+          <span style={valueStyle}>{props.data.no_of_pkgs}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Ad Code: </span>
+          <span style={valueStyle}>{props.data.adCode}</span>
         </Col>
       </Row>
 
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          {/* Outer Flex Container */}
-          <div style={{ display: "flex", flexDirection: "row" }}>
-            {/* Inner Flex Row 1: Label and Value */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <strong>Bill of Lading (BL) No.:&nbsp;</strong>
-            </div>
-
-            <div style={{ marginTop: "5px" }}>
-              <div className="non-editable-text">
+      {/* Row 7: BL No with icons, BL Date, HWBL No, HWBL Date */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>BL No.: </span>
+          <span style={valueStyle}>
+            <a
+              href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {props.data.awb_bl_no}
+            </a>
+          </span>
+          {props.data.shipping_line_airline && (
+            <>
+              <Tooltip title={`Track at ${props.data.shipping_line_airline}`}>
                 <a
-                  href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
+                  href={
+                    getShippingLineUrl(
+                      props.data.shipping_line_airline,
+                      props.data.awb_bl_no,
+                      props.data.container_nos?.[0]?.container_number
+                    ) || "#"
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
+                  style={{ marginLeft: "6px" }}
                 >
-                  {props.data.awb_bl_no}
+                  <FontAwesomeIcon icon={faShip} size="sm" color="blue" />
                 </a>
-              </div>
-              {/* Inner Flex Row 2: Icon Row */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: "15px",
-                }}
-              >
-                {/* Shipping Line Tracking Link */}
-                {props.data.shipping_line_airline && (
-                  <abbr
-                    title={`Track Shipment at ${props.data.shipping_line_airline}`}
-                  >
-                    <a
-                      href={
-                        getShippingLineUrl(
-                          props.data.shipping_line_airline,
-                          props.data.awb_bl_no,
-                          props.data.container_nos?.[0]?.container_number
-                        ) || "#"
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
-                    </a>
-                  </abbr>
-                )}
-
-                {/* Sea IGM Entry Link */}
-                <abbr title="Sea IGM Entry">
-                  <a
-                    href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${getPortLocation(
-                      props.data.port_of_reporting
-                    )}&MAWB_NO=${props.data.awb_bl_no}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
-                  </a>
-                </abbr>
-              </div>
-            </div>
-          </div>
-        </Col>
-
-        <Col xs={12} lg={3}>
-          <strong>BL Date:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.awb_bl_date}</span>
-        </Col>
-        {/* <Col xs={12} lg={4}>
-          <strong>Clearance Under:&nbsp;</strong>
-          <span className="non-editable-text">
-            {props.data.clearanceValue === "Ex-Bond"
-              ? props.data.exBondValue && props.data.exBondValue === "other"
-                ? `${props.data.clearanceValue} `
-                : `${props.data.clearanceValue} (${props.data.exBondValue})`
-              : props.data.clearanceValue || "NA"}{" "}
-            ({props.data.scheme})
-          </span>
-        </Col> */}
-      </Row>
-
-
-      <Row className="job-detail-row">
-          <Col xs={12} lg={5}>
-          <strong> HWBL No: &nbsp;</strong>
-          <span className="non-editable-text">{props.data.hawb_hbl_no}</span>
-        </Col>
-          <Col xs={12} lg={4}>
-          <strong> HWBL Date: &nbsp;</strong>
-          <span className="non-editable-text">{props.data.hawb_hbl_date}</span>
-        </Col>
-      </Row>
-      {/*************************** Row 6 ****************************/}
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>Gross Weight (KGS):&nbsp;</strong>
-          <span className="non-editable-text">{props.data.gross_weight}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          <strong>Net Weight (KGS):&nbsp;</strong>
-          <span className="non-editable-text">{props.data.job_net_weight}</span>
-        </Col>
-        <Col xs={12} lg={3}>
-          <strong>BE Filling Type:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.be_filing_type}</span>
-        </Col>
-      </Row>
-
-           <Row className="job-detail-row">
-      <Col xs={12} lg={5}>
-          <strong>G-IGM No:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.gateway_igm}</span>
-        </Col>
-      <Col xs={12} lg={3}>
-          <strong>G-IGM Date:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.gateway_igm_date}</span>
-        </Col>
-     <Col xs={12} lg={3}>
-          <strong>Line No:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.line_no}</span>
-        </Col>
-      </Row>
-      <Row className="job-detail-row">
-     
-              <Col xs={12} lg={5}>
-          <strong>IGM No:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.igm_no}</span>
-        </Col>
-              <Col xs={12} lg={3}>
-          <strong>IGM Date:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.igm_date}</span>
-        </Col>
-      </Row>
-      
-      <Row className="job-detail-row">
-        <Col xs={12} lg={5}>
-          <strong>HSS:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.hss}</span>
-        </Col>
-        <Col xs={12} lg={5}>
-          <strong>Seller Name:&nbsp;</strong>
-          {props.data.hss === "Yes" && (
-            <span className="non-editable-text">{props.data.saller_name}</span>
+              </Tooltip>
+              <Tooltip title="Sea IGM Entry">
+                <a
+                  href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${getPortLocation(
+                    props.data.port_of_reporting
+                  )}&MAWB_NO=${props.data.awb_bl_no}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ marginLeft: "6px" }}
+                >
+                  <FontAwesomeIcon icon={faAnchor} size="sm" color="blue" />
+                </a>
+              </Tooltip>
+            </>
           )}
         </Col>
-      </Row>
-      <Row className="job-detail-row">
-      <Col xs={12} lg={5}>
-          <strong>Ad Code:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.adCode}</span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>BL Date: </span>
+          <span style={valueStyle}>{props.data.awb_bl_date}</span>
         </Col>
-      <Col xs={12} lg={3}>
-          <strong>Bank Name:&nbsp;</strong>
-          <span className="non-editable-text">{props.data.bank_name}</span>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>HWBL No: </span>
+          <span style={valueStyle}>{props.data.hawb_hbl_no}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>HWBL Date: </span>
+          <span style={valueStyle}>{props.data.hawb_hbl_date}</span>
         </Col>
       </Row>
-                    <Row className="job-detail-row">
-                      <Col xs={12} lg={5}>
-                        <strong>Importer Address:&nbsp;</strong>
-                        <span className="non-editable-text">
-                          {props.data.importer_address}
-                        </span>
-                        <IconButton
-                          size="small"
-                          onClick={(event) =>
-                            handleCopy(event, props.data.importer_address)
-                          }
-                        >
-                          <abbr title="Copy Importer Address">
-                            <ContentCopyIcon fontSize="inherit" />
-                          </abbr>
-                        </IconButton>
-                      </Col>
-                    </Row>
- 
+
+      {/* Row 8: G-IGM No, G-IGM Date, Line No, Bank Name */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>G-IGM No: </span>
+          <span style={valueStyle}>{props.data.gateway_igm}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>G-IGM Date: </span>
+          <span style={valueStyle}>{props.data.gateway_igm_date}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Line No: </span>
+          <span style={valueStyle}>{props.data.line_no}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>Bank Name: </span>
+          <span style={valueStyle}>{props.data.bank_name}</span>
+        </Col>
+      </Row>
+
+      {/* Row 9: IGM No, IGM Date, HSS, Seller Name */}
+      <Row style={compactRowStyle}>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>IGM No: </span>
+          <span style={valueStyle}>{props.data.igm_no}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>IGM Date: </span>
+          <span style={valueStyle}>{props.data.igm_date}</span>
+        </Col>
+        <Col xs={12} md={6} lg={3}>
+          <span style={labelStyle}>HSS: </span>
+          <span style={valueStyle}>{props.data.hss}</span>
+        </Col>
+        {props.data.hss === "Yes" && (
+          <Col xs={12} md={6} lg={3}>
+            <span style={labelStyle}>Seller Name: </span>
+            <span style={valueStyle}>{props.data.saller_name}</span>
+          </Col>
+        )}
+      </Row>
+
+      {/* Row 10: Importer Address - Full width */}
+      <Row style={compactRowStyle}>
+        <Col xs={12}>
+          <span style={labelStyle}>Importer Address: </span>
+          <span style={valueStyle}>{props.data.importer_address}</span>
+          <Tooltip title="Copy Importer Address">
+            <IconButton
+              size="small"
+              onClick={(event) => handleCopy(event, props.data.importer_address)}
+            >
+              <ContentCopyIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
+        </Col>
+      </Row>
     </div>
   );
 }

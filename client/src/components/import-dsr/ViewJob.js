@@ -743,481 +743,617 @@ function JobDetails() {
           <div className="job-details-container">
             <JobDetailsRowHeading heading="Completion Status" />
 
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Documentation Completed:{" "}
-                    {formik.values.documentation_completed_date_time ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
+            {/* Row 1: Status Display - Documentation, E-Sanchit, Submission, DO */}
+            <Row style={{ marginBottom: "0px", padding: "0px" }}>
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span style={{ fontWeight: "600", color: "#495057" }}>
+                    Documentation:
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: formik.values.documentation_completed_date_time
+                        ? "#28a745"
+                        : "#dc3545",
+                    }}
+                  >
+                    {formik.values.documentation_completed_date_time
+                      ? new Date(
                           formik.values.documentation_completed_date_time
                         ).toLocaleString("en-US", {
                           timeZone: "Asia/Kolkata",
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
                           hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px" }}>Pending</span>
-                    )}
-                  </strong>
+                        })
+                      : "Pending"}
+                  </span>
                 </div>
+                {user?.role === "Admin" && (
+                  <div>
+                    <TextField
+                      type="datetime-local"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="documentation_completed_date_time"
+                      name="documentation_completed_date_time"
+                      value={
+                        formik.values.documentation_completed_date_time || ""
+                      }
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "documentation_completed_date_time",
+                          e.target.value
+                        )
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { height: "32px" },
+                        "& .MuiOutlinedInput-input": {
+                          padding: "6px 8px",
+                          fontSize: "0.8rem",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
               </Col>
 
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="documentation_completed_date_time"
-                    name="documentation_completed_date_time"
-                    label="Set Date (Admin Only)"
-                    value={
-                      formik.values.documentation_completed_date_time || ""
-                    }
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "documentation_completed_date_time",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span style={{ fontWeight: "600", color: "#495057" }}>
+                    E-Sanchit:
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: formik.values.esanchit_completed_date_time
+                        ? "#28a745"
+                        : "#dc3545",
                     }}
-                  />
-                </Col>
-              )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    E-Sanchit Completed:{" "}
-                    {formik.values.esanchit_completed_date_time ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
+                  >
+                    {formik.values.esanchit_completed_date_time
+                      ? new Date(
                           formik.values.esanchit_completed_date_time
                         ).toLocaleString("en-US", {
                           timeZone: "Asia/Kolkata",
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
                           hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
+                        })
+                      : "Pending"}
+                  </span>
                 </div>
+                {user?.role === "Admin" && (
+                  <div>
+                    <TextField
+                      type="datetime-local"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="esanchit_completed_date_time"
+                      name="esanchit_completed_date_time"
+                      value={formik.values.esanchit_completed_date_time || ""}
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "esanchit_completed_date_time",
+                          e.target.value
+                        )
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { height: "32px" },
+                        "& .MuiOutlinedInput-input": {
+                          padding: "6px 8px",
+                          fontSize: "0.8rem",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
               </Col>
 
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="esanchit_completed_date_time"
-                    name="esanchit_completed_date_time"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.esanchit_completed_date_time || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "esanchit_completed_date_time",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span style={{ fontWeight: "600", color: "#495057" }}>
+                    Submission:
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: formik.values.submission_completed_date_time
+                        ? "#28a745"
+                        : "#dc3545",
                     }}
-                  />
-                </Col>
-              )}
-            </Row>
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Submission Completed:{" "}
-                    {formik.values.submission_completed_date_time ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
+                  >
+                    {formik.values.submission_completed_date_time
+                      ? new Date(
                           formik.values.submission_completed_date_time
                         ).toLocaleString("en-US", {
                           timeZone: "Asia/Kolkata",
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
                           hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
+                        })
+                      : "Pending"}
+                  </span>
                 </div>
+                {user?.role === "Admin" && (
+                  <div>
+                    <TextField
+                      type="datetime-local"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="submission_completed_date_time"
+                      name="submission_completed_date_time"
+                      value={formik.values.submission_completed_date_time || ""}
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "submission_completed_date_time",
+                          e.target.value
+                        )
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { height: "32px" },
+                        "& .MuiOutlinedInput-input": {
+                          padding: "6px 8px",
+                          fontSize: "0.8rem",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
               </Col>
 
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="submission_completed_date_time"
-                    name="submission_completed_date_time"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.submission_completed_date_time || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "submission_completed_date_time",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span style={{ fontWeight: "600", color: "#495057" }}>
+                    DO:
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: formik.values.do_completed ? "#28a745" : "#dc3545",
                     }}
-                  />
-                </Col>
-              )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Do Completed:{" "}
-                    {formik.values.do_completed ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(formik.values.do_completed).toLocaleString(
+                  >
+                    {formik.values.do_completed
+                      ? new Date(formik.values.do_completed).toLocaleString(
                           "en-US",
                           {
                             timeZone: "Asia/Kolkata",
-                            hour12: true,
-                          }
-                        )}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="do_completed"
-                    name="do_completed"
-                    label="Set Date (Admin Only)"
-                    value={
-                      formik.values.do_completed
-                        ? new Date(formik.values.do_completed)
-                            .toISOString()
-                            .slice(0, 16)
-                        : ""
-                    }
-                    onChange={(e) =>
-                      formik.setFieldValue("do_completed", e.target.value)
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-            </Row>
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Operation Completed Date:{" "}
-                    {formik.values.completed_operation_date ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(
-                          formik.values.completed_operation_date
-                        ).toLocaleString("en-US", {
-                          timeZone: "Asia/Kolkata",
-                          hour12: true,
-                        })}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="completed_operation_date"
-                    name="completed_operation_date"
-                    label="Set Date (Admin Only)"
-                    value={formik.values.completed_operation_date || ""}
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "completed_operation_date",
-                        e.target.value
-                      )
-                    } // Update formik value
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-              <Col xs={12} lg={3}>
-                <div className="job-detail-input-container">
-                  <strong>
-                    Delivery Completed :{" "}
-                    {deliveryCompletedDate ? (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        {new Date(deliveryCompletedDate).toLocaleString(
-                          "en-US",
-                          {
-                            timeZone: "Asia/Kolkata",
-                            hour12: true,
-                          }
-                        )}
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "10px", fontWeight: "bold" }}>
-                        Pending
-                      </span>
-                    )}
-                  </strong>
-                </div>
-              </Col>
-              {user?.role === "Admin" && (
-                <Col xs={12} md={3}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="bill_document_sent_to_accounts"
-                    name="bill_document_sent_to_accounts"
-                    label="Set Date (Admin Only)"
-                    value={
-                      deliveryCompletedDate
-                        ? formatDateForInput(deliveryCompletedDate)
-                        : ""
-                    }
-                    onChange={(e) =>
-                      formik.setFieldValue(
-                        "bill_document_sent_to_accounts",
-                        e.target.value
-                      )
-                    }
-                    disabled={!deliveryCompletedDate}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Col>
-              )}
-            </Row>
-            <Row style={{ marginTop: "20px" }}>
-              {/* Bill Document Sent */}
-              <Col xs={14} lg={3}>
-                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
-                  <div className="flex items-center">
-                    <strong>Bill document sent to account team:&nbsp;</strong>
-                    <span className="text-gray-900">
-                      {data.bill_document_sent_to_accounts
-                        ? new Date(
-                            data.bill_document_sent_to_accounts
-                          ).toLocaleString("en-US", {
-                            day: "2-digit",
                             month: "short",
-                            year: "numeric",
+                            day: "2-digit",
                             hour: "2-digit",
                             minute: "2-digit",
                             hour12: true,
-                          })
-                        : ""}
-                    </span>
-                  </div>
+                          }
+                        )
+                      : "Pending"}
+                  </span>
                 </div>
-              </Col>
-              {/* Bill Agency No */}
-              <Col xs={14} lg={3}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Bill Agency:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={(formik.values.bill_no?.split(",")[0] || "").trim()}
-                    onChange={(e) => {
-                      const currentBillNo = formik.values.bill_no || "";
-                      const billParts = currentBillNo.split(",");
-                      const newBillNo = `${e.target.value.trim()},${(
-                        billParts[1] || ""
-                      ).trim()}`;
-                      formik.setFieldValue("bill_no", newBillNo);
-                    }}
-                    disabled={user?.role !== "Admin" || isSubmissionDate}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-
-              {/* Bill Reimbursement No */}
-              <Col xs={14} lg={3}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Bill Reimbursement:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    value={(formik.values.bill_no?.split(",")[1] || "").trim()}
-                    onChange={(e) => {
-                      const currentBillNo = formik.values.bill_no || "";
-                      const billParts = currentBillNo.split(",");
-                      const newBillNo = `${(
-                        billParts[0] || ""
-                      ).trim()},${e.target.value.trim()}`;
-                      formik.setFieldValue("bill_no", newBillNo);
-                    }}
-                    disabled={user?.role !== "Admin" || isSubmissionDate}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
-              </Col>
-
-              {/* Bill Date (First Only) */}
-              <Col xs={12} lg={3}>
-                <div
-                  className="job-detail-input-container"
-                  style={{ justifyContent: "flex-start" }}
-                >
-                  <strong>Bill Date:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    type="datetime-local"
-                    value={(() => {
-                      const firstDateStr = (formik.values.bill_date || "")
-                        .split(",")[0]
-                        ?.trim();
-                      if (firstDateStr) {
-                        const date = new Date(firstDateStr);
-                        if (!isNaN(date.getTime())) {
-                          return date.toISOString().slice(0, 16);
-                        }
+                {user?.role === "Admin" && (
+                  <div>
+                    <TextField
+                      type="datetime-local"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="do_completed"
+                      name="do_completed"
+                      value={
+                        formik.values.do_completed
+                          ? new Date(formik.values.do_completed)
+                              .toISOString()
+                              .slice(0, 16)
+                          : ""
                       }
-                      return "";
-                    })()}
-                    onChange={(e) => {
-                      const currentBillDate = formik.values.bill_date || "";
-                      const dateParts = currentBillDate.split(",");
-                      const newBillDate = `${e.target.value},${(
-                        dateParts[1] || ""
-                      ).trim()}`;
-                      formik.setFieldValue("bill_date", newBillDate);
-                    }}
-                    disabled={user?.role !== "Admin" || isSubmissionDate}
-                    style={{ marginTop: "10px" }}
-                  />
-                </div>
+                      onChange={(e) =>
+                        formik.setFieldValue("do_completed", e.target.value)
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { height: "32px" },
+                        "& .MuiOutlinedInput-input": {
+                          padding: "6px 8px",
+                          fontSize: "0.8rem",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
               </Col>
             </Row>
-            <Row style={{ marginTop: "10px" }}>
-              <Col xs={12} lg={2}>
-                <div className="job-detail-input-container">
-                  <strong>Status:&nbsp;</strong>
-                  <TextField
-                    fullWidth
-                    select
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="status"
-                    name="status"
-                    value={formik.values.status || ""}
-                    onChange={formik.handleChange}
-                  >
-                    <MenuItem value="Pending">Pending</MenuItem>
-                    <MenuItem value="Completed">Completed</MenuItem>
-                    <MenuItem value="Cancelled">Cancelled</MenuItem>
-                  </TextField>
-                </div>
-              </Col>
-              <Col xs={12} lg={4}>
-                <div className="job-detail-input-container">
-                  <strong>Detailed Status:&nbsp;</strong>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    margin="normal"
-                    variant="outlined"
-                    id="detailed_status"
-                    name="detailed_status"
-                    value={formik.values.detailed_status || ""}
-                    onChange={formik.handleChange}
-                  >
-                    <MenuItem value="ETA Date Pending">
-                      ETA Date Pending
-                    </MenuItem>
-                    <MenuItem value="Estimated Time of Arrival">
-                      Estimated Time of Arrival
-                    </MenuItem>
-                    <MenuItem value="Gateway IGM Filed">
-                      Gateway IGM Filed
-                    </MenuItem>
-                    <MenuItem value="Discharged">Discharged</MenuItem>
-                    <MenuItem value="Rail Out">Rail Out</MenuItem>
-                    <MenuItem value="BE Noted, Arrival Pending">
-                      BE Noted, Arrival Pending
-                    </MenuItem>
-                    <MenuItem value="Arrived, BE Note Pending">
-                      Arrived, BE Note Pending
-                    </MenuItem>
-                    <MenuItem value="BE Noted, Clearance Pending">
-                      BE Noted, Clearance Pending
-                    </MenuItem>
-                    <MenuItem value="PCV Done, Duty Payment Pending">
-                      PCV Done, Duty Payment Pending
-                    </MenuItem>
-                    <MenuItem value="Custom Clearance Completed">
-                      Cus.Clearance Completed, delivery pending
-                    </MenuItem>
 
-                    <MenuItem value="Billing Pending">Billing Pending</MenuItem>
-                    <MenuItem value="Status Completed">
-                      Status Completed
-                    </MenuItem>
-                  </TextField>
+            {/* Row 2: Operation Completion, Delivery Completion, Status, Detailed Status */}
+            <Row style={{ marginBottom: "0px", padding: "0px" }}>
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span style={{ fontWeight: "600", color: "#495057" }}>
+                    Operation Completed:
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: formik.values.completed_operation_date
+                        ? "#28a745"
+                        : "#212529",
+                    }}
+                  >
+                    {formik.values.completed_operation_date
+                      ? new Date(
+                          formik.values.completed_operation_date
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })
+                      : "-"}
+                  </span>
                 </div>
+                {user?.role === "Admin" && (
+                  <div>
+                    <TextField
+                      type="datetime-local"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="completed_operation_date"
+                      name="completed_operation_date"
+                      value={formik.values.completed_operation_date || ""}
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "completed_operation_date",
+                          e.target.value
+                        )
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { height: "32px" },
+                        "& .MuiOutlinedInput-input": {
+                          padding: "6px 8px",
+                          fontSize: "0.8rem",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
+              </Col>
+
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span style={{ fontWeight: "600", color: "#495057" }}>
+                    Delivery Completed:
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: "500",
+                      color: data?.bill_document_sent_to_accounts
+                        ? "#28a745"
+                        : "#212529",
+                    }}
+                  >
+                    {data?.bill_document_sent_to_accounts
+                      ? new Date(
+                          data.bill_document_sent_to_accounts
+                        ).toLocaleString("en-US", {
+                          timeZone: "Asia/Kolkata",
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })
+                      : "-"}
+                  </span>
+                </div>
+                {user?.role === "Admin" && (
+                  <div>
+                    <TextField
+                      type="datetime-local"
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      id="bill_document_sent_to_accounts"
+                      name="bill_document_sent_to_accounts"
+                      value={
+                        data?.bill_document_sent_to_accounts
+                          ? formatDateForInput(
+                              data.bill_document_sent_to_accounts
+                            )
+                          : ""
+                      }
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "bill_document_sent_to_accounts",
+                          e.target.value
+                        )
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { height: "32px" },
+                        "& .MuiOutlinedInput-input": {
+                          padding: "6px 8px",
+                          fontSize: "0.8rem",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
+              </Col>
+
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div style={{ fontSize: "0.875rem", marginBottom: "4px" }}>
+                  <span
+                    style={{
+                      fontWeight: "600",
+                      color: "#495057",
+                      marginRight: "8px",
+                    }}
+                  >
+                    Status:
+                  </span>
+                </div>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  id="status"
+                  name="status"
+                  value={formik.values.status || ""}
+                  onChange={formik.handleChange}
+                  sx={{
+                    "& .MuiOutlinedInput-root": { height: "32px" },
+                    "& .MuiOutlinedInput-input": {
+                      padding: "6px 8px",
+                      fontSize: "0.8rem",
+                    },
+                  }}
+                >
+                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="Completed">Completed</MenuItem>
+                  <MenuItem value="Cancelled">Cancelled</MenuItem>
+                </TextField>
+              </Col>
+
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div style={{ fontSize: "0.875rem", marginBottom: "4px" }}>
+                  <span
+                    style={{
+                      fontWeight: "600",
+                      color: "#495057",
+                      marginRight: "8px",
+                    }}
+                  >
+                    Detailed Status:
+                  </span>
+                </div>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  id="detailed_status"
+                  name="detailed_status"
+                  value={formik.values.detailed_status || ""}
+                  onChange={formik.handleChange}
+                  sx={{
+                    "& .MuiOutlinedInput-root": { height: "32px" },
+                    "& .MuiOutlinedInput-input": {
+                      padding: "6px 8px",
+                      fontSize: "0.8rem",
+                    },
+                  }}
+                >
+                  <MenuItem value="ETA Date Pending">ETA Date Pending</MenuItem>
+                  <MenuItem value="Estimated Time of Arrival">ETA</MenuItem>
+                  <MenuItem value="Gateway IGM Filed">
+                    Gateway IGM Filed
+                  </MenuItem>
+                  <MenuItem value="Discharged">Discharged</MenuItem>
+                  <MenuItem value="Rail Out">Rail Out</MenuItem>
+                  <MenuItem value="BE Noted, Arrival Pending">
+                    BE Noted, Arrival Pending
+                  </MenuItem>
+                  <MenuItem value="Arrived, BE Note Pending">
+                    Arrived, BE Note Pending
+                  </MenuItem>
+                  <MenuItem value="BE Noted, Clearance Pending">
+                    BE Noted, Clearance Pending
+                  </MenuItem>
+                  <MenuItem value="PCV Done, Duty Payment Pending">
+                    PCV Done, Duty Payment Pending
+                  </MenuItem>
+                  <MenuItem value="Custom Clearance Completed">
+                    Cus.Clearance Completed
+                  </MenuItem>
+                  <MenuItem value="Billing Pending">Billing Pending</MenuItem>
+                  <MenuItem value="Status Completed">Status Completed</MenuItem>
+                </TextField>
+              </Col>
+            </Row>
+
+            {/* Row 3: Bill Agency, Bill Reimbursement, Bill Date */}
+            <Row style={{ marginBottom: "0px", padding: "0px" }}>
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#6c757d",
+                    marginBottom: "2px",
+                  }}
+                >
+                  Bill Agency
+                </div>
+                <TextField
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  placeholder="Enter Bill Agency"
+                  value={(formik.values.bill_no?.split(",")[0] || "").trim()}
+                  onChange={(e) => {
+                    const currentBillNo = formik.values.bill_no || "";
+                    const billParts = currentBillNo.split(",");
+                    const newBillNo = `${e.target.value.trim()},${(
+                      billParts[1] || ""
+                    ).trim()}`;
+                    formik.setFieldValue("bill_no", newBillNo);
+                  }}
+                  disabled={user?.role !== "Admin" && isSubmissionDate}
+                  sx={{
+                    "& .MuiOutlinedInput-root": { height: "32px" },
+                    "& .MuiOutlinedInput-input": {
+                      padding: "6px 8px",
+                      fontSize: "0.8rem",
+                    },
+                  }}
+                />
+              </Col>
+
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#6c757d",
+                    marginBottom: "2px",
+                  }}
+                >
+                  Bill Reimbursement
+                </div>
+                <TextField
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  placeholder="Enter Bill Reimbursement"
+                  value={(formik.values.bill_no?.split(",")[1] || "").trim()}
+                  onChange={(e) => {
+                    const currentBillNo = formik.values.bill_no || "";
+                    const billParts = currentBillNo.split(",");
+                    const newBillNo = `${(
+                      billParts[0] || ""
+                    ).trim()},${e.target.value.trim()}`;
+                    formik.setFieldValue("bill_no", newBillNo);
+                  }}
+                  disabled={user?.role !== "Admin" && isSubmissionDate}
+                  sx={{
+                    "& .MuiOutlinedInput-root": { height: "32px" },
+                    "& .MuiOutlinedInput-input": {
+                      padding: "6px 8px",
+                      fontSize: "0.8rem",
+                    },
+                  }}
+                />
+              </Col>
+
+              <Col xs={12} md={6} lg={3} style={{ paddingBottom: "8px" }}>
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#6c757d",
+                    marginBottom: "2px",
+                  }}
+                >
+                  Bill Date
+                </div>
+                <TextField
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  type="datetime-local"
+                  value={(() => {
+                    const firstDateStr = (formik.values.bill_date || "")
+                      .split(",")[0]
+                      ?.trim();
+                    if (firstDateStr) {
+                      const date = new Date(firstDateStr);
+                      if (!isNaN(date.getTime())) {
+                        return date.toISOString().slice(0, 16);
+                      }
+                    }
+                    return "";
+                  })()}
+                  onChange={(e) => {
+                    const currentBillDate = formik.values.bill_date || "";
+                    const dateParts = currentBillDate.split(",");
+                    const newBillDate = `${e.target.value},${(
+                      dateParts[1] || ""
+                    ).trim()}`;
+                    formik.setFieldValue("bill_date", newBillDate);
+                  }}
+                  disabled={user?.role !== "Admin" && isSubmissionDate}
+                  sx={{
+                    "& .MuiOutlinedInput-root": { height: "32px" },
+                    "& .MuiOutlinedInput-input": {
+                      padding: "6px 8px",
+                      fontSize: "0.8rem",
+                    },
+                  }}
+                />
               </Col>
             </Row>
           </div>
+
           {/* completion status end  */}
           {/* Tracking status start*/}
           <div className="job-details-container">
@@ -1335,7 +1471,10 @@ function JobDetails() {
                           : formik.values.vessel_berthing
                         : ""
                     }
-                    disabled={ExBondflag || isSubmissionDate}
+                    disabled={
+                      !(user?.role === "Admin") &&
+                      (ExBondflag || isSubmissionDate)
+                    }
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1354,7 +1493,7 @@ function JobDetails() {
                     variant="outlined"
                     id="gatweay_igm"
                     name="gateway_igm"
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                     value={formik.values.gateway_igm || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1374,7 +1513,7 @@ function JobDetails() {
                     type="datetime-local"
                     id="gateway_igm_date"
                     name="gateway_igm_date"
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                     value={
                       formik.values.gateway_igm_date
                         ? formik.values.gateway_igm_date.length === 10
@@ -1401,7 +1540,7 @@ function JobDetails() {
                     id="igm_no"
                     name="igm_no"
                     value={formik.values.igm_no || ""}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
                     placeholder="Enter IGM No"
@@ -1427,7 +1566,10 @@ function JobDetails() {
                           : formik.values.igm_date
                         : ""
                     }
-                    disabled={ExBondflag || isSubmissionDate}
+                    disabled={
+                      !(user?.role === "Admin") &&
+                      (ExBondflag || isSubmissionDate)
+                    }
                     onChange={formik.handleChange}
                   />
                 </div>
@@ -1445,9 +1587,10 @@ function JobDetails() {
                     id="discharge_date"
                     name="discharge_date"
                     disabled={
-                      !formik.values.vessel_berthing ||
-                      ExBondflag ||
-                      isSubmissionDate
+                      !(user?.role === "Admin") &&
+                      (!formik.values.vessel_berthing ||
+                        ExBondflag ||
+                        isSubmissionDate)
                     }
                     value={
                       formik.values.discharge_date
@@ -1474,7 +1617,7 @@ function JobDetails() {
                     variant="outlined"
                     id="line_no"
                     name="line_no"
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                     value={formik.values.line_no || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1495,7 +1638,7 @@ function JobDetails() {
                     variant="outlined"
                     id="no_of_pkgs"
                     name="no_of_pkgs"
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                     value={formik.values.no_of_pkgs || ""}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1519,7 +1662,7 @@ function JobDetails() {
                     variant="outlined"
                     id="hss"
                     name="hss"
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                     value={formik.values.hss || "No"}
                     onChange={formik.handleChange}
                     style={{ marginTop: "10px" }}
@@ -1544,7 +1687,7 @@ function JobDetails() {
                       variant="outlined"
                       id="saller_name"
                       name="saller_name"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       value={formik.values.saller_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1569,7 +1712,7 @@ function JobDetails() {
                       id="free_time"
                       name="free_time"
                       value={formik.values.free_time || ""}
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
                       // disabled={user.role !== "Admin"} // Disable if the user is not Admin
@@ -1598,7 +1741,7 @@ function JobDetails() {
                       variant="outlined"
                       id="adCode"
                       name="adCode"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       value={formik.values.adCode || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1620,7 +1763,7 @@ function JobDetails() {
                       variant="outlined"
                       id="bank_name"
                       name="bank_name"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       value={formik.values.bank_name || ""}
                       onChange={formik.handleChange}
                       style={{ marginTop: "10px" }}
@@ -1831,15 +1974,18 @@ function JobDetails() {
                     value={formik.values.priorityJob || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   >
                     <FormControlLabel
                       value="normal"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio
+                          size="small"
+                          disabled={user?.role !== "Admin" && isSubmissionDate}
+                        />
                       }
                       label="Normal"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       sx={{
                         color: "green",
                         "& .MuiSvgIcon-root": { color: "green" },
@@ -1848,10 +1994,13 @@ function JobDetails() {
                     <FormControlLabel
                       value="Priority"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio
+                          size="small"
+                          disabled={user?.role !== "Admin" && isSubmissionDate}
+                        />
                       }
                       label="Priority"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       sx={{
                         color: "orange",
                         "& .MuiSvgIcon-root": { color: "orange" },
@@ -1860,10 +2009,13 @@ function JobDetails() {
                     <FormControlLabel
                       value="High Priority"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio
+                          size="small"
+                          disabled={user?.role !== "Admin" && isSubmissionDate}
+                        />
                       }
                       label="High Priority"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       sx={{
                         color: "red",
                         "& .MuiSvgIcon-root": { color: "red" },
@@ -1889,15 +2041,18 @@ function JobDetails() {
                     value={formik.values.payment_method || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   >
                     <FormControlLabel
                       value="Transaction"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio
+                          size="small"
+                          disabled={user?.role !== "Admin" && isSubmissionDate}
+                        />
                       }
                       label="Transaction"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       // sx={{
                       //   color: "green",
                       //   "& .MuiSvgIcon-root": { color: "green" },
@@ -1906,10 +2061,13 @@ function JobDetails() {
                     <FormControlLabel
                       value="Deferred"
                       control={
-                        <Radio size="small" disabled={isSubmissionDate} />
+                        <Radio
+                          size="small"
+                          disabled={user?.role !== "Admin" && isSubmissionDate}
+                        />
                       }
                       label="Deferred"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                       // sx={{
                       //   color: "orange",
                       //   "& .MuiSvgIcon-root": { color: "orange" },
@@ -1948,7 +2106,7 @@ function JobDetails() {
                     InputLabelProps={{
                       shrink: true,
                     }}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -1966,7 +2124,7 @@ function JobDetails() {
                     name="description"
                     value={formik.values.description || ""}
                     onChange={formik.handleChange}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   />
                   <IconButton
                     size="small"
@@ -1997,7 +2155,7 @@ function JobDetails() {
                     value={formik.values.cth_no || ""}
                     onChange={formik.handleChange}
                     // InputLabelProps={{ shrink: true }}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   />
                 </div>
               </Col>
@@ -2018,7 +2176,7 @@ function JobDetails() {
                     value={formik.values.type_of_b_e || ""}
                     onChange={formik.handleChange}
                     displayempty="true"
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   >
                     <MenuItem value="" disabled>
                       Select BE Type
@@ -2338,7 +2496,7 @@ function JobDetails() {
                     value={formik.values.be_filing_type || ""}
                     onChange={formik.handleChange}
                     sx={{ alignItems: "center" }}
-                    disabled={isSubmissionDate}
+                    disabled={user?.role !== "Admin" && isSubmissionDate}
                   >
                     <FormControlLabel
                       value="Discharge"
@@ -2361,13 +2519,13 @@ function JobDetails() {
                       value="Advanced"
                       control={<Radio size="small" />}
                       label="Advanced"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                     />
                     <FormControlLabel
                       value="Prior"
                       control={<Radio size="small" />}
                       label="Prior"
-                      disabled={isSubmissionDate}
+                      disabled={user?.role !== "Admin" && isSubmissionDate}
                     />
                   </RadioGroup>
                 </div>
@@ -2375,23 +2533,23 @@ function JobDetails() {
             </Row>
             <Row style={{ marginTop: "20px" }}>
               <Col xs={12} lg={4}>
-<FileUpload
-  label="Upload Checklist"
-  bucketPath="checklist"
-  onFilesUploaded={(newFiles, replaceMode) => {
-    if (replaceMode) {
-      // Replace existing files with new uploaded file
-      formik.setFieldValue("checklist", newFiles);
-    } else {
-      // Append to existing files (default behavior)
-      const existingFiles = formik.values.checklist || [];
-      const updatedFiles = [...existingFiles, ...newFiles];
-      formik.setFieldValue("checklist", updatedFiles);
-    }
-  }}
-  singleFileOnly={true}
-  replaceMode={true}
-/>
+                <FileUpload
+                  label="Upload Checklist"
+                  bucketPath="checklist"
+                  onFilesUploaded={(newFiles, replaceMode) => {
+                    if (replaceMode) {
+                      // Replace existing files with new uploaded file
+                      formik.setFieldValue("checklist", newFiles);
+                    } else {
+                      // Append to existing files (default behavior)
+                      const existingFiles = formik.values.checklist || [];
+                      const updatedFiles = [...existingFiles, ...newFiles];
+                      formik.setFieldValue("checklist", updatedFiles);
+                    }
+                  }}
+                  singleFileOnly={true}
+                  replaceMode={true}
+                />
 
                 <ImagePreview
                   images={formik.values.checklist || []}
@@ -2532,7 +2690,10 @@ function JobDetails() {
                     <strong>Checklist Approved:&nbsp;</strong>{" "}
                     <Checkbox
                       checked={formik.values.is_checklist_aprroved}
-                      disabled={!formik.values.is_checklist_clicked}
+                      disabled={
+                        user?.role !== "Admin" &&
+                        !formik.values.is_checklist_clicked
+                      }
                       onChange={(e) => {
                         const isChecked = e.target.checked;
                         if (isChecked) {
@@ -2691,7 +2852,10 @@ function JobDetails() {
                   }}
                   name="firstCheck"
                   color="primary"
-                  disabled={Boolean(formik.values.out_of_charge?.trim())} // Disable if OOC date is not empty
+                  disabled={
+                    user?.role !== "Admin" &&
+                    Boolean(formik.values.out_of_charge?.trim())
+                  } // Disable if OOC date is not empty
                 />
                 {formik.values.firstCheck && (
                   <>
@@ -2768,7 +2932,9 @@ function JobDetails() {
                       name="duty_paid_date"
                       value={formik.values.duty_paid_date}
                       onChange={formik.handleChange}
-                      disabled={isDutyPaidDateDisabled}
+                      disabled={
+                        user?.role !== "Admin" && isDutyPaidDateDisabled
+                      }
                       sx={{ flex: 1 }}
                     />
                     <IconButton
@@ -3659,9 +3825,10 @@ function JobDetails() {
                       setSelectedDocument("");
                     }}
                     disabled={
-                      !selectedDocument ||
-                      (selectedDocument === "other" &&
-                        (!newDocumentName.trim() || !newDocumentCode.trim()))
+                      !(user?.role === "Admin") &&
+                      (!selectedDocument ||
+                        (selectedDocument === "other" &&
+                          (!newDocumentName.trim() || !newDocumentCode.trim())))
                     }
                   >
                     <i className="fas fa-plus"></i>
@@ -3878,11 +4045,12 @@ function JobDetails() {
                     }
                   }}
                   disabled={
-                    !newChargesDocumentName.trim() ||
-                    DsrCharges.some(
-                      (doc) =>
-                        doc.document_name === newChargesDocumentName.trim()
-                    )
+                    !(user?.role === "Admin") &&
+                    (!newChargesDocumentName.trim() ||
+                      DsrCharges.some(
+                        (doc) =>
+                          doc.document_name === newChargesDocumentName.trim()
+                      ))
                   }
                 >
                   Add Custom Charge Document
@@ -4019,7 +4187,10 @@ function JobDetails() {
                             type="datetime-local"
                             id={`container_rail_out_date${index}`}
                             name={`container_nos[${index}].container_rail_out_date`}
-                            disabled={LCLFlag || ExBondflag} // Disable if the user is not Admin
+                            disabled={
+                              !(user?.role === "Admin") &&
+                              (LCLFlag || ExBondflag)
+                            }
                             value={container.container_rail_out_date}
                             onChange={formik.handleChange}
                           />
@@ -4038,7 +4209,7 @@ function JobDetails() {
                               id={`by_road_movement_date${index}`}
                               name={`container_nos[${index}].by_road_movement_date`}
                               value={container.by_road_movement_date}
-                              disabled={ExBondflag} // Optional: Disable if ExBondflag is true
+                              disabled={user?.role !== "Admin" && ExBondflag} // Optional: Disable if ExBondflag is true
                               onChange={formik.handleChange}
                             />
                           </div>
@@ -4066,10 +4237,11 @@ function JobDetails() {
                               name={`container_nos[${index}].arrival_date`}
                               value={container.arrival_date}
                               disabled={
-                                ExBondflag ||
-                                (LCLFlag
-                                  ? !container.by_road_movement_date
-                                  : !container.container_rail_out_date)
+                                !(user?.role === "Admin") &&
+                                (ExBondflag ||
+                                  (LCLFlag
+                                    ? !container.by_road_movement_date
+                                    : !container.container_rail_out_date))
                               }
                               onChange={formik.handleChange}
                             />
@@ -4262,7 +4434,10 @@ function JobDetails() {
                               control={
                                 <Checkbox
                                   checked={container.transporter === "SRCC"}
-                                  disabled={!formik.values.out_of_charge}
+                                  disabled={
+                                    user?.role !== "Admin" &&
+                                    !formik.values.out_of_charge
+                                  }
                                 />
                               }
                               label="Transporter: SRCC"
@@ -4328,7 +4503,7 @@ function JobDetails() {
                             value={formatDateForInput(
                               container.emptyContainerOffLoadDate
                             )}
-                            disabled={LCLFlag} // Disable if the user is not Admin
+                            disabled={user?.role !== "Admin" && LCLFlag} // Disable if the user is not Admin
                             onChange={formik.handleChange}
                           />
                         </div>

@@ -162,7 +162,7 @@ export default function TrackingStatusSection({
           </div>
 
           {/* Freight */}
-          {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'CI') && (
+          {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'C&I') && (
             <div style={fieldStyle}>
               <label style={{ ...labelStyle, fontSize: '11px' }}>Freight:</label>
               <input type="number" style={inputStyle} value={formik.values.freight || ''} onChange={(e) => formik.setFieldValue('freight', e.target.value)} placeholder="₹" />
@@ -170,7 +170,7 @@ export default function TrackingStatusSection({
           )}
 
           {/* Insurance */}
-          {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'CF') && (
+          {((formik.values.import_terms || importTerms) === 'FOB' || (formik.values.import_terms || importTerms) === 'C&F') && (
             <div style={fieldStyle}>
               <label style={{ ...labelStyle, fontSize: '11px' }}>Insurance:</label>
               <input type="number" style={inputStyle} value={formik.values.insurance || ''} onChange={(e) => formik.setFieldValue('insurance', e.target.value)} placeholder="₹" />

@@ -474,14 +474,6 @@ export default function TrackingStatusSection({
           </div>
         </>
       )}
-
-      {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '8px', marginTop: '15px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-        <button style={buttonStyle} onClick={handleSave}>Save Form</button>
-        <button style={secondaryButtonStyle} onClick={handleReset}>Reset Form</button>
-        <button style={successButtonStyle} onClick={handleExport}>Export Data</button>
-        {ExBondflag && <button style={secondaryButtonStyle} onClick={resetOtherDetails}>Reset Ex-Bond</button>}
-      </div>
     </div>
   );
 }

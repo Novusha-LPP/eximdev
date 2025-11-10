@@ -9,7 +9,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
-// Safe date helpers - ADD THESE AT THE TOP
+// Safe date helpers - EXISTING (keeping as is)
 const safeToISOString = (dateValue) => {
   if (!dateValue) return null;
   
@@ -44,6 +44,36 @@ const safeFormatDate = (dateValue) => {
     console.error('Error formatting date:', dateValue, error);
     return null;
   }
+};
+
+// NEW: Helper functions for date-only detention calculation
+const getDateOnly = (dateString) => {
+  if (!dateString) return null;
+  return dateString.split('T')[0]; // Returns "YYYY-MM-DD"
+};
+
+const addDaysToDate = (dateString, days) => {
+  if (!dateString) return null;
+  
+  const dateOnly = getDateOnly(dateString);
+  if (!dateOnly) return null;
+  
+  // Parse as date parts to avoid timezone issues
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  
+  // Create date in local timezone
+  const date = new Date(year, month - 1, day);
+  if (isNaN(date.getTime())) return null;
+  
+  // Add days
+  date.setDate(date.getDate() + days);
+  
+  // Format back to YYYY-MM-DD
+  const newYear = date.getFullYear();
+  const newMonth = String(date.getMonth() + 1).padStart(2, '0');
+  const newDay = String(date.getDate()).padStart(2, '0');
+  
+  return `${newYear}-${newMonth}-${newDay}`;
 };
 
 const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
@@ -262,7 +292,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     updateDetailedStatus,
   ]);
 
-  // UPDATED: Use safe formatting
   const formatDate = (date) => {
     return safeFormatDate(date);
   };
@@ -332,7 +361,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   useEffect(() => {
     if (cell.row.original._id !== _id) {
-      // Your existing reset logic...
+      // Reset logic when row changes
     }
   }, [cell.row.original, _id]);
 
@@ -358,21 +387,16 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             [field]: finalValue || null,
           };
 
-          // UPDATED: Safe detention calculation
+          // UPDATED: Date-only detention calculation
           if (field === "arrival_date" && consignment_type !== "LCL") {
             if (!finalValue) {
               updatedContainer.detention_from = "";
             } else {
-              const arrival = new Date(finalValue);
-              if (!isNaN(arrival.getTime())) {
-                const freeDays = parseInt(localFreeTime) || 0;
-                const detentionDate = new Date(arrival);
-                detentionDate.setDate(detentionDate.getDate() + freeDays);
-                
-                const isoString = safeToISOString(detentionDate);
-                if (isoString) {
-                  updatedContainer.detention_from = isoString.split("T")[0];
-                }
+              const freeDays = parseInt(localFreeTime, 10) || 0;
+              const detentionDate = addDaysToDate(finalValue, freeDays);
+              
+              if (detentionDate) {
+                updatedContainer.detention_from = detentionDate;
               }
             }
           }
@@ -416,7 +440,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     } else {
       const oldDates = { ...dates };
       const newDates = { ...dates, [field]: finalValue || null };
-
       setDates(newDates);
 
       try {
@@ -445,26 +468,20 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     }
   };
 
-  // UPDATED: Safe detention auto-calculation
+  // UPDATED: Date-only auto-calculation on container changes
   useEffect(() => {
     if (consignment_type === "LCL") return;
     
     const updatedContainers = containers.map(container => {
       if (container.arrival_date && !container.detention_from) {
-        const arrival = new Date(container.arrival_date);
+        const freeDays = parseInt(localFreeTime, 10) || 0;
+        const detentionDate = addDaysToDate(container.arrival_date, freeDays);
         
-        if (!isNaN(arrival.getTime())) {
-          const freeDays = parseInt(localFreeTime) || 0;
-          const detentionDate = new Date(arrival);
-          detentionDate.setDate(detentionDate.getDate() + freeDays);
-          
-          const isoString = safeToISOString(detentionDate);
-          if (isoString) {
-            return {
-              ...container,
-              detention_from: isoString.split("T")[0]
-            };
-          }
+        if (detentionDate) {
+          return {
+            ...container,
+            detention_from: detentionDate
+          };
         }
       }
       return container;
@@ -509,26 +526,20 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     }
   }, [containers, localFreeTime, consignment_type, _id, onRowDataUpdate]);
 
-  // UPDATED: Safe recalculation on free time change
+  // UPDATED: Date-only recalculation on free time change
   useEffect(() => {
     if (consignment_type === "LCL") return;
     
     const updatedContainers = containers.map(container => {
       if (container.arrival_date) {
-        const arrival = new Date(container.arrival_date);
+        const freeDays = parseInt(localFreeTime, 10) || 0;
+        const detentionDate = addDaysToDate(container.arrival_date, freeDays);
         
-        if (!isNaN(arrival.getTime())) {
-          const freeDays = parseInt(localFreeTime) || 0;
-          const detentionDate = new Date(arrival);
-          detentionDate.setDate(detentionDate.getDate() + freeDays);
-          
-          const isoString = safeToISOString(detentionDate);
-          if (isoString) {
-            return {
-              ...container,
-              detention_from: isoString.split("T")[0]
-            };
-          }
+        if (detentionDate) {
+          return {
+            ...container,
+            detention_from: detentionDate
+          };
         }
       }
       return container;
@@ -577,7 +588,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     }
   }, [localFreeTime, containers, consignment_type, _id, free_time, onRowDataUpdate]);
 
-  // UPDATED: Safe free time change handler
+  // UPDATED: Date-only free time change handler
   const handleFreeTimeChange = (value) => {
     if (consignment_type === "LCL") {
       return;
@@ -605,17 +616,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         const updatedContainers = containers.map((container) => {
           const updatedContainer = { ...container };
           if (updatedContainer.arrival_date) {
-            const arrival = new Date(updatedContainer.arrival_date);
+            const freeDays = parseInt(value, 10) || 0;
+            const detentionDate = addDaysToDate(updatedContainer.arrival_date, freeDays);
             
-            if (!isNaN(arrival.getTime())) {
-              const freeDays = parseInt(value) || 0;
-              const detentionDate = new Date(arrival);
-              detentionDate.setDate(detentionDate.getDate() + freeDays);
-              
-              const isoString = safeToISOString(detentionDate);
-              if (isoString) {
-                updatedContainer.detention_from = isoString.slice(0, 10);
-              }
+            if (detentionDate) {
+              updatedContainer.detention_from = detentionDate;
             }
           }
           return updatedContainer;
@@ -648,7 +653,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   const isIgstFieldsAvailable = assessable_ammount && igst_ammount;
 
-  // UPDATED: Safe date rendering
   const renderDateValue = (dateValue) => {
     if (!dateValue) return "N/A";
     const formatted = safeFormatDate(dateValue);
@@ -1042,7 +1046,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           </div>
         )}
         <br />
-
         <div>
           <strong>OOC:</strong> {renderDateValue(dates.out_of_charge)}{" "}
           <FcCalendar
@@ -1075,7 +1078,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           )}
         </div>
         <br />
-
         {containers.map((container, id) => (
           <div key={id}>
             <div>

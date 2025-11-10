@@ -307,25 +307,28 @@ const getLatestApprovedDate = () => {
 
 // Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
 useEffect(() => {
-  // Only update if we don't already have a completion date from database
-  // and if this is a new approval (not just loading existing data)
-  const hasExistingCompletionDate = data.esanchit_completed_date_time && 
-    formik.values.esanchit_completed_date_time === data.esanchit_completed_date_time;
+  // Skip if we already have a completion date from the database
+  if (data.esanchit_completed_date_time) {
+    return; // Don't touch existing saved dates
+  }
   
-  if (areAllApproved() && !hasExistingCompletionDate) {
+  // Only auto-set for new approvals (when there's no saved date)
+  if (areAllApproved()) {
     const latestApprovedDate = getLatestApprovedDate();
     if (latestApprovedDate) {
-      // Use the latest approved document's date instead of current time
       const latestApprovedDateTime = new Date(latestApprovedDate.getTime() - latestApprovedDate.getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16);
       formik.setFieldValue("esanchit_completed_date_time", latestApprovedDateTime);
     }
-  } else if (!areAllApproved() && !hasExistingCompletionDate) {
-    // Only clear if it's not a stored value from database
-    formik.setFieldValue("esanchit_completed_date_time", "");
+  } else {
+    // Only clear if there was never a saved completion date
+    if (!formik.values.esanchit_completed_date_time) {
+      formik.setFieldValue("esanchit_completed_date_time", "");
+    }
   }
-}, [formik.values.cth_documents, data.esanchit_completed_date_time]);
+}, [formik.values.cth_documents]);
+
 
 
   // Sync esanchitCharges state with formik values

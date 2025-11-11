@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,8 @@ import {
   Alert,
   Divider,
   Fade,
-  Stack
+  Stack,
+  TextField
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -37,6 +38,13 @@ const CurrencyRateDialog = ({ open, onClose }) => {
   const [currencyData, setCurrencyData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (open && !currencyData) {
+      handleDateChange(new Date());
+    }
+  }, [open]);
 
   const handleDateChange = async (date) => {
     if (!date || isNaN(date.getTime())) return;
@@ -44,6 +52,8 @@ const CurrencyRateDialog = ({ open, onClose }) => {
     setSelectedDate(date);
     setError('');
     setLoading(true);
+    setSearchTerm('');
+    setCurrencyData(null);
 
     try {
       const day = String(date.getDate()).padStart(2, '0');
@@ -81,11 +91,17 @@ const CurrencyRateDialog = ({ open, onClose }) => {
     });
   };
 
+  const filteredRates = currencyData?.exchange_rates?.filter(
+    (rate) =>
+      rate.currency_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rate.currency_code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="xl"
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: {
@@ -94,11 +110,12 @@ const CurrencyRateDialog = ({ open, onClose }) => {
         }
       }}
     >
-      {/* Compact Header */}
+      {/* Header with Note */}
       <Box
         sx={{
-          background: 'linear-gradient(90deg, #1a237e 0%, #283593 100%)',
-          color: 'white',
+          bgcolor: 'white',
+          color: 'text.primary',
+          borderBottom: '1px solid #e0e0e0',
           px: 3,
           py: 1.5,
           display: 'flex',
@@ -110,80 +127,133 @@ const CurrencyRateDialog = ({ open, onClose }) => {
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
             Currency Exchange Rates
           </Typography>
-          <Chip 
-            label="ICEGATE" 
+          <Chip
+            label="ICEGATE"
             size="small"
-            sx={{ 
-              bgcolor: 'rgba(255,255,255,0.2)', 
-              color: 'white',
+            sx={{
+              bgcolor: '#eceff1',
+              color: '#37474f',
               fontWeight: 700,
               fontSize: '0.7rem',
               height: 22
-            }} 
+            }}
           />
+          {/* MOVED: Note is now here */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              color: 'text.secondary',
+              ml: 1 // Added margin
+            }}
+          >
+            <InfoIcon sx={{ fontSize: '1.1rem' }} />
+            <Typography
+              variant="body2"
+              sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}
+            >
+              Rates based on ICEGATE (Customs) notifications.
+            </Typography>
+          </Box>
         </Box>
-        <IconButton onClick={onClose} sx={{ color: 'white', p: 0.5 }}>
+        <IconButton onClick={onClose} sx={{ color: 'text.secondary', p: 0.5 }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
 
       <DialogContent sx={{ p: 3, bgcolor: '#fafafa' }}>
-        {/* Compact Date Picker + Info */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 2, 
-          mb: 2.5,
-          alignItems: 'center',
-          bgcolor: 'white',
-          p: 2,
-          borderRadius: 1,
-          border: '1px solid #e0e0e0'
-        }}>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Select Date"
-              value={selectedDate}
-              onChange={handleDateChange}
-              format="dd/MM/yyyy"
-              slotProps={{
-                textField: {
-                  size: 'small',
-                  sx: { width: 200 }
-                }
-              }}
+        {/* Compact Controls Box */}
+        <Box
+          sx={{
+            bgcolor: 'white',
+            p: 2,
+            borderRadius: 1,
+            border: '1px solid #e0e0e0',
+            mb: 2.5
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems="center"
+          >
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label="Select Date"
+                value={selectedDate}
+                onChange={handleDateChange}
+                format="dd/MM/yyyy"
+                slotProps={{
+                  textField: {
+                    size: 'small',
+                    sx: { width: { xs: '100%', md: 180 } } // Slightly smaller
+                  }
+                }}
+              />
+            </LocalizationProvider>
+
+            <TextField
+              label="Search Currency"
+              variant="outlined"
+              size="small"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ width: { xs: '100%', md: 220 } }} // REDUCED width
+              disabled={!currencyData}
             />
-          </LocalizationProvider>
-          
-          {currencyData && (
-            <Stack direction="row" spacing={2} sx={{ ml: 'auto' }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-                  NOTIFICATION
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a237e' }}>
-                  {currencyData.notification_number}
-                </Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem />
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-                  EFFECTIVE DATE
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a237e' }}>
-                  {formatDate(currencyData.effective_date)}
-                </Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem />
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-                  CURRENCIES
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a237e' }}>
-                  {currencyData.exchange_rates?.length || 0}
-                </Typography>
-              </Box>
-            </Stack>
-          )}
+
+            {/* REMOVED: Note Box was here */}
+
+            {/* MOVED: Notification Block is now inside this stack */}
+            {currencyData && (
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{ ml: { md: 'auto' }, mt: { xs: 2, md: 0 } }} // Pushes to right
+              >
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                  >
+                    NOTIFICATION
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {currencyData.notification_number}
+                  </Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem />
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                  >
+                    EFFECTIVE DATE
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {formatDate(currencyData.effective_date)}
+                  </Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem />
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                  >
+                    CURRENCIES
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {currencyData.exchange_rates?.length || 0}
+                  </Typography>
+                </Box>
+              </Stack>
+            )}
+          </Stack>
+          {/* REMOVED: Divider and separate Stack for notification */}
         </Box>
 
         {/* Loading State */}
@@ -200,89 +270,47 @@ const CurrencyRateDialog = ({ open, onClose }) => {
           </Alert>
         )}
 
-        {/* Compact Professional Table */}
+        {/* Table */}
         {currencyData && !loading && (
           <Fade in={true}>
-            <TableContainer 
-              component={Paper} 
-              sx={{ 
+            <TableContainer
+              component={Paper}
+              sx={{
                 boxShadow: 'none',
                 border: '1px solid #e0e0e0',
                 borderRadius: 1,
-                maxHeight: 'calc(92vh - 200px)'
+                maxHeight: 'calc(92vh - 220px)' // Adjusted height
               }}
             >
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell 
-                      sx={{ 
-                        bgcolor: '#1a237e',
-                        color: 'white',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        py: 1.2,
-                        letterSpacing: 0.5
-                      }}
-                    >
+                    <TableCell sx={{ ...tableHeaderSx, width: '15%' }}>
                       CODE
                     </TableCell>
-                    <TableCell 
-                      sx={{ 
-                        bgcolor: '#1a237e',
-                        color: 'white',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        py: 1.2,
-                        letterSpacing: 0.5
-                      }}
-                    >
+                    <TableCell sx={{ ...tableHeaderSx, width: '35%' }}>
                       CURRENCY NAME
                     </TableCell>
-                    <TableCell 
+                    <TableCell
                       align="center"
-                      sx={{ 
-                        bgcolor: '#1a237e',
-                        color: 'white',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        py: 1.2,
-                        letterSpacing: 0.5,
-                        width: 80
-                      }}
+                      sx={{ ...tableHeaderSx, width: '10%' }}
                     >
                       UNIT
                     </TableCell>
-                    <TableCell 
+                    <TableCell
                       align="right"
-                      sx={{ 
-                        bgcolor: '#1a237e',
-                        color: 'white',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        py: 1.2,
-                        letterSpacing: 0.5,
-                        width: 150
-                      }}
+                      sx={{ ...tableHeaderSx, width: '20%' }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                      <Box sx={tableHeaderIconBox}>
                         <TrendingUpIcon sx={{ fontSize: 14 }} />
                         IMPORT
                       </Box>
                     </TableCell>
-                    <TableCell 
+                    <TableCell
                       align="right"
-                      sx={{ 
-                        bgcolor: '#1a237e',
-                        color: 'white',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        py: 1.2,
-                        letterSpacing: 0.5,
-                        width: 150
-                      }}
+                      sx={{ ...tableHeaderSx, width: '20%' }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                      <Box sx={tableHeaderIconBox}>
                         <TrendingDownIcon sx={{ fontSize: 14 }} />
                         EXPORT
                       </Box>
@@ -290,7 +318,7 @@ const CurrencyRateDialog = ({ open, onClose }) => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {currencyData.exchange_rates?.map((rate, index) => (
+                  {filteredRates?.map((rate, index) => (
                     <TableRow
                       key={rate._id || index}
                       sx={{
@@ -304,8 +332,8 @@ const CurrencyRateDialog = ({ open, onClose }) => {
                           label={rate.currency_code}
                           size="small"
                           sx={{
-                            bgcolor: '#1a237e',
-                            color: 'white',
+                            bgcolor: '#eceff1',
+                            color: '#37474f',
                             fontWeight: 700,
                             fontSize: '0.7rem',
                             height: 24,
@@ -313,19 +341,24 @@ const CurrencyRateDialog = ({ open, onClose }) => {
                           }}
                         />
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 500, fontSize: '0.85rem', py: 1 }}>
+                      <TableCell
+                        sx={{ fontWeight: 500, fontSize: '0.85rem', py: 1 }}
+                      >
                         {rate.currency_name}
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.85rem', py: 1 }}>
+                      <TableCell
+                        align="center"
+                        sx={{ fontWeight: 600, fontSize: '0.85rem', py: 1 }}
+                      >
                         {rate.unit}
                       </TableCell>
                       <TableCell align="right" sx={{ py: 1 }}>
                         <Chip
                           label={`₹ ${rate.import_rate.toFixed(2)}`}
                           size="small"
+                          color="success"
+                          variant="outlined"
                           sx={{
-                            bgcolor: '#2e7d32',
-                            color: 'white',
                             fontWeight: 700,
                             fontSize: '0.8rem',
                             height: 26,
@@ -337,9 +370,9 @@ const CurrencyRateDialog = ({ open, onClose }) => {
                         <Chip
                           label={`₹ ${rate.export_rate.toFixed(2)}`}
                           size="small"
+                          color="error"
+                          variant="outlined"
                           sx={{
-                            bgcolor: '#d32f2f',
-                            color: 'white',
                             fontWeight: 700,
                             fontSize: '0.8rem',
                             height: 26,
@@ -355,7 +388,7 @@ const CurrencyRateDialog = ({ open, onClose }) => {
           </Fade>
         )}
 
-        {/* Empty State - Compact */}
+        {/* Empty State */}
         {!currencyData && !loading && !error && (
           <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
             <CalendarIcon sx={{ fontSize: 48, mb: 1.5, opacity: 0.3 }} />
@@ -364,53 +397,28 @@ const CurrencyRateDialog = ({ open, onClose }) => {
             </Typography>
           </Box>
         )}
-
-        {/* Footer Metadata - Compact */}
-        {currencyData?.meta && (
-          <Box sx={{ 
-            mt: 2, 
-            p: 1.5, 
-            bgcolor: 'white',
-            borderRadius: 1,
-            border: '1px solid #e0e0e0',
-            display: 'flex',
-            gap: 3,
-            fontSize: '0.75rem'
-          }}>
-            <Typography variant="caption" color="text.secondary">
-              PDF: <strong>{currencyData.pdf_filename}</strong>
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Scraped: <strong>{new Date(currencyData.scraped_at).toLocaleString('en-IN', { 
-                dateStyle: 'short', 
-                timeStyle: 'short' 
-              })}</strong>
-            </Typography>
-          </Box>
-        )}
       </DialogContent>
 
-      {/* Compact Footer */}
-      <Box sx={{ 
-        px: 3, 
-        py: 1.5, 
-        bgcolor: '#fafafa',
-        borderTop: '1px solid #e0e0e0',
-        display: 'flex',
-        justifyContent: 'flex-end'
-      }}>
-        <Button 
-          onClick={onClose} 
-          variant="contained"
+      {/* Footer */}
+      <Box
+        sx={{
+          px: 3,
+          py: 1.5,
+          bgcolor: '#fafafa',
+          borderTop: '1px solid #e0e0e0',
+          display: 'flex',
+          justifyContent: 'flex-end'
+        }}
+      >
+        <Button
+          onClick={onClose}
+          variant="outlined"
           size="small"
+          color="primary"
           sx={{
-            bgcolor: '#1a237e',
             textTransform: 'none',
             fontWeight: 600,
-            px: 3,
-            '&:hover': {
-              bgcolor: '#0d1642'
-            }
+            px: 3
           }}
         >
           Close
@@ -420,5 +428,22 @@ const CurrencyRateDialog = ({ open, onClose }) => {
   );
 };
 
+// Helper objects for styles
+const tableHeaderSx = {
+  bgcolor: '#f5f5ff',
+  color: '#455a64',
+  fontWeight: 700,
+  fontSize: '0.75rem',
+  py: 1.2,
+  letterSpacing: 0.5,
+  borderBottom: '2px solid #b0bec5'
+};
+
+const tableHeaderIconBox = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 0.5
+};
+
 export default CurrencyRateDialog;
- 

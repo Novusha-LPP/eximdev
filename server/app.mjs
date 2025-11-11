@@ -167,6 +167,13 @@ import releaseNoteRoutes from "./routes/releaseNoteRoutes.js";
 
 // feedback
 import feedback from "./routes/feedbackRoutes.js";
+
+
+//scrapper
+import cron from 'node-cron';
+import { scrapeAndSaveCurrencyRates } from './services/currencyRateScraper.js';
+import currencyRateRoutes from './routes/currencyRate.js';
+
 const MONGODB_URI =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_MONGODB_URI
@@ -407,6 +414,22 @@ if (cluster.isPrimary) {
       // feedback 
       app.use('/api', feedback);
 
+      //scrapper
+      app.use(currencyRateRoutes);
+
+      cron.schedule('1 0 * * *', async () => {
+  console.log('🕐 Running scheduled currency rate scraper at 12:01 AM...');
+  try {
+    const result = await scrapeAndSaveCurrencyRates();
+    console.log('✅ Scheduled scrape completed:', result);
+  } catch (error) {
+    console.error('❌ Scheduled scrape failed:', error);
+  }
+}, {
+  timezone: "Asia/Kolkata" // IST timezone
+});
+
+console.log('⏰ Currency rate scraper cron job scheduled for 12:01 AM daily (IST)');
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

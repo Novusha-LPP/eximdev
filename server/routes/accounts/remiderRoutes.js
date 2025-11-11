@@ -173,8 +173,6 @@ const checkAndSendReminders = async () => {
       return { success: true, message: 'No entries to check' };
     }
 
-    console.log(`📊 Found ${masterEntries.length} master entries to check`);
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -204,10 +202,7 @@ const checkAndSendReminders = async () => {
             const billingDate = new Date(entry.defaultFields.billingDate);
             billingDate.setHours(0, 0, 0, 0);
             
-            const daysBetweenBillingAndDue = Math.floor((dueDate - billingDate) / (1000 * 60 * 60 * 24));
-            
-            console.log(`📊 ${entry.masterTypeName}: ${daysBetweenBillingAndDue} days between billing and due date`);
-            
+            const daysBetweenBillingAndDue = Math.floor((dueDate - billingDate) / (1000 * 60 * 60 * 24));            
             if (daysBetweenBillingAndDue <= 5) {
               shouldSendReminder = false;
               console.log(`⏭️  Skipping ${entry.masterTypeName} - ${entry.defaultFields.companyName}: billing date within 5 days of due date`);

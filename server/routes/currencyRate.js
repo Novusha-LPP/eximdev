@@ -67,57 +67,6 @@ router.get('/api/currency-rates', async (req, res) => {
   }
 });
 
-// Get latest currency rates
-router.get('/api/currency-rates/latest', async (req, res) => {
-  try {
-    const latestRate = await CurrencyRate.findOne({ is_active: true })
-      .sort({ scraped_at: -1 });
-    
-    if (!latestRate) {
-      return res.status(404).json({
-        success: false,
-        message: 'No currency rates found'
-      });
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: latestRate
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch latest currency rates',
-      error: error.message
-    });
-  }
-});
-
-// Get specific currency rate by ID
-router.get('/api/currency-rates/:id', async (req, res) => {
-  try {
-    const currencyRate = await CurrencyRate.findById(req.params.id);
-    
-    if (!currencyRate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Currency rate not found'
-      });
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: currencyRate
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch currency rate',
-      error: error.message
-    });
-  }
-});
-
 
 // Get currency rate for a specific date (finds immediate lower date)
 router.get('/api/currency-rates/by-date/:date', async (req, res) => {

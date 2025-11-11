@@ -184,7 +184,7 @@ function JobDetails() {
     queryIndex: null,
   });
 
-  const options = Array.from({ length: 25 }, (_, index) => index);
+  const options = Array.from({ length: 41 }, (_, index) => index);
   const [checked, setChecked] = useState(false);
   const [selectedRegNo, setSelectedRegNo] = useState();
   const [snackbar, setSnackbar] = useState(false);

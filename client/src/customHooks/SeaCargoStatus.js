@@ -137,11 +137,35 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
 
   // Format date to match database format: "2025-10-22T12:07"
 // Enhanced date formatting function that handles DD/MM/YYYY format
+// Format date to match database format: "2025-10-22T12:07"
 const formatDateForDatabase = (dateString) => {
   if (!dateString) return '';
 
   try {
-    // Handle DD/MM/YYYY format (common in ICEGATE responses)
+    // Handle "DD MMM YYYY" format (e.g., "05 NOV 2025")
+    if (typeof dateString === 'string' && dateString.includes(' ')) {
+      const months = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+        'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+        'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+      };
+
+      const parts = dateString.split(' ');
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0');
+        const month = months[parts[1].toUpperCase()];
+        const year = parts[2];
+        
+        if (month) {
+          // Add default time 00:00 for date-only formats
+          const formattedDate = `${year}-${month}-${day}T00:00`;
+          console.log('Formatted DD MMM YYYY date:', dateString, '->', formattedDate);
+          return formattedDate;
+        }
+      }
+    }
+
+    // Handle DD/MM/YYYY format
     if (typeof dateString === 'string' && dateString.includes('/')) {
       const parts = dateString.split('/');
       if (parts.length === 3) {
@@ -149,25 +173,32 @@ const formatDateForDatabase = (dateString) => {
         const month = parts[1].padStart(2, '0');
         const year = parts[2];
         
-        // Create date in YYYY-MM-DD format
-        const formattedDate = `${year}-${month}-${day}`;
+        // Add default time 00:00 for date-only formats
+        const formattedDate = `${year}-${month}-${day}T00:00`;
         console.log('Formatted DD/MM/YYYY date:', dateString, '->', formattedDate);
         return formattedDate;
       }
     }
 
-    // Handle existing formats
+    // If already in correct format with time, return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
+      console.log('Date already in correct format:', dateString);
+      return dateString;
+    }
+
+    // If in YYYY-MM-DD format (no time), add default time
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const formattedDate = `${dateString}T00:00`;
+      console.log('Added time to date:', dateString, '->', formattedDate);
+      return formattedDate;
+    }
+
+    // Handle other date formats
     const date = new Date(dateString);
     
-    // Check if date is invalid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date detected:', dateString);
       return '';
-    }
-    
-    // If already in correct format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
-      return dateString;
     }
 
     const year = date.getFullYear();
@@ -176,12 +207,15 @@ const formatDateForDatabase = (dateString) => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
 
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+    console.log('Formatted generic date:', dateString, '->', formattedDate);
+    return formattedDate;
   } catch (err) {
     console.error('Date formatting error:', err);
     return '';
   }
 };
+
 
   // Helper function to check if value is valid (not N/A, null, undefined, or empty)
   const isValidValue = (value) => {

@@ -118,7 +118,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
-  const options = useMemo(() => Array.from({ length: 25 }, (_, index) => index), []);
+  const options = useMemo(() => Array.from({ length: 41 }, (_, index) => index), []);
 
   const calculateDaysBetween = useCallback((startDate, endDate) => {
     if (!startDate || !endDate) return 0;

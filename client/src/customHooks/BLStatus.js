@@ -42,7 +42,7 @@ const BLStatus = ({ isOpen, onClose, mawbNumber, jobId, onUpdateSuccess, customH
 
   const [cargoDetails, setCargoDetails] = useState(null);
   const [loading, setLoading] = useState(false);
-const [error, setError] = useState({ type: '', message: '' });
+  const [error, setError] = useState({ type: '', message: '' });
   const [activeTab, setActiveTab] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
   
@@ -84,62 +84,85 @@ const [error, setError] = useState({ type: '', message: '' });
     setSnackbar({ ...snackbar, open: false });
   };
 
-const fetchCargoDetails = async () => {
-  setLoading(true);
-  setError({ type: '', message: '' });
-  try {
-    const res = await axios.post(
-      `${process.env.REACT_APP_API_STRING}/bl-tracking`,
-      { mawbNumber },
-      { timeout: 35000, headers: { 'Content-Type': 'application/json' } }
-    );
-    if (res.data?.success) {
-      setCargoDetails(res.data.data || null);
-    } else {
-      setError({ 
-        type: 'api', 
-        message: res.data?.error || 'Failed to fetch BL Status details' 
-      });
+  const fetchCargoDetails = async () => {
+    setLoading(true);
+    setError({ type: '', message: '' });
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/bl-tracking`,
+        { mawbNumber },
+        { timeout: 35000, headers: { 'Content-Type': 'application/json' } }
+      );
+      if (res.data?.success) {
+        setCargoDetails(res.data.data || null);
+      } else {
+        setError({ 
+          type: 'api', 
+          message: res.data?.error || 'Failed to fetch BL Status details' 
+        });
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setError({ 
+          type: 'notfound', 
+          message: 'No records found for the provided BL number.' 
+        });
+      } else if (err.code === 'ERR_NETWORK') {
+        setError({ 
+          type: 'network', 
+          message: 'Cannot connect to backend server. Please check your connection.' 
+        });
+      } else if (err.code === 'ECONNABORTED') {
+        setError({ 
+          type: 'timeout', 
+          message: 'Request timeout. The service is taking too long to respond.' 
+        });
+      } else if (err.response) {
+        setError({ 
+          type: 'server', 
+          message: `Server error: ${err.response.status} - ${err.response.data?.error || 'Unknown error'}` 
+        });
+      } else {
+        setError({ 
+          type: 'unknown', 
+          message: `Error: ${err.message}` 
+        });
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    if (err.response?.status === 404) {
-      // 404 - Record not found
-      setError({ 
-        type: 'notfound', 
-        message: 'No records found for the provided BL number.' 
-      });
-    } else if (err.code === 'ERR_NETWORK') {
-      setError({ 
-        type: 'network', 
-        message: 'Cannot connect to backend server. Please check your connection.' 
-      });
-    } else if (err.code === 'ECONNABORTED') {
-      setError({ 
-        type: 'timeout', 
-        message: 'Request timeout. The service is taking too long to respond.' 
-      });
-    } else if (err.response) {
-      setError({ 
-        type: 'server', 
-        message: `Server error: ${err.response.status} - ${err.response.data?.error || 'Unknown error'}` 
-      });
-    } else {
-      setError({ 
-        type: 'unknown', 
-        message: `Error: ${err.message}` 
-      });
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Format date to match database format: "2025-10-22T12:07"
+// Format date to match database format: "2025-10-22T12:07"
 const formatDateForDatabase = (dateString) => {
   if (!dateString) return '';
 
   try {
-    // Handle DD/MM/YYYY format (common in ICEGATE responses)
+    // Handle "DD MMM YYYY" format (e.g., "05 NOV 2025")
+    if (typeof dateString === 'string' && dateString.includes(' ')) {
+      const months = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+        'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+        'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+      };
+
+      const parts = dateString.split(' ');
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0');
+        const month = months[parts[1].toUpperCase()];
+        const year = parts[2];
+        
+        if (month) {
+          // Add default time 00:00 for date-only formats
+          const formattedDate = `${year}-${month}-${day}T00:00`;
+          console.log('Formatted DD MMM YYYY date:', dateString, '->', formattedDate);
+          return formattedDate;
+        }
+      }
+    }
+
+    // Handle DD/MM/YYYY format
     if (typeof dateString === 'string' && dateString.includes('/')) {
       const parts = dateString.split('/');
       if (parts.length === 3) {
@@ -147,25 +170,32 @@ const formatDateForDatabase = (dateString) => {
         const month = parts[1].padStart(2, '0');
         const year = parts[2];
         
-        // Create date in YYYY-MM-DD format
-        const formattedDate = `${year}-${month}-${day}`;
+        // Add default time 00:00 for date-only formats
+        const formattedDate = `${year}-${month}-${day}T00:00`;
         console.log('Formatted DD/MM/YYYY date:', dateString, '->', formattedDate);
         return formattedDate;
       }
     }
 
-    // Handle existing formats
+    // If already in correct format with time, return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
+      console.log('Date already in correct format:', dateString);
+      return dateString;
+    }
+
+    // If in YYYY-MM-DD format (no time), add default time
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const formattedDate = `${dateString}T00:00`;
+      console.log('Added time to date:', dateString, '->', formattedDate);
+      return formattedDate;
+    }
+
+    // Handle other date formats
     const date = new Date(dateString);
     
-    // Check if date is invalid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date detected:', dateString);
       return '';
-    }
-    
-    // If already in correct format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
-      return dateString;
     }
 
     const year = date.getFullYear();
@@ -174,7 +204,9 @@ const formatDateForDatabase = (dateString) => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
 
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+    console.log('Formatted generic date:', dateString, '->', formattedDate);
+    return formattedDate;
   } catch (err) {
     console.error('Date formatting error:', err);
     return '';
@@ -183,22 +215,22 @@ const formatDateForDatabase = (dateString) => {
 
 
 
+
   // Check if custom house is ICD KODIYAR
   const isIcdKodiyar = customHouse && 
                        customHouse.toUpperCase().includes('ICD KHODIYAR');
 
   // Handle Update to Database
+  const handleUpdateDatabase = async () => {
+    if (!jobId || !cargoDetails) {
+      showSnackbar('Missing job ID or cargo details', 'error');
+      return;
+    }
 
-const handleUpdateDatabase = async () => {
-  if (!jobId || !cargoDetails) {
-    showSnackbar('Missing job ID or cargo details', 'error');
-    return;
-  }
-
-  setIsUpdating(true);
-  try {
-    const statusData = cargoDetails.status_data?.[0] || {};
-    const containerDetails = cargoDetails.container_details || [];
+    setIsUpdating(true);
+    try {
+      const statusData = cargoDetails.status_data?.[0] || {};
+      const containerDetails = cargoDetails.container_details || {};
 
     // Helper function to check if value is valid (not N/A, null, undefined, or empty)
     const isValidValue = (value) => {
@@ -206,147 +238,143 @@ const handleUpdateDatabase = async () => {
   return invalidValues.includes(value) ? '' : value;
 };
 
-    // Start with empty updateData - only add valid fields
-    const updateData = {};
+      // Start with empty updateData
+      const updateData = {};
 
-    // Only add line_no if valid
-    if (isValidValue(statusData.lineNo)) {
-      updateData.line_no = statusData.lineNo;
-    }
-
-    // Only add no_of_pkgs if valid
-    if (statusData.totalPackage && statusData.packageCode) {
-      updateData.no_of_pkgs = `${statusData.totalPackage} ${statusData.packageCode}`;
-    } else if (isValidValue(statusData.totalPackage)) {
-      updateData.no_of_pkgs = statusData.totalPackage;
-    }
-
-    // Only add igm_no if valid
-    if (isValidValue(statusData.igmRTN)) {
-      updateData.igm_no = statusData.igmRTN;
-    }
-
-    // Only add igm_date if the formatted date is valid
-    const formattedIgmDate = formatDateForDatabase(statusData.igmDT);
-    if (isValidValue(formattedIgmDate)) {
-      updateData.igm_date = formattedIgmDate;
-    }
-
-    // Only add discharge_date if the formatted date is valid
-    const formattedDischargeDate = formatDateForDatabase(statusData.inwDT);
-    if (isValidValue(formattedDischargeDate)) {
-      updateData.discharge_date = formattedDischargeDate;
-    }
-
-    // Only add container arrival_date updates if custom house is ICD KODIYAR
-    if (isIcdKodiyar && container_nos && container_nos.length > 0) {
-      const containerArrivalMap = {};
-      
-      containerDetails.forEach(container => {
-        if (container.contNo && container.arrDT) {
-          const formattedDate = formatDateForDatabase(container.arrDT);
-          // Only add to map if the date is valid
-          if (isValidValue(formattedDate)) {
-            containerArrivalMap[container.contNo] = formattedDate;
-            console.log(`Mapping container: ${container.contNo} -> Arrival: ${formattedDate}`);
-          }
-        }
-      });
-
-      console.log('Container Arrival Map:', containerArrivalMap);
-      console.log('Existing containers from job:', container_nos);
-
-      // Update arrival_date for matching containers only if new valid date exists
-      const updatedContainers = container_nos.map(containerObj => {
-        const containerNum = containerObj.container_number;
-        const arrivalDate = containerArrivalMap[containerNum];
-        
-        console.log(`Processing container: ${containerNum}, Has Arrival Date: ${!!arrivalDate}, Date: ${arrivalDate}`);
-
-        // Only update arrival_date if we have a new valid value
-        if (isValidValue(arrivalDate)) {
-          return {
-            ...containerObj,
-            arrival_date: arrivalDate
-          };
-        }
-        
-        // Otherwise keep existing container object unchanged
-        return containerObj;
-      });
-
-      console.log('Updated Containers:', JSON.stringify(updatedContainers, null, 2));
-
-      updateData.container_nos = updatedContainers;
-      
-      showSnackbar(
-        `Updating job with container arrival dates for ICD KODIYAR`,
-        'info'
-      );
-    } else if (!isIcdKodiyar) {
-      showSnackbar(
-        `Note: Container arrival dates will NOT be updated (Custom House: ${customHouse})`,
-        'warning'
-      );
-    }
-
-    // Check if we have any valid data to update
-    if (Object.keys(updateData).length === 0) {
-      showSnackbar('No valid data available to update', 'warning');
-      setIsUpdating(false);
-      return;
-    }
-
-    console.log('Final updateData being sent:', updateData);
-
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-
-    const response = await axios.patch(
-      `${process.env.REACT_APP_API_STRING}/jobs/${jobId}`,
-      updateData,
-      { headers, timeout: 30000 }
-    );
-
-    if (response.data?.success) {
-      const successMsg = isIcdKodiyar 
-        ? 'Job updated successfully with container arrival dates'
-        : 'Job updated successfully';
-      
-      showSnackbar(successMsg, 'success');
-      
-      if (onUpdateSuccess) {
-        onUpdateSuccess(response.data);
+      // Only add line_no if valid
+      if (isValidValue(statusData.lineNo)) {
+        updateData.line_no = statusData.lineNo;
       }
 
-      setTimeout(() => {
-        onClose();
-      }, 1000);
-    } else {
-      showSnackbar(response.data?.message || 'Failed to update job', 'error');
+      // Only add no_of_pkgs if valid
+      if (statusData.totalPackage && statusData.packageCode) {
+        updateData.no_of_pkgs = `${statusData.totalPackage} ${statusData.packageCode}`;
+      } else if (isValidValue(statusData.totalPackage)) {
+        updateData.no_of_pkgs = statusData.totalPackage;
+      }
+
+      // Only add igm_no if valid
+      if (isValidValue(statusData.igmRTN)) {
+        updateData.igm_no = statusData.igmRTN;
+      }
+
+      // Only add igm_date if valid
+      const formattedIgmDate = formatDateForDatabase(statusData.igmDT);
+      if (isValidValue(formattedIgmDate)) {
+        updateData.igm_date = formattedIgmDate;
+      }
+
+      // Only add discharge_date if valid
+      const formattedDischargeDate = formatDateForDatabase(statusData.inwDT);
+      if (isValidValue(formattedDischargeDate)) {
+        updateData.discharge_date = formattedDischargeDate;
+      }
+
+      // FIXED: Check if container_details is an array before processing
+      if (isIcdKodiyar && container_nos && container_nos.length > 0 && Array.isArray(containerDetails)) {
+        const containerArrivalMap = {};
+        
+        containerDetails.forEach(container => {
+          if (container.contNo && container.arrDT) {
+            const formattedDate = formatDateForDatabase(container.arrDT);
+            if (isValidValue(formattedDate)) {
+              containerArrivalMap[container.contNo] = formattedDate;
+              console.log(`Mapping container: ${container.contNo} -> Arrival: ${formattedDate}`);
+            }
+          }
+        });
+
+        console.log('Container Arrival Map:', containerArrivalMap);
+        console.log('Existing containers from job:', container_nos);
+
+        // Update arrival_date for matching containers
+        const updatedContainers = container_nos.map(containerObj => {
+          const containerNum = containerObj.container_number;
+          const arrivalDate = containerArrivalMap[containerNum];
+          
+          console.log(`Processing container: ${containerNum}, Has Arrival Date: ${!!arrivalDate}, Date: ${arrivalDate}`);
+
+          if (isValidValue(arrivalDate)) {
+            return {
+              ...containerObj,
+              arrival_date: arrivalDate
+            };
+          }
+          
+          return containerObj;
+        });
+
+        console.log('Updated Containers:', JSON.stringify(updatedContainers, null, 2));
+
+        updateData.container_nos = updatedContainers;
+        
+        showSnackbar(
+          `Updating job with container arrival dates for ICD KODIYAR`,
+          'info'
+        );
+      } else if (!isIcdKodiyar) {
+        showSnackbar(
+          `Note: Container arrival dates will NOT be updated (Custom House: ${customHouse})`,
+          'warning'
+        );
+      } else if (!Array.isArray(containerDetails)) {
+        console.log('Container details not available or not in array format');
+      }
+
+      // Check if we have any valid data to update
+      if (Object.keys(updateData).length === 0) {
+        showSnackbar('No valid data available to update', 'warning');
+        setIsUpdating(false);
+        return;
+      }
+
+      console.log('Final updateData being sent:', updateData);
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      const response = await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/jobs/${jobId}`,
+        updateData,
+        { headers, timeout: 30000 }
+      );
+
+      if (response.data?.success) {
+        const successMsg = isIcdKodiyar 
+          ? 'Job updated successfully with container arrival dates'
+          : 'Job updated successfully';
+        
+        showSnackbar(successMsg, 'success');
+        
+        if (onUpdateSuccess) {
+          onUpdateSuccess(response.data);
+        }
+
+        setTimeout(() => {
+          onClose();
+        }, 1000);
+      } else {
+        showSnackbar(response.data?.message || 'Failed to update job', 'error');
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      
+      let errorMessage = 'Failed to update job';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.message || `Error: ${err.response.status}`;
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout. Please try again.';
+      } else {
+        errorMessage = err.message || 'Network error';
+      }
+
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setIsUpdating(false);
     }
-  } catch (err) {
-    console.error('Update error:', err);
-    
-    let errorMessage = 'Failed to update job';
-    
-    if (err.response) {
-      errorMessage = err.response.data?.message || `Error: ${err.response.status}`;
-    } else if (err.code === 'ECONNABORTED') {
-      errorMessage = 'Request timeout. Please try again.';
-    } else {
-      errorMessage = err.message || 'Network error';
-    }
-
-    showSnackbar(errorMessage, 'error');
-  } finally {
-    setIsUpdating(false);
-  }
-};
-
-
-
+  };
 
   const renderValue = (v) =>
     v === undefined || v === null || v === '' || v === 'N.A.' ? 'N.A.' : String(v);
@@ -416,7 +444,7 @@ const handleUpdateDatabase = async () => {
     if (!cargoDetails) return <Typography variant="body2">No data available.</Typography>;
 
     const statusData = cargoDetails.status_data?.[0] || {};
-    const containerDetails = cargoDetails.container_details || [];
+    const containerDetails = cargoDetails.container_details || {};
 
     if (activeTab === 0) {
       const fields = [
@@ -474,14 +502,17 @@ const handleUpdateDatabase = async () => {
     }
 
     if (activeTab === 3) {
-      if (containerDetails.length === 0) {
+      // FIXED: Check if containerDetails is an array before using .map()
+      const isContainerArray = Array.isArray(containerDetails);
+      
+      if (!isContainerArray || containerDetails.length === 0) {
         return (
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
               No Container Details
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Container information is not currently available for this shipment.
+              {containerDetails.error || 'Container information is not currently available for this shipment.'}
             </Typography>
           </Paper>
         );
@@ -671,49 +702,47 @@ const handleUpdateDatabase = async () => {
             <LinearProgress sx={{ width: 200, height: 4, borderRadius: 2, mt: 1.5 }} />
           </Box>
         ) : error.message ? (
-  <Box sx={{ p: 3 }}>
-    {error.type === 'notfound' ? (
-      // 404 - No Record Found (user-friendly)
-      <Paper elevation={0} sx={{ 
-        p: 3, 
-        borderRadius: 1, 
-        border: '1px solid', 
-        borderColor: 'info.light',
-        bgcolor: 'info.50' 
-      }}>
-        <Typography variant="subtitle1" sx={{ color: 'info.main', fontWeight: 700, mb: 1 }}>
-          No Record Found
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-          {error.message}
-        </Typography>
-        <Button variant="outlined" color="info" onClick={onClose}>
-          Close
-        </Button>
-      </Paper>
-    ) : (
-      // All other errors (network, server, timeout, etc.)
-      <Paper elevation={0} sx={{ 
-        p: 3, 
-        borderRadius: 1, 
-        border: '1px solid', 
-        borderColor: 'error.light' 
-      }}>
-        <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
-          {error.type === 'network' ? 'Connection Error' : 
-           error.type === 'timeout' ? 'Request Timeout' : 
-           error.type === 'server' ? 'Server Error' : 
-           'Request Failed'}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
-          {error.message}
-        </Typography>
-        <Button variant="contained" color="error" onClick={fetchCargoDetails}>
-          Retry
-        </Button>
-      </Paper>
-    )}
-  </Box>
+          <Box sx={{ p: 3 }}>
+            {error.type === 'notfound' ? (
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                borderRadius: 1, 
+                border: '1px solid', 
+                borderColor: 'info.light',
+                bgcolor: 'info.50' 
+              }}>
+                <Typography variant="subtitle1" sx={{ color: 'info.main', fontWeight: 700, mb: 1 }}>
+                  No Record Found
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                  {error.message}
+                </Typography>
+                <Button variant="outlined" color="info" onClick={onClose}>
+                  Close
+                </Button>
+              </Paper>
+            ) : (
+              <Paper elevation={0} sx={{ 
+                p: 3, 
+                borderRadius: 1, 
+                border: '1px solid', 
+                borderColor: 'error.light' 
+              }}>
+                <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
+                  {error.type === 'network' ? 'Connection Error' : 
+                   error.type === 'timeout' ? 'Request Timeout' : 
+                   error.type === 'server' ? 'Server Error' : 
+                   'Request Failed'}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
+                  {error.message}
+                </Typography>
+                <Button variant="contained" color="error" onClick={fetchCargoDetails}>
+                  Retry
+                </Button>
+              </Paper>
+            )}
+          </Box>
         ) : (
           <DialogContent
             sx={{

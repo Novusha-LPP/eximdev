@@ -171,11 +171,11 @@ router.post("/api/jobs/add-job",
         exrate,
         cif_amount,
         unit_price,
-        vessel_berthing, // New value from Excel
+        vessel_berthing,
         gateway_igm_date,
         line_no,
         ie_code_no,
-        container_nos, // Assume container data is part of the incoming job data
+        container_nos, // Container data from Excel
         hss_name,
         total_inv_value,
       } = data;
@@ -192,61 +192,130 @@ router.post("/api/jobs/add-job",
       const filter = { year, job_no };
 
       // Check if the job already exists in the database
-        const existingJob = await JobModel.findOne(filter);
-        let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
-        let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
-        let lineNoUpdate = existingJob?.line_no || "";
-        let iceCodeUpdate = existingJob?.ie_code_no || "";
+      const existingJob = await JobModel.findOne(filter);
+      let vesselBerthingToUpdate = existingJob?.vessel_berthing || "";
+      let gateway_igm_dateUpdate = existingJob?.gateway_igm_date || "";
+      let lineNoUpdate = existingJob?.line_no || "";
+      let iceCodeUpdate = existingJob?.ie_code_no || "";
 
-        // Only update vessel_berthing if it's empty in the database
-        if (
-          vessel_berthing && // Excel has a valid vessel_berthing date
-          (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
-        ) {
-          vesselBerthingToUpdate = vessel_berthing;
-        }
-        if (
-          gateway_igm_date && // Excel has a valid vessel_berthing date
-          (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
-        ) {
-          gateway_igm_dateUpdate = gateway_igm_date;
-        }
-        // Only update lineNoUpdate if it's empty in the database
-        if (
-          line_no && // Excel has a valid lineNoUpdate
-          (!lineNoUpdate || lineNoUpdate.trim() === "")
-        ) {
-          lineNoUpdate = line_no;
-        }
-        // Only update iceCodeUpdate if it's empty in the database
-     if (ie_code_no) {
-  iceCodeUpdate = ie_code_no;
-}
+      // Only update vessel_berthing if it's empty in the database
+      if (
+        vessel_berthing &&
+        (!vesselBerthingToUpdate || vesselBerthingToUpdate.trim() === "")
+      ) {
+        vesselBerthingToUpdate = vessel_berthing;
+      }
+      
+      if (
+        gateway_igm_date &&
+        (!gateway_igm_dateUpdate || gateway_igm_dateUpdate.trim() === "")
+      ) {
+        gateway_igm_dateUpdate = gateway_igm_date;
+      }
+      
+      // Only update lineNoUpdate if it's empty in the database
+      if (
+        line_no &&
+        (!lineNoUpdate || lineNoUpdate.trim() === "")
+      ) {
+        lineNoUpdate = line_no;
+      }
+      
+      // Only update iceCodeUpdate if provided
+      if (ie_code_no) {
+        iceCodeUpdate = ie_code_no;
+      }
 
       if (existingJob) {
-        // Logic to merge or update container sizes
-        const updatedContainers = existingJob.container_nos.map(
-          (existingContainer) => {
-            const newContainerData = container_nos.find(
-              (c) => c.container_number === existingContainer.container_number
-            );
+        // UPDATED LOGIC: Only update container_number and size, preserve ALL other fields
+        let updatedContainers = [];
 
-            return newContainerData
-              ? { ...existingContainer.toObject(), size: newContainerData.size }
-              : existingContainer;
+        if (container_nos && Array.isArray(container_nos) && container_nos.length > 0) {
+          // Get container numbers from Excel and Database
+          const excelContainerNumbers = container_nos.map(c => c.container_number).filter(Boolean);
+          const dbContainerNumbers = existingJob.container_nos.map(c => c.container_number).filter(Boolean);
+
+          // Check if container numbers are different
+          const containerNumbersMatch = 
+            excelContainerNumbers.length === dbContainerNumbers.length &&
+            excelContainerNumbers.every((num, index) => num === dbContainerNumbers[index]);
+
+          if (!containerNumbersMatch) {
+            // Container numbers are different - Update ONLY container_number and size
+            console.log(`Container mismatch detected for job ${job_no}. Updating container_number and size only.`);
+            console.log('Excel containers:', excelContainerNumbers);
+            console.log('Database containers:', dbContainerNumbers);
+            
+            // Map Excel containers to DB containers by index, preserving ALL existing fields
+            updatedContainers = container_nos.map((excelContainer, index) => {
+              const existingContainer = existingJob.container_nos[index];
+              
+              if (existingContainer) {
+                // Keep ALL existing fields, only update container_number and size
+                return {
+                  ...existingContainer.toObject(), // Keep all existing fields
+                  container_number: excelContainer.container_number || existingContainer.container_number,
+                  size: excelContainer.size || existingContainer.size,
+                };
+              } else {
+                // New container from Excel (if Excel has more containers than DB)
+                return {
+                  container_number: excelContainer.container_number || '',
+                  size: excelContainer.size || '',
+                  // All other fields will be empty/null for new containers
+                  arrival_date: null,
+                  detention_from: null,
+                  container_rail_out_date: null,
+                  by_road_movement_date: null,
+                  delivery_date: null,
+                  emptyContainerOffLoadDate: null,
+                  // Add other default fields as needed
+                };
+              }
+            });
+
+            // If DB has more containers than Excel, keep the extra DB containers
+            if (existingJob.container_nos.length > container_nos.length) {
+              const remainingContainers = existingJob.container_nos
+                .slice(container_nos.length)
+                .map(c => c.toObject());
+              updatedContainers.push(...remainingContainers);
+            }
+          } else {
+            // Container numbers match - Update size only, keep ALL other fields
+            console.log(`Container numbers match for job ${job_no}. Updating size only.`);
+            
+            updatedContainers = existingJob.container_nos.map((existingContainer) => {
+              const matchingExcelContainer = container_nos.find(
+                (c) => c.container_number === existingContainer.container_number
+              );
+
+              if (matchingExcelContainer) {
+                // Keep ALL existing fields, only update size
+                return {
+                  ...existingContainer.toObject(),
+                  size: matchingExcelContainer.size || existingContainer.size,
+                };
+              }
+              
+              // No matching Excel container - keep as is
+              return existingContainer.toObject();
+            });
           }
-        );
+        } else {
+          // No container data from Excel - keep ALL existing containers unchanged
+          updatedContainers = existingJob.container_nos.map(c => c.toObject());
+        }
 
-        // Define the update to set new data, including "container_nos"
+        // Define the update to set new data
         const update = {
           $set: {
             ...data,
-
-            vessel_berthing: vesselBerthingToUpdate, // Ensure correct update logic
-            gateway_igm_date: gateway_igm_dateUpdate, // Ensure correct update logic
-            line_no: lineNoUpdate, // Ensure correct update logic
-            ie_code_no: iceCodeUpdate, // Ensure correct update logic
-            container_nos: updatedContainers,
+            vessel_berthing: vesselBerthingToUpdate,
+            gateway_igm_date: gateway_igm_dateUpdate,
+            line_no: lineNoUpdate,
+            ie_code_no: iceCodeUpdate,
+            container_nos: updatedContainers, // Use the updated containers
             status:
               existingJob.status === "Completed"
                 ? existingJob.status
@@ -267,7 +336,7 @@ router.post("/api/jobs/add-job",
           },
         };
 
-        // Create the bulk update operation for upsert or update
+        // Create the bulk update operation
         const bulkOperation = {
           updateOne: {
             filter,
@@ -282,8 +351,8 @@ router.post("/api/jobs/add-job",
         const update = {
           $set: {
             ...data,
-            vessel_berthing: vesselBerthingToUpdate, // Ensure new jobs respect the logic
-            gateway_igm_date: gateway_igm_dateUpdate, // Ensure new jobs respect the logic
+            vessel_berthing: vesselBerthingToUpdate,
+            gateway_igm_date: gateway_igm_dateUpdate,
             status: computeStatus(sanitizedBillDate),
           },
         };
@@ -300,13 +369,20 @@ router.post("/api/jobs/add-job",
       }
     }
 
-    // Execute the bulkWrite operation to update or insert multiple jobs
-    await JobModel.bulkWrite(bulkOperations);
+    // Execute the bulkWrite operation
+    const result = await JobModel.bulkWrite(bulkOperations);
+    
+    console.log('Bulk write result:', {
+      inserted: result.insertedCount || 0,
+      updated: result.modifiedCount || 0,
+      upserted: result.upsertedCount || 0
+    });
 
     // Update the last jobs update date
     try {
       const existingDateDocument = await LastJobsDate.findOne();
-      const date = new Date().toISOString(); // Changed to ISO string for consistency
+      const date = new Date().toISOString();
+      
       if (existingDateDocument) {
         existingDateDocument.date = date;
         await existingDateDocument.save();
@@ -319,12 +395,21 @@ router.post("/api/jobs/add-job",
       return res.status(500).send("An error occurred while updating the date.");
     }
 
-    res.status(200).json({ message: "Jobs added/updated successfully" });
+    res.status(200).json({ 
+      message: "Jobs added/updated successfully",
+      stats: {
+        inserted: result.insertedCount || 0,
+        updated: result.modifiedCount || 0,
+        upserted: result.upsertedCount || 0
+      }
+    });
   } catch (error) {
     console.error("Error handling job data:", error);
     return res.status(500).json({ error: "Internal server error." });
   }
 });
+
+
 
 // Route to update detailed_status for all pending jobs
 router.get("/api/jobs/update-pending-status", async (req, res) => {

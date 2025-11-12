@@ -145,6 +145,7 @@ router.get(
       const { year, status, detailedStatus, importer, selectedICD } =
         req.params;
       const { page = 1, limit = 100, search = "", unresolvedOnly } = req.query;
+      const searchTerm = String(search || "").trim();
       const skip = (page - 1) * limit;
       const query = { year };
 
@@ -261,8 +262,8 @@ router.get(
       }
 
       // Add search filter if provided
-      if (search) {
-        query.$and.push(buildSearchQuery(search));
+      if (searchTerm) {
+        query.$and.push(buildSearchQuery(searchTerm));
       }
 
       // Add unresolvedOnly filter if requested
@@ -284,7 +285,7 @@ if (unresolvedOnly === "true") {
         detailedStatus,
         selectedICD,
         importer,
-        search,
+        search: searchTerm,
         page,
         limit,
         unresolvedOnly,
@@ -298,7 +299,12 @@ if (unresolvedOnly === "true") {
       }
 
       // Decide whether to use MongoDB text search (faster for keyword queries)
-      const canUseTextSearch = search && String(search).trim().length >= 3 && !/[*+?^${}()|[\]\\]/.test(search);
+      const sanitizedSearch = searchTerm;
+      const canUseTextSearch =
+        sanitizedSearch &&
+        sanitizedSearch.length >= 3 &&
+        !/[*+?^${}()|[\]\\]/.test(sanitizedSearch) &&
+        !/\d/.test(sanitizedSearch);
 
       // Build aggregation pipeline to get both data and total in single roundtrip
       const matchStage = { $match: query };
@@ -318,7 +324,7 @@ if (unresolvedOnly === "true") {
         // We can't modify query object directly when $and is used, so build a match specifically
         const textMatch = Object.assign({}, query);
         // ensure $text is applied at top-level
-        textMatch.$text = { $search: search };
+        textMatch.$text = { $search: sanitizedSearch };
 
         // Replace matchStage with textMatch
         matchStage.$match = textMatch;

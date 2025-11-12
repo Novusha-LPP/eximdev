@@ -90,6 +90,9 @@ function JobList(props) {
     selectedImporter, setSelectedImporter  } = useSearchQuery();
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [importers, setImporters] = useState("");
+  // Typeahead suggestions state
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger state
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
@@ -242,12 +245,74 @@ function JobList(props) {
       }
     }
     getYears();
-  }, [selectedYearState, setSelectedYearState]);  useEffect(() => {
+  }, [selectedYearState, setSelectedYearState]);
+
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 300); // Reduced from 500ms to 300ms for more responsive search
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Fetch typeahead suggestions as the user types (debounced)
+  useEffect(() => {
+    let cancelled = false;
+    let controller = null;
+
+    const doFetch = async () => {
+      if (!selectedYearState) {
+        setSuggestions([]);
+        return;
+      }
+      const safeSearch = String(searchQuery || "").trim();
+      if (safeSearch.length === 0) {
+        setSuggestions([]);
+        return;
+      }
+
+      setSuggestionsLoading(true);
+      try {
+        controller = new AbortController();
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING || ""}/api/${selectedYearState}/jobs/typeahead`,
+          {
+            params: {
+              search: safeSearch,
+              limit: 7,
+              selectedICD: selectedICD || "all",
+              importer: selectedImporter || "all",
+            },
+            signal: controller.signal,
+          }
+        );
+
+        if (cancelled) return;
+
+        const rows = (res.data && res.data.data) || [];
+        const normalized = rows.map((r) => ({
+          label:
+            (r.job_no || "") +
+            (r.importer ? ` — ${r.importer}` : "") +
+            (r.awb_bl_no ? ` — ${r.awb_bl_no}` : "") +
+            (r.be_no ? ` — ${r.be_no}` : ""),
+          value: r.job_no || r.awb_bl_no || r.be_no || r.importer || "",
+        }));
+        setSuggestions(normalized);
+      } catch (err) {
+        // ignore abort errors
+        setSuggestions([]);
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    };
+
+    const t = setTimeout(doFetch, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      if (controller) controller.abort();
+    };
+  }, [searchQuery, selectedYearState, selectedICD, selectedImporter]);
   // Memoize the data transformation to prevent expensive re-calculations on every render
   const tableData = useMemo(() => {
     return rows.map((row, index) => ({ ...row, id: row._id || `row-${index}` }));
@@ -384,10 +449,49 @@ function JobList(props) {
             </MenuItem>
           ))}        </TextField>
 
-        <SearchInput 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          loading={loading}
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={suggestions}
+          getOptionLabel={(option) => (typeof option === 'string' ? option : option.label || '')}
+          inputValue={searchQuery}
+          onInputChange={(event, newInputValue, reason) => {
+            // update controlled search input; 'clear' also handled
+            if (reason === 'input' || reason === 'clear' || reason === 'reset') {
+              setSearchQuery(newInputValue);
+            }
+          }}
+          onChange={(event, newValue, reason) => {
+            // when user selects an option, set search and update debounced value
+            if (newValue && typeof newValue === 'object' && newValue.value) {
+              setSearchQuery(newValue.value);
+              // update debouncedSearchQuery immediately so the hook receives the new value
+              setDebouncedSearchQuery(newValue.value);
+            }
+          }}
+          loading={suggestionsLoading}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
+              size="small"
+              variant="outlined"
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {suggestionsLoading ? (
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                    ) : searchQuery ? (
+                      <IconButton size="small" onClick={() => setSearchQuery("") }>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    ) : null}
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
         />
         <IconButton onClick={handleOpen}>
           <DownloadIcon />

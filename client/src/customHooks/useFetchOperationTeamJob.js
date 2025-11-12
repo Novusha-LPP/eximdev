@@ -7,7 +7,6 @@ import { UserContext } from "../contexts/UserContext";
 
 function useFetchOperationTeamJob(params) {
   const [data, setData] = useState(null);
-  const navigate = useNavigate();
   const location = useLocation();
   const { setCurrentTab, currentTab } = useContext(TabContext);
   const { user } = useContext(UserContext); // Access user from context
@@ -76,6 +75,29 @@ function useFetchOperationTeamJob(params) {
 
     onSubmit: async (values) => {
       try {
+        // CRITICAL SECURITY CHECK: Validate container_nos match the current job
+        // This prevents accidental submission of a previous job's container data
+        if (data && values.container_nos && values.container_nos.length > 0) {
+          const hasValidContainers = values.container_nos.some(
+            (container) => data.container_nos?.some(
+              (dbContainer) => dbContainer.container_number === container.container_number
+            )
+          );
+          
+          if (!hasValidContainers && data.container_nos?.length > 0) {
+            // Data mismatch: submitted containers don't match current job's containers
+            console.error('SECURITY ALERT: Container data mismatch detected!', {
+              submittedContainers: values.container_nos.map(c => c.container_number),
+              jobContainers: data.container_nos.map(c => c.container_number),
+              jobNo: params.job_no,
+              year: params.year
+            });
+            throw new Error(
+              'Data validation failed: Submitted container data does not match current job. Please refresh and try again.'
+            );
+          }
+        }
+
         // Get user info from context or localStorage fallback
         const username = user?.username || localStorage.getItem('username') || 'unknown';
         const userId = user?._id || localStorage.getItem('userId') || 'unknown';

@@ -27,6 +27,7 @@ import BLNumberCell from "../../utils/BLNumberCell";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 
 function DoCompleted() {
   const [selectedICD, setSelectedICD] = useState("");
@@ -923,6 +924,7 @@ function DoCompleted() {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
       // onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
       // style: { cursor: "pointer" }, // Change cursor to pointer on hover
     }),

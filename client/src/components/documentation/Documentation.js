@@ -16,7 +16,6 @@ import {
   Autocomplete,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
@@ -395,9 +394,7 @@ function Documentation() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    // muiTableBodyRowProps: ({ row }) => ({
-    //   className: getTableRowsClassname(row),
-    // }),
+
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

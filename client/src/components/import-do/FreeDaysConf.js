@@ -4,7 +4,7 @@ import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
 import BLNumberCell from "../../utils/BLNumberCell";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import {
   IconButton,
   TextField,
@@ -580,7 +580,8 @@ const FreeDaysConf = () => {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
     muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
+  className: getTableRowsClassname(row),
+  style: getTableRowInlineStyle(row),
     }),
     muiTableHeadCellProps: {
       sx: {

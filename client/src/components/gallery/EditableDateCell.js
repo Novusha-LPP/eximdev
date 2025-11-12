@@ -180,10 +180,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         'user-role': user.role || 'unknown'
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+      const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+      const returnedJob = res?.data?.data || res?.data?.job || null;
 
       if (typeof onRowDataUpdate === "function") {
-        onRowDataUpdate(_id, updateData);
+        if (returnedJob) {
+          onRowDataUpdate(_id, returnedJob);
+          // Update local status from authoritative server response
+          setLocalStatus(returnedJob.detailed_status);
+          setContainers(returnedJob.container_nos || []);
+        } else {
+          onRowDataUpdate(_id, updateData);
+        }
       }
 
       setIgstModalOpen(false);
@@ -243,30 +251,25 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       newStatus = "Estimated Time of Arrival";
     }
 
-    if (newStatus && newStatus !== localStatus) {
-      cell.row.original.detailed_status = newStatus;
-
-      try {
-        const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-        const headers = {
-          'Content-Type': 'application/json',
-          'user-id': user.username || 'unknown',
-          'username': user.username || 'unknown',
-          'user-role': user.role || 'unknown'
-        };
-
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          detailed_status: newStatus,
-        }, { headers });
+    // CLIENT-SIDE: update local status for immediate UI feedback.
+    // The server will recompute and persist authoritative detailed_status on the primary PATCH
+    // and return the full job. We merge that response elsewhere. This local update avoids
+    // a second network PATCH and prevents race conditions.
+    try {
+      if (newStatus && newStatus !== localStatus) {
+        cell.row.original.detailed_status = newStatus;
         setLocalStatus(newStatus);
-        
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { detailed_status: newStatus });
         }
-      } catch (err) {
-        console.error("Error updating status:", err);
-        cell.row.original.detailed_status = localStatus;
+      } else if (!newStatus && localStatus) {
+        // Keep existing local status
+        if (typeof onRowDataUpdate === "function") {
+          onRowDataUpdate(_id, { detailed_status: localStatus });
+        }
       }
+    } catch (err) {
+      console.error("Error updating local status:", err);
     }
   }, [
     dates,
@@ -280,17 +283,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     cell
   ]);
 
-  useEffect(() => {
-    updateDetailedStatus();
-  }, [
-    dates.vessel_berthing,
-    dates.gateway_igm_date,
-    dates.discharge_date,
-    dates.out_of_charge,
-    dates.assessment_date,
-    containers,
-    updateDetailedStatus,
-  ]);
+  // REMOVED: No longer auto-calculate detailed_status on load/every render
+  // Now only called explicitly after user edits a field
+  // This prevents unnecessary recalculations for all jobs when table loads
 
   const formatDate = (date) => {
     return safeFormatDate(date);
@@ -315,6 +310,23 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       .filter(Boolean)
       .sort();
     return validDetentionDates[0];
+  };
+
+  // NEW: Build a diff payload that only sets changed container array items using MongoDB dot-notation
+  const buildContainerUpdatePayload = (updatedContainers, oldContainers) => {
+    const updateData = {};
+    (updatedContainers || []).forEach((c, idx) => {
+      const old = (oldContainers || [])[idx] || {};
+      try {
+        if (JSON.stringify(c) !== JSON.stringify(old)) {
+          updateData[`container_nos.${idx}`] = c;
+        }
+      } catch (e) {
+        // fallback: if stringify fails, always set
+        updateData[`container_nos.${idx}`] = c;
+      }
+    });
+    return updateData;
   };
 
   const isArrivalDateDisabled = useCallback((containerIndex) => {
@@ -416,23 +428,53 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           'user-role': user.role || 'unknown'
         };
 
-        const earliestDetention = getEarliestDetention(updatedContainers);
-        const adjustedValidity = adjustValidityDate(earliestDetention);
+          const earliestDetention = getEarliestDetention(updatedContainers);
+          const adjustedValidity = adjustValidityDate(earliestDetention);
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          container_nos: updatedContainers,
-          do_validity_upto_job_level: adjustedValidity,
-        }, { headers });
-        
-        if (typeof onRowDataUpdate === "function") {
-          onRowDataUpdate(_id, {
-            container_nos: updatedContainers,
-            do_validity_upto_job_level: adjustedValidity,
-          });
-        }
-        
-        setEditable(null);
-        updateDetailedStatus();
+          // Only send changed container items to avoid overwriting whole arrays
+          const payload = buildContainerUpdatePayload(updatedContainers, oldContainers);
+          if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
+
+          // If no per-item changes detected, still send job-level validity update if present
+            if (Object.keys(payload).length === 0 && adjustedValidity) {
+              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+                do_validity_upto_job_level: adjustedValidity,
+              }, { headers });
+              const returnedJob = res?.data?.data || res?.data?.job || null;
+
+              if (typeof onRowDataUpdate === "function") {
+                if (returnedJob) {
+                  onRowDataUpdate(_id, returnedJob);
+                  setLocalStatus(returnedJob.detailed_status);
+                  setContainers(returnedJob.container_nos || []);
+                  setDates(prev => ({ ...prev, do_validity_upto_job_level: returnedJob.do_validity_upto_job_level }));
+                } else {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              }
+            } else if (Object.keys(payload).length > 0) {
+              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+              const returnedJob = res?.data?.data || res?.data?.job || null;
+
+              if (typeof onRowDataUpdate === "function") {
+                if (returnedJob) {
+                  onRowDataUpdate(_id, returnedJob);
+                  setLocalStatus(returnedJob.detailed_status);
+                  setContainers(returnedJob.container_nos || []);
+                  setDates(prev => ({ ...prev, do_validity_upto_job_level: returnedJob.do_validity_upto_job_level }));
+                } else {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              }
+            }
+
+          setEditable(null);
       } catch (err) {
         console.error("Error Updating Container:", err);
         setContainers(oldContainers);
@@ -451,16 +493,26 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           'user-role': user.role || 'unknown'
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+        const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
           [field]: finalValue || null,
         }, { headers });
-        
+
+        const returnedJob = res?.data?.data || res?.data?.job || null;
         if (typeof onRowDataUpdate === "function") {
-          onRowDataUpdate(_id, { [field]: finalValue || null });
+          if (returnedJob) {
+            onRowDataUpdate(_id, returnedJob);
+            setLocalStatus(returnedJob.detailed_status);
+            setDates(prev => ({
+              ...prev,
+              [field]: returnedJob[field] !== undefined ? returnedJob[field] : finalValue || null,
+            }));
+            setContainers(returnedJob.container_nos || []);
+          } else {
+            onRowDataUpdate(_id, { [field]: finalValue || null });
+          }
         }
-        
+
         setEditable(null);
-        updateDetailedStatus();
       } catch (err) {
         console.error(`Error Updating ${field}:`, err);
         setDates(oldDates);
@@ -505,16 +557,41 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             'user-role': user.role || 'unknown'
           };
 
-          await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-            container_nos: updatedContainers,
-            do_validity_upto_job_level: adjustedValidity,
-          }, { headers });
+          const payload = buildContainerUpdatePayload(updatedContainers, containers);
+          if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
 
-          if (typeof onRowDataUpdate === "function") {
-            onRowDataUpdate(_id, {
-              container_nos: updatedContainers,
-              do_validity_upto_job_level: adjustedValidity,
-            });
+          if (Object.keys(payload).length === 0 && adjustedValidity) {
+              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+                do_validity_upto_job_level: adjustedValidity,
+              }, { headers });
+              const returnedJob = res?.data?.data || res?.data?.job || null;
+              if (typeof onRowDataUpdate === "function") {
+                if (returnedJob) {
+                  onRowDataUpdate(_id, returnedJob);
+                  setLocalStatus(returnedJob.detailed_status);
+                  setContainers(returnedJob.container_nos || []);
+                } else {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              }
+            } else if (Object.keys(payload).length > 0) {
+              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+              const returnedJob = res?.data?.data || res?.data?.job || null;
+              if (typeof onRowDataUpdate === "function") {
+                if (returnedJob) {
+                  onRowDataUpdate(_id, returnedJob);
+                  setLocalStatus(returnedJob.detailed_status);
+                  setContainers(returnedJob.container_nos || []);
+                } else {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              }
           }
         } catch (err) {
           console.error("Error updating detention dates:", err);
@@ -566,16 +643,41 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               'user-role': user.role || 'unknown'
             };
 
-            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-              container_nos: updatedContainers,
-              do_validity_upto_job_level: adjustedValidity,
-            }, { headers });
+            const payload = buildContainerUpdatePayload(updatedContainers, containers);
+            if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
 
-            if (typeof onRowDataUpdate === "function") {
-              onRowDataUpdate(_id, {
-                container_nos: updatedContainers,
+            if (Object.keys(payload).length === 0 && adjustedValidity) {
+              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
                 do_validity_upto_job_level: adjustedValidity,
-              });
+              }, { headers });
+              const returnedJob = res?.data?.data || res?.data?.job || null;
+              if (typeof onRowDataUpdate === "function") {
+                if (returnedJob) {
+                  onRowDataUpdate(_id, returnedJob);
+                  setLocalStatus(returnedJob.detailed_status);
+                  setContainers(returnedJob.container_nos || []);
+                } else {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              }
+            } else if (Object.keys(payload).length > 0) {
+              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+              const returnedJob = res?.data?.data || res?.data?.job || null;
+              if (typeof onRowDataUpdate === "function") {
+                if (returnedJob) {
+                  onRowDataUpdate(_id, returnedJob);
+                  setLocalStatus(returnedJob.detailed_status);
+                  setContainers(returnedJob.container_nos || []);
+                } else {
+                  onRowDataUpdate(_id, {
+                    container_nos: updatedContainers,
+                    do_validity_upto_job_level: adjustedValidity,
+                  });
+                }
+              }
             }
           } catch (err) {
             console.error("Error updating detention dates:", err);
@@ -604,13 +706,22 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       'user-role': user.role || 'unknown'
     };
 
-    axios
-      .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        free_time: value,
-      }, { headers })
-      .then(() => {
+    (async () => {
+      try {
+        const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          free_time: value,
+        }, { headers });
+
+        const returnedJob = res?.data?.data || res?.data?.job || null;
+
         if (typeof onRowDataUpdate === "function") {
-          onRowDataUpdate(_id, { free_time: value });
+          if (returnedJob) {
+            onRowDataUpdate(_id, returnedJob);
+            setLocalStatus(returnedJob.detailed_status);
+            setContainers(returnedJob.container_nos || []);
+          } else {
+            onRowDataUpdate(_id, { free_time: value });
+          }
         }
 
         const updatedContainers = containers.map((container) => {
@@ -618,7 +729,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           if (updatedContainer.arrival_date) {
             const freeDays = parseInt(value, 10) || 0;
             const detentionDate = addDaysToDate(updatedContainer.arrival_date, freeDays);
-            
+
             if (detentionDate) {
               updatedContainer.detention_from = detentionDate;
             }
@@ -632,23 +743,37 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           const earliestDetention = getEarliestDetention(updatedContainers);
           const adjustedValidity = adjustValidityDate(earliestDetention);
 
-          axios
-            .patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-              container_nos: updatedContainers,
-              do_validity_upto_job_level: adjustedValidity,
-            }, { headers })
-            .then(() => {
-              if (typeof onRowDataUpdate === "function") {
-                onRowDataUpdate(_id, {
-                  container_nos: updatedContainers,
-                  do_validity_upto_job_level: adjustedValidity,
-                });
+          const payload = buildContainerUpdatePayload(updatedContainers, containers);
+          if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
+
+          try {
+            if (Object.keys(payload).length === 0 && adjustedValidity) {
+              const r2 = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+                do_validity_upto_job_level: adjustedValidity,
+              }, { headers });
+              const returnedJob2 = r2?.data?.data || r2?.data?.job || null;
+              if (typeof onRowDataUpdate === "function" && returnedJob2) {
+                onRowDataUpdate(_id, returnedJob2);
+                setLocalStatus(returnedJob2.detailed_status);
+                setContainers(returnedJob2.container_nos || []);
               }
-            })
-            .catch((err) => console.error("Error Updating Containers:", err));
+            } else if (Object.keys(payload).length > 0) {
+              const r2 = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+              const returnedJob2 = r2?.data?.data || r2?.data?.job || null;
+              if (typeof onRowDataUpdate === "function" && returnedJob2) {
+                onRowDataUpdate(_id, returnedJob2);
+                setLocalStatus(returnedJob2.detailed_status);
+                setContainers(returnedJob2.container_nos || []);
+              }
+            }
+          } catch (err) {
+            console.error("Error Updating Containers:", err);
+          }
         }
-      })
-      .catch((err) => console.error("Error Updating Free Time:", err));
+      } catch (err) {
+        console.error("Error Updating Free Time:", err);
+      }
+    })();
   };
 
   const isIgstFieldsAvailable = assessable_ammount && igst_ammount;

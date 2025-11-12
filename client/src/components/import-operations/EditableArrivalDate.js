@@ -75,10 +75,12 @@ const EditableArrivalDate = ({ cell }) => {
         'user-role': user.role || 'unknown'
       };
 
-      // Update database
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        container_nos: updatedContainers,
-      }, { headers });
+      // SECURITY FIX: Send only the specific container index being cleared, not entire array
+      // This prevents cross-job contamination if row data gets mixed up
+      const update = {};
+      update[`container_nos.${0}`] = updatedContainers[0];
+      
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, update, { headers });
       
       // Update the original cell data to prevent state resets
       cell.row.original.container_nos = updatedContainers;
@@ -144,10 +146,12 @@ const EditableArrivalDate = ({ cell }) => {
         'user-role': user.role || 'unknown'
       };
 
-      // Update database
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-        container_nos: updatedContainers,
-      }, { headers });
+      // SECURITY FIX: Send only the specific container index being updated, not entire array
+      // This prevents cross-job contamination if row data gets mixed up
+      const update = {};
+      update[`container_nos.${index}`] = updatedContainers[index];
+      
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, update, { headers });
       
       // Update the original cell data to prevent state resets
       cell.row.original.container_nos = updatedContainers;

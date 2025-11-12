@@ -47,6 +47,71 @@ const statusRank = {
   "Estimated Time of Arrival": { rank: 10, field: "vessel_berthing" },
 };
 
+const FAR_FUTURE_DATE = new Date("9999-12-31T23:59:59.999Z");
+
+const buildDateFromField = (fieldPath) => ({
+  $dateFromString: {
+    dateString: fieldPath,
+    onError: null,
+    onNull: null,
+  },
+});
+
+const buildValidDateExpression = (fieldPath) => ({
+  $ne: [
+    {
+      $dateFromString: {
+        dateString: fieldPath,
+        onError: null,
+        onNull: null,
+      },
+    },
+    null,
+  ],
+});
+
+const buildAnyContainerDateExists = (field) => ({
+  $anyElementTrue: {
+    $map: {
+      input: { $ifNull: ["$container_nos", []] },
+      as: "container",
+      in: {
+        $ne: [
+          {
+            $dateFromString: {
+              dateString: `$$container.${field}`,
+              onError: null,
+              onNull: null,
+            },
+          },
+          null,
+        ],
+      },
+    },
+  },
+});
+
+const buildAllContainerDateExists = (field) => ({
+  $allElementsTrue: {
+    $map: {
+      input: { $ifNull: ["$container_nos", []] },
+      as: "container",
+      in: {
+        $ne: [
+          {
+            $dateFromString: {
+              dateString: `$$container.${field}`,
+              onError: null,
+              onNull: null,
+            },
+          },
+          null,
+        ],
+      },
+    },
+  },
+});
+
 // Helper to safely parse dates
 const parseDate = (dateStr) => {
   const date = new Date(dateStr);
@@ -257,9 +322,10 @@ router.get(
         custom_clearance_completed: "Custom Clearance Completed",
       };
 
-      if (detailedStatus !== "all") {
-        query.detailed_status = statusMapping[detailedStatus] || detailedStatus;
-      }
+      const requestedDetailedStatus =
+        detailedStatus !== "all"
+          ? statusMapping[detailedStatus] || detailedStatus
+          : null;
 
       // Add search filter if provided
       if (searchTerm) {
@@ -318,6 +384,199 @@ if (unresolvedOnly === "true") {
 
       const dataPipeline = [];
 
+      // Pre-compute rank and date fields used for sorting (and text score if applicable)
+      const statusRankEntries = Object.entries(statusRank);
+
+      const effectiveDetailedStatusExpression = {
+        $let: {
+          vars: {
+            bePresent: {
+              $gt: [{ $strLenCP: { $ifNull: ["$be_no", ""] } }, 0],
+            },
+            anyArrival: buildAnyContainerDateExists("arrival_date"),
+            anyRailOut: buildAnyContainerDateExists("container_rail_out_date"),
+            allDelivery: buildAllContainerDateExists("delivery_date"),
+            allEmptyOffload:
+              buildAllContainerDateExists("emptyContainerOffLoadDate"),
+            validOutOfCharge: buildValidDateExpression("$out_of_charge"),
+            validPcv: buildValidDateExpression("$pcv_date"),
+            validDischarge: buildValidDateExpression("$discharge_date"),
+            validGateway: buildValidDateExpression("$gateway_igm_date"),
+            validVessel: buildValidDateExpression("$vessel_berthing"),
+            isExBond: {
+              $eq: [
+                {
+                  $toLower: { $ifNull: ["$type_of_b_e", ""] },
+                },
+                "ex-bond",
+              ],
+            },
+            isLcl: {
+              $eq: [
+                {
+                  $toLower: { $ifNull: ["$consignment_type", ""] },
+                },
+                "lcl",
+              ],
+            },
+          },
+          in: {
+            $let: {
+              vars: {
+                deliveryOrOffloadSatisfied: {
+                  $cond: [
+                    { $or: ["$$isExBond", "$$isLcl"] },
+                    "$$allDelivery",
+                    "$$allEmptyOffload",
+                  ],
+                },
+              },
+              in: {
+                $switch: {
+                  branches: [
+                    {
+                      case: {
+                        $and: [
+                          "$$bePresent",
+                          "$$anyArrival",
+                          "$$validOutOfCharge",
+                          "$$deliveryOrOffloadSatisfied",
+                        ],
+                      },
+                      then: "Billing Pending",
+                    },
+                    {
+                      case: {
+                        $and: [
+                          "$$bePresent",
+                          "$$anyArrival",
+                          "$$validOutOfCharge",
+                        ],
+                      },
+                      then: "Custom Clearance Completed",
+                    },
+                    {
+                      case: {
+                        $and: [
+                          "$$bePresent",
+                          "$$anyArrival",
+                          "$$validPcv",
+                        ],
+                      },
+                      then: "PCV Done, Duty Payment Pending",
+                    },
+                    {
+                      case: {
+                        $and: ["$$bePresent", "$$anyArrival"],
+                      },
+                      then: "BE Noted, Clearance Pending",
+                    },
+                    {
+                      case: {
+                        $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
+                      },
+                      then: "Arrived, BE Note Pending",
+                    },
+                    {
+                      case: "$$bePresent",
+                      then: "BE Noted, Arrival Pending",
+                    },
+                    {
+                      case: "$$anyRailOut",
+                      then: "Rail Out",
+                    },
+                    {
+                      case: "$$validDischarge",
+                      then: "Discharged",
+                    },
+                    {
+                      case: "$$validGateway",
+                      then: "Gateway IGM Filed",
+                    },
+                    {
+                      case: "$$validVessel",
+                      then: "Estimated Time of Arrival",
+                    },
+                  ],
+                  default: "ETA Date Pending",
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const statusRankBranches = statusRankEntries.map(([status, { rank }]) => ({
+        case: { $eq: ["$__effective_detailed_status", status] },
+        then: rank,
+      }));
+
+      const statusDateBranches = statusRankEntries.map(([status, { field }]) => ({
+        case: { $eq: ["$__effective_detailed_status", status] },
+        then: {
+          $ifNull: [
+            buildDateFromField(`$container_nos.0.${field}`),
+            buildDateFromField(`$${field}`),
+          ],
+        },
+      }));
+
+      const defaultDateExpression = {
+        $ifNull: [
+          buildDateFromField("$container_nos.0.detention_from"),
+          buildDateFromField("$detention_from"),
+        ],
+      };
+
+      const firstAddFields = {
+        __effective_detailed_status: effectiveDetailedStatusExpression,
+      };
+
+      if (canUseTextSearch) {
+        firstAddFields.score = { $meta: "textScore" };
+      }
+
+      const baseAddFields = {
+        __status_rank: {
+          $switch: {
+            branches: statusRankBranches,
+            default: 999,
+          },
+        },
+        __status_sort_date: {
+          $ifNull: [
+            {
+              $switch: {
+                branches: statusDateBranches,
+                default: defaultDateExpression,
+              },
+            },
+            FAR_FUTURE_DATE,
+          ],
+        },
+        __lcl_priority: {
+          $cond: [
+            {
+              $and: [
+                { $eq: ["$__effective_detailed_status", "Billing Pending"] },
+                {
+                  $eq: [
+                    {
+                      $toLower: {
+                        $ifNull: ["$consignment_type", ""],
+                      },
+                    },
+                    "lcl",
+                  ],
+                },
+              ],
+            },
+            0,
+            1,
+          ],
+        },
+      };
+
       // If text search is allowed use $text and include score
       if (canUseTextSearch) {
         // Use $text search – add $text into match stage
@@ -328,13 +587,38 @@ if (unresolvedOnly === "true") {
 
         // Replace matchStage with textMatch
         matchStage.$match = textMatch;
+      }
 
-        // Add score field and sort by it
-        dataPipeline.push({ $addFields: { score: { $meta: "textScore" } } });
-        dataPipeline.push({ $sort: { score: { $meta: "textScore" } } });
+      dataPipeline.push({ $addFields: firstAddFields });
+      if (requestedDetailedStatus) {
+        dataPipeline.push({
+          $match: { __effective_detailed_status: requestedDetailedStatus },
+        });
+      }
+      dataPipeline.push({ $addFields: baseAddFields });
+      dataPipeline.push({ $addFields: { detailed_status: "$__effective_detailed_status" } });
+
+      if (canUseTextSearch) {
+        dataPipeline.push({
+          $sort: {
+            score: { $meta: "textScore" },
+            __lcl_priority: 1,
+            __status_rank: 1,
+            __status_sort_date: 1,
+            detailed_status: 1,
+            _id: 1,
+          },
+        });
       } else {
-        // Default sort: by detailed_status then detention date (as before)
-        dataPipeline.push({ $sort: { detailed_status: 1, "container_nos.0.detention_from": 1 } });
+        dataPipeline.push({
+          $sort: {
+            __lcl_priority: 1,
+            __status_rank: 1,
+            __status_sort_date: 1,
+            detailed_status: 1,
+            _id: 1,
+          },
+        });
       }
 
       // Projection to limit fields
@@ -342,18 +626,23 @@ if (unresolvedOnly === "true") {
         dataPipeline.push({ $project: projection });
       }
 
-      // Pagination
-      dataPipeline.push({ $skip: parseInt(skip) });
-      dataPipeline.push({ $limit: parseInt(limit) });
+      const basePipeline = [...dataPipeline];
+      const pagedPipeline = [
+        ...basePipeline,
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
+      ];
+      const metadataPipeline = [...basePipeline, { $count: "total" }];
 
-      const facet = {
-        $facet: {
-          metadata: [{ $count: "total" }],
-          data: dataPipeline,
+      const pipeline = [
+        matchStage,
+        {
+          $facet: {
+            metadata: metadataPipeline,
+            data: pagedPipeline,
+          },
         },
-      };
-
-      const pipeline = [matchStage, facet];
+      ];
 
       // Execute aggregation
       const aggResult = await JobModel.aggregate(pipeline).allowDiskUse(true).exec();

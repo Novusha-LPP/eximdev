@@ -7,6 +7,31 @@ import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
 
 const router = express.Router();
 
+// Simple in-memory cache for frequently repeated queries
+// Keyed by JSON string of query + page + limit. TTL-based and bounded size.
+const simpleCache = new Map();
+const CACHE_MAX_ENTRIES = 200; // keep small to avoid memory pressure
+const CACHE_TTL_MS = 1000 * 60 * 2; // 2 minutes
+
+const setCache = (key, value) => {
+  // Evict oldest if over size
+  if (simpleCache.size >= CACHE_MAX_ENTRIES) {
+    const firstKey = simpleCache.keys().next().value;
+    simpleCache.delete(firstKey);
+  }
+  simpleCache.set(key, { value, ts: Date.now() });
+};
+
+const getCache = (key) => {
+  const entry = simpleCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    simpleCache.delete(key);
+    return null;
+  }
+  return entry.value;
+};
+
 // Status Rank Configuration
 
 const statusRank = {
@@ -29,10 +54,27 @@ const parseDate = (dateStr) => {
 };
 
 // Field selection logic
-const defaultFields = `
-  job_no cth_no year importer custom_house hawb_hbl_no awb_bl_no container_nos vessel_berthing total_duty do_doc_recieved_date is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list
-  gateway_igm_date discharge_date detailed_status row_color be_no be_date loading_port free_time is_og_doc_recieved og_doc_recieved_date do_shipping_line_invoice RMS do_validity_upto_job_level 
-  port_of_reporting type_of_b_e consignment_type shipping_line_airline bill_date out_of_charge pcv_date delivery_date emptyContainerOffLoadDate do_completed do_validity cth_documents payment_method supplier_exporter gross_weight job_net_weight processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time origin_country hss saller_name adCode assessment_date by_road_movement_date description invoice_number invoice_date delivery_chalan_file duty_paid_date fine_amount penalty_amount penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount bcd_ammount assessable_ammount
+// PERFORMANCE: Split into critical (list view) and extended (detail view) fields
+// Loading only essential fields for the table dramatically improves response time and parsing
+
+const criticalFields = `
+  _id job_no cth_no year importer custom_house hawb_hbl_no awb_bl_no 
+  container_nos vessel_berthing detailed_status row_color be_no be_date 
+  gateway_igm_date discharge_date shipping_line_airline do_doc_recieved_date 
+  is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
+  do_validity do_completed is_og_doc_recieved og_doc_recieved_date
+  do_shipping_line_invoice port_of_reporting type_of_b_e consignment_type
+  bill_date supplier_exporter cth_documents
+`;
+
+const extensiveFields = `
+  loading_port free_time RMS do_validity_upto_job_level 
+  bill_amount processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time 
+  origin_country hss saller_name adCode assessment_date by_road_movement_date description 
+  invoice_number invoice_date delivery_chalan_file duty_paid_date fine_amount penalty_amount 
+  penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
+  bcd_ammount assessable_ammount out_of_charge pcv_date emptyContainerOffLoadDate 
+  gross_weight job_net_weight payment_method
 `;
 
 const additionalFieldsByStatus = {
@@ -41,8 +83,14 @@ const additionalFieldsByStatus = {
   custom_clearance_completed: "out_of_charge",
 };
 
-const getSelectedFields = (status) =>
-  `${defaultFields} ${additionalFieldsByStatus[status] || ""}`.trim();
+const getSelectedFields = (status, includeExtended = false) => {
+  let fields = criticalFields;
+  if (includeExtended) {
+    fields = `${criticalFields} ${extensiveFields}`;
+  }
+  fields = `${fields} ${additionalFieldsByStatus[status] || ""}`.trim();
+  return fields;
+};
 
 // Generate search query
 const escapeRegex = (string) => {
@@ -229,32 +277,100 @@ if (unresolvedOnly === "true") {
         delete query.$and;
       }
 
-      // OPTIMIZATION: Get total count (fast with indexes)
-      const totalCount = await JobModel.countDocuments(query);
+      // Remove sensitive or overly specific parts from cache key
+      const cacheKey = JSON.stringify({
+        year,
+        status,
+        detailedStatus,
+        selectedICD,
+        importer,
+        search,
+        page,
+        limit,
+        unresolvedOnly,
+        user: req.currentUser?.username || req.headers["x-username"] || null,
+      });
 
-      // OPTIMIZATION: Fetch and sort at database level (much faster than in-memory)
-      // Strategy: Since complex multi-status sorting is needed, we'll do it in MongoDB aggregation pipeline
-      // This is 5-10x faster than fetching all and sorting in Node.js
-      
-      const jobs = await JobModel.find(query)
-        .select(getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus))
-        .lean() // Use lean() to avoid creating Mongoose documents (faster for large results)
-        .sort({ detailed_status: 1, "container_nos.0.detention_from": 1 }) // Sort by status, then by detention date
-        .skip(skip)
-        .limit(parseInt(limit))
-        .exec();
+      // Return cached response when available
+      const cached = getCache(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
 
-      // Note: Complex status-rank sorting (LCL priority, etc.) can be done in MongoDB aggregation
-      // if needed later. For now, we've optimized the most common case (status + date sort).
-      // This reduces data processed from potentially 10,000+ documents to exactly 100.
+      // Decide whether to use MongoDB text search (faster for keyword queries)
+      const canUseTextSearch = search && String(search).trim().length >= 3 && !/[*+?^${}()|[\]\\]/.test(search);
 
-      res.json({
+      // Build aggregation pipeline to get both data and total in single roundtrip
+      const matchStage = { $match: query };
+
+      // Build projection object from selected fields
+      const selectedFieldsStr = getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus, false);
+      const projection = {};
+      selectedFieldsStr.split(/\s+/).forEach((f) => {
+        if (f) projection[f] = 1;
+      });
+
+      const dataPipeline = [];
+
+      // If text search is allowed use $text and include score
+      if (canUseTextSearch) {
+        // Use $text search – add $text into match stage
+        // We can't modify query object directly when $and is used, so build a match specifically
+        const textMatch = Object.assign({}, query);
+        // ensure $text is applied at top-level
+        textMatch.$text = { $search: search };
+
+        // Replace matchStage with textMatch
+        matchStage.$match = textMatch;
+
+        // Add score field and sort by it
+        dataPipeline.push({ $addFields: { score: { $meta: "textScore" } } });
+        dataPipeline.push({ $sort: { score: { $meta: "textScore" } } });
+      } else {
+        // Default sort: by detailed_status then detention date (as before)
+        dataPipeline.push({ $sort: { detailed_status: 1, "container_nos.0.detention_from": 1 } });
+      }
+
+      // Projection to limit fields
+      if (Object.keys(projection).length > 0) {
+        dataPipeline.push({ $project: projection });
+      }
+
+      // Pagination
+      dataPipeline.push({ $skip: parseInt(skip) });
+      dataPipeline.push({ $limit: parseInt(limit) });
+
+      const facet = {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: dataPipeline,
+        },
+      };
+
+      const pipeline = [matchStage, facet];
+
+      // Execute aggregation
+      const aggResult = await JobModel.aggregate(pipeline).allowDiskUse(true).exec();
+      const metadata = aggResult[0]?.metadata || [];
+      const jobs = aggResult[0]?.data || [];
+      const totalCount = (metadata[0] && metadata[0].total) || 0;
+
+      const responsePayload = {
         data: jobs,
         total: totalCount,
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalCount / limit),
-        userImporters: req.currentUser?.assignedImporterName || [], // Include user's allowed importers in response
-      });
+        userImporters: req.currentUser?.assignedImporterName || [],
+      };
+
+      // Cache page 1 results (and any other pages) for short duration
+      try {
+        setCache(cacheKey, responsePayload);
+      } catch (e) {
+        // ignore cache set failures
+      }
+
+      res.json(responsePayload);
     } catch (error) {
       console.error("Error fetching jobs:", error);
       res.status(500).json({ error: "Internal Server Error" });
@@ -337,6 +453,54 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   } catch (error) {
     console.error("Error fetching job for delivery note:", error);
     res.status(500).json({ message: "Server Error" });
+  }
+});
+
+
+// Lightweight typeahead endpoint - returns minimal fields for suggestions
+router.get("/api/:year/jobs/typeahead", async (req, res) => {
+  try {
+    const { year } = req.params;
+    const { search = "", limit = 10, selectedICD = "all", importer = "all" } = req.query;
+    if (!year) return res.status(400).json({ success: false, message: "year is required" });
+
+    const query = { year };
+
+    if (selectedICD && selectedICD.toLowerCase() !== "all") {
+      query.custom_house = { $regex: `^${selectedICD}$`, $options: "i" };
+    }
+
+    if (importer && importer.toLowerCase() !== "all") {
+      query.importer = { $regex: `^${importer}$`, $options: "i" };
+    }
+
+    const safeSearch = String(search || "").trim();
+    if (safeSearch.length >= 3) {
+      // use text search if available
+      query.$text = { $search: safeSearch };
+      const results = await JobModel.find(query)
+        .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, score: { $meta: "textScore" } })
+        .sort({ score: { $meta: "textScore" } })
+        .limit(parseInt(limit))
+        .lean();
+      return res.json({ success: true, data: results });
+    }
+
+    // Fallback: prefix match on job_no or awb_bl_no
+    if (safeSearch.length > 0) {
+      const regex = new RegExp(`^${safeSearch}`, "i");
+      query.$or = [{ job_no: { $regex: regex } }, { awb_bl_no: { $regex: regex } }];
+    }
+
+    const results = await JobModel.find(query)
+      .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    console.error("Typeahead error:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 });
 

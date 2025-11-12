@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { UserContext } from "../contexts/UserContext";
 
@@ -19,10 +19,67 @@ function useFetchJobList(
   const [userImporters, setUserImporters] = useState([]);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
+  
+  // PERFORMANCE: AbortController to cancel previous requests
+  // Prevents wasted API calls and stale data when user rapidly changes filters
+  const abortControllerRef = useRef(null);
+  
+  // Simple client-side cache for recent queries
+  const queryCacheRef = useRef(new Map());
+  const CACHE_MAX = 100; // max entries
+  const CACHE_TTL = 1000 * 60 * 2; // 2 minutes
+
+  const makeCacheKey = (page) =>
+    `${selectedYearState}|${status}|${detailedStatus}|${selectedICD}|${selectedImporter || 'all'}|${searchQuery}|${page}`;
+
+  const getFromCache = (key) => {
+    const e = queryCacheRef.current.get(key);
+    if (!e) return null;
+    if (Date.now() - e.ts > CACHE_TTL) {
+      queryCacheRef.current.delete(key);
+      return null;
+    }
+    return e.val;
+  };
+
+  const setToCache = (key, val) => {
+    try {
+      if (queryCacheRef.current.size >= CACHE_MAX) {
+        const firstKey = queryCacheRef.current.keys().next().value;
+        queryCacheRef.current.delete(firstKey);
+      }
+      queryCacheRef.current.set(key, { val, ts: Date.now() });
+    } catch (err) {
+      // ignore cache errors
+      console.warn('Cache set failed', err);
+    }
+  };
 
   // Accept unresolvedOnly as an argument to fetchJobs
   const fetchJobs = async (page, unresolved = unresolvedOnly) => {
     setLoading(true);
+    const cacheKey = makeCacheKey(page);
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      // Use cached results immediately
+      setRows(cached.data);
+      setTotal(cached.total);
+      setTotalPages(cached.totalPages);
+      setCurrentPage(cached.currentPage);
+      setLoading(false);
+      return;
+    }
+    
+    // PERFORMANCE: Cancel previous pending request if still in progress
+    // This prevents wasted network traffic when user changes filters rapidly
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    
     try {
       // Validate if user can access the selected importer
       if (user && user.role !== "Admin" && selectedImporter && selectedImporter.toLowerCase() !== "select importer") {
@@ -58,17 +115,31 @@ function useFetchJobList(
         apiUrl += `&unresolvedOnly=true`;
       }
 
+      const start = performance.now();
       const response = await axios.get(apiUrl, {
         headers: {
           ...(user?.username ? { "x-username": user.username } : {}),
         },
+        signal: signal, // Pass abort signal to cancel request if needed
       });
+      const duration = Math.round(performance.now() - start);
+      // Optionally log timing for monitoring in dev
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug(`[PERF] fetchJobs ${cacheKey} took ${duration}ms`);
+      }
 
       const { data, total, totalPages, currentPage, userImporters: responseUserImporters } = response.data;
       setRows(data);
       setTotal(total);
       setTotalPages(totalPages);
       setCurrentPage(currentPage);
+
+      // Cache page 1 responses for quick repeated access
+      try {
+        setToCache(cacheKey, { data, total, totalPages, currentPage });
+      } catch (e) {
+        // ignore
+      }
       
       // If this is the Pending status, update unresolved count from the total when unresolvedOnly is true
       if (status === "Pending" && unresolved) {
@@ -80,11 +151,15 @@ function useFetchJobList(
         setUserImporters(responseUserImporters);
       }
     } catch (error) {
-      console.error("Error fetching job list:", error);
-      if (error.response?.status === 404) {
-        console.error("User not found");
-      } else if (error.response?.status === 403) {
-        console.error("Access denied");
+      // PERFORMANCE: Only log errors if request was not aborted
+      // Aborted requests are normal when user changes filters rapidly
+      if (error.code !== 'ECONNABORTED' && signal.aborted !== true) {
+        console.error("Error fetching job list:", error);
+        if (error.response?.status === 404) {
+          console.error("User not found");
+        } else if (error.response?.status === 403) {
+          console.error("Access denied");
+        }
       }
     } finally {
       setLoading(false);

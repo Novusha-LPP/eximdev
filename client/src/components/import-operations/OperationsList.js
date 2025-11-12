@@ -18,7 +18,7 @@ import { UserContext } from "../../contexts/UserContext";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import JobStickerPDF from "../import-dsr/JobStickerPDF";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
@@ -552,6 +552,7 @@ function OperationsList() {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
     }),
     muiTableHeadCellProps: {
       sx: {

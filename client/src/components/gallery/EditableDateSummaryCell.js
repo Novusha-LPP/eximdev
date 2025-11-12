@@ -110,11 +110,27 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
           'user-role': user.role || 'unknown'
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          container_nos: updatedContainers,
-        }, { headers });
-        
-        // Update parent component data
+        // Build per-index payload to avoid whole-array overwrite
+        const buildPayload = (updated, old) => {
+          const p = {};
+          (updated || []).forEach((c, i) => {
+            const o = (old || [])[i] || {};
+            try {
+              if (JSON.stringify(c) !== JSON.stringify(o)) p[`container_nos.${i}`] = c;
+            } catch (e) {
+              p[`container_nos.${i}`] = c;
+            }
+          });
+          return p;
+        };
+
+        const payload = buildPayload(updatedContainers, oldContainers);
+
+        if (Object.keys(payload).length > 0) {
+          await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+        }
+
+        // Update parent component data (keep UI in sync)
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { container_nos: updatedContainers });
         }

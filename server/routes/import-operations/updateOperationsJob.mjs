@@ -1,6 +1,8 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
+import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
 
 const router = express.Router();
 
@@ -33,17 +35,59 @@ router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMi
   const updateData = req.body;
 
   try {
-    const job = await JobModel.findOneAndUpdate(
-      { year, job_no },
-      { $set: updateData }, // $set is used to update only the fields provided
-      {
-        new: true,
-        runValidators: true,
+    // SECURITY CHECK: If container_nos is being updated, validate they belong to this job
+    if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
+      const existingJob = await JobModel.findOne({ year, job_no }).select('container_nos');
+      
+      if (existingJob && existingJob.container_nos) {
+        const existingContainerNumbers = new Set(
+          existingJob.container_nos.map(c => c.container_number)
+        );
+        const incomingContainerNumbers = new Set(
+          updateData.container_nos.map(c => c.container_number)
+        );
+        
+        // Check if incoming containers don't match existing containers
+        const hasInvalidContainers = Array.from(incomingContainerNumbers).some(
+          containerNum => !existingContainerNumbers.has(containerNum)
+        );
+        
+        if (hasInvalidContainers) {
+          console.error('SECURITY ALERT: Cross-job container contamination detected!', {
+            year,
+            job_no,
+            existingContainers: Array.from(existingContainerNumbers),
+            incomingContainers: Array.from(incomingContainerNumbers)
+          });
+          
+          return res.status(400).json({
+            message: "Container validation failed: Submitted containers do not match job containers",
+            error: "Data integrity violation detected"
+          });
+        }
       }
-    );
+    }
 
+    // Apply the requested update first
+    await JobModel.findOneAndUpdate({ year, job_no }, { $set: updateData });
+
+    // Fetch the updated job and recompute detailed_status server-side
+    let job = await JobModel.findOne({ year, job_no }).lean();
     if (!job) {
       return res.status(200).send({ message: "Job not found" });
+    }
+
+    const recomputedStatus = determineDetailedStatus(job);
+    const rowColor = getRowColorFromStatus(recomputedStatus || job.detailed_status);
+
+    if (recomputedStatus && recomputedStatus !== job.detailed_status) {
+      job = await JobModel.findOneAndUpdate(
+        { year, job_no },
+        { $set: { detailed_status: recomputedStatus, row_color: rowColor } },
+        { new: true }
+      ).lean();
+    } else if (rowColor !== job.row_color) {
+      job = await JobModel.findOneAndUpdate({ year, job_no }, { $set: { row_color: rowColor } }, { new: true }).lean();
     }
 
     res.status(200).send({

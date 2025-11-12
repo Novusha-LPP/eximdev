@@ -21,7 +21,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
@@ -688,7 +688,8 @@ const handlePageChange = (event, newPage) => {
       }
       
       return {
-        className: getTableRowsClassname(row),
+  className: getTableRowsClassname(row),
+  style: getTableRowInlineStyle(row),
         sx: {
           backgroundColor: backgroundColor,
           '&:hover': {

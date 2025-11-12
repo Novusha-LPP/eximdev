@@ -17,7 +17,6 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -418,9 +417,7 @@ function ESanchit() {
         textAlign: "left", // Align all body cell content to the left
       },
     },
-    // muiTableBodyRowProps: ({ row }) => ({
-    //   className: getTableRowsClassname(row),
-    // }),
+
     renderTopToolbarCustomActions: () => (
       <div
         style={{

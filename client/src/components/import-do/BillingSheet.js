@@ -24,7 +24,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -531,6 +531,7 @@ Cell: ({ cell }) => {
     muiTableContainerProps: { sx: { maxHeight: "650px", overflowY: "auto" } },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
     }),
     muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 1 } },
     renderTopToolbarCustomActions: () => (

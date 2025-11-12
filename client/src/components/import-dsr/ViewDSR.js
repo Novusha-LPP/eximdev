@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import "../../styles/job-list.scss";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import useFetchDSR from "../../customHooks/useFetchDSR";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { YearContext } from "../../contexts/yearContext";
@@ -245,6 +245,7 @@ function ViewDSR() {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
     }),
     muiTableHeadCellProps: {
       sx: {

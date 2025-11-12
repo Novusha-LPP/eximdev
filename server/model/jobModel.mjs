@@ -519,6 +519,28 @@ security_deposit: [{
   upload_reimbursement_bill_img: { type: String },  
   bill_amount: {type: String},
   do_list: { type: String, trim: true },
+
+  ////////////////////////////////////////////////// Display
+  row_color: { 
+    type: String, 
+    trim: true,
+    default: "", // Will be calculated based on detailed_status
+    enum: [
+      "",
+      "billing-pending",
+      "custom-clearance-completed",
+      "duty-payment-pending",
+      "clearance-pending",
+      "arrival-pending",
+      "arrived-be-note-pending",
+      "sea-igm-filed",
+      "discharge",
+      "rail-out",
+      "eta",
+      "eta-date-pending",
+      "payment_made"
+    ]
+  },
 });
 
 

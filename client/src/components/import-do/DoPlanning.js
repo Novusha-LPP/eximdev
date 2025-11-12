@@ -39,6 +39,7 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
+import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 
 function DoPlanning() {
   const [doDocCounts, setDoDocCounts] = useState({
@@ -1667,6 +1668,7 @@ function DoPlanning() {
     },
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
     }),
     muiTableHeadCellProps: {
       sx: {

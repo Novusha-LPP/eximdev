@@ -23,7 +23,7 @@ import {
 import { useParams } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { getTableRowsClassname } from "../../utils/getTableRowsClassname";
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
 
@@ -755,6 +755,7 @@ function List() {
     // }),
     muiTableBodyRowProps: ({ row }) => ({
       className: getTableRowsClassname(row),
+      style: getTableRowInlineStyle(row),
     }),
     // renderDetailPanel: ({ row }) => {
     //   return (

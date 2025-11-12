@@ -121,6 +121,7 @@ function useFetchJobList(
     fetchInitialUnresolvedCount();
   }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter]);
 
+  // Auto-trigger search when filters change (including on page change)
   useEffect(() => {
     if (selectedYearState && user) {
       fetchJobs(currentPage, unresolvedOnly);
@@ -136,6 +137,12 @@ function useFetchJobList(
     user,
     unresolvedOnly,
   ]);
+
+  // Auto-reset to page 1 when search query or major filters change
+  // This ensures user doesn't stay on page 5 when filtering changes drastically
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
 

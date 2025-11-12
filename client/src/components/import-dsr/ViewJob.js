@@ -4504,7 +4504,7 @@ function JobDetails() {
                               container.emptyContainerOffLoadDate
                             )}
                             disabled={user?.role !== "Admin" && LCLFlag} // Disable if the user is not Admin
-                            onChange={formik.handleChange}
+                              onChange={formik.handleChange}
                           />
                         </div>
                       </Col>

@@ -65,18 +65,21 @@ function Sidebar() {
         </Tooltip>
       )}
 
-      <Tooltip title="Change Password" enterDelay={0} placement="right">
+       {/* NEW: Currency Exchange Rates Icon */}
+      <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
         <ListItemButton
           sx={{ textAlign: "left" }}
           className="appbar-links"
           aria-label="list-item"
-          onClick={() => navigate("/change-password")}
+          onClick={() => setCurrencyDialogOpen(true)}
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <LockResetIcon />
+            <CurrencyExchangeIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>
+
+     
 
       <Tooltip title="Release Notes" enterDelay={0} placement="right">
         <ListItemButton
@@ -104,16 +107,15 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      {/* NEW: Currency Exchange Rates Icon */}
-      <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
+      <Tooltip title="Change Password" enterDelay={0} placement="right">
         <ListItemButton
           sx={{ textAlign: "left" }}
           className="appbar-links"
           aria-label="list-item"
-          onClick={() => setCurrencyDialogOpen(true)}
+          onClick={() => navigate("/change-password")}
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <CurrencyExchangeIcon />
+            <LockResetIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

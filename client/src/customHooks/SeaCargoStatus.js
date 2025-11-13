@@ -394,8 +394,8 @@ const formatDateForDatabase = (dateString) => {
         { label: 'BL Date', value: summary.blDate },
         { label: 'House BL Number', value: summary.houseBlNo },
         { label: 'House BL Date', value: summary.houseBlDate },
-        { label: 'IGM Number', value: summary.igmNo },
-        { label: 'IGM Date', value: summary.igmDate },
+        { label: 'G-IGM Number', value: summary.igmNo },
+        { label: 'G-IGM Date', value: summary.igmDate },
         { label: 'Line Number', value: summary.lineNo },
         { label: 'Sub Line Number', value: summary.subLineNo },
         { label: 'Cargo Movement', value: summary.cargoMovement },
@@ -434,8 +434,8 @@ const formatDateForDatabase = (dateString) => {
         { label: 'Gateway Port', value: vesselDetails.gatewayPort },
         { label: 'Inward Date', value: vesselDetails.inwardDate },
         { label: 'File Name', value: vesselDetails.fileName },
-        { label: 'IGM Number', value: vesselDetails.igmNo },
-        { label: 'IGM Date', value: vesselDetails.igmDate }
+        { label: 'G-IGM Number', value: vesselDetails.igmNo },
+        { label: 'G-IGM Date', value: vesselDetails.igmDate }
       ];
       return <KeyValuePanel title="Vessel Information" fields={fields} />;
     }

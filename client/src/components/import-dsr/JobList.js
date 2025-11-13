@@ -35,46 +35,6 @@ import { YearContext } from "../../contexts/yearContext.js";
 // import { useNavigate, useLocation } from "react-router-dom";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
-// Memoized search input to prevent unnecessary re-renders
-// Now with auto-trigger: typing automatically searches after debounce
-const SearchInput = React.memo(({ searchQuery, setSearchQuery, loading }) => {
-  const handleSearchChange = useCallback((e) => {
-    setSearchQuery(e.target.value);
-  }, [setSearchQuery]);
-
-  // Clear search button
-  const handleClear = useCallback(() => {
-    setSearchQuery("");
-  }, [setSearchQuery]);
-
-  return (
-    <TextField
-      placeholder="Search by Job No, Importer, or AWB/BL Number"
-      size="small"
-      variant="outlined"
-      value={searchQuery}
-      onChange={handleSearchChange}
-      InputProps={{
-        endAdornment: (
-          <InputAdornment position="end">
-            {loading ? (
-              <CircularProgress size={20} sx={{ mr: 1 }} />
-            ) : searchQuery ? (
-              <IconButton size="small" onClick={handleClear}>
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            ) : null}
-          </InputAdornment>
-        ),
-      }}
-      sx={{ width: "300px", marginRight: "20px" }}
-    />
-  );
-});
-
-SearchInput.displayName = 'SearchInput';
-
-
 function JobList(props) {
   const showUnresolvedOnly = props.showUnresolvedOnly;
   const { onUnresolvedCountChange } = props; // Add prop for callback
@@ -127,7 +87,7 @@ function JobList(props) {
     }
     getImporterList();
   }, [selectedYearState]);
-  const getUniqueImporterNames = (importerData) => {
+  const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
     const uniqueImporters = new Set();
     return importerData
@@ -140,9 +100,12 @@ function JobList(props) {
         label: importer.importer,
         key: `${importer.importer}-${index}`,
       }));
-  };
+  }, []);
 
-  const importerNames = [...getUniqueImporterNames(importers)];
+  // Memoize importer names to prevent unnecessary recalculations
+  const importerNames = useMemo(() => {
+    return [...getUniqueImporterNames(importers)];
+  }, [importers, getUniqueImporterNames]);
 
   const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows, unresolvedCount, loading, invalidateCache } =
     useFetchJobList(
@@ -277,6 +240,7 @@ function JobList(props) {
   }, [searchQuery]);
 
   // Fetch typeahead suggestions as the user types (debounced)
+  // Only fetch if user has typed at least 2 characters to reduce API calls
   useEffect(() => {
     let cancelled = false;
     let controller = null;
@@ -287,8 +251,10 @@ function JobList(props) {
         return;
       }
       const safeSearch = String(searchQuery || "").trim();
-      if (safeSearch.length === 0) {
+      // Only fetch suggestions if user has typed at least 2 characters
+      if (safeSearch.length < 2) {
         setSuggestions([]);
+        setSuggestionsLoading(false);
         return;
       }
 
@@ -322,13 +288,16 @@ function JobList(props) {
         setSuggestions(normalized);
       } catch (err) {
         // ignore abort errors
-        setSuggestions([]);
+        if (!cancelled) {
+          setSuggestions([]);
+        }
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
       }
     };
 
-    const t = setTimeout(doFetch, 250);
+    // Increased debounce to 350ms for better performance
+    const t = setTimeout(doFetch, 350);
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -357,7 +326,186 @@ function JobList(props) {
     if (props.status === "Pending" && onUnresolvedCountChange) {
       onUnresolvedCountChange(unresolvedCount);
     }
-  }, [unresolvedCount, onUnresolvedCountChange, props.status]);  const table = useMaterialReactTable({
+  }, [unresolvedCount, onUnresolvedCountChange, props.status]);
+
+  // Memoize handlers to prevent unnecessary re-renders
+  const handleICDChange = useCallback((e) => {
+    setSelectedICD(e.target.value);
+  }, [setSelectedICD]);
+
+  const handleImporterChange = useCallback((event, newValue) => {
+    setSelectedImporter(newValue);
+  }, [setSelectedImporter]);
+
+  const handleYearChange = useCallback((e) => {
+    setSelectedYearState(e.target.value);
+  }, [setSelectedYearState]);
+
+  const handleDetailedStatusChange = useCallback((e) => {
+    setDetailedStatus(e.target.value);
+  }, [setDetailedStatus]);
+
+  const handleSearchInputChange = useCallback((event, newInputValue, reason) => {
+    // Only update on actual input, not on other events
+    if (reason === 'input' || reason === 'clear' || reason === 'reset') {
+      setSearchQuery(newInputValue);
+    }
+  }, [setSearchQuery]);
+
+  const handleSearchChange = useCallback((event, newValue, reason) => {
+    // when user selects an option, set search and update debounced value
+    if (newValue && typeof newValue === 'object' && newValue.value) {
+      setSearchQuery(newValue.value);
+      // update debouncedSearchQuery immediately so the hook receives the new value
+      setDebouncedSearchQuery(newValue.value);
+    }
+  }, [setSearchQuery]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+  }, [setSearchQuery]);
+
+  // Memoize the toolbar render function to prevent unnecessary re-renders
+  const renderTopToolbarCustomActions = useCallback(() => (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "100%",
+      }}
+    >
+      <Typography
+        variant="body1"
+        sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+      >
+        {props.status} Jobs: {total}
+      </Typography>
+
+       <TextField
+                select
+                size="small"
+                variant="outlined"
+                label="ICD Code"
+                value={selectedICD}
+                onChange={handleICDChange}
+                sx={{ width: "200px", marginRight: "20px" }}
+              >
+                <MenuItem value="all">All ICDs</MenuItem>
+                <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+                <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+                <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
+              </TextField>
+
+      <Autocomplete
+        sx={{ width: "300px", marginRight: "20px" }}
+        freeSolo
+        options={importerNames.map((option) => option.label)}
+        value={selectedImporter || ""} // Controlled value
+        onInputChange={handleImporterChange} // Handles input change
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            variant="outlined"
+            size="small"
+            fullWidth
+            label="Select Importer" // Placeholder text
+          />
+        )}
+      />
+
+{years.length > 0 && (
+  <TextField
+    select
+    size="small"
+    value={selectedYearState}
+    onChange={handleYearChange}
+    sx={{ width: "100px", marginRight: "20px" }}
+  >
+    {years.map((year, index) => (
+      <MenuItem key={`year-${year}-${index}`} value={year}>
+        {year}
+      </MenuItem>
+    ))}
+  </TextField>
+)}
+
+
+      <TextField
+        select
+        size="small"
+        value={detailedStatus}
+        onChange={handleDetailedStatusChange}
+        sx={{ width: "250px" }}
+      >
+        {detailedStatusOptions.map((option, index) => (
+          <MenuItem
+            key={`status-${option.id || option.value || index}`}
+            value={option.value}
+          >
+            {option.name}
+          </MenuItem>
+        ))}        </TextField>
+
+      <Autocomplete
+        sx={{ width: "300px", marginRight: "20px" }}
+        freeSolo
+        options={suggestions}
+        getOptionLabel={(option) => (typeof option === 'string' ? option : option.label || '')}
+        inputValue={searchQuery}
+        onInputChange={handleSearchInputChange}
+        onChange={handleSearchChange}
+        loading={suggestionsLoading}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            placeholder="Search by Job No, Importer, or AWB/BL Number"
+            size="small"
+            variant="outlined"
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <InputAdornment position="end">
+                  {suggestionsLoading ? (
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                  ) : searchQuery ? (
+                    <IconButton size="small" onClick={handleClearSearch}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  ) : null}
+                </InputAdornment>
+              ),
+            }}
+          />
+        )}
+      />
+      <IconButton onClick={handleOpen}>
+        <DownloadIcon />
+      </IconButton>
+    </div>
+  ), [
+    props.status,
+    total,
+    selectedICD,
+    handleICDChange,
+    importerNames,
+    selectedImporter,
+    handleImporterChange,
+    years,
+    selectedYearState,
+    handleYearChange,
+    detailedStatus,
+    handleDetailedStatusChange,
+    suggestions,
+    searchQuery,
+    handleSearchInputChange,
+    handleSearchChange,
+    suggestionsLoading,
+    handleClearSearch,
+    handleOpen
+  ]);
+
+  const table = useMaterialReactTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
@@ -388,138 +536,7 @@ function JobList(props) {
         zIndex: 1,
       },
     },
-    renderTopToolbarCustomActions: () => (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
-        >
-          {props.status} Jobs: {total}
-        </Typography>
-
-         <TextField
-                  select
-                  size="small"
-                  variant="outlined"
-                  label="ICD Code"
-                  value={selectedICD}
-                  onChange={(e) => {
-                    setSelectedICD(e.target.value); // Update the selected ICD code
-                  }}
-                  sx={{ width: "200px", marginRight: "20px" }}
-                >
-                  <MenuItem value="all">All ICDs</MenuItem>
-                  <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-                  <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-                  <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-                </TextField>
-
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer" // Placeholder text
-            />
-          )}
-        />
-
-{years.length > 0 && (
-  <TextField
-    select
-    size="small"
-    value={selectedYearState}
-    onChange={(e) => setSelectedYearState(e.target.value)}
-    sx={{ width: "100px", marginRight: "20px" }}
-  >
-    {years.map((year, index) => (
-      <MenuItem key={`year-${year}-${index}`} value={year}>
-        {year}
-      </MenuItem>
-    ))}
-  </TextField>
-)}
-
-
-        <TextField
-          select
-          size="small"
-          value={detailedStatus}
-          onChange={(e) => setDetailedStatus(e.target.value)}
-          sx={{ width: "250px" }}
-        >
-          {detailedStatusOptions.map((option, index) => (
-            <MenuItem
-              key={`status-${option.id || option.value || index}`}
-              value={option.value}
-            >
-              {option.name}
-            </MenuItem>
-          ))}        </TextField>
-
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={suggestions}
-          getOptionLabel={(option) => (typeof option === 'string' ? option : option.label || '')}
-          inputValue={searchQuery}
-          onInputChange={(event, newInputValue, reason) => {
-            // update controlled search input; 'clear' also handled
-            if (reason === 'input' || reason === 'clear' || reason === 'reset') {
-              setSearchQuery(newInputValue);
-            }
-          }}
-          onChange={(event, newValue, reason) => {
-            // when user selects an option, set search and update debounced value
-            if (newValue && typeof newValue === 'object' && newValue.value) {
-              setSearchQuery(newValue.value);
-              // update debouncedSearchQuery immediately so the hook receives the new value
-              setDebouncedSearchQuery(newValue.value);
-            }
-          }}
-          loading={suggestionsLoading}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder="Search by Job No, Importer, or AWB/BL Number"
-              size="small"
-              variant="outlined"
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: (
-                  <InputAdornment position="end">
-                    {suggestionsLoading ? (
-                      <CircularProgress size={20} sx={{ mr: 1 }} />
-                    ) : searchQuery ? (
-                      <IconButton size="small" onClick={() => setSearchQuery("") }>
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    ) : null}
-                  </InputAdornment>
-                ),
-              }}
-            />
-          )}
-        />
-        <IconButton onClick={handleOpen}>
-          <DownloadIcon />
-        </IconButton>
-      </div>
-    ),
+    renderTopToolbarCustomActions,
   });
 
   return (

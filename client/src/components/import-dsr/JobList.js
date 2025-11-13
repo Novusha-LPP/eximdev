@@ -63,6 +63,9 @@ function JobList(props) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Local input for instant typing
+  const [localInput, setLocalInput] = useState(searchQuery);
+
   // Clear state unless returning from details
   useEffect(() => {
     if (!(location.state && location.state.fromJobDetails)) {
@@ -70,6 +73,7 @@ function JobList(props) {
       setDetailedStatus("all");
       setSelectedICD("all");
       setSelectedImporter("");
+      setLocalInput("");
     }
     if (location.state && location.state.fromJobDetails) {
       window.history.replaceState({}, document.title);
@@ -113,17 +117,25 @@ function JobList(props) {
       showUnresolvedOnly
     );
 
-  // Debounce only on typing; if the string starts with digits, normalize to pure job no
+  // Sync local input -> searchQuery (fast debounce to keep UI snappy)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchQuery(localInput);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [localInput, setSearchQuery]);
+
+  // Normalize to pure job no into debouncedSearchQuery
   useEffect(() => {
     const t = setTimeout(() => {
       const s = String(searchQuery || "").trim();
       const looksLikeJob = /^\d{2,}/.test(s);
       setDebouncedSearchQuery(looksLikeJob ? extractJobNo(s) : s);
-    }, 300);
+    }, 250);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Typeahead suggestions (min 2 chars)
+  // Typeahead suggestions (min 2 chars) based on localInput
   useEffect(() => {
     let cancelled = false;
     let controller = null;
@@ -133,7 +145,7 @@ function JobList(props) {
         setSuggestions([]);
         return;
       }
-      const q = String(searchQuery || "").trim();
+      const q = String(localInput || "").trim();
       if (q.length < 2) {
         setSuggestions([]);
         setSuggestionsLoading(false);
@@ -173,13 +185,13 @@ function JobList(props) {
       }
     };
 
-    const t = setTimeout(doFetch, 350);
+    const t = setTimeout(doFetch, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
       if (controller) controller.abort();
     };
-  }, [searchQuery, selectedYearState, selectedICD, selectedImporter]);
+  }, [localInput, selectedYearState, selectedICD, selectedImporter]);
 
   const tableData = useMemo(() => rows.map((row, idx) => ({ ...row, id: row._id || `row-${idx}` })), [rows]);
 
@@ -257,30 +269,34 @@ function JobList(props) {
   const handleImporterChange = useCallback((e, v) => setSelectedImporter(v), [setSelectedImporter]);
   const handleYearChange = useCallback((e) => setSelectedYearState(e.target.value), [setSelectedYearState]);
   const handleDetailedStatusChange = useCallback((e) => setDetailedStatus(e.target.value), [setDetailedStatus]);
-  const handleSearchInputChange = useCallback((event, newInputValue, reason) => {
+
+  const handleLocalInputChange = useCallback((event, newInputValue, reason) => {
     if (reason === "input" || reason === "clear" || reason === "reset") {
-      setSearchQuery(newInputValue);
+      setLocalInput(newInputValue);
     }
-  }, [setSearchQuery]);
+  }, []);
 
   const handleSearchChange = useCallback((event, newValue) => {
     if (!newValue) return;
-    // Object from suggestions -> value is strictly job_no
     if (typeof newValue === "object") {
       const jobNo = extractJobNo(newValue.value || newValue.label || "");
+      setLocalInput(jobNo);
       setSearchQuery(jobNo);
       setDebouncedSearchQuery(jobNo);
       return;
     }
-    // String -> sanitize
     if (typeof newValue === "string") {
       const jobNo = extractJobNo(newValue);
+      setLocalInput(jobNo);
       setSearchQuery(jobNo);
       setDebouncedSearchQuery(jobNo);
     }
   }, [setSearchQuery]);
 
-  const handleClearSearch = useCallback(() => setSearchQuery(""), [setSearchQuery]);
+  const handleClearSearch = useCallback(() => {
+    setLocalInput("");
+    setSearchQuery("");
+  }, [setSearchQuery]);
 
   const renderTopToolbarCustomActions = useCallback(() => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
@@ -330,14 +346,14 @@ function JobList(props) {
         ))}
       </TextField>
 
-      {/* Unified job search with strict job_no selection */}
+      {/* Unified job search with instant typing and strict job_no selection */}
       <Autocomplete
         sx={{ width: "300px", marginRight: "20px" }}
         freeSolo
         options={suggestions}
         getOptionLabel={(option) => (typeof option === "string" ? option : option.label || "")}
-        inputValue={searchQuery}
-        onInputChange={handleSearchInputChange}
+        inputValue={localInput}
+        onInputChange={handleLocalInputChange}
         onChange={handleSearchChange}
         loading={suggestionsLoading}
         renderInput={(params) => (
@@ -352,7 +368,7 @@ function JobList(props) {
                 <InputAdornment position="end">
                   {suggestionsLoading ? (
                     <CircularProgress size={20} sx={{ mr: 1 }} />
-                  ) : searchQuery ? (
+                  ) : localInput ? (
                     <IconButton size="small" onClick={handleClearSearch}>
                       <ClearIcon fontSize="small" />
                     </IconButton>
@@ -374,7 +390,7 @@ function JobList(props) {
     importerNames, selectedImporter, handleImporterChange,
     years, selectedYearState, handleYearChange,
     detailedStatus, handleDetailedStatusChange,
-    suggestions, searchQuery, handleSearchInputChange, handleSearchChange,
+    suggestions, localInput, handleLocalInputChange, handleSearchChange,
     suggestionsLoading, handleClearSearch, handleOpen
   ]);
 

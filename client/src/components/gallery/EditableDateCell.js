@@ -9,7 +9,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
-// Safe date helpers - EXISTING (keeping as is)
+// Safe date helpers
 const safeToISOString = (dateValue) => {
   if (!dateValue) return null;
   
@@ -46,10 +46,10 @@ const safeFormatDate = (dateValue) => {
   }
 };
 
-// NEW: Helper functions for date-only detention calculation
+// Helper functions for date-only detention calculation
 const getDateOnly = (dateString) => {
   if (!dateString) return null;
-  return dateString.split('T')[0]; // Returns "YYYY-MM-DD"
+  return dateString.split('T')[0];
 };
 
 const addDaysToDate = (dateString, days) => {
@@ -58,17 +58,12 @@ const addDaysToDate = (dateString, days) => {
   const dateOnly = getDateOnly(dateString);
   if (!dateOnly) return null;
   
-  // Parse as date parts to avoid timezone issues
   const [year, month, day] = dateOnly.split('-').map(Number);
-  
-  // Create date in local timezone
   const date = new Date(year, month - 1, day);
   if (isNaN(date.getTime())) return null;
   
-  // Add days
   date.setDate(date.getDate() + days);
   
-  // Format back to YYYY-MM-DD
   const newYear = date.getFullYear();
   const newMonth = String(date.getMonth() + 1).padStart(2, '0');
   const newDay = String(date.getDate()).padStart(2, '0');
@@ -114,7 +109,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [editable, setEditable] = useState(null);
   const [localFreeTime, setLocalFreeTime] = useState(free_time);
   const [tempDateValue, setTempDateValue] = useState("");
-  const [tempTimeValue, setTempTimeValue] = useState("");
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
@@ -165,7 +159,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   ]);
 
   useEffect(() => {
-    if (cell?.row?.original) {
+    if (cell?.row?.original && cell.row.original._id === _id) {
       const {
         assessment_date,
         vessel_berthing,
@@ -193,7 +187,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       setLocalFreeTime(free_time);
       setEditable(null);
       setTempDateValue("");
-      setTempTimeValue("");
       setDateError("");
     }
   }, [dataKey]);
@@ -222,7 +215,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       if (typeof onRowDataUpdate === "function") {
         if (returnedJob) {
           onRowDataUpdate(_id, returnedJob);
-          // Update local status from authoritative server response
           setLocalStatus(returnedJob.detailed_status);
           setContainers(returnedJob.container_nos || []);
         } else {
@@ -244,26 +236,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     const pcvDate = dates.pcv_date;
     const billOfEntryNo = be_no;
     const anyContainerArrivalDate = containers.some((c) => c.arrival_date);
-    const containerRailOutDate =
-      containers?.length > 0 &&
+    const containerRailOutDate = containers?.length > 0 &&
       containers.every((container) => container.container_rail_out_date);
-    const emptyContainerOffLoadDate =
-      containers?.length > 0 &&
+    const emptyContainerOffLoadDate = containers?.length > 0 &&
       containers.every((container) => container.emptyContainerOffLoadDate);
-    const deliveryDate =
-      containers?.length > 0 &&
+    const deliveryDate = containers?.length > 0 &&
       containers.every((container) => container.delivery_date);
-    const isExBondOrLCL =
-      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
+    const isExBondOrLCL = type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
 
     let newStatus = "";
 
-    if (
-      billOfEntryNo &&
-      anyContainerArrivalDate &&
-      outOfChargeDate &&
-      (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)
-    ) {
+    if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate &&
+        (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)) {
       newStatus = "Billing Pending";
     } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
       newStatus = "Custom Clearance Completed";
@@ -287,10 +271,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       newStatus = "Estimated Time of Arrival";
     }
 
-    // CLIENT-SIDE: update local status for immediate UI feedback.
-    // The server will recompute and persist authoritative detailed_status on the primary PATCH
-    // and return the full job. We merge that response elsewhere. This local update avoids
-    // a second network PATCH and prevents race conditions.
     try {
       if (newStatus && newStatus !== localStatus) {
         cell.row.original.detailed_status = newStatus;
@@ -298,34 +278,13 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         if (typeof onRowDataUpdate === "function") {
           onRowDataUpdate(_id, { detailed_status: newStatus });
         }
-      } else if (!newStatus && localStatus) {
-        // Keep existing local status
-        if (typeof onRowDataUpdate === "function") {
-          onRowDataUpdate(_id, { detailed_status: localStatus });
-        }
       }
     } catch (err) {
       console.error("Error updating local status:", err);
     }
-  }, [
-    dates,
-    containers,
-    be_no,
-    consignment_type,
-    type_of_b_e,
-    localStatus,
-    _id,
-    onRowDataUpdate,
-    cell
-  ]);
+  }, [dates, containers, be_no, consignment_type, type_of_b_e, localStatus, _id, onRowDataUpdate, cell]);
 
-  // REMOVED: No longer auto-calculate detailed_status on load/every render
-  // Now only called explicitly after user edits a field
-  // This prevents unnecessary recalculations for all jobs when table loads
-
-  const formatDate = (date) => {
-    return safeFormatDate(date);
-  };
+  const formatDate = (date) => safeFormatDate(date);
 
   const adjustValidityDate = (earliestDateString) => {
     if (!earliestDateString) return "";
@@ -348,7 +307,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     return validDetentionDates[0];
   };
 
-  // NEW: Build a diff payload that only sets changed container array items using MongoDB dot-notation
   const buildContainerUpdatePayload = (updatedContainers, oldContainers) => {
     const updateData = {};
     (updatedContainers || []).forEach((c, idx) => {
@@ -358,7 +316,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           updateData[`container_nos.${idx}`] = c;
         }
       } catch (e) {
-        // fallback: if stringify fails, always set
         updateData[`container_nos.${idx}`] = c;
       }
     });
@@ -370,15 +327,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     const ExBondflag = type_of_b_e === "Ex-Bond";
     const LCLFlag = consignment_type === "LCL";
     
-    if (ExBondflag) {
-      return true;
-    }
-    
-    if (LCLFlag) {
-      return !container?.by_road_movement_date;
-    } else {
-      return !container?.container_rail_out_date;
-    }
+    if (ExBondflag) return true;
+    if (LCLFlag) return !container?.by_road_movement_date;
+    return !container?.container_rail_out_date;
   }, [containers, type_of_b_e, consignment_type]);
 
   const handleEditStart = (field, index = null) => {
@@ -386,9 +337,15 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       return;
     }
     
+    let currentValue = "";
+    if (index !== null) {
+      currentValue = containers[index]?.[field] || "";
+    } else {
+      currentValue = dates[field] || "";
+    }
+    
     setEditable(index !== null ? `${field}_${index}` : field);
-    setTempDateValue("");
-    setTempTimeValue("");
+    setTempDateValue(currentValue);
     setDateError("");
   };
 
@@ -403,15 +360,89 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     setDateError("");
   };
 
-  const handleCombinedDateTimeChange = (e) => {
-    setTempDateValue(e.target.value);
-  };
+  // CRITICAL FIX: Removed problematic useEffect that was causing infinite loops
+  // This was the main culprit - useEffect that auto-updated containers on every change
 
-  useEffect(() => {
-    if (cell.row.original._id !== _id) {
-      // Reset logic when row changes
-    }
-  }, [cell.row.original, _id]);
+  // CRITICAL FIX: Free time change handler with proper guard clause
+  const handleFreeTimeChange = (value) => {
+    if (consignment_type === "LCL") return;
+
+    // GUARD CLAUSE: Only proceed if value actually changed
+    if (parseInt(value, 10) === parseInt(localFreeTime, 10)) return;
+
+    setLocalFreeTime(value);
+    
+    const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+    const headers = {
+      'Content-Type': 'application/json',
+      'user-id': user.username || 'unknown',
+      'username': user.username || 'unknown',
+      'user-role': user.role || 'unknown'
+    };
+
+    (async () => {
+      try {
+        // Update free_time in backend
+        const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+          free_time: value,
+        }, { headers });
+
+        const returnedJob = res?.data?.data || res?.data?.job || null;
+
+        if (typeof onRowDataUpdate === "function") {
+          if (returnedJob) {
+            onRowDataUpdate(_id, returnedJob);
+            setLocalStatus(returnedJob.detailed_status);
+            setContainers(returnedJob.container_nos || []);
+          } else {
+            onRowDataUpdate(_id, { free_time: value });
+          }
+        }
+
+        // Only update detention dates if we have containers with arrival dates
+        const containersWithArrival = containers.filter(c => c.arrival_date);
+        if (containersWithArrival.length === 0) return;
+
+        const updatedContainers = containers.map((container) => {
+          if (container.arrival_date) {
+            const freeDays = parseInt(value, 10) || 0;
+            const detentionDate = addDaysToDate(container.arrival_date, freeDays);
+            
+            if (detentionDate) {
+              return { ...container, detention_from: detentionDate };
+            }
+          }
+          return container;
+        });
+
+        // Check if any containers actually changed
+        const hasChanges = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
+        if (!hasChanges) return;
+
+        // Update local state immediately
+        setContainers(updatedContainers);
+
+        const earliestDetention = getEarliestDetention(updatedContainers);
+        const adjustedValidity = adjustValidityDate(earliestDetention);
+
+        // Build and send update payload
+        const payload = buildContainerUpdatePayload(updatedContainers, containers);
+        if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
+
+        if (Object.keys(payload).length > 0) {
+          const res2 = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+          const returnedJob2 = res2?.data?.data || res2?.data?.job || null;
+          
+          if (typeof onRowDataUpdate === "function" && returnedJob2) {
+            onRowDataUpdate(_id, returnedJob2);
+          }
+        }
+
+      } catch (err) {
+        console.error("Error Updating Free Time:", err);
+      }
+    })();
+  };
 
   const handleDateSubmit = async (field, index = null) => {
     let finalValue;
@@ -430,19 +461,15 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
       const updatedContainers = containers.map((container, i) => {
         if (i === index) {
-          const updatedContainer = {
-            ...container,
-            [field]: finalValue || null,
-          };
+          const updatedContainer = { ...container, [field]: finalValue || null };
 
-          // UPDATED: Date-only detention calculation
+          // Calculate detention_from immediately when arrival_date changes
           if (field === "arrival_date" && consignment_type !== "LCL") {
             if (!finalValue) {
               updatedContainer.detention_from = "";
             } else {
               const freeDays = parseInt(localFreeTime, 10) || 0;
               const detentionDate = addDaysToDate(finalValue, freeDays);
-              
               if (detentionDate) {
                 updatedContainer.detention_from = detentionDate;
               }
@@ -453,6 +480,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         return container;
       });
 
+      // Update local state immediately
       setContainers(updatedContainers);
 
       try {
@@ -464,53 +492,30 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           'user-role': user.role || 'unknown'
         };
 
-          const earliestDetention = getEarliestDetention(updatedContainers);
-          const adjustedValidity = adjustValidityDate(earliestDetention);
+        const earliestDetention = getEarliestDetention(updatedContainers);
+        const adjustedValidity = adjustValidityDate(earliestDetention);
 
-          // Only send changed container items to avoid overwriting whole arrays
-          const payload = buildContainerUpdatePayload(updatedContainers, oldContainers);
-          if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
+        const payload = buildContainerUpdatePayload(updatedContainers, oldContainers);
+        if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
 
-          // If no per-item changes detected, still send job-level validity update if present
-            if (Object.keys(payload).length === 0 && adjustedValidity) {
-              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-                do_validity_upto_job_level: adjustedValidity,
-              }, { headers });
-              const returnedJob = res?.data?.data || res?.data?.job || null;
+        // Update status
+        await updateDetailedStatus();
 
-              if (typeof onRowDataUpdate === "function") {
-                if (returnedJob) {
-                  onRowDataUpdate(_id, returnedJob);
-                  setLocalStatus(returnedJob.detailed_status);
-                  setContainers(returnedJob.container_nos || []);
-                  setDates(prev => ({ ...prev, do_validity_upto_job_level: returnedJob.do_validity_upto_job_level }));
-                } else {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              }
-            } else if (Object.keys(payload).length > 0) {
-              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-              const returnedJob = res?.data?.data || res?.data?.job || null;
+        if (Object.keys(payload).length > 0 || adjustedValidity) {
+          const finalPayload = Object.keys(payload).length > 0 ? payload : { do_validity_upto_job_level: adjustedValidity };
+          const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, finalPayload, { headers });
+          const returnedJob = res?.data?.data || res?.data?.job || null;
 
-              if (typeof onRowDataUpdate === "function") {
-                if (returnedJob) {
-                  onRowDataUpdate(_id, returnedJob);
-                  setLocalStatus(returnedJob.detailed_status);
-                  setContainers(returnedJob.container_nos || []);
-                  setDates(prev => ({ ...prev, do_validity_upto_job_level: returnedJob.do_validity_upto_job_level }));
-                } else {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              }
+          if (typeof onRowDataUpdate === "function") {
+            if (returnedJob) {
+              onRowDataUpdate(_id, returnedJob);
+            } else {
+              onRowDataUpdate(_id, finalPayload);
             }
+          }
+        }
 
-          setEditable(null);
+        setEditable(null);
       } catch (err) {
         console.error("Error Updating Container:", err);
         setContainers(oldContainers);
@@ -537,12 +542,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         if (typeof onRowDataUpdate === "function") {
           if (returnedJob) {
             onRowDataUpdate(_id, returnedJob);
-            setLocalStatus(returnedJob.detailed_status);
-            setDates(prev => ({
-              ...prev,
-              [field]: returnedJob[field] !== undefined ? returnedJob[field] : finalValue || null,
-            }));
-            setContainers(returnedJob.container_nos || []);
           } else {
             onRowDataUpdate(_id, { [field]: finalValue || null });
           }
@@ -554,262 +553,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         setDates(oldDates);
       }
     }
-  };
-
-  // UPDATED: Date-only auto-calculation on container changes
-  useEffect(() => {
-    if (consignment_type === "LCL") return;
-    
-    const updatedContainers = containers.map(container => {
-      if (container.arrival_date && !container.detention_from) {
-        const freeDays = parseInt(localFreeTime, 10) || 0;
-        const detentionDate = addDaysToDate(container.arrival_date, freeDays);
-        
-        if (detentionDate) {
-          return {
-            ...container,
-            detention_from: detentionDate
-          };
-        }
-      }
-      return container;
-    });
-
-    const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
-    
-    if (hasUpdates) {
-      setContainers(updatedContainers);
-
-      const earliestDetention = getEarliestDetention(updatedContainers);
-      const adjustedValidity = adjustValidityDate(earliestDetention);
-
-      const updateContainersInDB = async () => {
-        try {
-          const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-          const headers = {
-            'Content-Type': 'application/json',
-            'user-id': user.username || 'unknown',
-            'username': user.username || 'unknown',
-            'user-role': user.role || 'unknown'
-          };
-
-          const payload = buildContainerUpdatePayload(updatedContainers, containers);
-          if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
-
-          if (Object.keys(payload).length === 0 && adjustedValidity) {
-              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-                do_validity_upto_job_level: adjustedValidity,
-              }, { headers });
-              const returnedJob = res?.data?.data || res?.data?.job || null;
-              if (typeof onRowDataUpdate === "function") {
-                if (returnedJob) {
-                  onRowDataUpdate(_id, returnedJob);
-                  setLocalStatus(returnedJob.detailed_status);
-                  setContainers(returnedJob.container_nos || []);
-                } else {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              }
-            } else if (Object.keys(payload).length > 0) {
-              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-              const returnedJob = res?.data?.data || res?.data?.job || null;
-              if (typeof onRowDataUpdate === "function") {
-                if (returnedJob) {
-                  onRowDataUpdate(_id, returnedJob);
-                  setLocalStatus(returnedJob.detailed_status);
-                  setContainers(returnedJob.container_nos || []);
-                } else {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              }
-          }
-        } catch (err) {
-          console.error("Error updating detention dates:", err);
-          setContainers(containers);
-        }
-      };
-
-      updateContainersInDB();
-    }
-  }, [containers, localFreeTime, consignment_type, _id, onRowDataUpdate]);
-
-  // UPDATED: Date-only recalculation on free time change
-  useEffect(() => {
-    if (consignment_type === "LCL") return;
-    
-    const updatedContainers = containers.map(container => {
-      if (container.arrival_date) {
-        const freeDays = parseInt(localFreeTime, 10) || 0;
-        const detentionDate = addDaysToDate(container.arrival_date, freeDays);
-        
-        if (detentionDate) {
-          return {
-            ...container,
-            detention_from: detentionDate
-          };
-        }
-      }
-      return container;
-    });
-
-    const hasUpdates = JSON.stringify(updatedContainers) !== JSON.stringify(containers);
-    
-    if (hasUpdates) {
-      setContainers(updatedContainers);
-
-      const earliestDetention = getEarliestDetention(updatedContainers);
-      const adjustedValidity = adjustValidityDate(earliestDetention);
-
-      const shouldUpdateBackend = localFreeTime !== free_time;
-
-      if (shouldUpdateBackend) {
-        const updateContainersInDB = async () => {
-          try {
-            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-            const headers = {
-              'Content-Type': 'application/json',
-              'user-id': user.username || 'unknown',
-              'username': user.username || 'unknown',
-              'user-role': user.role || 'unknown'
-            };
-
-            const payload = buildContainerUpdatePayload(updatedContainers, containers);
-            if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
-
-            if (Object.keys(payload).length === 0 && adjustedValidity) {
-              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-                do_validity_upto_job_level: adjustedValidity,
-              }, { headers });
-              const returnedJob = res?.data?.data || res?.data?.job || null;
-              if (typeof onRowDataUpdate === "function") {
-                if (returnedJob) {
-                  onRowDataUpdate(_id, returnedJob);
-                  setLocalStatus(returnedJob.detailed_status);
-                  setContainers(returnedJob.container_nos || []);
-                } else {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              }
-            } else if (Object.keys(payload).length > 0) {
-              const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-              const returnedJob = res?.data?.data || res?.data?.job || null;
-              if (typeof onRowDataUpdate === "function") {
-                if (returnedJob) {
-                  onRowDataUpdate(_id, returnedJob);
-                  setLocalStatus(returnedJob.detailed_status);
-                  setContainers(returnedJob.container_nos || []);
-                } else {
-                  onRowDataUpdate(_id, {
-                    container_nos: updatedContainers,
-                    do_validity_upto_job_level: adjustedValidity,
-                  });
-                }
-              }
-            }
-          } catch (err) {
-            console.error("Error updating detention dates:", err);
-            setContainers(containers);
-          }
-        };
-
-        updateContainersInDB();
-      }
-    }
-  }, [localFreeTime, containers, consignment_type, _id, free_time, onRowDataUpdate]);
-
-  // UPDATED: Date-only free time change handler
-  const handleFreeTimeChange = (value) => {
-    if (consignment_type === "LCL") {
-      return;
-    }
-
-    setLocalFreeTime(value);
-    
-    const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-    const headers = {
-      'Content-Type': 'application/json',
-      'user-id': user.username || 'unknown',
-      'username': user.username || 'unknown',
-      'user-role': user.role || 'unknown'
-    };
-
-    (async () => {
-      try {
-        const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          free_time: value,
-        }, { headers });
-
-        const returnedJob = res?.data?.data || res?.data?.job || null;
-
-        if (typeof onRowDataUpdate === "function") {
-          if (returnedJob) {
-            onRowDataUpdate(_id, returnedJob);
-            setLocalStatus(returnedJob.detailed_status);
-            setContainers(returnedJob.container_nos || []);
-          } else {
-            onRowDataUpdate(_id, { free_time: value });
-          }
-        }
-
-        const updatedContainers = containers.map((container) => {
-          const updatedContainer = { ...container };
-          if (updatedContainer.arrival_date) {
-            const freeDays = parseInt(value, 10) || 0;
-            const detentionDate = addDaysToDate(updatedContainer.arrival_date, freeDays);
-
-            if (detentionDate) {
-              updatedContainer.detention_from = detentionDate;
-            }
-          }
-          return updatedContainer;
-        });
-
-        if (JSON.stringify(updatedContainers) !== JSON.stringify(containers)) {
-          setContainers(updatedContainers);
-
-          const earliestDetention = getEarliestDetention(updatedContainers);
-          const adjustedValidity = adjustValidityDate(earliestDetention);
-
-          const payload = buildContainerUpdatePayload(updatedContainers, containers);
-          if (adjustedValidity) payload.do_validity_upto_job_level = adjustedValidity;
-
-          try {
-            if (Object.keys(payload).length === 0 && adjustedValidity) {
-              const r2 = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-                do_validity_upto_job_level: adjustedValidity,
-              }, { headers });
-              const returnedJob2 = r2?.data?.data || r2?.data?.job || null;
-              if (typeof onRowDataUpdate === "function" && returnedJob2) {
-                onRowDataUpdate(_id, returnedJob2);
-                setLocalStatus(returnedJob2.detailed_status);
-                setContainers(returnedJob2.container_nos || []);
-              }
-            } else if (Object.keys(payload).length > 0) {
-              const r2 = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-              const returnedJob2 = r2?.data?.data || r2?.data?.job || null;
-              if (typeof onRowDataUpdate === "function" && returnedJob2) {
-                onRowDataUpdate(_id, returnedJob2);
-                setLocalStatus(returnedJob2.detailed_status);
-                setContainers(returnedJob2.container_nos || []);
-              }
-            }
-          } catch (err) {
-            console.error("Error Updating Containers:", err);
-          }
-        }
-      } catch (err) {
-        console.error("Error Updating Free Time:", err);
-      }
-    })();
   };
 
   const isIgstFieldsAvailable = assessable_ammount && igst_ammount;
@@ -828,10 +571,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           <>
             <div>
               <strong>ETA:</strong> {renderDateValue(dates.vessel_berthing)}{" "}
-              <FcCalendar
-                style={styles.icon}
-                onClick={() => handleEditStart("vessel_berthing")}
-              />
+              <FcCalendar style={styles.icon} onClick={() => handleEditStart("vessel_berthing")} />
               {editable === "vessel_berthing" && (
                 <div>
                   <input
@@ -841,18 +581,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                     style={dateError ? styles.errorInput : {}}
                     autoFocus
                   />
-                  <button
-                    style={styles.submitButton}
-                    onClick={() => handleDateSubmit("vessel_berthing")}
-                  >
-                    ✓
-                  </button>
-                  <button
-                    style={styles.cancelButton}
-                    onClick={() => setEditable(null)}
-                  >
-                    ✕
-                  </button>
+                  <button style={styles.submitButton} onClick={() => handleDateSubmit("vessel_berthing")}>✓</button>
+                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
                   {dateError && <div style={styles.errorText}>{dateError}</div>}
                 </div>
               )}
@@ -860,10 +590,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             <br />
             <div>
               <strong>GIGM:</strong> {renderDateValue(dates.gateway_igm_date)}{" "}
-              <FcCalendar
-                style={styles.icon}
-                onClick={() => handleEditStart("gateway_igm_date")}
-              />
+              <FcCalendar style={styles.icon} onClick={() => handleEditStart("gateway_igm_date")} />
               {editable === "gateway_igm_date" && (
                 <div>
                   <input
@@ -873,18 +600,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                     style={dateError ? styles.errorInput : {}}
                     autoFocus
                   />
-                  <button
-                    style={styles.submitButton}
-                    onClick={() => handleDateSubmit("gateway_igm_date")}
-                  >
-                    ✓
-                  </button>
-                  <button
-                    style={styles.cancelButton}
-                    onClick={() => setEditable(null)}
-                  >
-                    ✕
-                  </button>
+                  <button style={styles.submitButton} onClick={() => handleDateSubmit("gateway_igm_date")}>✓</button>
+                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
                   {dateError && <div style={styles.errorText}>{dateError}</div>}
                 </div>
               )}
@@ -892,10 +609,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             <br />
             <div>
               <strong>Discharge:</strong> {renderDateValue(dates.discharge_date)}{" "}
-              <FcCalendar
-                style={styles.icon}
-                onClick={() => handleEditStart("discharge_date")}
-              />
+              <FcCalendar style={styles.icon} onClick={() => handleEditStart("discharge_date")} />
               {editable === "discharge_date" && (
                 <div>
                   <input
@@ -905,99 +619,61 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                     style={dateError ? styles.errorInput : {}}
                     autoFocus
                   />
-                  <button
-                    style={styles.submitButton}
-                    onClick={() => handleDateSubmit("discharge_date")}
-                  >
-                    ✓
-                  </button>
-                  <button
-                    style={styles.cancelButton}
-                    onClick={() => setEditable(null)}
-                  >
-                    ✕
-                  </button>
+                  <button style={styles.submitButton} onClick={() => handleDateSubmit("discharge_date")}>✓</button>
+                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
                   {dateError && <div style={styles.errorText}>{dateError}</div>}
                 </div>
               )}
             </div>
             <br />
             
-            {type_of_b_e !== "Ex-Bond" &&
-              consignment_type !== "LCL" &&
-              containers.map((container, id) => (
-                <div key={id}>
-                  <div>
-                    <strong>Rail-out:</strong> {renderDateValue(container.container_rail_out_date)}{" "}
-                    <FcCalendar
-                      style={styles.icon}
-                      onClick={() => handleEditStart("container_rail_out_date", id)}
-                    />
-                    {editable === `container_rail_out_date_${id}` && (
-                      <div>
-                        <input
-                          type="datetime-local"
-                          value={tempDateValue}
-                          onChange={handleDateInputChange}
-                          style={dateError ? styles.errorInput : {}}
-                          autoFocus
-                        />
-                        <button
-                          style={styles.submitButton}
-                          onClick={() => handleDateSubmit("container_rail_out_date", id)}
-                        >
-                          ✓
-                        </button>
-                        <button
-                          style={styles.cancelButton}
-                          onClick={() => setEditable(null)}
-                        >
-                          ✕
-                        </button>
-                        {dateError && <div style={styles.errorText}>{dateError}</div>}
-                      </div>
-                    )}
-                  </div>
+            {type_of_b_e !== "Ex-Bond" && consignment_type !== "LCL" && containers.map((container, id) => (
+              <div key={id}>
+                <div>
+                  <strong>Rail-out:</strong> {renderDateValue(container.container_rail_out_date)}{" "}
+                  <FcCalendar style={styles.icon} onClick={() => handleEditStart("container_rail_out_date", id)} />
+                  {editable === `container_rail_out_date_${id}` && (
+                    <div>
+                      <input
+                        type="datetime-local"
+                        value={tempDateValue}
+                        onChange={handleDateInputChange}
+                        style={dateError ? styles.errorInput : {}}
+                        autoFocus
+                      />
+                      <button style={styles.submitButton} onClick={() => handleDateSubmit("container_rail_out_date", id)}>✓</button>
+                      <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
+                      {dateError && <div style={styles.errorText}>{dateError}</div>}
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+            ))}
 
-            {consignment_type === "LCL" &&
-              containers.map((container, id) => (
-                <div key={id}>
-                  <div>
-                    <strong>ByRoad:</strong> {renderDateValue(container.by_road_movement_date)}{" "}
-                    <FcCalendar
-                      style={styles.icon}
-                      onClick={() => handleEditStart("by_road_movement_date", id)}
-                    />
-                    {editable === `by_road_movement_date_${id}` && (
-                      <div>
-                        <input
-                          type="datetime-local"
-                          value={tempDateValue}
-                          onChange={handleDateInputChange}
-                          style={dateError ? styles.errorInput : {}}
-                          autoFocus
-                        />
-                        <button
-                          style={styles.submitButton}
-                          onClick={() => handleDateSubmit("by_road_movement_date", id)}
-                        >
-                          ✓
-                        </button>
-                        <button
-                          style={styles.cancelButton}
-                          onClick={() => setEditable(null)}
-                        >
-                          ✕
-                        </button>
-                        {dateError && <div style={styles.errorText}>{dateError}</div>}
-                      </div>
-                    )}
-                  </div>
+            {consignment_type === "LCL" && containers.map((container, id) => (
+              <div key={id}>
+                <div>
+                  <strong>ByRoad:</strong> {renderDateValue(container.by_road_movement_date)}{" "}
+                  <FcCalendar style={styles.icon} onClick={() => handleEditStart("by_road_movement_date", id)} />
+                  {editable === `by_road_movement_date_${id}` && (
+                    <div>
+                      <input
+                        type="datetime-local"
+                        value={tempDateValue}
+                        onChange={handleDateInputChange}
+                        style={dateError ? styles.errorInput : {}}
+                        autoFocus
+                      />
+                      <button style={styles.submitButton} onClick={() => handleDateSubmit("by_road_movement_date", id)}>✓</button>
+                      <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
+                      {dateError && <div style={styles.errorText}>{dateError}</div>}
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+            ))}
             <br />
+            
             {type_of_b_e !== "Ex-Bond" && (
               <>
                 {containers.map((container, id) => (
@@ -1023,18 +699,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                             style={dateError ? styles.errorInput : {}}
                             autoFocus
                           />
-                          <button
-                            style={styles.submitButton}
-                            onClick={() => handleDateSubmit("arrival_date", id)}
-                          >
-                            ✓
-                          </button>
-                          <button
-                            style={styles.cancelButton}
-                            onClick={() => setEditable(null)}
-                          >
-                            ✕
-                          </button>
+                          <button style={styles.submitButton} onClick={() => handleDateSubmit("arrival_date", id)}>✓</button>
+                          <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
                           {dateError && <div style={styles.errorText}>{dateError}</div>}
                         </div>
                       )}
@@ -1047,13 +713,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                 {consignment_type !== "LCL" && (
                   <div style={{ marginBottom: "10px" }}>
                     <strong>Free time:</strong>{" "}
-                    <div
-                      style={{
-                        display: "inline-block",
-                        minWidth: "80px",
-                        marginLeft: "5px",
-                      }}
-                    >
+                    <div style={{ display: "inline-block", minWidth: "80px", marginLeft: "5px" }}>
                       <TextField
                         select
                         size="small"
@@ -1063,9 +723,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                         style={{ minWidth: "80px" }}
                       >
                         {options.map((option, id) => (
-                          <MenuItem key={id} value={option}>
-                            {option}
-                          </MenuItem>
+                          <MenuItem key={id} value={option}>{option}</MenuItem>
                         ))}
                       </TextField>
                     </div>
@@ -1077,13 +735,10 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                   <>
                     <strong>Detention F.:</strong>
                     {containers.map((container, id) => (
-                      <div key={id}>
-                        {renderDateValue(container.detention_from)}
-                      </div>
+                      <div key={id}>{renderDateValue(container.detention_from)}</div>
                     ))}
                   </>
                 )}
-
                 <br />
               </>
             )}
@@ -1095,10 +750,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       <div>
         <div>
           <strong>Assessment Date:</strong> {renderDateValue(dates.assessment_date)}{" "}
-          <FcCalendar
-            style={styles.icon}
-            onClick={() => handleEditStart("assessment_date")}
-          />
+          <FcCalendar style={styles.icon} onClick={() => handleEditStart("assessment_date")} />
           {editable === "assessment_date" && (
             <div>
               <input
@@ -1108,18 +760,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                 style={dateError ? styles.errorInput : {}}
                 autoFocus
               />
-              <button
-                style={styles.submitButton}
-                onClick={() => handleDateSubmit("assessment_date")}
-              >
-                ✓
-              </button>
-              <button
-                style={styles.cancelButton}
-                onClick={() => setEditable(null)}
-              >
-                ✕
-              </button>
+              <button style={styles.submitButton} onClick={() => handleDateSubmit("assessment_date")}>✓</button>
+              <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
               {dateError && <div style={styles.errorText}>{dateError}</div>}
             </div>
           )}
@@ -1127,10 +769,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         <br />
         <div>
           <strong>PCV:</strong> {renderDateValue(dates.pcv_date)}{" "}
-          <FcCalendar
-            style={styles.icon}
-            onClick={() => handleEditStart("pcv_date")}
-          />
+          <FcCalendar style={styles.icon} onClick={() => handleEditStart("pcv_date")} />
           {editable === "pcv_date" && (
             <div>
               <input
@@ -1140,41 +779,21 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                 style={dateError ? styles.errorInput : {}}
                 autoFocus
               />
-              <button
-                style={styles.submitButton}
-                onClick={() => handleDateSubmit("pcv_date")}
-              >
-                ✓
-              </button>
-              <button
-                style={styles.cancelButton}
-                onClick={() => setEditable(null)}
-              >
-                ✕
-              </button>
+              <button style={styles.submitButton} onClick={() => handleDateSubmit("pcv_date")}>✓</button>
+              <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
               {dateError && <div style={styles.errorText}>{dateError}</div>}
             </div>
           )}
         </div>
         <br />
         
-     { payment_method !== "Deferred" &&   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-          <span>
-            <strong>Duty Paid:</strong>{" "}
-            
-            {renderDateValue(dates.duty_paid_date)}{" "}
-          </span>
-          <FcCalendar
-            style={{ ...styles.icon, marginRight: "5px" }}
-            onClick={() => handleEditStart("duty_paid_date")}
-          />
-          <AddIcon
-            fontSize="small"
-            style={{ cursor: "pointer" }}
-            onClick={handleOpenIgstModal}
-            title="Add Duty Details"
-          />
-        </div>}
+        {payment_method !== "Deferred" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+            <span><strong>Duty Paid:</strong> {renderDateValue(dates.duty_paid_date)} </span>
+            <FcCalendar style={{ ...styles.icon, marginRight: "5px" }} onClick={() => handleEditStart("duty_paid_date")} />
+            <AddIcon fontSize="small" style={{ cursor: "pointer" }} onClick={handleOpenIgstModal} title="Add Duty Details" />
+          </div>
+        )}
         {editable === "duty_paid_date" && (
           <div>
             <input
@@ -1185,34 +804,16 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               disabled={!isIgstFieldsAvailable}
               autoFocus
             />
-            <button
-              style={styles.submitButton}
-              onClick={() => handleDateSubmit("duty_paid_date")}
-              disabled={!isIgstFieldsAvailable}
-            >
-              ✓
-            </button>
-            <button
-              style={styles.cancelButton}
-              onClick={() => setEditable(null)}
-            >
-              ✕
-            </button>
-            {!isIgstFieldsAvailable && (
-              <div style={styles.errorText}>
-                Please add IGST and Assessable Amount details
-              </div>
-            )}
+            <button style={styles.submitButton} onClick={() => handleDateSubmit("duty_paid_date")} disabled={!isIgstFieldsAvailable}>✓</button>
+            <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
+            {!isIgstFieldsAvailable && <div style={styles.errorText}>Please add IGST and Assessable Amount details</div>}
             {dateError && <div style={styles.errorText}>{dateError}</div>}
           </div>
         )}
         <br />
         <div>
           <strong>OOC:</strong> {renderDateValue(dates.out_of_charge)}{" "}
-          <FcCalendar
-            style={styles.icon}
-            onClick={() => handleEditStart("out_of_charge")}
-          />
+          <FcCalendar style={styles.icon} onClick={() => handleEditStart("out_of_charge")} />
           {editable === "out_of_charge" && (
             <div>
               <input
@@ -1222,18 +823,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                 style={dateError ? styles.errorInput : {}}
                 autoFocus
               />
-              <button
-                style={styles.submitButton}
-                onClick={() => handleDateSubmit("out_of_charge")}
-              >
-                ✓
-              </button>
-              <button
-                style={styles.cancelButton}
-                onClick={() => setEditable(null)}
-              >
-                ✕
-              </button>
+              <button style={styles.submitButton} onClick={() => handleDateSubmit("out_of_charge")}>✓</button>
+              <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
               {dateError && <div style={styles.errorText}>{dateError}</div>}
             </div>
           )}
@@ -1243,10 +834,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           <div key={id}>
             <div>
               <strong>Delivery:</strong> {renderDateValue(container.delivery_date)}{" "}
-              <FcCalendar
-                style={styles.icon}
-                onClick={() => handleEditStart("delivery_date", id)}
-              />
+              <FcCalendar style={styles.icon} onClick={() => handleEditStart("delivery_date", id)} />
               {editable === `delivery_date_${id}` && (
                 <div>
                   <input
@@ -1256,18 +844,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
                     style={dateError ? styles.errorInput : {}}
                     autoFocus
                   />
-                  <button
-                    style={styles.submitButton}
-                    onClick={() => handleDateSubmit("delivery_date", id)}
-                  >
-                    ✓
-                  </button>
-                  <button
-                    style={styles.cancelButton}
-                    onClick={() => setEditable(null)}
-                  >
-                    ✕
-                  </button>
+                  <button style={styles.submitButton} onClick={() => handleDateSubmit("delivery_date", id)}>✓</button>
+                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
                   {dateError && <div style={styles.errorText}>{dateError}</div>}
                 </div>
               )}
@@ -1277,50 +855,32 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
         <br />
 
-        {consignment_type !== "LCL" && (
-          <>
-            {containers.map((container, id) => (
-              <div key={id}>
+        {consignment_type !== "LCL" && containers.map((container, id) => (
+          <div key={id}>
+            <div>
+              <strong>EmptyOff:</strong> {renderDateValue(container.emptyContainerOffLoadDate)}{" "}
+              <FcCalendar style={styles.icon} onClick={() => handleEditStart("emptyContainerOffLoadDate", id)} />
+              {editable === `emptyContainerOffLoadDate_${id}` && (
                 <div>
-                  <strong>EmptyOff:</strong> {renderDateValue(container.emptyContainerOffLoadDate)}{" "}
-                  <FcCalendar
-                    style={styles.icon}
-                    onClick={() => handleEditStart("emptyContainerOffLoadDate", id)}
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : {}}
+                    autoFocus
                   />
-                  {editable === `emptyContainerOffLoadDate_${id}` && (
-                    <div>
-                      <input
-                        type="datetime-local"
-                        value={tempDateValue}
-                        onChange={handleDateInputChange}
-                        style={dateError ? styles.errorInput : {}}
-                        autoFocus
-                      />
-                      <button
-                        style={styles.submitButton}
-                        onClick={() => handleDateSubmit("emptyContainerOffLoadDate", id)}
-                      >
-                        ✓
-                      </button>
-                      <button
-                        style={styles.cancelButton}
-                        onClick={() => setEditable(null)}
-                      >
-                        ✕
-                      </button>
-                      {dateError && <div style={styles.errorText}>{dateError}</div>}
-                    </div>
-                  )}
+                  <button style={styles.submitButton} onClick={() => handleDateSubmit("emptyContainerOffLoadDate", id)}>✓</button>
+                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
                 </div>
-              </div>
-            ))}
-          </>
-        )}
+              )}
+            </div>
+          </div>
+        ))}
 
         <br />
       </div>
 
-      {/* IGST Modal */}
       <IgstModal
         open={igstModalOpen}
         onClose={handleCloseIgstModal}
@@ -1334,38 +894,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 });
 
 const styles = {
-  icon: {
-    cursor: "pointer",
-    marginLeft: "5px",
-    fontSize: "18px",
-    color: "#282828",
-  },
-  errorInput: {
-    border: "1px solid red",
-  },
-  errorText: {
-    color: "red",
-    fontSize: "12px",
-    marginTop: "2px",
-  },
-  submitButton: {
-    marginLeft: "5px",
-    backgroundColor: "#28a745",
-    color: "white",
-    border: "none",
-    borderRadius: "3px",
-    padding: "2px 6px",
-    cursor: "pointer",
-  },
-  cancelButton: {
-    marginLeft: "5px",
-    backgroundColor: "#dc3545",
-    color: "white",
-    border: "none",
-    borderRadius: "3px",
-    padding: "2px 6px",
-    cursor: "pointer",
-  },
+  icon: { cursor: "pointer", marginLeft: "5px", fontSize: "18px", color: "#282828" },
+  errorInput: { border: "1px solid red" },
+  errorText: { color: "red", fontSize: "12px", marginTop: "2px" },
+  submitButton: { marginLeft: "5px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "3px", padding: "2px 6px", cursor: "pointer" },
+  cancelButton: { marginLeft: "5px", backgroundColor: "#dc3545", color: "white", border: "none", borderRadius: "3px", padding: "2px 6px", cursor: "pointer" },
 };
 
 export default EditableDateCell;

@@ -4475,24 +4475,33 @@ function JobDetails() {
                         alignItems: "baseline",
                       }}
                     >
+                      {!InBondflag && (
+                        <Col xs={12} md={4} lg={3} className="mb-2">
+                          <div className="job-detail-input-container">
+                            <strong>Delivery Date:&nbsp;</strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              type="datetime-local"
+                              id={`delivery_date${index}`}
+                              name={`container_nos[${index}].delivery_date`}
+                              value={formatDateForInput(
+                                container.delivery_date
+                              )}
+                              onChange={formik.handleChange}
+                            />
+                          </div>
+                        </Col>
+                      )}
                       <Col xs={12} md={4} lg={3} className="mb-2">
                         <div className="job-detail-input-container">
-                          <strong>Delivery Date:&nbsp;</strong>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            type="datetime-local"
-                            id={`delivery_date${index}`}
-                            name={`container_nos[${index}].delivery_date`}
-                            value={formatDateForInput(container.delivery_date)}
-                            onChange={formik.handleChange}
-                          />
-                        </div>
-                      </Col>
-                      <Col xs={12} md={4} lg={3} className="mb-2">
-                        <div className="job-detail-input-container">
-                          <strong>Empty Cont. Off-Load Date.&nbsp;</strong>
+                          <strong>
+                            {InBondflag
+                              ? "Destuffing / Empty Cont. Off-Load Date"
+                              : "Empty Cont. Off-Load / Destuffing Date"}
+                            :&nbsp;
+                          </strong>
                           <TextField
                             fullWidth
                             size="small"
@@ -4503,8 +4512,8 @@ function JobDetails() {
                             value={formatDateForInput(
                               container.emptyContainerOffLoadDate
                             )}
-                            disabled={user?.role !== "Admin" && LCLFlag} // Disable if the user is not Admin
-                              onChange={formik.handleChange}
+                            disabled={LCLFlag} // Disable if the user is not Admin
+                            onChange={formik.handleChange}
                           />
                         </div>
                       </Col>

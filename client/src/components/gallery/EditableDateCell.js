@@ -128,6 +128,42 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }, []);
 
+  // Create a data key that changes when any relevant field changes
+  const dataKey = useMemo(() => {
+    if (!cell?.row?.original) return '';
+    const {
+      assessment_date,
+      vessel_berthing,
+      gateway_igm_date,
+      discharge_date,
+      pcv_date,
+      out_of_charge,
+      duty_paid_date,
+      container_nos = [],
+      detailed_status,
+      free_time,
+    } = cell.row.original;
+    
+    // Create a stable key from all relevant fields
+    const containerKey = container_nos.map(c => 
+      `${c.container_number || ''}|${c.arrival_date || ''}|${c.detention_from || ''}|${c.delivery_date || ''}|${c.emptyContainerOffLoadDate || ''}`
+    ).join('||');
+    
+    return `${_id}|${assessment_date || ''}|${vessel_berthing || ''}|${gateway_igm_date || ''}|${discharge_date || ''}|${pcv_date || ''}|${out_of_charge || ''}|${duty_paid_date || ''}|${detailed_status || ''}|${free_time || ''}|${containerKey}`;
+  }, [
+    _id,
+    cell?.row?.original?.assessment_date,
+    cell?.row?.original?.vessel_berthing,
+    cell?.row?.original?.gateway_igm_date,
+    cell?.row?.original?.discharge_date,
+    cell?.row?.original?.pcv_date,
+    cell?.row?.original?.out_of_charge,
+    cell?.row?.original?.duty_paid_date,
+    cell?.row?.original?.detailed_status,
+    cell?.row?.original?.free_time,
+    cell?.row?.original?.container_nos,
+  ]);
+
   useEffect(() => {
     if (cell?.row?.original) {
       const {
@@ -160,7 +196,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       setTempTimeValue("");
       setDateError("");
     }
-  }, [_id]);
+  }, [dataKey]);
 
   const handleOpenIgstModal = useCallback(() => {
     setIgstModalOpen(true);

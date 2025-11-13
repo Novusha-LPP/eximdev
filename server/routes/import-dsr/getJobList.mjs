@@ -32,6 +32,27 @@ const getCache = (key) => {
   return entry.value;
 };
 
+// Invalidate cache entries for a specific year, or clear all if year is not provided
+const invalidateCache = (year = null) => {
+  if (year === null) {
+    // Clear all cache entries
+    simpleCache.clear();
+    return;
+  }
+  // Remove cache entries that match the specified year
+  for (const [key, value] of simpleCache.entries()) {
+    try {
+      const cacheKeyObj = JSON.parse(key);
+      if (cacheKeyObj.year === year) {
+        simpleCache.delete(key);
+      }
+    } catch (e) {
+      // If key is not valid JSON, skip it
+      continue;
+    }
+  }
+};
+
 // Status Rank Configuration
 
 const statusRank = {
@@ -129,16 +150,17 @@ const criticalFields = `
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
   do_shipping_line_invoice port_of_reporting type_of_b_e consignment_type
-  bill_date supplier_exporter cth_documents
+  bill_date supplier_exporter cth_documents assessment_date duty_paid_date
+  pcv_date out_of_charge free_time
 `;
 
 const extensiveFields = `
-  loading_port free_time RMS do_validity_upto_job_level 
+  loading_port RMS do_validity_upto_job_level 
   bill_amount processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time 
-  origin_country hss saller_name adCode assessment_date by_road_movement_date description 
-  invoice_number invoice_date delivery_chalan_file duty_paid_date fine_amount penalty_amount 
+  origin_country hss saller_name adCode by_road_movement_date description 
+  invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
-  bcd_ammount assessable_ammount out_of_charge pcv_date emptyContainerOffLoadDate 
+  bcd_ammount assessable_ammount emptyContainerOffLoadDate 
   gross_weight job_net_weight payment_method
 `;
 
@@ -209,8 +231,9 @@ router.get(
     try {
       const { year, status, detailedStatus, importer, selectedICD } =
         req.params;
-      const { page = 1, limit = 100, search = "", unresolvedOnly } = req.query;
+      const { page = 1, limit = 100, search = "", unresolvedOnly, _nocache } = req.query;
       const searchTerm = String(search || "").trim();
+      const bypassCache = _nocache === "true" || _nocache === "1";
       const skip = (page - 1) * limit;
       const query = { year };
 
@@ -358,10 +381,12 @@ if (unresolvedOnly === "true") {
         user: req.currentUser?.username || req.headers["x-username"] || null,
       });
 
-      // Return cached response when available
-      const cached = getCache(cacheKey);
-      if (cached) {
-        return res.json({ ...cached, cached: true });
+      // Return cached response when available (unless bypass is requested)
+      if (!bypassCache) {
+        const cached = getCache(cacheKey);
+        if (cached) {
+          return res.json({ ...cached, cached: true });
+        }
       }
 
       // Decide whether to use MongoDB text search (faster for keyword queries)
@@ -658,11 +683,13 @@ if (unresolvedOnly === "true") {
         userImporters: req.currentUser?.assignedImporterName || [],
       };
 
-      // Cache page 1 results (and any other pages) for short duration
-      try {
-        setCache(cacheKey, responsePayload);
-      } catch (e) {
-        // ignore cache set failures
+      // Cache page 1 results (and any other pages) for short duration (unless bypass was requested)
+      if (!bypassCache) {
+        try {
+          setCache(cacheKey, responsePayload);
+        } catch (e) {
+          // ignore cache set failures
+        }
       }
 
       res.json(responsePayload);
@@ -716,6 +743,14 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
       ).lean();
     } else if (rowColor !== updatedJob.row_color) {
       updatedJob = await JobModel.findByIdAndUpdate(id, { $set: { row_color: rowColor } }, { new: true }).lean();
+    }
+
+    // Invalidate cache for this job's year to ensure real-time data in editable cells
+    if (updatedJob && updatedJob.year) {
+      invalidateCache(updatedJob.year);
+    } else {
+      // Fallback: clear all cache if year is not available
+      invalidateCache();
     }
 
     return res.status(200).json({ success: true, message: "Job updated successfully", data: updatedJob });

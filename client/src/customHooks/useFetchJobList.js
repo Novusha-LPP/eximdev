@@ -55,19 +55,37 @@ function useFetchJobList(
     }
   };
 
-  // Accept unresolvedOnly as an argument to fetchJobs
-  const fetchJobs = async (page, unresolved = unresolvedOnly) => {
+  // Invalidate cache entries for a specific year, or clear all if year is not provided
+  const invalidateCache = (year = null) => {
+    if (year === null) {
+      queryCacheRef.current.clear();
+      return;
+    }
+    // Remove cache entries that match the specified year
+    for (const [key] of queryCacheRef.current.entries()) {
+      if (key.startsWith(`${year}|`)) {
+        queryCacheRef.current.delete(key);
+      }
+    }
+  };
+
+  // Accept unresolvedOnly and bypassCache as arguments to fetchJobs
+  const fetchJobs = async (page, unresolved = unresolvedOnly, bypassCache = false) => {
     setLoading(true);
     const cacheKey = makeCacheKey(page);
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      // Use cached results immediately
-      setRows(cached.data);
-      setTotal(cached.total);
-      setTotalPages(cached.totalPages);
-      setCurrentPage(cached.currentPage);
-      setLoading(false);
-      return;
+    
+    // Only use cache if not bypassing
+    if (!bypassCache) {
+      const cached = getFromCache(cacheKey);
+      if (cached) {
+        // Use cached results immediately
+        setRows(cached.data);
+        setTotal(cached.total);
+        setTotalPages(cached.totalPages);
+        setCurrentPage(cached.currentPage);
+        setLoading(false);
+        return;
+      }
     }
     
     // PERFORMANCE: Cancel previous pending request if still in progress
@@ -114,6 +132,9 @@ function useFetchJobList(
       if (unresolved) {
         apiUrl += `&unresolvedOnly=true`;
       }
+      if (bypassCache) {
+        apiUrl += `&_nocache=true`;
+      }
 
       const start = performance.now();
       const response = await axios.get(apiUrl, {
@@ -134,11 +155,13 @@ function useFetchJobList(
       setTotalPages(totalPages);
       setCurrentPage(currentPage);
 
-      // Cache page 1 responses for quick repeated access
-      try {
-        setToCache(cacheKey, { data, total, totalPages, currentPage });
-      } catch (e) {
-        // ignore
+      // Cache page 1 responses for quick repeated access (unless bypassing cache)
+      if (!bypassCache) {
+        try {
+          setToCache(cacheKey, { data, total, totalPages, currentPage });
+        } catch (e) {
+          // ignore
+        }
       }
       
       // If this is the Pending status, update unresolved count from the total when unresolvedOnly is true
@@ -248,6 +271,7 @@ function useFetchJobList(
     userImporters, // Available importers for current user
     canAccessImporter, // Helper function to check access
     unresolvedCount, // Add unresolvedCount to the returned object
+    invalidateCache, // Function to invalidate client-side cache
   };
 }
 

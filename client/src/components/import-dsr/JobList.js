@@ -144,7 +144,7 @@ function JobList(props) {
 
   const importerNames = [...getUniqueImporterNames(importers)];
 
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows, unresolvedCount, loading } =
+  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows, unresolvedCount, loading, invalidateCache } =
     useFetchJobList(
       detailedStatus,
       selectedYearState,
@@ -155,12 +155,27 @@ function JobList(props) {
       showUnresolvedOnly // Use prop from JobTabs
     );  // Callback to update row data when data changes in EditableDateCell
   const handleRowDataUpdate = useCallback((jobId, updatedData) => {
+    // Invalidate client-side cache to ensure fresh data on next fetch
+    if (selectedYearState) {
+      invalidateCache(selectedYearState);
+    }
+    
     setRows(prevRows => {
-      const updatedRows = prevRows.map(row => 
-        row._id === jobId 
-          ? { ...row, ...updatedData }
-          : row
-      );
+      const updatedRows = prevRows.map(row => {
+        if (row._id === jobId) {
+          // Create a new object with updated data
+          // Ensure nested arrays/objects get new references for React to detect changes
+          const updatedRow = { ...row, ...updatedData };
+          // If container_nos is in updatedData, ensure it's a new array reference
+          if (updatedData.container_nos) {
+            updatedRow.container_nos = Array.isArray(updatedData.container_nos) 
+              ? [...updatedData.container_nos] 
+              : updatedData.container_nos;
+          }
+          return updatedRow;
+        }
+        return row;
+      });
 
       // Check if the job still matches current filter after status change
       const updatedJob = updatedRows.find(j => j._id === jobId);
@@ -185,7 +200,14 @@ function JobList(props) {
     
     // Increment refresh trigger to force getRowProps to recalculate
     setRefreshTrigger(prev => prev + 1);
-  }, [detailedStatus, setRows]);
+    
+    // Refetch current page with cache bypass to get fresh data from server
+    // Use setTimeout to ensure server-side cache invalidation has completed
+    // and to avoid race conditions with the update
+    setTimeout(() => {
+      fetchJobs(currentPage, showUnresolvedOnly, true);
+    }, 300);
+  }, [detailedStatus, setRows, selectedYearState, invalidateCache, fetchJobs, currentPage, showUnresolvedOnly]);
 
   // Determine current tab index based on status
   const getCurrentTabIndex = () => {
@@ -274,7 +296,7 @@ function JobList(props) {
       try {
         controller = new AbortController();
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING || ""}/api/${selectedYearState}/jobs/typeahead`,
+          `${process.env.REACT_APP_API_STRING || ""}/${selectedYearState}/jobs/typeahead`,
           {
             params: {
               search: safeSearch,

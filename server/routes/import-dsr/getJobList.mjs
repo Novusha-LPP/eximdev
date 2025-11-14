@@ -670,10 +670,29 @@ if (unresolvedOnly === "true") {
       ];
 
       // Execute aggregation
-      const aggResult = await JobModel.aggregate(pipeline).allowDiskUse(true).exec();
-      const metadata = aggResult[0]?.metadata || [];
-      const jobs = aggResult[0]?.data || [];
-      const totalCount = (metadata[0] && metadata[0].total) || 0;
+      let jobs = [];
+      let totalCount = 0;
+      try {
+        const aggResult = await JobModel.aggregate(pipeline).allowDiskUse(true).exec();
+        const metadata = aggResult[0]?.metadata || [];
+        jobs = aggResult[0]?.data || [];
+        totalCount = (metadata[0] && metadata[0].total) || 0;
+      } catch (aggErr) {
+        // If aggregation failed due to sort memory limits on this server/cluster,
+        // fall back to a simpler find/count approach (less CPU but avoids large in-memory sort).
+        // This is a graceful degradation to keep the UI responsive.
+        if (aggErr && aggErr.code === 292) {
+          try {
+            jobs = await JobModel.find(query).select(projection).skip(parseInt(skip)).limit(parseInt(limit)).lean();
+            totalCount = await JobModel.countDocuments(query);
+          } catch (fallbackErr) {
+            console.error("Aggregation fallback failed:", fallbackErr);
+            throw aggErr; // rethrow original aggregation error to be handled below
+          }
+        } else {
+          throw aggErr;
+        }
+      }
 
       const responsePayload = {
         data: jobs,
@@ -806,24 +825,66 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
 
     const safeSearch = String(search || "").trim();
     if (safeSearch.length >= 3) {
-      // use text search if available
-      query.$text = { $search: safeSearch };
-      const results = await JobModel.find(query)
-        .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, score: { $meta: "textScore" } })
-        .sort({ score: { $meta: "textScore" } })
-        .limit(parseInt(limit))
-        .lean();
-      return res.json({ success: true, data: results });
+      // Detect likely container number patterns (e.g., 4 letters + 7 digits like 'MSKU1234567')
+      const isContainerLike = /^[A-Za-z]{2,}\d{3,}$/i.test(safeSearch);
+      if (isContainerLike) {
+        // Search container numbers explicitly (also allow job_no, awb_bl_no, be_no fallback)
+        const regex = new RegExp(safeSearch, "i");
+        const results = await JobModel.find({
+          ...query,
+          $or: [
+            { "container_nos.container_number": { $regex: regex } },
+            { job_no: { $regex: regex } },
+            { awb_bl_no: { $regex: regex } },
+            { be_no: { $regex: regex } },
+          ],
+        })
+          .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, "container_nos.container_number": 1 })
+          .limit(parseInt(limit))
+          .lean();
+        return res.json({ success: true, data: results });
+      }
+
+      // Otherwise try text search if available
+      try {
+        query.$text = { $search: safeSearch };
+        const results = await JobModel.find(query)
+          .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, score: { $meta: "textScore" } })
+          .sort({ score: { $meta: "textScore" } })
+          .limit(parseInt(limit))
+          .lean();
+        return res.json({ success: true, data: results });
+      } catch (txtErr) {
+        // If text search fails (no text index), fall back to regex OR search including container numbers
+        const regex = new RegExp(safeSearch, "i");
+        const results = await JobModel.find({
+          ...query,
+          $or: [
+            { job_no: { $regex: regex } },
+            { awb_bl_no: { $regex: regex } },
+            { be_no: { $regex: regex } },
+            { "container_nos.container_number": { $regex: regex } },
+          ],
+        })
+          .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, "container_nos.container_number": 1 })
+          .limit(parseInt(limit))
+          .lean();
+        return res.json({ success: true, data: results });
+      }
     }
 
-    // Fallback: prefix match on job_no or awb_bl_no
+    // Fallback: prefix match on job_no, awb_bl_no or container number
     if (safeSearch.length > 0) {
-      const regex = new RegExp(`^${safeSearch}`, "i");
-      query.$or = [{ job_no: { $regex: regex } }, { awb_bl_no: { $regex: regex } }];
+      const regex = new RegExp(`^${escapeRegex(safeSearch)}`, "i");
+      query.$or = [
+        { job_no: { $regex: regex } },
+        { awb_bl_no: { $regex: regex } },
+        { "container_nos.container_number": { $regex: regex } },
+      ];
     }
 
     const results = await JobModel.find(query)
-      .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1 })
+      .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, "container_nos.container_number": 1 })
       .limit(parseInt(limit))
       .lean();
 

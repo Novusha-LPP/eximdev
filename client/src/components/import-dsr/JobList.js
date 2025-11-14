@@ -81,15 +81,21 @@ function JobList(props) {
     // eslint-disable-next-line
   }, []);
 
-  // Importer list
+  // Importer list - filter by detailedStatus
   useEffect(() => {
     async function getImporterList() {
       if (!selectedYearState) return;
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}`);
+      const params = new URLSearchParams();
+      if (detailedStatus && detailedStatus !== "all") {
+        params.append("detailedStatus", detailedStatus);
+      }
+      const queryString = params.toString();
+      const url = `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""}`;
+      const res = await axios.get(url);
       setImporters(res.data);
     }
     getImporterList();
-  }, [selectedYearState]);
+  }, [selectedYearState, detailedStatus]);
 
   const getUniqueImporterNames = useCallback((importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -118,11 +124,11 @@ function JobList(props) {
     );
 
   // Sync local input -> searchQuery (fast debounce to keep UI snappy)
+  // Immediately mirror local input to global searchQuery so fetch hook
+  // can cancel stale requests quickly. Rely on AbortController for in-flight
+  // cancellation instead of adding an extra debounce here.
   useEffect(() => {
-    const t = setTimeout(() => {
-      setSearchQuery(localInput);
-    }, 150);
-    return () => clearTimeout(t);
+    setSearchQuery(localInput);
   }, [localInput, setSearchQuery]);
 
   // Normalize to pure job no into debouncedSearchQuery
@@ -131,7 +137,7 @@ function JobList(props) {
       const s = String(searchQuery || "").trim();
       const looksLikeJob = /^\d{2,}/.test(s);
       setDebouncedSearchQuery(looksLikeJob ? extractJobNo(s) : s);
-    }, 250);
+    }, 200); // slightly reduced debounce for snappier search
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -185,7 +191,7 @@ function JobList(props) {
       }
     };
 
-    const t = setTimeout(doFetch, 250);
+    const t = setTimeout(doFetch, 150); // faster suggestions
     return () => {
       cancelled = true;
       clearTimeout(t);

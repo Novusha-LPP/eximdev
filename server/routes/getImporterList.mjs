@@ -6,11 +6,20 @@ const router = express.Router();
 router.get("/api/get-importer-list/:year", async (req, res) => {
   try {
     const selectedYear = req.params.year;
+    const { detailedStatus } = req.query; // Get optional detailedStatus filter
+
+    // Build the match stage with year and optional detailedStatus
+    const matchStage = { year: selectedYear };
+
+    // If detailedStatus is provided and not "all", filter by detailed_status
+    if (detailedStatus && detailedStatus !== "all") {
+      matchStage.detailed_status = detailedStatus;
+    }
 
     // Use Mongoose aggregation to group and retrieve unique importer and importerURL values
     const uniqueImporters = await JobModel.aggregate([
       {
-        $match: { year: selectedYear }, // Filter documents by year
+        $match: matchStage, // Filter documents by year and optionally by status
       },
       {
         $group: {

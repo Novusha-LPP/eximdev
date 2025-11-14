@@ -24,6 +24,8 @@ import {
   countryOptions,
   hssOptions,
   portReportingOptions,
+  portOptions,
+  portOfLoadingOptions,
 } from "../MasterLists/MasterLists";
 import { useFormik } from "formik";
 import AddIcon from "@mui/icons-material/Add";
@@ -554,13 +556,20 @@ const ImportCreateJob = () => {
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Loading Port:
           </Typography>
-          <TextField
+         <Autocomplete
+            freeSolo
+            options={portOfLoadingOptions}
             value={loading_port}
-            onChange={(e) => setLoadingPort(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Loading Port"
-            fullWidth
+            onInputChange={(event, newValue) => setLoadingPort(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                helperText="Start typing to see suggestions"
+                fullWidth
+              />
+            )}
           />
         </Grid>
         {/* BL Number */}
@@ -589,13 +598,20 @@ const ImportCreateJob = () => {
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Port of Reporting:
           </Typography>
-          <TextField
+          <Autocomplete
+            freeSolo
+            options={portOptions}
             value={port_of_reporting}
-            onChange={(e) => setPortOfReporting(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Port of Reporting"
-            fullWidth
+            onInputChange={(event, newValue) => setPortOfReporting(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                helperText="Start typing to see suggestions"
+                fullWidth
+              />
+            )}
           />
         </Grid>
         {/* BL Number */}

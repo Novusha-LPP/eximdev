@@ -229,30 +229,26 @@ router.get(
   applyUserImporterFilter,
   async (req, res) => {
     try {
-      const { year, status, detailedStatus, importer, selectedICD } =
-        req.params;
+      const { year, status, detailedStatus, importer, selectedICD } = req.params;
       const { page = 1, limit = 100, search = "", unresolvedOnly, _nocache } = req.query;
+
       const searchTerm = String(search || "").trim();
       const bypassCache = _nocache === "true" || _nocache === "1";
       const skip = (page - 1) * limit;
+
       const query = { year };
 
-      // Function to escape special characters in regex
-      const escapeRegex = (string) => {
-        return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
-      };
+      const escapeRegex = (string) =>
+        string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 
-      // Initialize $and array for complex queries
       if (!query.$and) query.$and = [];
 
-      // Apply user-based Importer filter from middleware FIRST
+      // 1) User-based importer filter from middleware
       if (req.userImporterFilter) {
-        // User has specific Importer restrictions
         query.$and.push(req.userImporterFilter);
       }
 
-      // Handle additional importer filtering from URL params
-      // Only apply if user doesn't have restrictions OR if it's more restrictive
+      // 2) Additional importer filter from URL
       if (
         importer &&
         importer.toLowerCase() !== "all" &&
@@ -267,24 +263,21 @@ router.get(
         importer.toLowerCase() !== "all" &&
         req.userImporterFilter
       ) {
-        // If user has restrictions, ensure the requested importer is in their allowed list
         const userImporters = req.currentUser?.assignedImporterName || [];
         const isImporterAllowed = userImporters.some(
           (userImp) => userImp.toLowerCase() === importer.toLowerCase()
         );
 
         if (isImporterAllowed) {
-          // Override the user filter with the specific importer
-          query.$and = query.$and.filter((condition) => !condition.importer); // Remove existing importer filter
+          query.$and = query.$and.filter((condition) => !condition.importer);
           query.importer = {
             $regex: `^${escapeRegex(importer)}$`,
             $options: "i",
           };
         }
-        // If not allowed, keep the user filter (will show no results for this importer)
       }
 
-      // Handle ICD filtering
+      // 3) ICD filtering
       if (selectedICD && selectedICD.toLowerCase() !== "all") {
         query.custom_house = {
           $regex: `^${escapeRegex(selectedICD)}$`,
@@ -292,7 +285,7 @@ router.get(
         };
       }
 
-      // Handle case-insensitive status filtering and bill_date conditions
+      // 4) Status filtering (Pending / Completed / Cancelled)
       const statusLower = status.toLowerCase();
 
       if (statusLower === "pending") {
@@ -331,7 +324,7 @@ router.get(
         );
       }
 
-      // Handle detailedStatus filtering using a mapping object
+      // 5) detailedStatus mapping
       const statusMapping = {
         billing_pending: "Billing Pending",
         eta_date_pending: "ETA Date Pending",
@@ -350,24 +343,23 @@ router.get(
           ? statusMapping[detailedStatus] || detailedStatus
           : null;
 
-      // Add search filter if provided
+      // 6) Search filter
       if (searchTerm) {
         query.$and.push(buildSearchQuery(searchTerm));
       }
 
-      // Add unresolvedOnly filter if requested
-if (unresolvedOnly === "true") {
-  query.$and.push({
-    dsr_queries: { $elemMatch: { resolved: { $ne: true } } }
-  });
-}
+      // 7) unresolvedOnly filter
+      if (unresolvedOnly === "true") {
+        query.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
+        });
+      }
 
-      // Remove empty $and array if no conditions were added
       if (query.$and && query.$and.length === 0) {
         delete query.$and;
       }
 
-      // Remove sensitive or overly specific parts from cache key
+      // 8) Cache key
       const cacheKey = JSON.stringify({
         year,
         status,
@@ -381,7 +373,6 @@ if (unresolvedOnly === "true") {
         user: req.currentUser?.username || req.headers["x-username"] || null,
       });
 
-      // Return cached response when available (unless bypass is requested)
       if (!bypassCache) {
         const cached = getCache(cacheKey);
         if (cached) {
@@ -389,7 +380,7 @@ if (unresolvedOnly === "true") {
         }
       }
 
-      // Decide whether to use MongoDB text search (faster for keyword queries)
+      // 9) Decide text search
       const sanitizedSearch = searchTerm;
       const canUseTextSearch =
         sanitizedSearch &&
@@ -397,11 +388,13 @@ if (unresolvedOnly === "true") {
         !/[*+?^${}()|[\]\\]/.test(sanitizedSearch) &&
         !/\d/.test(sanitizedSearch);
 
-      // Build aggregation pipeline to get both data and total in single roundtrip
       const matchStage = { $match: query };
 
-      // Build projection object from selected fields
-      const selectedFieldsStr = getSelectedFields(detailedStatus === "all" ? "all" : detailedStatus, false);
+      // 10) Projection from selected fields
+      const selectedFieldsStr = getSelectedFields(
+        detailedStatus === "all" ? "all" : detailedStatus,
+        false
+      );
       const projection = {};
       selectedFieldsStr.split(/\s+/).forEach((f) => {
         if (f) projection[f] = 1;
@@ -409,9 +402,7 @@ if (unresolvedOnly === "true") {
 
       const dataPipeline = [];
 
-      // Pre-compute rank and date fields used for sorting (and text score if applicable)
-      const statusRankEntries = Object.entries(statusRank);
-
+      // 11) Precompute flags for effective status
       const effectiveDetailedStatusExpression = {
         $let: {
           vars: {
@@ -446,105 +437,149 @@ if (unresolvedOnly === "true") {
             },
           },
           in: {
-            $let: {
-              vars: {
-                deliveryOrOffloadSatisfied: {
-                  $cond: [
-                    { $or: ["$$isExBond", "$$isLcl"] },
-                    "$$allDelivery",
-                    "$$allEmptyOffload",
-                  ],
-                },
-              },
-              in: {
+            // Match Node determineDetailedStatus: Ex-Bond branch vs Non Ex-Bond
+            $cond: [
+              "$$isExBond",
+              // Ex-Bond flow
+              {
                 $switch: {
                   branches: [
                     {
                       case: {
                         $and: [
                           "$$bePresent",
-                          "$$anyArrival",
                           "$$validOutOfCharge",
-                          "$$deliveryOrOffloadSatisfied",
+                          "$$allDelivery",
                         ],
                       },
                       then: "Billing Pending",
                     },
                     {
                       case: {
-                        $and: [
-                          "$$bePresent",
-                          "$$anyArrival",
-                          "$$validOutOfCharge",
-                        ],
+                        $and: ["$$bePresent", "$$validOutOfCharge"],
                       },
                       then: "Custom Clearance Completed",
                     },
                     {
                       case: {
-                        $and: [
-                          "$$bePresent",
-                          "$$anyArrival",
-                          "$$validPcv",
-                        ],
+                        $and: ["$$bePresent", "$$validPcv"],
                       },
                       then: "PCV Done, Duty Payment Pending",
-                    },
-                    {
-                      case: {
-                        $and: ["$$bePresent", "$$anyArrival"],
-                      },
-                      then: "BE Noted, Clearance Pending",
-                    },
-                    {
-                      case: {
-                        $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
-                      },
-                      then: "Arrived, BE Note Pending",
-                    },
-                    {
-                      case: "$$bePresent",
-                      then: "BE Noted, Arrival Pending",
-                    },
-                    {
-                      case: "$$anyRailOut",
-                      then: "Rail Out",
-                    },
-                    {
-                      case: "$$validDischarge",
-                      then: "Discharged",
-                    },
-                    {
-                      case: "$$validGateway",
-                      then: "Gateway IGM Filed",
-                    },
-                    {
-                      case: "$$validVessel",
-                      then: "Estimated Time of Arrival",
                     },
                   ],
                   default: "ETA Date Pending",
                 },
               },
-            },
+              // Non Ex-Bond flow (original import logic)
+              {
+                $let: {
+                  vars: {
+                    deliveryOrOffloadSatisfied: {
+                      $cond: [
+                        { $or: ["$$isExBond", "$$isLcl"] },
+                        "$$allDelivery",
+                        "$$allEmptyOffload",
+                      ],
+                    },
+                  },
+                  in: {
+                    $switch: {
+                      branches: [
+                        {
+                          case: {
+                            $and: [
+                              "$$bePresent",
+                              "$$anyArrival",
+                              "$$validOutOfCharge",
+                              "$$deliveryOrOffloadSatisfied",
+                            ],
+                          },
+                          then: "Billing Pending",
+                        },
+                        {
+                          case: {
+                            $and: [
+                              "$$bePresent",
+                              "$$anyArrival",
+                              "$$validOutOfCharge",
+                            ],
+                          },
+                          then: "Custom Clearance Completed",
+                        },
+                        {
+                          case: {
+                            $and: [
+                              "$$bePresent",
+                              "$$anyArrival",
+                              "$$validPcv",
+                            ],
+                          },
+                          then: "PCV Done, Duty Payment Pending",
+                        },
+                        {
+                          case: {
+                            $and: ["$$bePresent", "$$anyArrival"],
+                          },
+                          then: "BE Noted, Clearance Pending",
+                        },
+                        {
+                          case: {
+                            $and: [
+                              { $not: ["$$bePresent"] },
+                              "$$anyArrival",
+                            ],
+                          },
+                          then: "Arrived, BE Note Pending",
+                        },
+                        {
+                          case: "$$bePresent",
+                          then: "BE Noted, Arrival Pending",
+                        },
+                        {
+                          case: "$$anyRailOut",
+                          then: "Rail Out",
+                        },
+                        {
+                          case: "$$validDischarge",
+                          then: "Discharged",
+                        },
+                        {
+                          case: "$$validGateway",
+                          then: "Gateway IGM Filed",
+                        },
+                        {
+                          case: "$$validVessel",
+                          then: "Estimated Time of Arrival",
+                        },
+                      ],
+                      default: "ETA Date Pending",
+                    },
+                  },
+                },
+              },
+            ],
           },
         },
       };
+
+      const statusRankEntries = Object.entries(statusRank);
 
       const statusRankBranches = statusRankEntries.map(([status, { rank }]) => ({
         case: { $eq: ["$__effective_detailed_status", status] },
         then: rank,
       }));
 
-      const statusDateBranches = statusRankEntries.map(([status, { field }]) => ({
-        case: { $eq: ["$__effective_detailed_status", status] },
-        then: {
-          $ifNull: [
-            buildDateFromField(`$container_nos.0.${field}`),
-            buildDateFromField(`$${field}`),
-          ],
-        },
-      }));
+      const statusDateBranches = statusRankEntries.map(
+        ([status, { field }]) => ({
+          case: { $eq: ["$__effective_detailed_status", status] },
+          then: {
+            $ifNull: [
+              buildDateFromField(`$container_nos.0.${field}`),
+              buildDateFromField(`$${field}`),
+            ],
+          },
+        })
+      );
 
       const defaultDateExpression = {
         $ifNull: [
@@ -602,26 +637,30 @@ if (unresolvedOnly === "true") {
         },
       };
 
-      // If text search is allowed use $text and include score
       if (canUseTextSearch) {
-        // Use $text search – add $text into match stage
-        // We can't modify query object directly when $and is used, so build a match specifically
         const textMatch = Object.assign({}, query);
-        // ensure $text is applied at top-level
         textMatch.$text = { $search: sanitizedSearch };
-
-        // Replace matchStage with textMatch
         matchStage.$match = textMatch;
       }
 
       dataPipeline.push({ $addFields: firstAddFields });
+
+      // Apply requested detailedStatus filter on effective status
       if (requestedDetailedStatus) {
         dataPipeline.push({
           $match: { __effective_detailed_status: requestedDetailedStatus },
         });
       }
+
       dataPipeline.push({ $addFields: baseAddFields });
-      dataPipeline.push({ $addFields: { detailed_status: "$__effective_detailed_status" } });
+
+      // IMPORTANT: do NOT overwrite stored detailed_status;
+      // instead, expose effective one separately
+      dataPipeline.push({
+        $addFields: {
+          effective_detailed_status: "$__effective_detailed_status",
+        },
+      });
 
       if (canUseTextSearch) {
         dataPipeline.push({
@@ -630,7 +669,7 @@ if (unresolvedOnly === "true") {
             __lcl_priority: 1,
             __status_rank: 1,
             __status_sort_date: 1,
-            detailed_status: 1,
+            effective_detailed_status: 1,
             _id: 1,
           },
         });
@@ -640,23 +679,24 @@ if (unresolvedOnly === "true") {
             __lcl_priority: 1,
             __status_rank: 1,
             __status_sort_date: 1,
-            detailed_status: 1,
+            effective_detailed_status: 1,
             _id: 1,
           },
         });
       }
 
-      // Projection to limit fields
       if (Object.keys(projection).length > 0) {
         dataPipeline.push({ $project: projection });
       }
 
       const basePipeline = [...dataPipeline];
+
       const pagedPipeline = [
         ...basePipeline,
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
       ];
+
       const metadataPipeline = [...basePipeline, { $count: "total" }];
 
       const pipeline = [
@@ -669,8 +709,10 @@ if (unresolvedOnly === "true") {
         },
       ];
 
-      // Execute aggregation
-      const aggResult = await JobModel.aggregate(pipeline).allowDiskUse(true).exec();
+      const aggResult = await JobModel.aggregate(pipeline)
+        .allowDiskUse(true)
+        .exec();
+
       const metadata = aggResult[0]?.metadata || [];
       const jobs = aggResult[0]?.data || [];
       const totalCount = (metadata[0] && metadata[0].total) || 0;
@@ -683,7 +725,6 @@ if (unresolvedOnly === "true") {
         userImporters: req.currentUser?.assignedImporterName || [],
       };
 
-      // Cache page 1 results (and any other pages) for short duration (unless bypass was requested)
       if (!bypassCache) {
         try {
           setCache(cacheKey, responsePayload);
@@ -699,6 +740,7 @@ if (unresolvedOnly === "true") {
     }
   }
 );
+
 
 // editable patch api
 // CRITICAL: Only update nested fields (container_nos) by index, never replace the entire array
@@ -723,37 +765,28 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
     }
 
     // Apply the requested update
-    await JobModel.findByIdAndUpdate(id, { $set: updateData });
+  // After passing the length guard:
+const existing = await JobModel.findById(id).lean();
+if (!existing) return res.status(404).json({ success: false, message: "Job not found" });
 
-    // Fetch the freshly updated job and recompute detailed_status server-side
-    let updatedJob = await JobModel.findById(id).lean();
-    if (!updatedJob) {
-      return res.status(404).json({ success: false, message: "Job not found" });
-    }
+const merged = { ...existing, ...updateData };
+if (existing.container_nos && updateData.container_nos) {
+  merged.container_nos = updateData.container_nos; // or deeply merge as needed
+}
 
-    const recomputedStatus = determineDetailedStatus(updatedJob);
-    const rowColor = getRowColorFromStatus(recomputedStatus || updatedJob.detailed_status);
+const recomputedStatus = determineDetailedStatus(merged);
+const rowColor = getRowColorFromStatus(recomputedStatus || existing.detailed_status);
 
-    // Persist recomputed status and row_color if needed
-    if (recomputedStatus && recomputedStatus !== updatedJob.detailed_status) {
-      updatedJob = await JobModel.findByIdAndUpdate(
-        id,
-        { $set: { detailed_status: recomputedStatus, row_color: rowColor } },
-        { new: true }
-      ).lean();
-    } else if (rowColor !== updatedJob.row_color) {
-      updatedJob = await JobModel.findByIdAndUpdate(id, { $set: { row_color: rowColor } }, { new: true }).lean();
-    }
+const finalDoc = await JobModel.findByIdAndUpdate(
+  id,
+  { $set: { ...updateData, detailed_status: recomputedStatus, row_color: rowColor } },
+  { new: true, runValidators: true }
+).lean();
 
-    // Invalidate cache for this job's year to ensure real-time data in editable cells
-    if (updatedJob && updatedJob.year) {
-      invalidateCache(updatedJob.year);
-    } else {
-      // Fallback: clear all cache if year is not available
-      invalidateCache();
-    }
+if (finalDoc?.year) invalidateCache(finalDoc.year); else invalidateCache();
 
-    return res.status(200).json({ success: true, message: "Job updated successfully", data: updatedJob });
+return res.status(200).json({ success: true, message: "Job updated successfully", data: finalDoc });
+
   } catch (error) {
     console.error("Error updating job:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });

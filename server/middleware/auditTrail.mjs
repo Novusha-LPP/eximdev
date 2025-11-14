@@ -447,8 +447,6 @@ setImmediate(async () => {
                 reason: req.body.reason || req.query.reason,
                 sessionId: req.sessionID || req.session?.id
               });
-            } else {
-              console.log(`ℹ️ [req.jobInfo path] No meaningful changes detected after filtering, skipping audit trail`);
             }
           } else {
             console.log(`❌ [req.jobInfo path] Could not fetch updated document for comparison`);
@@ -677,8 +675,6 @@ setImmediate(async () => {
             reason: req.body.reason || req.query.reason,
             sessionId: req.sessionID || req.session?.id
           });
-        } else {
-          console.log(`ℹ️ [General path] No meaningful changes detected after filtering, skipping audit trail`);
         }
       } catch (error) {
         console.error('❌ [General path] Error in audit trail comparison:', error);

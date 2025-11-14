@@ -313,63 +313,94 @@ function JobDetails() {
   // Helper function to update the `detailed_status` based on form values
   const updateDetailedStatus = () => {
     const {
-      vessel_berthing: eta,
-      gateway_igm_date: gatewayIGMDate,
-      discharge_date: dischargeDate,
-      out_of_charge: outOfChargeDate,
-      pcv_date: pcvDate,
+      be_no,
       container_nos,
+      out_of_charge,
+      pcv_date,
+      discharge_date,
+      gateway_igm_date,
+      vessel_berthing,
       type_of_b_e,
       consignment_type,
     } = formik.values;
 
-    const billOfEntryNo = formik.values.be_no || data?.be_no;
-    const anyContainerArrivalDate = container_nos?.some(
-      (container) => container.arrival_date
-    );
-    const containerRailOutDate =
-      container_nos?.length > 0 &&
-      container_nos.every((container) => container.container_rail_out_date);
+    const isValidDate = (date) => {
+      if (!date) return false;
+      const d = new Date(date);
+      return !isNaN(d.getTime());
+    };
 
-    const emptyContainerOffLoadDate =
-      container_nos?.length > 0 &&
-      container_nos.every((container) => container.emptyContainerOffLoadDate);
+    const anyArrival = Array.isArray(container_nos)
+      ? container_nos.some((c) => isValidDate(c?.arrival_date))
+      : false;
 
-    const deliveryDate =
-      container_nos?.length > 0 &&
-      container_nos.every((container) => container.delivery_date);
+    const anyRailOut = Array.isArray(container_nos)
+      ? container_nos.some((c) => isValidDate(c?.container_rail_out_date))
+      : false;
 
-    // Check if type_of_b_e or consignment_type is "Ex-Bond" or "LCL"
-    const isExBondOrLCL =
-      type_of_b_e === "Ex-Bond" || consignment_type === "LCL";
-    if (
-      billOfEntryNo &&
-      anyContainerArrivalDate &&
-      outOfChargeDate &&
-      (isExBondOrLCL ? deliveryDate : emptyContainerOffLoadDate)
-    ) {
-      formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (billOfEntryNo && anyContainerArrivalDate && outOfChargeDate) {
-      formik.setFieldValue("detailed_status", "Custom Clearance Completed");
-    } else if (billOfEntryNo && anyContainerArrivalDate && pcvDate) {
-      formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
-    } else if (billOfEntryNo && anyContainerArrivalDate) {
-      formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
-    } else if (billOfEntryNo) {
-      formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
-    } else if (!billOfEntryNo && anyContainerArrivalDate) {
-      formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
-    } else if (containerRailOutDate) {
-      formik.setFieldValue("detailed_status", "Rail Out");
-    } else if (dischargeDate) {
-      formik.setFieldValue("detailed_status", "Discharged");
-    } else if (gatewayIGMDate) {
-      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
-    } else if (eta === "" || eta === "Invalid Date") {
+    const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
+
+    const allDelivered = hasContainers
+      ? container_nos.every((c) => isValidDate(c?.delivery_date))
+      : false;
+
+    const allEmptyOffloaded = hasContainers
+      ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
+      : false;
+
+    const validOOC = isValidDate(out_of_charge);
+    const validPCV = isValidDate(pcv_date);
+    const validDischarge = isValidDate(discharge_date);
+    const validIGM = isValidDate(gateway_igm_date);
+    const validETA = isValidDate(vessel_berthing);
+
+    const norm = (s) => String(s || "").trim().toLowerCase();
+    const isExBond = norm(type_of_b_e) === "ex-bond";
+    const isLCL = norm(consignment_type) === "lcl";
+
+    // Ex-Bond: return early to avoid fall-through
+    if (isExBond) {
+      if (be_no && validOOC && allDelivered) {
+        formik.setFieldValue("detailed_status", "Billing Pending");
+        return;
+      }
+      if (be_no && validOOC) {
+        formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+        return;
+      }
+      if (be_no && validPCV) {
+        formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+        return;
+      }
       formik.setFieldValue("detailed_status", "ETA Date Pending");
-    } else if (eta) {
+      return;
+    }
+
+    // Non Ex-Bond (original import flow)
+    const billingComplete = isLCL ? allDelivered : allEmptyOffloaded;
+
+    if (be_no && anyArrival && validOOC && billingComplete) {
+      formik.setFieldValue("detailed_status", "Billing Pending");
+    } else if (be_no && anyArrival && validOOC) {
+      formik.setFieldValue("detailed_status", "Custom Clearance Completed");
+    } else if (be_no && anyArrival && validPCV) {
+      formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+    } else if (be_no && anyArrival) {
+      formik.setFieldValue("detailed_status", "BE Noted, Clearance Pending");
+    } else if (!be_no && anyArrival) {
+      formik.setFieldValue("detailed_status", "Arrived, BE Note Pending");
+    } else if (be_no && !anyArrival) {
+      formik.setFieldValue("detailed_status", "BE Noted, Arrival Pending");
+    } else if (anyRailOut) {
+      formik.setFieldValue("detailed_status", "Rail Out");
+    } else if (validDischarge) {
+      formik.setFieldValue("detailed_status", "Discharged");
+    } else if (validIGM) {
+      formik.setFieldValue("detailed_status", "Gateway IGM Filed");
+    } else if (validETA) {
       formik.setFieldValue("detailed_status", "Estimated Time of Arrival");
     } else {
+      formik.setFieldValue("detailed_status", "ETA Date Pending");
     }
   };
 

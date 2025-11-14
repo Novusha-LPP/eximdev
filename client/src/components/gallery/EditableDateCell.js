@@ -6,8 +6,10 @@ import AddIcon from "@mui/icons-material/Add";
 import IgstModal from "./IgstModal";
 
 // ---------- Date helpers ----------
-const isDateOnly = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
-const isDateTime = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.trim());
+const isDateOnly = (s) =>
+  typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
+const isDateTime = (s) =>
+  typeof s === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.trim());
 
 // Accept "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm"
 const validateDateFlexible = (value) => {
@@ -106,6 +108,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     out_of_charge,
     type_of_b_e,
     consignment_type,
+    type_of_Do,
     container_nos = [],
     detailed_status,
     be_no,
@@ -124,7 +127,15 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       out_of_charge,
       duty_paid_date,
     }),
-    [assessment_date, vessel_berthing, gateway_igm_date, discharge_date, pcv_date, out_of_charge, duty_paid_date]
+    [
+      assessment_date,
+      vessel_berthing,
+      gateway_igm_date,
+      discharge_date,
+      pcv_date,
+      out_of_charge,
+      duty_paid_date,
+    ]
   );
 
   const [dates, setDates] = useState(initialDates);
@@ -141,14 +152,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     const cKey = (container_nos || [])
       .map(
         (c) =>
-          `${c.container_number || ""}|${c.arrival_date || ""}|${c.detention_from || ""}|${c.delivery_date || ""}|${
-            c.emptyContainerOffLoadDate || ""
-          }|${c.container_rail_out_date || ""}|${c.by_road_movement_date || ""}`
+          `${c.container_number || ""}|${c.arrival_date || ""}|${
+            c.detention_from || ""
+          }|${c.delivery_date || ""}|${c.emptyContainerOffLoadDate || ""}|${
+            c.container_rail_out_date || ""
+          }|${c.by_road_movement_date || ""}`
       )
       .join("||");
-    return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${gateway_igm_date || ""}|${discharge_date || ""}|${
-      pcv_date || ""
-    }|${out_of_charge || ""}|${duty_paid_date || ""}|${detailed_status || ""}|${free_time || ""}|${cKey}`;
+    return `${_id}|${assessment_date || ""}|${vessel_berthing || ""}|${
+      gateway_igm_date || ""
+    }|${discharge_date || ""}|${pcv_date || ""}|${out_of_charge || ""}|${
+      duty_paid_date || ""
+    }|${detailed_status || ""}|${free_time || ""}|${cKey}`;
   }, [
     _id,
     assessment_date,
@@ -178,6 +193,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const InBondflag = type_of_b_e === "In-Bond";
   const isExBond = type_of_b_e === "Ex-Bond";
   const isLCL = consignment_type === "LCL";
+  const isFactory = type_of_Do === "Factory";
 
   // Utility
   const getEarliestDetention = (arr) => {
@@ -256,16 +272,26 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           payload[`container_nos.${index}.detention_from`] = null;
         }
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-        if (typeof onRowDataUpdate === "function") onRowDataUpdate(_id, payload);
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          payload,
+          { headers }
+        );
+        if (typeof onRowDataUpdate === "function")
+          onRowDataUpdate(_id, payload);
 
         setEditable(`${field}_${index}`);
         setTempDateValue("");
       } else {
         setDates((d) => ({ ...d, [field]: null }));
         const payload = { [field]: null, __op: "unset" };
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-        if (typeof onRowDataUpdate === "function") onRowDataUpdate(_id, payload);
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          payload,
+          { headers }
+        );
+        if (typeof onRowDataUpdate === "function")
+          onRowDataUpdate(_id, payload);
         setEditable(field);
         setTempDateValue("");
       }
@@ -296,8 +322,13 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
     (async () => {
       try {
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, { free_time: value }, { headers });
-        if (typeof onRowDataUpdate === "function") onRowDataUpdate(_id, { free_time: value });
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          { free_time: value },
+          { headers }
+        );
+        if (typeof onRowDataUpdate === "function")
+          onRowDataUpdate(_id, { free_time: value });
 
         const updated = containers.map((c) => {
           if (!c.arrival_date) return c;
@@ -311,7 +342,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         const payload = {};
         updated.forEach((c, i) => {
           if (c.detention_from !== containers[i]?.detention_from) {
-            payload[`container_nos.${i}.detention_from`] = c.detention_from || null;
+            payload[`container_nos.${i}.detention_from`] =
+              c.detention_from || null;
           }
         });
 
@@ -320,8 +352,13 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         if (validity) payload.do_validity_upto_job_level = validity;
 
         if (Object.keys(payload).length > 0) {
-          await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-          if (typeof onRowDataUpdate === "function") onRowDataUpdate(_id, payload);
+          await axios.patch(
+            `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+            payload,
+            { headers }
+          );
+          if (typeof onRowDataUpdate === "function")
+            onRowDataUpdate(_id, payload);
         }
       } catch (e) {
         console.error("Free time update failed:", e);
@@ -331,7 +368,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   const handleDateSubmit = async (field, index = null) => {
     if (!validateDateFlexible(tempDateValue)) {
-      setDateError("Please enter a valid date (YYYY-MM-DD or YYYY-MM-DDTHH:mm)");
+      setDateError(
+        "Please enter a valid date (YYYY-MM-DD or YYYY-MM-DDTHH:mm)"
+      );
       return;
     }
 
@@ -347,33 +386,49 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       if (index !== null) {
         const updated = containers.map((c, i) => {
           if (i !== index) return c;
-          const val = tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
+          const val =
+            tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
           const next = { ...c, [field]: val };
           if (field === "arrival_date" && !isLCL) {
-            next.detention_from = val ? addDaysToDate(val, localFreeTime || 0) : "";
+            next.detention_from = val
+              ? addDaysToDate(val, localFreeTime || 0)
+              : "";
           }
           return next;
         });
         setContainers(updated);
 
         const fieldPath = `container_nos.${index}.${field}`;
-        const valForSave = tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
+        const valForSave =
+          tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
         const payload = buildFieldPayload(fieldPath, valForSave);
         if (field === "arrival_date" && !isLCL) {
-          payload[`container_nos.${index}.detention_from`] = updated[index].detention_from || null;
+          payload[`container_nos.${index}.detention_from`] =
+            updated[index].detention_from || null;
           const earliest = getEarliestDetention(updated);
           const validity = adjustValidityDate(earliest);
           if (validity) payload.do_validity_upto_job_level = validity;
         }
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-        if (typeof onRowDataUpdate === "function") onRowDataUpdate(_id, payload);
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          payload,
+          { headers }
+        );
+        if (typeof onRowDataUpdate === "function")
+          onRowDataUpdate(_id, payload);
       } else {
-        const val = tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
+        const val =
+          tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
         setDates((d) => ({ ...d, [field]: val }));
         const payload = buildFieldPayload(field, val);
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
-        if (typeof onRowDataUpdate === "function") onRowDataUpdate(_id, payload);
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+          payload,
+          { headers }
+        );
+        if (typeof onRowDataUpdate === "function")
+          onRowDataUpdate(_id, payload);
       }
       setEditable(null);
     } catch (e) {
@@ -398,19 +453,35 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           <input
             type="datetime-local"
             value={toInputDateTime(tempDateValue)}
-            onChange={(e) => { setTempDateValue(e.target.value); setDateError(""); }}
+            onChange={(e) => {
+              setTempDateValue(e.target.value);
+              setDateError("");
+            }}
             style={dateError ? styles.errorInput : {}}
             autoFocus
           />
-          <button style={styles.submitButton} onClick={() => handleDateSubmit(fieldKey)}>✓</button>
-          <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
+          <button
+            style={styles.submitButton}
+            onClick={() => handleDateSubmit(fieldKey)}
+          >
+            ✓
+          </button>
+          <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+            ✕
+          </button>
           {dateError && <div style={styles.errorText}>{dateError}</div>}
         </div>
       )}
     </div>
   );
 
-  const renderContainerEditor = (label, cValue, fieldKey, idx, guardDisabled = false) => (
+  const renderContainerEditor = (
+    label,
+    cValue,
+    fieldKey,
+    idx,
+    guardDisabled = false
+  ) => (
     <div>
       <strong>{label}:</strong> {formatDateDisplay(cValue)}{" "}
       <FcCalendar
@@ -420,21 +491,41 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             ? { opacity: 0.4, filter: "grayscale(100%)", cursor: "not-allowed" }
             : {}),
         }}
-        onClick={() => (!guardDisabled || !isArrivalDateDisabled(idx)) && startEditBlank(fieldKey, idx, guardDisabled)}
-        onDoubleClick={() => (!guardDisabled || !isArrivalDateDisabled(idx)) && clearAndEdit(fieldKey, idx)}
-        title={guardDisabled && isArrivalDateDisabled(idx) ? "Disabled" : "Click: edit • Double-click: clear"}
+        onClick={() =>
+          (!guardDisabled || !isArrivalDateDisabled(idx)) &&
+          startEditBlank(fieldKey, idx, guardDisabled)
+        }
+        onDoubleClick={() =>
+          (!guardDisabled || !isArrivalDateDisabled(idx)) &&
+          clearAndEdit(fieldKey, idx)
+        }
+        title={
+          guardDisabled && isArrivalDateDisabled(idx)
+            ? "Disabled"
+            : "Click: edit • Double-click: clear"
+        }
       />
       {editable === `${fieldKey}_${idx}` && (
         <div>
           <input
             type="datetime-local"
             value={toInputDateTime(tempDateValue)}
-            onChange={(e) => { setTempDateValue(e.target.value); setDateError(""); }}
+            onChange={(e) => {
+              setTempDateValue(e.target.value);
+              setDateError("");
+            }}
             style={dateError ? styles.errorInput : {}}
             autoFocus
           />
-          <button style={styles.submitButton} onClick={() => handleDateSubmit(fieldKey, idx)}>✓</button>
-          <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
+          <button
+            style={styles.submitButton}
+            onClick={() => handleDateSubmit(fieldKey, idx)}
+          >
+            ✓
+          </button>
+          <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+            ✕
+          </button>
           {dateError && <div style={styles.errorText}>{dateError}</div>}
         </div>
       )}
@@ -447,27 +538,56 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
       <div>
         {!isExBond && (
           <>
-            {renderRowDateEditor("ETA", dates.vessel_berthing, "vessel_berthing")}
+            {renderRowDateEditor(
+              "ETA",
+              dates.vessel_berthing,
+              "vessel_berthing"
+            )}
             <br />
-            {renderRowDateEditor("GIGM", dates.gateway_igm_date, "gateway_igm_date")}
+            {renderRowDateEditor(
+              "GIGM",
+              dates.gateway_igm_date,
+              "gateway_igm_date"
+            )}
             <br />
-            {renderRowDateEditor("Discharge", dates.discharge_date, "discharge_date")}
+            {renderRowDateEditor(
+              "Discharge",
+              dates.discharge_date,
+              "discharge_date"
+            )}
             <br />
 
-            {!isExBond && !isLCL &&
+            {!isExBond &&
+              !isLCL &&
               containers.map((c, i) =>
-                renderContainerEditor("Rail-out", c.container_rail_out_date, "container_rail_out_date", i)
+                renderContainerEditor(
+                  "Rail-out",
+                  c.container_rail_out_date,
+                  "container_rail_out_date",
+                  i
+                )
               )}
 
             {isLCL &&
               containers.map((c, i) =>
-                renderContainerEditor("ByRoad", c.by_road_movement_date, "by_road_movement_date", i)
+                renderContainerEditor(
+                  "ByRoad",
+                  c.by_road_movement_date,
+                  "by_road_movement_date",
+                  i
+                )
               )}
             <br />
 
             {!isExBond &&
               containers.map((c, i) =>
-                renderContainerEditor("Arrival", c.arrival_date, "arrival_date", i, true)
+                renderContainerEditor(
+                  "Arrival",
+                  c.arrival_date,
+                  "arrival_date",
+                  i,
+                  true
+                )
               )}
 
             <br />
@@ -496,7 +616,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               <>
                 <strong>Detention F.:</strong>
                 {containers.map((c, i) => (
-                  <div key={`det-${i}`}>{formatDateDisplay(c.detention_from)}</div>
+                  <div key={`det-${i}`}>
+                    {formatDateDisplay(c.detention_from)}
+                  </div>
                 ))}
               </>
             )}
@@ -507,7 +629,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
       {/* Right */}
       <div>
-        {renderRowDateEditor("Assessment Date", dates.assessment_date, "assessment_date")}
+        {renderRowDateEditor(
+          "Assessment Date",
+          dates.assessment_date,
+          "assessment_date"
+        )}
         <br />
         {renderRowDateEditor("PCV", dates.pcv_date, "pcv_date")}
         <br />
@@ -515,7 +641,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         {payment_method !== "Deferred" && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span>
-              <strong>Duty Paid:</strong> {formatDateDisplay(dates.duty_paid_date)}
+              <strong>Duty Paid:</strong>{" "}
+              {formatDateDisplay(dates.duty_paid_date)}
             </span>
             <FcCalendar
               style={styles.icon}
@@ -523,7 +650,12 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               onDoubleClick={() => clearAndEdit("duty_paid_date")}
               title="Click: edit • Double-click: clear"
             />
-            <AddIcon fontSize="small" style={{ cursor: "pointer" }} onClick={() => setIgstModalOpen(true)} title="Add Duty Details" />
+            <AddIcon
+              fontSize="small"
+              style={{ cursor: "pointer" }}
+              onClick={() => setIgstModalOpen(true)}
+              title="Add Duty Details"
+            />
           </div>
         )}
         {editable === "duty_paid_date" && (
@@ -531,16 +663,32 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             <input
               type="datetime-local"
               value={toInputDateTime(tempDateValue)}
-              onChange={(e) => { setTempDateValue(e.target.value); setDateError(""); }}
+              onChange={(e) => {
+                setTempDateValue(e.target.value);
+                setDateError("");
+              }}
               style={dateError ? styles.errorInput : {}}
               disabled={!isIgstFieldsAvailable}
               autoFocus
             />
-            <button style={styles.submitButton} onClick={() => handleDateSubmit("duty_paid_date")} disabled={!isIgstFieldsAvailable}>
+            <button
+              style={styles.submitButton}
+              onClick={() => handleDateSubmit("duty_paid_date")}
+              disabled={!isIgstFieldsAvailable}
+            >
               ✓
             </button>
-            <button style={styles.cancelButton} onClick={() => setEditable(null)}>✕</button>
-            {!isIgstFieldsAvailable && <div style={styles.errorText}>Please add IGST and Assessable Amount</div>}
+            <button
+              style={styles.cancelButton}
+              onClick={() => setEditable(null)}
+            >
+              ✕
+            </button>
+            {!isIgstFieldsAvailable && (
+              <div style={styles.errorText}>
+                Please add IGST and Assessable Amount
+              </div>
+            )}
             {dateError && <div style={styles.errorText}>{dateError}</div>}
           </div>
         )}
@@ -548,21 +696,62 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         {renderRowDateEditor("OOC", dates.out_of_charge, "out_of_charge")}
         <br />
 
-        {/* Hide EmptyOff for Ex-Bond */}
-        {!isLCL && !isExBond &&
-          containers.map((c, i) =>
-            renderContainerEditor(
-              InBondflag ? "Destuffing / EmptyOff" : "EmptyOff / Destuffing Date",
-              c.emptyContainerOffLoadDate,
-              "emptyContainerOffLoadDate",
-              i
-            )
-          )}
-
-        {!InBondflag && (
+        {isFactory ? (
           <>
+            {/* Delivery then EmptyOff */}
+            {!InBondflag && (
+              <>
+                <br />
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "Delivery",
+                    c.delivery_date,
+                    "delivery_date",
+                    i
+                  )
+                )}
+              </>
+            )}
+
             <br />
-            {containers.map((c, i) => renderContainerEditor("Delivery", c.delivery_date, "delivery_date", i))}
+
+
+            {!isLCL &&
+              !isExBond &&
+              containers.map((c, i) =>
+                renderContainerEditor(
+                  "EmptyOff",
+                  c.emptyContainerOffLoadDate,
+                  "emptyContainerOffLoadDate",
+                  i
+                )
+              )}
+          </>
+        ) : (
+          <>
+            {!isLCL &&
+              !isExBond &&
+              containers.map((c, i) =>
+                renderContainerEditor(
+                  "Destuffing Date / EmptyOff",
+                  c.emptyContainerOffLoadDate,
+                  "emptyContainerOffLoadDate",
+                  i
+                )
+              )}
+            {!InBondflag && (
+              <>
+                <br />
+                {containers.map((c, i) =>
+                  renderContainerEditor(
+                    "Delivery",
+                    c.delivery_date,
+                    "delivery_date",
+                    i
+                  )
+                )}
+              </>
+            )}
           </>
         )}
         <br />
@@ -580,7 +769,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               username: user.username || "unknown",
               "user-role": user.role || "unknown",
             };
-            const res = await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, updateData, { headers });
+            const res = await axios.patch(
+              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+              updateData,
+              { headers }
+            );
             const serverJob = res?.data?.data || res?.data?.job || null;
             if (typeof onRowDataUpdate === "function") {
               onRowDataUpdate(_id, serverJob ? serverJob : updateData);
@@ -602,8 +795,24 @@ const styles = {
   icon: { cursor: "pointer", marginLeft: 5, fontSize: 18, color: "#282828" },
   errorInput: { border: "1px solid red" },
   errorText: { color: "red", fontSize: 12, marginTop: 2 },
-  submitButton: { marginLeft: 5, backgroundColor: "#28a745", color: "white", border: "none", borderRadius: 3, padding: "2px 6px", cursor: "pointer" },
-  cancelButton: { marginLeft: 5, backgroundColor: "#dc3545", color: "white", border: "none", borderRadius: 3, padding: "2px 6px", cursor: "pointer" },
+  submitButton: {
+    marginLeft: 5,
+    backgroundColor: "#28a745",
+    color: "white",
+    border: "none",
+    borderRadius: 3,
+    padding: "2px 6px",
+    cursor: "pointer",
+  },
+  cancelButton: {
+    marginLeft: 5,
+    backgroundColor: "#dc3545",
+    color: "white",
+    border: "none",
+    borderRadius: 3,
+    padding: "2px 6px",
+    cursor: "pointer",
+  },
 };
 
 export default EditableDateCell;

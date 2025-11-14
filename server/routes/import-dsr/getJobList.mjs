@@ -139,7 +139,7 @@ const buildAllContainerDateExists = (field) => ({
 
 const criticalFields = `
   _id job_no cth_no year importer custom_house hawb_hbl_no awb_bl_no 
-  container_nos vessel_berthing detailed_status row_color be_no be_date 
+  container_nos vessel_berthing detailed_status row_color be_no be_date type_of_Do
   gateway_igm_date discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
@@ -154,7 +154,7 @@ const extensiveFields = `
   origin_country hss saller_name adCode by_road_movement_date description 
   invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
-  bcd_ammount assessable_ammount emptyContainerOffLoadDate 
+  bcd_ammount assessable_ammount
   gross_weight job_net_weight payment_method
 `;
 

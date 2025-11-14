@@ -230,7 +230,8 @@ router.get(
   async (req, res) => {
     try {
       const { year, status, detailedStatus, importer, selectedICD } = req.params;
-      const { page = 1, limit = 100, search = "", unresolvedOnly, _nocache } = req.query;
+      const { page = 1, limit = 100, search = "", unresolvedOnly, _nocache } =
+        req.query;
 
       const searchTerm = String(search || "").trim();
       const bypassCache = _nocache === "true" || _nocache === "1";
@@ -243,7 +244,7 @@ router.get(
 
       if (!query.$and) query.$and = [];
 
-      // 1) User-based importer filter from middleware
+      // 1) User-based importer filter
       if (req.userImporterFilter) {
         query.$and.push(req.userImporterFilter);
       }
@@ -285,7 +286,7 @@ router.get(
         };
       }
 
-      // 4) Status filtering (Pending / Completed / Cancelled)
+      // 4) Status filtering
       const statusLower = status.toLowerCase();
 
       if (statusLower === "pending") {
@@ -370,7 +371,8 @@ router.get(
         page,
         limit,
         unresolvedOnly,
-        user: req.currentUser?.username || req.headers["x-username"] || null,
+        user:
+          req.currentUser?.username || req.headers["x-username"] || null,
       });
 
       if (!bypassCache) {
@@ -390,7 +392,7 @@ router.get(
 
       const matchStage = { $match: query };
 
-      // 10) Projection from selected fields
+      // 10) Projection from selected fields (early to reduce size)
       const selectedFieldsStr = getSelectedFields(
         detailedStatus === "all" ? "all" : detailedStatus,
         false
@@ -400,9 +402,19 @@ router.get(
         if (f) projection[f] = 1;
       });
 
-      const dataPipeline = [];
+      // Always keep fields needed for status calculation
+      projection.be_no = 1;
+      projection.type_of_b_e = 1;
+      projection.consignment_type = 1;
+      projection.out_of_charge = 1;
+      projection.pcv_date = 1;
+      projection.discharge_date = 1;
+      projection.gateway_igm_date = 1;
+      projection.vessel_berthing = 1;
+      projection.container_nos = 1;
 
-      // 11) Precompute flags for effective status
+      const preProjectStage = { $project: projection };
+
       const effectiveDetailedStatusExpression = {
         $let: {
           vars: {
@@ -410,10 +422,13 @@ router.get(
               $gt: [{ $strLenCP: { $ifNull: ["$be_no", ""] } }, 0],
             },
             anyArrival: buildAnyContainerDateExists("arrival_date"),
-            anyRailOut: buildAnyContainerDateExists("container_rail_out_date"),
+            anyRailOut: buildAnyContainerDateExists(
+              "container_rail_out_date"
+            ),
             allDelivery: buildAllContainerDateExists("delivery_date"),
-            allEmptyOffload:
-              buildAllContainerDateExists("emptyContainerOffLoadDate"),
+            allEmptyOffload: buildAllContainerDateExists(
+              "emptyContainerOffLoadDate"
+            ),
             validOutOfCharge: buildValidDateExpression("$out_of_charge"),
             validPcv: buildValidDateExpression("$pcv_date"),
             validDischarge: buildValidDateExpression("$discharge_date"),
@@ -437,7 +452,6 @@ router.get(
             },
           },
           in: {
-            // Match Node determineDetailedStatus: Ex-Bond branch vs Non Ex-Bond
             $cond: [
               "$$isExBond",
               // Ex-Bond flow
@@ -470,7 +484,7 @@ router.get(
                   default: "ETA Date Pending",
                 },
               },
-              // Non Ex-Bond flow (original import logic)
+              // Non Ex-Bond flow
               {
                 $let: {
                   vars: {
@@ -564,10 +578,12 @@ router.get(
 
       const statusRankEntries = Object.entries(statusRank);
 
-      const statusRankBranches = statusRankEntries.map(([status, { rank }]) => ({
-        case: { $eq: ["$__effective_detailed_status", status] },
-        then: rank,
-      }));
+      const statusRankBranches = statusRankEntries.map(
+        ([status, { rank }]) => ({
+          case: { $eq: ["$__effective_detailed_status", status] },
+          then: rank,
+        })
+      );
 
       const statusDateBranches = statusRankEntries.map(
         ([status, { field }]) => ({
@@ -614,38 +630,12 @@ router.get(
             FAR_FUTURE_DATE,
           ],
         },
-        __lcl_priority: {
-          $cond: [
-            {
-              $and: [
-                { $eq: ["$__effective_detailed_status", "Billing Pending"] },
-                {
-                  $eq: [
-                    {
-                      $toLower: {
-                        $ifNull: ["$consignment_type", ""],
-                      },
-                    },
-                    "lcl",
-                  ],
-                },
-              ],
-            },
-            0,
-            1,
-          ],
-        },
       };
 
-      if (canUseTextSearch) {
-        const textMatch = Object.assign({}, query);
-        textMatch.$text = { $search: sanitizedSearch };
-        matchStage.$match = textMatch;
-      }
+      const dataPipeline = [];
 
       dataPipeline.push({ $addFields: firstAddFields });
 
-      // Apply requested detailedStatus filter on effective status
       if (requestedDetailedStatus) {
         dataPipeline.push({
           $match: { __effective_detailed_status: requestedDetailedStatus },
@@ -654,53 +644,45 @@ router.get(
 
       dataPipeline.push({ $addFields: baseAddFields });
 
-      // IMPORTANT: do NOT overwrite stored detailed_status;
-      // instead, expose effective one separately
       dataPipeline.push({
         $addFields: {
           effective_detailed_status: "$__effective_detailed_status",
         },
       });
 
-      if (canUseTextSearch) {
-        dataPipeline.push({
-          $sort: {
-            score: { $meta: "textScore" },
-            __lcl_priority: 1,
-            __status_rank: 1,
-            __status_sort_date: 1,
-            effective_detailed_status: 1,
-            _id: 1,
-          },
-        });
-      } else {
-        dataPipeline.push({
-          $sort: {
-            __lcl_priority: 1,
-            __status_rank: 1,
-            __status_sort_date: 1,
-            effective_detailed_status: 1,
-            _id: 1,
-          },
-        });
-      }
-
-      if (Object.keys(projection).length > 0) {
-        dataPipeline.push({ $project: projection });
-      }
+      // Simplified sort to reduce memory
+      const sortStage = canUseTextSearch
+        ? {
+            $sort: {
+              score: { $meta: "textScore" },
+              __status_rank: 1,
+              __status_sort_date: 1,
+              _id: 1,
+            },
+          }
+        : {
+            $sort: {
+              __status_rank: 1,
+              __status_sort_date: 1,
+              _id: 1,
+            },
+          };
 
       const basePipeline = [...dataPipeline];
 
       const pagedPipeline = [
         ...basePipeline,
+        sortStage,
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
       ];
 
+      // metadata: no sort, just count
       const metadataPipeline = [...basePipeline, { $count: "total" }];
 
       const pipeline = [
         matchStage,
+        preProjectStage,
         {
           $facet: {
             metadata: metadataPipeline,
@@ -740,6 +722,7 @@ router.get(
     }
   }
 );
+
 
 
 // editable patch api

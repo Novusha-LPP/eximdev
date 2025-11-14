@@ -133,12 +133,6 @@ const buildAllContainerDateExists = (field) => ({
   },
 });
 
-// Helper to safely parse dates
-const parseDate = (dateStr) => {
-  const date = new Date(dateStr);
-  return isNaN(date.getTime()) ? null : date;
-};
-
 // Field selection logic
 // PERFORMANCE: Split into critical (list view) and extended (detail view) fields
 // Loading only essential fields for the table dramatically improves response time and parsing
@@ -344,7 +338,7 @@ router.get(
           ? statusMapping[detailedStatus] || detailedStatus
           : null;
 
-      // 6) Search filter
+      // 6) Search filter (regex-based)
       if (searchTerm) {
         query.$and.push(buildSearchQuery(searchTerm));
       }
@@ -382,14 +376,6 @@ router.get(
         }
       }
 
-      // 9) Decide text search
-      const sanitizedSearch = searchTerm;
-      const canUseTextSearch =
-        sanitizedSearch &&
-        sanitizedSearch.length >= 3 &&
-        !/[*+?^${}()|[\]\\]/.test(sanitizedSearch) &&
-        !/\d/.test(sanitizedSearch);
-
       const matchStage = { $match: query };
 
       // 10) Projection from selected fields (early to reduce size)
@@ -415,6 +401,7 @@ router.get(
 
       const preProjectStage = { $project: projection };
 
+      // 11) Effective detailed_status expression
       const effectiveDetailedStatusExpression = {
         $let: {
           vars: {
@@ -608,10 +595,6 @@ router.get(
         __effective_detailed_status: effectiveDetailedStatusExpression,
       };
 
-      if (canUseTextSearch) {
-        firstAddFields.score = { $meta: "textScore" };
-      }
-
       const baseAddFields = {
         __status_rank: {
           $switch: {
@@ -650,23 +633,14 @@ router.get(
         },
       });
 
-      // Simplified sort to reduce memory
-      const sortStage = canUseTextSearch
-        ? {
-            $sort: {
-              score: { $meta: "textScore" },
-              __status_rank: 1,
-              __status_sort_date: 1,
-              _id: 1,
-            },
-          }
-        : {
-            $sort: {
-              __status_rank: 1,
-              __status_sort_date: 1,
-              _id: 1,
-            },
-          };
+      // Sort without textScore
+      const sortStage = {
+        $sort: {
+          __status_rank: 1,
+          __status_sort_date: 1,
+          _id: 1,
+        },
+      };
 
       const basePipeline = [...dataPipeline];
 
@@ -722,6 +696,7 @@ router.get(
     }
   }
 );
+
 
 
 

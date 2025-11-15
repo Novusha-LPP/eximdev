@@ -128,7 +128,7 @@ function useFetchJobList(
         : "";
 
       // Construct API URL
-      let apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=100&search=${formattedSearchQuery}`;
+      let apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=50&search=${formattedSearchQuery}`;
       if (unresolved) {
         apiUrl += `&unresolvedOnly=true`;
       }

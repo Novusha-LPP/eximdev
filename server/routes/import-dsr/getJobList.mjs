@@ -145,11 +145,7 @@ const criticalFields = `
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
   do_shipping_line_invoice port_of_reporting type_of_b_e consignment_type
   bill_date supplier_exporter cth_documents assessment_date duty_paid_date
-  pcv_date out_of_charge free_time
-`;
-
-const extensiveFields = `
-  loading_port RMS do_validity_upto_job_level 
+  pcv_date out_of_charge free_time loading_port RMS do_validity_upto_job_level 
   bill_amount processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time 
   origin_country hss saller_name adCode by_road_movement_date description 
   invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
@@ -157,6 +153,7 @@ const extensiveFields = `
   bcd_ammount assessable_ammount
   gross_weight job_net_weight payment_method
 `;
+
 
 const additionalFieldsByStatus = {
   be_noted_clearance_pending: "",
@@ -167,7 +164,7 @@ const additionalFieldsByStatus = {
 const getSelectedFields = (status, includeExtended = false) => {
   let fields = criticalFields;
   if (includeExtended) {
-    fields = `${criticalFields} ${extensiveFields}`;
+    fields = `${criticalFields}`;
   }
   fields = `${fields} ${additionalFieldsByStatus[status] || ""}`.trim();
   return fields;

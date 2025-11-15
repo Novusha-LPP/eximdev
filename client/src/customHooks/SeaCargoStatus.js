@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +21,8 @@ import {
   Snackbar,
   Alert,
   useTheme,
-  useMediaQuery
-} from '@mui/material';
+  useMediaQuery,
+} from "@mui/material";
 import {
   Close as CloseIcon,
   Print as PrintIcon,
@@ -33,32 +33,42 @@ import {
   Description as DescriptionIcon,
   Business as BusinessIcon,
   LocationOn as LocationOnIcon,
-  Anchor as AnchorIcon
-} from '@mui/icons-material';
-import axios from 'axios';
+  Anchor as AnchorIcon,
+} from "@mui/icons-material";
+import axios from "axios";
 
-const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdateSuccess }) => {
+const SeaCargoStatus = ({
+  isOpen,
+  onClose,
+  location,
+  masterBlNo,
+  jobId,
+  onUpdateSuccess,
+}) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [cargoDetails, setCargoDetails] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState({ type: '', message: '' });
+  const [error, setError] = useState({ type: "", message: "" });
   const [activeTab, setActiveTab] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success'
+    message: "",
+    severity: "success",
   });
 
   const tabLabels = [
-    { label: 'Shipment Summary', icon: <InfoIcon fontSize="small" /> },
-    { label: 'Cargo Information', icon: <InventoryIcon fontSize="small" /> },
-    { label: 'Vessel Details', icon: <DirectionsBoatIcon fontSize="small" /> },
-    { label: 'Container Details', icon: <LocalShippingIcon fontSize="small" /> }
+    { label: "Shipment Summary", icon: <InfoIcon fontSize="small" /> },
+    { label: "Cargo Information", icon: <InventoryIcon fontSize="small" /> },
+    { label: "Vessel Details", icon: <DirectionsBoatIcon fontSize="small" /> },
+    {
+      label: "Container Details",
+      icon: <LocalShippingIcon fontSize="small" />,
+    },
   ];
 
   useEffect(() => {
@@ -69,17 +79,17 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
   }, [isOpen, location, masterBlNo]);
 
   // Show snackbar message
-  const showSnackbar = (message, severity = 'success') => {
+  const showSnackbar = (message, severity = "success") => {
     setSnackbar({
       open: true,
       message,
-      severity
+      severity,
     });
   };
 
   // Close snackbar
   const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
+    if (reason === "clickaway") {
       return;
     }
     setSnackbar({ ...snackbar, open: false });
@@ -87,47 +97,52 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
 
   const fetchCargoDetails = async () => {
     setLoading(true);
-    setError({ type: '', message: '' });
+    setError({ type: "", message: "" });
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/sea-cargo-tracking`,
         { location, masterBlNo },
-        { timeout: 35000, headers: { 'Content-Type': 'application/json' } }
+        { timeout: 35000, headers: { "Content-Type": "application/json" } }
       );
       if (res.data?.success) {
         setCargoDetails(res.data.data || null);
       } else {
-        setError({ 
-          type: 'api', 
-          message: res.data?.error || 'Failed to fetch sea cargo details' 
+        setError({
+          type: "api",
+          message: res.data?.error || "Failed to fetch sea cargo details",
         });
       }
     } catch (err) {
       if (err.response?.status === 404) {
         // 404 - Record not found
-        setError({ 
-          type: 'notfound', 
-          message: 'No records found for the provided location and Master BL number.' 
+        setError({
+          type: "notfound",
+          message:
+            "No records found for the provided location and Master BL number.",
         });
-      } else if (err.code === 'ERR_NETWORK') {
-        setError({ 
-          type: 'network', 
-          message: 'Cannot connect to backend server. Please check your connection.' 
+      } else if (err.code === "ERR_NETWORK") {
+        setError({
+          type: "network",
+          message:
+            "Cannot connect to backend server. Please check your connection.",
         });
-      } else if (err.code === 'ECONNABORTED') {
-        setError({ 
-          type: 'timeout', 
-          message: 'Request timeout. The service is taking too long to respond.' 
+      } else if (err.code === "ECONNABORTED") {
+        setError({
+          type: "timeout",
+          message:
+            "Request timeout. The service is taking too long to respond.",
         });
       } else if (err.response) {
-        setError({ 
-          type: 'server', 
-          message: `Server error: ${err.response.status} - ${err.response.data?.error || 'Unknown error'}` 
+        setError({
+          type: "server",
+          message: `Server error: ${err.response.status} - ${
+            err.response.data?.error || "Unknown error"
+          }`,
         });
       } else {
-        setError({ 
-          type: 'unknown', 
-          message: `Error: ${err.message}` 
+        setError({
+          type: "unknown",
+          message: `Error: ${err.message}`,
         });
       }
     } finally {
@@ -136,97 +151,115 @@ const SeaCargoStatus = ({ isOpen, onClose, location, masterBlNo, jobId, onUpdate
   };
 
   // Format date to match database format: "2025-10-22T12:07"
-// Enhanced date formatting function that handles DD/MM/YYYY format
-// Format date to match database format: "2025-10-22T12:07"
-const formatDateForDatabase = (dateString) => {
-  if (!dateString) return '';
+  // Enhanced date formatting function that handles DD/MM/YYYY format
+  // Format date to match database format: "2025-10-22T12:07"
+  const formatDateForDatabase = (dateString) => {
+    if (!dateString) return "";
 
-  try {
-    // Handle "DD MMM YYYY" format (e.g., "05 NOV 2025")
-    if (typeof dateString === 'string' && dateString.includes(' ')) {
-      const months = {
-        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
-        'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
-        'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
-      };
+    try {
+      // Handle "DD MMM YYYY" format (e.g., "05 NOV 2025")
+      if (typeof dateString === "string" && dateString.includes(" ")) {
+        const months = {
+          JAN: "01",
+          FEB: "02",
+          MAR: "03",
+          APR: "04",
+          MAY: "05",
+          JUN: "06",
+          JUL: "07",
+          AUG: "08",
+          SEP: "09",
+          OCT: "10",
+          NOV: "11",
+          DEC: "12",
+        };
 
-      const parts = dateString.split(' ');
-      if (parts.length === 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = months[parts[1].toUpperCase()];
-        const year = parts[2];
-        
-        if (month) {
+        const parts = dateString.split(" ");
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, "0");
+          const month = months[parts[1].toUpperCase()];
+          const year = parts[2];
+
+          if (month) {
+            // Add default time 00:00 for date-only formats
+            const formattedDate = `${year}-${month}-${day}T00:00`;
+            console.log(
+              "Formatted DD MMM YYYY date:",
+              dateString,
+              "->",
+              formattedDate
+            );
+            return formattedDate;
+          }
+        }
+      }
+
+      // Handle DD/MM/YYYY format
+      if (typeof dateString === "string" && dateString.includes("/")) {
+        const parts = dateString.split("/");
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, "0");
+          const month = parts[1].padStart(2, "0");
+          const year = parts[2];
+
           // Add default time 00:00 for date-only formats
           const formattedDate = `${year}-${month}-${day}T00:00`;
-          console.log('Formatted DD MMM YYYY date:', dateString, '->', formattedDate);
+          console.log(
+            "Formatted DD/MM/YYYY date:",
+            dateString,
+            "->",
+            formattedDate
+          );
           return formattedDate;
         }
       }
-    }
 
-    // Handle DD/MM/YYYY format
-    if (typeof dateString === 'string' && dateString.includes('/')) {
-      const parts = dateString.split('/');
-      if (parts.length === 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        const year = parts[2];
-        
-        // Add default time 00:00 for date-only formats
-        const formattedDate = `${year}-${month}-${day}T00:00`;
-        console.log('Formatted DD/MM/YYYY date:', dateString, '->', formattedDate);
+      // If already in correct format with time, return as-is
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
+        console.log("Date already in correct format:", dateString);
+        return dateString;
+      }
+
+      // If in YYYY-MM-DD format (no time), add default time
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const formattedDate = `${dateString}T00:00`;
+        console.log("Added time to date:", dateString, "->", formattedDate);
         return formattedDate;
       }
-    }
 
-    // If already in correct format with time, return as-is
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dateString)) {
-      console.log('Date already in correct format:', dateString);
-      return dateString;
-    }
+      // Handle other date formats
+      const date = new Date(dateString);
 
-    // If in YYYY-MM-DD format (no time), add default time
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      const formattedDate = `${dateString}T00:00`;
-      console.log('Added time to date:', dateString, '->', formattedDate);
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date detected:", dateString);
+        return "";
+      }
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+      console.log("Formatted generic date:", dateString, "->", formattedDate);
       return formattedDate;
+    } catch (err) {
+      console.error("Date formatting error:", err);
+      return "";
     }
-
-    // Handle other date formats
-    const date = new Date(dateString);
-    
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date detected:', dateString);
-      return '';
-    }
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
-    console.log('Formatted generic date:', dateString, '->', formattedDate);
-    return formattedDate;
-  } catch (err) {
-    console.error('Date formatting error:', err);
-    return '';
-  }
-};
-
+  };
 
   // Helper function to check if value is valid (not N/A, null, undefined, or empty)
   const isValidValue = (value) => {
-    const invalidValues = [null, undefined, '', 'N.A.', 'N/A'];
-    return invalidValues.includes(value) ? '' : value;
+    const invalidValues = [null, undefined, "", "N.A.", "N/A"];
+    return invalidValues.includes(value) ? "" : value;
   };
 
   // Handle Update to Database
   const handleUpdateDatabase = async () => {
     if (!jobId || !cargoDetails) {
-      showSnackbar('Missing job ID or cargo details', 'error');
+      showSnackbar("Missing job ID or cargo details", "error");
       return;
     }
 
@@ -262,15 +295,17 @@ const formatDateForDatabase = (dateString) => {
 
       // Check if we have any valid data to update
       if (Object.keys(updateData).length === 0) {
-        showSnackbar('No valid data available to update', 'warning');
+        showSnackbar("No valid data available to update", "warning");
         setIsUpdating(false);
         return;
       }
 
-      console.log('Final updateData being sent:', updateData);
-
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
+        "user-id": user.username || "unknown",
+        username: user.username || "unknown",
+        "user-role": user.role || "unknown",
       };
 
       const response = await axios.patch(
@@ -280,10 +315,10 @@ const formatDateForDatabase = (dateString) => {
       );
 
       if (response.data?.success) {
-        const successMsg = 'Job updated successfully with sea cargo data';
-        
-        showSnackbar(successMsg, 'success');
-        
+        const successMsg = "Job updated successfully with sea cargo data";
+
+        showSnackbar(successMsg, "success");
+
         if (onUpdateSuccess) {
           onUpdateSuccess(response.data);
         }
@@ -292,29 +327,32 @@ const formatDateForDatabase = (dateString) => {
           onClose();
         }, 1000);
       } else {
-        showSnackbar(response.data?.message || 'Failed to update job', 'error');
+        showSnackbar(response.data?.message || "Failed to update job", "error");
       }
     } catch (err) {
-      console.error('Update error:', err);
-      
-      let errorMessage = 'Failed to update job';
-      
+      console.error("Update error:", err);
+
+      let errorMessage = "Failed to update job";
+
       if (err.response) {
-        errorMessage = err.response.data?.message || `Error: ${err.response.status}`;
-      } else if (err.code === 'ECONNABORTED') {
-        errorMessage = 'Request timeout. Please try again.';
+        errorMessage =
+          err.response.data?.message || `Error: ${err.response.status}`;
+      } else if (err.code === "ECONNABORTED") {
+        errorMessage = "Request timeout. Please try again.";
       } else {
-        errorMessage = err.message || 'Network error';
+        errorMessage = err.message || "Network error";
       }
 
-      showSnackbar(errorMessage, 'error');
+      showSnackbar(errorMessage, "error");
     } finally {
       setIsUpdating(false);
     }
   };
 
   const renderValue = (v) =>
-    v === undefined || v === null || v === '' || v === 'N.A.' ? 'N.A.' : String(v);
+    v === undefined || v === null || v === "" || v === "N.A."
+      ? "N.A."
+      : String(v);
 
   const handleTabChange = (_e, val) => setActiveTab(val);
 
@@ -324,9 +362,9 @@ const formatDateForDatabase = (dateString) => {
       sx={{
         p: 2,
         borderRadius: 1,
-        border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper'
+        border: "1px solid",
+        borderColor: "divider",
+        bgcolor: "background.paper",
       }}
     >
       {title && (
@@ -338,27 +376,27 @@ const formatDateForDatabase = (dateString) => {
         <Box
           key={idx}
           sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'flex-start', sm: 'center' },
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
             gap: 1.5,
             py: 1,
-            borderTop: idx === 0 ? '1px solid transparent' : '1px solid',
-            borderColor: idx === 0 ? 'transparent' : 'divider'
+            borderTop: idx === 0 ? "1px solid transparent" : "1px solid",
+            borderColor: idx === 0 ? "transparent" : "divider",
           }}
         >
           <Typography
             variant="body2"
             sx={{
               fontWeight: 600,
-              color: 'text.secondary',
-              minWidth: { xs: 'auto', sm: 200 },
+              color: "text.secondary",
+              minWidth: { xs: "auto", sm: 200 },
               pr: { xs: 0, sm: 2 },
-              textAlign: { xs: 'left', sm: 'right' },
-              display: 'flex',
-              alignItems: 'center',
+              textAlign: { xs: "left", sm: "right" },
+              display: "flex",
+              alignItems: "center",
               gap: 0.5,
-              whiteSpace: 'nowrap'
+              whiteSpace: "nowrap",
             }}
           >
             {field.icon}
@@ -367,7 +405,11 @@ const formatDateForDatabase = (dateString) => {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="body2"
-              sx={{ fontWeight: 500, color: 'text.primary', wordBreak: 'break-word' }}
+              sx={{
+                fontWeight: 500,
+                color: "text.primary",
+                wordBreak: "break-word",
+              }}
             >
               {renderValue(field.value)}
             </Typography>
@@ -378,7 +420,8 @@ const formatDateForDatabase = (dateString) => {
   );
 
   const renderTabContent = () => {
-    if (!cargoDetails) return <Typography variant="body2">No data available.</Typography>;
+    if (!cargoDetails)
+      return <Typography variant="body2">No data available.</Typography>;
 
     const summary = cargoDetails.summary?.[0] || {};
     const vesselDetails = cargoDetails.vessel_details?.[0] || {};
@@ -386,56 +429,64 @@ const formatDateForDatabase = (dateString) => {
 
     if (activeTab === 0) {
       const fields = [
-        { 
-          label: 'Master BL Number', 
-          value: summary.blNo, 
-          icon: <DescriptionIcon fontSize="small" sx={{ fontSize: '0.9rem' }} /> 
+        {
+          label: "Master BL Number",
+          value: summary.blNo,
+          icon: (
+            <DescriptionIcon fontSize="small" sx={{ fontSize: "0.9rem" }} />
+          ),
         },
-        { label: 'BL Date', value: summary.blDate },
-        { label: 'House BL Number', value: summary.houseBlNo },
-        { label: 'House BL Date', value: summary.houseBlDate },
-        { label: 'G-IGM Number', value: summary.igmNo },
-        { label: 'G-IGM Date', value: summary.igmDate },
-        { label: 'Line Number', value: summary.lineNo },
-        { label: 'Sub Line Number', value: summary.subLineNo },
-        { label: 'Cargo Movement', value: summary.cargoMovement },
-        { label: 'Port of Destination', value: summary.portDest }
+        { label: "BL Date", value: summary.blDate },
+        { label: "House BL Number", value: summary.houseBlNo },
+        { label: "House BL Date", value: summary.houseBlDate },
+        { label: "G-IGM Number", value: summary.igmNo },
+        { label: "G-IGM Date", value: summary.igmDate },
+        { label: "Line Number", value: summary.lineNo },
+        { label: "Sub Line Number", value: summary.subLineNo },
+        { label: "Cargo Movement", value: summary.cargoMovement },
+        { label: "Port of Destination", value: summary.portDest },
       ];
-      return <KeyValuePanel title="Sea Cargo Shipment Summary" fields={fields} />;
+      return (
+        <KeyValuePanel title="Sea Cargo Shipment Summary" fields={fields} />
+      );
     }
 
     if (activeTab === 1) {
       const fields = [
-        { 
-          label: 'Description of Goods', 
+        {
+          label: "Description of Goods",
           value: summary.descOfGoods,
-          icon: <InventoryIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />
+          icon: <InventoryIcon fontSize="small" sx={{ fontSize: "0.9rem" }} />,
         },
-        { label: 'Total Packages', value: summary.totalPackage },
-        { label: 'Package Code', value: summary.packageCode },
-        { 
-          label: 'Gross Weight', 
-          value: summary.grossWeight ? `${summary.grossWeight} ${summary.unitOfWeight || 'KGS'}` : summary.grossWeight 
+        { label: "Total Packages", value: summary.totalPackage },
+        { label: "Package Code", value: summary.packageCode },
+        {
+          label: "Gross Weight",
+          value: summary.grossWeight
+            ? `${summary.grossWeight} ${summary.unitOfWeight || "KGS"}`
+            : summary.grossWeight,
         },
-        { label: 'Unit of Weight', value: summary.unitOfWeight }
+        { label: "Unit of Weight", value: summary.unitOfWeight },
       ];
       return <KeyValuePanel title="Cargo Details" fields={fields} />;
     }
 
     if (activeTab === 2) {
       const fields = [
-        { 
-          label: 'Vessel Code', 
+        {
+          label: "Vessel Code",
           value: vesselDetails.vesselCode,
-          icon: <DirectionsBoatIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />
+          icon: (
+            <DirectionsBoatIcon fontSize="small" sx={{ fontSize: "0.9rem" }} />
+          ),
         },
-        { label: 'IMO Number', value: vesselDetails.imoNo },
-        { label: 'Voyage Number', value: vesselDetails.voyageNo },
-        { label: 'Gateway Port', value: vesselDetails.gatewayPort },
-        { label: 'Inward Date', value: vesselDetails.inwardDate },
-        { label: 'File Name', value: vesselDetails.fileName },
-        { label: 'G-IGM Number', value: vesselDetails.igmNo },
-        { label: 'G-IGM Date', value: vesselDetails.igmDate }
+        { label: "IMO Number", value: vesselDetails.imoNo },
+        { label: "Voyage Number", value: vesselDetails.voyageNo },
+        { label: "Gateway Port", value: vesselDetails.gatewayPort },
+        { label: "Inward Date", value: vesselDetails.inwardDate },
+        { label: "File Name", value: vesselDetails.fileName },
+        { label: "G-IGM Number", value: vesselDetails.igmNo },
+        { label: "G-IGM Date", value: vesselDetails.igmDate },
       ];
       return <KeyValuePanel title="Vessel Information" fields={fields} />;
     }
@@ -443,32 +494,47 @@ const formatDateForDatabase = (dateString) => {
     if (activeTab === 3) {
       if (containerDetails.length === 0) {
         return (
-          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+            }}
+          >
             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
               No Container Details
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Container information is not currently available for this shipment.
+              Container information is not currently available for this
+              shipment.
             </Typography>
           </Paper>
         );
       }
 
       return (
-        <Paper elevation={0} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Paper
+          elevation={0}
+          sx={{ borderRadius: 1, border: "1px solid", borderColor: "divider" }}
+        >
+          <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Container Information
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {containerDetails.length} container{containerDetails.length !== 1 ? 's' : ''} found
+              {containerDetails.length} container
+              {containerDetails.length !== 1 ? "s" : ""} found
             </Typography>
           </Box>
           <TableContainer sx={{ maxHeight: 360 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Container Number</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>
+                    Container Number
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Line No</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Sub Line No</TableCell>
@@ -479,24 +545,32 @@ const formatDateForDatabase = (dateString) => {
                 {containerDetails.map((container, i) => (
                   <TableRow key={i}>
                     <TableCell>
-                      <Chip 
-                        label={renderValue(container.contDetails)} 
-                        size="small" 
-                        variant="outlined" 
-                        sx={{ fontWeight: 600 }} 
+                      <Chip
+                        label={renderValue(container.contDetails)}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontWeight: 600 }}
                       />
                     </TableCell>
                     <TableCell>
-                      <Chip 
-                        label={renderValue(container.contStatus)} 
-                        size="small" 
-                        color={container.contStatus === 'FCL' ? 'success' : 'default'}
+                      <Chip
+                        label={renderValue(container.contStatus)}
+                        size="small"
+                        color={
+                          container.contStatus === "FCL" ? "success" : "default"
+                        }
                         variant="outlined"
                       />
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{renderValue(container.lineNo)}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{renderValue(container.subLineNo)}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{renderValue(container.igmNo)}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      {renderValue(container.lineNo)}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      {renderValue(container.subLineNo)}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      {renderValue(container.igmNo)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -521,30 +595,49 @@ const formatDateForDatabase = (dateString) => {
         fullScreen={isMobile}
         PaperProps={{
           sx: {
-            height: isMobile ? '100vh' : '88vh',
+            height: isMobile ? "100vh" : "88vh",
             borderRadius: isMobile ? 0 : 1.5,
-            overflow: 'hidden'
-          }
+            overflow: "hidden",
+          },
         }}
         disableEnforceFocus
         disableAutoFocus
         disableRestoreFocus
       >
         {/* Header */}
-        <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box
+          sx={{
+            bgcolor: "background.paper",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
           <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+              }}
+            >
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
                   Sea Cargo Tracking
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip 
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Chip
                     icon={<AnchorIcon fontSize="small" />}
                     label={`Master BL: ${renderValue(masterBlNo)}`}
-                    size="small" 
-                    variant="outlined" 
-                    sx={{ fontWeight: 600 }} 
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontWeight: 600 }}
                   />
                   {cargoDetails?.summary?.[0] && (
                     <>
@@ -556,7 +649,9 @@ const formatDateForDatabase = (dateString) => {
                       />
                       <Chip
                         icon={<InfoIcon fontSize="small" />}
-                        label={renderValue(cargoDetails.summary[0].cargoMovement)}
+                        label={renderValue(
+                          cargoDetails.summary[0].cargoMovement
+                        )}
                         size="small"
                         variant="outlined"
                       />
@@ -564,7 +659,7 @@ const formatDateForDatabase = (dateString) => {
                   )}
                 </Box>
               </Box>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Box sx={{ display: "flex", gap: 0.5 }}>
                 <IconButton onClick={() => window.print()} title="Print">
                   <PrintIcon />
                 </IconButton>
@@ -577,7 +672,14 @@ const formatDateForDatabase = (dateString) => {
         </Box>
 
         {/* Tabs */}
-        <Paper elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', borderRadius: 0 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            borderRadius: 0,
+          }}
+        >
           <Tabs
             value={activeTab}
             onChange={handleTabChange}
@@ -585,14 +687,16 @@ const formatDateForDatabase = (dateString) => {
             scrollButtons="auto"
             sx={{
               minHeight: 48,
-              '& .MuiTab-root': { minHeight: 48, textTransform: 'none' }
+              "& .MuiTab-root": { minHeight: 48, textTransform: "none" },
             }}
           >
             {tabLabels.map((tab, index) => (
               <Tab
                 key={index}
                 label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box
+                    sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+                  >
                     {tab.icon}
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {tab.label}
@@ -609,35 +713,46 @@ const formatDateForDatabase = (dateString) => {
         {loading ? (
           <Box
             sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
               minHeight: 320,
-              p: 3
+              p: 3,
             }}
           >
             <CircularProgress size={48} />
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 2 }}>
               Loading Sea Cargo Details
             </Typography>
-            <LinearProgress sx={{ width: 200, height: 4, borderRadius: 2, mt: 1.5 }} />
+            <LinearProgress
+              sx={{ width: 200, height: 4, borderRadius: 2, mt: 1.5 }}
+            />
           </Box>
         ) : error.message ? (
           <Box sx={{ p: 3 }}>
-            {error.type === 'notfound' ? (
+            {error.type === "notfound" ? (
               // 404 - No Record Found (user-friendly)
-              <Paper elevation={0} sx={{ 
-                p: 3, 
-                borderRadius: 1, 
-                border: '1px solid', 
-                borderColor: 'info.light',
-                bgcolor: 'info.50' 
-              }}>
-                <Typography variant="subtitle1" sx={{ color: 'info.main', fontWeight: 700, mb: 1 }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  borderRadius: 1,
+                  border: "1px solid",
+                  borderColor: "info.light",
+                  bgcolor: "info.50",
+                }}
+              >
+                <Typography
+                  variant="subtitle1"
+                  sx={{ color: "info.main", fontWeight: 700, mb: 1 }}
+                >
                   No Record Found
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "text.secondary", mb: 2 }}
+                >
                   {error.message}
                 </Typography>
                 <Button variant="outlined" color="info" onClick={onClose}>
@@ -646,22 +761,35 @@ const formatDateForDatabase = (dateString) => {
               </Paper>
             ) : (
               // All other errors (network, server, timeout, etc.)
-              <Paper elevation={0} sx={{ 
-                p: 3, 
-                borderRadius: 1, 
-                border: '1px solid', 
-                borderColor: 'error.light' 
-              }}>
-                <Typography variant="subtitle1" sx={{ color: 'error.main', fontWeight: 700, mb: 1 }}>
-                  {error.type === 'network' ? 'Connection Error' : 
-                   error.type === 'timeout' ? 'Request Timeout' : 
-                   error.type === 'server' ? 'Server Error' : 
-                   'Request Failed'}
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  borderRadius: 1,
+                  border: "1px solid",
+                  borderColor: "error.light",
+                }}
+              >
+                <Typography
+                  variant="subtitle1"
+                  sx={{ color: "error.main", fontWeight: 700, mb: 1 }}
+                >
+                  {error.type === "network"
+                    ? "Connection Error"
+                    : error.type === "timeout"
+                    ? "Request Timeout"
+                    : error.type === "server"
+                    ? "Server Error"
+                    : "Request Failed"}
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'error.dark', mb: 2 }}>
+                <Typography variant="body2" sx={{ color: "error.dark", mb: 2 }}>
                   {error.message}
                 </Typography>
-                <Button variant="contained" color="error" onClick={fetchCargoDetails}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={fetchCargoDetails}
+                >
                   Retry
                 </Button>
               </Paper>
@@ -671,28 +799,35 @@ const formatDateForDatabase = (dateString) => {
           <DialogContent
             sx={{
               p: { xs: 2, sm: 3 },
-              overflow: 'auto',
-              bgcolor: 'background.default'
+              overflow: "auto",
+              bgcolor: "background.default",
             }}
           >
-            <Box sx={{ maxWidth: 1040, mx: 'auto' }}>
+            <Box sx={{ maxWidth: 1040, mx: "auto" }}>
               {renderTabContent()}
-              
+
               {/* Update Button */}
               {cargoDetails && jobId && (
-                <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                  <Button 
-                    variant="outlined" 
+                <Box
+                  sx={{
+                    mt: 3,
+                    display: "flex",
+                    gap: 2,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <Button
+                    variant="outlined"
                     onClick={onClose}
                     disabled={isUpdating}
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    variant="contained" 
+                  <Button
+                    variant="contained"
                     onClick={handleUpdateDatabase}
                     disabled={isUpdating}
-                    sx={{ position: 'relative' }}
+                    sx={{ position: "relative" }}
                   >
                     {isUpdating ? (
                       <>
@@ -700,7 +835,7 @@ const formatDateForDatabase = (dateString) => {
                         Updating...
                       </>
                     ) : (
-                      'Update Job'
+                      "Update Job"
                     )}
                   </Button>
                 </Box>
@@ -727,12 +862,12 @@ const formatDateForDatabase = (dateString) => {
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
+        <Alert
+          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: "100%" }}
         >
           {snackbar.message}
         </Alert>

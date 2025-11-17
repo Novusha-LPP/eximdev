@@ -280,55 +280,69 @@ const formik = useFormik({
     }
   };
 
-// Check if all Approved checkboxes are true and all IRN numbers are non-empty strings
+// Only consider docs that are sent to e-sanchit
+const getRelevantDocs = () =>
+  (formik.values.cth_documents || []).filter(
+    (doc) => doc.is_sent_to_esanchit
+  );
+
+// Check if all relevant docs have IRN and Approved date
 const areAllApproved = () => {
-  return (
-    !isDisabled &&
-    formik.values.cth_documents
-      .filter(doc => doc.is_sent_to_esanchit) // Only consider sent documents
-      .every(
-        doc =>
-          !!doc.document_check_date && // Approved checkbox is checked (non-empty date)
-          !!doc.irn &&                 // IRN is non-empty
-          doc.irn.trim() !== ""        // IRN is not just whitespace
-      )
+  const docs = getRelevantDocs();
+  if (docs.length === 0) return false; // no docs -> not completed
+
+  return docs.every(
+    (doc) =>
+      !!doc.irn &&
+      doc.irn.trim() !== "" &&
+      !!doc.document_check_date
   );
 };
 
-// Get the latest approved document date
+// Get the latest approved document date among relevant docs
 const getLatestApprovedDate = () => {
-  const approvedDocs = formik.values.cth_documents
-    .filter(doc => doc.is_sent_to_esanchit && doc.document_check_date)
-    .map(doc => new Date(doc.document_check_date))
-    .sort((a, b) => b - a); // Sort in descending order (latest first)
-  
+  const approvedDocs = getRelevantDocs()
+    .filter((doc) => doc.document_check_date)
+    .map((doc) => new Date(doc.document_check_date))
+    .sort((a, b) => b - a); // latest first
+
   return approvedDocs.length > 0 ? approvedDocs[0] : null;
 };
 
-// Auto-update `esanchit_completed_date_time` based on Approved status and IRN validation
+// Auto-update esanchit_completed_date_time from CTH docs
 useEffect(() => {
-  // Skip if we already have a completion date from the database
-  if (data.esanchit_completed_date_time) {
-    return; // Don't touch existing saved dates
+  const docs = getRelevantDocs();
+
+  // If no relevant docs at all, always clear
+  if (docs.length === 0) {
+    if (formik.values.esanchit_completed_date_time) {
+      formik.setFieldValue("esanchit_completed_date_time", "");
+    }
+    return;
   }
-  
-  // Only auto-set for new approvals (when there's no saved date)
+
   if (areAllApproved()) {
     const latestApprovedDate = getLatestApprovedDate();
     if (latestApprovedDate) {
-      const latestApprovedDateTime = new Date(latestApprovedDate.getTime() - latestApprovedDate.getTimezoneOffset() * 60000)
+      // Normalize to local datetime-local string (yyyy-MM-ddTHH:mm)
+      const localISO = new Date(
+        latestApprovedDate.getTime() -
+          latestApprovedDate.getTimezoneOffset() * 60000
+      )
         .toISOString()
         .slice(0, 16);
-      formik.setFieldValue("esanchit_completed_date_time", latestApprovedDateTime);
+
+      if (formik.values.esanchit_completed_date_time !== localISO) {
+        formik.setFieldValue("esanchit_completed_date_time", localISO);
+      }
     }
   } else {
-    // Only clear if there was never a saved completion date
-    if (!formik.values.esanchit_completed_date_time) {
+    // NOT all approved -> clear completion time, even if it exists in DB
+    if (formik.values.esanchit_completed_date_time) {
       formik.setFieldValue("esanchit_completed_date_time", "");
     }
   }
-}, [formik.values.cth_documents]);
-
+}, [formik.values.cth_documents]); // keep deps as just docs
 
 
   // Sync esanchitCharges state with formik values

@@ -41,6 +41,7 @@ import DocumentsTab from "./tabs/DocumentsTab";
 import ContainersTab from "./tabs/ContainersTab";
 import ChargesTab from "./tabs/ChargesTab";
 
+import JobStickerPDF from "./JobStickerPDF";
 // Optional: plain CSS/SCSS for compact layout
 import "../../styles/job-details.scss";
 
@@ -596,6 +597,8 @@ const handleGenerateSticker = () => {
     return `${year}-${month}-${day}`;
   };
 
+  
+
   // --------------------------------------------------
   // TABS RENDERING
   // --------------------------------------------------
@@ -648,6 +651,34 @@ const handleGenerateSticker = () => {
 
         {/* TOP: Completion status (kept in main view for context) */}
         {/* ...you can optionally move Completion Status to its own tab later... */}
+
+<JobStickerPDF
+  ref={pdfRef}
+  jobData={{
+    job_no: formik.values.job_no,
+    year: formik.values.year,
+    importer: formik.values.importer,
+    be_no: formik.values.be_no,
+    be_date: formik.values.be_date,
+    invoice_number: formik.values.invoice_number,
+    invoice_date: formik.values.invoice_date,
+    loading_port: formik.values.loading_port,
+    no_of_pkgs: formik.values.no_of_pkgs,
+    description: formik.values.description,
+    gross_weight: formik.values.gross_weight,
+    job_net_weight: formik.values.job_net_weight,
+    gateway_igm: formik.values.gateway_igm,
+    gateway_igm_date: formik.values.gateway_igm_date,
+    igm_no: formik.values.igm_no,
+    igm_date: formik.values.igm_date,
+    awb_bl_no: formik.values.awb_bl_no,
+    awb_bl_date: formik.values.awb_bl_date,
+    shipping_line_airline: formik.values.shipping_line_airline,
+    custom_house: formik.values.custom_house,
+    container_nos: formik.values.container_nos,
+  }}
+  data={data}
+/>
 
         {/* -------- INNER TABS BAR -------- */}
         <Box

@@ -143,7 +143,7 @@ export default function TrackingTab({
   const onlyAdmin = user?.role === "Admin";
 
   return (
-    <div style={containerStyle}>
+    <div className="job-details-container" style={containerStyle}>
       {/* ------- TOP BASIC FIELDS (already rendered in header, keep minimal here if needed) ------- */}
 
       {/* ------- TRACKING & BL / ARRIVAL DETAILS ------- */}

@@ -97,6 +97,28 @@ const CurrencyRateDialog = ({ open, onClose }) => {
       rate.currency_code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleManualScrape = async () => {
+  try {
+    setError('');
+    setLoading(true);
+
+    await axios.post(
+      `${process.env.REACT_APP_API_STRING}/currency-rates/scrape`
+    );
+
+    // After scrape completes, re-fetch for the selected date
+    await handleDateChange(selectedDate);
+  } catch (err) {
+    console.error('Error scraping currency rates:', err);
+    setError(
+      err.response?.data?.message ||
+      'Failed to manually refresh currency rates'
+    );
+    setLoading(false); // handleDateChange won't run if scrape fails
+  }
+};
+
+
   return (
     <Dialog
       open={open}
@@ -400,30 +422,48 @@ const CurrencyRateDialog = ({ open, onClose }) => {
       </DialogContent>
 
       {/* Footer */}
-      <Box
-        sx={{
-          px: 3,
-          py: 1.5,
-          bgcolor: '#fafafa',
-          borderTop: '1px solid #e0e0e0',
-          display: 'flex',
-          justifyContent: 'flex-end'
-        }}
-      >
-        <Button
-          onClick={onClose}
-          variant="outlined"
-          size="small"
-          color="primary"
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-            px: 3
-          }}
-        >
-          Close
-        </Button>
-      </Box>
+{/* Footer */}
+<Box
+  sx={{
+    px: 3,
+    py: 1.5,
+    bgcolor: '#fafafa',
+    borderTop: '1px solid #e0e0e0',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 1
+  }}
+>
+  <Button
+    onClick={handleManualScrape}
+    variant="contained"
+    size="small"
+    color="primary"
+    disabled={loading}
+    sx={{
+      textTransform: 'none',
+      fontWeight: 600,
+      px: 2
+    }}
+  >
+    {loading ? 'Refreshing…' : 'Refresh Rates'}
+  </Button>
+
+  <Button
+    onClick={onClose}
+    variant="outlined"
+    size="small"
+    color="primary"
+    sx={{
+      textTransform: 'none',
+      fontWeight: 600,
+      px: 3
+    }}
+  >
+    Close
+  </Button>
+</Box>
+
     </Dialog>
   );
 };

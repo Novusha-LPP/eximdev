@@ -428,8 +428,6 @@ if (cluster.isPrimary) {
 }, {
   timezone: "Asia/Kolkata" // IST timezone
 });
-
-console.log('⏰ Currency rate scraper cron job scheduled for 12:01 AM daily (IST)');
       // Initialize WebSocket logic
       const server = http.createServer(app);
       setupJobOverviewWebSocket(server);

@@ -1,3 +1,4 @@
+// services/currencyRateScraper.js
 import { chromium } from "playwright";
 import CurrencyRate from "../model/CurrencyRate.mjs";
 import path from "path";
@@ -15,6 +16,17 @@ const SLEEP_BETWEEN = 800;
 const ensureDir = (dirPath) => {
   if (!existsSync(dirPath)) {
     mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+// remove a folder and its contents (ignores errors)
+const removeDirIfExists = async (dirPath) => {
+  try {
+    if (existsSync(dirPath)) {
+      await fs.rm(dirPath, { recursive: true, force: true });
+    }
+  } catch (e) {
+    console.warn(`⚠️ Could not remove temp dir ${dirPath}:`, e.message);
   }
 };
 
@@ -131,19 +143,25 @@ const parseExchangePdf = async (pdfPath) => {
 };
 
 const parsePdfText = (text, pdfPath) => {
-  const lines = text.split("\n").map((line) => line.trim()).filter((line) => line);
-
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line);
 
   // Extract notification number
   let notifMatch = null;
   for (const line of lines) {
-    notifMatch = line.match(/Notification\s*(No\.?|Number)?\s*[:\-]?\s*([0-9]+\/?[0-9]*)/i);
+    notifMatch = line.match(
+      /Notification\s*(No\.?|Number)?\s*[:\-]?\s*([0-9]+\/?[0-9]*)/i
+    );
     if (notifMatch) break;
     notifMatch = line.match(/([0-9]+\/[0-9]{4})\s*\/?Customs?/i);
     if (notifMatch) break;
   }
 
-  const notificationNumber = notifMatch ? notifMatch[notifMatch.length - 1].trim() : "unknown";
+  const notificationNumber = notifMatch
+    ? notifMatch[notifMatch.length - 1].trim()
+    : "unknown";
 
   // Extract effective date
   let effMatch = null;
@@ -163,13 +181,13 @@ const parsePdfText = (text, pdfPath) => {
   }
 
   const effectiveDate = effMatch ? effMatch[1] : "unknown";
+
   // Parse currency rates
   let exchangeRates = parseCurrencyRatesImproved(lines);
 
   if (exchangeRates.length === 0) {
     exchangeRates = parseCurrencyRatesAlternative(lines);
   }
-
 
   return {
     notification_number: notificationNumber,
@@ -242,7 +260,12 @@ const parseCurrencyRatesImproved = (lines) => {
           const importRate = numbers[0];
           const exportRate = numbers[1];
 
-          if (importRate > 0.1 && importRate < 1000 && exportRate > 0.1 && exportRate < 1000) {
+          if (
+            importRate > 0.1 &&
+            importRate < 1000 &&
+            exportRate > 0.1 &&
+            exportRate < 1000
+          ) {
             parsed.push({
               currency_code: currency.code,
               currency_name: currency.name,
@@ -310,14 +333,16 @@ export const scrapeAndSaveCurrencyRates = async () => {
     let rows = await page.$$("table tbody tr");
     if (!rows || rows.length === 0) rows = await page.$$("tbody tr");
     if (!rows || rows.length === 0) rows = await page.$$("tr");
-    
+
     for (const [row_i, row] of rows.entries()) {
       const rowNum = row_i + 1;
-      
+
       try {
         let downloadEl = await row.$("text=Download PDF");
         if (!downloadEl) {
-          downloadEl = await row.$("a:has-text('Download PDF'), button:has-text('Download PDF')");
+          downloadEl = await row.$(
+            "a:has-text('Download PDF'), button:has-text('Download PDF')"
+          );
         }
 
         if (!downloadEl) {
@@ -330,10 +355,14 @@ export const scrapeAndSaveCurrencyRates = async () => {
 
         if (cells.length > 0) {
           if (notifIdx < cells.length) {
-            try { notifText = (await cells[notifIdx].innerText()).trim(); } catch (e) {}
+            try {
+              notifText = (await cells[notifIdx].innerText()).trim();
+            } catch (e) {}
           }
           if (dateIdx < cells.length) {
-            try { dateText = (await cells[dateIdx].innerText()).trim(); } catch (e) {}
+            try {
+              dateText = (await cells[dateIdx].innerText()).trim();
+            } catch (e) {}
           }
         }
 
@@ -348,10 +377,15 @@ export const scrapeAndSaveCurrencyRates = async () => {
           outPath = path.join(dir, `${base}_${counter}${ext}`);
           counter++;
         }
+
         let download;
         try {
-          const downloadPromise = page.waitForEvent("download", { timeout: CLICK_TIMEOUT });
-          try { await downloadEl.scrollIntoViewIfNeeded({ timeout: 2000 }); } catch (e) {}
+          const downloadPromise = page.waitForEvent("download", {
+            timeout: CLICK_TIMEOUT,
+          });
+          try {
+            await downloadEl.scrollIntoViewIfNeeded({ timeout: 2000 });
+          } catch (e) {}
           await downloadEl.click({ timeout: CLICK_TIMEOUT });
           download = await downloadPromise;
         } catch (e) {
@@ -362,7 +396,8 @@ export const scrapeAndSaveCurrencyRates = async () => {
         await download.saveAs(outPath);
         results.total_scraped++;
 
-        // Parse PDF        const parsed = await parseExchangePdf(outPath);
+        // Parse PDF
+        const parsed = await parseExchangePdf(outPath);
 
         if (parsed.error) {
           results.errors.push({ row: rowNum, error: parsed.error });
@@ -408,8 +443,9 @@ export const scrapeAndSaveCurrencyRates = async () => {
     results.errors.push({ general: e.message });
   } finally {
     await browser.close();
+    // Remove temp folder and any remaining PDFs
+    await removeDirIfExists(TEMP_DIR);
   }
-
 
   return results;
 };

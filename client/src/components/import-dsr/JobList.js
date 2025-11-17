@@ -438,12 +438,12 @@ function JobList(props) {
     enablePinning: true,
     muiTableContainerProps: { sx: { maxHeight: "690px", overflowY: "auto" } },
     muiTableBodyRowProps: getRowProps,
-    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 1 } },
+    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 999 } },
     renderTopToolbarCustomActions: renderTopToolbarCustomActions,
   });
 
   return (
-    <div className="table-container">
+    <div className="table-container" >
       <MaterialReactTable table={table} />
 
       <Pagination

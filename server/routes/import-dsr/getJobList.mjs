@@ -154,7 +154,6 @@ const criticalFields = `
   gross_weight job_net_weight payment_method
 `;
 
-
 const additionalFieldsByStatus = {
   be_noted_clearance_pending: "",
   pcv_done_duty_payment_pending: "out_of_charge pcv_date",
@@ -220,9 +219,15 @@ router.get(
   applyUserImporterFilter,
   async (req, res) => {
     try {
-      const { year, status, detailedStatus, importer, selectedICD } = req.params;
-      const { page = 1, limit = 100, search = "", unresolvedOnly, _nocache } =
-        req.query;
+      const { year, status, detailedStatus, importer, selectedICD } =
+        req.params;
+      const {
+        page = 1,
+        limit = 100,
+        search = "",
+        unresolvedOnly,
+        _nocache,
+      } = req.query;
 
       const searchTerm = String(search || "").trim();
       const bypassCache = _nocache === "true" || _nocache === "1";
@@ -362,8 +367,7 @@ router.get(
         page,
         limit,
         unresolvedOnly,
-        user:
-          req.currentUser?.username || req.headers["x-username"] || null,
+        user: req.currentUser?.username || req.headers["x-username"] || null,
       });
 
       if (!bypassCache) {
@@ -406,9 +410,7 @@ router.get(
               $gt: [{ $strLenCP: { $ifNull: ["$be_no", ""] } }, 0],
             },
             anyArrival: buildAnyContainerDateExists("arrival_date"),
-            anyRailOut: buildAnyContainerDateExists(
-              "container_rail_out_date"
-            ),
+            anyRailOut: buildAnyContainerDateExists("container_rail_out_date"),
             allDelivery: buildAllContainerDateExists("delivery_date"),
             allEmptyOffload: buildAllContainerDateExists(
               "emptyContainerOffLoadDate"
@@ -506,11 +508,7 @@ router.get(
                         },
                         {
                           case: {
-                            $and: [
-                              "$$bePresent",
-                              "$$anyArrival",
-                              "$$validPcv",
-                            ],
+                            $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
                           },
                           then: "PCV Done, Duty Payment Pending",
                         },
@@ -522,10 +520,7 @@ router.get(
                         },
                         {
                           case: {
-                            $and: [
-                              { $not: ["$$bePresent"] },
-                              "$$anyArrival",
-                            ],
+                            $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
                           },
                           then: "Arrived, BE Note Pending",
                         },
@@ -616,17 +611,12 @@ router.get(
 
       dataPipeline.push({ $addFields: firstAddFields });
 
-      if (requestedDetailedStatus) {
-        dataPipeline.push({
-          $match: { __effective_detailed_status: requestedDetailedStatus },
-        });
-      }
-
       dataPipeline.push({ $addFields: baseAddFields });
 
+      // After all $addFields (and before final $project or $facet that sends rows)
       dataPipeline.push({
         $addFields: {
-          effective_detailed_status: "$__effective_detailed_status",
+          detailed_status: "$__effective_detailed_status",
         },
       });
 
@@ -694,9 +684,6 @@ router.get(
   }
 );
 
-
-
-
 // editable patch api
 // CRITICAL: Only update nested fields (container_nos) by index, never replace the entire array
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
@@ -720,35 +707,48 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
     }
 
     // Apply the requested update
-  // After passing the length guard:
-const existing = await JobModel.findById(id).lean();
-if (!existing) return res.status(404).json({ success: false, message: "Job not found" });
+    // After passing the length guard:
+    const existing = await JobModel.findById(id).lean();
+    if (!existing)
+      return res.status(404).json({ success: false, message: "Job not found" });
 
-const merged = { ...existing, ...updateData };
-if (existing.container_nos && updateData.container_nos) {
-  merged.container_nos = updateData.container_nos; // or deeply merge as needed
-}
+    const merged = { ...existing, ...updateData };
+    if (existing.container_nos && updateData.container_nos) {
+      merged.container_nos = updateData.container_nos; // or deeply merge as needed
+    }
 
-const recomputedStatus = determineDetailedStatus(merged);
-const rowColor = getRowColorFromStatus(recomputedStatus || existing.detailed_status);
+    const recomputedStatus = determineDetailedStatus(merged);
+    const rowColor = getRowColorFromStatus(
+      recomputedStatus || existing.detailed_status
+    );
 
-const finalDoc = await JobModel.findByIdAndUpdate(
-  id,
-  { $set: { ...updateData, detailed_status: recomputedStatus, row_color: rowColor } },
-  { new: true, runValidators: true }
-).lean();
+    const finalDoc = await JobModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          ...updateData,
+          detailed_status: recomputedStatus,
+          row_color: rowColor,
+        },
+      },
+      { new: true, runValidators: true }
+    ).lean();
 
-if (finalDoc?.year) invalidateCache(finalDoc.year); else invalidateCache();
+    if (finalDoc?.year) invalidateCache(finalDoc.year);
+    else invalidateCache();
 
-return res.status(200).json({ success: true, message: "Job updated successfully", data: finalDoc });
-
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: "Job updated successfully",
+        data: finalDoc,
+      });
   } catch (error) {
     console.error("Error updating job:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
-
-
 
 router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   try {
@@ -774,13 +774,20 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   }
 });
 
-
 // Lightweight typeahead endpoint - returns minimal fields for suggestions
 router.get("/api/:year/jobs/typeahead", async (req, res) => {
   try {
     const { year } = req.params;
-    const { search = "", limit = 10, selectedICD = "all", importer = "all" } = req.query;
-    if (!year) return res.status(400).json({ success: false, message: "year is required" });
+    const {
+      search = "",
+      limit = 10,
+      selectedICD = "all",
+      importer = "all",
+    } = req.query;
+    if (!year)
+      return res
+        .status(400)
+        .json({ success: false, message: "year is required" });
 
     const query = { year };
 
@@ -808,7 +815,13 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
             { be_no: { $regex: regex } },
           ],
         })
-          .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, "container_nos.container_number": 1 })
+          .select({
+            job_no: 1,
+            importer: 1,
+            awb_bl_no: 1,
+            be_no: 1,
+            "container_nos.container_number": 1,
+          })
           .limit(parseInt(limit))
           .lean();
         return res.json({ success: true, data: results });
@@ -818,7 +831,13 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
       try {
         query.$text = { $search: safeSearch };
         const results = await JobModel.find(query)
-          .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, score: { $meta: "textScore" } })
+          .select({
+            job_no: 1,
+            importer: 1,
+            awb_bl_no: 1,
+            be_no: 1,
+            score: { $meta: "textScore" },
+          })
           .sort({ score: { $meta: "textScore" } })
           .limit(parseInt(limit))
           .lean();
@@ -835,7 +854,13 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
             { "container_nos.container_number": { $regex: regex } },
           ],
         })
-          .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, "container_nos.container_number": 1 })
+          .select({
+            job_no: 1,
+            importer: 1,
+            awb_bl_no: 1,
+            be_no: 1,
+            "container_nos.container_number": 1,
+          })
           .limit(parseInt(limit))
           .lean();
         return res.json({ success: true, data: results });
@@ -853,7 +878,13 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
     }
 
     const results = await JobModel.find(query)
-      .select({ job_no: 1, importer: 1, awb_bl_no: 1, be_no: 1, "container_nos.container_number": 1 })
+      .select({
+        job_no: 1,
+        importer: 1,
+        awb_bl_no: 1,
+        be_no: 1,
+        "container_nos.container_number": 1,
+      })
       .limit(parseInt(limit))
       .lean();
 
@@ -863,6 +894,5 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 });
-
 
 export default router;

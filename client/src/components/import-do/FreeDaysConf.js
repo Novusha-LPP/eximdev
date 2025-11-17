@@ -3,7 +3,6 @@ import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
-import BLNumberCell from "../../utils/BLNumberCell";
 import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import {
   IconButton,

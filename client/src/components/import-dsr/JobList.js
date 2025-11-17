@@ -341,6 +341,7 @@ function JobList(props) {
         </TextField>
       )}
 
+{ props.status !== "Billing Pending" &&
       <TextField
         select size="small" value={detailedStatus} onChange={handleDetailedStatusChange}
         sx={{ width: "250px" }}
@@ -350,7 +351,7 @@ function JobList(props) {
             {o.name}
           </MenuItem>
         ))}
-      </TextField>
+      </TextField>}
 
       {/* Unified job search with instant typing and strict job_no selection */}
       <Autocomplete

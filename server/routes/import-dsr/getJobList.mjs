@@ -607,18 +607,40 @@ router.get(
         },
       };
 
-      const dataPipeline = [];
+const dataPipeline = [];
 
-      dataPipeline.push({ $addFields: firstAddFields });
+// 1) compute effective detailed status
+dataPipeline.push({ $addFields: firstAddFields });
 
-      dataPipeline.push({ $addFields: baseAddFields });
+dataPipeline.push({
+  $match: {
+    $expr: {
+      $cond: [
+        { $eq: ["$status", "Pending"] },  // IF status == Pending
+        { $ne: ["$__effective_detailed_status", "Billing Pending"] }, // THEN exclude Billing Pending
+        true // ELSE allow all
+      ]
+    }
+  }
+});
 
-      // After all $addFields (and before final $project or $facet that sends rows)
-      dataPipeline.push({
-        $addFields: {
-          detailed_status: "$__effective_detailed_status",
-        },
-      });
+
+// 3) if you also filter by requestedDetailedStatus, do it here
+if (requestedDetailedStatus) {
+  dataPipeline.push({
+    $match: { __effective_detailed_status: requestedDetailedStatus },
+  });
+}
+
+// 4) add rank/sort helpers
+dataPipeline.push({ $addFields: baseAddFields });
+
+// 5) expose effective status as detailed_status
+dataPipeline.push({
+  $addFields: {
+    detailed_status: "$__effective_detailed_status",
+  },
+});
 
       // Sort without textScore
       const sortStage = {
@@ -894,5 +916,246 @@ router.get("/api/:year/jobs/typeahead", async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 });
+
+
+// API: ONLY jobs whose stored detailed_status is exactly "Billing Pending"
+router.get(
+  "/api/:year/jobs-billing-pending/:selectedICD/:importer",
+  applyUserImporterFilter,
+  async (req, res) => {
+    try {
+      const { year, importer, selectedICD } = req.params;
+      const {
+        page = 1,
+        limit = 100,
+        search = "",
+        unresolvedOnly,
+      } = req.query;
+
+      const searchTerm = String(search || "").trim();
+      const skip = (page - 1) * limit;
+
+      // ---- base find query on the collection (no aggregation filters here) ----
+      const findQuery = { year };
+
+      const escapeRegex = (string) =>
+        string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+      if (!findQuery.$and) findQuery.$and = [];
+
+      // user-based importer filter
+      if (req.userImporterFilter) {
+        findQuery.$and.push(req.userImporterFilter);
+      }
+
+      // importer from URL
+      if (
+        importer &&
+        importer.toLowerCase() !== "all" &&
+        !req.userImporterFilter
+      ) {
+        findQuery.importer = {
+          $regex: `^${escapeRegex(importer)}$`,
+          $options: "i",
+        };
+      } else if (
+        importer &&
+        importer.toLowerCase() !== "all" &&
+        req.userImporterFilter
+      ) {
+        const userImporters = req.currentUser?.assignedImporterName || [];
+        const isImporterAllowed = userImporters.some(
+          (userImp) => userImp.toLowerCase() === importer.toLowerCase()
+        );
+
+        if (isImporterAllowed) {
+          findQuery.$and = findQuery.$and.filter(
+            (condition) => !condition.importer
+          );
+          findQuery.importer = {
+            $regex: `^${escapeRegex(importer)}$`,
+            $options: "i",
+          };
+        }
+      }
+
+      // ICD
+      if (selectedICD && selectedICD.toLowerCase() !== "all") {
+        findQuery.custom_house = {
+          $regex: `^${escapeRegex(selectedICD)}$`,
+          $options: "i",
+        };
+      }
+
+      // unresolvedOnly
+      if (unresolvedOnly === "true") {
+        findQuery.$and.push({
+          dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
+        });
+      }
+
+      // search
+      if (searchTerm) {
+        findQuery.$and.push(buildSearchQuery(searchTerm));
+      }
+
+      if (findQuery.$and && findQuery.$and.length === 0) {
+        delete findQuery.$and;
+      }
+
+      // ------------------------ aggregation pipeline ------------------------
+      const projection = {};
+      const selectedFieldsStr = getSelectedFields("all", false);
+      selectedFieldsStr.split(/\s+/).forEach((f) => {
+        if (f) projection[f] = 1;
+      });
+
+      // keep fields needed for status computation
+      projection.be_no = 1;
+      projection.type_of_b_e = 1;
+      projection.consignment_type = 1;
+      projection.out_of_charge = 1;
+      projection.pcv_date = 1;
+      projection.discharge_date = 1;
+      projection.gateway_igm_date = 1;
+      projection.vessel_berthing = 1;
+      projection.container_nos = 1;
+
+      const preProjectStage = { $project: projection };
+
+      // effective detailed_status expression (same as main API)
+      const effectiveDetailedStatusExpression = { /* your big $let expression here, unchanged */ };
+
+      const statusRankEntries = Object.entries(statusRank);
+
+      const statusRankBranches = statusRankEntries.map(
+        ([status, { rank }]) => ({
+          case: { $eq: ["$__effective_detailed_status", status] },
+          then: rank,
+        })
+      );
+
+      const statusDateBranches = statusRankEntries.map(
+        ([status, { field }]) => ({
+          case: { $eq: ["$__effective_detailed_status", status] },
+          then: {
+            $ifNull: [
+              buildDateFromField(`$container_nos.0.${field}`),
+              buildDateFromField(`$${field}`),
+            ],
+          },
+        })
+      );
+
+      const defaultDateExpression = {
+        $ifNull: [
+          buildDateFromField("$container_nos.0.detention_from"),
+          buildDateFromField("$detention_from"),
+        ],
+      };
+
+      const firstAddFields = {
+        __effective_detailed_status: effectiveDetailedStatusExpression,
+      };
+
+      const baseAddFields = {
+        __status_rank: {
+          $switch: {
+            branches: statusRankBranches,
+            default: 999,
+          },
+        },
+        __status_sort_date: {
+          $ifNull: [
+            {
+              $switch: {
+                branches: statusDateBranches,
+                default: defaultDateExpression,
+              },
+            },
+            FAR_FUTURE_DATE,
+          ],
+        },
+      };
+
+      const dataPipeline = [];
+
+      // only stored Billing Pending docs
+      dataPipeline.push({
+        $match: {
+          status: "Pending",
+          detailed_status: "Billing Pending",
+        },
+      });
+
+      // compute effective status
+      dataPipeline.push({ $addFields: firstAddFields });
+
+      // add rank/sort helpers
+      dataPipeline.push({ $addFields: baseAddFields });
+
+      // optional: override detailed_status with computed one
+      dataPipeline.push({
+        $addFields: {
+          detailed_status: "$__effective_detailed_status",
+        },
+      });
+
+      const sortStage = {
+        $sort: {
+          __status_rank: 1,
+          __status_sort_date: 1,
+          _id: 1,
+        },
+      };
+
+      const basePipeline = [
+        { $match: findQuery }, // filters from URL
+        preProjectStage,
+        ...dataPipeline,
+      ];
+
+      const pagedPipeline = [
+        ...basePipeline,
+        sortStage,
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
+      ];
+
+      const metadataPipeline = [...basePipeline, { $count: "total" }];
+
+      const pipeline = [
+        {
+          $facet: {
+            metadata: metadataPipeline,
+            data: pagedPipeline,
+          },
+        },
+      ];
+
+      const aggResult = await JobModel.aggregate(pipeline)
+        .allowDiskUse(true)
+        .exec();
+
+      const metadata = aggResult[0]?.metadata || [];
+      const jobs = aggResult[0]?.data || [];
+      const totalCount = (metadata[0] && metadata[0].total) || 0;
+
+      const responsePayload = {
+        data: jobs,
+        total: totalCount,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / limit),
+        userImporters: req.currentUser?.assignedImporterName || [],
+      };
+
+      res.json(responsePayload);
+    } catch (error) {
+      console.error("Error fetching Billing Pending jobs:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+);
+
 
 export default router;

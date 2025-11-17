@@ -30,6 +30,7 @@ import {
   Alert,
   Paper,
 } from "@mui/material";
+import BillingPendingTabs from "./BillingPendingTabs";
 
 export const TabContext = React.createContext({
   currentTab: 0,
@@ -322,8 +323,9 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
           aria-label="basic tabs example"
         >
           <Tab label="Pending" {...a11yProps(0)} />
-          <Tab label="Completed" {...a11yProps(1)} />
-          <Tab label="Cancelled" {...a11yProps(2)} />
+          <Tab label="Billing Pending" {...a11yProps(1)} />
+          <Tab label="Completed" {...a11yProps(2)} />
+          <Tab label="Cancelled" {...a11yProps(3)} />
         </Tabs>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box sx={{ position: "relative" }}>
@@ -355,14 +357,14 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
           </Box>
 
           {/* API Fetch Button */}
-          <Button
+       { user.role === "Admin" &&  <Button
             variant="contained"
             startIcon={<ApiIcon />}
             onClick={handleOpenApiFetch}
             sx={buttonStyle}
           >
             Exim Bot{" "}
-          </Button>
+          </Button>}
 
           <Button
             variant="contained"
@@ -384,12 +386,19 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
         <JobList
-          status="Completed"
+          status="Billing Pending"
           showUnresolvedOnly={showUnresolvedOnly}
           onUnresolvedCountChange={setUnresolvedCount}
         />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={2}>
+        <JobList
+          status="Completed"
+          showUnresolvedOnly={showUnresolvedOnly}
+          onUnresolvedCountChange={setUnresolvedCount}
+        />
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={3}>
         <JobList
           status="Cancelled"
           showUnresolvedOnly={showUnresolvedOnly}

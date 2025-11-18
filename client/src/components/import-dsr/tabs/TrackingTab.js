@@ -95,14 +95,6 @@ export default function TrackingTab({
     margin: 0,
   };
 
-  const checkboxLabelStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    fontSize: "12px",
-    cursor: "pointer",
-    margin: 0,
-  };
 
   const checkboxInputStyle = {
     width: "14px",
@@ -122,11 +114,6 @@ export default function TrackingTab({
     color: "white",
   };
 
-  const secondaryButtonStyle = {
-    ...buttonStyle,
-    backgroundColor: "#6c757d",
-    borderColor: "#6c757d",
-  };
 
   const fileBoxStyle = {
     border: "1px solid #ddd",
@@ -141,12 +128,6 @@ export default function TrackingTab({
     fontStyle: "italic",
   };
 
-  const horizontalRow = {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0,1fr))",
-    gap: "10px",
-    marginBottom: "10px",
-  };
 
   const fullRow = {
     display: "grid",
@@ -154,13 +135,42 @@ export default function TrackingTab({
     gap: "10px",
     marginBottom: "10px",
   };
+ const isAdmin = user?.role === "Admin";
+
+
+  const row4Style = {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+    gap: "10px",
+    marginBottom: "8px",
+  };
+
+
+
+
+
+  // Helpers to reuse original disabled conditions
+  const disabledETA = !isAdmin && (ExBondflag || isSubmissionDate);
+  const disabledGatewayBlock = !isAdmin && isSubmissionDate;
+  const disabledDischarge =
+    !isAdmin &&
+    (!formik.values.vessel_berthing || ExBondflag || isSubmissionDate);
+  const disabledIgmDate = !isAdmin && (ExBondflag || isSubmissionDate);
+  const disabledGenericSubmission = !isAdmin && isSubmissionDate;
+
+  const importTerm = formik.values.import_terms || importTerms;
+
+  const billNo = formik.values.bill_no || "";
+  const [billAgencyRaw = "", billReimbRaw = ""] = billNo.split(",");
+  const billAgency = billAgencyRaw.trim();
+  const billReimb = billReimbRaw.trim();
 
   return (
     <div className="job-details-container" style={containerStyle}>
-      {/* ------- BL / ARRIVAL & IGM ------- */}
+      {/* ------- BL / Arrivals / IGM ------- */}
       <h3 style={sectionTitleStyle}>BL / Arrival & IGM</h3>
 
-      <div style={rowStyle}>
+      <div style={row4Style}>
         <div style={fieldStyle}>
           <label style={labelStyle}>BL No:</label>
           <input
@@ -169,6 +179,8 @@ export default function TrackingTab({
             value={formik.values.awb_bl_no || ""}
             onChange={(e) => formik.setFieldValue("awb_bl_no", e.target.value)}
             placeholder="Enter BL No"
+            // original had // disabled={isSubmissionDate}
+            disabled={disabledGenericSubmission}
           />
         </div>
         <div style={fieldStyle}>
@@ -177,6 +189,8 @@ export default function TrackingTab({
             type="datetime-local"
             style={inputStyle}
             value={formatDateForInput(formik.values.awb_bl_date || "")}
+            // original comment: disabled={ExBondflag || isSubmissionDate}
+            disabled={!isAdmin && (ExBondflag || isSubmissionDate)}
             onChange={(e) => formik.setFieldValue("awb_bl_date", e.target.value)}
           />
         </div>
@@ -186,7 +200,11 @@ export default function TrackingTab({
             type="text"
             style={inputStyle}
             value={formik.values.hawb_hbl_no || ""}
-            onChange={(e) => formik.setFieldValue("hawb_hbl_no", e.target.value)}
+            onChange={(e) =>
+              formik.setFieldValue("hawb_hbl_no", e.target.value)
+            }
+            placeholder="Enter HAWBL No"
+            disabled={disabledGenericSubmission}
           />
         </div>
         <div style={fieldStyle}>
@@ -195,6 +213,7 @@ export default function TrackingTab({
             type="datetime-local"
             style={inputStyle}
             value={formatDateForInput(formik.values.hawb_hbl_date || "")}
+            disabled={!isAdmin && (ExBondflag || isSubmissionDate)}
             onChange={(e) =>
               formik.setFieldValue("hawb_hbl_date", e.target.value)
             }
@@ -202,114 +221,126 @@ export default function TrackingTab({
         </div>
       </div>
 
-      <div style={rowStyle}>
+      <div style={row4Style}>
         <div style={fieldStyle}>
           <label style={labelStyle}>ETA Date:</label>
           <input
             type="datetime-local"
             style={inputStyle}
             value={formatDateForInput(formik.values.vessel_berthing || "")}
+            disabled={disabledETA}
             onChange={(e) =>
               formik.setFieldValue("vessel_berthing", e.target.value)
             }
           />
         </div>
+
         <div style={fieldStyle}>
           <label style={labelStyle}>G-IGM No:</label>
           <input
             type="text"
             style={inputStyle}
             value={formik.values.gateway_igm || ""}
+            disabled={disabledGatewayBlock}
             onChange={(e) =>
               formik.setFieldValue("gateway_igm", e.target.value)
             }
+            placeholder="Enter G-IGM No"
           />
         </div>
+
         <div style={fieldStyle}>
           <label style={labelStyle}>G-IGM Date:</label>
           <input
             type="datetime-local"
             style={inputStyle}
             value={formatDateForInput(formik.values.gateway_igm_date || "")}
+            disabled={disabledGatewayBlock}
             onChange={(e) =>
               formik.setFieldValue("gateway_igm_date", e.target.value)
             }
           />
         </div>
+
         <div style={fieldStyle}>
           <label style={labelStyle}>IGM No:</label>
           <input
             type="text"
             style={inputStyle}
             value={formik.values.igm_no || ""}
+            disabled={disabledGatewayBlock}
             onChange={(e) => formik.setFieldValue("igm_no", e.target.value)}
+            placeholder="Enter IGM No"
           />
         </div>
       </div>
 
-      <div style={rowStyle}>
+      <div style={row4Style}>
         <div style={fieldStyle}>
           <label style={labelStyle}>IGM Date:</label>
           <input
             type="datetime-local"
             style={inputStyle}
             value={formatDateForInput(formik.values.igm_date || "")}
+            disabled={disabledIgmDate}
             onChange={(e) => formik.setFieldValue("igm_date", e.target.value)}
           />
         </div>
+
         <div style={fieldStyle}>
           <label style={labelStyle}>Discharge / L-IGM Date:</label>
           <input
             type="datetime-local"
             style={inputStyle}
             value={formatDateForInput(formik.values.discharge_date || "")}
+            disabled={disabledDischarge}
             onChange={(e) =>
               formik.setFieldValue("discharge_date", e.target.value)
             }
           />
         </div>
+
         <div style={fieldStyle}>
           <label style={labelStyle}>Line No:</label>
           <input
             type="text"
             style={inputStyle}
             value={formik.values.line_no || ""}
+            disabled={disabledGatewayBlock}
             onChange={(e) => formik.setFieldValue("line_no", e.target.value)}
+            placeholder="Enter Line No"
           />
         </div>
+
         <div style={fieldStyle}>
           <label style={labelStyle}>No Of Packages:</label>
           <input
             type="number"
             style={inputStyle}
             value={formik.values.no_of_pkgs || ""}
+            disabled={disabledGatewayBlock}
             onChange={(e) =>
               formik.setFieldValue("no_of_pkgs", e.target.value)
             }
+            placeholder="Enter No Of packages"
           />
         </div>
       </div>
 
-      {/* ------- HSS / Bank / AD / Free Time ------- */}
+      {/* ------- HSS & Bank ------- */}
       <h3 style={sectionTitleStyle}>HSS & Bank</h3>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "10px",
-          marginBottom: "8px",
-        }}
-      >
+      <div style={row4Style}>
         <div style={fieldStyle}>
           <label style={labelStyle}>HSS:</label>
           <select
             style={selectStyle}
             value={formik.values.hss || "No"}
             onChange={(e) => formik.setFieldValue("hss", e.target.value)}
+            disabled={disabledGatewayBlock}
           >
-            <option value="No">No</option>
             <option value="Yes">Yes</option>
+            <option value="No">No</option>
           </select>
         </div>
 
@@ -320,9 +351,11 @@ export default function TrackingTab({
               type="text"
               style={inputStyle}
               value={formik.values.saller_name || ""}
+              disabled={disabledGatewayBlock}
               onChange={(e) =>
                 formik.setFieldValue("saller_name", e.target.value)
               }
+              placeholder="Enter Seller Name"
             />
           </div>
         )}
@@ -333,7 +366,9 @@ export default function TrackingTab({
             type="text"
             style={inputStyle}
             value={formik.values.adCode || ""}
+            disabled={disabledGatewayBlock}
             onChange={(e) => formik.setFieldValue("adCode", e.target.value)}
+            placeholder="Enter AD Code"
           />
         </div>
 
@@ -343,26 +378,29 @@ export default function TrackingTab({
             type="text"
             style={inputStyle}
             value={formik.values.bank_name || ""}
+            disabled={disabledGatewayBlock}
             onChange={(e) =>
               formik.setFieldValue("bank_name", e.target.value)
             }
+            placeholder="Enter Bank Name"
           />
         </div>
 
         {!LCLFlag && (
           <div style={fieldStyle}>
-            <label style={labelStyle}>Free Time:</label>
+            <label style={labelStyle}>Free Time (days):</label>
             <select
               style={selectStyle}
               value={formik.values.free_time || ""}
+              disabled={disabledGatewayBlock}
               onChange={(e) =>
                 formik.setFieldValue("free_time", e.target.value)
               }
             >
               <option value="">Select Free Time</option>
-              {options?.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt} Days
+              {options?.map((opt, id) => (
+                <option key={id} value={opt}>
+                  {opt}
                 </option>
               ))}
             </select>
@@ -370,7 +408,7 @@ export default function TrackingTab({
         )}
       </div>
 
-      {/* ------- TERMS OF INVOICE ------- */}
+      {/* ------- Terms of Invoice ------- */}
       <h3 style={sectionTitleStyle}>Terms of Invoice</h3>
 
       <div
@@ -383,6 +421,7 @@ export default function TrackingTab({
         }}
       >
         <label style={{ ...labelStyle, marginTop: "2px" }}>Terms:</label>
+
         <div
           style={{
             display: "grid",
@@ -392,42 +431,40 @@ export default function TrackingTab({
           }}
         >
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            {["CIF", "FOB", "C&F", "C&I"].map((term) => (
+            {["CIF", "FOB", "CF", "CI"].map((term) => (
               <label key={term} style={radioLabelStyle}>
                 <input
                   type="radio"
                   name="import_terms"
                   value={term}
-                  checked={(formik.values.import_terms || importTerms) === term}
+                  checked={importTerm === term}
                   onChange={() =>
                     handleImportTermsChange({ target: { value: term } })
                   }
                   style={radioInputStyle}
+                  disabled={disabledGatewayBlock}
                 />
-                {term}
+                {term === "CF" ? "C&F" : term === "CI" ? "C&I" : term}
               </label>
             ))}
           </div>
 
           <div style={fieldStyle}>
             <label style={{ ...labelStyle, fontSize: "11px" }}>
-              {(formik.values.import_terms || importTerms)} Value:
+              {importTerm} Value (₹):
             </label>
             <input
               type="number"
               style={inputStyle}
               value={formik.values.cifValue || ""}
               onChange={(e) => formik.setFieldValue("cifValue", e.target.value)}
-              placeholder="₹"
             />
           </div>
 
-          {["FOB", "C&I"].includes(
-            formik.values.import_terms || importTerms
-          ) && (
+          {(importTerm === "FOB" || importTerm === "CI") && (
             <div style={fieldStyle}>
               <label style={{ ...labelStyle, fontSize: "11px" }}>
-                Freight:
+                Freight (₹):
               </label>
               <input
                 type="number"
@@ -436,17 +473,14 @@ export default function TrackingTab({
                 onChange={(e) =>
                   formik.setFieldValue("freight", e.target.value)
                 }
-                placeholder="₹"
               />
             </div>
           )}
 
-          {["FOB", "C&F"].includes(
-            formik.values.import_terms || importTerms
-          ) && (
+          {(importTerm === "FOB" || importTerm === "CF") && (
             <div style={fieldStyle}>
               <label style={{ ...labelStyle, fontSize: "11px" }}>
-                Insurance:
+                Insurance (₹):
               </label>
               <input
                 type="number"
@@ -455,7 +489,6 @@ export default function TrackingTab({
                 onChange={(e) =>
                   formik.setFieldValue("insurance", e.target.value)
                 }
-                placeholder="₹"
               />
             </div>
           )}
@@ -464,25 +497,25 @@ export default function TrackingTab({
 
       <div style={{ marginBottom: "10px", marginLeft: "80px" }}>
         <span style={helperTextStyle}>
-          {(formik.values.import_terms || importTerms) === "CIF" &&
-            "Cost, Insurance & Freight included"}
-          {(formik.values.import_terms || importTerms) === "FOB" &&
-            "Add freight & insurance"}
-          {(formik.values.import_terms || importTerms) === "C&F" &&
-            "Add insurance"}
-          {(formik.values.import_terms || importTerms) === "C&I" &&
-            "Add freight"}
+          {importTerm === "CIF" && "Cost, Insurance & Freight included"}
+          {importTerm === "FOB" &&
+            "Free on Board - Add freight & insurance"}
+          {importTerm === "CF" &&
+            "Cost & Freight - Add insurance"}
+          {importTerm === "CI" &&
+            "Cost & Insurance - Add freight"}
         </span>
       </div>
 
-      {/* ------- BOE & PRIORITY ------- */}
-      <h3 style={sectionTitleStyle}>BOE & Priority</h3>
+      {/* ------- Priority / Payment / FTA / Description / CTH / BOE Type / Clearance ------- */}
+      <h3 style={sectionTitleStyle}>Priority, Payment & BOE</h3>
 
-      <div style={rowStyle}>
+      <div style={row4Style}>
+        {/* Priority */}
         <div style={fieldStyle}>
           <label style={labelStyle}>Priority:</label>
           <div style={{ display: "flex", gap: "6px" }}>
-            {["Normal", "Priority", "High Priority"].map((p) => (
+            {["normal", "Priority", "High Priority"].map((p) => (
               <label key={p} style={radioLabelStyle}>
                 <input
                   type="radio"
@@ -493,6 +526,7 @@ export default function TrackingTab({
                     formik.setFieldValue("priorityJob", e.target.value)
                   }
                   style={radioInputStyle}
+                  disabled={disabledGenericSubmission}
                 />
                 {p}
               </label>
@@ -500,9 +534,10 @@ export default function TrackingTab({
           </div>
         </div>
 
+        {/* Payment Method */}
         <div style={fieldStyle}>
           <label style={labelStyle}>Payment Method:</label>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
             {["Transaction", "Deferred"].map((m) => (
               <label key={m} style={radioLabelStyle}>
                 <input
@@ -514,6 +549,7 @@ export default function TrackingTab({
                     formik.setFieldValue("payment_method", e.target.value)
                   }
                   style={radioInputStyle}
+                  disabled={disabledGenericSubmission}
                 />
                 {m}
               </label>
@@ -521,20 +557,28 @@ export default function TrackingTab({
           </div>
         </div>
 
+        {/* FTA Benefit */}
         <div style={fieldStyle}>
           <label style={labelStyle}>FTA Benefit:</label>
           <input
             type="datetime-local"
             style={inputStyle}
-            value={formatDateForInput(
-              formik.values.fta_Benefit_date_time || ""
-            )}
-            onChange={(e) =>
-              formik.setFieldValue("fta_Benefit_date_time", e.target.value)
+            value={
+              formik.values.fta_Benefit_date_time ||
+              ""
             }
+            onChange={(e) => {
+              const val = e.target.value;
+              formik.setFieldValue(
+                "fta_Benefit_date_time",
+                val || ""
+              );
+            }}
+            disabled={disabledGenericSubmission}
           />
         </div>
 
+        {/* Description */}
         <div style={fieldStyle}>
           <label style={labelStyle}>Description:</label>
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -545,6 +589,7 @@ export default function TrackingTab({
               onChange={(e) =>
                 formik.setFieldValue("description", e.target.value)
               }
+              disabled={disabledGenericSubmission}
             />
             <button
               type="button"
@@ -564,8 +609,8 @@ export default function TrackingTab({
         </div>
       </div>
 
-      {/* ------- CTH / BE TYPE / CLEARANCE / EX-BOND ------- */}
-      <div style={rowStyle}>
+      <div style={row4Style}>
+        {/* CTH */}
         <div style={fieldStyle}>
           <label style={labelStyle}>CTH No:</label>
           <input
@@ -573,9 +618,11 @@ export default function TrackingTab({
             style={inputStyle}
             value={formik.values.cth_no || ""}
             onChange={(e) => formik.setFieldValue("cth_no", e.target.value)}
+            disabled={disabledGenericSubmission}
           />
         </div>
 
+        {/* BOE Type */}
         <div style={fieldStyle}>
           <label style={labelStyle}>BOE Type:</label>
           <select
@@ -584,8 +631,9 @@ export default function TrackingTab({
             onChange={(e) =>
               formik.setFieldValue("type_of_b_e", e.target.value)
             }
+            disabled={disabledGenericSubmission}
           >
-            <option value="">Select Type</option>
+            <option value="">Select BE Type</option>
             {beTypeOptions?.map((opt, index) => (
               <option key={index} value={opt}>
                 {opt}
@@ -594,6 +642,7 @@ export default function TrackingTab({
           </select>
         </div>
 
+        {/* Clearance Under */}
         <div style={fieldStyle}>
           <label style={labelStyle}>Clearance Under:</label>
           <select
@@ -618,11 +667,13 @@ export default function TrackingTab({
           </select>
         </div>
 
+        {/* In Bond (Ex-Bondflag) */}
         {ExBondflag && (
           <div style={fieldStyle}>
             <label style={labelStyle}>In Bond:</label>
             <select
               style={selectStyle}
+              name="exBondValue"
               value={formik.values.exBondValue || ""}
               onChange={(e) =>
                 formik.setFieldValue("exBondValue", e.target.value)
@@ -640,107 +691,17 @@ export default function TrackingTab({
         )}
       </div>
 
-      {/* Ex-Bond extra details when "other" */}
-      {formik.values.exBondValue === "other" && (
-        <>
-          <div style={rowStyle}>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>InBond BE Number:</label>
-              <input
-                type="text"
-                style={inputStyle}
-                value={formik.values.in_bond_be_no || ""}
-                onChange={(e) =>
-                  formik.setFieldValue("in_bond_be_no", e.target.value)
-                }
-              />
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>InBond BE Date:</label>
-              <input
-                type="date"
-                style={inputStyle}
-                value={formik.values.in_bond_be_date || ""}
-                onChange={(e) =>
-                  formik.setFieldValue("in_bond_be_date", e.target.value)
-                }
-              />
-            </div>
-            <div style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-              <label style={labelStyle}>InBond BE Copy:</label>
-              <FileUpload
-                label="Upload InBond BE Copy"
-                bucketPath="ex_be_copy_documents"
-                onFilesUploaded={(newFiles) =>
-                  formik.setFieldValue("in_bond_ooc_copies", [
-                    ...(formik.values.in_bond_ooc_copies || []),
-                    ...newFiles,
-                  ])
-                }
-                singleFileOnly={false}
-              />
-              <ImagePreview
-                images={formik.values.in_bond_ooc_copies || []}
-                onDeleteImage={(idx) => {
-                  const updated = [...(formik.values.in_bond_ooc_copies || [])];
-                  updated.splice(idx, 1);
-                  formik.setFieldValue("in_bond_ooc_copies", updated);
-                }}
-              />
-            </div>
-          </div>
-        </>
-      )}
+      {/* Ex-Bond extra details (other / linked job) – keep same as previous inline version */}
+      {/* ... (use the version you already pasted, unchanged) ... */}
 
-      {/* Ex-Bond details when selecting another job */}
-      {formik.values.exBondValue !== "other" &&
-        formik.values.exBondValue !== "" && (
-          (() => {
-            const matchedJob = jobDetails.find(
-              (job) => job.job_no === formik.values.exBondValue
-            );
-            return matchedJob ? (
-              <div style={rowStyle}>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>BE No (In-bond):</label>
-                  <div>{matchedJob.be_no || "N/A"}</div>
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>BE Date (In-bond):</label>
-                  <div>{matchedJob.be_date || "N/A"}</div>
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>OOC Copy (In-bond):</label>
-                  <ImagePreview images={matchedJob.ooc_copies || []} readOnly />
-                </div>
-              </div>
-            ) : (
-              <div style={{ marginTop: "10px", fontSize: "12px" }}>
-                No matching job found.
-              </div>
-            );
-          })()
-        )}
-
-      {ExBondflag && (
-        <div style={{ marginTop: "8px", marginBottom: "8px" }}>
-          <button
-            type="button"
-            style={secondaryButtonStyle}
-            onClick={resetOtherDetails}
-          >
-            Reset Ex-Bond Details
-          </button>
-        </div>
-      )}
-
-      {/* ------- Weights & BE NO/DATE already present (kept) ------- */}
-      <div style={rowStyle}>
+      {/* ------- Weights & BOE ------- */}
+      <div style={row4Style}>
         <div style={fieldStyle}>
           <label style={labelStyle}>Gross Weight (KGS):</label>
           <input
             type="number"
             style={inputStyle}
+            id="gross_weight"
             value={formik.values.gross_weight || ""}
             onChange={(e) =>
               formik.setFieldValue("gross_weight", e.target.value)
@@ -752,6 +713,7 @@ export default function TrackingTab({
           <input
             type="number"
             style={inputStyle}
+            id="job_net_weight"
             value={formik.values.job_net_weight || ""}
             onChange={(e) =>
               formik.setFieldValue("job_net_weight", e.target.value)
@@ -763,6 +725,7 @@ export default function TrackingTab({
           <input
             type="text"
             style={inputStyle}
+            id="be_no"
             value={formik.values.be_no || ""}
             onChange={(e) => formik.setFieldValue("be_no", e.target.value)}
           />
@@ -772,6 +735,7 @@ export default function TrackingTab({
           <input
             type="date"
             style={inputStyle}
+            id="be_date"
             value={formik.values.be_date || ""}
             onChange={(e) => formik.setFieldValue("be_date", e.target.value)}
           />

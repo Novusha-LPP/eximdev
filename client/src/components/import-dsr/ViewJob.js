@@ -36,6 +36,7 @@ import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter";
 import { handleCopyContainerNumber } from "../../utils/handleCopyContainerNumber";
 
 // NEW TABBED SECTION COMPONENTS (you will create these next)
+import CompletionStatusTab from "./tabs/CompletionStatusTab";
 import TrackingTab from "./tabs/TrackingTab";
 import DocumentsTab from "./tabs/DocumentsTab";
 import ContainersTab from "./tabs/ContainersTab";
@@ -605,6 +606,7 @@ const handleGenerateSticker = () => {
 
   if (data == null) return null;
 
+  
   return (
     <>
       <form onSubmit={formik.handleSubmit}>
@@ -678,6 +680,14 @@ const handleGenerateSticker = () => {
     container_nos: formik.values.container_nos,
   }}
   data={data}
+/>
+
+<CompletionStatusTab
+  user={user}
+  formik={formik}
+  data={data}
+  isSubmissionDate={isSubmissionDate}
+  formatDateForInput={formatDateForInput}
 />
 
         {/* -------- INNER TABS BAR -------- */}

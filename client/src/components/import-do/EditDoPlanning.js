@@ -66,6 +66,7 @@ const doListOptions = [
   },
   { value: "CHEKLA CONTAINER YARD", label: "CHEKLA CONTAINER YARD" },
   { value: "ICD SACHANA", label: "ICD SACHANA" },
+  { value: "SHREE SHIV SHAKTI EMPTY PARK LLP", label: "SHREE SHIV SHAKTI EMPTY PARK LLP" },
 ];
 
 function EditDoPlanning() {

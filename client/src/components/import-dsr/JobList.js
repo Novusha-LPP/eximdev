@@ -1,8 +1,17 @@
-import React, { useContext, useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
-import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
+import {
+  getTableRowsClassname,
+  getTableRowInlineStyle,
+} from "../../utils/getTableRowsClassname";
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { UserContext } from "../../contexts/UserContext";
@@ -20,16 +29,21 @@ import {
 } from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
 import axios from "axios";
-import { MaterialReactTable, useMaterialReactTable } from "material-react-table";
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+} from "material-react-table";
 import DownloadIcon from "@mui/icons-material/Download";
 import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
-// Strictly extract job number (e.g., "03795 — ..." -> "03795")
 const extractJobNo = (input) => {
   if (!input) return "";
-  const s = typeof input === "string" ? input : String(input.label || input.value || "");
+  const s =
+    typeof input === "string"
+      ? input
+      : String(input.label || input.value || "");
   const first = s.split("—")[0].split("-")[0].trim();
   const digits = first.replace(/[^\d]/g, "");
   return digits || first;
@@ -44,13 +58,18 @@ function JobList(props) {
   const { user } = useContext(UserContext);
 
   const {
-    searchQuery, setSearchQuery,
-    detailedStatus, setDetailedStatus,
-    selectedICD, setSelectedICD,
-    selectedImporter, setSelectedImporter
+    searchQuery,
+    setSearchQuery,
+    detailedStatus,
+    setDetailedStatus,
+    selectedICD,
+    setSelectedICD,
+    selectedImporter,
+    setSelectedImporter,
   } = useSearchQuery();
 
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] =
+    useState(searchQuery);
   const [importers, setImporters] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -63,7 +82,6 @@ function JobList(props) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Local input for instant typing
   const [localInput, setLocalInput] = useState(searchQuery);
 
   // Clear state unless returning from details
@@ -81,7 +99,7 @@ function JobList(props) {
     // eslint-disable-next-line
   }, []);
 
-  // Importer list - filter by detailedStatus
+  // Importer list
   useEffect(() => {
     async function getImporterList() {
       if (!selectedYearState) return;
@@ -90,7 +108,9 @@ function JobList(props) {
         params.append("detailedStatus", detailedStatus);
       }
       const queryString = params.toString();
-      const url = `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}${queryString ? "?" + queryString : ""}`;
+      const url = `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}${
+        queryString ? "?" + queryString : ""
+      }`;
       const res = await axios.get(url);
       setImporters(res.data);
     }
@@ -109,39 +129,56 @@ function JobList(props) {
       .map((x, i) => ({ label: x.importer, key: `${x.importer}-${i}` }));
   }, []);
 
-  const importerNames = useMemo(() => [...getUniqueImporterNames(importers)], [importers, getUniqueImporterNames]);
+  const importerNames = useMemo(
+    () => [...getUniqueImporterNames(importers)],
+    [importers, getUniqueImporterNames]
+  );
 
-  // Main jobs hook
-  const { rows, total, totalPages, currentPage, handlePageChange, fetchJobs, setRows, unresolvedCount, loading, invalidateCache } =
-    useFetchJobList(
-      detailedStatus,
-      selectedYearState,
-      props.status,
-      selectedICD,
-      debouncedSearchQuery,
-      selectedImporter,
-      showUnresolvedOnly
-    );
+  // Main jobs hook – IMPORTANT: pass showUnresolvedOnly
+  const {
+    rows,
+    total,
+    totalPages,
+    currentPage,
+    handlePageChange,
+    fetchJobs,
+    setRows,
+    unresolvedCount,
+    loading,
+    invalidateCache,
+  } = useFetchJobList(
+    detailedStatus,
+    selectedYearState,
+    props.status,
+    selectedICD,
+    debouncedSearchQuery,
+    selectedImporter,
+    showUnresolvedOnly // this drives unresolvedOnly=true in API
+  );
 
-  // Sync local input -> searchQuery (fast debounce to keep UI snappy)
-  // Immediately mirror local input to global searchQuery so fetch hook
-  // can cancel stale requests quickly. Rely on AbortController for in-flight
-  // cancellation instead of adding an extra debounce here.
+  // When unresolved toggle changes, re-fetch page 1
+  useEffect(() => {
+    if (selectedYearState && user) {
+      fetchJobs(1, showUnresolvedOnly, true); // bypass cache for correctness
+    }
+  }, [showUnresolvedOnly, selectedYearState, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync local input -> searchQuery
   useEffect(() => {
     setSearchQuery(localInput);
   }, [localInput, setSearchQuery]);
 
-  // Normalize to pure job no into debouncedSearchQuery
+  // Debounce search query
   useEffect(() => {
     const t = setTimeout(() => {
       const s = String(searchQuery || "").trim();
       const looksLikeJob = /^\d{2,}/.test(s);
       setDebouncedSearchQuery(looksLikeJob ? extractJobNo(s) : s);
-    }, 200); // slightly reduced debounce for snappier search
+    }, 200);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Typeahead suggestions (min 2 chars) based on localInput
+  // Typeahead suggestions
   useEffect(() => {
     let cancelled = false;
     let controller = null;
@@ -181,7 +218,7 @@ function JobList(props) {
             (r.importer ? ` — ${r.importer}` : "") +
             (r.awb_bl_no ? ` — ${r.awb_bl_no}` : "") +
             (r.be_no ? ` — ${r.be_no}` : ""),
-          value: String(r.job_no || "").trim(), // strictly job_no
+          value: String(r.job_no || "").trim(),
         }));
         setSuggestions(normalized);
       } catch {
@@ -191,7 +228,7 @@ function JobList(props) {
       }
     };
 
-    const t = setTimeout(doFetch, 150); // faster suggestions
+    const t = setTimeout(doFetch, 150);
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -199,56 +236,84 @@ function JobList(props) {
     };
   }, [localInput, selectedYearState, selectedICD, selectedImporter]);
 
-  const tableData = useMemo(() => rows.map((row, idx) => ({ ...row, id: row._id || `row-${idx}` })), [rows]);
+  const tableData = useMemo(
+    () =>
+      rows.map((row, idx) => ({ ...row, id: row._id || `row-${idx}` })),
+    [rows]
+  );
 
   const getRowProps = useMemo(
-    () => ({ row }) => ({
-      className: getTableRowsClassname(row),
-      style: getTableRowInlineStyle(row),
-      sx: { textAlign: "center" },
-    }),
+    () =>
+      ({ row }) => ({
+        className: getTableRowsClassname(row),
+        style: getTableRowInlineStyle(row),
+        sx: { textAlign: "center" },
+      }),
     [rows, refreshTrigger]
   );
 
+  // unresolved count from server
   useEffect(() => {
     if (props.status === "Pending" && onUnresolvedCountChange) {
       onUnresolvedCountChange(unresolvedCount);
     }
   }, [unresolvedCount, onUnresolvedCountChange, props.status]);
 
-  // Row update from child editor
-  const handleRowDataUpdate = useCallback((jobId, updatedData) => {
-    if (selectedYearState) invalidateCache(selectedYearState);
-    setRows(prev => {
-      const updated = prev.map(r => {
-        if (r._id !== jobId) return r;
-        const next = { ...r, ...updatedData };
-        if (updatedData.container_nos) {
-          next.container_nos = Array.isArray(updatedData.container_nos)
-            ? [...updatedData.container_nos]
-            : updatedData.container_nos;
+  // Row update from child editor (snackbar for moves)
+  const handleRowDataUpdate = useCallback(
+    (jobId, updatedData) => {
+      if (selectedYearState) invalidateCache(selectedYearState);
+      setRows((prev) => {
+        const updated = prev.map((r) => {
+          if (r._id !== jobId) return r;
+          const next = { ...r, ...updatedData };
+          if (updatedData.container_nos) {
+            next.container_nos = Array.isArray(updatedData.container_nos)
+              ? [...updatedData.container_nos]
+              : updatedData.container_nos;
+          }
+          return next;
+        });
+        const updatedJob = updated.find((j) => j._id === jobId);
+        if (updatedJob && updatedData.detailed_status) {
+          if (
+            detailedStatus !== "all" &&
+            updatedJob.detailed_status !== detailedStatus
+          ) {
+            const filtered = updated.filter((j) => j._id !== jobId);
+            setSnackbar({
+              open: true,
+              message: `Job moved to '${updatedJob.detailed_status}'. Filter: '${detailedStatus}'`,
+            });
+            return filtered;
+          }
         }
-        return next;
+        return updated;
       });
-      const updatedJob = updated.find(j => j._id === jobId);
-      if (updatedJob && updatedData.detailed_status) {
-        if (detailedStatus !== "all" && updatedJob.detailed_status !== detailedStatus) {
-          const filtered = updated.filter(j => j._id !== jobId);
-          setSnackbar({ open: true, message: `Job moved to '${updatedJob.detailed_status}'. Filter: '${detailedStatus}'` });
-          return filtered;
-        }
-      }
-      return updated;
-    });
-    setRefreshTrigger(x => x + 1);
-    setTimeout(() => fetchJobs(currentPage, showUnresolvedOnly, true), 300);
-  }, [selectedYearState, invalidateCache, setRows, detailedStatus, fetchJobs, currentPage, showUnresolvedOnly]);
+      setRefreshTrigger((x) => x + 1);
+      setTimeout(
+        () => fetchJobs(currentPage, showUnresolvedOnly, true),
+        300
+      );
+    },
+    [
+      selectedYearState,
+      invalidateCache,
+      setRows,
+      detailedStatus,
+      fetchJobs,
+      currentPage,
+      showUnresolvedOnly,
+    ]
+  );
 
   // Years initialization
   useEffect(() => {
     async function getYears() {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-years`);
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-years`
+        );
         const filtered = res.data.filter((y) => y !== null);
         setYears(filtered);
 
@@ -258,10 +323,13 @@ function JobList(props) {
         const prevTwo = String((year - 1) % 100).padStart(2, "0");
         const currTwo = String(year).slice(-2);
         const nextTwo = String((year + 1) % 100).padStart(2, "0");
-        const defaultPair = mon >= 4 ? `${currTwo}-${nextTwo}` : `${prevTwo}-${currTwo}`;
+        const defaultPair =
+          mon >= 4 ? `${currTwo}-${nextTwo}` : `${prevTwo}-${currTwo}`;
 
         if (!selectedYearState && filtered.length > 0) {
-          setSelectedYearState(filtered.includes(defaultPair) ? defaultPair : filtered[0]);
+          setSelectedYearState(
+            filtered.includes(defaultPair) ? defaultPair : filtered[0]
+          );
         }
       } catch (e) {
         console.error("Error fetching years:", e);
@@ -271,10 +339,22 @@ function JobList(props) {
   }, [selectedYearState, setSelectedYearState]);
 
   // Handlers
-  const handleICDChange = useCallback((e) => setSelectedICD(e.target.value), [setSelectedICD]);
-  const handleImporterChange = useCallback((e, v) => setSelectedImporter(v), [setSelectedImporter]);
-  const handleYearChange = useCallback((e) => setSelectedYearState(e.target.value), [setSelectedYearState]);
-  const handleDetailedStatusChange = useCallback((e) => setDetailedStatus(e.target.value), [setDetailedStatus]);
+  const handleICDChange = useCallback(
+    (e) => setSelectedICD(e.target.value),
+    [setSelectedICD]
+  );
+  const handleImporterChange = useCallback(
+    (e, v) => setSelectedImporter(v),
+    [setSelectedImporter]
+  );
+  const handleYearChange = useCallback(
+    (e) => setSelectedYearState(e.target.value),
+    [setSelectedYearState]
+  );
+  const handleDetailedStatusChange = useCallback(
+    (e) => setDetailedStatus(e.target.value),
+    [setDetailedStatus]
+  );
 
   const handleLocalInputChange = useCallback((event, newInputValue, reason) => {
     if (reason === "input" || reason === "clear" || reason === "reset") {
@@ -282,124 +362,182 @@ function JobList(props) {
     }
   }, []);
 
-  const handleSearchChange = useCallback((event, newValue) => {
-    if (!newValue) return;
-    if (typeof newValue === "object") {
-      const jobNo = extractJobNo(newValue.value || newValue.label || "");
-      setLocalInput(jobNo);
-      setSearchQuery(jobNo);
-      setDebouncedSearchQuery(jobNo);
-      return;
-    }
-    if (typeof newValue === "string") {
-      const jobNo = extractJobNo(newValue);
-      setLocalInput(jobNo);
-      setSearchQuery(jobNo);
-      setDebouncedSearchQuery(jobNo);
-    }
-  }, [setSearchQuery]);
+  const handleSearchChange = useCallback(
+    (event, newValue) => {
+      if (!newValue) return;
+      if (typeof newValue === "object") {
+        const jobNo = extractJobNo(
+          newValue.value || newValue.label || ""
+        );
+        setLocalInput(jobNo);
+        setSearchQuery(jobNo);
+        setDebouncedSearchQuery(jobNo);
+        return;
+      }
+      if (typeof newValue === "string") {
+        const jobNo = extractJobNo(newValue);
+        setLocalInput(jobNo);
+        setSearchQuery(jobNo);
+        setDebouncedSearchQuery(jobNo);
+      }
+    },
+    [setSearchQuery]
+  );
 
   const handleClearSearch = useCallback(() => {
     setLocalInput("");
     setSearchQuery("");
   }, [setSearchQuery]);
 
-  const renderTopToolbarCustomActions = useCallback(() => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-      <Typography variant="body1" sx={{ fontWeight: "bold", fontSize: "1.5rem" }}>
-        {props.status} Jobs: {total}
-      </Typography>
-
-      <TextField
-        select size="small" variant="outlined" label="ICD Code"
-        value={selectedICD} onChange={handleICDChange}
-        sx={{ width: "200px", marginRight: "20px" }}
+  const renderTopToolbarCustomActions = useCallback(
+    () => (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+        }}
       >
-        <MenuItem value="all">All ICDs</MenuItem>
-        <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
-        <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
-        <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
-      </TextField>
-
-      <Autocomplete
-        sx={{ width: "300px", marginRight: "20px" }}
-        freeSolo options={importerNames.map(o => o.label)}
-        value={selectedImporter || ""} onInputChange={handleImporterChange}
-        renderInput={(params) => (
-          <TextField {...params} variant="outlined" size="small" fullWidth label="Select Importer" />
-        )}
-      />
-
-      {years.length > 0 && (
-        <TextField
-          select size="small" value={selectedYearState} onChange={handleYearChange}
-          sx={{ width: "100px", marginRight: "20px" }}
+        <Typography
+          variant="body1"
+          sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
         >
-          {years.map((y, i) => (
-            <MenuItem key={`year-${y}-${i}`} value={y}>{y}</MenuItem>
-          ))}
+          {props.status} Jobs: {total}
+        </Typography>
+
+        <TextField
+          select
+          size="small"
+          variant="outlined"
+          label="ICD Code"
+          value={selectedICD}
+          onChange={handleICDChange}
+          sx={{ width: "200px", marginRight: "20px" }}
+        >
+          <MenuItem value="all">All ICDs</MenuItem>
+          <MenuItem value="ICD SANAND">ICD SANAND</MenuItem>
+          <MenuItem value="ICD KHODIYAR">ICD KHODIYAR</MenuItem>
+          <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
-      )}
 
-{ props.status !== "Billing Pending" &&
-      <TextField
-        select size="small" value={detailedStatus} onChange={handleDetailedStatusChange}
-        sx={{ width: "250px" }}
-      >
-        {detailedStatusOptions.map((o, i) => (
-          <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-            {o.name}
-          </MenuItem>
-        ))}
-      </TextField>}
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={importerNames.map((o) => o.label)}
+          value={selectedImporter || ""}
+          onInputChange={handleImporterChange}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer"
+            />
+          )}
+        />
 
-      {/* Unified job search with instant typing and strict job_no selection */}
-      <Autocomplete
-        sx={{ width: "300px", marginRight: "20px" }}
-        freeSolo
-        options={suggestions}
-        getOptionLabel={(option) => (typeof option === "string" ? option : option.label || "")}
-        inputValue={localInput}
-        onInputChange={handleLocalInputChange}
-        onChange={handleSearchChange}
-        loading={suggestionsLoading}
-        renderInput={(params) => (
+        {years.length > 0 && (
           <TextField
-            {...params}
-            placeholder="Search by Job No, Importer, or AWB/BL Number"
+            select
             size="small"
-            variant="outlined"
-            InputProps={{
-              ...params.InputProps,
-              endAdornment: (
-                <InputAdornment position="end">
-                  {suggestionsLoading ? (
-                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                  ) : localInput ? (
-                    <IconButton size="small" onClick={handleClearSearch}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  ) : null}
-                </InputAdornment>
-              ),
-            }}
-          />
+            value={selectedYearState}
+            onChange={handleYearChange}
+            sx={{ width: "100px", marginRight: "20px" }}
+          >
+            {years.map((y, i) => (
+              <MenuItem key={`year-${y}-${i}`} value={y}>
+                {y}
+              </MenuItem>
+            ))}
+          </TextField>
         )}
-      />
 
-      <IconButton onClick={handleOpen}>
-        <DownloadIcon />
-      </IconButton>
-    </div>
-  ), [
-    props.status, total,
-    selectedICD, handleICDChange,
-    importerNames, selectedImporter, handleImporterChange,
-    years, selectedYearState, handleYearChange,
-    detailedStatus, handleDetailedStatusChange,
-    suggestions, localInput, handleLocalInputChange, handleSearchChange,
-    suggestionsLoading, handleClearSearch, handleOpen
-  ]);
+        {props.status !== "Billing Pending" && (
+          <TextField
+            select
+            size="small"
+            value={detailedStatus}
+            onChange={handleDetailedStatusChange}
+            sx={{ width: "250px" }}
+          >
+            {detailedStatusOptions.map((o, i) => (
+              <MenuItem
+                key={`status-${o.id || o.value || i}`}
+                value={o.value}
+              >
+                {o.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
+        <Autocomplete
+          sx={{ width: "300px", marginRight: "20px" }}
+          freeSolo
+          options={suggestions}
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : option.label || ""
+          }
+          inputValue={localInput}
+          onInputChange={handleLocalInputChange}
+          onChange={handleSearchChange}
+          loading={suggestionsLoading}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
+              size="small"
+              variant="outlined"
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {suggestionsLoading ? (
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                    ) : localInput ? (
+                      <IconButton
+                        size="small"
+                        onClick={handleClearSearch}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    ) : null}
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
+        />
+
+        <IconButton onClick={handleOpen}>
+          <DownloadIcon />
+        </IconButton>
+      </div>
+    ),
+    [
+      props.status,
+      total,
+      selectedICD,
+      handleICDChange,
+      importerNames,
+      selectedImporter,
+      handleImporterChange,
+      years,
+      selectedYearState,
+      handleYearChange,
+      detailedStatus,
+      handleDetailedStatusChange,
+      suggestions,
+      localInput,
+      handleLocalInputChange,
+      handleSearchChange,
+      suggestionsLoading,
+      handleClearSearch,
+      handleOpen,
+    ]
+  );
 
   const columns = useJobColumns(
     (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
@@ -409,13 +547,20 @@ function JobList(props) {
           fromJobList: true,
           currentTab: (() => {
             switch (props.status) {
-              case "Pending": return 0;
-              case "Completed": return 1;
-              case "Cancelled": return 2;
-              default: return 0;
+              case "Pending":
+                return 0;
+              case "Completed":
+                return 1;
+              case "Cancelled":
+                return 2;
+              default:
+                return 0;
             }
           })(),
-          searchQuery, detailedStatus, selectedICD, selectedImporter,
+          searchQuery,
+          detailedStatus,
+          selectedICD,
+          selectedImporter,
         },
       })
   );
@@ -444,7 +589,7 @@ function JobList(props) {
   });
 
   return (
-    <div className="table-container" >
+    <div className="table-container">
       <MaterialReactTable table={table} />
 
       <Pagination
@@ -468,7 +613,11 @@ function JobList(props) {
         onClose={() => setSnackbar({ open: false, message: "" })}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert onClose={() => setSnackbar({ open: false, message: "" })} severity="info" sx={{ width: "100%" }}>
+        <Alert
+          onClose={() => setSnackbar({ open: false, message: "" })}
+          severity="info"
+          sx={{ width: "100%" }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

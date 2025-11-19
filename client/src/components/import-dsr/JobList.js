@@ -367,7 +367,6 @@ function JobList(props) {
           </TextField>
         )}
 
-        {props.status !== "Billing Pending" && (
           <TextField
             select
             size="small"
@@ -384,7 +383,6 @@ function JobList(props) {
               </MenuItem>
             ))}
           </TextField>
-        )}
 
         {/* Simple text search input */}
         <TextField

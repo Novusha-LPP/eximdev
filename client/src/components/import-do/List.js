@@ -22,7 +22,10 @@ import {
 import { useParams } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
+import {
+  getTableRowsClassname,
+  getTableRowInlineStyle,
+} from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
 
@@ -301,25 +304,43 @@ function List() {
       accessorKey: "importer",
       header: "Importer",
       enableSorting: false,
-      size: 250,
+      size: 300,
       Cell: ({ cell }) => {
-        return (
-          <React.Fragment>
-            {cell?.getValue()?.toString()}
+        const importer = cell?.getValue()?.toString() || "";
+        const shipping_line_airline =
+          cell.row.original.shipping_line_airline || "";
 
+        return (
+          <>
+            {/* Importer + copy */}
+            {importer}
             <IconButton
               size="small"
               onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, cell?.getValue()?.toString());
-              }}
+              onClick={(event) => handleCopy(event, importer)}
             >
               <abbr title="Copy Party Name">
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
             <br />
-          </React.Fragment>
+
+            {/* Shipping line / airline + copy (only if present) */}
+            {shipping_line_airline && (
+              <>
+                {shipping_line_airline}
+                <IconButton
+                  size="small"
+                  onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+                  onClick={(event) => handleCopy(event, shipping_line_airline)}
+                >
+                  <abbr title="Copy Shipping Line/Airline">
+                    <ContentCopyIcon fontSize="inherit" />
+                  </abbr>
+                </IconButton>
+              </>
+            )}
+          </>
         );
       },
     },
@@ -560,58 +581,12 @@ function List() {
         );
       },
     },
-    // {
-    //   accessorKey: "vessel_and_voyage",
-    //   header: "Vessel & Voyage No",
-    //   enableSorting: false,
-    //   size: 200,
-    //   Cell: ({ row }) => {
-    //     const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
-    //     const voyageNo = row.original.voyage_no?.toString() || "N/A";
-
-    //     const handleCopy = (event, text) => {
-    //       event.stopPropagation();
-    //       navigator.clipboard.writeText(text);
-    //       alert(`${text} copied to clipboard!`);
-    //     };
-
-    //     return (
-    //       <React.Fragment>
-    //         <div>
-    //           {vesselFlight}
-    //           <IconButton
-    //             size="small"
-    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-    //             onClick={(event) => handleCopy(event, vesselFlight)}
-    //           >
-    //             <abbr title="Copy Vessel">
-    //               <ContentCopyIcon fontSize="inherit" />
-    //             </abbr>
-    //           </IconButton>
-    //         </div>
-
-    //         <div>
-    //           {voyageNo}
-    //           <IconButton
-    //             size="small"
-    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-    //             onClick={(event) => handleCopy(event, voyageNo)}
-    //           >
-    //             <abbr title="Copy Voyage Number">
-    //               <ContentCopyIcon fontSize="inherit" />
-    //             </abbr>
-    //           </IconButton>
-    //         </div>
-    //       </React.Fragment>
-    //     );
-    //   },
-    // },
 
     {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,
-      size: 150,
+      size: 250,
       Cell: ({ cell }) => {
         const {
           processed_be_attachment,

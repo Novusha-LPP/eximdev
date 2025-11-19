@@ -607,40 +607,18 @@ router.get(
         },
       };
 
-const dataPipeline = [];
+      const dataPipeline = [];
 
-// 1) compute effective detailed status
-dataPipeline.push({ $addFields: firstAddFields });
+      dataPipeline.push({ $addFields: firstAddFields });
 
-dataPipeline.push({
-  $match: {
-    $expr: {
-      $cond: [
-        { $eq: ["$status", "Pending"] },  // IF status == Pending
-        { $ne: ["$__effective_detailed_status", "Billing Pending"] }, // THEN exclude Billing Pending
-        true // ELSE allow all
-      ]
-    }
-  }
-});
+      dataPipeline.push({ $addFields: baseAddFields });
 
-
-// 3) if you also filter by requestedDetailedStatus, do it here
-if (requestedDetailedStatus) {
-  dataPipeline.push({
-    $match: { __effective_detailed_status: requestedDetailedStatus },
-  });
-}
-
-// 4) add rank/sort helpers
-dataPipeline.push({ $addFields: baseAddFields });
-
-// 5) expose effective status as detailed_status
-dataPipeline.push({
-  $addFields: {
-    detailed_status: "$__effective_detailed_status",
-  },
-});
+      // After all $addFields (and before final $project or $facet that sends rows)
+      dataPipeline.push({
+        $addFields: {
+          detailed_status: "$__effective_detailed_status",
+        },
+      });
 
       // Sort without textScore
       const sortStage = {

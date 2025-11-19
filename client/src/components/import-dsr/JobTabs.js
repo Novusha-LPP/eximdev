@@ -322,9 +322,8 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
           aria-label="basic tabs example"
         >
           <Tab label="Pending" {...a11yProps(0)} />
-          <Tab label="Billing Pending" {...a11yProps(1)} />
-          <Tab label="Completed" {...a11yProps(2)} />
-          <Tab label="Cancelled" {...a11yProps(3)} />
+          <Tab label="Completed" {...a11yProps(1)} />
+          <Tab label="Cancelled" {...a11yProps(2)} />
         </Tabs>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box sx={{ position: "relative" }}>
@@ -385,19 +384,12 @@ const url = `${baseUrl}/${apiConfig.endpoint}?${params.toString()}`;
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
         <JobList
-          status="Billing Pending"
-          showUnresolvedOnly={showUnresolvedOnly}
-          onUnresolvedCountChange={setUnresolvedCount}
-        />
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={2}>
-        <JobList
           status="Completed"
           showUnresolvedOnly={showUnresolvedOnly}
           onUnresolvedCountChange={setUnresolvedCount}
         />
       </CustomTabPanel>
-      <CustomTabPanel value={value} index={3}>
+      <CustomTabPanel value={value} index={2}>
         <JobList
           status="Cancelled"
           showUnresolvedOnly={showUnresolvedOnly}

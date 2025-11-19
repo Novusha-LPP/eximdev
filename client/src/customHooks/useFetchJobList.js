@@ -128,24 +128,13 @@ function useFetchJobList(
         : "";
 
       // Construct API URL
-   // Construct API URL
-let apiUrl;
-
-if (status === "Billing Pending") {
-  // NEW billing-pending-only API
-  apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs-billing-pending/${selectedICD}/${formattedImporter}?page=${page}&limit=50&search=${formattedSearchQuery}`;
-} else {
-  // Existing generic jobs API
-  apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=50&search=${formattedSearchQuery}`;
-}
-
-if (unresolved) {
-  apiUrl += `&unresolvedOnly=true`;
-}
-if (bypassCache) {
-  apiUrl += `&_nocache=true`;
-}
-
+      let apiUrl = `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${formattedImporter}?page=${page}&limit=50&search=${formattedSearchQuery}`;
+      if (unresolved) {
+        apiUrl += `&unresolvedOnly=true`;
+      }
+      if (bypassCache) {
+        apiUrl += `&_nocache=true`;
+      }
 
       const start = performance.now();
       const response = await axios.get(apiUrl, {
@@ -230,7 +219,6 @@ if (bypassCache) {
     fetchInitialUnresolvedCount();
   }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter]);
 
-  
   // Auto-trigger search when filters change (including on page change)
   useEffect(() => {
     if (selectedYearState && user) {

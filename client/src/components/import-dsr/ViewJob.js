@@ -338,7 +338,8 @@ function JobDetails() {
       ? container_nos.some((c) => isValidDate(c?.container_rail_out_date))
       : false;
 
-    const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
+    const hasContainers =
+      Array.isArray(container_nos) && container_nos.length > 0;
 
     const allDelivered = hasContainers
       ? container_nos.every((c) => isValidDate(c?.delivery_date))
@@ -354,7 +355,10 @@ function JobDetails() {
     const validIGM = isValidDate(gateway_igm_date);
     const validETA = isValidDate(vessel_berthing);
 
-    const norm = (s) => String(s || "").trim().toLowerCase();
+    const norm = (s) =>
+      String(s || "")
+        .trim()
+        .toLowerCase();
     const isExBond = norm(type_of_b_e) === "ex-bond";
     const isLCL = norm(consignment_type) === "lcl";
 
@@ -369,7 +373,10 @@ function JobDetails() {
         return;
       }
       if (be_no && validPCV) {
-        formik.setFieldValue("detailed_status", "PCV Done, Duty Payment Pending");
+        formik.setFieldValue(
+          "detailed_status",
+          "PCV Done, Duty Payment Pending"
+        );
         return;
       }
       formik.setFieldValue("detailed_status", "ETA Date Pending");
@@ -4611,7 +4618,31 @@ function JobDetails() {
                           <strong>Weighment Slip Images:&nbsp;</strong>
                           <ImagePreview
                             images={container?.weighment_slip_images || []}
-                            readOnly
+                            onDeleteImage={(imageIndex) => {
+                              // clone the full container_nos array
+                              const updatedContainers = [
+                                ...formik.values.container_nos,
+                              ];
+
+                              // clone this container's images array
+                              const imgs = [
+                                ...(updatedContainers[index]
+                                  .weighment_slip_images || []),
+                              ];
+
+                              // remove the image at imageIndex
+                              imgs.splice(imageIndex, 1);
+
+                              // write back into the container
+                              updatedContainers[index].weighment_slip_images =
+                                imgs;
+
+                              // update formik
+                              formik.setFieldValue(
+                                "container_nos",
+                                updatedContainers
+                              );
+                            }}
                           />
                         </div>
 

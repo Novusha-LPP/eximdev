@@ -24,7 +24,6 @@ import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import {
   getTableRowsClassname,
-  getTableRowInlineStyle,
 } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
@@ -300,50 +299,65 @@ function List() {
         );
       },
     },
-    {
-      accessorKey: "importer",
-      header: "Importer",
-      enableSorting: false,
-      size: 300,
-      Cell: ({ cell }) => {
-        const importer = cell?.getValue()?.toString() || "";
-        const shipping_line_airline =
-          cell.row.original.shipping_line_airline || "";
+{
+  accessorKey: "importer",
+  header: "Importer",
+  enableSorting: false,
+  size: 270,
+  Cell: ({ cell }) => {
+    const importer = cell?.getValue()?.toString() || "";
+    const shipping_line_airline =
+      cell.row.original.shipping_line_airline || "";
 
-        return (
-          <>
-            {/* Importer + copy */}
-            {importer}
+    return (
+      <>
+        {/* Importer row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <span>{importer}</span>
+          <IconButton
+            size="small"
+            onPointerOver={(e) => (e.target.style.cursor = "pointer")}
+            onClick={(event) => handleCopy(event, importer)}
+          >
+            <abbr title="Copy Party Name">
+              <ContentCopyIcon fontSize="inherit" />
+            </abbr>
+          </IconButton>
+        </div>
+
+        {/* Shipping line / airline row */}
+        {shipping_line_airline && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              marginTop: 2,
+            }}
+          >
+            <span>{shipping_line_airline}</span>
             <IconButton
               size="small"
               onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => handleCopy(event, importer)}
+              onClick={(event) => handleCopy(event, shipping_line_airline)}
             >
-              <abbr title="Copy Party Name">
+              <abbr title="Copy Shipping Line/Airline">
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
-            <br />
-
-            {/* Shipping line / airline + copy (only if present) */}
-            {shipping_line_airline && (
-              <>
-                {shipping_line_airline}
-                <IconButton
-                  size="small"
-                  onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-                  onClick={(event) => handleCopy(event, shipping_line_airline)}
-                >
-                  <abbr title="Copy Shipping Line/Airline">
-                    <ContentCopyIcon fontSize="inherit" />
-                  </abbr>
-                </IconButton>
-              </>
-            )}
-          </>
-        );
-      },
-    },
+          </div>
+        )}
+      </>
+    );
+  },
+}
+,
 
     {
       accessorKey: "be_no_igm_details",
@@ -723,24 +737,6 @@ function List() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    // muiTableBodyRowProps: ({ row }) => ({
-    //   onClick: () => navigate(`/edit-do-list/${row.original._id}`), // Navigate on row click
-    //   style: { cursor: "pointer" }, // Change cursor to pointer on hover
-    // }),
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-      style: getTableRowInlineStyle(row),
-    }),
-    // renderDetailPanel: ({ row }) => {
-    //   return (
-    //     <div style={{ padding: "0 !important" }}>
-    //       <DoPlanningContainerTable
-    //         job_no={row.original.job_no}
-    //         year={row.original.year}
-    //       />
-    //     </div>
-    //   );
-    // },
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

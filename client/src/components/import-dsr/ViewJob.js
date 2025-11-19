@@ -4653,7 +4653,23 @@ function JobDetails() {
                             images={
                               container?.container_pre_damage_images || []
                             }
-                            readOnly
+                            onDeleteImage={(imageIndex) => {
+                              const updatedContainers = [
+                                ...formik.values.container_nos,
+                              ];
+                              const imgs = [
+                                ...(updatedContainers[index]
+                                  .container_pre_damage_images || []),
+                              ];
+                              imgs.splice(imageIndex, 1);
+                              updatedContainers[
+                                index
+                              ].container_pre_damage_images = imgs;
+                              formik.setFieldValue(
+                                "container_nos",
+                                updatedContainers
+                              );
+                            }}
                           />
                         </div>
                       </Col>
@@ -4664,26 +4680,70 @@ function JobDetails() {
                           <strong>Container Images:&nbsp;</strong>
                           <ImagePreview
                             images={container?.container_images || []}
-                            readOnly
+                            onDeleteImage={(imageIndex) => {
+                              const updatedContainers = [
+                                ...formik.values.container_nos,
+                              ];
+                              const imgs = [
+                                ...(updatedContainers[index].container_images ||
+                                  []),
+                              ];
+                              imgs.splice(imageIndex, 1);
+                              updatedContainers[index].container_images = imgs;
+                              formik.setFieldValue(
+                                "container_nos",
+                                updatedContainers
+                              );
+                            }}
                           />
                         </div>
+
                         {/* Loose Material Images */}
                         <div className="mb-3">
                           <strong>Loose Material Images:&nbsp;</strong>
                           <ImagePreview
                             images={container?.loose_material || []}
-                            readOnly
+                            onDeleteImage={(imageIndex) => {
+                              const updatedContainers = [
+                                ...formik.values.container_nos,
+                              ];
+                              const imgs = [
+                                ...(updatedContainers[index].loose_material ||
+                                  []),
+                              ];
+                              imgs.splice(imageIndex, 1);
+                              updatedContainers[index].loose_material = imgs;
+                              formik.setFieldValue(
+                                "container_nos",
+                                updatedContainers
+                              );
+                            }}
                           />
                         </div>
-
-                        {/* Examination Videos */}
                       </Col>
+
                       <Col xs={12} md={6}>
+                        {/* Examination Videos */}
                         <div className="mb-3">
                           <strong>Examination Videos:&nbsp;</strong>
                           <ImagePreview
                             images={container?.examination_videos || []}
-                            readOnly
+                            onDeleteImage={(imageIndex) => {
+                              const updatedContainers = [
+                                ...formik.values.container_nos,
+                              ];
+                              const imgs = [
+                                ...(updatedContainers[index]
+                                  .examination_videos || []),
+                              ];
+                              imgs.splice(imageIndex, 1);
+                              updatedContainers[index].examination_videos =
+                                imgs;
+                              formik.setFieldValue(
+                                "container_nos",
+                                updatedContainers
+                              );
+                            }}
                           />
                         </div>
                       </Col>

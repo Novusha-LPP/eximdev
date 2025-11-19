@@ -171,6 +171,24 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     const yellowJobs = [];
     const otherJobs = [];
 
+    
+    jobs.forEach((job) => {
+      const { out_of_charge, examination_planning_date, be_no, container_nos } =
+        job;
+      const anyContainerArrivalDate = container_nos?.some(
+        (container) => container.arrival_date
+      );
+
+      if (out_of_charge) {
+        greenJobs.push({ ...job._doc });
+      } else if (examination_planning_date) {
+        orangeJobs.push({ ...job._doc });
+      } else if (be_no && anyContainerArrivalDate) {
+        yellowJobs.push({ ...job._doc });
+      } else {
+        otherJobs.push({ ...job._doc });
+      }
+    });
     // **Concatenating grouped jobs in the desired order**
     const groupedJobs = [
       ...greenJobs,

@@ -115,52 +115,61 @@ router.get(
         unresolvedQueryAnd.length > 0 ? { $and: unresolvedQueryAnd } : {};
 
       // Projection to shrink sort payload
-      const projection = {
-        job_no: 1,
-        importer: 1,
-        custom_house: 1,
-        be_no: 1,
-        be_date: 1,
-        year: 1,
-        container_nos: 1,
-        completed_operation_date: 1,
-        dsr_queries: 1,
-      };
+// Projection to shrink sort payload and response
+const projection = {
+  job_no: 1,
+  importer: 1,
+  custom_house: 1,
+  be_no: 1,
+  be_date: 1,
+  year: 1,
+  completed_operation_date: 1,
+  examination_planning_date: 1,
+  pcv_date: 1,
+  out_of_charge: 1,
+  dsr_queries: 1,
+  // only needed container fields
+  "container_nos.container_number": 1,
+  "container_nos.size": 1,
+  "container_nos.arrival_date": 1,
+};
 
-      const pipeline = [
-        { $match: baseQuery },
-        { $project: projection },
-        {
-          $sort: {
-            completed_operation_date: -1,
-            _id: 1,
-          },
-        },
-        {
-          $facet: {
-            metadata: [{ $count: "totalJobs" }],
-            data: [{ $skip: skip }, { $limit: limitNumber }],
-          },
-        },
-      ];
+const pipeline = [
+  { $match: baseQuery },
+  { $project: projection },
+  {
+    $sort: {
+      completed_operation_date: -1,
+      _id: 1,
+    },
+  },
+  {
+    $facet: {
+      metadata: [{ $count: "totalJobs" }],
+      data: [{ $skip: skip }, { $limit: limitNumber }],
+    },
+  },
+];
 
-      const aggResult = await JobModel.aggregate(pipeline)
-        .allowDiskUse(true)
-        .exec();
+const aggResult = await JobModel.aggregate(pipeline)
+  .allowDiskUse(true)
+  .exec();
 
-      const meta = aggResult[0]?.metadata?.[0] || { totalJobs: 0 };
-      const jobs = aggResult[0]?.data || [];
-      const totalJobs = meta.totalJobs || 0;
+const meta = aggResult[0]?.metadata?.[0] || { totalJobs: 0 };
+const jobs = aggResult[0]?.data || [];
+const totalJobs = meta.totalJobs || 0;
 
-      const unresolvedCount = await JobModel.countDocuments(unresolvedQuery);
+// unresolvedCount: just count, no select needed
+const unresolvedCount = await JobModel.countDocuments(unresolvedQuery);
 
-      res.status(200).json({
-        totalJobs,
-        totalPages: Math.ceil(totalJobs / limitNumber),
-        currentPage: pageNumber,
-        jobs,
-        unresolvedCount,
-      });
+res.status(200).json({
+  totalJobs,
+  totalPages: Math.ceil(totalJobs / limitNumber),
+  currentPage: pageNumber,
+  jobs,
+  unresolvedCount,
+});
+
     } catch (error) {
       console.error("❌ Error fetching completed operations:", error);
       res.status(500).json({ message: "Error fetching completed operations" });

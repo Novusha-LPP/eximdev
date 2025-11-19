@@ -63,7 +63,7 @@ function CompletedOperations() {
   const debounceTimeoutRef = useRef(null);
   const isFromJobDetailsRef = useRef(false);
 
-  const limit = 100;
+  const limit = 50;
   
   // Initialize component and handle navigation state
   useEffect(() => {
@@ -580,9 +580,6 @@ function CompletedOperations() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: row.original.row_color || "",
-    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

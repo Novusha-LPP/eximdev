@@ -78,16 +78,12 @@ router.patch("/api/update-operations-job/:year/:job_no", extractJobInfo, auditMi
     }
 
     const recomputedStatus = determineDetailedStatus(job);
-    const rowColor = getRowColorFromStatus(recomputedStatus || job.detailed_status);
-
     if (recomputedStatus && recomputedStatus !== job.detailed_status) {
       job = await JobModel.findOneAndUpdate(
         { year, job_no },
-        { $set: { detailed_status: recomputedStatus, row_color: rowColor } },
+        { $set: { detailed_status: recomputedStatus } },
         { new: true }
       ).lean();
-    } else if (rowColor !== job.row_color) {
-      job = await JobModel.findOneAndUpdate({ year, job_no }, { $set: { row_color: rowColor } }, { new: true }).lean();
     }
 
     res.status(200).send({

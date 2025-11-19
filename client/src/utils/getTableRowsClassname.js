@@ -1,7 +1,5 @@
 /**
- * Map detailed_status to CSS class name for row coloring.
- * Prefers row_color from database if available, falls back to client-side calculation.
- */
+ * Map detailed_status to CSS class name for row coloring. */
 export const getTableRowsClassname = (params) => {
   const job = params.original;
   // Determine the row color key from `detailed_status` only (use DB detailed_status as source of truth)

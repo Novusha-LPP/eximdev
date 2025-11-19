@@ -21,11 +21,8 @@ import {
   IconButton,
   Typography,
   Pagination,
-  Autocomplete,
-  InputAdornment,
   Snackbar,
   Alert,
-  CircularProgress,
 } from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
 import axios from "axios";
@@ -38,6 +35,7 @@ import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
+// Extract job number from combined label
 const extractJobNo = (input) => {
   if (!input) return "";
   const s =
@@ -71,8 +69,6 @@ function JobList(props) {
   const [debouncedSearchQuery, setDebouncedSearchQuery] =
     useState(searchQuery);
   const [importers, setImporters] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
@@ -82,6 +78,7 @@ function JobList(props) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // simple text search input (no typeahead)
   const [localInput, setLocalInput] = useState(searchQuery);
 
   // Clear state unless returning from details
@@ -134,7 +131,7 @@ function JobList(props) {
     [importers, getUniqueImporterNames]
   );
 
-  // Main jobs hook – IMPORTANT: pass showUnresolvedOnly
+  // Main jobs hook
   const {
     rows,
     total,
@@ -153,13 +150,13 @@ function JobList(props) {
     selectedICD,
     debouncedSearchQuery,
     selectedImporter,
-    showUnresolvedOnly // this drives unresolvedOnly=true in API
+    showUnresolvedOnly
   );
 
   // When unresolved toggle changes, re-fetch page 1
   useEffect(() => {
     if (selectedYearState && user) {
-      fetchJobs(1, showUnresolvedOnly, true); // bypass cache for correctness
+      fetchJobs(1, showUnresolvedOnly, true);
     }
   }, [showUnresolvedOnly, selectedYearState, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -168,7 +165,7 @@ function JobList(props) {
     setSearchQuery(localInput);
   }, [localInput, setSearchQuery]);
 
-  // Debounce search query
+  // Debounce search query and normalize to pure job no when it looks like one
   useEffect(() => {
     const t = setTimeout(() => {
       const s = String(searchQuery || "").trim();
@@ -177,64 +174,6 @@ function JobList(props) {
     }, 200);
     return () => clearTimeout(t);
   }, [searchQuery]);
-
-  // Typeahead suggestions
-  useEffect(() => {
-    let cancelled = false;
-    let controller = null;
-
-    const doFetch = async () => {
-      if (!selectedYearState) {
-        setSuggestions([]);
-        return;
-      }
-      const q = String(localInput || "").trim();
-      if (q.length < 2) {
-        setSuggestions([]);
-        setSuggestionsLoading(false);
-        return;
-      }
-
-      setSuggestionsLoading(true);
-      try {
-        controller = new AbortController();
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING || ""}/${selectedYearState}/jobs/typeahead`,
-          {
-            params: {
-              search: q,
-              limit: 7,
-              selectedICD: selectedICD || "all",
-              importer: selectedImporter || "all",
-            },
-            signal: controller.signal,
-          }
-        );
-        if (cancelled) return;
-        const data = (res.data && res.data.data) || [];
-        const normalized = data.map((r) => ({
-          label:
-            (r.job_no || "") +
-            (r.importer ? ` — ${r.importer}` : "") +
-            (r.awb_bl_no ? ` — ${r.awb_bl_no}` : "") +
-            (r.be_no ? ` — ${r.be_no}` : ""),
-          value: String(r.job_no || "").trim(),
-        }));
-        setSuggestions(normalized);
-      } catch {
-        if (!cancelled) setSuggestions([]);
-      } finally {
-        if (!cancelled) setSuggestionsLoading(false);
-      }
-    };
-
-    const t = setTimeout(doFetch, 150);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-      if (controller) controller.abort();
-    };
-  }, [localInput, selectedYearState, selectedICD, selectedImporter]);
 
   const tableData = useMemo(
     () =>
@@ -344,7 +283,7 @@ function JobList(props) {
     [setSelectedICD]
   );
   const handleImporterChange = useCallback(
-    (e, v) => setSelectedImporter(v),
+    (e) => setSelectedImporter(e.target.value),
     [setSelectedImporter]
   );
   const handleYearChange = useCallback(
@@ -356,33 +295,9 @@ function JobList(props) {
     [setDetailedStatus]
   );
 
-  const handleLocalInputChange = useCallback((event, newInputValue, reason) => {
-    if (reason === "input" || reason === "clear" || reason === "reset") {
-      setLocalInput(newInputValue);
-    }
+  const handleLocalInputChange = useCallback((e) => {
+    setLocalInput(e.target.value);
   }, []);
-
-  const handleSearchChange = useCallback(
-    (event, newValue) => {
-      if (!newValue) return;
-      if (typeof newValue === "object") {
-        const jobNo = extractJobNo(
-          newValue.value || newValue.label || ""
-        );
-        setLocalInput(jobNo);
-        setSearchQuery(jobNo);
-        setDebouncedSearchQuery(jobNo);
-        return;
-      }
-      if (typeof newValue === "string") {
-        const jobNo = extractJobNo(newValue);
-        setLocalInput(jobNo);
-        setSearchQuery(jobNo);
-        setDebouncedSearchQuery(jobNo);
-      }
-    },
-    [setSearchQuery]
-  );
 
   const handleClearSearch = useCallback(() => {
     setLocalInput("");
@@ -421,22 +336,20 @@ function JobList(props) {
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
 
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((o) => o.label)}
+        <TextField
+          select
+          size="small"
           value={selectedImporter || ""}
-          onInputChange={handleImporterChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer"
-            />
-          )}
-        />
+          onChange={handleImporterChange}
+          sx={{ width: "300px", marginRight: "20px" }}
+        >
+          <MenuItem value="">All Importers</MenuItem>
+          {importerNames.map((o) => (
+            <MenuItem key={o.key} value={o.label}>
+              {o.label}
+            </MenuItem>
+          ))}
+        </TextField>
 
         {years.length > 0 && (
           <TextField
@@ -460,7 +373,7 @@ function JobList(props) {
             size="small"
             value={detailedStatus}
             onChange={handleDetailedStatusChange}
-            sx={{ width: "250px" }}
+            sx={{ width: "250px", marginRight: "20px" }}
           >
             {detailedStatusOptions.map((o, i) => (
               <MenuItem
@@ -473,42 +386,25 @@ function JobList(props) {
           </TextField>
         )}
 
-        <Autocomplete
+        {/* Simple text search input */}
+        <TextField
+          value={localInput}
+          onChange={handleLocalInputChange}
+          placeholder="Search by Job No, Importer, or AWB/BL Number"
+          size="small"
+          variant="outlined"
           sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={suggestions}
-          getOptionLabel={(option) =>
-            typeof option === "string" ? option : option.label || ""
-          }
-          inputValue={localInput}
-          onInputChange={handleLocalInputChange}
-          onChange={handleSearchChange}
-          loading={suggestionsLoading}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder="Search by Job No, Importer, or AWB/BL Number"
-              size="small"
-              variant="outlined"
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: (
-                  <InputAdornment position="end">
-                    {suggestionsLoading ? (
-                      <CircularProgress size={20} sx={{ mr: 1 }} />
-                    ) : localInput ? (
-                      <IconButton
-                        size="small"
-                        onClick={handleClearSearch}
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    ) : null}
-                  </InputAdornment>
-                ),
-              }}
-            />
-          )}
+          InputProps={{
+            endAdornment: (
+              <IconButton
+                size="small"
+                onClick={handleClearSearch}
+                style={{ visibility: localInput ? "visible" : "hidden" }}
+              >
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            ),
+          }}
         />
 
         <IconButton onClick={handleOpen}>
@@ -529,11 +425,8 @@ function JobList(props) {
       handleYearChange,
       detailedStatus,
       handleDetailedStatusChange,
-      suggestions,
       localInput,
       handleLocalInputChange,
-      handleSearchChange,
-      suggestionsLoading,
       handleClearSearch,
       handleOpen,
     ]

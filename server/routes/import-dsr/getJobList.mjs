@@ -139,7 +139,7 @@ const buildAllContainerDateExists = (field) => ({
 
 const criticalFields = `
   _id job_no cth_no year importer custom_house hawb_hbl_no awb_bl_no 
-  container_nos vessel_berthing detailed_status row_color be_no be_date type_of_Do
+  container_nos vessel_berthing detailed_status be_no be_date type_of_Do
   gateway_igm_date discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
@@ -750,7 +750,6 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
         $set: {
           ...updateData,
           detailed_status: recomputedStatus,
-          row_color: rowColor,
         },
       },
       { new: true, runValidators: true }
@@ -795,129 +794,6 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 });
-
-// Lightweight typeahead endpoint - returns minimal fields for suggestions
-router.get("/api/:year/jobs/typeahead", async (req, res) => {
-  try {
-    const { year } = req.params;
-    const {
-      search = "",
-      limit = 10,
-      selectedICD = "all",
-      importer = "all",
-    } = req.query;
-    if (!year)
-      return res
-        .status(400)
-        .json({ success: false, message: "year is required" });
-
-    const query = { year };
-
-    if (selectedICD && selectedICD.toLowerCase() !== "all") {
-      query.custom_house = { $regex: `^${selectedICD}$`, $options: "i" };
-    }
-
-    if (importer && importer.toLowerCase() !== "all") {
-      query.importer = { $regex: `^${importer}$`, $options: "i" };
-    }
-
-    const safeSearch = String(search || "").trim();
-    if (safeSearch.length >= 3) {
-      // Detect likely container number patterns (e.g., 4 letters + 7 digits like 'MSKU1234567')
-      const isContainerLike = /^[A-Za-z]{2,}\d{3,}$/i.test(safeSearch);
-      if (isContainerLike) {
-        // Search container numbers explicitly (also allow job_no, awb_bl_no, be_no fallback)
-        const regex = new RegExp(safeSearch, "i");
-        const results = await JobModel.find({
-          ...query,
-          $or: [
-            { "container_nos.container_number": { $regex: regex } },
-            { job_no: { $regex: regex } },
-            { awb_bl_no: { $regex: regex } },
-            { be_no: { $regex: regex } },
-          ],
-        })
-          .select({
-            job_no: 1,
-            importer: 1,
-            awb_bl_no: 1,
-            be_no: 1,
-            "container_nos.container_number": 1,
-          })
-          .limit(parseInt(limit))
-          .lean();
-        return res.json({ success: true, data: results });
-      }
-
-      // Otherwise try text search if available
-      try {
-        query.$text = { $search: safeSearch };
-        const results = await JobModel.find(query)
-          .select({
-            job_no: 1,
-            importer: 1,
-            awb_bl_no: 1,
-            be_no: 1,
-            score: { $meta: "textScore" },
-          })
-          .sort({ score: { $meta: "textScore" } })
-          .limit(parseInt(limit))
-          .lean();
-        return res.json({ success: true, data: results });
-      } catch (txtErr) {
-        // If text search fails (no text index), fall back to regex OR search including container numbers
-        const regex = new RegExp(safeSearch, "i");
-        const results = await JobModel.find({
-          ...query,
-          $or: [
-            { job_no: { $regex: regex } },
-            { awb_bl_no: { $regex: regex } },
-            { be_no: { $regex: regex } },
-            { "container_nos.container_number": { $regex: regex } },
-          ],
-        })
-          .select({
-            job_no: 1,
-            importer: 1,
-            awb_bl_no: 1,
-            be_no: 1,
-            "container_nos.container_number": 1,
-          })
-          .limit(parseInt(limit))
-          .lean();
-        return res.json({ success: true, data: results });
-      }
-    }
-
-    // Fallback: prefix match on job_no, awb_bl_no or container number
-    if (safeSearch.length > 0) {
-      const regex = new RegExp(`^${escapeRegex(safeSearch)}`, "i");
-      query.$or = [
-        { job_no: { $regex: regex } },
-        { awb_bl_no: { $regex: regex } },
-        { "container_nos.container_number": { $regex: regex } },
-      ];
-    }
-
-    const results = await JobModel.find(query)
-      .select({
-        job_no: 1,
-        importer: 1,
-        awb_bl_no: 1,
-        be_no: 1,
-        "container_nos.container_number": 1,
-      })
-      .limit(parseInt(limit))
-      .lean();
-
-    res.json({ success: true, data: results });
-  } catch (error) {
-    console.error("Typeahead error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-});
-
-
 // API: ONLY jobs whose stored detailed_status is exactly "Billing Pending"
 router.get(
   "/api/:year/jobs-billing-pending/:selectedICD/:importer",

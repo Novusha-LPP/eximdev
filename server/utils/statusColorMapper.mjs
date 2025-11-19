@@ -1,5 +1,4 @@
 /**
- * Maps detailed_status to row_color class name
  * Used by both server (when saving jobs) and client (when rendering)
  */
 export const getRowColorFromStatus = (detailed_status) => {

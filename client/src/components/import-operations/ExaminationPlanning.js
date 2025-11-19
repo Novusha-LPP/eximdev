@@ -685,9 +685,6 @@ function ImportOperations() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: row.original.row_color || "",
-    }),
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",

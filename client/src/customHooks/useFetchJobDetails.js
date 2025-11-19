@@ -470,7 +470,8 @@ useEffect(() => {
       };
 
       // Update the payload with the modified cthDocuments and other values
-      await axios.put(
+      try {
+        const response = await axios.put(
         `${process.env.REACT_APP_API_STRING}/update-job/${params.selected_year}/${params.job_no}`,
         {
           cth_documents: updatedCthDocuments,
@@ -581,9 +582,25 @@ useEffect(() => {
           total_duty: values.total_duty,
           DsrCharges: selectedChargesDocuments,
           dsr_queries: values.dsr_queries,
+          __v: data?.__v,
         },
         { headers }
-      );
+        );
+
+        // Update local data with server response so frontend has latest __v
+        if (response && response.data) {
+          setData(response.data);
+        }
+      } catch (error) {
+        // Handle optimistic locking conflict
+        if (error.response && error.response.status === 409) {
+          alert(
+            "This job was modified by another user while you were editing. Please refresh the page to load latest changes and re-apply your edits."
+          );
+          return; // stop further processing
+        }
+        throw error; // rethrow other errors to be handled by Formik/global handler
+      }
       localStorage.setItem("tab_value", 1);
       setTabValue(1);
            // Close the tab after successful submit

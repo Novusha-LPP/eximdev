@@ -127,7 +127,17 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
         const payload = buildPayload(updatedContainers, oldContainers);
 
         if (Object.keys(payload).length > 0) {
-          await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+          payload.__v = row.original?.__v; // include version for optimistic lock
+          try {
+            await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+          } catch (err) {
+            if (err.response && err.response.status === 409) {
+              alert("This job was updated by another user. Please refresh and try again.");
+              setContainers(oldContainers);
+              return;
+            }
+            throw err;
+          }
         }
 
         // Update parent component data (keep UI in sync)
@@ -159,9 +169,19 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
           'user-role': user.role || 'unknown'
         };
 
-        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
-          [field]: finalValue || null,
-        }, { headers });
+        try {
+          await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, {
+            [field]: finalValue || null,
+            __v: row.original?.__v,
+          }, { headers });
+        } catch (err) {
+          if (err.response && err.response.status === 409) {
+            alert("This job was updated by another user. Please refresh and try again.");
+            setDates(oldDates);
+            return;
+          }
+          throw err;
+        }
         
         // Update parent component data
         if (typeof onRowDataUpdate === "function") {

@@ -62,9 +62,25 @@ const DocsCell = ({ cell, onDocumentsUpdated }) => {
         'user-role': user.role || 'unknown'
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
-        [fieldName]: updatedFiles
-      }, { headers });
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
+          [fieldName]: updatedFiles,
+          __v: cell.row.original?.__v,
+        }, { headers });
+      } catch (error) {
+        if (error.response && error.response.status === 409) {
+          alert("This job has been modified by another user. Please refresh and try again.");
+          // revert
+          setOocFiles(cell.row.original.ooc_copies || []);
+          setIcdCfsInvoices(cell.row.original.icd_cfs_invoice_img || []);
+          setShippingLineInvoices(cell.row.original.shipping_line_invoice_imgs || []);
+          setConcorInvoices(cell.row.original.concor_invoice_and_receipt_copy || []);
+          setActiveUpload(null);
+          return;
+        }
+        console.error(`Error updating ${fieldName}:`, error);
+        throw error;
+      }
       
       // Call parent component's update function if available
       if (onDocumentsUpdated) {

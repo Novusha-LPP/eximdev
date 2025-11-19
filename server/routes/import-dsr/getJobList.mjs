@@ -696,28 +696,41 @@ dataPipeline.push({
 
 // editable patch api
 // CRITICAL: Only update nested fields (container_nos) by index, never replace the entire array
+// OPTIMISTIC LOCKING: Checks __v field to prevent concurrent edit conflicts
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body; // Contains updated fields
+    const clientVersion = req.body.__v; // Client sends the version it read
 
     // SECURITY: Prevent replacing entire container_nos array wholesale unless lengths match
-    if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
-      const existingJob = await JobModel.findById(id).select("container_nos");
-      if (existingJob && existingJob.container_nos) {
-        const existingLength = existingJob.container_nos.length;
-        const incomingLength = updateData.container_nos.length;
-        if (incomingLength !== existingLength) {
-          return res.status(400).json({
-            success: false,
-            message: `Invalid container_nos update: array length mismatch. Existing: ${existingLength}, Incoming: ${incomingLength}. Use dot notation for partial updates.`,
-          });
-        }
+    const existingJob = await JobModel.findById(id).select("container_nos __v");
+    if (!existingJob) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    // Optimistic lock: check if version matches
+    if (clientVersion !== undefined && clientVersion !== existingJob.__v) {
+      return res.status(409).json({
+        success: false,
+        message: "Job was modified by another user. Please refresh and try again.",
+        currentVersion: existingJob.__v,
+      });
+    }
+
+    if (updateData.container_nos && Array.isArray(updateData.container_nos) && existingJob.container_nos) {
+      const existingLength = existingJob.container_nos.length;
+      const incomingLength = updateData.container_nos.length;
+      if (incomingLength !== existingLength) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid container_nos update: array length mismatch. Existing: ${existingLength}, Incoming: ${incomingLength}. Use dot notation for partial updates.`,
+        });
       }
     }
 
     // Apply the requested update
-    // After passing the length guard:
+    // After passing the length guard and version check:
     const existing = await JobModel.findById(id).lean();
     if (!existing)
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -740,12 +753,24 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
           detailed_status: recomputedStatus,
           row_color: rowColor,
         },
+        $inc: { __v: 1 }, // Increment version on successful update
       },
       { new: true, runValidators: true }
     ).lean();
 
-    if (finalDoc?.year) invalidateCache(finalDoc.year);
-    else invalidateCache();
+    if (finalDoc?.year) {
+      invalidateCache(finalDoc.year);
+    } else {
+      // Avoid a full global cache clear when the updated document doesn't
+      // contain a `year`. This prevents accidental eviction of unrelated
+      // cached responses if `year` is missing due to partial updates.
+      // If you intentionally want to clear everything, call `invalidateCache()`
+      // with no argument from an explicit code path.
+      console.warn(
+        "Job update result has no year — skipping global cache invalidation",
+        { jobId: id }
+      );
+    }
 
     return res
       .status(200)

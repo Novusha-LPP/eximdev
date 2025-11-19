@@ -379,6 +379,14 @@ const BLStatus = ({
         "user-role": user.role || "unknown",
       };
 
+      // Add optimistic locking by fetching current document version
+      try {
+        const jobRes = await axios.get(`${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`);
+        updateData.__v = jobRes.data?.job?.__v;
+      } catch (err) {
+        console.warn("Could not fetch job version for optimistic locking", err);
+      }
+
       const response = await axios.patch(
         `${process.env.REACT_APP_API_STRING}/jobs/${jobId}`,
         updateData,

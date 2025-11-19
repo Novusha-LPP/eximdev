@@ -873,11 +873,21 @@ function DoPlanning() {
               username: user.username || "unknown",
               "user-role": user.role || "unknown",
             };
-            await axios.patch(
-              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
-              updateData,
-              { headers }
-            );
+            try {
+              await axios.patch(
+                `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+                { ...updateData, __v: row.original?.__v },
+                { headers }
+              );
+            } catch (err) {
+              if (err.response && err.response.status === 409) {
+                alert('This job was updated by another user. Please refresh and try again.');
+                setIsDoDocPrepared(previousValue);
+                row.original.is_do_doc_prepared = previousValue;
+                return;
+              }
+              throw err;
+            }
 
             // Update the main state
             setRows((prevRows) =>
@@ -923,11 +933,21 @@ function DoPlanning() {
               username: user.username || "unknown",
               "user-role": user.role || "unknown",
             };
-            await axios.patch(
-              `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
-              updateData,
-              { headers }
-            );
+            try {
+              await axios.patch(
+                `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
+                { ...updateData, __v: row.original?.__v },
+                { headers }
+              );
+            } catch (err) {
+              if (err.response && err.response.status === 409) {
+                alert('This job was updated by another user. Please refresh and try again.');
+                setIsOgDocRecieved(previousValue);
+                row.original.is_og_doc_recieved = previousValue;
+                return;
+              }
+              throw err;
+            }
 
             // Update the main state
             setRows((prevRows) =>

@@ -115,13 +115,28 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
         "user-role": user.role || "unknown",
       };
 
-      await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/jobs/${rowId}`,
-        {
-          [fieldName]: updatedFiles,
-        },
-        { headers }
-      );
+      try {
+        await axios.patch(
+          `${process.env.REACT_APP_API_STRING}/jobs/${rowId}`,
+          {
+            [fieldName]: updatedFiles,
+            __v: cell.row.original?.__v,
+          },
+          { headers }
+        );
+      } catch (error) {
+        if (error.response && error.response.status === 409) {
+          alert("This job was updated by somebody else. Please refresh and try again.");
+          // revert local state
+          setProcessedBeFiles(cell.row.original.processed_be_attachment || []);
+          setOocFiles(cell.row.original.ooc_copies || []);
+          setGatePassFiles(cell.row.original.gate_pass_copies || []);
+          setActiveUpload(null);
+          return;
+        }
+        console.error(`Error updating ${fieldName}:`, error);
+        throw error;
+      }
 
       // Call parent component's update function if available
       if (onDocumentsUpdated) {

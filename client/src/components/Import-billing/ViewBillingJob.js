@@ -141,11 +141,19 @@ const ViewBillingJob = () => {
         };
 
         // Use the same endpoint as the working version
-        await axios.patch(
-          `${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
-          updateData,
-          { headers }
-        );
+        try {
+          await axios.patch(
+            `${process.env.REACT_APP_API_STRING}/jobs/${data._id}`,
+            { ...updateData, __v: data?.__v },
+            { headers }
+          );
+        } catch (err) {
+          if (err.response && err.response.status === 409) {
+            alert("This job was updated by another user. Please refresh to get the latest data and try again.");
+            return;
+          }
+          throw err;
+        }
 
         // Refresh data to confirm changes were saved
         fetchJobDetails();

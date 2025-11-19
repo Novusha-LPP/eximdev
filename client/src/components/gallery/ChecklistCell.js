@@ -33,9 +33,19 @@ const ChecklistCell = ({ cell, onDocumentsUpdated }) => {
       };
 
       // Fix: Use the correct API endpoint structure that matches your backend
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
-        checklist: updatedFiles,
-      }, { headers });
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
+          checklist: updatedFiles,
+          __v: cell.row.original?.__v,
+        }, { headers });
+      } catch (error) {
+        if (error.response && error.response.status === 409) {
+          alert("This job was updated by another user. Please refresh and try again.");
+          setChecklistFiles(cell.row.original.checklist || []);
+          return;
+        }
+        throw error;
+      }
 
       // Call parent component's update function if available
       if (onDocumentsUpdated) {

@@ -105,9 +105,20 @@ const EditableArrivalDate = ({ cell }) => {
         [`container_nos.${index}.arrival_date`]: null, // ask backend to $unset
         [`container_nos.${index}.detention_from`]: null,
         __op: "unset",
+        __v: rowData?.__v,
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+      } catch (err) {
+        if (err.response && err.response.status === 409) {
+          alert("This job was updated by another user. Please refresh and try again.");
+          // revert local change
+          cell.row.original.container_nos = container_nos;
+          return;
+        }
+        throw err;
+      }
 
       // mutate row to avoid immediate rehydrate conflicts
       cell.row.original.container_nos = updated;
@@ -159,7 +170,17 @@ const EditableArrivalDate = ({ cell }) => {
       payload[`container_nos.${index}.arrival_date`] = val;
       payload[`container_nos.${index}.detention_from`] = updated[index].detention_from || null;
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${_id}`, payload, { headers });
+      } catch (err) {
+        if (err.response && err.response.status === 409) {
+          alert("This job was updated by another user. Please refresh and try again.");
+          // revert local change
+          setContainers([...container_nos]);
+          return;
+        }
+        throw err;
+      }
 
       cell.row.original.container_nos = updated;
       setEditable(null);

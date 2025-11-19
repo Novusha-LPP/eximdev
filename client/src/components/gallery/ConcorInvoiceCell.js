@@ -32,9 +32,19 @@ const ConcorInvoiceCell = ({ cell, onDocumentsUpdated }) => {
         'user-role': user.role || 'unknown'
       };
 
-      await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
-        concor_invoice_and_receipt_copy: updatedFiles,
-      }, { headers });
+      try {
+        await axios.patch(`${process.env.REACT_APP_API_STRING}/jobs/${rowId}`, {
+          concor_invoice_and_receipt_copy: updatedFiles,
+          __v: cell.row.original?.__v,
+        }, { headers });
+      } catch (error) {
+        if (error.response && error.response.status === 409) {
+          alert("This job was updated by another user while you were editing. Please refresh and try again.");
+          setInvoiceFiles(cell.row.original.concor_invoice_and_receipt_copy || []); // revert
+          return;
+        }
+        throw error;
+      }
 
       // Call parent component's update function if available
       if (onDocumentsUpdated) {

@@ -42,9 +42,19 @@ router.put("/api/update-job/:year/:jobNo",
   try {
     // 1. Retrieve the matching job document
     const matchingJob = await JobModel.findOne({ year, job_no: jobNo });
+    const clientVersion = req.body.__v;
 
     if (!matchingJob) {
       return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Optimistic locking: reject if version mismatch
+    if (clientVersion !== undefined && clientVersion !== matchingJob.__v) {
+      return res.status(409).json({
+        success: false,
+        message: "Job was modified by another user. Please refresh and try again.",
+        currentVersion: matchingJob.__v,
+      });
     }
 
     // 2. Determine the branch_code based on the custom_house field
@@ -283,9 +293,19 @@ router.patch("/api/update-job/fields/:year/:jobNo",
   try {
     // Find the matching job document
     const matchingJob = await JobModel.findOne({ year, job_no: jobNo });
+    const clientVersion = req.body.__v;
 
     if (!matchingJob) {
       return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Optimistic locking - guard against overwrites
+    if (clientVersion !== undefined && clientVersion !== matchingJob.__v) {
+      return res.status(409).json({
+        success: false,
+        message: "Job was modified by another user. Please refresh and try again.",
+        currentVersion: matchingJob.__v,
+      });
     }
 
     // Update vessel_berthing if provided in the request body

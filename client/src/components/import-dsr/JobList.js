@@ -23,8 +23,9 @@ import {
   Pagination,
   Snackbar,
   Alert,
+  Autocomplete,
 } from "@mui/material";
-import ClearIcon from "@mui/icons-material/Clear";
+import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -35,7 +36,6 @@ import SelectImporterModal from "./SelectImporterModal";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 
-// Extract job number from combined label
 const extractJobNo = (input) => {
   if (!input) return "";
   const s =
@@ -66,8 +66,7 @@ function JobList(props) {
     setSelectedImporter,
   } = useSearchQuery();
 
-  const [debouncedSearchQuery, setDebouncedSearchQuery] =
-    useState(searchQuery);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [importers, setImporters] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
@@ -78,7 +77,6 @@ function JobList(props) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // simple text search input (no typeahead)
   const [localInput, setLocalInput] = useState(searchQuery);
 
   // Clear state unless returning from details
@@ -105,7 +103,9 @@ function JobList(props) {
         params.append("detailedStatus", detailedStatus);
       }
       const queryString = params.toString();
-      const url = `${process.env.REACT_APP_API_STRING}/get-importer-list/${selectedYearState}${
+      const url = `${
+        process.env.REACT_APP_API_STRING
+      }/get-importer-list/${selectedYearState}${
         queryString ? "?" + queryString : ""
       }`;
       const res = await axios.get(url);
@@ -165,7 +165,7 @@ function JobList(props) {
     setSearchQuery(localInput);
   }, [localInput, setSearchQuery]);
 
-  // Debounce search query and normalize to pure job no when it looks like one
+  // Debounce search query
   useEffect(() => {
     const t = setTimeout(() => {
       const s = String(searchQuery || "").trim();
@@ -176,8 +176,7 @@ function JobList(props) {
   }, [searchQuery]);
 
   const tableData = useMemo(
-    () =>
-      rows.map((row, idx) => ({ ...row, id: row._id || `row-${idx}` })),
+    () => rows.map((row, idx) => ({ ...row, id: row._id || `row-${idx}` })),
     [rows]
   );
 
@@ -230,10 +229,7 @@ function JobList(props) {
         return updated;
       });
       setRefreshTrigger((x) => x + 1);
-      setTimeout(
-        () => fetchJobs(currentPage, showUnresolvedOnly, true),
-        300
-      );
+      setTimeout(() => fetchJobs(currentPage, showUnresolvedOnly, true), 300);
     },
     [
       selectedYearState,
@@ -245,6 +241,13 @@ function JobList(props) {
       showUnresolvedOnly,
     ]
   );
+
+  const handleSearchClick = () => {
+    // optional: force immediate debounce update or page reset
+    setSearchQuery(localInput);
+    // if you want to always go to page 1:
+    // fetchJobs(1, showUnresolvedOnly, true);
+  };
 
   // Years initialization
   useEffect(() => {
@@ -283,7 +286,7 @@ function JobList(props) {
     [setSelectedICD]
   );
   const handleImporterChange = useCallback(
-    (e) => setSelectedImporter(e.target.value),
+    (e, v) => setSelectedImporter(v),
     [setSelectedImporter]
   );
   const handleYearChange = useCallback(
@@ -336,20 +339,22 @@ function JobList(props) {
           <MenuItem value="ICD SACHANA">ICD SACHANA</MenuItem>
         </TextField>
 
-        <TextField
-          select
-          size="small"
-          value={selectedImporter || ""}
-          onChange={handleImporterChange}
+        <Autocomplete
           sx={{ width: "300px", marginRight: "20px" }}
-        >
-          <MenuItem value="">All Importers</MenuItem>
-          {importerNames.map((o) => (
-            <MenuItem key={o.key} value={o.label}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          freeSolo
+          options={importerNames.map((o) => o.label)}
+          value={selectedImporter || ""}
+          onInputChange={handleImporterChange}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              fullWidth
+              label="Select Importer"
+            />
+          )}
+        />
 
         {years.length > 0 && (
           <TextField
@@ -367,24 +372,21 @@ function JobList(props) {
           </TextField>
         )}
 
-          <TextField
-            select
-            size="small"
-            value={detailedStatus}
-            onChange={handleDetailedStatusChange}
-            sx={{ width: "250px", marginRight: "20px" }}
-          >
-            {detailedStatusOptions.map((o, i) => (
-              <MenuItem
-                key={`status-${o.id || o.value || i}`}
-                value={o.value}
-              >
-                {o.name}
-              </MenuItem>
-            ))}
-          </TextField>
+        <TextField
+          select
+          size="small"
+          value={detailedStatus}
+          onChange={handleDetailedStatusChange}
+          sx={{ width: "250px", marginRight: "20px" }}
+        >
+          {detailedStatusOptions.map((o, i) => (
+            <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
+              {o.name}
+            </MenuItem>
+          ))}
+        </TextField>
 
-        {/* Simple text search input */}
+        {/* Simple search input (no typeahead/suggestions) */}
         <TextField
           value={localInput}
           onChange={handleLocalInputChange}
@@ -394,12 +396,8 @@ function JobList(props) {
           sx={{ width: "300px", marginRight: "20px" }}
           InputProps={{
             endAdornment: (
-              <IconButton
-                size="small"
-                onClick={handleClearSearch}
-                style={{ visibility: localInput ? "visible" : "hidden" }}
-              >
-                <ClearIcon fontSize="small" />
+              <IconButton size="small" onClick={handleSearchClick}>
+                <SearchIcon fontSize="small" />
               </IconButton>
             ),
           }}
@@ -417,7 +415,7 @@ function JobList(props) {
       handleICDChange,
       importerNames,
       selectedImporter,
-      handleImporterChange,
+      setSelectedImporter,
       years,
       selectedYearState,
       handleYearChange,

@@ -13,9 +13,11 @@ import { useSearchQuery } from "../contexts/SearchQueryContext";
 import BLStatus from "./BLStatus.js";
 import SeaCargoStatus from "./SeaCargoStatus.js";
 import BLTrackingCell from "./BLTrackingCell.js";
+import axios from "axios";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 // Custom hook to manage job columns configuration
-function useJobColumns(handleRowDataUpdate, customNavigation = null) {
+function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
   const navigate = useNavigate();
   const location = useLocation();
   const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
@@ -116,12 +118,13 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
   // Optimized columns array
   const columns = useMemo(
     () => [
-      {
+  {
         accessorKey: "job_no",
         header: "Job No",
         enableSorting: false,
         size: 150,
         Cell: ({ cell }) => {
+          const row = cell.row.original;
           const {
             job_no,
             year,
@@ -132,26 +135,21 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             detailed_status,
             vessel_berthing,
             container_nos,
-          } = cell.row.original;
+          } = row;
 
-          // Color-coding logic based on job status and dates
+          // ----- existing color logic -----
           let bgColor = "";
-          let textColor = "blue"; // Default text color
-
+          let textColor = "blue";
           const currentDate = new Date();
 
-          // Function to calculate the days difference
           const calculateDaysDifference = (targetDate) => {
             const date = new Date(targetDate);
             const timeDifference = date.getTime() - currentDate.getTime();
             return Math.ceil(timeDifference / (1000 * 3600 * 24));
           };
 
-          // Check if the detailed status is "Estimated Time of Arrival"
           if (detailed_status === "Estimated Time of Arrival") {
             const daysDifference = calculateDaysDifference(vessel_berthing);
-
-            // Only apply the background color if the berthing date is today or in the future
             if (daysDifference >= 0) {
               if (daysDifference === 0) {
                 bgColor = "#ff1111";
@@ -166,10 +164,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             }
           }
 
-          // Check if the detailed status is "Billing Pending"
           if (detailed_status === "Billing Pending" && container_nos) {
             container_nos.forEach((container) => {
-              // Choose the appropriate date based on consignment type
               const targetDate =
                 consignment_type === "LCL"
                   ? container.delivery_date
@@ -177,18 +173,13 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
 
               if (targetDate) {
                 const daysDifference = calculateDaysDifference(targetDate);
-
-                // Apply colors based on past and current dates only
                 if (daysDifference <= 0 && daysDifference >= -5) {
-                  // delivery_date up to the next 5 days - White background for current and past dates
                   bgColor = "white";
                   textColor = "blue";
                 } else if (daysDifference <= -6 && daysDifference >= -10) {
-                  // 5 days following the white period - Orange background for past dates
                   bgColor = "orange";
                   textColor = "black";
                 } else if (daysDifference < -10) {
-                  // Any date beyond the orange period - Red background for past dates
                   bgColor = "red";
                   textColor = "white";
                 }
@@ -196,7 +187,6 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
             });
           }
 
-          // Apply logic for multiple containers' "detention_from" for "Custom Clearance Completed"
           if (
             (detailed_status === "Custom Clearance Completed" &&
               container_nos) ||
@@ -208,45 +198,81 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
                 container.detention_from
               );
 
-              // Apply background color based on the days difference before the current date
               if (daysDifference <= 0) {
-                // Dark Red Background for current date or older detention dates
                 bgColor = "darkred";
-                textColor = "white"; // White text on dark red background
+                textColor = "white";
               } else if (daysDifference === 1) {
-                // Red Background for 1 day before current date
                 bgColor = "red";
-                textColor = "white"; // White text on red background
+                textColor = "white";
               } else if (daysDifference === 2) {
-                // Orange Background for 2 days before current date
                 bgColor = "orange";
-                textColor = "black"; // Black text on orange background
+                textColor = "black";
               } else if (daysDifference === 3) {
-                // Yellow Background for 3 days before current date
                 bgColor = "yellow";
-                textColor = "black"; // Black text on yellow background
+                textColor = "black";
               }
             });
           }
+          // ----- end color logic -----
+
+          const handleRefresh = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              const res = await axios.get(
+                `${process.env.REACT_APP_API_STRING}/get-job/${year}/${job_no}`
+              );
+              const updatedJob = res.data;
+
+              // update only this row, keep others as-is
+              setRows((prev) =>
+                prev.map((r) =>
+                  (r._id && updatedJob._id && r._id === updatedJob._id) ||
+                  (!r._id &&
+                    r.job_no === updatedJob.job_no &&
+                    r.year === updatedJob.year)
+                    ? { ...r, ...updatedJob } // merge to keep any client-only fields
+                    : r
+                )
+              );
+
+          
+            } catch (err) {
+              console.error("Error refreshing job:", err);
+            }
+          };
+
           return (
-            <a
-              href={`/import-dsr/job/${job_no}/${year}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                cursor: "pointer",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-                display: "inline-block", // to mimic div behavior
-                textDecoration: "none",
-              }}
-            >
-              {job_no} <br /> {type_of_b_e} <br /> {consignment_type}<br />{" "}
-              {custom_house} <br/>  {payment_method}
-            </a>
+            <div style={{ textAlign: "center" }}>
+              <a
+                href={`/import-dsr/job/${job_no}/${year}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor || "transparent",
+                  padding: "10px",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                  display: "inline-block",
+                  textDecoration: "none",
+                }}
+              >
+                {job_no} <br /> {type_of_b_e} <br /> {consignment_type}
+                <br /> {custom_house} <br /> {payment_method}
+              </a>
+
+              <div style={{ marginTop: 4 }}>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  aria-label="refresh-job"
+                >
+                  <RefreshIcon fontSize="inherit" />
+                </IconButton>
+              </div>
+            </div>
           );
         },
       },
@@ -751,6 +777,8 @@ function useJobColumns(handleRowDataUpdate, customNavigation = null) {
       selectedImporter,
       handleRowDataUpdate,
       formatDate,
+      setRows, 
+      onRowUpdate,
     ]
   );
 

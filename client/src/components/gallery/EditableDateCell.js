@@ -218,13 +218,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     return `${yy}-${mm}-${dd}`;
   };
 
-  const buildFieldPayload = (fieldPath, value) => {
-    if (value === "" || value === null) {
-      return { [fieldPath]: null, __op: "unset" }; // backend should $unset
-    }
-    const normalized = normalizeDateForSave(value);
-    return { [fieldPath]: normalized };
-  };
+const buildFieldPayload = (fieldPath, value) => {
+  // value is already normalized or raw; treat "empty" as empty string
+  if (value === "" || value === null || value === undefined) {
+    return { [fieldPath]: "" };
+  }
+  const normalized = normalizeDateForSave(value);
+  return { [fieldPath]: normalized };
+};
 
   const isArrivalDateDisabled = useCallback(
     (idx) => {
@@ -264,13 +265,13 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           return next;
         });
         setContainers(updated);
+const payload = {};
+payload[`container_nos.${index}.${field}`] = "";
+if (field === "arrival_date" && !isLCL) {
+  payload[`container_nos.${index}.detention_from`] = "";
+}
 
-        const payload = {};
-        payload[`container_nos.${index}.${field}`] = null;
-        payload.__op = "unset";
-        if (field === "arrival_date" && !isLCL) {
-          payload[`container_nos.${index}.detention_from`] = null;
-        }
+
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
@@ -285,8 +286,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         setTempDateValue("");
       } else {
         setDates((d) => ({ ...d, [field]: null }));
-        const payload = { [field]: null, __op: "unset" };
-        const res = await axios.patch(
+const payload = { [field]: "" };
+        await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }
@@ -402,16 +403,18 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         setContainers(updated);
 
         const fieldPath = `container_nos.${index}.${field}`;
-        const valForSave =
-          tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
-        const payload = buildFieldPayload(fieldPath, valForSave);
-        if (field === "arrival_date" && !isLCL) {
-          payload[`container_nos.${index}.detention_from`] =
-            updated[index].detention_from || null;
-          const earliest = getEarliestDetention(updated);
-          const validity = adjustValidityDate(earliest);
-          if (validity) payload.do_validity_upto_job_level = validity;
-        }
+const valForSave =
+  tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
+const payload = buildFieldPayload(fieldPath, valForSave);
+if (field === "arrival_date" && !isLCL) {
+  payload[`container_nos.${index}.detention_from`] =
+    updated[index].detention_from || "";
+  const earliest = getEarliestDetention(updated);
+  const validity = adjustValidityDate(earliest);
+  if (validity) payload.do_validity_upto_job_level = validity;
+}
+
+
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
@@ -423,10 +426,11 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           onRowDataUpdate(_id, serverJob ? serverJob : payload);
       } else {
         const val =
-          tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
-        setDates((d) => ({ ...d, [field]: val }));
-        const payload = buildFieldPayload(field, val);
-        const res = await axios.patch(
+  tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
+setDates((d) => ({ ...d, [field]: val }));
+const payload = buildFieldPayload(field, val);
+
+        await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }

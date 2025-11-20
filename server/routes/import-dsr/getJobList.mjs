@@ -7,14 +7,13 @@ import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
 
 const router = express.Router();
 
-// Simple in-memory cache for frequently repeated queries
-// Keyed by JSON string of query + page + limit. TTL-based and bounded size.
+// ---------------- CACHE ----------------
+
 const simpleCache = new Map();
-const CACHE_MAX_ENTRIES = 200; // keep small to avoid memory pressure
-const CACHE_TTL_MS = 1000 * 60 * 2; // 2 minutes
+const CACHE_MAX_ENTRIES = 200;
+const CACHE_TTL_MS = 1000 * 60 * 2;
 
 const setCache = (key, value) => {
-  // Evict oldest if over size
   if (simpleCache.size >= CACHE_MAX_ENTRIES) {
     const firstKey = simpleCache.keys().next().value;
     simpleCache.delete(firstKey);
@@ -32,28 +31,24 @@ const getCache = (key) => {
   return entry.value;
 };
 
-// Invalidate cache entries for a specific year, or clear all if year is not provided
 const invalidateCache = (year = null) => {
   if (year === null) {
-    // Clear all cache entries
     simpleCache.clear();
     return;
   }
-  // Remove cache entries that match the specified year
-  for (const [key, value] of simpleCache.entries()) {
+  for (const [key] of simpleCache.entries()) {
     try {
       const cacheKeyObj = JSON.parse(key);
       if (cacheKeyObj.year === year) {
         simpleCache.delete(key);
       }
-    } catch (e) {
-      // If key is not valid JSON, skip it
+    } catch {
       continue;
     }
   }
 };
 
-// Status Rank Configuration
+// ---------------- STATUS RANK ----------------
 
 const statusRank = {
   "Billing Pending": { rank: 1, field: "emptyContainerOffLoadDate" },
@@ -69,6 +64,8 @@ const statusRank = {
 };
 
 const FAR_FUTURE_DATE = new Date("9999-12-31T23:59:59.999Z");
+
+// ---------------- AGG HELPERS ----------------
 
 const buildDateFromField = (fieldPath) => ({
   $dateFromString: {
@@ -133,9 +130,7 @@ const buildAllContainerDateExists = (field) => ({
   },
 });
 
-// Field selection logic
-// PERFORMANCE: Split into critical (list view) and extended (detail view) fields
-// Loading only essential fields for the table dramatically improves response time and parsing
+// ---------------- FIELD SELECTION ----------------
 
 const criticalFields = `
   _id job_no cth_no year importer custom_house hawb_hbl_no awb_bl_no 
@@ -169,10 +164,10 @@ const getSelectedFields = (status, includeExtended = false) => {
   return fields;
 };
 
-// Generate search query
-const escapeRegex = (string) => {
-  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"); // Escaping special regex characters
-};
+// ---------------- SEARCH HELPER ----------------
+
+const escapeRegex = (string) =>
+  string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 
 const buildSearchQuery = (search) => ({
   $or: [
@@ -213,7 +208,8 @@ const buildSearchQuery = (search) => ({
   ],
 });
 
-// API to fetch jobs with pagination, sorting, and search
+// ---------------- LIST API (unchanged) ----------------
+
 router.get(
   "/api/:year/jobs/:status/:detailedStatus/:selectedICD/:importer",
   applyUserImporterFilter,
@@ -234,18 +230,14 @@ router.get(
       const skip = (page - 1) * limit;
 
       const query = { year };
-
-      const escapeRegex = (string) =>
-        string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
-
       if (!query.$and) query.$and = [];
 
-      // 1) User-based importer filter
+      // 1) user importer filter
       if (req.userImporterFilter) {
         query.$and.push(req.userImporterFilter);
       }
 
-      // 2) Additional importer filter from URL
+      // 2) importer from URL
       if (
         importer &&
         importer.toLowerCase() !== "all" &&
@@ -264,7 +256,6 @@ router.get(
         const isImporterAllowed = userImporters.some(
           (userImp) => userImp.toLowerCase() === importer.toLowerCase()
         );
-
         if (isImporterAllowed) {
           query.$and = query.$and.filter((condition) => !condition.importer);
           query.importer = {
@@ -274,7 +265,7 @@ router.get(
         }
       }
 
-      // 3) ICD filtering
+      // 3) ICD
       if (selectedICD && selectedICD.toLowerCase() !== "all") {
         query.custom_house = {
           $regex: `^${escapeRegex(selectedICD)}$`,
@@ -282,7 +273,7 @@ router.get(
         };
       }
 
-      // 4) Status filtering
+      // 4) status
       const statusLower = status.toLowerCase();
 
       if (statusLower === "pending") {
@@ -321,7 +312,7 @@ router.get(
         );
       }
 
-      // 5) detailedStatus mapping
+      // 5) detailed status mapping
       const statusMapping = {
         billing_pending: "Billing Pending",
         eta_date_pending: "ETA Date Pending",
@@ -340,12 +331,12 @@ router.get(
           ? statusMapping[detailedStatus] || detailedStatus
           : null;
 
-      // 6) Search filter (regex-based)
+      // 6) search
       if (searchTerm) {
         query.$and.push(buildSearchQuery(searchTerm));
       }
 
-      // 7) unresolvedOnly filter
+      // 7) unresolvedOnly
       if (unresolvedOnly === "true") {
         query.$and.push({
           dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
@@ -356,7 +347,7 @@ router.get(
         delete query.$and;
       }
 
-      // 8) Cache key
+      // 8) cache key
       const cacheKey = JSON.stringify({
         year,
         status,
@@ -379,7 +370,7 @@ router.get(
 
       const matchStage = { $match: query };
 
-      // 10) Projection from selected fields (early to reduce size)
+      // 10) projection
       const selectedFieldsStr = getSelectedFields(
         detailedStatus === "all" ? "all" : detailedStatus,
         false
@@ -389,7 +380,7 @@ router.get(
         if (f) projection[f] = 1;
       });
 
-      // Always keep fields needed for status calculation
+      // always keep fields needed for status
       projection.be_no = 1;
       projection.type_of_b_e = 1;
       projection.consignment_type = 1;
@@ -402,7 +393,7 @@ router.get(
 
       const preProjectStage = { $project: projection };
 
-      // 11) Effective detailed_status expression
+      // 11) effective detailed_status
       const effectiveDetailedStatusExpression = {
         $let: {
           vars: {
@@ -440,8 +431,8 @@ router.get(
           in: {
             $cond: [
               "$$isExBond",
-              // Ex-Bond flow
               {
+                // Ex-bond
                 $switch: {
                   branches: [
                     {
@@ -470,8 +461,8 @@ router.get(
                   default: "ETA Date Pending",
                 },
               },
-              // Non Ex-Bond flow
               {
+                // Non Ex-bond
                 $let: {
                   vars: {
                     deliveryOrOffloadSatisfied: {
@@ -508,7 +499,11 @@ router.get(
                         },
                         {
                           case: {
-                            $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
+                            $and: [
+                              "$$bePresent",
+                              "$$anyArrival",
+                              "$$validPcv",
+                            ],
                           },
                           then: "PCV Done, Duty Payment Pending",
                         },
@@ -558,15 +553,15 @@ router.get(
       const statusRankEntries = Object.entries(statusRank);
 
       const statusRankBranches = statusRankEntries.map(
-        ([status, { rank }]) => ({
-          case: { $eq: ["$__effective_detailed_status", status] },
+        ([statusName, { rank }]) => ({
+          case: { $eq: ["$__effective_detailed_status", statusName] },
           then: rank,
         })
       );
 
       const statusDateBranches = statusRankEntries.map(
-        ([status, { field }]) => ({
-          case: { $eq: ["$__effective_detailed_status", status] },
+        ([statusName, { field }]) => ({
+          case: { $eq: ["$__effective_detailed_status", statusName] },
           then: {
             $ifNull: [
               buildDateFromField(`$container_nos.0.${field}`),
@@ -607,30 +602,24 @@ router.get(
         },
       };
 
-const dataPipeline = [];
+      const dataPipeline = [];
 
-// 1) compute effective detailed status
-dataPipeline.push({ $addFields: firstAddFields });
+      dataPipeline.push({ $addFields: firstAddFields });
 
+      if (requestedDetailedStatus) {
+        dataPipeline.push({
+          $match: { __effective_detailed_status: requestedDetailedStatus },
+        });
+      }
 
-// 3) if you also filter by requestedDetailedStatus, do it here
-if (requestedDetailedStatus) {
-  dataPipeline.push({
-    $match: { __effective_detailed_status: requestedDetailedStatus },
-  });
-}
+      dataPipeline.push({ $addFields: baseAddFields });
 
-// 4) add rank/sort helpers
-dataPipeline.push({ $addFields: baseAddFields });
+      dataPipeline.push({
+        $addFields: {
+          detailed_status: "$__effective_detailed_status",
+        },
+      });
 
-// 5) expose effective status as detailed_status
-dataPipeline.push({
-  $addFields: {
-    detailed_status: "$__effective_detailed_status",
-  },
-});
-
-      // Sort without textScore
       const sortStage = {
         $sort: {
           __status_rank: 1,
@@ -648,7 +637,6 @@ dataPipeline.push({
         { $limit: parseInt(limit) },
       ];
 
-      // metadata: no sort, just count
       const metadataPipeline = [...basePipeline, { $count: "total" }];
 
       const pipeline = [
@@ -681,8 +669,8 @@ dataPipeline.push({
       if (!bypassCache) {
         try {
           setCache(cacheKey, responsePayload);
-        } catch (e) {
-          // ignore cache set failures
+        } catch {
+          // ignore cache errors
         }
       }
 
@@ -694,14 +682,41 @@ dataPipeline.push({
   }
 );
 
-// editable patch api
-// CRITICAL: Only update nested fields (container_nos) by index, never replace the entire array
+// ---------------- PATCH API (fixed merge) ----------------
+
+const applyDotNotationToMerged = (merged, updateData) => {
+  for (const [key, value] of Object.entries(updateData)) {
+    if (key.includes(".")) {
+      const parts = key.split(".");
+      if (parts[0] === "container_nos") {
+        const idx = parseInt(parts[1], 10);
+        const field = parts[2];
+        if (
+          !Number.isNaN(idx) &&
+          merged.container_nos &&
+          merged.container_nos[idx]
+        ) {
+          merged.container_nos[idx] = {
+            ...merged.container_nos[idx],
+            [field]: value,
+          };
+        }
+      } else {
+        // other dot paths if needed in future
+      }
+    } else if (!key.startsWith("__")) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+};
+
 router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body; // Contains updated fields
+    const updateData = req.body;
 
-    // SECURITY: Prevent replacing entire container_nos array wholesale unless lengths match
+    // guard full container_nos replacement
     if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
       const existingJob = await JobModel.findById(id).select("container_nos");
       if (existingJob && existingJob.container_nos) {
@@ -716,21 +731,25 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
       }
     }
 
-    // Apply the requested update
-    // After passing the length guard:
     const existing = await JobModel.findById(id).lean();
-    if (!existing)
-      return res.status(404).json({ success: false, message: "Job not found" });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Job not found" });
+    }
 
-    const merged = { ...existing, ...updateData };
+    let merged = { ...existing };
+
+    // apply dot-notation changes into merged
+    merged = applyDotNotationToMerged(merged, updateData);
+
+    // if full container_nos array sent, override
     if (existing.container_nos && updateData.container_nos) {
-      merged.container_nos = updateData.container_nos; // or deeply merge as needed
+      merged.container_nos = updateData.container_nos;
     }
 
     const recomputedStatus = determineDetailedStatus(merged);
-    const rowColor = getRowColorFromStatus(
-      recomputedStatus || existing.detailed_status
-    );
+    const rowColor = getRowColorFromStatus(recomputedStatus);
 
     const finalDoc = await JobModel.findByIdAndUpdate(
       id,
@@ -747,18 +766,18 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
     if (finalDoc?.year) invalidateCache(finalDoc.year);
     else invalidateCache();
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Job updated successfully",
-        data: finalDoc,
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Job updated successfully",
+      data: finalDoc,
+    });
   } catch (error) {
     console.error("Error updating job:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
+
+// ---------------- SINGLE JOB FETCH ----------------
 
 router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   try {
@@ -773,7 +792,6 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    // Return job data for PDF generation
     res.json({
       success: true,
       data: job,
@@ -783,6 +801,5 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 });
-
 
 export default router;

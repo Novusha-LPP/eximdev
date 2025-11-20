@@ -272,26 +272,28 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           payload[`container_nos.${index}.detention_from`] = null;
         }
 
-        await axios.patch(
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }
         );
+        const serverJob = res?.data?.data || res?.data?.job || null;
         if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, payload);
+          onRowDataUpdate(_id, serverJob ? serverJob : payload);
 
         setEditable(`${field}_${index}`);
         setTempDateValue("");
       } else {
         setDates((d) => ({ ...d, [field]: null }));
         const payload = { [field]: null, __op: "unset" };
-        await axios.patch(
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }
         );
+        const serverJob = res?.data?.data || res?.data?.job || null;
         if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, payload);
+          onRowDataUpdate(_id, serverJob ? serverJob : payload);
         setEditable(field);
         setTempDateValue("");
       }
@@ -327,8 +329,8 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           { free_time: value },
           { headers }
         );
-        if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, { free_time: value });
+            if (typeof onRowDataUpdate === "function")
+              onRowDataUpdate(_id, { free_time: value });
 
         const updated = containers.map((c) => {
           if (!c.arrival_date) return c;
@@ -352,13 +354,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         if (validity) payload.do_validity_upto_job_level = validity;
 
         if (Object.keys(payload).length > 0) {
-          await axios.patch(
+          const res2 = await axios.patch(
             `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
             payload,
             { headers }
           );
+          const serverJob2 = res2?.data?.data || res2?.data?.job || null;
           if (typeof onRowDataUpdate === "function")
-            onRowDataUpdate(_id, payload);
+            onRowDataUpdate(_id, serverJob2 ? serverJob2 : payload);
         }
       } catch (e) {
         console.error("Free time update failed:", e);
@@ -410,25 +413,27 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
           if (validity) payload.do_validity_upto_job_level = validity;
         }
 
-        await axios.patch(
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }
         );
+        const serverJob = res?.data?.data || res?.data?.job || null;
         if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, payload);
+          onRowDataUpdate(_id, serverJob ? serverJob : payload);
       } else {
         const val =
           tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
         setDates((d) => ({ ...d, [field]: val }));
         const payload = buildFieldPayload(field, val);
-        await axios.patch(
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }
         );
+        const serverJob = res?.data?.data || res?.data?.job || null;
         if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, payload);
+          onRowDataUpdate(_id, serverJob ? serverJob : payload);
       }
       setEditable(null);
     } catch (e) {

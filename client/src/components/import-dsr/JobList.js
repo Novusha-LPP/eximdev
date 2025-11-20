@@ -204,12 +204,65 @@ function JobList(props) {
       setRows((prev) => {
         const updated = prev.map((r) => {
           if (r._id !== jobId) return r;
-          const next = { ...r, ...updatedData };
-          if (updatedData.container_nos) {
-            next.container_nos = Array.isArray(updatedData.container_nos)
-              ? [...updatedData.container_nos]
-              : updatedData.container_nos;
+
+          // Start with a shallow copy of the existing row
+          const next = { ...r };
+
+          // If updatedData is an object, merge keys into `next`.
+          // Support dotted paths like 'container_nos.0.arrival_date'.
+          if (updatedData && typeof updatedData === "object") {
+            Object.entries(updatedData).forEach(([k, v]) => {
+              if (k === "__op") return; // ignore op marker
+
+              if (k.includes(".")) {
+                const parts = k.split(".");
+
+                // Ensure top-level array/object exists (common case: container_nos)
+                if (parts[0] === "container_nos") {
+                  if (!Array.isArray(next.container_nos)) {
+                    next.container_nos = Array.isArray(r.container_nos)
+                      ? [...r.container_nos]
+                      : [];
+                  }
+                }
+
+                let cur = next;
+                for (let i = 0; i < parts.length; i++) {
+                  const p = parts[i];
+                  const isLast = i === parts.length - 1;
+                  const nextPart = parts[i + 1];
+
+                  if (isLast) {
+                    // assign final value
+                    if (Array.isArray(cur) && /^\d+$/.test(p)) {
+                      cur[parseInt(p, 10)] = v;
+                    } else {
+                      cur[p] = v;
+                    }
+                  } else {
+                    // prepare next container
+                    if (/^\d+$/.test(nextPart)) {
+                      // next should be an array
+                      if (!cur[p]) cur[p] = [];
+                      if (!Array.isArray(cur[p])) cur[p] = [];
+                      cur = cur[p];
+                    } else {
+                      if (!cur[p] || typeof cur[p] !== "object") cur[p] = {};
+                      cur = cur[p];
+                    }
+                  }
+                }
+              } else {
+                // simple top-level key
+                if (k === "container_nos" && Array.isArray(v)) {
+                  next.container_nos = [...v];
+                } else {
+                  next[k] = v;
+                }
+              }
+            });
           }
+
           return next;
         });
         const updatedJob = updated.find((j) => j._id === jobId);
@@ -229,7 +282,42 @@ function JobList(props) {
         return updated;
       });
       setRefreshTrigger((x) => x + 1);
-      setTimeout(() => fetchJobs(currentPage, showUnresolvedOnly, true), 300);
+
+      // Debug info: log update details to help trace disappearing rows
+      try {
+        console.log(
+          "handleRowDataUpdate:",
+          { jobId, updatedData },
+          "currentFilter:",
+          detailedStatus,
+          "page:",
+          currentPage,
+          new Date().toISOString()
+        );
+      } catch (e) {
+        /* ignore */
+      }
+
+      // Only refetch page if the job's detailed_status changed (moved between filters).
+      // This avoids immediate refetch that may remove the row if server-side logic briefly
+      // changes data while we're editing simple fields like ETA.
+      const shouldRefetch = (() => {
+        try {
+          // updatedData may be a full server job or a partial payload
+          const newStatus =
+            (updatedData && updatedData.detailed_status) || null;
+          // find previous status from current rows (rows state may be stale here; use fetchJobs as fallback)
+          const prev = rows.find((r) => r._id === jobId);
+          const prevStatus = prev ? prev.detailed_status : null;
+          return newStatus && prevStatus && newStatus !== prevStatus;
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      if (shouldRefetch) {
+        setTimeout(() => fetchJobs(currentPage, showUnresolvedOnly, true), 300);
+      }
     },
     [
       selectedYearState,

@@ -287,7 +287,7 @@ if (field === "arrival_date" && !isLCL) {
       } else {
         setDates((d) => ({ ...d, [field]: null }));
 const payload = { [field]: "" };
-        await axios.patch(
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }
@@ -403,18 +403,16 @@ const payload = { [field]: "" };
         setContainers(updated);
 
         const fieldPath = `container_nos.${index}.${field}`;
-const valForSave =
-  tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
-const payload = buildFieldPayload(fieldPath, valForSave);
-if (field === "arrival_date" && !isLCL) {
-  payload[`container_nos.${index}.detention_from`] =
-    updated[index].detention_from || "";
-  const earliest = getEarliestDetention(updated);
-  const validity = adjustValidityDate(earliest);
-  if (validity) payload.do_validity_upto_job_level = validity;
-}
-
-
+        const valForSave =
+          tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
+        const payload = buildFieldPayload(fieldPath, valForSave);
+        if (field === "arrival_date" && !isLCL) {
+          payload[`container_nos.${index}.detention_from`] =
+            updated[index].detention_from || null;
+          const earliest = getEarliestDetention(updated);
+          const validity = adjustValidityDate(earliest);
+          if (validity) payload.do_validity_upto_job_level = validity;
+        }
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
@@ -426,11 +424,10 @@ if (field === "arrival_date" && !isLCL) {
           onRowDataUpdate(_id, serverJob ? serverJob : payload);
       } else {
         const val =
-  tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
-setDates((d) => ({ ...d, [field]: val }));
-const payload = buildFieldPayload(field, val);
-
-        await axios.patch(
+          tempDateValue === "" ? "" : normalizeDateForSave(tempDateValue);
+        setDates((d) => ({ ...d, [field]: val }));
+        const payload = buildFieldPayload(field, val);
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           payload,
           { headers }

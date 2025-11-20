@@ -428,31 +428,29 @@ function JobList(props) {
     ]
   );
 
-  const columns = useJobColumns(
-    (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
-    (job_no, year) =>
-      navigate(`/import-dsr/job/${job_no}/${year}`, {
-        state: {
-          fromJobList: true,
-          currentTab: (() => {
-            switch (props.status) {
-              case "Pending":
-                return 0;
-              case "Completed":
-                return 1;
-              case "Cancelled":
-                return 2;
-              default:
-                return 0;
-            }
-          })(),
-          searchQuery,
-          detailedStatus,
-          selectedICD,
-          selectedImporter,
-        },
-      })
-  );
+const columns = useJobColumns(
+  (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
+  (job_no, year) =>
+    navigate(`/import-dsr/job/${job_no}/${year}`, {
+      state: {
+        fromJobList: true,
+        currentTab: (() => {
+          switch (props.status) {
+            case "Pending": return 0;
+            case "Completed": return 1;
+            case "Cancelled": return 2;
+            default: return 0;
+          }
+        })(),
+        searchQuery,
+        detailedStatus,
+        selectedICD,
+        selectedImporter,
+      },
+    }),
+  setRows // <-- pass here
+);
+
 
   const table = useMaterialReactTable({
     columns,

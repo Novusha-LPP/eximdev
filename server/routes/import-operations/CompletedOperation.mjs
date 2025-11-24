@@ -25,6 +25,19 @@ router.get(
       const limitNumber = parseInt(limit, 10);
       const skip = (pageNumber - 1) * limitNumber;
 
+      // Arrival condition
+let arrivalCondition =
+  type_of_b_e === "Ex-Bond"
+    ? {} // no arrival check
+    : {
+        container_nos: {
+          $elemMatch: {
+            arrival_date: { $exists: true, $ne: null, $ne: "" },
+          },
+        },
+      };
+
+
       if (isNaN(pageNumber) || pageNumber < 1) {
         return res.status(400).json({ message: "Invalid page number" });
       }
@@ -75,21 +88,18 @@ router.get(
       }
 
       // Base AND conditions
-      const andConditions = [
-        icdCondition,
-        importerCondition,
-        searchCondition,
-        {
-          completed_operation_date: { $nin: [null, ""] },
-          be_no: { $nin: [null, ""], $not: /cancelled/i },
-          be_date: { $nin: [null, ""] },
-          container_nos: {
-            $elemMatch: {
-              arrival_date: { $exists: true, $ne: null, $ne: "" },
-            },
-          },
-        },
-      ];
+const andConditions = [
+  icdCondition,
+  importerCondition,
+  searchCondition,
+  {
+    completed_operation_date: { $nin: [null, ""] },
+    be_no: { $nin: [null, ""], $not: /cancelled/i },
+    be_date: { $nin: [null, ""] },
+    ...arrivalCondition,
+  },
+];
+
 
       if (year) {
         andConditions.push({ year });

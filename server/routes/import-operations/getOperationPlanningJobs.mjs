@@ -31,6 +31,17 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     unresolvedOnly
   } = req.query;
 
+// Arrival condition
+let arrivalCondition =
+  type_of_b_e === "Ex-Bond"
+    ? {} // no arrival check
+    : {
+        container_nos: {
+          $elemMatch: {
+            arrival_date: { $exists: true, $ne: null, $ne: "" },
+          },
+        },
+      };
 
   // Validate query parameters
   const pageNumber = parseInt(page, 10);
@@ -67,17 +78,16 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     const searchQuery = search ? buildSearchQuery(search) : {};
 
     // **Base conditions for job filtering**
-    let baseConditions = {
-      status: "Pending",
-      be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
-      container_nos: {
-        $elemMatch: { arrival_date: { $exists: true, $ne: null, $ne: "" } },
-      },
-      $or: [
-        { completed_operation_date: { $exists: false } },
-        { completed_operation_date: "" },
-      ],
-    };
+let baseConditions = {
+  status: "Pending",
+  be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
+  ...arrivalCondition,
+  $or: [
+    { completed_operation_date: { $exists: false } },
+    { completed_operation_date: "" },
+  ],
+};
+
 
     // **Importer filter (NEW)**
     let importerCondition = {};

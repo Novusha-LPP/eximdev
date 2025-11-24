@@ -83,13 +83,27 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
               }
             }
           },
-          remarks: {
-            $cond: [
-              { $in: ["$cth_no", SCRAP_HS_CODES] },
-              "SCRAP",
-              "OTHERS"
-            ]
-          }
+     remarks: {
+  $concat: [
+    {
+      $cond: [
+        { $in: ["$cth_no", SCRAP_HS_CODES] },
+        "SCRAP",
+        "OTHERS"
+      ]
+    },
+    "\n", // Add a line break
+    {
+      $cond: [
+        { $eq: [{ $toLower: "$RMS" }, "yes"] },
+        "RMS",
+        "No RMS"
+      ]
+    }
+  ]
+}
+
+
         }
       },
       {

@@ -292,93 +292,122 @@ const DetailedReport = () => {
     }
   };
 
-  const exportToExcel = async () => {
-    const workbook = XLSX.utils.book_new();
-    
-    // Prepare main data
-    const excelData = data.map((row, index) => {
-      const excelRow = {};
-      columns.forEach(col => {
-        switch (col.key) {
-          case 'srlNo':
-            excelRow[col.label] = String(index + 1).padStart(3, "0");
-            break;
-          case 'containerNumbers':
-            excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
-            break;
-          case 'be_date':
-            excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
-            break;
-          case 'out_of_charge':
-            excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
-            break;
-          default:
-            excelRow[col.label] = row[col.key] || '';
-        }
-      });
-      return excelRow;
-    });
-
-    // Create main worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    
-    // Auto-fit columns
-    const range = XLSX.utils.decode_range(worksheet['!ref']);
-    const colWidths = [];
-    
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      let maxWidth = 0;
-      for (let row = range.s.r; row <= range.e.r; row++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-        const cell = worksheet[cellAddress];
-        if (cell && cell.v) {
-          const cellValue = String(cell.v);
-          maxWidth = Math.max(maxWidth, cellValue.length);
-        }
+const exportToExcel = async () => {
+  const workbook = XLSX.utils.book_new();
+  
+  // Prepare main data
+  const excelData = data.map((row, index) => {
+    const excelRow = {};
+    columns.forEach(col => {
+      switch (col.key) {
+        case 'srlNo':
+          excelRow[col.label] = String(index + 1).padStart(3, "0");
+          break;
+        case 'containerNumbers':
+          excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
+          break;
+        case 'be_date':
+          excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
+          break;
+        case 'out_of_charge':
+          excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
+          break;
+        case 'remarks':
+          // Preserve newline in remarks column
+          excelRow[col.label] = row[col.key] || '';
+          break;
+        default:
+          excelRow[col.label] = row[col.key] || '';
       }
-      colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
-    }
-    worksheet['!cols'] = colWidths;
-
-    // Add main worksheet
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
-
-    // Create summary worksheet using generateSummaryRows
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
-    const summarySheet = [];
-    summarySheet.push([`Summary -- ${monthName} --${year}`]);
-    summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
-    const summaryRows = generateSummaryRows();
-    summaryRows.forEach(row => {
-      summarySheet.push([
-        row.location,
-        row.details,
-        row.count20,
-        row.count40,
-        row.teus,
-        row.containers
-      ]);
     });
+    return excelRow;
+  });
 
-    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
-    // Auto-fit summary columns
-    const summaryColWidths = [
-      { wch: 20 }, // Particulars
-      { wch: 12 }, // Details
-      { wch: 8 },  // 20
-      { wch: 8 },  // 40
-      { wch: 10 }, // TEUS
-      { wch: 10 }  // Containers
-    ];
-    summaryWorksheet['!cols'] = summaryColWidths;
+  // Create main worksheet
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  
+  // Auto-fit columns
+  const range = XLSX.utils.decode_range(worksheet['!ref']);
+  const colWidths = [];
+  let remarksColIndex = -1;
+  
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    let maxWidth = 0;
+    for (let row = range.s.r; row <= range.e.r; row++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      const cell = worksheet[cellAddress];
+      if (cell && cell.v) {
+        const cellValue = String(cell.v);
+        maxWidth = Math.max(maxWidth, cellValue.length);
+      }
+    }
+    colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
+    
+    // Find remarks column index
+    if (worksheet[XLSX.utils.encode_cell({ r: 0, c: col })]?.v === 'REMARKS') {
+      remarksColIndex = col;
+    }
+  }
+  worksheet['!cols'] = colWidths;
 
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+  // Apply text wrapping to remarks column cells
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    if (remarksColIndex !== -1) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: remarksColIndex });
+      if (worksheet[cellAddress]) {
+        worksheet[cellAddress].z = '@'; // Text format
+        if (!worksheet[cellAddress].s) {
+          worksheet[cellAddress].s = {};
+        }
+        worksheet[cellAddress].s.alignment = {
+          wrapText: true,
+          vertical: 'top',
+          horizontal: 'center'
+        };
+      }
+    }
+  }
 
-    // Generate filename and save
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `clearance_report_${monthName}_${year}_${timestamp}.xlsx`;
-    XLSX.writeFile(workbook, filename);
-  };
+  // Add main worksheet
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
+
+  // Create summary worksheet using generateSummaryRows
+  const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+  const summarySheet = [];
+  summarySheet.push([`Summary -- ${monthName} --${year}`]);
+  summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
+  const summaryRows = generateSummaryRows();
+  summaryRows.forEach(row => {
+    summarySheet.push([
+      row.location,
+      row.details,
+      row.count20,
+      row.count40,
+      row.teus,
+      row.containers
+    ]);
+  });
+
+  const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
+  // Auto-fit summary columns
+  const summaryColWidths = [
+    { wch: 20 }, // Particulars
+    { wch: 12 }, // Details
+    { wch: 8 },  // 20
+    { wch: 8 },  // 40
+    { wch: 10 }, // TEUS
+    { wch: 10 }  // Containers
+  ];
+  summaryWorksheet['!cols'] = summaryColWidths;
+
+  XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+
+  // Generate filename and save
+  const timestamp = new Date().toISOString().slice(0, 10);
+  const filename = `clearance_report_${monthName}_${year}_${timestamp}.xlsx`;
+  XLSX.writeFile(workbook, filename);
+};
+
 
   const exportToPDF = async () => {
     const doc = new jsPDF('l', 'mm', 'a4');
@@ -982,12 +1011,22 @@ const DetailedReport = () => {
                         >
                           {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
                         </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          {row.remarks}
-                        </TableCell>
+<TableCell 
+  align="center" 
+  sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
+>
+  {row.remarks
+    ? row.remarks.split('\n').map((line, idx) => (
+        <React.Fragment key={idx}>
+          {line}
+          {idx < row.remarks.split('\n').length - 1 && <br />}
+        </React.Fragment>
+      ))
+    : ""}
+</TableCell>
+
+
+
                       </TableRow>
                     ))}
               </TableBody>

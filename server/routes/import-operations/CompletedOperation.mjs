@@ -26,16 +26,18 @@ router.get(
       const skip = (pageNumber - 1) * limitNumber;
 
       // Arrival condition
-let arrivalCondition =
-  type_of_b_e === "Ex-Bond"
-    ? {} // no arrival check
-    : {
-        container_nos: {
-          $elemMatch: {
-            arrival_date: { $exists: true, $ne: null, $ne: "" },
-          },
+const arrivalCondition = {
+  $or: [
+    { type_of_b_e: "Ex-Bond" },
+    {
+      container_nos: {
+        $elemMatch: {
+          arrival_date: { $exists: true, $ne: null, $ne: "" },
         },
-      };
+      },
+    },
+  ],
+};
 
 
       if (isNaN(pageNumber) || pageNumber < 1) {

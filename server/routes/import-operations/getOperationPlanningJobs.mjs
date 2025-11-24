@@ -32,16 +32,18 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
   } = req.query;
 
 // Arrival condition
-let arrivalCondition =
-  type_of_b_e === "Ex-Bond"
-    ? {} // no arrival check
-    : {
-        container_nos: {
-          $elemMatch: {
-            arrival_date: { $exists: true, $ne: null, $ne: "" },
-          },
+const arrivalCondition = {
+  $or: [
+    { type_of_b_e: "Ex-Bond" },
+    {
+      container_nos: {
+        $elemMatch: {
+          arrival_date: { $exists: true, $ne: null, $ne: "" },
         },
-      };
+      },
+    },
+  ],
+};
 
   // Validate query parameters
   const pageNumber = parseInt(page, 10);

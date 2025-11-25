@@ -31,14 +31,16 @@ router.get("/api/get-operations-planning-jobs/:username", applyUserIcdFilter, as
     unresolvedOnly
   } = req.query;
 
-// Arrival condition
+// Arrival condition: allow missing arrival_date only for Ex-Bond jobs,
+// otherwise require at least one container with a non-empty arrival_date.
 const arrivalCondition = {
   $or: [
-    { type_of_b_e: "Ex-Bond" },
+    // match Ex-Bond, Ex Bond, ex-bond, etc.
+    { type_of_b_e: { $regex: /^Ex-?Bond$/i } },
     {
       container_nos: {
         $elemMatch: {
-          arrival_date: { $exists: true, $ne: null, $ne: "" },
+          arrival_date: { $exists: true, $nin: [null, ""] },
         },
       },
     },
@@ -187,9 +189,9 @@ let baseConditions = {
     jobs.forEach((job) => {
       const { out_of_charge, examination_planning_date, be_no, container_nos } =
         job;
-      const anyContainerArrivalDate = container_nos?.some(
-        (container) => container.arrival_date
-      );
+      // explicit boolean: at least one container has a non-empty arrival_date
+      const anyContainerArrivalDate = Array.isArray(container_nos) &&
+        container_nos.some((container) => container && container.arrival_date && container.arrival_date !== "");
 
       if (out_of_charge) {
         greenJobs.push({ ...job._doc });

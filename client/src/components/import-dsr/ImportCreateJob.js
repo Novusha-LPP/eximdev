@@ -146,14 +146,17 @@ const ImportCreateJob = () => {
     setSallerName,
     setBankName,
     bankName
+    ,
+    ie_code_no,
+    setIeCodeNo
   } = useImportJobForm();
-
+  
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
   const [selectedYear, setSelectedYear] = useState("");
   const years = ["24-25", "25-26", "26-27"]; // Add more ranges as needed
   const [selectedImporter, setSelectedImporter] = useState("");
-  const [importers, setImporters] = useState("");
+  const [importers, setImporters] = useState([]);
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
 
   React.useEffect(() => {
@@ -300,7 +303,26 @@ const ImportCreateJob = () => {
             freeSolo
             options={importerNames.map((option) => option.label)}
             value={importer || ""} // Controlled value
-            onInputChange={(event, newValue) => setImporter(newValue)} // Handles input change
+            onInputChange={(event, newValue) => {
+              setImporter(newValue);
+              // clear IE code while user types
+              setIeCodeNo("");
+            }} // Handles input change
+            onChange={(event, newValue) => {
+              // when user selects from list, set importer and IE code
+              const sel = newValue || "";
+              setImporter(sel);
+              const found = Array.isArray(importers)
+                ? importers.find((it) => it.importer === sel)
+                : null;
+              if (found) {
+                // prefer server field name ie_code_no, support other variants
+                const code = found.ie_code_no || found.ieCode || found.iecode || found.ie_code || "";
+                setIeCodeNo(code || "");
+              } else {
+                setIeCodeNo("");
+              }
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -310,6 +332,21 @@ const ImportCreateJob = () => {
                 helperText="Start typing to see suggestions"
               />
             )}
+          />
+        </Grid>
+
+        {/* IE Code (display-only) */}
+        <Grid item xs={12} md={6}>
+          <Typography variant="body1" style={{ fontWeight: 600 }}>
+            IE Code:
+          </Typography>
+          <TextField
+            value={ie_code_no || ""}
+            variant="outlined"
+            size="small"
+            fullWidth
+            InputProps={{ readOnly: true }}
+            helperText={ie_code_no ? "IE Code loaded from database" : "Select importer to populate IE Code"}
           />
         </Grid>
 

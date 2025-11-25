@@ -28,6 +28,7 @@ router.get("/api/get-importer-list/:year", async (req, res) => {
       {
         $group: {
           _id: { importer: "$importer", importerURL: "$importerURL" },
+          ie_code_no: { $first: "$ie_code_no" },
         },
       },
       {
@@ -35,6 +36,7 @@ router.get("/api/get-importer-list/:year", async (req, res) => {
           _id: 0,
           importer: "$_id.importer",
           importerURL: "$_id.importerURL",
+          ie_code_no: "$ie_code_no",
         },
       },
       { $sort: { importer: 1 } },

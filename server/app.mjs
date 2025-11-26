@@ -39,6 +39,7 @@ Sentry.init({
 // Import routes
 import getAllUsers from "./routes/getAllUsers.mjs";
 import getImporterList from "./routes/getImporterList.mjs";
+import getSupplierExporterList from "./routes/getSupplierExporterList.mjs";
 import getJobById from "./routes/getJobById.mjs";
 import getUser from "./routes/getUser.mjs";
 import getUserData from "./routes/getUserData.mjs";
@@ -279,7 +280,8 @@ if (cluster.isPrimary) {
       });
       // app.use(updateJobCount);
       app.use(getAllUsers);
-      app.use(getImporterList);      
+      app.use(getImporterList);
+      app.use(getSupplierExporterList);      
       app.use(getJobById);
       app.use(updateDutyFromCth);
       app.use(getUser);

@@ -158,6 +158,7 @@ const ImportCreateJob = () => {
   const [selectedImporter, setSelectedImporter] = useState("");
   const [importers, setImporters] = useState([]);
   const [isCheckedHouse, setIsCheckedHouse] = useState("");
+  const [suppliers, setSuppliers] = useState([]);
 
   React.useEffect(() => {
     async function getImporterList() {
@@ -170,6 +171,23 @@ const ImportCreateJob = () => {
       }
     }
     getImporterList();
+  }, [selectedYear]);
+
+  React.useEffect(() => {
+    async function getSupplierExporterList() {
+      if (selectedYear) {
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/get-supplier-exporter-list/${selectedYear}`
+          );
+          setSuppliers(res.data);
+        } catch (error) {
+          console.error("Error fetching supplier/exporter list:", error);
+          setSuppliers([]);
+        }
+      }
+    }
+    getSupplierExporterList();
   }, [selectedYear]);
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
@@ -408,13 +426,26 @@ const ImportCreateJob = () => {
           <Typography variant="body1" style={{ fontWeight: 600 }}>
             Supplier/Exporter
           </Typography>
-          <TextField
-            value={supplier_exporter}
-            onChange={(e) => setSupplierExporter(e.target.value)}
-            variant="outlined"
-            size="small"
-            placeholder="Enter Supplier/Exporter"
-            fullWidth
+          <Autocomplete
+            freeSolo
+            options={suppliers
+              .map((item) => item.supplier_exporter)
+              .filter((name) => name && name.trim() !== "")
+              .sort()}
+            value={supplier_exporter || ""}
+            onInputChange={(event, newValue) => {
+              setSupplierExporter(newValue);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                placeholder="Enter or select Supplier/Exporter"
+                helperText="Start typing to see suggestions or enter a new name"
+                fullWidth
+              />
+            )}
           />
         </Grid>
 

@@ -658,6 +658,64 @@ router.get(
       const jobs = aggResult[0]?.data || [];
       const totalCount = (metadata[0] && metadata[0].total) || 0;
 
+      // Background lazy-sync: if any of the jobs returned on this page
+      // have a stored `detailed_status` that differs from the
+      // computed/effective one, persist the effective value in DB
+      // asynchronously. This avoids a full migration while keeping
+      // counts accurate over time. Do not block the response on this.
+      try {
+        (async () => {
+          try {
+            if (!jobs || jobs.length === 0) return;
+            const ids = jobs.map((j) => j._id).filter(Boolean);
+            if (ids.length === 0) return;
+
+            const storedDocs = await JobModel.find({ _id: { $in: ids } })
+              .select("detailed_status year _id")
+              .lean();
+
+            const storedMap = new Map();
+            storedDocs.forEach((d) => storedMap.set(String(d._id), d));
+
+            const bulkOps = [];
+            for (const j of jobs) {
+              const idStr = String(j._id);
+              const stored = storedMap.get(idStr);
+              const effective = j.detailed_status || j.__effective_detailed_status;
+              const storedVal = stored && stored.detailed_status ? String(stored.detailed_status) : null;
+              if (storedVal !== effective) {
+                bulkOps.push({
+                  updateOne: {
+                    filter: { _id: j._id },
+                    update: {
+                      $set: {
+                        detailed_status: effective,
+                        row_color: getRowColorFromStatus(effective),
+                      },
+                    },
+                  },
+                });
+              }
+            }
+
+            if (bulkOps.length > 0) {
+              try {
+                await JobModel.bulkWrite(bulkOps, { ordered: false });
+                // Invalidate cache for the year(s) touched so subsequent reads see updated values
+                // Use a simple invalidate to be safe.
+                invalidateCache();
+              } catch (err) {
+                console.error("Lazy-sync bulkWrite error:", err);
+              }
+            }
+          } catch (err) {
+            console.error("Lazy-sync error:", err);
+          }
+        })();
+      } catch (err) {
+        console.error("Error scheduling lazy-sync:", err);
+      }
+
       const responsePayload = {
         data: jobs,
         total: totalCount,

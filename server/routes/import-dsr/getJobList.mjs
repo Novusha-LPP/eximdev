@@ -823,7 +823,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     if (finalDoc?.year) invalidateCache(finalDoc.year);
     else invalidateCache();
-
+    
     return res.status(200).json({
       success: true,
       message: "Job updated successfully",

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { IconButton } from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShip, faAnchor } from '@fortawesome/free-solid-svg-icons';
-import BLStatus from './BLStatus';
-import SeaCargoStatus from './SeaCargoStatus';
+import React, { useState } from "react";
+import { IconButton } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faShip, faAnchor } from "@fortawesome/free-solid-svg-icons";
+import BLStatus from "./BLStatus";
+import SeaCargoStatus from "./SeaCargoStatus";
 
 const BLTrackingCell = ({
   blNumber,
@@ -15,16 +15,20 @@ const BLTrackingCell = ({
   jobId,
   portOfReporting,
   containerNos,
-  onCopy
+  onCopy,
+  onUpdateSuccess, // Add this prop to handle updates
+  invalidateCache, // Add this prop for cache invalidation
+  selectedYear, // Add this prop for the current year
 }) => {
   const [isAirCargoDialogOpen, setIsAirCargoDialogOpen] = useState(false);
   const [isSeaCargoDialogOpen, setIsSeaCargoDialogOpen] = useState(false);
-  const [selectedMawb, setSelectedMawb] = useState('');
-  const [selectedBL, setSelectedBL] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedMawb, setSelectedMawb] = useState("");
+  const [selectedBL, setSelectedBL] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
 
   // Extract location code
-  const locationCode = portOfReporting?.match(/\(([^)]+)\)/)?.[1] || portOfReporting;
+  const locationCode =
+    portOfReporting?.match(/\(([^)]+)\)/)?.[1] || portOfReporting;
 
   // Build shipping line URLs
   const containerFirst = containerNos?.[0]?.container_number || "";
@@ -75,6 +79,19 @@ const BLTrackingCell = ({
     setIsSeaCargoDialogOpen(true);
   };
 
+  // Handle successful update from SeaCargoStatus
+  const handleSeaCargoUpdate = (responseData) => {
+    // Invalidate cache if function is provided
+    if (invalidateCache && selectedYear) {
+      invalidateCache(selectedYear);
+    }
+
+    // Call parent's update handler if provided
+    if (onUpdateSuccess) {
+      onUpdateSuccess(jobId, responseData.data);
+    }
+  };
+
   // Render number block with icons
   const renderNumberBlock = (num, label) => {
     if (!num) return null;
@@ -89,13 +106,13 @@ const BLTrackingCell = ({
           href="#"
           onClick={(e) => handleOpenAirCargoDialog(e, num)}
           style={{
-            cursor: 'pointer',
-            color: '#1976d2',
-            textDecoration: 'none',
-            fontWeight: 500
+            cursor: "pointer",
+            color: "#1976d2",
+            textDecoration: "none",
+            fontWeight: 500,
           }}
-          onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-          onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+          onMouseOver={(e) => (e.target.style.textDecoration = "underline")}
+          onMouseOut={(e) => (e.target.style.textDecoration = "none")}
         >
           {num}
         </a>
@@ -108,10 +125,7 @@ const BLTrackingCell = ({
           }}
         >
           {/* Copy Number */}
-          <IconButton
-            size="small"
-            onClick={(event) => onCopy?.(event, num)}
-          >
+          <IconButton size="small" onClick={(event) => onCopy?.(event, num)}>
             <abbr title={`Copy ${label}`}>
               <ContentCopyIcon fontSize="inherit" />
             </abbr>
@@ -131,7 +145,11 @@ const BLTrackingCell = ({
             <a
               href="#"
               onClick={(e) => handleOpenSeaCargoDialog(e, num)}
-              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
             >
               <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
             </a>
@@ -165,6 +183,9 @@ const BLTrackingCell = ({
         onClose={() => setIsSeaCargoDialogOpen(false)}
         location={selectedLocation}
         masterBlNo={selectedBL}
+        onUpdateSuccess={handleSeaCargoUpdate}
+        invalidateCache={invalidateCache}
+        selectedYear={selectedYear}
       />
     </>
   );

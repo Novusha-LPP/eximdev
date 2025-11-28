@@ -17,7 +17,13 @@ import axios from "axios";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
 // Custom hook to manage job columns configuration
-function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
+function useJobColumns(
+  handleRowDataUpdate,
+  onRowUpdate,
+  setRows,
+  invalidateCache,
+  selectedYear
+) {
   const navigate = useNavigate();
   const location = useLocation();
   const { searchQuery, detailedStatus, selectedICD, selectedImporter } =
@@ -95,30 +101,10 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
     []
   );
 
-  // const getCustomHouseLocation = useMemo(
-  //   () => (customHouse) => {
-  //     const houseMap = {
-  //       "ICD SACHANA": "SACHANA ICD (INJKA6)",
-  //       "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-  //       "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-  //     };
-  //     return houseMap[customHouse] || customHouse;
-  //   },
-  //   []
-  // );
-
-  // const formatDate = useCallback((dateStr) => {
-  //   const date = new Date(dateStr);
-  //   const year = date.getFullYear();
-  //   const month = String(date.getMonth() + 1).padStart(2, "0");
-  //   const day = String(date.getDate()).padStart(2, "0");
-  //   return `${year}/${month}/${day}`;
-  // }, []);
-
   // Optimized columns array
   const columns = useMemo(
     () => [
-  {
+      {
         accessorKey: "job_no",
         header: "Job No",
         enableSorting: false,
@@ -235,8 +221,6 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
                     : r
                 )
               );
-
-          
             } catch (err) {
               console.error("Error refreshing job:", err);
             }
@@ -346,6 +330,9 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
               portOfReporting={row?.original?.port_of_reporting || ""}
               containerNos={row?.original?.container_nos || []}
               onCopy={handleCopy}
+              onUpdateSuccess={handleRowDataUpdate}
+              invalidateCache={invalidateCache}
+              selectedYear={selectedYear}
             />
 
             {/* REST OF YOUR CUSTOM CONTENT */}
@@ -488,30 +475,6 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
           );
         },
       },
-      // {
-      //   accessorKey: "arrival_date",
-      //   header: "Arrival Date",
-      //   size: 150,
-      //   Cell: ({ cell }) =>
-      //     cell.row.original.container_nos?.map((container, id) => (
-      //       <React.Fragment key={id}>
-      //         {container.arrival_date}
-      //         <br />
-      //       </React.Fragment>
-      //     )),
-      // },
-      // {
-      //   accessorKey: "detention_from",
-      //   header: "Detention From",
-      //   size: 150,
-      //   Cell: ({ cell }) =>
-      //     cell.row.original.container_nos?.map((container, id) => (
-      //       <React.Fragment key={id}>
-      //         {container.detention_from}
-      //         <br />
-      //       </React.Fragment>
-      //     )),
-      // },
 
       {
         accessorKey: "do_validity",
@@ -777,8 +740,10 @@ function useJobColumns(handleRowDataUpdate, onRowUpdate, setRows) {
       selectedImporter,
       handleRowDataUpdate,
       formatDate,
-      setRows, 
+      setRows,
       onRowUpdate,
+      invalidateCache, // Add to dependencies
+      selectedYear, // Add to dependencies
     ]
   );
 

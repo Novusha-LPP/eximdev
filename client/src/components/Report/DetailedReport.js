@@ -53,6 +53,7 @@ const columns = [
   { label: "LOCATION", key: "location", minWidth: 80 },
   { label: "IMPORTERS NAME", key: "importer", minWidth: 150 },
   { label: "COMMODITY", key: "commodity", minWidth: 300 },
+  { label: 'PRICE', key: 'cif_amount', minWidth: 170 }, // NEW PRICE COLUMN
   { label: "B/E. NO.", key: "be_no", minWidth: 100 },
   { label: "DATE", key: "be_date", minWidth: 80 },
   { label: "CONTAINER NO.", key: "containerNumbers", minWidth: 120 },
@@ -70,12 +71,19 @@ const DetailedReport = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [year, setYear] = useState("25-26");
-  const [month, setMonth] = useState("6");
+  const [gradeFilter, setGradeFilter] = useState(""); // ✅ New Grade Filter
+ const [month, setMonth] = useState(new Date().getMonth() + 1); 
   const [exportLoading, setExportLoading] = useState(false);
   const [exportType, setExportType] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const [summaryOpen, setSummaryOpen] = useState(false);
+
+   const gradeOptions = [
+    { value: "", label: "All Grades" },
+    { value: "Grade 316", label: "Grade 316" },
+    { value: "Nickel", label: "Nickel" }
+  ];
 
   const years = [
     { value: "25-26", label: "25-26" },
@@ -102,7 +110,12 @@ const DetailedReport = () => {
     setError("");
     try {
       const apiBase = process.env.REACT_APP_API_STRING || "";
-      const res = await fetch(`${apiBase}/report/import-clearance/${year}/${month}`);
+      // ✅ Pass grade filter as query param
+      const url = new URL(`${apiBase}/report/import-clearance/${year}/${month}`);
+      if (gradeFilter) {
+        url.searchParams.append('grade', gradeFilter);
+      }
+      const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Failed to fetch data");
       const json = await res.json();
       setData(json);
@@ -112,6 +125,10 @@ const DetailedReport = () => {
       setLoading(false);
     }
   };
+
+   useEffect(() => {
+    fetchData();
+  }, [year, month, gradeFilter]); // ✅ Added gradeFilter dependency
 
   useEffect(() => {
     fetchData();
@@ -298,10 +315,19 @@ const exportToExcel = async () => {
   // Prepare main data
   const excelData = data.map((row, index) => {
     const excelRow = {};
+    
+    // Calculate invoice value for display
+    const invValue = row.cif_amount &&  row.inv_currency
+      ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+      : '';
+    
     columns.forEach(col => {
       switch (col.key) {
         case 'srlNo':
           excelRow[col.label] = String(index + 1).padStart(3, "0");
+          break;
+        case 'cif_amount':  // Custom PRICE column handling
+          excelRow[col.label] = invValue;
           break;
         case 'containerNumbers':
           excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
@@ -313,7 +339,6 @@ const exportToExcel = async () => {
           excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
           break;
         case 'remarks':
-          // Preserve newline in remarks column
           excelRow[col.label] = row[col.key] || '';
           break;
         default:
@@ -427,27 +452,35 @@ const exportToExcel = async () => {
       'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
       'No. of Contr & Size', 'Teus', 'CLRG DATE', 'REMARKS'
     ];
-    const tableData = data.map((row, index) => {
-      const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
-      const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-      const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-      return [
-        String(index + 1).padStart(4, "0"),
-        row.job_no || '',
-        row.location || '',
-        row.importer || '',
-        row.commodity || '',
-        row.be_no || '',
-        beDate,
-        containerNos,
-        row.totalContainers || '',
-        '20/40',
-        row.noOfContrSize || '',
-        row.teus || '',
-        clrgDate,
-        row.remarks || ''
-      ];
-    });
+const tableData = data.map((row, index) => {
+  const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
+  const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+  const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+  
+  // Calculate invoice value display
+  const invValueDisplay = row.cif_amount && row.inv_currency
+    ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+    : '';
+    
+  return [
+    String(index + 1).padStart(4, "0"),
+    row.job_no || '',
+    row.location || '',
+    row.importer || '',
+    row.commodity || '',
+    invValueDisplay,  // FULL PRICE DISPLAY
+    row.be_no || '',
+    beDate,
+    containerNos,
+    row.totalContainers || '',
+    '20/40',
+    row.noOfContrSize || '',
+    row.teus || '',
+    clrgDate,
+    row.remarks || ''
+  ];
+});
+
     doc.autoTable({
       head: [tableHeaders],
       body: tableData,
@@ -759,8 +792,26 @@ const exportToExcel = async () => {
         >
           Import Clearance Report
         </Typography>
+
+        
         
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+
+           <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Grade</InputLabel>
+            <Select
+              value={gradeFilter}
+              onChange={(e) => setGradeFilter(e.target.value)}
+              label="Grade"
+            >
+              {gradeOptions.map((grade) => (
+                <MenuItem key={grade.value} value={grade.value}>
+                  {grade.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <InputLabel>Year</InputLabel>
             <Select
@@ -870,166 +921,140 @@ const exportToExcel = async () => {
                   ))}
                 </TableRow>
               </TableHead>
-              <TableBody>
-                {loading
-                  ? Array.from({ length: 8 }).map((_, idx) => (
-                      <TableRow key={idx}>
-                        {columns.map((col) => (
-                          <TableCell 
-                            key={col.key} 
-                            align="center" 
-                            sx={{ 
-                              fontSize: "0.75rem", 
-                              padding: "6px 8px",
-                              borderBottom: '1px solid #e0e0e0'
-                            }}
-                          >
-                            <Skeleton variant="text" height={20} />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  : data.map((row, idx) => (
-                      <TableRow 
-                        key={idx}
-                        sx={{ 
-                          '&:hover': { 
-                            backgroundColor: '#f9f9f9'
-                          },
-                          '&:nth-of-type(even)': {
-                            backgroundColor: '#fafafa'
-                          }
-                        }}
-                      >
-                        <TableCell 
-                          align="center" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
-                            padding: "6px 8px",
-                            fontWeight: 'bold',
-                            color: '#666'
-                          }}
-                        >
-                          {String(idx + 1).padStart(3, "0")}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
-                            padding: "6px 8px",
-                            fontWeight: '500'
-                          }}
-                        >
-                          {row.job_no}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          {row.location}
-                        </TableCell>
-                        <TableCell 
-                          align="left" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
-                            padding: "6px 8px",
-                            maxWidth: 150,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
-                          <Tooltip title={row.importer}>
-                            <span>{row.importer}</span>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell 
-                          align="left" 
-                          sx={{ 
-                            fontSize: "0.75rem", 
-                            padding: "6px 8px",
-                            maxWidth: 120,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
-                          <Tooltip title={row.commodity}>
-                            <span>{row.commodity}</span>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          {row.be_no}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          <Box sx={{ 
-                            display: "flex", 
-                            flexDirection: "column", 
-                            alignItems: "center",
-                            gap: 0.5
-                          }}>
-                            {row.containerNumbers && row.containerNumbers.map((num, i) => (
-                              <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
-                                {num}
-                              </Typography>
-                            ))}
-                          </Box>
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}
-                        >
-                          {row.totalContainers}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          {row.noOfContrSize}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}
-                        >
-                          {row.teus}
-                        </TableCell>
-                        <TableCell 
-                          align="center" 
-                          sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
-                        >
-                          {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
-                        </TableCell>
-<TableCell 
-  align="center" 
-  sx={{ fontSize: "0.75rem", padding: "6px 8px" }}
->
-  {row.remarks
-    ? row.remarks.split('\n').map((line, idx) => (
-        <React.Fragment key={idx}>
-          {line}
-          {idx < row.remarks.split('\n').length - 1 && <br />}
-        </React.Fragment>
+ <TableBody>
+  {loading
+    ? Array.from({ length: 8 }).map((_, idx) => (
+        <TableRow key={idx}>
+          {columns.map((col) => (
+            <TableCell 
+              key={col.key} 
+              align="center" 
+              sx={{ 
+                fontSize: "0.75rem", 
+                padding: "6px 8px",
+                borderBottom: '1px solid #e0e0e0'
+              }}
+            >
+              <Skeleton variant="text" height={20} />
+            </TableCell>
+          ))}
+        </TableRow>
       ))
-    : ""}
+    : data.map((row, idx) => (
+        <TableRow 
+          key={idx}
+          sx={{ 
+            '&:hover': { 
+              backgroundColor: '#f9f9f9'
+            },
+            '&:nth-of-type(even)': {
+              backgroundColor: '#fafafa'
+            }
+          }}
+        >
+          {/* Srl No. */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#666' }}>
+            {String(idx + 1).padStart(3, "0")}
+          </TableCell>
+          
+          {/* JOB No */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: '500' }}>
+            {row.job_no}
+          </TableCell>
+          
+          {/* LOCATION */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            {row.location}
+          </TableCell>
+          
+          {/* IMPORTERS NAME */}
+          <TableCell align="left" sx={{ fontSize: "0.75rem", padding: "6px 8px", maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Tooltip title={row.importer}>
+              <span>{row.importer}</span>
+            </Tooltip>
+          </TableCell>
+          
+          {/* COMMODITY */}
+          <TableCell align="left" sx={{ fontSize: "0.75rem", padding: "6px 8px", maxWidth: 120, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Tooltip title={row.commodity}>
+              <span>{row.commodity}</span>
+            </Tooltip>
+          </TableCell>
+          
+          {/* PRICE (cif_amount) - NEW COLUMN */}
+{/* PRICE (invoice_value) */}
+<TableCell align="right" sx={{ 
+  fontSize: "0.8rem", 
+  padding: "6px 8px", 
+  fontWeight: '500', 
+  color: '#1976d2',
+  fontFamily: 'monospace',
+  whiteSpace: 'nowrap'
+}}>
+  {row?.cif_amount && row?.inv_currency
+    ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+    : '—'
+  }
 </TableCell>
 
 
+          
+          {/* B/E. NO. */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            {row.be_no}
+          </TableCell>
+          
+          {/* DATE */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
+          </TableCell>
+          
+          {/* CONTAINER NO. */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+              {row.containerNumbers && row.containerNumbers.map((num, i) => (
+                <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
+                  {num}
+                </Typography>
+              ))}
+            </Box>
+          </TableCell>
+          
+          {/* NO. OF CNTR */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}>
+            {row.totalContainers}
+          </TableCell>
+          
+          {/* No. of Contr & Size */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            {row.noOfContrSize}
+          </TableCell>
+          
+          {/* Teus */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}>
+            {row.teus}
+          </TableCell>
+          
+          {/* CLRG DATE */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
+          </TableCell>
+          
+          {/* REMARKS */}
+          <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+            {row.remarks
+              ? row.remarks.split('\n').map((line, idx) => (
+                  <React.Fragment key={idx}>
+                    {line}
+                    {idx < row.remarks.split('\n').length - 1 && <br />}
+                  </React.Fragment>
+                ))
+              : ""}
+          </TableCell>
+        </TableRow>
+      ))}
+</TableBody>
 
-                      </TableRow>
-                    ))}
-              </TableBody>
             </Table>
           </TableContainer>
         </Card>

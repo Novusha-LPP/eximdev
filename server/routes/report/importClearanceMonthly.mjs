@@ -7,38 +7,40 @@ const SCRAP_HS_CODES = [
   "26203090", "26204010", "72041000", "72042110", "72042190",
   "72042910", "72042990", "72044900", "72045000", "74040011",
   "74040012", "74040022", "75030010", "76020010", "76020090",
-  "79020010", "81042010", "81083000", "83100010"
+  "79020010", "81042010", "81083000", "83100010",
 ];
 
 router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
   const { year, month } = req.params;
-  const monthInt = parseInt(month);
+  const monthInt = parseInt(month, 10);
+  const grade = req.query.grade || "";
 
   try {
-    const result = await JobModel.aggregate([
+    // build pipeline first
+    const pipeline = [
       {
         $match: {
           year,
           out_of_charge: { $type: "string", $ne: "" },
           be_date: { $type: "string", $ne: "" },
-          importer: { $ne: null, $ne: "" }
-        }
+          importer: { $ne: null, $ne: "" },
+        },
       },
       {
         $addFields: {
           oocDateObj: { $toDate: "$out_of_charge" },
-          beDateObj: { $toDate: "$be_date" }
-        }
+          beDateObj: { $toDate: "$be_date" },
+        },
       },
       {
         $addFields: {
-          oocMonth: { $month: "$oocDateObj" }
-        }
+          oocMonth: { $month: "$oocDateObj" },
+        },
       },
       {
         $match: {
-          oocMonth: monthInt
-        }
+          oocMonth: monthInt,
+        },
       },
       {
         $addFields: {
@@ -46,8 +48,8 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
             $map: {
               input: "$container_nos",
               as: "c",
-              in: "$$c.container_number"
-            }
+              in: "$$c.container_number",
+            },
           },
           sizeCounts: {
             $reduce: {
@@ -57,17 +59,17 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
                 ft20: {
                   $add: [
                     "$$value.ft20",
-                    { $cond: [{ $eq: ["$$this.size", "20"] }, 1, 0] }
-                  ]
+                    { $cond: [{ $eq: ["$$this.size", "20"] }, 1, 0] },
+                  ],
                 },
                 ft40: {
                   $add: [
                     "$$value.ft40",
-                    { $cond: [{ $eq: ["$$this.size", "40"] }, 1, 0] }
-                  ]
-                }
-              }
-            }
+                    { $cond: [{ $eq: ["$$this.size", "40"] }, 1, 0] },
+                  ],
+                },
+              },
+            },
           },
           teus: {
             $sum: {
@@ -76,35 +78,34 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
                 as: "c",
                 in: {
                   $cond: [
-                    { $eq: ["$$c.size", "20"] }, 1,
-                    { $cond: [{ $eq: ["$$c.size", "40"] }, 2, 0] }
-                  ]
-                }
-              }
-            }
+                    { $eq: ["$$c.size", "20"] },
+                    1,
+                    { $cond: [{ $eq: ["$$c.size", "40"] }, 2, 0] },
+                  ],
+                },
+              },
+            },
           },
-     remarks: {
-  $concat: [
-    {
-      $cond: [
-        { $in: ["$cth_no", SCRAP_HS_CODES] },
-        "SCRAP",
-        "OTHERS"
-      ]
-    },
-    "\n", // Add a line break
-    {
-      $cond: [
-        { $eq: [{ $toLower: "$RMS" }, "yes"] },
-        "RMS",
-        "No RMS"
-      ]
-    }
-  ]
-}
-
-
-        }
+          remarks: {
+            $concat: [
+              {
+                $cond: [
+                  { $in: ["$cth_no", SCRAP_HS_CODES] },
+                  "SCRAP",
+                  "OTHERS",
+                ],
+              },
+              "\n",
+              {
+                $cond: [
+                  { $eq: [{ $toLower: "$RMS" }, "yes"] },
+                  "RMS",
+                  "No RMS",
+                ],
+              },
+            ],
+          },
+        },
       },
       {
         $addFields: {
@@ -116,33 +117,33 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
                     $cond: [
                       { $gt: ["$sizeCounts.ft20", 0] },
                       { $concat: [{ $toString: "$sizeCounts.ft20" }, "x20"] },
-                      ""
-                    ]
+                      "",
+                    ],
                   },
                   {
                     $cond: [
                       {
                         $and: [
                           { $gt: ["$sizeCounts.ft20", 0] },
-                          { $gt: ["$sizeCounts.ft40", 0] }
-                        ]
+                          { $gt: ["$sizeCounts.ft40", 0] },
+                        ],
                       },
                       " + ",
-                      ""
-                    ]
+                      "",
+                    ],
                   },
                   {
                     $cond: [
                       { $gt: ["$sizeCounts.ft40", 0] },
                       { $concat: [{ $toString: "$sizeCounts.ft40" }, "x40"] },
-                      ""
-                    ]
-                  }
-                ]
-              }
-            }
-          }
-        }
+                      "",
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
       },
       {
         $project: {
@@ -151,6 +152,8 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           location: "$custom_house",
           importer: 1,
           commodity: "$description",
+          inv_currency: 1,
+          cif_amount: 1,
           be_no: 1,
           be_date: 1,
           containerNumbers: 1,
@@ -159,15 +162,27 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           teus: 1,
           out_of_charge: 1,
           remarks: 1,
-          consignment_type: 1 // <-- NEW FIELD ADDED HERE
-        }
-      }
-    ]);
+          consignment_type: 1,
+        },
+      },
+    ];
 
+    // apply grade filter at the top of pipeline if present
+    if (grade) {
+      pipeline.unshift({
+        $match: {
+          // use description (already projected later as commodity)
+          description: { $regex: grade, $options: "i" },
+        },
+      });
+    }
+
+    const result = await JobModel.aggregate(pipeline);
     res.status(200).json(result);
   } catch (error) {
     console.error("❌ Error in import clearance route:", error);
     res.status(500).json({ message: "Failed to generate import clearance report." });
   }
 });
+
 export default router;

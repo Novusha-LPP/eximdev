@@ -449,7 +449,7 @@ const exportToExcel = async () => {
     // Main table
     const tableHeaders = [
       'Srl No.', 'JOB No', 'LOCATION', 'IMPORTERS NAME', 'COMMODITY', 
-      'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
+      'PRICE', 'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
       'No. of Contr & Size', 'Teus', 'CLRG DATE', 'REMARKS'
     ];
 const tableData = data.map((row, index) => {

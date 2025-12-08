@@ -1,11 +1,11 @@
-FROM node:22-alpine
+FROM mcr.microsoft.com/playwright:v1.49.0-jammy
 
 WORKDIR /server
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (Playwright + browsers are already in the base image)
 RUN npm install
 
 # Copy source code

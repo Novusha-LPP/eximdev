@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   Container,
   Typography,
@@ -46,6 +46,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { UserContext } from "../../contexts/UserContext";
 
 const columns = [
   { label: "Srl No.", key: "srlNo", minWidth: 50 },
@@ -58,7 +59,7 @@ const columns = [
   { label: "DATE", key: "be_date", minWidth: 80 },
   { label: "CONTAINER NO.", key: "containerNumbers", minWidth: 120 },
   { label: "NO. OF CNTR", key: "totalContainers", minWidth: 70 },
-  { label: "No. of Contr & Size", key: "noOfContrSize", minWidth: 100 },
+  { label: "SIZE", key: "size", minWidth: 60 },
   { label: "Teus", key: "teus", minWidth: 60 },
   { label: "CLRG DATE", key: "out_of_charge", minWidth: 80 },
   { label: "REMARKS", key: "remarks", minWidth: 100 },
@@ -84,6 +85,14 @@ const DetailedReport = () => {
     { value: "Grade 316", label: "Grade 316" },
     { value: "Nickel", label: "Nickel" }
   ];
+
+  const { user } = useContext(UserContext);
+  const isSrManager = !!(
+    user &&
+    typeof user.role === 'string' &&
+    user.role.toLowerCase().includes('sr') &&
+    user.role.toLowerCase().includes('manager')
+  );
 
   const years = [
     { value: "25-26", label: "25-26" },
@@ -112,7 +121,8 @@ const DetailedReport = () => {
       const apiBase = process.env.REACT_APP_API_STRING || "";
       // ✅ Pass grade filter as query param
       const url = new URL(`${apiBase}/report/import-clearance/${year}/${month}`);
-      if (gradeFilter) {
+      // Only include grade when user is Sr. Manager
+      if (isSrManager && gradeFilter) {
         url.searchParams.append('grade', gradeFilter);
       }
       const res = await fetch(url.toString());
@@ -126,13 +136,9 @@ const DetailedReport = () => {
     }
   };
 
-   useEffect(() => {
-    fetchData();
-  }, [year, month, gradeFilter]); // ✅ Added gradeFilter dependency
-
   useEffect(() => {
     fetchData();
-  }, [year, month]);
+  }, [year, month, gradeFilter]); // ✅ Added gradeFilter dependency
 
   const handlePreviousMonth = () => {
     const prev = parseInt(month) - 1;
@@ -288,6 +294,16 @@ const DetailedReport = () => {
     return rows;
   };
 
+  const deriveSize = (noOfContrSize) => {
+    if (!noOfContrSize) return '';
+    const has20 = /\b20\b/.test(noOfContrSize);
+    const has40 = /\b40\b/.test(noOfContrSize);
+    if (has20 && has40) return '20/40';
+    if (has20) return '20';
+    if (has40) return '40';
+    return noOfContrSize;
+  };
+
   // Export functionality
   const handleExportReport = async (format) => {
     setExportLoading(true);
@@ -321,13 +337,17 @@ const exportToExcel = async () => {
       ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
       : '';
     
-    columns.forEach(col => {
+    const visibleCols = columns.filter((col) => !(col.key === 'cif_amount' && !isSrManager));
+    visibleCols.forEach(col => {
       switch (col.key) {
         case 'srlNo':
           excelRow[col.label] = String(index + 1).padStart(3, "0");
           break;
         case 'cif_amount':  // Custom PRICE column handling
           excelRow[col.label] = invValue;
+          break;
+        case 'size':
+          excelRow[col.label] = deriveSize(row.noOfContrSize);
           break;
         case 'containerNumbers':
           excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
@@ -446,40 +466,78 @@ const exportToExcel = async () => {
     const x = (pageWidth - textWidth) / 2;
     doc.text(title, x, 15);
 
-    // Main table
-    const tableHeaders = [
-      'Srl No.', 'JOB No', 'LOCATION', 'IMPORTERS NAME', 'COMMODITY', 
-      'PRICE', 'B/E. NO.', 'DATE', 'CONTAINER NO.', 'NO. OF CNTR', 'SIZE', 
-      'No. of Contr & Size', 'Teus', 'CLRG DATE', 'REMARKS'
-    ];
-const tableData = data.map((row, index) => {
-  const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
-  const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-  const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-  
-  // Calculate invoice value display
-  const invValueDisplay = row.cif_amount && row.inv_currency
-    ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
-    : '';
-    
-  return [
-    String(index + 1).padStart(4, "0"),
-    row.job_no || '',
-    row.location || '',
-    row.importer || '',
-    row.commodity || '',
-    invValueDisplay,  // FULL PRICE DISPLAY
-    row.be_no || '',
-    beDate,
-    containerNos,
-    row.totalContainers || '',
-    '20/40',
-    row.noOfContrSize || '',
-    row.teus || '',
-    clrgDate,
-    row.remarks || ''
-  ];
-});
+    // Main table - build headers/data based on visible columns and role
+    const visibleCols = columns.filter((col) => !(col.key === 'cif_amount' && !isSrManager));
+    const tableHeaders = visibleCols.map(c => c.label);
+    const tableData = data.map((row, index) => {
+      const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
+      const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+      const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+      const invValueDisplay = row.cif_amount && row.inv_currency
+        ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+        : '';
+
+      return visibleCols.map((col) => {
+        switch (col.key) {
+          case 'srlNo':
+            return String(index + 1).padStart(4, '0');
+          case 'job_no':
+            return row.job_no || '';
+          case 'location':
+            return row.location || '';
+          case 'importer':
+            return row.importer || '';
+          case 'commodity':
+            return row.commodity || '';
+          case 'cif_amount':
+            return invValueDisplay;
+          case 'be_no':
+            return row.be_no || '';
+          case 'be_date':
+            return beDate;
+          case 'containerNumbers':
+            return containerNos;
+          case 'totalContainers':
+            return row.totalContainers || '';
+          case 'noOfContrSize':
+            return row.noOfContrSize || '';
+          case 'size':
+            return deriveSize(row.noOfContrSize);
+          case 'teus':
+            return row.teus || '';
+          case 'out_of_charge':
+            return clrgDate;
+          case 'remarks':
+            return row.remarks || '';
+          default:
+            return row[col.key] || '';
+        }
+      });
+    });
+
+    // Build columnStyles dynamically so hidden columns (eg. PRICE) are not present
+    const styleMap = {
+      srlNo: { cellWidth: 12, halign: 'center' },
+      job_no: { cellWidth: 12, halign: 'center' },
+      location: { cellWidth: 18, halign: 'center' },
+      importer: { cellWidth: 35, halign: 'left' },
+      commodity: { cellWidth: 55, halign: 'left' },
+      cif_amount: { cellWidth: 18, halign: 'center' },
+      be_no: { cellWidth: 18, halign: 'center' },
+      be_date: { cellWidth: 22, halign: 'center' },
+      containerNumbers: { cellWidth: 25, halign: 'center' },
+      totalContainers: { cellWidth: 15, halign: 'center' },
+      size: { cellWidth: 18, halign: 'center' },
+      teus: { cellWidth: 12, halign: 'center' },
+      out_of_charge: { cellWidth: 18, halign: 'center' },
+      remarks: { cellWidth: 20, halign: 'center' }
+    };
+
+    const columnStyles = {};
+    visibleCols.forEach((col, idx) => {
+      const cfg = styleMap[col.key] || { cellWidth: 18, halign: 'center' };
+      columnStyles[idx] = { cellWidth: cfg.cellWidth, halign: cfg.halign };
+    });
 
     doc.autoTable({
       head: [tableHeaders],
@@ -514,22 +572,7 @@ const tableData = data.map((row, index) => {
       alternateRowStyles: {
         fillColor: [255, 255, 255],
       },
-      columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 12, halign: 'center' },
-        2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 40, halign: 'left' },
-        4: { cellWidth: 55, halign: 'left' },
-        5: { cellWidth: 18, halign: 'center' },
-        6: { cellWidth: 18, halign: 'center' },
-        7: { cellWidth: 22, halign: 'center' },
-        8: { cellWidth: 12, halign: 'center' },
-        9: { cellWidth: 10, halign: 'center' },
-        10: { cellWidth: 18, halign: 'center' },
-        11: { cellWidth: 12, halign: 'center' },
-        12: { cellWidth: 18, halign: 'center' },
-        13: { cellWidth: 20, halign: 'center' },
-      },
+      columnStyles: columnStyles,
       margin: { top: 25, right: 5, bottom: 15, left: 5 },
       theme: 'grid',
       tableLineColor: [205, 133, 63],
@@ -797,20 +840,22 @@ const tableData = data.map((row, index) => {
         
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
 
-           <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Grade</InputLabel>
-            <Select
-              value={gradeFilter}
-              onChange={(e) => setGradeFilter(e.target.value)}
-              label="Grade"
-            >
-              {gradeOptions.map((grade) => (
-                <MenuItem key={grade.value} value={grade.value}>
-                  {grade.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {isSrManager && (
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Grade</InputLabel>
+              <Select
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+                label="Grade"
+              >
+                {gradeOptions.map((grade) => (
+                  <MenuItem key={grade.value} value={grade.value}>
+                    {grade.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           
           <FormControl size="small" sx={{ minWidth: 80 }}>
             <InputLabel>Year</InputLabel>
@@ -901,43 +946,47 @@ const tableData = data.map((row, index) => {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  {columns.map((col) => (
-                    <TableCell 
-                      key={col.key} 
-                      align="center" 
-                      sx={{ 
-                        fontWeight: "bold", 
-                        fontSize: "0.75rem",
-                        padding: "8px 6px",
-                        backgroundColor: '#f5f5f5',
-                        color: '#333',
-                        minWidth: col.minWidth,
-                        whiteSpace: 'nowrap',
-                        borderBottom: '2px solid #e0e0e0'
-                      }}
-                    >
-                      {col.label}
-                    </TableCell>
-                  ))}
+                  {columns
+                    .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
+                    .map((col) => (
+                      <TableCell 
+                        key={col.key} 
+                        align="center" 
+                        sx={{ 
+                          fontWeight: "bold", 
+                          fontSize: "0.75rem",
+                          padding: "8px 6px",
+                          backgroundColor: '#f5f5f5',
+                          color: '#333',
+                          minWidth: col.minWidth,
+                          whiteSpace: 'nowrap',
+                          borderBottom: '2px solid #e0e0e0'
+                        }}
+                      >
+                        {col.label}
+                      </TableCell>
+                    ))}
                 </TableRow>
               </TableHead>
  <TableBody>
   {loading
     ? Array.from({ length: 8 }).map((_, idx) => (
         <TableRow key={idx}>
-          {columns.map((col) => (
-            <TableCell 
-              key={col.key} 
-              align="center" 
-              sx={{ 
-                fontSize: "0.75rem", 
-                padding: "6px 8px",
-                borderBottom: '1px solid #e0e0e0'
-              }}
-            >
-              <Skeleton variant="text" height={20} />
-            </TableCell>
-          ))}
+          {columns
+            .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
+            .map((col) => (
+              <TableCell 
+                key={col.key} 
+                align="center" 
+                sx={{ 
+                  fontSize: "0.75rem", 
+                  padding: "6px 8px",
+                  borderBottom: '1px solid #e0e0e0'
+                }}
+              >
+                <Skeleton variant="text" height={20} />
+              </TableCell>
+            ))}
         </TableRow>
       ))
     : data.map((row, idx) => (
@@ -981,21 +1030,22 @@ const tableData = data.map((row, index) => {
             </Tooltip>
           </TableCell>
           
-          {/* PRICE (cif_amount) - NEW COLUMN */}
-{/* PRICE (invoice_value) */}
-<TableCell align="right" sx={{ 
-  fontSize: "0.8rem", 
-  padding: "6px 8px", 
-  fontWeight: '500', 
-  color: '#1976d2',
-  fontFamily: 'monospace',
-  whiteSpace: 'nowrap'
-}}>
-  {row?.cif_amount && row?.inv_currency
-    ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
-    : '—'
-  }
-</TableCell>
+          {/* PRICE (cif_amount) - NEW COLUMN (only for Sr. Manager) */}
+          {isSrManager && (
+            <TableCell align="right" sx={{ 
+              fontSize: "0.8rem", 
+              padding: "6px 8px", 
+              fontWeight: '500', 
+              color: '#1976d2',
+              fontFamily: 'monospace',
+              whiteSpace: 'nowrap'
+            }}>
+              {row?.cif_amount && row?.inv_currency
+                ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
+                : '—'
+              }
+            </TableCell>
+          )}
 
 
           
@@ -1025,11 +1075,11 @@ const tableData = data.map((row, index) => {
             {row.totalContainers}
           </TableCell>
           
-          {/* No. of Contr & Size */}
+          {/* SIZE (separate column) */}
           <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-            {row.noOfContrSize}
+            {deriveSize(row.noOfContrSize)}
           </TableCell>
-          
+
           {/* Teus */}
           <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}>
             {row.teus}

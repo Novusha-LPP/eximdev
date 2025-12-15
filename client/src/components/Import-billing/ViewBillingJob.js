@@ -112,6 +112,8 @@ const ViewBillingJob = () => {
       upload_reimbursement_bill_img: data?.upload_reimbursement_bill_img || "",
       billing_completed_date: data?.billing_completed_date || "",
       dsr_queries: data?.dsr_queries || [],
+      thar_invoices: data?.thar_invoices || [],
+      hasti_invoices: data?.hasti_invoices || [],
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -129,6 +131,8 @@ const ViewBillingJob = () => {
           upload_reimbursement_bill_img: values.upload_reimbursement_bill_img,
           billing_completed_date: values.billing_completed_date,
           dsr_queries: values.dsr_queries || [],
+          thar_invoices: values.thar_invoices || [],
+          hasti_invoices: values.hasti_invoices || [],
         };
 
         // Get user info from localStorage for audit trail
@@ -458,6 +462,8 @@ const ViewBillingJob = () => {
                       onFilesUploaded={(files) =>
                         handleFilesUploaded(files, "upload_agency_bill_img")
                       }
+                      containerStyles={{ marginTop: "0px" }}
+                      buttonSx={{ width: "100%", minHeight: "40px" }}
                     />
 
                     {formik.values.upload_agency_bill_img && (
@@ -531,6 +537,8 @@ const ViewBillingJob = () => {
                           "upload_reimbursement_bill_img"
                         )
                       }
+                      containerStyles={{ marginTop: "0px" }}
+                      buttonSx={{ width: "100%", minHeight: "40px" }}
                     />
 
                     {formik.values.upload_reimbursement_bill_img && (
@@ -548,6 +556,59 @@ const ViewBillingJob = () => {
                 </Row>
               </Box>
             </div>
+            {/* Conditional Invoices for ICD SANAND */}
+            {data?.custom_house === "ICD SANAND" && (
+              <div className="job-details-container">
+                <JobDetailsRowHeading heading="ICD Sanand Invoices" />
+                <Row>
+                  <Col xs={12} md={4}>
+                    <FileUpload
+                      label="Upload Thar Invoices"
+                      bucketPath="thar_invoices"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles = formik.values.thar_invoices || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue("thar_invoices", updatedFiles);
+                      }}
+                      multiple={true}
+                      containerStyles={{ marginTop: "0px" }}
+                      buttonSx={{ width: "100%", minHeight: "40px" }}
+                    />
+                    <ImagePreview
+                      images={formik.values.thar_invoices || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [...formik.values.thar_invoices];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue("thar_invoices", updatedFiles);
+                      }}
+                    />
+                  </Col>
+                  <Col xs={12} md={4}>
+                    <FileUpload
+                      label="Upload Hasti Invoices"
+                      bucketPath="hasti_invoices"
+                      onFilesUploaded={(newFiles) => {
+                        const existingFiles =
+                          formik.values.hasti_invoices || [];
+                        const updatedFiles = [...existingFiles, ...newFiles];
+                        formik.setFieldValue("hasti_invoices", updatedFiles);
+                      }}
+                      multiple={true}
+                      containerStyles={{ marginTop: "0px" }}
+                      buttonSx={{ width: "100%", minHeight: "40px" }}
+                    />
+                    <ImagePreview
+                      images={formik.values.hasti_invoices || []}
+                      onDeleteImage={(index) => {
+                        const updatedFiles = [...formik.values.hasti_invoices];
+                        updatedFiles.splice(index, 1);
+                        formik.setFieldValue("hasti_invoices", updatedFiles);
+                      }}
+                    />
+                  </Col>
+                </Row>
+              </div>
+            )}
             {/* Charges Section (below Billing Details) */}
             <Charges job_no={job_no} year={year} />
             {/* Bill Completion Section */}

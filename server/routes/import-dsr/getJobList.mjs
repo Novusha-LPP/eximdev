@@ -147,6 +147,8 @@ const criticalFields = `
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount
   gross_weight job_net_weight payment_method
+  shipping_line_invoice_imgs
+  concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img
 `;
 
 const additionalFieldsByStatus = {
@@ -499,11 +501,7 @@ router.get(
                         },
                         {
                           case: {
-                            $and: [
-                              "$$bePresent",
-                              "$$anyArrival",
-                              "$$validPcv",
-                            ],
+                            $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
                           },
                           then: "PCV Done, Duty Payment Pending",
                         },
@@ -681,8 +679,12 @@ router.get(
             for (const j of jobs) {
               const idStr = String(j._id);
               const stored = storedMap.get(idStr);
-              const effective = j.detailed_status || j.__effective_detailed_status;
-              const storedVal = stored && stored.detailed_status ? String(stored.detailed_status) : null;
+              const effective =
+                j.detailed_status || j.__effective_detailed_status;
+              const storedVal =
+                stored && stored.detailed_status
+                  ? String(stored.detailed_status)
+                  : null;
               if (storedVal !== effective) {
                 bulkOps.push({
                   updateOne: {
@@ -791,9 +793,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     const existing = await JobModel.findById(id).lean();
     if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Job not found" });
+      return res.status(404).json({ success: false, message: "Job not found" });
     }
 
     let merged = { ...existing };
@@ -823,7 +823,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     if (finalDoc?.year) invalidateCache(finalDoc.year);
     else invalidateCache();
-    
+
     return res.status(200).json({
       success: true,
       message: "Job updated successfully",

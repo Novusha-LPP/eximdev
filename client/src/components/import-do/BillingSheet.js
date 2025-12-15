@@ -24,7 +24,11 @@ import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
-import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
+import {
+  getTableRowsClassname,
+  getTableRowInlineStyle,
+} from "../../utils/getTableRowsClassname";
+import InvoiceDisplay from "./InvoiceDisplay";
 
 function BillingSheet() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -286,111 +290,115 @@ function BillingSheet() {
       header: "Job No",
       enableSorting: false,
       size: 150,
-Cell: ({ cell }) => {
-  const {
-    job_no,
-    year,
-    _id,
-    type_of_b_e,
-    consignment_type,
-    custom_house,
-    detailed_status,
-    vessel_berthing,
-    container_nos,
-    colorPriority,      // ✅ USE THIS FROM BACKEND
-    daysDifference,     // ✅ USE THIS FROM BACKEND
-  } = cell.row.original;
+      Cell: ({ cell }) => {
+        const {
+          job_no,
+          year,
+          _id,
+          type_of_b_e,
+          consignment_type,
+          custom_house,
+          detailed_status,
+          vessel_berthing,
+          container_nos,
+          colorPriority, // ✅ USE THIS FROM BACKEND
+          daysDifference, // ✅ USE THIS FROM BACKEND
+        } = cell.row.original;
 
-  // Color-coding logic - NOW USES BACKEND DATA
-  let bgColor = "";
-  let textColor = "blue";
+        // Color-coding logic - NOW USES BACKEND DATA
+        let bgColor = "";
+        let textColor = "blue";
 
-  const currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
+        const currentDate = new Date();
+        currentDate.setHours(0, 0, 0, 0); // ✅ MUST normalize time
 
-  // Function to calculate the days difference (MUST MATCH BACKEND)
-  const calculateDaysDifference = (targetDate) => {
-    if (!targetDate) return null;
-    
-    const date = new Date(targetDate);
-    date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
-    
-    const timeDifference = date.getTime() - currentDate.getTime();
-    return Math.floor(timeDifference / (1000 * 3600 * 24));
-  };
+        // Function to calculate the days difference (MUST MATCH BACKEND)
+        const calculateDaysDifference = (targetDate) => {
+          if (!targetDate) return null;
 
-  // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
-  if (colorPriority) {
-    if (colorPriority === 1) {
-      bgColor = "red";
-      textColor = "white";
-    } else if (colorPriority === 2) {
-      bgColor = "orange";
-      textColor = "black";
-    } else if (colorPriority === 3) {
-      bgColor = "white";
-      textColor = "blue";
-    }
-  } 
-  // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
-  else if (detailed_status === "Billing Pending" && container_nos) {
-    let mostCriticalDays = null;
+          const date = new Date(targetDate);
+          date.setHours(0, 0, 0, 0); // ✅ CRITICAL: Normalize time
 
-    container_nos.forEach((container) => {
-      const targetDate = consignment_type === "LCL"
-        ? container.delivery_date
-        : container.emptyContainerOffLoadDate;
+          const timeDifference = date.getTime() - currentDate.getTime();
+          return Math.floor(timeDifference / (1000 * 3600 * 24));
+        };
 
-      if (targetDate) {
-        const daysDifference = calculateDaysDifference(targetDate);
-        
-        if (mostCriticalDays === null || daysDifference < mostCriticalDays) {
-          mostCriticalDays = daysDifference;
+        // ✅ OPTION 1: Use backend colorPriority (RECOMMENDED)
+        if (colorPriority) {
+          if (colorPriority === 1) {
+            bgColor = "red";
+            textColor = "white";
+          } else if (colorPriority === 2) {
+            bgColor = "orange";
+            textColor = "black";
+          } else if (colorPriority === 3) {
+            bgColor = "white";
+            textColor = "blue";
+          }
         }
-      }
-    });
+        // ✅ OPTION 2: Fallback to frontend calculation (with fixed logic)
+        else if (detailed_status === "Billing Pending" && container_nos) {
+          let mostCriticalDays = null;
 
-    // Apply colors based on the most critical container
-    if (mostCriticalDays !== null && mostCriticalDays < 0) {
-      if (mostCriticalDays <= -10) {
-        bgColor = "red";
-        textColor = "white";
-      } else if (mostCriticalDays <= -6) {
-        bgColor = "orange";
-        textColor = "black";
-      } else if (mostCriticalDays <= -1) {
-        bgColor = "white";
-        textColor = "blue";
-      }
-    }
-  }
+          container_nos.forEach((container) => {
+            const targetDate =
+              consignment_type === "LCL"
+                ? container.delivery_date
+                : container.emptyContainerOffLoadDate;
 
-  const queryParams = new URLSearchParams({
-    selectedJobId: _id,
-  }).toString();
+            if (targetDate) {
+              const daysDifference = calculateDaysDifference(targetDate);
 
-  return (
-    <Link
-      to={`/edit-billing-sheet/${job_no}/${year}?${queryParams}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        display: "inline-block",
-        cursor: "pointer",
-        color: textColor,
-        backgroundColor: bgColor || "transparent",
-        padding: "10px",
-        borderRadius: "5px",
-        textAlign: "center",
-        textDecoration: "none",
-        border: bgColor ? "1px solid #ccc" : "none",
-      }}
-    >
-      {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-      {custom_house}
-    </Link>
-  );
-}
+              if (
+                mostCriticalDays === null ||
+                daysDifference < mostCriticalDays
+              ) {
+                mostCriticalDays = daysDifference;
+              }
+            }
+          });
+
+          // Apply colors based on the most critical container
+          if (mostCriticalDays !== null && mostCriticalDays < 0) {
+            if (mostCriticalDays <= -10) {
+              bgColor = "red";
+              textColor = "white";
+            } else if (mostCriticalDays <= -6) {
+              bgColor = "orange";
+              textColor = "black";
+            } else if (mostCriticalDays <= -1) {
+              bgColor = "white";
+              textColor = "blue";
+            }
+          }
+        }
+
+        const queryParams = new URLSearchParams({
+          selectedJobId: _id,
+        }).toString();
+
+        return (
+          <Link
+            to={`/edit-billing-sheet/${job_no}/${year}?${queryParams}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-block",
+              cursor: "pointer",
+              color: textColor,
+              backgroundColor: bgColor || "transparent",
+              padding: "10px",
+              borderRadius: "5px",
+              textAlign: "center",
+              textDecoration: "none",
+              border: bgColor ? "1px solid #ccc" : "none",
+            }}
+          >
+            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+            {custom_house}
+          </Link>
+        );
+      },
     },
     {
       accessorKey: "importer",
@@ -422,95 +430,7 @@ Cell: ({ cell }) => {
       header: "Docs",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell }) => {
-        const {
-          shipping_line_invoice_imgs = [],
-          concor_invoice_and_receipt_copy = [],
-          ooc_copies = [],
-          cth_documents = [],
-        } = cell.row.original;
-
-        // Helper function to safely extract links from arrays
-        const getLinks = (input) => {
-          return Array.isArray(input) && input.length > 0 ? input : [];
-        };
-
-        return (
-          <div style={{ textAlign: "left" }}>
-            {/* Shipping Line Invoice Received */}
-            {shipping_line_invoice_imgs.length > 0 ? (
-              shipping_line_invoice_imgs.map((doc, index) => (
-                <div key={index} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={doc}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Shipping Line Invoice {index + 1}
-                  </a>
-                </div>
-              ))
-            ) : (
-              <div style={{ marginBottom: "5px", color: "gray" }}>
-                No Shipping Line Invoice
-              </div>
-            )}
-
-            {/* Concor Invoice and Receipt Copy */}
-            {concor_invoice_and_receipt_copy.length > 0 ? (
-              concor_invoice_and_receipt_copy.map((doc, index) => (
-                <div key={index} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={doc}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Concor Invoice {index + 1}
-                  </a>
-                </div>
-              ))
-            ) : (
-              <div style={{ marginBottom: "5px", color: "gray" }}>
-                No Concor Invoice
-              </div>
-            )}
-
-            {/* OOC Copies */}
-            {ooc_copies.length > 0 ? (
-              ooc_copies.map((doc, index) => (
-                <div key={index} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={doc}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    OOC Copy {index + 1}
-                  </a>
-                </div>
-              ))
-            ) : (
-              <div style={{ marginBottom: "5px", color: "gray" }}>
-                No OOC Copies
-              </div>
-            )}
-          </div>
-        );
-      },
+      Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
     },
   ];
 

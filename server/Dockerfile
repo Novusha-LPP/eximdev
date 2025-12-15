@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.49.0-jammy
+FROM mcr.microsoft.com/playwright:v1.57.0-jammy
 
 WORKDIR /server
 
@@ -6,7 +6,7 @@ WORKDIR /server
 COPY package*.json ./
 
 # Install dependencies (Playwright + browsers are already in the base image)
-RUN npm install
+RUN npm ci --only=production
 
 # Copy source code
 COPY . .

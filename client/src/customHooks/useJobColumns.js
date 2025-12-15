@@ -215,9 +215,9 @@ function useJobColumns(
               setRows((prev) =>
                 prev.map((r) =>
                   (r._id && updatedJob._id && r._id === updatedJob._id) ||
-                  (!r._id &&
-                    r.job_no === updatedJob.job_no &&
-                    r.year === updatedJob.year)
+                    (!r._id &&
+                      r.job_no === updatedJob.job_no &&
+                      r.year === updatedJob.year)
                     ? { ...r, ...updatedJob } // merge to keep any client-only fields
                     : r
                 )
@@ -588,7 +588,7 @@ function useJobColumns(
               </div>
 
               <div style={{ marginTop: "8px" }}>
-                <InvoiceDisplay row={row.original} />
+                <InvoiceDisplay row={row.original} showOOC={false} />
               </div>
             </div>
           );

@@ -1,9 +1,28 @@
 import React, { useState } from "react";
-import { Box, Typography, Collapse, IconButton, Link } from "@mui/material";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import {
+  Box,
+  Typography,
+  Link,
+  Button,
+  Modal,
+  Paper,
+  Chip,
+  Stack,
+  Divider,
+  IconButton,
+} from "@mui/material";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import CloseIcon from "@mui/icons-material/Close";
+import DownloadIcon from "@mui/icons-material/Download";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DescriptionIcon from "@mui/icons-material/Description";
+import FileCopyIcon from "@mui/icons-material/FileCopy";
 
-const InvoiceDisplay = ({ row }) => {
+const InvoiceDisplay = ({ row, showOOC = true }) => {
+  const [open, setOpen] = useState(false);
+  const [selectedSection, setSelectedSection] = useState(null);
+
   const {
     do_shipping_line_invoice = [],
     shipping_line_invoice_imgs = [],
@@ -14,29 +33,29 @@ const InvoiceDisplay = ({ row }) => {
     ooc_copies = [],
   } = row;
 
-  // Combine shipping line invoices (objects + strings)
+  // Combine shipping line invoices
   const getProcessedShippingLineInvoices = () => {
     let invoices = [];
 
-    // Process do_shipping_line_invoice (array of objects with rich data)
     if (Array.isArray(do_shipping_line_invoice)) {
       do_shipping_line_invoice.forEach((item, index) => {
         invoices.push({
           type: "rich",
           data: item,
-          name: item.document_name || `Invoice ${index + 1}`,
+          name: item.document_name || `Shipping Invoice ${index + 1}`,
+          section: "shipping_line",
         });
       });
     }
 
-    // Process shipping_line_invoice_imgs (array of strings - legacy/simple)
     if (Array.isArray(shipping_line_invoice_imgs)) {
       shipping_line_invoice_imgs.forEach((url, index) => {
         if (url) {
           invoices.push({
             type: "simple",
-            name: `Invoice (Img) ${index + 1}`,
+            name: `Shipping Invoice ${index + 1}`,
             url,
+            section: "shipping_line",
           });
         }
       });
@@ -47,210 +66,437 @@ const InvoiceDisplay = ({ row }) => {
 
   const processedShippingLineInvoices = getProcessedShippingLineInvoices();
 
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 0.5,
-        alignItems: "flex-start",
-      }}
-    >
-      <ExpandableSection
-        title="Shipping Line Inv"
-        items={processedShippingLineInvoices}
-        isRich={true}
-      />
-      <ExpandableSection
-        title="Concor Inv"
-        items={concor_invoice_and_receipt_copy}
-      />
-      <ExpandableSection title="Thar Inv" items={thar_invoices} />
-      <ExpandableSection title="Hasti Inv" items={hasti_invoices} />
-      <ExpandableSection title="ICD/CFS Inv" items={icd_cfs_invoice_img} />
-      <ExpandableSection title="OOC Copies" items={ooc_copies} />
-    </Box>
-  );
-};
+  // Invoice sections (excluding OOC)
+  const invoiceSections = [
+    {
+      key: "shipping_line",
+      title: "Shipping Line",
+      items: processedShippingLineInvoices,
+      icon: "🛳️",
+      isRich: true,
+    },
+    {
+      key: "concor",
+      title: "Concor",
+      items: concor_invoice_and_receipt_copy,
+      icon: "🚚",
+    },
+    {
+      key: "thar",
+      title: "Thar",
+      items: thar_invoices,
+      icon: "🚛",
+    },
+    {
+      key: "hasti",
+      title: "Hasti",
+      items: hasti_invoices,
+      icon: "🚚",
+    },
+    {
+      key: "icd_cfs",
+      title: "ICD/CFS",
+      items: icd_cfs_invoice_img,
+      icon: "🏢",
+    },
+  ].filter((section) => section.items && section.items.length > 0);
 
-const ExpandableSection = ({ title, items, isRich = false }) => {
-  const [open, setOpen] = useState(false);
-
-  if (!items || items.length === 0) return null;
-
-  return (
-    <Box sx={{ width: "100%" }}>
-      <Box
-        onClick={() => setOpen(!open)}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          cursor: "pointer",
-          p: 0.5,
-          borderRadius: 1,
-          "&:hover": { backgroundColor: "#f5f5f5" },
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{ fontWeight: "bold", flexGrow: 1, color: "text.secondary" }}
-        >
-          {title} ({items.length})
-        </Typography>
-        <IconButton size="small" sx={{ p: 0 }}>
-          {open ? (
-            <KeyboardArrowUpIcon fontSize="small" />
-          ) : (
-            <KeyboardArrowDownIcon fontSize="small" />
-          )}
-        </IconButton>
-      </Box>
-      <Collapse in={open} timeout="auto" unmountOnExit>
-        <Box sx={{ pl: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
-          {items.map((item, index) => {
-            if (isRich && item.type === "rich") {
-              // Render detailed object
-              // Data fields: url (array), is_draft, is_final, document_check_date, payment_mode,
-              // wire_transfer_method, document_amount_details, payment_request_date,
-              // payment_made_date, is_tds, is_payment_made, is_payment_requested,
-              // is_non_tds, payment_recipt (array), payment_recipt_date
-              const { data } = item;
-              return (
-                <Box
-                  key={index}
-                  sx={{ borderLeft: "2px solid #ddd", pl: 1, mb: 1 }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{ fontWeight: "bold", display: "block" }}
-                  >
-                    {item.name}
-                  </Typography>
-
-                  {/* Status Flags */}
-                  <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                    {data.is_draft && (
-                      <StatusTag label="Draft" color="warning" />
-                    )}
-                    {data.is_final && (
-                      <StatusTag label="Final" color="success" />
-                    )}
-                    {data.is_payment_made && (
-                      <StatusTag label="Paid" color="success" />
-                    )}
-                    {data.is_payment_requested && (
-                      <StatusTag label="Pay Req" color="info" />
-                    )}
-                  </Box>
-
-                  {/* Amount & Payment Info */}
-                  {data.document_amount_details && (
-                    <InfoRow label="Amt" value={data.document_amount_details} />
-                  )}
-                  {data.payment_mode && (
-                    <InfoRow label="Mode" value={data.payment_mode} />
-                  )}
-                  {data.wire_transfer_method && (
-                    <InfoRow label="Method" value={data.wire_transfer_method} />
-                  )}
-                  {data.payment_request_date && (
-                    <InfoRow
-                      label="Req Date"
-                      value={data.payment_request_date}
-                    />
-                  )}
-
-                  {/* Links */}
-                  <Box sx={{ mt: 0.5 }}>
-                    {Array.isArray(data.url) &&
-                      data.url.map((u, i) => (
-                        <Link
-                          key={i}
-                          href={u}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          variant="caption"
-                          sx={{ display: "block", color: "primary.main" }}
-                        >
-                          View Invoice {data.url.length > 1 ? i + 1 : ""}
-                        </Link>
-                      ))}
-                    {Array.isArray(data.payment_recipt) &&
-                      data.payment_recipt.map((u, i) => (
-                        <Link
-                          key={i}
-                          href={u}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          variant="caption"
-                          sx={{ display: "block", color: "secondary.main" }}
-                        >
-                          View Receipt{" "}
-                          {data.payment_recipt.length > 1 ? i + 1 : ""}
-                        </Link>
-                      ))}
-                  </Box>
-                </Box>
-              );
-            }
-
-            // Render simple link (legacy or other sections)
-            // Handle both string items and object items {name, url}
-            const url = typeof item === "string" ? item : item.url;
-            const name =
-              typeof item === "string" ? `${title} ${index + 1}` : item.name;
-
-            if (!url) return null;
-
-            return (
-              <Link
-                key={index}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="caption"
-                underline="hover"
-                sx={{
-                  display: "block",
-                  color: "primary.main",
-                  wordBreak: "break-all",
-                }}
-              >
-                {name}
-              </Link>
-            );
-          })}
-        </Box>
-      </Collapse>
-    </Box>
-  );
-};
-
-const InfoRow = ({ label, value }) => (
-  <Typography variant="caption" display="block" sx={{ fontSize: "0.7rem" }}>
-    <b>{label}:</b> {value}
-  </Typography>
-);
-
-const StatusTag = ({ label, color }) => {
-  const colors = {
-    warning: "#ed6c02",
-    success: "#2e7d32",
-    info: "#0288d1",
-    default: "#757575",
+  // OOC section separate
+  const oocSection = {
+    key: "ooc",
+    title: "OOC Copies",
+    items: ooc_copies,
+    icon: <FileCopyIcon fontSize="small" />,
+    color: "info",
   };
+
+  const totalInvoiceCount = invoiceSections.reduce(
+    (sum, section) => sum + section.items.length,
+    0
+  );
+  const totalOOCCount = ooc_copies?.length || 0;
+
+  const handleOpenModal = (sectionKey = null) => {
+    setSelectedSection(sectionKey);
+    setOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpen(false);
+    setSelectedSection(null);
+  };
+
+  const renderSectionItems = (section) => {
+    return section.items.map((item, index) => {
+      if (section.isRich && item.type === "rich") {
+        const { data } = item;
+        return (
+          <Box key={index} sx={{ mb: 1.5 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                mb: 0.5,
+              }}
+            >
+              <Typography variant="body2" fontWeight="medium">
+                {item.name}
+              </Typography>
+              <Stack direction="row" spacing={0.5}>
+                {data.is_draft && (
+                  <Chip label="Draft" size="small" color="warning" />
+                )}
+                {data.is_final && (
+                  <Chip label="Final" size="small" color="success" />
+                )}
+              </Stack>
+            </Box>
+
+            {/* Compact details */}
+            {(data.document_amount_details || data.payment_mode) && (
+              <Box sx={{ display: "flex", gap: 1, mb: 0.5 }}>
+                {data.document_amount_details && (
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    <strong>Amt:</strong> {data.document_amount_details}
+                  </Typography>
+                )}
+                {data.payment_mode && (
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    <strong>Mode:</strong> {data.payment_mode}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            {/* Compact links */}
+            <Stack spacing={0.5}>
+              {Array.isArray(data.url) &&
+                data.url.map((url, i) => (
+                  <Box
+                    key={i}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                    }}
+                  >
+                    <DescriptionIcon fontSize="small" color="action" />
+                    <Link
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="caption"
+                      sx={{ flexGrow: 1 }}
+                    >
+                      Invoice {data.url.length > 1 ? i + 1 : ""}
+                    </Link>
+                  </Box>
+                ))}
+
+              {Array.isArray(data.payment_recipt) &&
+                data.payment_recipt.map((url, i) => (
+                  <Box
+                    key={i}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                    }}
+                  >
+                    <ReceiptIcon fontSize="small" color="secondary" />
+                    <Link
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="caption"
+                      color="secondary"
+                      sx={{ flexGrow: 1 }}
+                    >
+                      Receipt {data.payment_recipt.length > 1 ? i + 1 : ""}
+                    </Link>
+                  </Box>
+                ))}
+            </Stack>
+          </Box>
+        );
+      }
+
+      // Simple invoice/OOC item
+      const url = typeof item === "string" ? item : item.url;
+      const name =
+        typeof item === "string"
+          ? `${section.title} ${index + 1}`
+          : item.name;
+
+      if (!url) return null;
+
+      return (
+        <Box
+          key={index}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            p: 0.5,
+            borderRadius: 0.5,
+            "&:hover": { bgcolor: "action.hover" },
+          }}
+        >
+          {section.key === "ooc" ? (
+            <FileCopyIcon fontSize="small" color="info" />
+          ) : (
+            <DescriptionIcon fontSize="small" color="action" />
+          )}
+          <Link
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="body2"
+            sx={{ flexGrow: 1 }}
+          >
+            {name}
+          </Link>
+        </Box>
+      );
+    });
+  };
+
   return (
-    <span
-      style={{
-        fontSize: "0.65rem",
-        padding: "1px 4px",
-        borderRadius: "4px",
-        backgroundColor: colors[color] || colors.default,
-        color: "white",
-      }}
-    >
-      {label}
-    </span>
+    <>
+      {/* Vertical Layout - Invoices above OOC */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, alignItems: "flex-start" }}>
+        {/* Invoices Button */}
+        {totalInvoiceCount > 0 && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<ReceiptIcon />}
+            onClick={() => handleOpenModal()}
+            sx={{
+              textTransform: "none",
+              borderRadius: 1,
+              px: 1.5,
+              py: 0.25,
+              fontSize: "0.75rem",
+              minWidth: "auto",
+              width: "100%",
+              justifyContent: "flex-start",
+            }}
+          >
+            {totalInvoiceCount} Invoices
+          </Button>
+        )}
+
+        {/* OOC Button (below invoices) */}
+        {showOOC && totalOOCCount > 0 && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FileCopyIcon />}
+            onClick={() => handleOpenModal("ooc")}
+            sx={{
+              textTransform: "none",
+              borderRadius: 1,
+              px: 1.5,
+              py: 0.25,
+              fontSize: "0.75rem",
+              minWidth: "auto",
+              width: "100%",
+              justifyContent: "flex-start",
+              borderColor: "info.main",
+              color: "info.main",
+              "&:hover": {
+                borderColor: "info.dark",
+                bgcolor: "info.lighter",
+              },
+            }}
+          >
+            {totalOOCCount} OOC Copies
+          </Button>
+        )}
+      </Box>
+
+      {/* Invoice/OOC Modal */}
+      <Modal open={open} onClose={handleCloseModal}>
+        <Paper
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "95%", sm: "400px" },
+            maxHeight: "85vh",
+            overflow: "auto",
+            p: 2,
+            borderRadius: 1.5,
+          }}
+        >
+          {/* Modal Header */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {selectedSection === "ooc" ? (
+                <FileCopyIcon color="info" />
+              ) : (
+                <ReceiptIcon color="primary" />
+              )}
+              <Typography variant="subtitle1" fontWeight="bold">
+                {selectedSection === "ooc"
+                  ? "OOC Copies"
+                  : selectedSection
+                    ? invoiceSections.find((s) => s.key === selectedSection)?.title
+                    : "All Invoices"}
+              </Typography>
+              <Chip
+                label={
+                  selectedSection === "ooc"
+                    ? `${totalOOCCount} items`
+                    : selectedSection
+                      ? `${invoiceSections.find((s) => s.key === selectedSection)
+                        ?.items.length || 0
+                      } items`
+                      : `${totalInvoiceCount} total`
+                }
+                size="small"
+                color={selectedSection === "ooc" ? "info" : "primary"}
+                variant="outlined"
+              />
+            </Box>
+            <IconButton onClick={handleCloseModal} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Section Navigation (if viewing all) */}
+          {!selectedSection && (
+            <Stack spacing={1}>
+              {invoiceSections.map((section) => (
+                <Paper
+                  key={section.key}
+                  variant="outlined"
+                  sx={{
+                    p: 1,
+                    cursor: "pointer",
+                    "&:hover": {
+                      bgcolor: "action.hover",
+                    },
+                  }}
+                  onClick={() => handleOpenModal(section.key)}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography>{section.icon}</Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {section.title}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Chip
+                        label={section.items.length}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <KeyboardArrowRightIcon fontSize="small" />
+                    </Box>
+                  </Box>
+                </Paper>
+              ))}
+
+              {/* OOC Section Card */}
+              {showOOC && totalOOCCount > 0 && (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1,
+                    cursor: "pointer",
+                    borderColor: "info.main",
+                    "&:hover": {
+                      bgcolor: "info.lighter",
+                    },
+                  }}
+                  onClick={() => handleOpenModal("ooc")}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <FileCopyIcon fontSize="small" color="info" />
+                      <Typography variant="body2" fontWeight="medium" color="info.main">
+                        OOC Copies
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Chip
+                        label={totalOOCCount}
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                      />
+                      <KeyboardArrowRightIcon fontSize="small" />
+                    </Box>
+                  </Box>
+                </Paper>
+              )}
+            </Stack>
+          )}
+
+          {/* Single Section View */}
+          {selectedSection && (
+            <>
+              {selectedSection !== "ooc" && (
+                <Box sx={{ mb: 2 }}>
+                  <Button
+                    onClick={() => setSelectedSection(null)}
+                    startIcon={<ArrowBackIcon />}
+                    size="small"
+                    sx={{ mb: 1 }}
+                  >
+                    Back
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                    {invoiceSections.find((s) => s.key === selectedSection)?.title}
+                  </Typography>
+                </Box>
+              )}
+
+              <Box sx={{ maxHeight: "50vh", overflow: "auto", pr: 0.5 }}>
+                {selectedSection === "ooc"
+                  ? renderSectionItems(oocSection)
+                  : renderSectionItems(
+                    invoiceSections.find((s) => s.key === selectedSection)
+                  )}
+              </Box>
+            </>
+          )}
+
+          {/* Footer Info */}
+          <Box sx={{ mt: 2, pt: 1, borderTop: 1, borderColor: "divider" }}>
+            <Typography variant="caption" color="text.secondary">
+              Click links to view/download documents
+            </Typography>
+          </Box>
+        </Paper>
+      </Modal>
+    </>
   );
 };
 
